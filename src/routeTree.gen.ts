@@ -9,38 +9,333 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as FirstLoginRouteImport } from './routes/first-login'
+import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppUsersRouteImport } from './routes/_app.users'
+import { Route as AppProfileRouteImport } from './routes/_app.profile'
+import { Route as AppIdCardRouteImport } from './routes/_app.id-card'
+import { Route as AppHolidaysRouteImport } from './routes/_app.holidays'
+import { Route as AppEmployeesRouteImport } from './routes/_app.employees'
+import { Route as AppDevicesRouteImport } from './routes/_app.devices'
+import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
+import { Route as AppBranchesRouteImport } from './routes/_app.branches'
+import { Route as AppAuditRouteImport } from './routes/_app.audit'
+import { Route as AppAttendanceRouteImport } from './routes/_app.attendance'
+import { Route as AppUsersNewRouteImport } from './routes/_app.users.new'
+import { Route as AppLeaveHistoryRouteImport } from './routes/_app.leave.history'
+import { Route as AppLeaveBalanceRouteImport } from './routes/_app.leave.balance'
+import { Route as AppLeaveApprovalsRouteImport } from './routes/_app.leave.approvals'
+import { Route as AppLeaveApplyRouteImport } from './routes/_app.leave.apply'
+import { Route as AppAttendanceMineRouteImport } from './routes/_app.attendance.mine'
+import { Route as AppAttendanceFieldRouteImport } from './routes/_app.attendance.field'
+import { Route as AppAttendanceBranchRouteImport } from './routes/_app.attendance.branch'
 
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FirstLoginRoute = FirstLoginRouteImport.update({
+  id: '/first-login',
+  path: '/first-login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppUsersRoute = AppUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProfileRoute = AppProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppIdCardRoute = AppIdCardRouteImport.update({
+  id: '/id-card',
+  path: '/id-card',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppHolidaysRoute = AppHolidaysRouteImport.update({
+  id: '/holidays',
+  path: '/holidays',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEmployeesRoute = AppEmployeesRouteImport.update({
+  id: '/employees',
+  path: '/employees',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDevicesRoute = AppDevicesRouteImport.update({
+  id: '/devices',
+  path: '/devices',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDashboardRoute = AppDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBranchesRoute = AppBranchesRouteImport.update({
+  id: '/branches',
+  path: '/branches',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAuditRoute = AppAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAttendanceRoute = AppAttendanceRouteImport.update({
+  id: '/attendance',
+  path: '/attendance',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppUsersNewRoute = AppUsersNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AppUsersRoute,
+} as any)
+const AppLeaveHistoryRoute = AppLeaveHistoryRouteImport.update({
+  id: '/leave/history',
+  path: '/leave/history',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppLeaveBalanceRoute = AppLeaveBalanceRouteImport.update({
+  id: '/leave/balance',
+  path: '/leave/balance',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppLeaveApprovalsRoute = AppLeaveApprovalsRouteImport.update({
+  id: '/leave/approvals',
+  path: '/leave/approvals',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppLeaveApplyRoute = AppLeaveApplyRouteImport.update({
+  id: '/leave/apply',
+  path: '/leave/apply',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAttendanceMineRoute = AppAttendanceMineRouteImport.update({
+  id: '/mine',
+  path: '/mine',
+  getParentRoute: () => AppAttendanceRoute,
+} as any)
+const AppAttendanceFieldRoute = AppAttendanceFieldRouteImport.update({
+  id: '/field',
+  path: '/field',
+  getParentRoute: () => AppAttendanceRoute,
+} as any)
+const AppAttendanceBranchRoute = AppAttendanceBranchRouteImport.update({
+  id: '/branch',
+  path: '/branch',
+  getParentRoute: () => AppAttendanceRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/first-login': typeof FirstLoginRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/login': typeof LoginRoute
+  '/attendance': typeof AppAttendanceRouteWithChildren
+  '/audit': typeof AppAuditRoute
+  '/branches': typeof AppBranchesRoute
+  '/dashboard': typeof AppDashboardRoute
+  '/devices': typeof AppDevicesRoute
+  '/employees': typeof AppEmployeesRoute
+  '/holidays': typeof AppHolidaysRoute
+  '/id-card': typeof AppIdCardRoute
+  '/profile': typeof AppProfileRoute
+  '/users': typeof AppUsersRouteWithChildren
+  '/attendance/branch': typeof AppAttendanceBranchRoute
+  '/attendance/field': typeof AppAttendanceFieldRoute
+  '/attendance/mine': typeof AppAttendanceMineRoute
+  '/leave/apply': typeof AppLeaveApplyRoute
+  '/leave/approvals': typeof AppLeaveApprovalsRoute
+  '/leave/balance': typeof AppLeaveBalanceRoute
+  '/leave/history': typeof AppLeaveHistoryRoute
+  '/users/new': typeof AppUsersNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/first-login': typeof FirstLoginRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/login': typeof LoginRoute
+  '/attendance': typeof AppAttendanceRouteWithChildren
+  '/audit': typeof AppAuditRoute
+  '/branches': typeof AppBranchesRoute
+  '/dashboard': typeof AppDashboardRoute
+  '/devices': typeof AppDevicesRoute
+  '/employees': typeof AppEmployeesRoute
+  '/holidays': typeof AppHolidaysRoute
+  '/id-card': typeof AppIdCardRoute
+  '/profile': typeof AppProfileRoute
+  '/users': typeof AppUsersRouteWithChildren
+  '/attendance/branch': typeof AppAttendanceBranchRoute
+  '/attendance/field': typeof AppAttendanceFieldRoute
+  '/attendance/mine': typeof AppAttendanceMineRoute
+  '/leave/apply': typeof AppLeaveApplyRoute
+  '/leave/approvals': typeof AppLeaveApprovalsRoute
+  '/leave/balance': typeof AppLeaveBalanceRoute
+  '/leave/history': typeof AppLeaveHistoryRoute
+  '/users/new': typeof AppUsersNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_app': typeof AppRouteWithChildren
+  '/first-login': typeof FirstLoginRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/login': typeof LoginRoute
+  '/_app/attendance': typeof AppAttendanceRouteWithChildren
+  '/_app/audit': typeof AppAuditRoute
+  '/_app/branches': typeof AppBranchesRoute
+  '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/devices': typeof AppDevicesRoute
+  '/_app/employees': typeof AppEmployeesRoute
+  '/_app/holidays': typeof AppHolidaysRoute
+  '/_app/id-card': typeof AppIdCardRoute
+  '/_app/profile': typeof AppProfileRoute
+  '/_app/users': typeof AppUsersRouteWithChildren
+  '/_app/attendance/branch': typeof AppAttendanceBranchRoute
+  '/_app/attendance/field': typeof AppAttendanceFieldRoute
+  '/_app/attendance/mine': typeof AppAttendanceMineRoute
+  '/_app/leave/apply': typeof AppLeaveApplyRoute
+  '/_app/leave/approvals': typeof AppLeaveApprovalsRoute
+  '/_app/leave/balance': typeof AppLeaveBalanceRoute
+  '/_app/leave/history': typeof AppLeaveHistoryRoute
+  '/_app/users/new': typeof AppUsersNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/first-login'
+    | '/forgot-password'
+    | '/login'
+    | '/attendance'
+    | '/audit'
+    | '/branches'
+    | '/dashboard'
+    | '/devices'
+    | '/employees'
+    | '/holidays'
+    | '/id-card'
+    | '/profile'
+    | '/users'
+    | '/attendance/branch'
+    | '/attendance/field'
+    | '/attendance/mine'
+    | '/leave/apply'
+    | '/leave/approvals'
+    | '/leave/balance'
+    | '/leave/history'
+    | '/users/new'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/first-login'
+    | '/forgot-password'
+    | '/login'
+    | '/attendance'
+    | '/audit'
+    | '/branches'
+    | '/dashboard'
+    | '/devices'
+    | '/employees'
+    | '/holidays'
+    | '/id-card'
+    | '/profile'
+    | '/users'
+    | '/attendance/branch'
+    | '/attendance/field'
+    | '/attendance/mine'
+    | '/leave/apply'
+    | '/leave/approvals'
+    | '/leave/balance'
+    | '/leave/history'
+    | '/users/new'
+  id:
+    | '__root__'
+    | '/'
+    | '/_app'
+    | '/first-login'
+    | '/forgot-password'
+    | '/login'
+    | '/_app/attendance'
+    | '/_app/audit'
+    | '/_app/branches'
+    | '/_app/dashboard'
+    | '/_app/devices'
+    | '/_app/employees'
+    | '/_app/holidays'
+    | '/_app/id-card'
+    | '/_app/profile'
+    | '/_app/users'
+    | '/_app/attendance/branch'
+    | '/_app/attendance/field'
+    | '/_app/attendance/mine'
+    | '/_app/leave/apply'
+    | '/_app/leave/approvals'
+    | '/_app/leave/balance'
+    | '/_app/leave/history'
+    | '/_app/users/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
+  FirstLoginRoute: typeof FirstLoginRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
+  LoginRoute: typeof LoginRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/first-login': {
+      id: '/first-login'
+      path: '/first-login'
+      fullPath: '/first-login'
+      preLoaderRoute: typeof FirstLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +343,206 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/users': {
+      id: '/_app/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof AppUsersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/profile': {
+      id: '/_app/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AppProfileRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/id-card': {
+      id: '/_app/id-card'
+      path: '/id-card'
+      fullPath: '/id-card'
+      preLoaderRoute: typeof AppIdCardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/holidays': {
+      id: '/_app/holidays'
+      path: '/holidays'
+      fullPath: '/holidays'
+      preLoaderRoute: typeof AppHolidaysRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/employees': {
+      id: '/_app/employees'
+      path: '/employees'
+      fullPath: '/employees'
+      preLoaderRoute: typeof AppEmployeesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/devices': {
+      id: '/_app/devices'
+      path: '/devices'
+      fullPath: '/devices'
+      preLoaderRoute: typeof AppDevicesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/dashboard': {
+      id: '/_app/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AppDashboardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/branches': {
+      id: '/_app/branches'
+      path: '/branches'
+      fullPath: '/branches'
+      preLoaderRoute: typeof AppBranchesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/audit': {
+      id: '/_app/audit'
+      path: '/audit'
+      fullPath: '/audit'
+      preLoaderRoute: typeof AppAuditRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/attendance': {
+      id: '/_app/attendance'
+      path: '/attendance'
+      fullPath: '/attendance'
+      preLoaderRoute: typeof AppAttendanceRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/users/new': {
+      id: '/_app/users/new'
+      path: '/new'
+      fullPath: '/users/new'
+      preLoaderRoute: typeof AppUsersNewRouteImport
+      parentRoute: typeof AppUsersRoute
+    }
+    '/_app/leave/history': {
+      id: '/_app/leave/history'
+      path: '/leave/history'
+      fullPath: '/leave/history'
+      preLoaderRoute: typeof AppLeaveHistoryRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/leave/balance': {
+      id: '/_app/leave/balance'
+      path: '/leave/balance'
+      fullPath: '/leave/balance'
+      preLoaderRoute: typeof AppLeaveBalanceRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/leave/approvals': {
+      id: '/_app/leave/approvals'
+      path: '/leave/approvals'
+      fullPath: '/leave/approvals'
+      preLoaderRoute: typeof AppLeaveApprovalsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/leave/apply': {
+      id: '/_app/leave/apply'
+      path: '/leave/apply'
+      fullPath: '/leave/apply'
+      preLoaderRoute: typeof AppLeaveApplyRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/attendance/mine': {
+      id: '/_app/attendance/mine'
+      path: '/mine'
+      fullPath: '/attendance/mine'
+      preLoaderRoute: typeof AppAttendanceMineRouteImport
+      parentRoute: typeof AppAttendanceRoute
+    }
+    '/_app/attendance/field': {
+      id: '/_app/attendance/field'
+      path: '/field'
+      fullPath: '/attendance/field'
+      preLoaderRoute: typeof AppAttendanceFieldRouteImport
+      parentRoute: typeof AppAttendanceRoute
+    }
+    '/_app/attendance/branch': {
+      id: '/_app/attendance/branch'
+      path: '/branch'
+      fullPath: '/attendance/branch'
+      preLoaderRoute: typeof AppAttendanceBranchRouteImport
+      parentRoute: typeof AppAttendanceRoute
+    }
   }
 }
 
+interface AppAttendanceRouteChildren {
+  AppAttendanceBranchRoute: typeof AppAttendanceBranchRoute
+  AppAttendanceFieldRoute: typeof AppAttendanceFieldRoute
+  AppAttendanceMineRoute: typeof AppAttendanceMineRoute
+}
+
+const AppAttendanceRouteChildren: AppAttendanceRouteChildren = {
+  AppAttendanceBranchRoute: AppAttendanceBranchRoute,
+  AppAttendanceFieldRoute: AppAttendanceFieldRoute,
+  AppAttendanceMineRoute: AppAttendanceMineRoute,
+}
+
+const AppAttendanceRouteWithChildren = AppAttendanceRoute._addFileChildren(
+  AppAttendanceRouteChildren,
+)
+
+interface AppUsersRouteChildren {
+  AppUsersNewRoute: typeof AppUsersNewRoute
+}
+
+const AppUsersRouteChildren: AppUsersRouteChildren = {
+  AppUsersNewRoute: AppUsersNewRoute,
+}
+
+const AppUsersRouteWithChildren = AppUsersRoute._addFileChildren(
+  AppUsersRouteChildren,
+)
+
+interface AppRouteChildren {
+  AppAttendanceRoute: typeof AppAttendanceRouteWithChildren
+  AppAuditRoute: typeof AppAuditRoute
+  AppBranchesRoute: typeof AppBranchesRoute
+  AppDashboardRoute: typeof AppDashboardRoute
+  AppDevicesRoute: typeof AppDevicesRoute
+  AppEmployeesRoute: typeof AppEmployeesRoute
+  AppHolidaysRoute: typeof AppHolidaysRoute
+  AppIdCardRoute: typeof AppIdCardRoute
+  AppProfileRoute: typeof AppProfileRoute
+  AppUsersRoute: typeof AppUsersRouteWithChildren
+  AppLeaveApplyRoute: typeof AppLeaveApplyRoute
+  AppLeaveApprovalsRoute: typeof AppLeaveApprovalsRoute
+  AppLeaveBalanceRoute: typeof AppLeaveBalanceRoute
+  AppLeaveHistoryRoute: typeof AppLeaveHistoryRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppAttendanceRoute: AppAttendanceRouteWithChildren,
+  AppAuditRoute: AppAuditRoute,
+  AppBranchesRoute: AppBranchesRoute,
+  AppDashboardRoute: AppDashboardRoute,
+  AppDevicesRoute: AppDevicesRoute,
+  AppEmployeesRoute: AppEmployeesRoute,
+  AppHolidaysRoute: AppHolidaysRoute,
+  AppIdCardRoute: AppIdCardRoute,
+  AppProfileRoute: AppProfileRoute,
+  AppUsersRoute: AppUsersRouteWithChildren,
+  AppLeaveApplyRoute: AppLeaveApplyRoute,
+  AppLeaveApprovalsRoute: AppLeaveApprovalsRoute,
+  AppLeaveBalanceRoute: AppLeaveBalanceRoute,
+  AppLeaveHistoryRoute: AppLeaveHistoryRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
+  FirstLoginRoute: FirstLoginRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
+  LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
