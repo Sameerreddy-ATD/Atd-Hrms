@@ -1,7 +1,9 @@
 node_modules
 dist
+dist-server
 .output
 .vinxi
+.npm-cache
 pnpm-lock.yaml
 package-lock.json
 bun.lock

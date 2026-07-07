@@ -6,13 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { ROLE_LABELS } from "@/mock/types";
-import {
-  attendanceRecords,
-  branches,
-  leaveRequests,
-  myLeaveBalance,
-  users,
-} from "@/mock/data";
+import { attendanceRecords, branches, leaveRequests, myLeaveBalance, users } from "@/mock/data";
 import {
   Users,
   UserCheck,
@@ -89,11 +83,7 @@ function EmployeeDashboard() {
           icon={UserCheck}
           tone="success"
         />
-        <StatCard
-          label="Attendance source"
-          value={today?.source ?? "—"}
-          icon={Fingerprint}
-        />
+        <StatCard label="Attendance source" value={today?.source ?? "—"} icon={Fingerprint} />
         <StatCard
           label="Leave balance (Paid)"
           value={myLeaveBalance[0].balance}
@@ -171,8 +161,18 @@ function ManagerDashboard({
         <StatCard label="Team late" value={data.late} icon={Clock} tone="warning" />
         <StatCard label="On leave" value={data.onLeave} icon={PlaneTakeoff} tone="info" />
         <StatCard label="Field staff checked in" value={data.fieldActive} icon={MapPin} />
-        <StatCard label="Pending leave approvals" value={data.pendingLeaves} icon={CalendarClock} tone="warning" />
-        <StatCard label="Branch mismatch alerts" value={data.mismatch} icon={AlertTriangle} tone="warning" />
+        <StatCard
+          label="Pending leave approvals"
+          value={data.pendingLeaves}
+          icon={CalendarClock}
+          tone="warning"
+        />
+        <StatCard
+          label="Branch mismatch alerts"
+          value={data.mismatch}
+          icon={AlertTriangle}
+          tone="warning"
+        />
       </div>
       <RecentAttendanceCard />
     </div>
@@ -234,12 +234,19 @@ function CEODashboard({
         <StatCard label="Branch 2 present" value={data.b2} icon={Building2} tone="success" />
         <StatCard label="Field staff active" value={data.fieldActive} icon={MapPin} tone="info" />
         <StatCard label="On leave today" value={data.onLeave} icon={PlaneTakeoff} />
-        <StatCard label="Pending approvals" value={data.pendingLeaves} icon={CalendarClock} tone="warning" />
+        <StatCard
+          label="Pending approvals"
+          value={data.pendingLeaves}
+          icon={CalendarClock}
+          tone="warning"
+        />
       </div>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-sm">Monthly attendance trend</CardTitle>
-          <Button size="sm" variant="outline">Download report</Button>
+          <Button size="sm" variant="outline">
+            Download report
+          </Button>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-7 gap-2">
@@ -247,10 +254,7 @@ function CEODashboard({
               const h = 40 + ((i * 13) % 60);
               return (
                 <div key={i} className="flex flex-col items-center gap-1">
-                  <div
-                    className="w-full rounded-sm bg-primary/70"
-                    style={{ height: `${h}px` }}
-                  />
+                  <div className="w-full rounded-sm bg-primary/70" style={{ height: `${h}px` }} />
                   <span className="text-[10px] text-muted-foreground">{i + 1}</span>
                 </div>
               );
@@ -273,7 +277,12 @@ function AdminDashboard({
         <StatCard label="Total users" value={users.length} icon={Users} />
         <StatCard label="Total employees" value={data.total} icon={UserCheck} />
         <StatCard label="Branches" value={branches.length} icon={Building2} />
-        <StatCard label="Pending approvals" value={data.pendingLeaves} icon={CalendarClock} tone="warning" />
+        <StatCard
+          label="Pending approvals"
+          value={data.pendingLeaves}
+          icon={CalendarClock}
+          tone="warning"
+        />
       </div>
       <RecentAttendanceCard />
     </div>

@@ -18,7 +18,11 @@ function ProfilePage() {
   const { user } = useAuth();
   if (!user) return null;
   const branchName = branches.find((b) => b.id === user.homeBranchId)?.name ?? "—";
-  const initials = user.name.split(" ").map((s) => s[0]).slice(0, 2).join("");
+  const initials = user.name
+    .split(" ")
+    .map((s) => s[0])
+    .slice(0, 2)
+    .join("");
 
   return (
     <div>
@@ -30,12 +34,16 @@ function ProfilePage() {
         <Card>
           <CardContent className="flex flex-col items-center gap-3 p-6 text-center">
             <Avatar className="h-20 w-20">
-              <AvatarFallback className="bg-primary text-primary-foreground text-lg">{initials}</AvatarFallback>
+              <AvatarFallback className="bg-primary text-primary-foreground text-lg">
+                {initials}
+              </AvatarFallback>
             </Avatar>
             <div>
               <p className="text-lg font-semibold">{user.name}</p>
               <p className="text-sm text-muted-foreground">{ROLE_LABELS[user.role]}</p>
-              <p className="mt-1 font-mono text-xs text-muted-foreground">{user.employeeId ?? "—"}</p>
+              <p className="mt-1 font-mono text-xs text-muted-foreground">
+                {user.employeeId ?? "—"}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -55,7 +63,9 @@ function ProfilePage() {
               <Field label="Designation" value={user.designation ?? "—"} />
               <Field label="Home Branch" value={branchName} />
               <div className="sm:col-span-2 flex justify-end gap-2 border-t border-border pt-4">
-                <Button type="button" variant="outline">Reset</Button>
+                <Button type="button" variant="outline">
+                  Reset
+                </Button>
                 <Button type="submit">Submit edit request</Button>
               </div>
             </form>
@@ -66,7 +76,15 @@ function ProfilePage() {
   );
 }
 
-function Field({ label, value, editable = false }: { label: string; value: string; editable?: boolean }) {
+function Field({
+  label,
+  value,
+  editable = false,
+}: {
+  label: string;
+  value: string;
+  editable?: boolean;
+}) {
   return (
     <div className="space-y-1.5">
       <Label>{label}</Label>

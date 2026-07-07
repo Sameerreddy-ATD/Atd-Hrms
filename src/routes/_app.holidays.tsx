@@ -1,7 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/common/PageHeader";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { holidays } from "@/mock/data";
@@ -30,7 +35,9 @@ function HolidaysPage() {
                 <TableRow key={h.id}>
                   <TableCell>{h.date}</TableCell>
                   <TableCell className="font-medium">{h.name}</TableCell>
-                  <TableCell><Badge variant="outline">{h.type}</Badge></TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{h.type}</Badge>
+                  </TableCell>
                   <TableCell>{h.branchId ? `Branch ${h.branchId}` : "All branches"}</TableCell>
                 </TableRow>
               ))}

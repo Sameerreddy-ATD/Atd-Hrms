@@ -7,7 +7,12 @@ import { StatCard } from "@/components/common/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { attendanceApi } from "@/services/api";
 import { attendanceRecords, branches } from "@/mock/data";
@@ -36,8 +41,7 @@ function MyAttendancePage() {
   const [pos, setPos] = useState<{ lat?: number; lng?: number }>({});
   const [loading, setLoading] = useState(false);
 
-  const branchName = (id?: string) =>
-    branches.find((b) => b.id === id)?.name ?? "—";
+  const branchName = (id?: string) => branches.find((b) => b.id === id)?.name ?? "—";
 
   async function checkIn() {
     setLoading(true);
@@ -59,8 +63,7 @@ function MyAttendancePage() {
     toast.success("Checked out");
   }
 
-  const isField =
-    user && ["sales", "driver", "field_staff"].includes(user.role);
+  const isField = user && ["sales", "driver", "field_staff"].includes(user.role);
 
   return (
     <div>
@@ -88,15 +91,19 @@ function MyAttendancePage() {
               <div className="rounded-md border border-border p-4 text-sm">
                 <p className="font-medium">Location</p>
                 <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                  <span>Latitude</span><span>{pos.lat?.toFixed(4) ?? "—"}</span>
-                  <span>Longitude</span><span>{pos.lng?.toFixed(4) ?? "—"}</span>
-                  <span>Address</span><span>—</span>
-                  <span>Device ID</span><span>—</span>
+                  <span>Latitude</span>
+                  <span>{pos.lat?.toFixed(4) ?? "—"}</span>
+                  <span>Longitude</span>
+                  <span>{pos.lng?.toFixed(4) ?? "—"}</span>
+                  <span>Address</span>
+                  <span>—</span>
+                  <span>Device ID</span>
+                  <span>—</span>
                 </div>
                 <p className="mt-3 text-xs text-muted-foreground">
                   <MapPin className="mr-1 inline h-3 w-3" />
-                  GPS is captured via browser API in demo mode. Replace with
-                  mobile SDK on integration.
+                  GPS is captured via browser API in demo mode. Replace with mobile SDK on
+                  integration.
                 </p>
               </div>
               <div className="flex flex-col justify-center gap-3 rounded-md border border-border p-4">
@@ -110,8 +117,8 @@ function MyAttendancePage() {
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Punch in/out using the thumb scanner at your branch. Attendance
-              will reflect here in real time once devices are synced.
+              Punch in/out using the thumb scanner at your branch. Attendance will reflect here in
+              real time once devices are synced.
             </p>
           )}
         </CardContent>
@@ -140,7 +147,9 @@ function MyAttendancePage() {
                   </TableCell>
                   <TableCell>{a.punchIn ?? "—"}</TableCell>
                   <TableCell>{a.punchOut ?? "—"}</TableCell>
-                  <TableCell><StatusBadge status={a.status} /></TableCell>
+                  <TableCell>
+                    <StatusBadge status={a.status} />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

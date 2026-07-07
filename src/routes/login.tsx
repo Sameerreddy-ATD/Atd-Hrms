@@ -34,17 +34,17 @@ function LoginPage() {
   const [role, setRole] = useState<Role>("employee");
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const showDemoLogin = import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_LOGIN === "true";
 
   useEffect(() => {
-    if (user) navigate({ to: "/app/dashboard", replace: true });
+    if (user) navigate({ to: "/dashboard", replace: true });
   }, [user, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const errs: typeof errors = {};
     if (!email) errs.email = "Email is required";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-      errs.email = "Enter a valid email";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.email = "Enter a valid email";
     if (!password) errs.password = "Password is required";
     setErrors(errs);
     if (Object.keys(errs).length) return;
@@ -53,7 +53,7 @@ function LoginPage() {
     try {
       await login(email, password);
       toast.success("Signed in");
-      navigate({ to: "/app/dashboard" });
+      navigate({ to: "/dashboard" });
     } catch (err) {
       toast.error((err as Error).message || "Login failed");
     } finally {
@@ -66,7 +66,7 @@ function LoginPage() {
     try {
       await loginAsRole(role);
       toast.success(`Signed in as ${ROLE_LABELS[role]}`);
-      navigate({ to: "/app/dashboard" });
+      navigate({ to: "/dashboard" });
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -85,8 +85,8 @@ function LoginPage() {
               AnytimeDiesel HRMS
             </h1>
             <p className="mt-3 max-w-md text-sm text-muted-foreground">
-              Manage attendance, leave, biometric devices, branches and field
-              staff across the organization in one place.
+              Manage attendance, leave, biometric devices, branches and field staff across the
+              organization in one place.
             </p>
             <ul className="mt-6 space-y-2 text-sm text-muted-foreground">
               <li>• Thumb scanner &amp; branch-wise attendance</li>
@@ -122,9 +122,7 @@ function LoginPage() {
                   placeholder="name@anytimediesel.local"
                   aria-invalid={!!errors.email}
                 />
-                {errors.email && (
-                  <p className="text-xs text-destructive">{errors.email}</p>
-                )}
+                {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
               </div>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
@@ -144,9 +142,7 @@ function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   aria-invalid={!!errors.password}
                 />
-                {errors.password && (
-                  <p className="text-xs text-destructive">{errors.password}</p>
-                )}
+                {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -154,42 +150,37 @@ function LoginPage() {
               </Button>
             </form>
 
-            {/* ⚠️ DEMO ONLY — remove before backend integration */}
-            <div className="mt-6 rounded-lg border border-dashed border-border bg-muted/40 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Demo mode
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Preview the app as any role. This selector will be removed once
-                the real authentication backend is connected.
-              </p>
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                <Select value={role} onValueChange={(v) => setRole(v as Role)}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(ROLE_LABELS).map(([r, l]) => (
-                      <SelectItem key={r} value={r}>
-                        {l}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleDemo}
-                  disabled={loading}
-                >
-                  Continue as role
-                </Button>
+            {showDemoLogin && (
+              <div className="mt-6 rounded-lg border border-dashed border-border bg-muted/40 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Development mode
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Preview the app as any role. This selector will be removed once the real
+                  authentication backend is connected.
+                </p>
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(ROLE_LABELS).map(([r, l]) => (
+                        <SelectItem key={r} value={r}>
+                          {l}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button type="button" variant="outline" onClick={handleDemo} disabled={loading}>
+                    Continue as role
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
 
             <p className="mt-6 text-center text-xs text-muted-foreground">
-              Accounts are provisioned by HR or Admin. Public sign-up is
-              disabled.
+              Accounts are provisioned by HR or Admin. Public sign-up is disabled.
             </p>
           </CardContent>
         </Card>

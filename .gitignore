@@ -9,9 +9,11 @@ lerna-debug.log*
 
 node_modules
 dist
+dist-server
 dist-ssr
 .output
 .vinxi
+.npm-cache
 .tanstack/**
 .nitro
 *.local

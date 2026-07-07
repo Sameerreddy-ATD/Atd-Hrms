@@ -10,7 +10,10 @@ export const Route = createFileRoute("/_app/leave/balance")({
 function LeaveBalancePage() {
   return (
     <div>
-      <PageHeader title="Leave Balance" description="Your current entitlement, usage and available balance." />
+      <PageHeader
+        title="Leave Balance"
+        description="Your current entitlement, usage and available balance."
+      />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {myLeaveBalance.map((l) => {
           const pct = Math.round((l.used / Math.max(l.entitled, 1)) * 100);

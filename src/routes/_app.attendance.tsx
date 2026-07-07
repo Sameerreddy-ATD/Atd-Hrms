@@ -34,8 +34,7 @@ function AttendanceLogsPage() {
   const [source, setSource] = useState<string>("all");
   const [status, setStatus] = useState<string>("all");
 
-  const branchName = (id?: string) =>
-    branches.find((b) => b.id === id)?.name ?? "—";
+  const branchName = (id?: string) => branches.find((b) => b.id === id)?.name ?? "—";
 
   const rows = useMemo(
     () =>
@@ -74,16 +73,22 @@ function AttendanceLogsPage() {
         </div>
         <Input type="date" className="sm:w-auto" />
         <Select value={branch} onValueChange={setBranch}>
-          <SelectTrigger className="sm:w-44"><SelectValue placeholder="Branch" /></SelectTrigger>
+          <SelectTrigger className="sm:w-44">
+            <SelectValue placeholder="Branch" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All branches</SelectItem>
             {branches.map((b) => (
-              <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+              <SelectItem key={b.id} value={b.id}>
+                {b.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
         <Select value={source} onValueChange={setSource}>
-          <SelectTrigger className="sm:w-40"><SelectValue placeholder="Source" /></SelectTrigger>
+          <SelectTrigger className="sm:w-40">
+            <SelectValue placeholder="Source" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All sources</SelectItem>
             <SelectItem value="Thumb Scanner">Thumb Scanner</SelectItem>
@@ -92,11 +97,25 @@ function AttendanceLogsPage() {
           </SelectContent>
         </Select>
         <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="sm:w-44"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectTrigger className="sm:w-44">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
-            {["Present","Late","Absent","On Leave","Present - Branch Mismatch","Present - Field","Missed Punch","Missed Checkout","Location Flagged"].map((s) => (
-              <SelectItem key={s} value={s}>{s}</SelectItem>
+            {[
+              "Present",
+              "Late",
+              "Absent",
+              "On Leave",
+              "Present - Branch Mismatch",
+              "Present - Field",
+              "Missed Punch",
+              "Missed Checkout",
+              "Location Flagged",
+            ].map((s) => (
+              <SelectItem key={s} value={s}>
+                {s}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -121,7 +140,8 @@ function AttendanceLogsPage() {
             <TableBody>
               {rows.map((r) => (
                 <TableRow key={r.id}>
-                  <TableCell className="font-medium">{r.employeeName}
+                  <TableCell className="font-medium">
+                    {r.employeeName}
                     <div className="text-xs text-muted-foreground">{r.employeeId}</div>
                   </TableCell>
                   <TableCell>{r.date}</TableCell>
@@ -136,7 +156,9 @@ function AttendanceLogsPage() {
                   <TableCell>{r.punchIn ?? "—"}</TableCell>
                   <TableCell>{r.punchOut ?? "—"}</TableCell>
                   <TableCell className="text-sm">{r.source}</TableCell>
-                  <TableCell><StatusBadge status={r.status} /></TableCell>
+                  <TableCell>
+                    <StatusBadge status={r.status} />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -144,7 +166,10 @@ function AttendanceLogsPage() {
         </div>
         {rows.length === 0 && (
           <div className="p-6">
-            <EmptyState title="No attendance records" description="Try clearing filters or changing the date range." />
+            <EmptyState
+              title="No attendance records"
+              description="Try clearing filters or changing the date range."
+            />
           </div>
         )}
       </div>

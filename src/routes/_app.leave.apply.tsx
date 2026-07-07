@@ -8,14 +8,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { leaveApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
 import type { LeaveType } from "@/mock/types";
 
 const types: LeaveType[] = [
-  "Paid Leave","Sick Leave","Casual Leave","Half-Day Leave","Unpaid Leave","Emergency Leave","Comp Off",
+  "Paid Leave",
+  "Sick Leave",
+  "Casual Leave",
+  "Half-Day Leave",
+  "Unpaid Leave",
+  "Emergency Leave",
+  "Comp Off",
 ];
 
 export const Route = createFileRoute("/_app/leave/apply")({
@@ -42,17 +52,20 @@ function ApplyLeavePage() {
     setErrors(errs);
     if (Object.keys(errs).length) return;
 
-    const days =
-      Math.max(1, Math.round((+new Date(to) - +new Date(from)) / 86400000) + 1);
+    const days = Math.max(1, Math.round((+new Date(to) - +new Date(from)) / 86400000) + 1);
     setLoading(true);
     await leaveApi.apply({
       employeeId: user?.employeeId ?? "",
       employeeName: user?.name ?? "",
-      type, from, to, days, reason,
+      type,
+      from,
+      to,
+      days,
+      reason,
     });
     setLoading(false);
     toast.success("Leave request submitted");
-    navigate({ to: "/app/leave/history" });
+    navigate({ to: "/leave/history" });
   }
 
   return (
@@ -67,9 +80,15 @@ function ApplyLeavePage() {
             <div className="space-y-1.5 sm:col-span-2">
               <Label>Leave type</Label>
               <Select value={type} onValueChange={(v) => setType(v as LeaveType)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {types.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
+                  {types.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -85,12 +104,25 @@ function ApplyLeavePage() {
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="reason">Reason</Label>
-              <Textarea id="reason" rows={4} value={reason} onChange={(e) => setReason(e.target.value)} />
+              <Textarea
+                id="reason"
+                rows={4}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
               {errors.reason && <p className="text-xs text-destructive">{errors.reason}</p>}
             </div>
             <div className="sm:col-span-2 flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => navigate({ to: "/app/leave/history" })}>Cancel</Button>
-              <Button type="submit" disabled={loading}>Submit request</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => navigate({ to: "/leave/history" })}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading}>
+                Submit request
+              </Button>
             </div>
           </form>
         </CardContent>

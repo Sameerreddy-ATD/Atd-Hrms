@@ -7,7 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { ROLE_LABELS, type Role } from "@/mock/types";
 import { useAuth } from "@/lib/auth";
@@ -16,9 +20,19 @@ import { usersApi } from "@/services/api";
 
 // Role creation matrix — mirrors the business rule.
 const CAN_CREATE: Record<Role, Role[]> = {
-  developer_admin: ["developer_admin","main_admin","ceo","hr","manager","employee","sales","driver","field_staff"],
-  main_admin: ["ceo","hr","manager","employee"],
-  hr: ["employee","manager","sales","driver","field_staff"],
+  developer_admin: [
+    "developer_admin",
+    "main_admin",
+    "ceo",
+    "hr",
+    "manager",
+    "employee",
+    "sales",
+    "driver",
+    "field_staff",
+  ],
+  main_admin: ["ceo", "hr", "manager", "employee"],
+  hr: ["employee", "manager", "sales", "driver", "field_staff"],
   ceo: [],
   manager: [],
   employee: [],
@@ -56,14 +70,23 @@ function CreateUserPage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name || !email) { toast.error("Name and email are required"); return; }
+    if (!name || !email) {
+      toast.error("Name and email are required");
+      return;
+    }
     setLoading(true);
     await usersApi.create({
-      name, email, role, homeBranchId: branch, department: dept, active: true, mustChangePassword: true,
+      name,
+      email,
+      role,
+      homeBranchId: branch,
+      department: dept,
+      active: true,
+      mustChangePassword: true,
     });
     setLoading(false);
     toast.success("Login created. A temporary password has been generated.");
-    navigate({ to: "/app/users" });
+    navigate({ to: "/users" });
   }
 
   return (
@@ -86,33 +109,55 @@ function CreateUserPage() {
             <div className="space-y-1.5">
               <Label>Role</Label>
               <Select value={role} onValueChange={(v) => setRole(v as Role)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {allowed.map((r) => (<SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>))}
+                  {allowed.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {ROLE_LABELS[r]}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
               <Label>Home Branch</Label>
               <Select value={branch} onValueChange={setBranch}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {branches.map((b) => (<SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>))}
+                  {branches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label>Department</Label>
               <Select value={dept} onValueChange={setDept}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {departments.map((d) => (<SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>))}
+                  {departments.map((d) => (
+                    <SelectItem key={d.id} value={d.name}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="sm:col-span-2 flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => navigate({ to: "/app/users" })}>Cancel</Button>
-              <Button type="submit" disabled={loading}>Create login</Button>
+              <Button type="button" variant="outline" onClick={() => navigate({ to: "/users" })}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading}>
+                Create login
+              </Button>
             </div>
           </form>
         </CardContent>

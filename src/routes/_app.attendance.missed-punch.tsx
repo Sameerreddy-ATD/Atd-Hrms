@@ -17,17 +17,40 @@ function MissedPunchPage() {
   const [reason, setReason] = useState("");
   return (
     <div>
-      <PageHeader title="Missed Punch Request" description="Report a missed punch to your manager for approval." />
-      <Card className="max-w-xl"><CardContent className="p-6">
-        <form onSubmit={(e) => { e.preventDefault(); toast.success("Request submitted"); navigate({ to: "/app/attendance/mine" }); }} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5"><Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>Time</Label><Input type="time" value={time} onChange={(e) => setTime(e.target.value)} /></div>
-          </div>
-          <div className="space-y-1.5"><Label>Reason</Label><Textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} /></div>
-          <div className="flex justify-end gap-2"><Button type="submit">Submit request</Button></div>
-        </form>
-      </CardContent></Card>
+      <PageHeader
+        title="Missed Punch Request"
+        description="Report a missed punch to your manager for approval."
+      />
+      <Card className="max-w-xl">
+        <CardContent className="p-6">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              toast.success("Request submitted");
+              navigate({ to: "/attendance/mine" });
+            }}
+            className="space-y-4"
+          >
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Date</Label>
+                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Time</Label>
+                <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Reason</Label>
+              <Textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="submit">Submit request</Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

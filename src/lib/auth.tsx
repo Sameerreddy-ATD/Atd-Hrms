@@ -30,47 +30,32 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
-const STORAGE_KEY = "adh_mock_user";
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const raw = typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null;
-      if (raw) setUser(JSON.parse(raw));
-    } catch {
-      /* ignore */
-    }
-    setLoading(false);
+    authApi
+      .me()
+      .then(({ user }) => setUser(user))
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
   }, []);
-
-  const persist = (u: User | null) => {
-    setUser(u);
-    try {
-      if (u) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
-      else window.localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      /* ignore */
-    }
-  };
 
   const login = useCallback(async (email: string, password: string) => {
     const { user } = await authApi.login(email, password);
-    persist(user);
+    setUser(user);
     return user;
   }, []);
 
   const loginAsRole = useCallback(async (role: Role) => {
     const { user } = await authApi.loginAsRole(role);
-    persist(user);
+    setUser(user);
     return user;
   }, []);
 
   const logout = useCallback(() => {
-    void authApi.logout();
-    persist(null);
+    void authApi.logout().finally(() => setUser(null));
   }, []);
 
   const value = useMemo<AuthState>(

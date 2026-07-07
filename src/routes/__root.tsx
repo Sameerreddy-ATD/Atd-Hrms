@@ -87,8 +87,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "AnytimeDiesel HRMS" },
       { name: "twitter:description", content: "Internal HR management system for AnytimeDiesel." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ff3d8958-0b68-4ea7-a0bf-fd4d079480ea/id-preview-dfe1a0bc--0de0c413-c03d-44a8-8689-c929d75ea750.lovable.app-1783409936751.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ff3d8958-0b68-4ea7-a0bf-fd4d079480ea/id-preview-dfe1a0bc--0de0c413-c03d-44a8-8689-c929d75ea750.lovable.app-1783409936751.png" },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ff3d8958-0b68-4ea7-a0bf-fd4d079480ea/id-preview-dfe1a0bc--0de0c413-c03d-44a8-8689-c929d75ea750.lovable.app-1783409936751.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ff3d8958-0b68-4ea7-a0bf-fd4d079480ea/id-preview-dfe1a0bc--0de0c413-c03d-44a8-8689-c929d75ea750.lovable.app-1783409936751.png",
+      },
     ],
     links: [
       {

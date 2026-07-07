@@ -27,7 +27,9 @@ function ReportsPage() {
                   <p className="font-medium">{it.name}</p>
                   <p className="text-xs text-muted-foreground">{it.desc}</p>
                 </div>
-                <div className="rounded-md bg-muted p-2 text-muted-foreground"><it.icon className="h-4 w-4" /></div>
+                <div className="rounded-md bg-muted p-2 text-muted-foreground">
+                  <it.icon className="h-4 w-4" />
+                </div>
               </div>
               <Button className="mt-4 w-full" variant="outline" size="sm">
                 <Download className="mr-2 h-4 w-4" /> Download

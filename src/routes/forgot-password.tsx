@@ -38,13 +38,12 @@ function ForgotPasswordPage() {
           <Logo className="mb-6 h-9 w-auto" />
           <h1 className="text-lg font-semibold">Reset your password</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Enter your work email. HR will receive a request notification if
-            the account is locked.
+            Enter your work email. HR will receive a request notification if the account is locked.
           </p>
           {sent ? (
             <div className="mt-6 rounded-md border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
-              A password reset link has been sent to <b>{email}</b> if that
-              account exists. Please check your inbox.
+              A password reset link has been sent to <b>{email}</b> if that account exists. Please
+              check your inbox.
             </div>
           ) : (
             <form onSubmit={submit} className="mt-6 space-y-4">

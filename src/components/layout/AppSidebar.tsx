@@ -52,8 +52,7 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((item) => {
-                  const active =
-                    pathname === item.to || pathname.startsWith(item.to + "/");
+                  const active = pathname === item.to || pathname.startsWith(item.to + "/");
                   return (
                     <SidebarMenuItem key={item.to}>
                       <SidebarMenuButton asChild isActive={active} tooltip={item.label}>
@@ -74,12 +73,8 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-sidebar-border">
         {!collapsed ? (
           <div className="px-2 py-2">
-            <p className="truncate text-xs font-medium text-sidebar-foreground">
-              {user.name}
-            </p>
-            <p className="truncate text-[11px] text-muted-foreground">
-              {ROLE_LABELS[user.role]}
-            </p>
+            <p className="truncate text-xs font-medium text-sidebar-foreground">{user.name}</p>
+            <p className="truncate text-[11px] text-muted-foreground">{ROLE_LABELS[user.role]}</p>
           </div>
         ) : (
           <div className="px-2 py-2 text-[10px] text-muted-foreground">v1.0</div>

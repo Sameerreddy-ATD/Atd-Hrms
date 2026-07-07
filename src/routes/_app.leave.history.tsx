@@ -3,7 +3,12 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { leaveRequests } from "@/mock/data";
 import { Plus } from "lucide-react";
@@ -20,7 +25,9 @@ function LeaveHistoryPage() {
         description="All your submitted leave requests and their current status."
         actions={
           <Button asChild size="sm">
-            <Link to="/app/leave/apply"><Plus className="mr-2 h-4 w-4" /> Apply leave</Link>
+            <Link to="/leave/apply">
+              <Plus className="mr-2 h-4 w-4" /> Apply leave
+            </Link>
           </Button>
         }
       />
@@ -47,7 +54,9 @@ function LeaveHistoryPage() {
                   <TableCell>{l.days}</TableCell>
                   <TableCell>{l.appliedOn}</TableCell>
                   <TableCell>{l.approverName ?? "—"}</TableCell>
-                  <TableCell><StatusBadge status={l.status} /></TableCell>
+                  <TableCell>
+                    <StatusBadge status={l.status} />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

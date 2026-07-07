@@ -16,7 +16,11 @@ export const Route = createFileRoute("/_app/id-card")({
 function IdCardPage() {
   const { user } = useAuth();
   if (!user) return null;
-  const initials = user.name.split(" ").map((s) => s[0]).slice(0, 2).join("");
+  const initials = user.name
+    .split(" ")
+    .map((s) => s[0])
+    .slice(0, 2)
+    .join("");
   const branch = branches.find((b) => b.id === user.homeBranchId)?.name ?? "—";
   return (
     <div>
@@ -24,24 +28,34 @@ function IdCardPage() {
         title="Employee ID Card"
         description="Digital ID card. Print or download for physical use."
         actions={
-          <Button size="sm" variant="outline"><Download className="mr-2 h-4 w-4" /> Download PDF</Button>
+          <Button size="sm" variant="outline">
+            <Download className="mr-2 h-4 w-4" /> Download PDF
+          </Button>
         }
       />
       <div className="max-w-md">
         <Card className="overflow-hidden">
           <div className="flex items-center justify-between border-b border-border bg-muted/50 px-5 py-3">
             <Logo className="h-7 w-auto" />
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Employee ID</span>
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Employee ID
+            </span>
           </div>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
               <Avatar className="h-16 w-16">
-                <AvatarFallback className="bg-primary text-primary-foreground text-lg">{initials}</AvatarFallback>
+                <AvatarFallback className="bg-primary text-primary-foreground text-lg">
+                  {initials}
+                </AvatarFallback>
               </Avatar>
               <div className="min-w-0">
                 <p className="truncate text-lg font-semibold">{user.name}</p>
-                <p className="text-sm text-muted-foreground">{user.designation ?? ROLE_LABELS[user.role]}</p>
-                <p className="mt-1 font-mono text-xs text-muted-foreground">{user.employeeId ?? "—"}</p>
+                <p className="text-sm text-muted-foreground">
+                  {user.designation ?? ROLE_LABELS[user.role]}
+                </p>
+                <p className="mt-1 font-mono text-xs text-muted-foreground">
+                  {user.employeeId ?? "—"}
+                </p>
               </div>
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3 text-sm">

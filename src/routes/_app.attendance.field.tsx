@@ -2,7 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { attendanceRecords } from "@/mock/data";
 import { MapPin } from "lucide-react";
@@ -47,7 +52,9 @@ function FieldAttendancePage() {
                     <MapPin className="mr-1 inline h-3 w-3" />
                     {r.address ?? "—"}
                   </TableCell>
-                  <TableCell><StatusBadge status={r.status} /></TableCell>
+                  <TableCell>
+                    <StatusBadge status={r.status} />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

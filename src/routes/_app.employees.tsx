@@ -6,10 +6,19 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { branches, departments, users } from "@/mock/data";
 import { Search, Download, Plus } from "lucide-react";
@@ -45,28 +54,49 @@ function EmployeesPage() {
         description="Directory of all employees across branches and departments."
         actions={
           <>
-            <Button variant="outline" size="sm"><Download className="mr-2 h-4 w-4" /> Export</Button>
-            <Button size="sm"><Plus className="mr-2 h-4 w-4" /> Add employee</Button>
+            <Button variant="outline" size="sm">
+              <Download className="mr-2 h-4 w-4" /> Export
+            </Button>
+            <Button size="sm">
+              <Plus className="mr-2 h-4 w-4" /> Add employee
+            </Button>
           </>
         }
       />
       <TableToolbar>
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, email, ID" className="pl-8" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search name, email, ID"
+            className="pl-8"
+          />
         </div>
         <Select value={branch} onValueChange={setBranch}>
-          <SelectTrigger className="sm:w-44"><SelectValue placeholder="Branch" /></SelectTrigger>
+          <SelectTrigger className="sm:w-44">
+            <SelectValue placeholder="Branch" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All branches</SelectItem>
-            {branches.map((b) => (<SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>))}
+            {branches.map((b) => (
+              <SelectItem key={b.id} value={b.id}>
+                {b.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Select value={dept} onValueChange={setDept}>
-          <SelectTrigger className="sm:w-44"><SelectValue placeholder="Department" /></SelectTrigger>
+          <SelectTrigger className="sm:w-44">
+            <SelectValue placeholder="Department" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All departments</SelectItem>
-            {departments.map((d) => (<SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>))}
+            {departments.map((d) => (
+              <SelectItem key={d.id} value={d.name}>
+                {d.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </TableToolbar>
@@ -95,13 +125,25 @@ function EmployeesPage() {
                   <TableCell className="font-mono text-xs">{u.employeeId}</TableCell>
                   <TableCell>{ROLE_LABELS[u.role]}</TableCell>
                   <TableCell>{u.department ?? "—"}</TableCell>
-                  <TableCell>{branches.find((b) => b.id === u.homeBranchId)?.name ?? "—"}</TableCell>
+                  <TableCell>
+                    {branches.find((b) => b.id === u.homeBranchId)?.name ?? "—"}
+                  </TableCell>
                   <TableCell className="text-sm">{u.phone ?? "—"}</TableCell>
                   <TableCell>
                     {u.active ? (
-                      <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">Active</Badge>
+                      <Badge
+                        variant="outline"
+                        className="border-emerald-200 bg-emerald-50 text-emerald-700"
+                      >
+                        Active
+                      </Badge>
                     ) : (
-                      <Badge variant="outline" className="border-slate-200 bg-slate-100 text-slate-600">Inactive</Badge>
+                      <Badge
+                        variant="outline"
+                        className="border-slate-200 bg-slate-100 text-slate-600"
+                      >
+                        Inactive
+                      </Badge>
                     )}
                   </TableCell>
                 </TableRow>

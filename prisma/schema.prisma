@@ -1,0 +1,400 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  DEVELOPER_ADMIN
+  MAIN_ADMIN
+  CEO
+  HR
+  MANAGER
+  EMPLOYEE
+  SALES
+  DRIVER
+  FIELD_STAFF
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  TERMINATED
+}
+
+enum AttendanceMode {
+  THUMB_ONLY
+  MOBILE_GPS_ONLY
+  BOTH
+}
+
+enum WorkType {
+  BRANCH
+  FIELD
+  CLIENT_VISIT
+  WORK_FROM_HOME
+  LEAVE
+  HOLIDAY
+}
+
+enum EventSource {
+  THUMB_SCANNER
+  MOBILE_GPS
+  MANUAL_CORRECTION
+  LEAVE
+  HOLIDAY
+  SYSTEM
+}
+
+enum EventType {
+  OFFICE_IN
+  OFFICE_OUT
+  BRANCH_IN
+  BRANCH_OUT
+  FIELD_CHECK_IN
+  FIELD_CHECK_OUT
+  CLIENT_CHECK_IN
+  CLIENT_CHECK_OUT
+  BREAK_OUT
+  BREAK_IN
+  MANUAL_ADJUSTMENT
+  LEAVE_MARK
+  HOLIDAY_MARK
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum LeaveStatus {
+  PENDING
+  MANAGER_APPROVED
+  HR_VERIFIED
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model User {
+  id                               String     @id @default(cuid())
+  employeeId                       String?    @unique @map("employee_id")
+  employee                         Employee?  @relation(fields: [employeeId], references: [employeeId])
+  name                             String
+  email                            String     @unique
+  phone                            String?
+  passwordHash                     String     @map("password_hash")
+  role                             Role
+  status                           UserStatus @default(ACTIVE)
+  firstLoginPasswordChangeRequired Boolean    @default(true) @map("first_login_password_change_required")
+  failedLoginAttempts              Int        @default(0) @map("failed_login_attempts")
+  lastLoginAt                      DateTime?  @map("last_login_at")
+  createdByUserId                  String?    @map("created_by_user_id")
+  createdAt                        DateTime   @default(now()) @map("created_at")
+  updatedAt                        DateTime   @updatedAt @map("updated_at")
+  createdUsers                     User[]     @relation("CreatedUsers")
+  creator                          User?      @relation("CreatedUsers", fields: [createdByUserId], references: [id])
+  performedAuditLogs               AuditLog[] @relation("AuditPerformedBy")
+  affectedAuditLogs                AuditLog[] @relation("AuditAffectedUser")
+
+  @@map("users")
+}
+
+model Employee {
+  employeeId        String                     @id @default(cuid()) @map("employee_id")
+  employeeCode      String                     @unique @map("employee_code")
+  name              String
+  email             String?                    @unique
+  phone             String?
+  departmentId      String?                    @map("department_id")
+  department        Department?                @relation(fields: [departmentId], references: [departmentId])
+  designation       String?
+  homeBranchId      String?                    @map("home_branch_id")
+  homeBranch        Branch?                    @relation(fields: [homeBranchId], references: [branchId])
+  managerId         String?                    @map("manager_id")
+  manager           Employee?                  @relation("ManagerTeam", fields: [managerId], references: [employeeId])
+  teamMembers       Employee[]                 @relation("ManagerTeam")
+  joiningDate       DateTime?                  @map("joining_date") @db.Date
+  employmentType    String?                    @map("employment_type")
+  attendanceMode    AttendanceMode             @default(THUMB_ONLY) @map("attendance_mode")
+  isFieldEmployee   Boolean                    @default(false) @map("is_field_employee")
+  status            EmployeeStatus             @default(ACTIVE)
+  createdAt         DateTime                   @default(now()) @map("created_at")
+  updatedAt         DateTime                   @updatedAt @map("updated_at")
+  user              User?
+  schedules         EmployeeBranchSchedule[]
+  attendanceEvents  AttendanceEvent[]
+  summaries         AttendanceDailySummary[]
+  fieldAttendances  FieldAttendance[]
+  biometricMappings BiometricEmployeeMapping[]
+  leaveRequests     LeaveRequest[]
+  leaveBalances     LeaveBalance[]
+  emergencyContact  EmergencyContact?
+
+  @@map("employees")
+}
+
+model Department {
+  departmentId String     @id @default(cuid()) @map("department_id")
+  name         String     @unique
+  employees    Employee[]
+
+  @@map("departments")
+}
+
+model Branch {
+  branchId   String                   @id @default(cuid()) @map("branch_id")
+  branchName String                   @map("branch_name")
+  branchCode String                   @unique @map("branch_code")
+  address    String
+  city       String?
+  status     String                   @default("ACTIVE")
+  createdAt  DateTime                 @default(now()) @map("created_at")
+  updatedAt  DateTime                 @updatedAt @map("updated_at")
+  devices    BiometricDevice[]
+  employees  Employee[]
+  schedules  EmployeeBranchSchedule[]
+  events     AttendanceEvent[]
+
+  @@map("branches")
+}
+
+model BiometricDevice {
+  deviceId     String                     @id @default(cuid()) @map("device_id")
+  deviceName   String                     @map("device_name")
+  deviceCode   String                     @unique @map("device_code")
+  branchId     String                     @map("branch_id")
+  branch       Branch                     @relation(fields: [branchId], references: [branchId])
+  deviceIp     String?                    @map("device_ip")
+  port         Int?
+  location     String?
+  status       String                     @default("ACTIVE")
+  lastSyncTime DateTime?                  @map("last_sync_time")
+  createdAt    DateTime                   @default(now()) @map("created_at")
+  updatedAt    DateTime                   @updatedAt @map("updated_at")
+  mappings     BiometricEmployeeMapping[]
+  events       AttendanceEvent[]
+
+  @@map("biometric_devices")
+}
+
+model BiometricEmployeeMapping {
+  mappingId       String           @id @default(cuid()) @map("mapping_id")
+  employeeId      String           @map("employee_id")
+  employee        Employee         @relation(fields: [employeeId], references: [employeeId])
+  biometricUserId String           @map("biometric_user_id")
+  deviceId        String?          @map("device_id")
+  device          BiometricDevice? @relation(fields: [deviceId], references: [deviceId])
+  status          String           @default("ACTIVE")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  @@map("biometric_employee_mapping")
+}
+
+model EmployeeBranchSchedule {
+  scheduleId        String   @id @default(cuid()) @map("schedule_id")
+  employeeId        String   @map("employee_id")
+  employee          Employee @relation(fields: [employeeId], references: [employeeId])
+  date              DateTime @db.Date
+  scheduledBranchId String?  @map("scheduled_branch_id")
+  scheduledBranch   Branch?  @relation(fields: [scheduledBranchId], references: [branchId])
+  workType          WorkType @map("work_type")
+  assignedBy        String?  @map("assigned_by")
+  remarks           String?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@unique([employeeId, date])
+  @@map("employee_branch_schedule")
+}
+
+model AttendanceEvent {
+  eventId            String           @id @default(cuid()) @map("event_id")
+  employeeId         String           @map("employee_id")
+  employee           Employee         @relation(fields: [employeeId], references: [employeeId])
+  eventDate          DateTime         @map("event_date") @db.Date
+  eventTime          DateTime         @map("event_time")
+  eventSource        EventSource      @map("event_source")
+  eventType          EventType        @map("event_type")
+  branchId           String?          @map("branch_id")
+  branch             Branch?          @relation(fields: [branchId], references: [branchId])
+  deviceId           String?          @map("device_id")
+  device             BiometricDevice? @relation(fields: [deviceId], references: [deviceId])
+  latitude           Decimal?         @db.Decimal(10, 7)
+  longitude          Decimal?         @db.Decimal(10, 7)
+  address            String?
+  clientName         String?          @map("client_name")
+  clientLocationName String?          @map("client_location_name")
+  workType           WorkType?        @map("work_type")
+  mobileDeviceId     String?          @map("mobile_device_id")
+  photoUrl           String?          @map("photo_url")
+  remarks            String?
+  rawPayload         Json?            @map("raw_payload")
+  createdByUserId    String?          @map("created_by_user_id")
+  createdAt          DateTime         @default(now()) @map("created_at")
+
+  @@index([employeeId, eventDate, eventTime])
+  @@map("attendance_events")
+}
+
+model AttendanceDailySummary {
+  attendanceId            String         @id @default(cuid()) @map("attendance_id")
+  employeeId              String         @map("employee_id")
+  employee                Employee       @relation(fields: [employeeId], references: [employeeId])
+  date                    DateTime       @db.Date
+  firstCheckIn            DateTime?      @map("first_check_in")
+  lastCheckOut            DateTime?      @map("last_check_out")
+  totalHours              Decimal        @default(0) @map("total_hours") @db.Decimal(8, 2)
+  officeHours             Decimal        @default(0) @map("office_hours") @db.Decimal(8, 2)
+  fieldHours              Decimal        @default(0) @map("field_hours") @db.Decimal(8, 2)
+  clientVisitHours        Decimal        @default(0) @map("client_visit_hours") @db.Decimal(8, 2)
+  attendanceSourceSummary String         @map("attendance_source_summary")
+  status                  String
+  homeBranchId            String?        @map("home_branch_id")
+  scheduledBranchId       String?        @map("scheduled_branch_id")
+  primaryAttendedBranchId String?        @map("primary_attended_branch_id")
+  actualAttendedBranchIds Json           @map("actual_attended_branch_ids")
+  visitedBranchIds        Json           @map("visited_branch_ids")
+  visitedLocations        Json           @map("visited_locations")
+  branchMovementCount     Int            @default(0) @map("branch_movement_count")
+  fieldVisitCount         Int            @default(0) @map("field_visit_count")
+  clientVisitCount        Int            @default(0) @map("client_visit_count")
+  fieldCheckInLatitude    Decimal?       @map("field_check_in_latitude") @db.Decimal(10, 7)
+  fieldCheckInLongitude   Decimal?       @map("field_check_in_longitude") @db.Decimal(10, 7)
+  fieldCheckOutLatitude   Decimal?       @map("field_check_out_latitude") @db.Decimal(10, 7)
+  fieldCheckOutLongitude  Decimal?       @map("field_check_out_longitude") @db.Decimal(10, 7)
+  isBranchMismatch        Boolean        @default(false) @map("is_branch_mismatch")
+  isLocationFlagged       Boolean        @default(false) @map("is_location_flagged")
+  hasOfficeAndField       Boolean        @default(false) @map("has_office_and_field")
+  hasMissingOutEvent      Boolean        @default(false) @map("has_missing_out_event")
+  hasMissedCheckout       Boolean        @default(false) @map("has_missed_checkout")
+  approvalStatus          ApprovalStatus @default(APPROVED) @map("approval_status")
+  createdAt               DateTime       @default(now()) @map("created_at")
+  updatedAt               DateTime       @updatedAt @map("updated_at")
+
+  @@unique([employeeId, date])
+  @@map("attendance_daily_summary")
+}
+
+model FieldAttendance {
+  fieldAttendanceId  String         @id @default(cuid()) @map("field_attendance_id")
+  employeeId         String         @map("employee_id")
+  employee           Employee       @relation(fields: [employeeId], references: [employeeId])
+  date               DateTime       @db.Date
+  checkInTime        DateTime       @map("check_in_time")
+  checkInLatitude    Decimal        @map("check_in_latitude") @db.Decimal(10, 7)
+  checkInLongitude   Decimal        @map("check_in_longitude") @db.Decimal(10, 7)
+  checkInAddress     String?        @map("check_in_address")
+  checkOutTime       DateTime?      @map("check_out_time")
+  checkOutLatitude   Decimal?       @map("check_out_latitude") @db.Decimal(10, 7)
+  checkOutLongitude  Decimal?       @map("check_out_longitude") @db.Decimal(10, 7)
+  checkOutAddress    String?        @map("check_out_address")
+  workType           WorkType       @map("work_type")
+  clientName         String?        @map("client_name")
+  clientLocationName String?        @map("client_location_name")
+  vehicleNumber      String?        @map("vehicle_number")
+  taskId             String?        @map("task_id")
+  remarks            String?
+  selfieUrl          String?        @map("selfie_url")
+  approvalStatus     ApprovalStatus @default(APPROVED) @map("approval_status")
+  managerId          String?        @map("manager_id")
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+
+  @@map("field_attendance")
+}
+
+model LeaveType {
+  leaveTypeId String         @id @default(cuid()) @map("leave_type_id")
+  name        String         @unique
+  paid        Boolean        @default(true)
+  balances    LeaveBalance[]
+  requests    LeaveRequest[]
+
+  @@map("leave_types")
+}
+
+model LeaveBalance {
+  leaveBalanceId String    @id @default(cuid()) @map("leave_balance_id")
+  employeeId     String    @map("employee_id")
+  employee       Employee  @relation(fields: [employeeId], references: [employeeId])
+  leaveTypeId    String    @map("leave_type_id")
+  leaveType      LeaveType @relation(fields: [leaveTypeId], references: [leaveTypeId])
+  entitled       Decimal   @db.Decimal(8, 2)
+  used           Decimal   @default(0) @db.Decimal(8, 2)
+  balance        Decimal   @db.Decimal(8, 2)
+
+  @@unique([employeeId, leaveTypeId])
+  @@map("leave_balances")
+}
+
+model LeaveRequest {
+  leaveRequestId String      @id @default(cuid()) @map("leave_request_id")
+  employeeId     String      @map("employee_id")
+  employee       Employee    @relation(fields: [employeeId], references: [employeeId])
+  leaveTypeId    String      @map("leave_type_id")
+  leaveType      LeaveType   @relation(fields: [leaveTypeId], references: [leaveTypeId])
+  fromDate       DateTime    @map("from_date") @db.Date
+  toDate         DateTime    @map("to_date") @db.Date
+  days           Decimal     @db.Decimal(8, 2)
+  reason         String
+  status         LeaveStatus @default(PENDING)
+  managerId      String?     @map("manager_id")
+  hrVerifiedBy   String?     @map("hr_verified_by")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  @@map("leave_requests")
+}
+
+model ProfileEditRequest {
+  requestId     String         @id @default(cuid()) @map("request_id")
+  employeeId    String         @map("employee_id")
+  requestedData Json           @map("requested_data")
+  status        ApprovalStatus @default(PENDING)
+  reviewedBy    String?        @map("reviewed_by")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  @@map("profile_edit_requests")
+}
+
+model EmergencyContact {
+  employeeId     String   @id @map("employee_id")
+  employee       Employee @relation(fields: [employeeId], references: [employeeId])
+  contactName    String   @map("contact_name")
+  relationship   String
+  phone          String
+  alternatePhone String?  @map("alternate_phone")
+  address        String?
+  bloodGroup     String?  @map("blood_group")
+  medicalNotes   String?  @map("medical_notes")
+
+  @@map("emergency_contacts")
+}
+
+model AuditLog {
+  auditId           String   @id @default(cuid()) @map("audit_id")
+  action            String
+  performedByUserId String?  @map("performed_by_user_id")
+  performedBy       User?    @relation("AuditPerformedBy", fields: [performedByUserId], references: [id])
+  affectedUserId    String?  @map("affected_user_id")
+  affectedUser      User?    @relation("AuditAffectedUser", fields: [affectedUserId], references: [id])
+  oldValue          Json?    @map("old_value")
+  newValue          Json?    @map("new_value")
+  ipAddress         String?  @map("ip_address")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@map("audit_logs")
+}

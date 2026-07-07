@@ -3,7 +3,12 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { users } from "@/mock/data";
 import { ROLE_LABELS } from "@/mock/types";
@@ -20,7 +25,11 @@ function UsersPage() {
         title="User Logins"
         description="Login accounts across all roles. Public sign-up is disabled — logins are created by Developer Admin, Main Admin or HR."
         actions={
-          <Button asChild size="sm"><Link to="/app/users/new"><Plus className="mr-2 h-4 w-4" /> Create login</Link></Button>
+          <Button asChild size="sm">
+            <Link to="/users/new">
+              <Plus className="mr-2 h-4 w-4" /> Create login
+            </Link>
+          </Button>
         }
       />
       <div className="overflow-hidden rounded-lg border border-border bg-card">
@@ -44,9 +53,19 @@ function UsersPage() {
                   <TableCell className="font-mono text-xs">{u.employeeId ?? "—"}</TableCell>
                   <TableCell>
                     {u.active ? (
-                      <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">Active</Badge>
+                      <Badge
+                        variant="outline"
+                        className="border-emerald-200 bg-emerald-50 text-emerald-700"
+                      >
+                        Active
+                      </Badge>
                     ) : (
-                      <Badge variant="outline" className="border-slate-200 bg-slate-100 text-slate-600">Inactive</Badge>
+                      <Badge
+                        variant="outline"
+                        className="border-slate-200 bg-slate-100 text-slate-600"
+                      >
+                        Inactive
+                      </Badge>
                     )}
                   </TableCell>
                 </TableRow>

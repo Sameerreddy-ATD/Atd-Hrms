@@ -40,9 +40,7 @@ export function AppHeader() {
         <p className="truncate text-[11px] uppercase tracking-wide text-muted-foreground">
           AnytimeDiesel HRMS
         </p>
-        <p className="truncate text-sm font-medium text-foreground">
-          {toTitle(pathname)}
-        </p>
+        <p className="truncate text-sm font-medium text-foreground">{toTitle(pathname)}</p>
       </div>
 
       <Button variant="ghost" size="icon" className="shrink-0" aria-label="Notifications">
@@ -68,7 +66,7 @@ export function AppHeader() {
         <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuLabel>My Account</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => navigate({ to: "/app/profile" })}>
+          <DropdownMenuItem onClick={() => navigate({ to: "/profile" })}>
             <UserIcon className="mr-2 h-4 w-4" /> Profile
           </DropdownMenuItem>
           <DropdownMenuSeparator />

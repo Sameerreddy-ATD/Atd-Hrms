@@ -47,8 +47,7 @@ function FirstLoginPage() {
           <Logo className="mb-6 h-9 w-auto" />
           <h1 className="text-lg font-semibold">Set a new password</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            For security, you must change the temporary password issued to
-            you before continuing.
+            For security, you must change the temporary password issued to you before continuing.
           </p>
           <form onSubmit={submit} className="mt-6 space-y-4">
             <div className="space-y-1.5">
@@ -80,10 +79,7 @@ function FirstLoginPage() {
             </div>
             <ul className="space-y-1 text-xs">
               {rules.map((r) => (
-                <li
-                  key={r.label}
-                  className={r.ok ? "text-emerald-600" : "text-muted-foreground"}
-                >
+                <li key={r.label} className={r.ok ? "text-emerald-600" : "text-muted-foreground"}>
                   {r.ok ? "✓" : "○"} {r.label}
                 </li>
               ))}

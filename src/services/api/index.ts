@@ -1,28 +1,3 @@
-// -----------------------------------------------------------------------------
-// Mock API layer for AnytimeDiesel HRMS.
-//
-// ⚠️ INTEGRATION NOTE
-// All functions below return promises that resolve with in-memory mock data.
-// Backend engineers should replace the bodies of these functions with real
-// `fetch`/HTTP calls (e.g. `fetch('/api/employees')`) while keeping the
-// function signatures intact so the UI does not need to change.
-//
-// Do NOT store JWTs in localStorage in production. Use secure HTTP-only
-// cookies via the backend. The demo auth here uses localStorage ONLY for
-// mock-mode persistence and must be removed at integration time.
-// -----------------------------------------------------------------------------
-
-import {
-  attendanceRecords,
-  auditLogs,
-  biometricDevices,
-  branches,
-  departments,
-  holidays,
-  leaveRequests,
-  myLeaveBalance,
-  users,
-} from "@/mock/data";
 import type {
   AttendanceRecord,
   AuditLog,
@@ -36,116 +11,140 @@ import type {
   User,
 } from "@/mock/types";
 
-const delay = <T>(data: T, ms = 250) =>
-  new Promise<T>((res) => setTimeout(() => res(data), ms));
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
 
-// ---------------------------------------------------------------------------
-// authApi
-// ---------------------------------------------------------------------------
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers ?? {}),
+    },
+  });
+  if (
+    res.status === 401 &&
+    typeof window !== "undefined" &&
+    !window.location.pathname.includes("/login")
+  ) {
+    window.location.assign("/login");
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: "Request failed" }));
+    throw new Error(body.error ?? "Request failed");
+  }
+  return res.json() as Promise<T>;
+}
+
 export const authApi = {
-  login: (email: string, _password: string) => {
-    const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
-    if (!user) return Promise.reject(new Error("Invalid credentials"));
-    return delay({ user, token: "mock-token" });
-  },
-  loginAsRole: (role: Role) => {
-    const user = users.find((u) => u.role === role);
-    if (!user) return Promise.reject(new Error("No user for role"));
-    return delay({ user, token: "mock-token" });
-  },
-  forgotPassword: (_email: string) => delay({ ok: true }),
-  changePassword: (_old: string, _next: string) => delay({ ok: true }),
-  logout: () => delay({ ok: true }, 50),
-};
-
-// ---------------------------------------------------------------------------
-// usersApi
-// ---------------------------------------------------------------------------
-export const usersApi = {
-  list: () => delay(users),
-  create: (u: Omit<User, "id">) => delay({ ...u, id: `u${Date.now()}` } as User),
-  update: (id: string, patch: Partial<User>) => delay({ id, ...patch }),
-  deactivate: (id: string) => delay({ id, active: false }),
-};
-
-// ---------------------------------------------------------------------------
-// employeesApi
-// ---------------------------------------------------------------------------
-export const employeesApi = {
-  list: () => delay(users.filter((u) => !!u.employeeId)),
-  get: (id: string) => delay(users.find((u) => u.id === id) || null),
-};
-
-// ---------------------------------------------------------------------------
-// leaveApi
-// ---------------------------------------------------------------------------
-export const leaveApi = {
-  list: () => delay(leaveRequests),
-  myBalance: () => delay(myLeaveBalance),
-  apply: (req: Omit<LeaveRequest, "id" | "status" | "appliedOn">) =>
-    delay({
-      ...req,
-      id: `l${Date.now()}`,
-      status: "Pending" as const,
-      appliedOn: new Date().toISOString().slice(0, 10),
+  login: (email: string, password: string) =>
+    request<{ user: User }>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
     }),
-  approve: (id: string) => delay({ id, status: "Approved" as const }),
-  reject: (id: string) => delay({ id, status: "Rejected" as const }),
+  me: () => request<{ user: User }>("/auth/me"),
+  loginAsRole: (_role: Role) => Promise.reject(new Error("Demo role login is disabled")),
+  forgotPassword: (email: string) =>
+    request<{ ok: boolean }>("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+  changePassword: (oldPassword: string, nextPassword: string) =>
+    request<{ ok: boolean }>("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ oldPassword, nextPassword }),
+    }),
+  logout: () => request<{ ok: boolean }>("/auth/logout", { method: "POST" }),
 };
 
-// ---------------------------------------------------------------------------
-// attendanceApi
-// ---------------------------------------------------------------------------
+export const usersApi = {
+  list: () => request<User[]>("/users"),
+  create: (u: Omit<User, "id"> & { password?: string }) =>
+    request<User>("/users", {
+      method: "POST",
+      body: JSON.stringify({
+        ...u,
+        role: u.role.toUpperCase(),
+        password: u.password ?? "ChangeMe@12345",
+      }),
+    }),
+  update: (id: string, patch: Partial<User>) =>
+    request<{ id: string }>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deactivate: (id: string) =>
+    request<{ id: string; active: boolean }>(`/users/${id}/deactivate`, { method: "POST" }),
+};
+
+export const employeesApi = {
+  list: () => request<User[]>("/employees"),
+  get: (id: string) => request<User | null>(`/employees/${id}`),
+};
+
+export const leaveApi = {
+  list: () => request<LeaveRequest[]>("/leave/requests"),
+  myBalance: () => request<LeaveBalance[]>("/leave/balances/me"),
+  apply: (req: Omit<LeaveRequest, "id" | "status" | "appliedOn">) =>
+    request<LeaveRequest>("/leave/requests", { method: "POST", body: JSON.stringify(req) }),
+  approve: (id: string) =>
+    request<LeaveRequest>(`/leave/requests/${id}/approve`, { method: "POST" }),
+  reject: (id: string) => request<LeaveRequest>(`/leave/requests/${id}/reject`, { method: "POST" }),
+};
+
 export const attendanceApi = {
-  list: () => delay(attendanceRecords),
-  listMine: (employeeId: string) =>
-    delay(attendanceRecords.filter((a) => a.employeeId === employeeId)),
-  listField: () =>
-    delay(attendanceRecords.filter((a) => a.source === "Mobile GPS")),
-  listBranch: () =>
-    delay(attendanceRecords.filter((a) => a.source === "Thumb Scanner")),
+  list: () => request<AttendanceRecord[]>("/attendance/hr/daily"),
+  listMine: (_employeeId: string) => request<AttendanceRecord[]>("/attendance/my/report"),
+  listField: () => request<AttendanceRecord[]>("/attendance/hr/field"),
+  listBranch: () => request<AttendanceRecord[]>("/attendance/hr/branch-wise"),
+  myTimeline: (date?: string) =>
+    request<Array<Record<string, unknown>>>(
+      `/attendance/my/timeline${date ? `?date=${date}` : ""}`,
+    ),
   checkIn: (payload: {
     employeeId: string;
     latitude?: number;
     longitude?: number;
-  }) => delay({ ...payload, id: `att${Date.now()}` }),
-  checkOut: (id: string) => delay({ id, punchOut: new Date().toISOString() }),
-  requestCorrection: (payload: unknown) => delay({ ok: true, payload }),
+    mobileDeviceId?: string;
+  }) =>
+    request<{ eventId: string }>("/attendance/mobile/check-in", {
+      method: "POST",
+      body: JSON.stringify({
+        ...payload,
+        mobileDeviceId: payload.mobileDeviceId ?? navigator.userAgent.slice(0, 120),
+      }),
+    }),
+  checkOut: (_id: string) =>
+    request<{ eventId: string }>("/attendance/mobile/check-out", {
+      method: "POST",
+      body: JSON.stringify({
+        latitude: 0,
+        longitude: 0,
+        mobileDeviceId: navigator.userAgent.slice(0, 120),
+      }),
+    }),
+  requestCorrection: (payload: unknown) =>
+    request<{ ok: boolean }>("/attendance/correction-request", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 };
 
-// ---------------------------------------------------------------------------
-// branchesApi
-// ---------------------------------------------------------------------------
 export const branchesApi = {
-  list: () => delay<Branch[]>(branches),
-  departments: () => delay<Department[]>(departments),
+  list: () => request<Branch[]>("/branches"),
+  departments: () => request<Department[]>("/departments"),
 };
 
-// ---------------------------------------------------------------------------
-// biometricApi
-// ---------------------------------------------------------------------------
 export const biometricApi = {
-  list: () => delay<BiometricDevice[]>(biometricDevices),
+  list: () => request<BiometricDevice[]>("/biometric/devices"),
 };
 
-// ---------------------------------------------------------------------------
-// reportsApi
-// ---------------------------------------------------------------------------
 export const reportsApi = {
   attendanceSummary: () =>
-    delay({
-      totalEmployees: users.filter((u) => !!u.employeeId).length,
-      present: attendanceRecords.filter((r) => r.status.startsWith("Present")).length,
-      absent: attendanceRecords.filter((r) => r.status === "Absent").length,
-      onLeave: attendanceRecords.filter((r) => r.status.includes("Leave")).length,
-    }),
-  holidays: () => delay<Holiday[]>(holidays),
-  leaveBalances: () => delay<LeaveBalance[]>(myLeaveBalance),
+    request<{ totalEmployees: number; present: number; absent: number; onLeave: number }>(
+      "/reports/attendance",
+    ),
+  holidays: () => request<Holiday[]>("/holidays"),
+  leaveBalances: () => request<LeaveBalance[]>("/leave/balances/me"),
 };
 
-// ---------------------------------------------------------------------------
-// auditApi
-// ---------------------------------------------------------------------------
 export const auditApi = {
-  list: () => delay<AuditLog[]>(auditLogs),
+  list: () => request<AuditLog[]>("/audit-logs"),
 };

@@ -10,15 +10,21 @@ function LocationsPage() {
   const rows = attendanceRecords.filter((a) => a.source === "Mobile GPS");
   return (
     <div>
-      <PageHeader title="Field Staff Location" description="Latest GPS check-in from each field team member." />
+      <PageHeader
+        title="Field Staff Location"
+        description="Latest GPS check-in from each field team member."
+      />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {rows.map((r) => (
           <Card key={r.id}>
             <CardContent className="p-5">
               <p className="font-medium">{r.employeeName}</p>
-              <p className="text-xs text-muted-foreground">{r.date} · {r.punchIn}</p>
+              <p className="text-xs text-muted-foreground">
+                {r.date} · {r.punchIn}
+              </p>
               <p className="mt-3 flex items-center gap-1 text-sm text-muted-foreground">
-                <MapPin className="h-3.5 w-3.5" /> {r.address ?? `${r.latitude?.toFixed(4)}, ${r.longitude?.toFixed(4)}`}
+                <MapPin className="h-3.5 w-3.5" />{" "}
+                {r.address ?? `${r.latitude?.toFixed(4)}, ${r.longitude?.toFixed(4)}`}
               </p>
             </CardContent>
           </Card>

@@ -2,7 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { attendanceRecords, branches } from "@/mock/data";
 
@@ -11,8 +16,7 @@ export const Route = createFileRoute("/_app/attendance/branch")({
 });
 
 function BranchAttendancePage() {
-  const branchName = (id?: string) =>
-    branches.find((b) => b.id === id)?.name ?? "—";
+  const branchName = (id?: string) => branches.find((b) => b.id === id)?.name ?? "—";
   const rows = attendanceRecords.filter((a) => a.source === "Thumb Scanner");
   return (
     <div>
@@ -43,14 +47,14 @@ function BranchAttendancePage() {
                   <TableCell>{branchName(r.scheduledBranchId)}</TableCell>
                   <TableCell>
                     {branchName(r.actualBranchId)}
-                    {r.branchMismatch && (
-                      <span className="ml-2 text-xs text-orange-600">⚠</span>
-                    )}
+                    {r.branchMismatch && <span className="ml-2 text-xs text-orange-600">⚠</span>}
                   </TableCell>
                   <TableCell>{r.deviceName}</TableCell>
                   <TableCell>{r.punchIn ?? "—"}</TableCell>
                   <TableCell>{r.punchOut ?? "—"}</TableCell>
-                  <TableCell><StatusBadge status={r.status} /></TableCell>
+                  <TableCell>
+                    <StatusBadge status={r.status} />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

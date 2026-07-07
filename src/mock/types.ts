@@ -84,11 +84,7 @@ export type AttendanceStatus =
   | "Pending Approval"
   | "Rejected Attendance";
 
-export type AttendanceSource =
-  | "Thumb Scanner"
-  | "Mobile GPS"
-  | "Manual Entry"
-  | "System";
+export type AttendanceSource = "Thumb Scanner" | "Mobile GPS" | "Manual Entry" | "System";
 
 export interface AttendanceRecord {
   id: string;
