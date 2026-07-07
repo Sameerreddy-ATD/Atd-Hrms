@@ -15,11 +15,13 @@ import { Route as FirstLoginRouteImport } from './routes/first-login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppUsersRouteImport } from './routes/_app.users'
+import { Route as AppRolesRouteImport } from './routes/_app.roles'
 import { Route as AppProfileRouteImport } from './routes/_app.profile'
 import { Route as AppIdCardRouteImport } from './routes/_app.id-card'
 import { Route as AppHolidaysRouteImport } from './routes/_app.holidays'
 import { Route as AppEmployeesRouteImport } from './routes/_app.employees'
 import { Route as AppDevicesRouteImport } from './routes/_app.devices'
+import { Route as AppDepartmentsRouteImport } from './routes/_app.departments'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppBranchesRouteImport } from './routes/_app.branches'
 import { Route as AppAuditRouteImport } from './routes/_app.audit'
@@ -29,8 +31,12 @@ import { Route as AppLeaveHistoryRouteImport } from './routes/_app.leave.history
 import { Route as AppLeaveBalanceRouteImport } from './routes/_app.leave.balance'
 import { Route as AppLeaveApprovalsRouteImport } from './routes/_app.leave.approvals'
 import { Route as AppLeaveApplyRouteImport } from './routes/_app.leave.apply'
+import { Route as AppAttendanceMissedPunchRouteImport } from './routes/_app.attendance.missed-punch'
+import { Route as AppAttendanceMismatchRouteImport } from './routes/_app.attendance.mismatch'
 import { Route as AppAttendanceMineRouteImport } from './routes/_app.attendance.mine'
+import { Route as AppAttendanceLocationsRouteImport } from './routes/_app.attendance.locations'
 import { Route as AppAttendanceFieldRouteImport } from './routes/_app.attendance.field'
+import { Route as AppAttendanceCorrectionsRouteImport } from './routes/_app.attendance.corrections'
 import { Route as AppAttendanceBranchRouteImport } from './routes/_app.attendance.branch'
 
 const LoginRoute = LoginRouteImport.update({
@@ -62,6 +68,11 @@ const AppUsersRoute = AppUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => AppRoute,
 } as any)
+const AppRolesRoute = AppRolesRouteImport.update({
+  id: '/roles',
+  path: '/roles',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppProfileRoute = AppProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -85,6 +96,11 @@ const AppEmployeesRoute = AppEmployeesRouteImport.update({
 const AppDevicesRoute = AppDevicesRouteImport.update({
   id: '/devices',
   path: '/devices',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDepartmentsRoute = AppDepartmentsRouteImport.update({
+  id: '/departments',
+  path: '/departments',
   getParentRoute: () => AppRoute,
 } as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
@@ -132,9 +148,25 @@ const AppLeaveApplyRoute = AppLeaveApplyRouteImport.update({
   path: '/leave/apply',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAttendanceMissedPunchRoute =
+  AppAttendanceMissedPunchRouteImport.update({
+    id: '/missed-punch',
+    path: '/missed-punch',
+    getParentRoute: () => AppAttendanceRoute,
+  } as any)
+const AppAttendanceMismatchRoute = AppAttendanceMismatchRouteImport.update({
+  id: '/mismatch',
+  path: '/mismatch',
+  getParentRoute: () => AppAttendanceRoute,
+} as any)
 const AppAttendanceMineRoute = AppAttendanceMineRouteImport.update({
   id: '/mine',
   path: '/mine',
+  getParentRoute: () => AppAttendanceRoute,
+} as any)
+const AppAttendanceLocationsRoute = AppAttendanceLocationsRouteImport.update({
+  id: '/locations',
+  path: '/locations',
   getParentRoute: () => AppAttendanceRoute,
 } as any)
 const AppAttendanceFieldRoute = AppAttendanceFieldRouteImport.update({
@@ -142,6 +174,12 @@ const AppAttendanceFieldRoute = AppAttendanceFieldRouteImport.update({
   path: '/field',
   getParentRoute: () => AppAttendanceRoute,
 } as any)
+const AppAttendanceCorrectionsRoute =
+  AppAttendanceCorrectionsRouteImport.update({
+    id: '/corrections',
+    path: '/corrections',
+    getParentRoute: () => AppAttendanceRoute,
+  } as any)
 const AppAttendanceBranchRoute = AppAttendanceBranchRouteImport.update({
   id: '/branch',
   path: '/branch',
@@ -157,15 +195,21 @@ export interface FileRoutesByFullPath {
   '/audit': typeof AppAuditRoute
   '/branches': typeof AppBranchesRoute
   '/dashboard': typeof AppDashboardRoute
+  '/departments': typeof AppDepartmentsRoute
   '/devices': typeof AppDevicesRoute
   '/employees': typeof AppEmployeesRoute
   '/holidays': typeof AppHolidaysRoute
   '/id-card': typeof AppIdCardRoute
   '/profile': typeof AppProfileRoute
+  '/roles': typeof AppRolesRoute
   '/users': typeof AppUsersRouteWithChildren
   '/attendance/branch': typeof AppAttendanceBranchRoute
+  '/attendance/corrections': typeof AppAttendanceCorrectionsRoute
   '/attendance/field': typeof AppAttendanceFieldRoute
+  '/attendance/locations': typeof AppAttendanceLocationsRoute
   '/attendance/mine': typeof AppAttendanceMineRoute
+  '/attendance/mismatch': typeof AppAttendanceMismatchRoute
+  '/attendance/missed-punch': typeof AppAttendanceMissedPunchRoute
   '/leave/apply': typeof AppLeaveApplyRoute
   '/leave/approvals': typeof AppLeaveApprovalsRoute
   '/leave/balance': typeof AppLeaveBalanceRoute
@@ -181,15 +225,21 @@ export interface FileRoutesByTo {
   '/audit': typeof AppAuditRoute
   '/branches': typeof AppBranchesRoute
   '/dashboard': typeof AppDashboardRoute
+  '/departments': typeof AppDepartmentsRoute
   '/devices': typeof AppDevicesRoute
   '/employees': typeof AppEmployeesRoute
   '/holidays': typeof AppHolidaysRoute
   '/id-card': typeof AppIdCardRoute
   '/profile': typeof AppProfileRoute
+  '/roles': typeof AppRolesRoute
   '/users': typeof AppUsersRouteWithChildren
   '/attendance/branch': typeof AppAttendanceBranchRoute
+  '/attendance/corrections': typeof AppAttendanceCorrectionsRoute
   '/attendance/field': typeof AppAttendanceFieldRoute
+  '/attendance/locations': typeof AppAttendanceLocationsRoute
   '/attendance/mine': typeof AppAttendanceMineRoute
+  '/attendance/mismatch': typeof AppAttendanceMismatchRoute
+  '/attendance/missed-punch': typeof AppAttendanceMissedPunchRoute
   '/leave/apply': typeof AppLeaveApplyRoute
   '/leave/approvals': typeof AppLeaveApprovalsRoute
   '/leave/balance': typeof AppLeaveBalanceRoute
@@ -207,15 +257,21 @@ export interface FileRoutesById {
   '/_app/audit': typeof AppAuditRoute
   '/_app/branches': typeof AppBranchesRoute
   '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/departments': typeof AppDepartmentsRoute
   '/_app/devices': typeof AppDevicesRoute
   '/_app/employees': typeof AppEmployeesRoute
   '/_app/holidays': typeof AppHolidaysRoute
   '/_app/id-card': typeof AppIdCardRoute
   '/_app/profile': typeof AppProfileRoute
+  '/_app/roles': typeof AppRolesRoute
   '/_app/users': typeof AppUsersRouteWithChildren
   '/_app/attendance/branch': typeof AppAttendanceBranchRoute
+  '/_app/attendance/corrections': typeof AppAttendanceCorrectionsRoute
   '/_app/attendance/field': typeof AppAttendanceFieldRoute
+  '/_app/attendance/locations': typeof AppAttendanceLocationsRoute
   '/_app/attendance/mine': typeof AppAttendanceMineRoute
+  '/_app/attendance/mismatch': typeof AppAttendanceMismatchRoute
+  '/_app/attendance/missed-punch': typeof AppAttendanceMissedPunchRoute
   '/_app/leave/apply': typeof AppLeaveApplyRoute
   '/_app/leave/approvals': typeof AppLeaveApprovalsRoute
   '/_app/leave/balance': typeof AppLeaveBalanceRoute
@@ -233,15 +289,21 @@ export interface FileRouteTypes {
     | '/audit'
     | '/branches'
     | '/dashboard'
+    | '/departments'
     | '/devices'
     | '/employees'
     | '/holidays'
     | '/id-card'
     | '/profile'
+    | '/roles'
     | '/users'
     | '/attendance/branch'
+    | '/attendance/corrections'
     | '/attendance/field'
+    | '/attendance/locations'
     | '/attendance/mine'
+    | '/attendance/mismatch'
+    | '/attendance/missed-punch'
     | '/leave/apply'
     | '/leave/approvals'
     | '/leave/balance'
@@ -257,15 +319,21 @@ export interface FileRouteTypes {
     | '/audit'
     | '/branches'
     | '/dashboard'
+    | '/departments'
     | '/devices'
     | '/employees'
     | '/holidays'
     | '/id-card'
     | '/profile'
+    | '/roles'
     | '/users'
     | '/attendance/branch'
+    | '/attendance/corrections'
     | '/attendance/field'
+    | '/attendance/locations'
     | '/attendance/mine'
+    | '/attendance/mismatch'
+    | '/attendance/missed-punch'
     | '/leave/apply'
     | '/leave/approvals'
     | '/leave/balance'
@@ -282,15 +350,21 @@ export interface FileRouteTypes {
     | '/_app/audit'
     | '/_app/branches'
     | '/_app/dashboard'
+    | '/_app/departments'
     | '/_app/devices'
     | '/_app/employees'
     | '/_app/holidays'
     | '/_app/id-card'
     | '/_app/profile'
+    | '/_app/roles'
     | '/_app/users'
     | '/_app/attendance/branch'
+    | '/_app/attendance/corrections'
     | '/_app/attendance/field'
+    | '/_app/attendance/locations'
     | '/_app/attendance/mine'
+    | '/_app/attendance/mismatch'
+    | '/_app/attendance/missed-punch'
     | '/_app/leave/apply'
     | '/_app/leave/approvals'
     | '/_app/leave/balance'
@@ -350,6 +424,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppUsersRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/roles': {
+      id: '/_app/roles'
+      path: '/roles'
+      fullPath: '/roles'
+      preLoaderRoute: typeof AppRolesRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/profile': {
       id: '/_app/profile'
       path: '/profile'
@@ -383,6 +464,13 @@ declare module '@tanstack/react-router' {
       path: '/devices'
       fullPath: '/devices'
       preLoaderRoute: typeof AppDevicesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/departments': {
+      id: '/_app/departments'
+      path: '/departments'
+      fullPath: '/departments'
+      preLoaderRoute: typeof AppDepartmentsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/dashboard': {
@@ -448,6 +536,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppLeaveApplyRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/attendance/missed-punch': {
+      id: '/_app/attendance/missed-punch'
+      path: '/missed-punch'
+      fullPath: '/attendance/missed-punch'
+      preLoaderRoute: typeof AppAttendanceMissedPunchRouteImport
+      parentRoute: typeof AppAttendanceRoute
+    }
+    '/_app/attendance/mismatch': {
+      id: '/_app/attendance/mismatch'
+      path: '/mismatch'
+      fullPath: '/attendance/mismatch'
+      preLoaderRoute: typeof AppAttendanceMismatchRouteImport
+      parentRoute: typeof AppAttendanceRoute
+    }
     '/_app/attendance/mine': {
       id: '/_app/attendance/mine'
       path: '/mine'
@@ -455,11 +557,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAttendanceMineRouteImport
       parentRoute: typeof AppAttendanceRoute
     }
+    '/_app/attendance/locations': {
+      id: '/_app/attendance/locations'
+      path: '/locations'
+      fullPath: '/attendance/locations'
+      preLoaderRoute: typeof AppAttendanceLocationsRouteImport
+      parentRoute: typeof AppAttendanceRoute
+    }
     '/_app/attendance/field': {
       id: '/_app/attendance/field'
       path: '/field'
       fullPath: '/attendance/field'
       preLoaderRoute: typeof AppAttendanceFieldRouteImport
+      parentRoute: typeof AppAttendanceRoute
+    }
+    '/_app/attendance/corrections': {
+      id: '/_app/attendance/corrections'
+      path: '/corrections'
+      fullPath: '/attendance/corrections'
+      preLoaderRoute: typeof AppAttendanceCorrectionsRouteImport
       parentRoute: typeof AppAttendanceRoute
     }
     '/_app/attendance/branch': {
@@ -474,14 +590,22 @@ declare module '@tanstack/react-router' {
 
 interface AppAttendanceRouteChildren {
   AppAttendanceBranchRoute: typeof AppAttendanceBranchRoute
+  AppAttendanceCorrectionsRoute: typeof AppAttendanceCorrectionsRoute
   AppAttendanceFieldRoute: typeof AppAttendanceFieldRoute
+  AppAttendanceLocationsRoute: typeof AppAttendanceLocationsRoute
   AppAttendanceMineRoute: typeof AppAttendanceMineRoute
+  AppAttendanceMismatchRoute: typeof AppAttendanceMismatchRoute
+  AppAttendanceMissedPunchRoute: typeof AppAttendanceMissedPunchRoute
 }
 
 const AppAttendanceRouteChildren: AppAttendanceRouteChildren = {
   AppAttendanceBranchRoute: AppAttendanceBranchRoute,
+  AppAttendanceCorrectionsRoute: AppAttendanceCorrectionsRoute,
   AppAttendanceFieldRoute: AppAttendanceFieldRoute,
+  AppAttendanceLocationsRoute: AppAttendanceLocationsRoute,
   AppAttendanceMineRoute: AppAttendanceMineRoute,
+  AppAttendanceMismatchRoute: AppAttendanceMismatchRoute,
+  AppAttendanceMissedPunchRoute: AppAttendanceMissedPunchRoute,
 }
 
 const AppAttendanceRouteWithChildren = AppAttendanceRoute._addFileChildren(
@@ -505,11 +629,13 @@ interface AppRouteChildren {
   AppAuditRoute: typeof AppAuditRoute
   AppBranchesRoute: typeof AppBranchesRoute
   AppDashboardRoute: typeof AppDashboardRoute
+  AppDepartmentsRoute: typeof AppDepartmentsRoute
   AppDevicesRoute: typeof AppDevicesRoute
   AppEmployeesRoute: typeof AppEmployeesRoute
   AppHolidaysRoute: typeof AppHolidaysRoute
   AppIdCardRoute: typeof AppIdCardRoute
   AppProfileRoute: typeof AppProfileRoute
+  AppRolesRoute: typeof AppRolesRoute
   AppUsersRoute: typeof AppUsersRouteWithChildren
   AppLeaveApplyRoute: typeof AppLeaveApplyRoute
   AppLeaveApprovalsRoute: typeof AppLeaveApprovalsRoute
@@ -522,11 +648,13 @@ const AppRouteChildren: AppRouteChildren = {
   AppAuditRoute: AppAuditRoute,
   AppBranchesRoute: AppBranchesRoute,
   AppDashboardRoute: AppDashboardRoute,
+  AppDepartmentsRoute: AppDepartmentsRoute,
   AppDevicesRoute: AppDevicesRoute,
   AppEmployeesRoute: AppEmployeesRoute,
   AppHolidaysRoute: AppHolidaysRoute,
   AppIdCardRoute: AppIdCardRoute,
   AppProfileRoute: AppProfileRoute,
+  AppRolesRoute: AppRolesRoute,
   AppUsersRoute: AppUsersRouteWithChildren,
   AppLeaveApplyRoute: AppLeaveApplyRoute,
   AppLeaveApprovalsRoute: AppLeaveApprovalsRoute,
