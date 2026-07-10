@@ -8,6 +8,7 @@ The application uses **MySQL 8.0** at runtime. Prisma connects through `DATABASE
 
 - [User Guide](docs/USER_GUIDE.md) - HR, manager, employee, field staff, and leadership usage.
 - [Technical Overview](docs/TECHNICAL_OVERVIEW.md) - architecture, setup, API areas, database model, and verification.
+- [Linux Local Deployment Guide](docs/LINUX_LOCAL_DEPLOYMENT.md) - step-by-step local Linux deployment for 200-300 users.
 - [Database Scripts](scripts/README.md) - MySQL helper scripts and migration utilities.
 
 ## Core Features
