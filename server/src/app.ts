@@ -10,10 +10,7 @@ import { parse } from "csv-parse/sync";
 import { audit } from "./audit.js";
 import { birthdayMessage } from "./birthdayMessages.js";
 import { isUpcomingBirthday } from "./birthdays.js";
-import {
-  ensureDailySummariesForRange,
-  recalculateLeaveDateRange,
-} from "./attendanceDayRules.js";
+import { ensureDailySummariesForRange, recalculateLeaveDateRange } from "./attendanceDayRules.js";
 import { createAttendanceEvent, recalculateDailySummary } from "./attendanceEngine.js";
 import { config } from "./config.js";
 import { asyncHandler, errorHandler, HttpError } from "./errors.js";
@@ -1420,8 +1417,7 @@ export function createApp() {
           return EventType.FIELD_CHECK_OUT;
       }
     };
-    const resolvedType =
-      isCheckOut && latestEvent ? matchingCheckOut(latestEvent.eventType) : type;
+    const resolvedType = isCheckOut && latestEvent ? matchingCheckOut(latestEvent.eventType) : type;
     const clientBody = body as Partial<{
       clientName: string;
       clientLocationName: string;
@@ -1575,7 +1571,8 @@ export function createApp() {
         });
       }
 
-      const employeeId = typeof req.query.employeeId === "string" ? req.query.employeeId : undefined;
+      const employeeId =
+        typeof req.query.employeeId === "string" ? req.query.employeeId : undefined;
       const from = dateFromQuery(req.query.from ?? req.query.dateFrom);
       const to = dateFromQuery(req.query.to ?? req.query.dateTo);
       if (employeeId && from && to) {
@@ -2121,7 +2118,8 @@ export function createApp() {
       if (typeof req.query.status === "string") {
         const status = req.query.status.toUpperCase();
         if (status === "PENDING") where.status = "PENDING";
-        else if (status === "APPROVED") where.status = { in: ["APPROVED", "MANAGER_APPROVED", "HR_VERIFIED"] };
+        else if (status === "APPROVED")
+          where.status = { in: ["APPROVED", "MANAGER_APPROVED", "HR_VERIFIED"] };
         else if (status === "REJECTED") where.status = "REJECTED";
         else if (status === "CANCELLED") where.status = "CANCELLED";
       }
@@ -2422,12 +2420,12 @@ export function createApp() {
           id: `leave-${leave.leaveRequestId}`,
           title:
             leave.employeeId === req.user!.employeeId
-              ? leaveWorkflowTitle[leave.status] ?? `Leave ${leave.status.toLowerCase()}`
+              ? (leaveWorkflowTitle[leave.status] ?? `Leave ${leave.status.toLowerCase()}`)
               : canSeeOperational
-                ? leaveWorkflowTitle[leave.status] ?? "Leave update"
+                ? (leaveWorkflowTitle[leave.status] ?? "Leave update")
                 : leave.status === "PENDING"
                   ? "Leave approval pending"
-                  : leaveWorkflowTitle[leave.status] ?? "Leave update",
+                  : (leaveWorkflowTitle[leave.status] ?? "Leave update"),
           desc: `${leave.employee.name} - ${leave.leaveType.name} from ${leave.fromDate
             .toISOString()
             .slice(0, 10)} to ${leave.toDate.toISOString().slice(0, 10)}`,

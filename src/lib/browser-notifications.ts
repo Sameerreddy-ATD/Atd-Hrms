@@ -25,9 +25,7 @@ export function getNotificationsClearedAt() {
 }
 
 export function clearNotifications(items: NotificationItem[]) {
-  const newestTime = items
-    .map((item) => item.time)
-    .sort((a, b) => +new Date(b) - +new Date(a))[0];
+  const newestTime = items.map((item) => item.time).sort((a, b) => +new Date(b) - +new Date(a))[0];
   if (newestTime) writeLocalStorage(CLEARED_AT_KEY, newestTime);
 }
 

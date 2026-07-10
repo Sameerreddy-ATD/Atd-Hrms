@@ -32,7 +32,11 @@ export function eachDateInRange(from: string | Date, to: string | Date) {
   const start = startOfDayUtc(from);
   const end = startOfDayUtc(to);
   const dates: Date[] = [];
-  for (let cursor = new Date(start); cursor.getTime() <= end.getTime(); cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+  for (
+    let cursor = new Date(start);
+    cursor.getTime() <= end.getTime();
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  ) {
     dates.push(new Date(cursor));
   }
   return dates;
@@ -67,10 +71,7 @@ export async function findApprovedLeaveForDay(employeeId: string, eventDate: Dat
   });
 }
 
-export async function resolveNoEventStatus(
-  employeeId: string,
-  eventDate: Date,
-): Promise<string> {
+export async function resolveNoEventStatus(employeeId: string, eventDate: Date): Promise<string> {
   const holiday = await findHolidayForEmployee(employeeId, eventDate);
   if (holiday) return `Holiday - ${holiday.name}`;
 

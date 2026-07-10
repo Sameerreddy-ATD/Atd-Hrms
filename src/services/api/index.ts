@@ -134,7 +134,9 @@ export const securitySettingsApi = {
 export const employeesApi = {
   list: () => request<User[]>("/employees"),
   isReportingManager: () =>
-    request<{ isReportingManager: boolean; teamCount: number }>("/employees/me/is-reporting-manager"),
+    request<{ isReportingManager: boolean; teamCount: number }>(
+      "/employees/me/is-reporting-manager",
+    ),
   get: (id: string) => request<User | null>(`/employees/${id}`),
   update: (id: string, patch: Partial<User>) =>
     request<User>(`/employees/${id}`, {

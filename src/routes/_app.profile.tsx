@@ -7,7 +7,12 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { useAuth } from "@/lib/auth";
 import { ROLE_LABELS, type Branch, type User } from "@/mock/types";
 import { branchesApi, employeesApi, usersApi } from "@/services/api";
@@ -172,7 +177,9 @@ function ProfilePage() {
                         {rules.map((r) => (
                           <li
                             key={r.label}
-                            className={r.ok ? "text-emerald-600 font-medium" : "text-muted-foreground"}
+                            className={
+                              r.ok ? "text-emerald-600 font-medium" : "text-muted-foreground"
+                            }
                           >
                             {r.ok ? "✓" : "○"} {r.label}
                           </li>

@@ -133,11 +133,7 @@ function BranchesPage() {
                 </div>
               </div>
               <div className="mt-4 flex justify-end gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => openEditDialog(b)}
-                >
+                <Button size="sm" variant="outline" onClick={() => openEditDialog(b)}>
                   <Pencil className="mr-2 h-4 w-4" /> Edit
                 </Button>
                 <Button

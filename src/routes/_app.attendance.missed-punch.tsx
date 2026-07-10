@@ -76,7 +76,6 @@ function MissedPunchPage() {
 
     setSubmitting(true);
     try {
-
       await attendanceApi.requestCorrection({
         employeeId: user.employeeId,
         date: new Date(date),

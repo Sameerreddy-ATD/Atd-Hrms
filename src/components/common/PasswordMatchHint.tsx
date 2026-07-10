@@ -1,10 +1,4 @@
-export function PasswordMatchHint({
-  password,
-  confirm,
-}: {
-  password: string;
-  confirm: string;
-}) {
+export function PasswordMatchHint({ password, confirm }: { password: string; confirm: string }) {
   if (!confirm) return null;
   const matches = password === confirm;
   return (

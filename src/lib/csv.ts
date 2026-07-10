@@ -42,17 +42,14 @@ export function downloadExcel(
 
   const headers = Object.keys(rows[0]);
   const shouldHighlight =
-    options?.highlightStatus ??
-    ((status: string) => isLeaveLikeStatus(status));
+    options?.highlightStatus ?? ((status: string) => isLeaveLikeStatus(status));
 
   const headerRow = headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("");
   const bodyRows = rows
     .map((row) => {
       const status = String(row.status ?? "");
       const style = shouldHighlight(status) ? ' style="background:#fecaca;color:#991b1b;"' : "";
-      const cells = headers
-        .map((header) => `<td${style}>${escapeHtml(row[header])}</td>`)
-        .join("");
+      const cells = headers.map((header) => `<td${style}>${escapeHtml(row[header])}</td>`).join("");
       return `<tr>${cells}</tr>`;
     })
     .join("");
@@ -93,14 +90,17 @@ export function downloadAttendanceExcel(
       .replaceAll("'", "&apos;");
   };
 
-  const summaryMap = new Map<string, {
-    name: string;
-    code: string;
-    present: number;
-    absent: number;
-    total: number;
-    records: typeof rows;
-  }>();
+  const summaryMap = new Map<
+    string,
+    {
+      name: string;
+      code: string;
+      present: number;
+      absent: number;
+      total: number;
+      records: typeof rows;
+    }
+  >();
 
   for (const row of rows) {
     const key = row.employeeId || row.employee;
@@ -116,11 +116,15 @@ export function downloadAttendanceExcel(
       };
       summaryMap.set(key, stats);
     }
-    
+
     stats.records.push(row);
     stats.total++;
     const statusLower = row.status.toLowerCase();
-    if (statusLower.includes("absent") || statusLower.includes("leave") || statusLower.includes("lop")) {
+    if (
+      statusLower.includes("absent") ||
+      statusLower.includes("leave") ||
+      statusLower.includes("lop")
+    ) {
       stats.absent++;
     } else {
       stats.present++;
@@ -170,7 +174,7 @@ export function downloadAttendanceExcel(
   `;
 
   for (const s of summaries) {
-    let tabName = s.name.replace(/[:\\/?*\[\]]/g, "").slice(0, 30);
+    let tabName = s.name.replace(/[:\\/?*[\]]/g, "").slice(0, 30);
     if (!tabName) tabName = s.code || "Employee";
 
     let empRowsXml = `
@@ -189,9 +193,12 @@ export function downloadAttendanceExcel(
 
     for (const row of sortedRecords) {
       const statusLower = row.status.toLowerCase();
-      const isAbsent = statusLower.includes("absent") || statusLower.includes("leave") || statusLower.includes("lop");
+      const isAbsent =
+        statusLower.includes("absent") ||
+        statusLower.includes("leave") ||
+        statusLower.includes("lop");
       const statusStyle = isAbsent ? "AbsentCell" : "Default";
-      
+
       empRowsXml += `
         <Row ss:Height="18">
           <Cell><Data ss:Type="String">${escapeXml(row.date)}</Data></Cell>

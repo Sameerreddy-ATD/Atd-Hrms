@@ -74,7 +74,8 @@ function AttendanceOverviewPage() {
     () =>
       [...employees]
         .filter((employee) => {
-          const haystack = `${employee.name} ${employee.email} ${employee.employeeCode ?? ""} ${employee.employeeId ?? ""}`.toLowerCase();
+          const haystack =
+            `${employee.name} ${employee.email} ${employee.employeeCode ?? ""} ${employee.employeeId ?? ""}`.toLowerCase();
           if (q && !haystack.includes(q.toLowerCase())) return false;
           if (branch !== "all" && employee.homeBranchId !== branch) return false;
           if (dept !== "all" && employee.departmentId !== dept) return false;
@@ -105,7 +106,7 @@ function AttendanceOverviewPage() {
         to: to || undefined,
         branchId: branch !== "all" ? branch : undefined,
         departmentId: dept !== "all" ? dept : undefined,
-        limit: (!from && !to) ? "none" : undefined,
+        limit: !from && !to ? "none" : undefined,
       });
       downloadCsv(
         `attendance-overview-${from || "all"}-to-${to || "all"}.csv`,
@@ -272,7 +273,9 @@ function AttendanceOverviewPage() {
                       {employee.employeeCode ?? employee.employeeId ?? employee.id}
                     </div>
                   </TableCell>
-                  <TableCell>{employee.department ?? departmentName(employee.departmentId)}</TableCell>
+                  <TableCell>
+                    {employee.department ?? departmentName(employee.departmentId)}
+                  </TableCell>
                   <TableCell>{branchName(employee.homeBranchId)}</TableCell>
                   <TableCell className="text-right">
                     <Button size="sm" variant="outline" onClick={() => openDayLogs(employee)}>

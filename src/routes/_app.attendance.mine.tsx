@@ -301,9 +301,7 @@ function MyAttendancePage() {
                                 minute: "2-digit",
                               })}
                             </TableCell>
-                            <TableCell className="text-xs">
-                              {punchTypeLabel(r.eventType)}
-                            </TableCell>
+                            <TableCell className="text-xs">{punchTypeLabel(r.eventType)}</TableCell>
                             <TableCell
                               className="max-w-xs truncate text-muted-foreground"
                               title={r.remarks}

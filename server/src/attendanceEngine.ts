@@ -49,7 +49,10 @@ function distanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
 async function branchForCoordinates(latitude?: number, longitude?: number) {
   if (latitude === undefined || longitude === undefined) return undefined;
   for (const geofence of officeGeofences) {
-    if (distanceKm(latitude, longitude, geofence.latitude, geofence.longitude) > branchDetectionRadiusKm)
+    if (
+      distanceKm(latitude, longitude, geofence.latitude, geofence.longitude) >
+      branchDetectionRadiusKm
+    )
       continue;
     const branch = await prisma.branch.findFirst({
       where: {
@@ -173,8 +176,7 @@ export async function recalculateDailySummary(employeeId: string, date: string |
           : "SYSTEM";
   const lastOut = [...events].reverse().find((e) => outTypes.has(e.eventType));
   const hasMissingOutEvent =
-    events.length > 0 &&
-    (!lastOut || Boolean(inTypes.has(events[events.length - 1]!.eventType)));
+    events.length > 0 && (!lastOut || Boolean(inTypes.has(events[events.length - 1]!.eventType)));
   const hasMissedCheckout =
     events.some((e) => e.eventType === EventType.CLIENT_CHECK_IN) &&
     !events.some((e) => e.eventType === EventType.CLIENT_CHECK_OUT);

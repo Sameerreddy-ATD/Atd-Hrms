@@ -1,8 +1,5 @@
 import { recalculateDailySummary } from "./attendanceEngine.js";
-import {
-  activeEmployeeIdsExcludingDeveloperAdmin,
-  startOfDayUtc,
-} from "./attendanceDayRules.js";
+import { activeEmployeeIdsExcludingDeveloperAdmin, startOfDayUtc } from "./attendanceDayRules.js";
 function yesterdayIstDate(): Date {
   const now = new Date();
   const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
@@ -11,7 +8,6 @@ function yesterdayIstDate(): Date {
     new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate())),
   );
 }
-
 
 export async function settleAttendanceForDate(date: Date) {
   const eventDate = startOfDayUtc(date);

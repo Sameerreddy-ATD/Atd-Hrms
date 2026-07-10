@@ -168,9 +168,7 @@ function DashboardPage() {
     setError("");
 
     Promise.all([
-      ownAttendanceRoles
-        ? attendanceApi.listMine(user.employeeId ?? "")
-        : attendanceApi.list(),
+      ownAttendanceRoles ? attendanceApi.listMine(user.employeeId ?? "") : attendanceApi.list(),
       selfPunchRoles ? attendanceApi.myTimeline().catch(() => []) : Promise.resolve([]),
       branchesApi.list(),
       adminPeopleRoles.includes(user.role) ? usersApi.list() : employeesApi.list(),
@@ -259,7 +257,15 @@ function DashboardPage() {
         />
       ) : user.role === "manager" ? (
         <ManagerDashboard
-          data={{ present: presentToday, absent, late, onLeave, fieldActive: fieldPresent, pendingLeaves, mismatch }}
+          data={{
+            present: presentToday,
+            absent,
+            late,
+            onLeave,
+            fieldActive: fieldPresent,
+            pendingLeaves,
+            mismatch,
+          }}
           attendance={attendance}
           birthdays={birthdays}
         />
@@ -400,7 +406,11 @@ function MarkAttendanceCard({
     <Card className={`border-border shadow-sm ${className ?? ""}`}>
       <CardHeader className="flex flex-row items-center justify-between gap-3">
         <CardTitle className="text-sm font-bold text-foreground">Mark Attendance</CardTitle>
-        <Button size="sm" variant="outline" onClick={() => navigate({ to: "/attendance/missed-punch" })}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => navigate({ to: "/attendance/missed-punch" })}
+        >
           <FileClock className="mr-1.5 h-4 w-4" />
           Missed Punch
         </Button>
@@ -412,18 +422,19 @@ function MarkAttendanceCard({
             Live GPS Attendance
           </p>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Use this dashboard card for mobile attendance. Biometric punches will still sync automatically.
+            Use this dashboard card for mobile attendance. Biometric punches will still sync
+            automatically.
           </p>
           <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-              <div className="rounded-md bg-muted/40 px-3 py-2">
-                <div className="text-muted-foreground">Home Branch</div>
-                <div className="font-medium text-foreground">{branchName}</div>
-              </div>
-              <div className="rounded-md bg-muted/40 px-3 py-2">
-                <div className="text-muted-foreground">Punch Status</div>
-                <div className="font-medium text-foreground">{isCheckedIn ? "In" : "Out"}</div>
-              </div>
+            <div className="rounded-md bg-muted/40 px-3 py-2">
+              <div className="text-muted-foreground">Home Branch</div>
+              <div className="font-medium text-foreground">{branchName}</div>
             </div>
+            <div className="rounded-md bg-muted/40 px-3 py-2">
+              <div className="text-muted-foreground">Punch Status</div>
+              <div className="font-medium text-foreground">{isCheckedIn ? "In" : "Out"}</div>
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-col justify-center gap-3 rounded-lg border border-border/60 bg-muted/20 p-4">
@@ -547,7 +558,10 @@ function HRDashboard({
           onAttendanceChanged={onAttendanceChanged}
           className="lg:col-span-2"
         />
-        <BranchFieldAttendanceCard branchPresentCounts={branchPresentCounts} fieldPresent={data.fieldPresent} />
+        <BranchFieldAttendanceCard
+          branchPresentCounts={branchPresentCounts}
+          fieldPresent={data.fieldPresent}
+        />
         <UpcomingBirthdaysCard birthdays={birthdays} />
       </div>
     </div>
@@ -611,8 +625,16 @@ function CEODashboard({
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-2">
-            <MetricBar label={`${branch1Name} present`} value={b1} total={Math.max(data.total, 1)} />
-            <MetricBar label={`${branch2Name} present`} value={b2} total={Math.max(data.total, 1)} />
+            <MetricBar
+              label={`${branch1Name} present`}
+              value={b1}
+              total={Math.max(data.total, 1)}
+            />
+            <MetricBar
+              label={`${branch2Name} present`}
+              value={b2}
+              total={Math.max(data.total, 1)}
+            />
             <MetricBar
               label="Field present"
               value={data.fieldPresent}
@@ -846,7 +868,9 @@ function UpcomingBirthdaysCard({
               </div>
             </div>
             <div className="text-right">
-              <p className="font-semibold text-foreground">{formatDob(myBirthdayToday.dateOfBirth)}</p>
+              <p className="font-semibold text-foreground">
+                {formatDob(myBirthdayToday.dateOfBirth)}
+              </p>
               <p className="text-[10px] font-medium text-pink-700">Today</p>
             </div>
           </div>
@@ -864,36 +888,36 @@ function UpcomingBirthdaysCard({
               const isSelf = b.employeeId === user?.employeeId;
 
               return (
-              <div
-                key={b.employeeId}
-                className="flex items-center justify-between rounded-md border border-border bg-card p-3 text-sm transition-all duration-300 hover:bg-muted/50"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="rounded-full bg-muted p-2 text-muted-foreground">🎁</div>
-                  <div>
-                    <p className="font-medium flex items-center gap-1.5">
-                      {isSelf ? "Your birthday" : b.name}
-                      {isSelf && (
-                        <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
-                          You
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {isSelf
-                        ? "Coming up soon"
-                        : [b.designation, b.department].filter(Boolean).join(" · ")}
+                <div
+                  key={b.employeeId}
+                  className="flex items-center justify-between rounded-md border border-border bg-card p-3 text-sm transition-all duration-300 hover:bg-muted/50"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-full bg-muted p-2 text-muted-foreground">🎁</div>
+                    <div>
+                      <p className="font-medium flex items-center gap-1.5">
+                        {isSelf ? "Your birthday" : b.name}
+                        {isSelf && (
+                          <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
+                            You
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {isSelf
+                          ? "Coming up soon"
+                          : [b.designation, b.department].filter(Boolean).join(" · ")}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-foreground">{formatDob(b.dateOfBirth)}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {isSelf ? `In ${b.daysUntil} days` : `${b.daysUntil} days left`}
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold text-foreground">{formatDob(b.dateOfBirth)}</p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {isSelf ? `In ${b.daysUntil} days` : `${b.daysUntil} days left`}
-                  </p>
-                </div>
-              </div>
-            );
+              );
             })}
           </div>
         )}

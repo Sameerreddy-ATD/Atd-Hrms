@@ -71,10 +71,7 @@ function DeptPage() {
   }, []);
 
   const headOptions = useMemo(
-    () =>
-      employees.filter(
-        (employee) => !!employee.employeeId,
-      ),
+    () => employees.filter((employee) => !!employee.employeeId),
     [employees],
   );
 
@@ -183,11 +180,7 @@ function DeptPage() {
                   <TableCell>{d.head ?? "-"}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openEditDialog(d)}
-                      >
+                      <Button size="sm" variant="outline" onClick={() => openEditDialog(d)}>
                         <Pencil className="mr-2 h-4 w-4" />
                         Edit
                       </Button>

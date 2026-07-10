@@ -11,7 +11,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { attendanceApi } from "@/services/api";
 import type { AttendanceTimelineEvent } from "@/mock/types";
-import { movementDirectionLabel, movementEventLabel, movementSourceLabel, captureSourceLabel } from "@/lib/attendance-labels";
+import {
+  movementDirectionLabel,
+  movementEventLabel,
+  movementSourceLabel,
+  captureSourceLabel,
+} from "@/lib/attendance-labels";
 import {
   Fingerprint,
   MapPin,
@@ -238,8 +243,7 @@ export function AttendanceTimelineSheet({
                             <div className="flex items-center gap-1.5 text-foreground">
                               <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                               <span>
-                                Location:{" "}
-                                <span className="font-medium">{event.clientName}</span>
+                                Location: <span className="font-medium">{event.clientName}</span>
                               </span>
                             </div>
                           )}

@@ -37,10 +37,7 @@ function IdCardPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Employee ID Card"
-        description="Digital ID card."
-      />
+      <PageHeader title="Employee ID Card" description="Digital ID card." />
       <div className="max-w-md mx-auto w-full">
         <Card className="overflow-hidden">
           <div className="flex items-center justify-between border-b border-border bg-muted/50 px-5 py-3">

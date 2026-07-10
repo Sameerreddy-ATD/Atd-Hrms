@@ -81,9 +81,7 @@ function LeaveApprovalsPage() {
 
   if (!accessChecked || !canApprove) {
     return (
-      <div className="text-sm text-muted-foreground">
-        Checking reporting manager access...
-      </div>
+      <div className="text-sm text-muted-foreground">Checking reporting manager access...</div>
     );
   }
 

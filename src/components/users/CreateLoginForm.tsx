@@ -186,185 +186,180 @@ export function CreateLoginForm({
   return (
     <div className="w-full">
       <form onSubmit={submit} className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label>Employee Code / ID (Predefined)</Label>
-            <Input
-              placeholder="Leave blank to auto-generate (e.g. EMP-0001)"
-              value={employeeCode}
-              onChange={(e) => setEmployeeCode(e.target.value)}
-            />
-          </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label>Employee Code / ID (Predefined)</Label>
+          <Input
+            placeholder="Leave blank to auto-generate (e.g. EMP-0001)"
+            value={employeeCode}
+            onChange={(e) => setEmployeeCode(e.target.value)}
+          />
+        </div>
 
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label>Full name</Label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={creationMode === "link"}
-            />
-          </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label>Full name</Label>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            disabled={creationMode === "link"}
+          />
+        </div>
 
-          <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
-            <Label>Email</Label>
-            <Input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={creationMode === "link"}
-            />
-          </div>
+        <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
+          <Label>Email</Label>
+          <Input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={creationMode === "link"}
+          />
+        </div>
 
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label>Temporary password</Label>
-            <PasswordInput
-              value={temporaryPassword}
-              autoComplete="new-password"
-              onChange={(e) => setTemporaryPassword(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              The user changes this after first sign in.
-            </p>
-          </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label>Temporary password</Label>
+          <PasswordInput
+            value={temporaryPassword}
+            autoComplete="new-password"
+            onChange={(e) => setTemporaryPassword(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            The user changes this after first sign in.
+          </p>
+        </div>
 
-          <div className="space-y-1.5">
-            <Label>Role</Label>
-            <Select value={role} onValueChange={(v) => setRole(v as Role)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {allowed.map((r) => (
-                  <SelectItem key={r} value={r}>
-                    {ROLE_LABELS[r]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="space-y-1.5">
+          <Label>Role</Label>
+          <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {allowed.map((r) => (
+                <SelectItem key={r} value={r}>
+                  {ROLE_LABELS[r]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-          {creationMode === "new" && (
-            <>
-              <div className="space-y-1.5">
-                <Label>Home branch</Label>
-                <Select value={branch} onValueChange={setBranch}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {branches.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+        {creationMode === "new" && (
+          <>
+            <div className="space-y-1.5">
+              <Label>Home branch</Label>
+              <Select value={branch} onValueChange={setBranch}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {branches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-              <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
-                <Label>Department</Label>
-                <Select value={dept} onValueChange={setDept}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {departments.map((d) => (
-                      <SelectItem key={d.id} value={d.id}>
-                        {d.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
+              <Label>Department</Label>
+              <Select value={dept} onValueChange={setDept}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-              <div className="space-y-1.5">
-                <Label>Designation</Label>
-                <Input value={designation} onChange={(e) => setDesignation(e.target.value)} />
-              </div>
+            <div className="space-y-1.5">
+              <Label>Designation</Label>
+              <Input value={designation} onChange={(e) => setDesignation(e.target.value)} />
+            </div>
 
-              <div className="space-y-1.5">
-                <Label>Date of Birth</Label>
-                <Input
-                  type="date"
-                  value={dateOfBirth}
-                  onChange={(e) => setDateOfBirth(e.target.value)}
-                />
-              </div>
+            <div className="space-y-1.5">
+              <Label>Date of Birth</Label>
+              <Input
+                type="date"
+                value={dateOfBirth}
+                onChange={(e) => setDateOfBirth(e.target.value)}
+              />
+            </div>
 
-              <div className="space-y-1.5">
-                <Label>Gender</Label>
-                <Select
-                  value={gender}
-                  onValueChange={(value) =>
-                    setGender(value as "FEMALE" | "MALE" | "PREFER_NOT_TO_SAY")
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="FEMALE">Female</SelectItem>
-                    <SelectItem value="MALE">Male</SelectItem>
-                    <SelectItem value="PREFER_NOT_TO_SAY">Prefer not to say</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Employment type</Label>
-                <Select
-                  value={employmentType}
-                  onValueChange={(value) =>
-                    setEmploymentType(value as "FULL_TIME" | "PART_TIME" | "INTERN")
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="FULL_TIME">Full-time</SelectItem>
-                    <SelectItem value="PART_TIME">Part-time</SelectItem>
-                    <SelectItem value="INTERN">Intern</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
-                <Label>Reporting manager</Label>
-                <Select value={managerId} onValueChange={setManagerId}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No manager</SelectItem>
-                    {managers.map((manager) => (
-                      <SelectItem
-                        key={manager.employeeId ?? manager.id}
-                        value={manager.employeeId ?? manager.id}
-                      >
-                        {manager.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
-          )}
-
-          <div className="flex flex-col-reverse gap-2 sm:col-span-2 sm:flex-row sm:justify-end lg:col-span-3 mt-2">
-            {onCancel && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onCancel}
-                className="w-full sm:w-auto"
+            <div className="space-y-1.5">
+              <Label>Gender</Label>
+              <Select
+                value={gender}
+                onValueChange={(value) =>
+                  setGender(value as "FEMALE" | "MALE" | "PREFER_NOT_TO_SAY")
+                }
               >
-                Cancel
-              </Button>
-            )}
-            <Button type="submit" disabled={loading} className="w-full sm:w-auto">
-              Create login
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="FEMALE">Female</SelectItem>
+                  <SelectItem value="MALE">Male</SelectItem>
+                  <SelectItem value="PREFER_NOT_TO_SAY">Prefer not to say</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Employment type</Label>
+              <Select
+                value={employmentType}
+                onValueChange={(value) =>
+                  setEmploymentType(value as "FULL_TIME" | "PART_TIME" | "INTERN")
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="FULL_TIME">Full-time</SelectItem>
+                  <SelectItem value="PART_TIME">Part-time</SelectItem>
+                  <SelectItem value="INTERN">Intern</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
+              <Label>Reporting manager</Label>
+              <Select value={managerId} onValueChange={setManagerId}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No manager</SelectItem>
+                  {managers.map((manager) => (
+                    <SelectItem
+                      key={manager.employeeId ?? manager.id}
+                      value={manager.employeeId ?? manager.id}
+                    >
+                      {manager.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </>
+        )}
+
+        <div className="flex flex-col-reverse gap-2 sm:col-span-2 sm:flex-row sm:justify-end lg:col-span-3 mt-2">
+          {onCancel && (
+            <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">
+              Cancel
             </Button>
-          </div>
+          )}
+          <Button type="submit" disabled={loading} className="w-full sm:w-auto">
+            Create login
+          </Button>
+        </div>
       </form>
     </div>
   );

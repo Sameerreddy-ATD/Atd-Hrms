@@ -115,7 +115,8 @@ function ApplyLeavePage() {
         <CardContent className="p-6">
           {!managerLoading && !managerName && (
             <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-              No reporting manager is assigned to your profile. Contact HR before applying for leave.
+              No reporting manager is assigned to your profile. Contact HR before applying for
+              leave.
             </p>
           )}
           {!managerLoading && managerName && (
@@ -186,7 +187,10 @@ function ApplyLeavePage() {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading || typesLoading || managerLoading || !managerName}>
+              <Button
+                type="submit"
+                disabled={loading || typesLoading || managerLoading || !managerName}
+              >
                 Submit request
               </Button>
             </div>

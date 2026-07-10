@@ -33,7 +33,15 @@ import {
   movementSourceLabel,
   movementDirectionLabel,
 } from "@/lib/attendance-labels";
-import { ArrowRight, CalendarRange, Compass, MapPin, Route as RouteIcon, Smartphone, Fingerprint } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarRange,
+  Compass,
+  MapPin,
+  Route as RouteIcon,
+  Smartphone,
+  Fingerprint,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_app/attendance/locations")({
   component: DayLogsPage,
@@ -108,7 +116,9 @@ function DayLogsPage() {
           return !emp || (emp.role !== "developer_admin" && emp.role !== "main_admin");
         });
         setEmployeeRows(
-          [...filtered].sort((a, b) => b.date.localeCompare(a.date) || a.employeeName.localeCompare(b.employeeName)),
+          [...filtered].sort(
+            (a, b) => b.date.localeCompare(a.date) || a.employeeName.localeCompare(b.employeeName),
+          ),
         );
       })
       .catch((err) => setEmployeeError((err as Error).message))
@@ -141,7 +151,8 @@ function DayLogsPage() {
     () =>
       selectedEmployeeId === "all"
         ? "All Employees"
-        : employees.find((employee) => (employee.employeeId || employee.id) === selectedEmployeeId)?.name ?? "Employee",
+        : (employees.find((employee) => (employee.employeeId || employee.id) === selectedEmployeeId)
+            ?.name ?? "Employee"),
     [employees, selectedEmployeeId],
   );
   const selectedEmployee = useMemo(
@@ -152,9 +163,7 @@ function DayLogsPage() {
     [employees, selectedEmployeeId],
   );
   const filteredEmployeesForDropdown = useMemo(() => {
-    return employees.filter(
-      (emp) => emp.role !== "developer_admin" && emp.role !== "main_admin"
-    );
+    return employees.filter((emp) => emp.role !== "developer_admin" && emp.role !== "main_admin");
   }, [employees]);
 
   function setToday() {
@@ -167,7 +176,11 @@ function DayLogsPage() {
     setToday();
   }
 
-  function openTimeline(employeeId: string | undefined, employeeName: string | undefined, date: string | undefined) {
+  function openTimeline(
+    employeeId: string | undefined,
+    employeeName: string | undefined,
+    date: string | undefined,
+  ) {
     if (!employeeId || !date) return;
     setSelectedTimelineEmp({ id: employeeId, name: employeeName ?? "Employee", date });
   }
@@ -196,7 +209,10 @@ function DayLogsPage() {
                 <SelectContent className="max-h-[320px]">
                   <SelectItem value="all">All Employees</SelectItem>
                   {filteredEmployeesForDropdown.map((employee) => (
-                    <SelectItem key={employee.employeeId || employee.id} value={employee.employeeId || employee.id}>
+                    <SelectItem
+                      key={employee.employeeId || employee.id}
+                      value={employee.employeeId || employee.id}
+                    >
                       {employee.name}
                       {employee.employeeCode ? ` (${employee.employeeCode})` : ""}
                     </SelectItem>
@@ -251,14 +267,19 @@ function DayLogsPage() {
           <div>
             <CardTitle className="text-sm">Employee Day-wise Logs</CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
-              Clear per-day attendance records for <span className="font-medium text-foreground">{employeeName}</span>.
+              Clear per-day attendance records for{" "}
+              <span className="font-medium text-foreground">{employeeName}</span>.
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {selectedEmployeeId === "all" ? (
                 "Scope: All active employees"
               ) : (
                 <>
-                  Employee ID: {selectedEmployee?.employeeCode ?? selectedEmployee?.employeeId ?? selectedEmployee?.id ?? "-"}
+                  Employee ID:{" "}
+                  {selectedEmployee?.employeeCode ??
+                    selectedEmployee?.employeeId ??
+                    selectedEmployee?.id ??
+                    "-"}
                   {selectedEmployee?.department
                     ? ` · Department: ${selectedEmployee.department}`
                     : ""}
@@ -300,7 +321,9 @@ function DayLogsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {loadingEmployeeRows && <p className="text-sm text-muted-foreground">Loading employee day logs...</p>}
+          {loadingEmployeeRows && (
+            <p className="text-sm text-muted-foreground">Loading employee day logs...</p>
+          )}
           {employeeError && <p className="text-sm text-destructive">{employeeError}</p>}
           {!loadingEmployeeRows && !employeeError && (
             <div className="overflow-hidden rounded-lg border border-border">
@@ -352,7 +375,9 @@ function DayLogsPage() {
                 </Table>
               </div>
               {!employeeRows.length && (
-                <div className="p-6 text-sm text-muted-foreground">No day-wise records found for this employee.</div>
+                <div className="p-6 text-sm text-muted-foreground">
+                  No day-wise records found for this employee.
+                </div>
               )}
             </div>
           )}
@@ -373,11 +398,16 @@ function DayLogsPage() {
                   movementRows.map((row) => ({
                     employee: row.employeeName ?? "",
                     employeeId:
-                      employees.find((employee) => (employee.employeeId || employee.id) === row.employeeId)?.employeeCode ??
+                      employees.find(
+                        (employee) => (employee.employeeId || employee.id) === row.employeeId,
+                      )?.employeeCode ??
                       row.employeeId ??
                       "",
                     date: row.date ?? "",
-                    time: new Date(row.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                    time: new Date(row.time).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }),
                     movement: movementEventLabel(row),
                     captureSource: captureSourceLabel(row),
                     branch: row.branchName ?? "",
@@ -401,7 +431,9 @@ function DayLogsPage() {
             </div>
           </TableToolbar>
 
-          {loadingMovementRows && <p className="text-sm text-muted-foreground">Loading movement logs...</p>}
+          {loadingMovementRows && (
+            <p className="text-sm text-muted-foreground">Loading movement logs...</p>
+          )}
           {movementError && <p className="text-sm text-destructive">{movementError}</p>}
           {!loadingMovementRows && !movementError && (
             <div className="overflow-hidden rounded-lg border border-border">
@@ -425,14 +457,20 @@ function DayLogsPage() {
                         <TableCell className="font-medium">
                           <div>{row.employeeName ?? "-"}</div>
                           <div className="text-xs text-muted-foreground">
-                            {employees.find((employee) => (employee.employeeId || employee.id) === row.employeeId)
-                              ?.employeeCode ??
+                            {employees.find(
+                              (employee) => (employee.employeeId || employee.id) === row.employeeId,
+                            )?.employeeCode ??
                               row.employeeId ??
                               "-"}
                           </div>
                         </TableCell>
                         <TableCell>{row.date ?? row.time.slice(0, 10)}</TableCell>
-                        <TableCell>{new Date(row.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</TableCell>
+                        <TableCell>
+                          {new Date(row.time).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </TableCell>
                         <TableCell>
                           {(() => {
                             const dir = movementDirectionLabel(row.type);
@@ -444,7 +482,9 @@ function DayLogsPage() {
                                   ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-800/30"
                                   : "bg-muted text-muted-foreground border-border";
                             return (
-                              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${badgeColor}`}>
+                              <span
+                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${badgeColor}`}
+                              >
                                 <RouteIcon className="h-3 w-3" />
                                 {label}
                               </span>
@@ -477,17 +517,26 @@ function DayLogsPage() {
                         <TableCell className="max-w-[320px]">
                           <div className="space-y-1">
                             {row.clientName && (
-                              <div className="font-semibold text-xs text-foreground truncate" title={row.clientName}>
+                              <div
+                                className="font-semibold text-xs text-foreground truncate"
+                                title={row.clientName}
+                              >
                                 {row.clientName}
                               </div>
                             )}
                             {row.clientLocationName && (
-                              <div className="text-[11px] text-muted-foreground truncate" title={row.clientLocationName}>
+                              <div
+                                className="text-[11px] text-muted-foreground truncate"
+                                title={row.clientLocationName}
+                              >
                                 {row.clientLocationName}
                               </div>
                             )}
                             {row.address && (
-                              <div className="text-[11px] text-muted-foreground/80 line-clamp-2" title={row.address}>
+                              <div
+                                className="text-[11px] text-muted-foreground/80 line-clamp-2"
+                                title={row.address}
+                              >
                                 {row.address}
                               </div>
                             )}

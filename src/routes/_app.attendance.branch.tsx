@@ -54,7 +54,12 @@ function BranchAttendancePage() {
   function openDayLogs(row: AttendanceRecord) {
     sessionStorage.setItem(
       "attendance-day-log-selection",
-      JSON.stringify({ employeeId: row.employeeId, employeeName: row.employeeName, from: row.date, to: row.date }),
+      JSON.stringify({
+        employeeId: row.employeeId,
+        employeeName: row.employeeName,
+        from: row.date,
+        to: row.date,
+      }),
     );
     void navigate({ to: "/attendance/locations" });
   }
@@ -144,7 +149,6 @@ function BranchAttendancePage() {
           </div>
         )}
       </div>
-
     </div>
   );
 }

@@ -24,11 +24,7 @@ export const MISSED_PUNCH_TYPE_OPTIONS = [
   "FIELD_CHECK_OUT",
 ] as const;
 
-function movementPlaceLabel(
-  eventType: string,
-  eventSource?: string,
-  branchName?: string,
-): string {
+function movementPlaceLabel(eventType: string, eventSource?: string, branchName?: string): string {
   if (eventSource === "THUMB_SCANNER") {
     return `${branchName ?? "Branch"} - biometric`;
   }

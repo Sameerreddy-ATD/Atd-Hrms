@@ -170,11 +170,7 @@ function HolidaysPage() {
                   <TableCell>{branchName(h.branchId)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openEditDialog(h)}
-                      >
+                      <Button size="sm" variant="outline" onClick={() => openEditDialog(h)}>
                         <Pencil className="mr-2 h-4 w-4" /> Edit
                       </Button>
                       <Button

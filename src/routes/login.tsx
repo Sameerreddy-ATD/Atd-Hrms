@@ -150,9 +150,7 @@ function LoginPage() {
             <p className="mt-6 text-center text-xs text-muted-foreground">
               If you forgot your password, contact HR.
             </p>
-            <p className="mt-2 text-center text-[10px] text-muted-foreground/60">
-              Version 1.0
-            </p>
+            <p className="mt-2 text-center text-[10px] text-muted-foreground/60">Version 1.0</p>
           </CardContent>
         </Card>
       </div>

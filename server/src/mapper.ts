@@ -203,9 +203,7 @@ function movementPlaceLabel(
   return eventType.replaceAll("_", " ");
 }
 
-function movementLabel(
-  event: AttendanceEvent & { branch?: Branch | null },
-) {
+function movementLabel(event: AttendanceEvent & { branch?: Branch | null }) {
   const branchName = event.branch?.branchName;
   const source = movementPlaceLabel(event.eventType, event.eventSource, branchName);
   const direction = movementDirectionLabel(event.eventType);

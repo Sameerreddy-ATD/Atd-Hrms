@@ -291,19 +291,19 @@ function AttendanceCorrectionsPage() {
             <Input
               type="date"
               value={from}
-          max={to || undefined}
-          onChange={(e) => {
-            const nextFrom = e.target.value;
-            setFrom(nextFrom);
-            if (to && nextFrom && to < nextFrom) setTo(nextFrom);
-          }}
+              max={to || undefined}
+              onChange={(e) => {
+                const nextFrom = e.target.value;
+                setFrom(nextFrom);
+                if (to && nextFrom && to < nextFrom) setTo(nextFrom);
+              }}
               className="sm:w-auto"
               aria-label="From date"
             />
             <Input
               type="date"
               value={to}
-          min={from || undefined}
+              min={from || undefined}
               onChange={(e) => setTo(e.target.value)}
               className="sm:w-auto"
               aria-label="To date"

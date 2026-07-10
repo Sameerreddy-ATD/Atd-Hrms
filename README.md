@@ -1,182 +1,155 @@
-# AnytimeDiesel HRMS
+# Anytime Diesel HRMS
 
-Production-oriented HRMS frontend plus Node/Express backend for secure login, RBAC, employee management, branch/device management, attendance movement timelines, leave, profile requests, reports, and audit logs.
+Anytime Diesel HRMS is a production-oriented employee operations system for login management, employee records, branch and biometric setup, attendance, leave, notifications, reports, audit logs, and role-based dashboards.
 
-The application uses **MySQL 8.0** as its only runtime database. Prisma connects through `DATABASE_URL`; the frontend never talks to the database directly.
+The application uses **MySQL 8.0** at runtime. Prisma connects through `DATABASE_URL`; the frontend communicates only with the Express backend APIs.
+
+## Documentation
+
+- [User Guide](docs/USER_GUIDE.md) - HR, manager, employee, field staff, and leadership usage.
+- [Technical Overview](docs/TECHNICAL_OVERVIEW.md) - architecture, setup, API areas, database model, and verification.
+- [Database Scripts](scripts/README.md) - MySQL helper scripts and migration utilities.
+
+## Core Features
+
+- Secure login with HTTP-only cookies.
+- First-login password update with automatic sign-in after password change.
+- No public signup; HR/Admin creates accounts.
+- Role-based access for Developer Admin, Main Admin, CEO, HR, Manager, Employee, Sales, Driver, and Field Staff.
+- Employee profiles with department, branch, reporting manager, gender, employment type, birthday, and attendance mode.
+- User lifecycle management: create, update, suspend, deactivate, delete, and reset password.
+- Department head assignment.
+- Branch, holiday, leave type, biometric device, and biometric mapping administration.
+- Biometric and mobile attendance support.
+- Daily attendance timeline, branch movement, field work, client visit, missed punch, and correction workflows.
+- Leave application, approvals, balances, policies, and reports.
+- User-scoped notifications.
+- Dashboard analytics and operational reports.
+- Audit logging for sensitive actions.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  Browser["React frontend"] -->|JSON API + cookies| API["Express backend"]
+  API --> Prisma["Prisma Client"]
+  Prisma --> MySQL["MySQL 8.0"]
+  API --> RBAC["RBAC checks"]
+  API --> Audit["Audit logs"]
+```
 
 ## Prerequisites
 
 - Node.js 22+
-- MySQL Server 8.0+
 - npm
+- MySQL Server 8.0+
 
-## Install
+## Quick Start On Windows
 
-```bash
+Open Command Prompt or PowerShell:
+
+```bat
+D:
+cd D:\anytime-crew-hub
 npm install
+copy .env.example .env
 ```
 
-## Environment
-
-Create `.env` from `.env.example` and set strong secrets:
-
-```bash
-cp .env.example .env
-```
-
-Important variables:
-
-| Variable | Purpose |
-| --- | --- |
-| `DATABASE_URL` | MySQL connection string for Prisma and the backend |
-| `MYSQL_ROOT_PASSWORD` | Optional. Used by `npm run db:start-mysql` on Windows |
-| `FRONTEND_ORIGIN` | Exact frontend origin, for example `http://localhost:5173` |
-| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | Strong, different production secrets |
-| `COOKIE_SECURE` | Set `true` in production behind HTTPS |
-
-Example `DATABASE_URL`:
+Set `DATABASE_URL` in `.env`, for example:
 
 ```text
-mysql://root:your-password@127.0.0.1:3306/anytimediesel_hrms
+DATABASE_URL="mysql://root:5566@127.0.0.1:3306/anytimediesel_hrms"
 ```
 
-Do not commit `.env` or real secrets.
+Start MySQL, apply the schema, and seed baseline data:
 
-## Database (MySQL)
-
-### Daily development
-
-1. Start MySQL.
-2. Apply migrations if the schema changed.
-3. Start the backend and frontend.
-
-```bash
-npm run db:start-mysql   # Windows project-local MySQL helper
-npm run db:deploy        # production-safe migration apply
-npm run dev:backend
-npm run dev
-```
-
-Use `npm run db:migrate` instead of `db:deploy` only when you are actively authoring new Prisma migrations in development.
-
-### First-time setup
-
-If you already have MySQL Server installed and running as a Windows service, create the database once:
-
-```sql
-CREATE DATABASE anytimediesel_hrms
-  CHARACTER SET utf8mb4
-  COLLATE utf8mb4_unicode_ci;
-```
-
-If the Windows `MySQL80` service is unavailable, this repo can run a project-local MySQL instance from `.mysql-data-clean/`:
-
-```bash
+```bat
 npm run db:start-mysql
-```
-
-Then deploy the schema and seed baseline data:
-
-```bash
 npm run db:deploy
 npm run db:seed
 ```
 
-Verify the backend can reach MySQL:
+Start the backend:
 
-```bash
-npm run db:verify
-curl http://localhost:4000/health/db
-```
-
-Expected health response:
-
-```json
-{ "ok": true, "provider": "mysql", "database": "reachable" }
-```
-
-### Database scripts
-
-| Command | Purpose |
-| --- | --- |
-| `npm run db:start-mysql` | Start project-local MySQL on `127.0.0.1:3306` |
-| `npm run db:migrate` | Create/apply Prisma migrations in development |
-| `npm run db:deploy` | Apply committed migrations in dev or production |
-| `npm run db:seed` | Seed predefined password and demo data on empty DB |
-| `npm run db:verify` | Confirm Prisma can read from MySQL |
-
-Script files live in `scripts/`:
-
-- `start-mysql.ps1` — starts the local MySQL data directory
-- `verify-mysql.mjs` — quick Prisma connectivity check
-- `migrate-postgres-to-mysql.ps1` — one-time legacy transfer utility only
-
-### Seed credentials
-
-The initial seed configures a predefined temporary login password:
-
-```text
-ChangeMe@12345
-```
-
-Seed users include Developer Admin, CEO, HR, Manager, Employee, Sales, and Driver accounts. The seed also creates two branches, two biometric devices, biometric mappings, leave types, and a sample full movement day: Branch 1 thumb in/out, Branch 2 thumb in/out, then client GPS check-in/check-out.
-
-If you migrated from an existing database, user passwords remain whatever they were before migration.
-
-### Predefined new-account password
-
-HR, Main Admin, and Developer Admin can:
-
-- Update the predefined password from **System Settings**
-- Use it when creating new logins from **User Logins → Create Login**
-- Reset individual user passwords from **User Logins**
-
-Only the bcrypt hash is stored in the MySQL `system_settings` table.
-
-### Prisma migrations
-
-Active migrations are MySQL-native and live in `prisma/migrations/`.
-
-Legacy PostgreSQL migration history is archived in `prisma/postgresql-migrations/` for audit only. Do not run those files against MySQL.
-
-## Run Locally
-
-Backend:
-
-```bash
+```bat
 npm run dev:backend
 ```
 
-Frontend:
+Start the frontend in another terminal:
 
-```bash
+```bat
 npm run dev
 ```
 
-Both together:
+Open the frontend URL shown by Vite, commonly:
 
-```bash
-npm run dev:all
+```text
+http://localhost:5173
 ```
 
-Open the frontend at the Vite URL and sign in with your account credentials. The frontend talks to `VITE_API_BASE_URL` if set, otherwise `http://localhost:4000`.
+The backend usually runs on:
 
-## Production Build
+```text
+http://localhost:4000
+```
 
-```bash
+## Environment Variables
+
+Important `.env` values:
+
+| Variable              | Purpose                                                    |
+| --------------------- | ---------------------------------------------------------- |
+| `DATABASE_URL`        | MySQL connection string for Prisma and the backend         |
+| `MYSQL_ROOT_PASSWORD` | Optional helper value for local MySQL scripts              |
+| `FRONTEND_ORIGIN`     | Exact frontend origin, for example `http://localhost:5173` |
+| `JWT_ACCESS_SECRET`   | Strong access-token secret                                 |
+| `JWT_REFRESH_SECRET`  | Strong refresh-token secret                                |
+| `COOKIE_SECURE`       | Set to `true` in production behind HTTPS                   |
+
+Do not commit `.env` or real passwords.
+
+## Database Commands
+
+| Command                  | Purpose                                         |
+| ------------------------ | ----------------------------------------------- |
+| `npm run db:start-mysql` | Start project-local MySQL on `127.0.0.1:3306`   |
+| `npm run db:migrate`     | Create/apply Prisma migrations in development   |
+| `npm run db:deploy`      | Apply committed migrations                      |
+| `npm run db:seed`        | Seed predefined password and demo/baseline data |
+| `npm run db:verify`      | Confirm Prisma can read from MySQL              |
+
+Active MySQL migrations live in `prisma/migrations/`. Legacy PostgreSQL migrations are archived in `prisma/postgresql-migrations/` for reference only.
+
+## Verification
+
+Run these before pushing:
+
+```bat
+npm run typecheck
+npm run lint
+npm test
 npm run build
 npm run build:backend
+npm run db:verify
 ```
 
-Before starting the backend in production:
+## Workflow Summary
 
-```bash
-npm run db:deploy
+```mermaid
+flowchart LR
+  HR["HR/Admin creates login"] --> Temp["Temporary password"]
+  Temp --> FirstLogin["First login"]
+  FirstLogin --> Password["User changes password"]
+  Password --> Dashboard["Role-based dashboard"]
 ```
 
-Deploy the frontend output from `.output` according to the TanStack/Nitro target. Deploy the backend with the compiled `dist-server/server/src/index.js` or run the TypeScript entry with a managed Node process if your platform supports it.
-
-Set `DATABASE_URL` to your production MySQL instance. The backend and Prisma client both use this single connection string.
+```mermaid
+flowchart LR
+  Punch["Biometric or mobile punch"] --> Event["Attendance event"]
+  Event --> Timeline["Daily timeline"]
+  Timeline --> Summary["Daily summary"]
+  Summary --> Reports["Attendance, branch, field, client, leave, payroll reports"]
+```
 
 ## Security Notes
 
@@ -184,21 +157,7 @@ Set `DATABASE_URL` to your production MySQL instance. The backend and Prisma cli
 - Passwords are hashed with bcrypt.
 - Auth endpoints are rate-limited.
 - Helmet secure headers and explicit CORS are enabled.
-- No public signup route exists.
-- User creation rules and object-level attendance access are enforced on the backend.
+- Public signup is disabled.
+- Object-level attendance and employee access are enforced by the backend.
 - Sensitive actions write audit logs.
-- Production startup rejects wildcard/empty CORS origin and weak JWT secrets.
-
-## Verification
-
-```bash
-npm run lint
-npm run typecheck
-npm test
-npm run db:verify
-npm run build
-npm run build:backend
-npm run audit:deps
-```
-
-Current lint status may include Fast Refresh warnings from existing shared UI modules, but no lint errors.
+- Production startup should use strong JWT secrets and HTTPS cookies.
