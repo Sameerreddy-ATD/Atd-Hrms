@@ -23,7 +23,7 @@ For 200-300 users, start with:
 | Network  | Wired LAN preferred                  |
 | OS       | Ubuntu Server 22.04 LTS or 24.04 LTS |
 
-If biometric devices sync many attendance punches at the same time, prefer 16 GB RAM and SSD storage.
+Biometric/eSSL sync is planned for the next version. When that integration is added and many device punches sync at the same time, prefer 16 GB RAM and SSD storage.
 
 ## 2. Install System Packages
 

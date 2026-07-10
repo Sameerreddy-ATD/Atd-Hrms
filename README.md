@@ -1,6 +1,6 @@
 # Anytime Diesel HRMS
 
-Anytime Diesel HRMS is a production-oriented employee operations system for login management, employee records, branch and biometric setup, attendance, leave, notifications, reports, audit logs, and role-based dashboards.
+Anytime Diesel HRMS is a production-oriented employee operations system for login management, employee records, branch setup, attendance, leave, notifications, reports, audit logs, and role-based dashboards.
 
 The application uses **MySQL 8.0** at runtime. Prisma connects through `DATABASE_URL`; the frontend communicates only with the Express backend APIs.
 
@@ -20,8 +20,9 @@ The application uses **MySQL 8.0** at runtime. Prisma connects through `DATABASE
 - Employee profiles with department, branch, reporting manager, gender, employment type, birthday, and attendance mode.
 - User lifecycle management: create, update, suspend, deactivate, delete, and reset password.
 - Department head assignment.
-- Branch, holiday, leave type, biometric device, and biometric mapping administration.
-- Biometric and mobile attendance support.
+- Branch, holiday, and leave type administration.
+- Mobile attendance support.
+- Biometric/eSSL device integration is planned for the next version.
 - Daily attendance timeline, branch movement, field work, client visit, missed punch, and correction workflows.
 - Leave application, approvals, balances, policies, and reports.
 - User-scoped notifications.
@@ -162,3 +163,18 @@ flowchart LR
 - Object-level attendance and employee access are enforced by the backend.
 - Sensitive actions write audit logs.
 - Production startup should use strong JWT secrets and HTTPS cookies.
+
+## Version Notes And Roadmap
+
+Current version:
+
+- Mobile attendance and attendance reporting are part of the working HRMS flow.
+- Biometric/eSSL devices are not live yet. They are planned for the next version.
+
+Future attendance verification roadmap:
+
+- eSSL/fingerprint device sync.
+- Branch GPS/location checks.
+- Approved branch Wi-Fi checks, so branch-mobile attendance is accepted only when the mobile is connected to the correct branch Wi-Fi.
+- Photo/selfie verification for mobile check-in and check-out.
+- Combined branch-mobile proof using location, Wi-Fi, and photo verification.

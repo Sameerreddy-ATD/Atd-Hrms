@@ -134,8 +134,8 @@ The frontend API client currently calls these backend areas:
 | `/employees/*`                | Employee list/detail/update, manager checks, birthdays                              |
 | `/branches/*`                 | Branch create/edit/delete/list                                                      |
 | `/departments/*`              | Department create/edit/delete/list and department head assignment                   |
-| `/biometric/devices/*`        | eSSL/biometric device setup                                                         |
-| `/biometric/mappings/*`       | Employee-to-biometric user/device mapping                                           |
+| `/biometric/devices/*`        | Planned eSSL/biometric device setup for next version                                |
+| `/biometric/mappings/*`       | Planned employee-to-biometric user/device mapping for next version                  |
 | `/attendance/*`               | My attendance, HR/team reports, mobile punches, correction requests, recalculation  |
 | `/leave/*`                    | Leave types, balances, requests, approvals/rejections                               |
 | `/holidays/*`                 | Holiday list/create/edit/delete                                                     |
@@ -226,3 +226,19 @@ npm run db:verify
 - The project uses MySQL at runtime. PostgreSQL migration files are retained only as historical reference.
 - Some lint warnings may remain from shared UI components that export both components and helper values; lint errors should be fixed before pushing.
 - Large frontend chunks may be reported during build. This is a performance warning, not a failed build.
+
+## Current Version Limits And Next Version Plan
+
+Current version:
+
+- Mobile attendance, leave, HR/admin setup, reports, user lifecycle, and role-based dashboards are the primary working flows.
+- Biometric/eSSL device integration is not considered live yet.
+- Biometric device and mapping routes/screens describe the intended data model and workflow, but real device sync/import should be completed in the next version before operational use.
+
+Next version attendance verification plan:
+
+- eSSL/fingerprint device sync/import.
+- Branch geofence verification using latitude and longitude.
+- Approved branch Wi-Fi verification for branch-mobile attendance.
+- Photo/selfie capture during mobile check-in and check-out.
+- Attendance proof summary showing source: biometric, GPS, Wi-Fi, photo, manual correction, or combined verification.

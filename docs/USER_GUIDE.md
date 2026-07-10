@@ -11,7 +11,7 @@ This guide explains how HR, managers, employees, field staff, and leadership use
 | Employees                      | Full access                                                | Full access                                                | Full access                                        | Summary/report access   | Assigned team only          | Own profile only                        |
 | Departments                    | Add, edit, delete, assign department heads                 | As configured                                              | As configured                                      | View reports            | No                          | No                                      |
 | Branches                       | Add, edit, deactivate                                      | Add, edit, deactivate                                      | Add, edit, deactivate                              | View reports            | View assigned/team data     | No                                      |
-| Biometric devices and mappings | Add, edit, deactivate, map employees                       | Add, edit, deactivate, map employees                       | Add, edit, deactivate, map employees               | View reports            | View team attendance        | No                                      |
+| Biometric devices and mappings | Planned next version                                       | Planned next version                                       | Planned next version                               | Planned next version    | Planned next version        | No                                      |
 | Attendance                     | Full operational access                                    | Full operational access                                    | Full operational access                            | Reports and summaries   | Assigned team only          | Own attendance only                     |
 | Leave policy and types         | Add, edit, delete                                          | Add, edit, delete                                          | Add, edit, delete                                  | View reports            | Approve assigned team leave | Apply and track own leave               |
 | Holidays                       | Add, edit, delete                                          | Add, edit, delete                                          | Add, edit, delete                                  | View                    | View                        | View                                    |
@@ -63,20 +63,20 @@ Only the password hash is stored in MySQL. Existing users keep their own passwor
 
 ## Employee: Mark Attendance
 
-Employees can use biometric attendance, mobile attendance, or both depending on their employee attendance mode.
+Employees can use mobile attendance in the current version. Biometric/eSSL attendance is planned for the next version.
 
 1. Open **My Attendance**.
 2. Review today's timeline.
 3. Use mobile check-in or check-out when allowed.
-4. Biometric punches from eSSL/fingerprint devices appear in the same daily timeline after they are imported or synced into the backend.
+4. In the next version, biometric punches from eSSL/fingerprint devices will appear in the same daily timeline after they are imported or synced into the backend.
 
 Example movement timeline:
 
 ```mermaid
 sequenceDiagram
   participant Employee
-  participant Branch1 as Branch 1 Device
-  participant Branch2 as Branch 2 Device
+  participant Branch1 as Branch 1 Device Next Version
+  participant Branch2 as Branch 2 Device Next Version
   participant Mobile as Mobile App
   participant HRMS as HRMS Backend
 
@@ -163,12 +163,24 @@ Department head assignment is stored on the department record and can be changed
 
 ## HR/Admin: Manage Biometric Devices And Mapping
 
+Status: planned for the next version. The current application documents the intended eSSL/fingerprint mapping flow, but real device integration is not live yet.
+
 1. Open **Biometric Devices**.
 2. Add the eSSL device details, branch, IP, port, and location.
 3. Open device mapping.
 4. Link each employee to the biometric user ID from the device.
 
-When eSSL integration is connected, imported device punches should create attendance events for mapped employees.
+When eSSL integration is added in the next version, imported device punches should create attendance events for mapped employees.
+
+## Future Attendance Verification Roadmap
+
+The next attendance improvements should make branch-mobile attendance stricter and easier to trust:
+
+- GPS/location check near the selected branch.
+- Approved branch Wi-Fi check, so attendance is accepted only when the mobile is connected to that branch network.
+- Photo/selfie verification during check-in and check-out.
+- Combined proof for branch-mobile attendance: location + Wi-Fi + optional photo.
+- Clear status labels showing whether attendance was verified by branch GPS, Wi-Fi, biometric device, or HR correction.
 
 ## Notifications
 
