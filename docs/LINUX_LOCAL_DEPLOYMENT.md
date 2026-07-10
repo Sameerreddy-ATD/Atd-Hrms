@@ -11,6 +11,11 @@ The recommended local production setup is:
 - PM2 process manager
 - LAN access from office computers and mobiles
 
+Use this guide in two ways:
+
+- **Local LAN deployment**: users open the app with the server IP, for example `http://192.168.1.50`.
+- **Domain deployment**: users open the app with your domain, for example `https://hrms.anytimediesel.com`.
+
 ## 1. Recommended Machine Size
 
 For 200-300 users, start with:
@@ -110,7 +115,7 @@ cp .env.example .env
 nano .env
 ```
 
-Use values like this:
+Use values like this for IP/LAN deployment:
 
 ```text
 DATABASE_URL="mysql://atd_hrms:CHANGE_THIS_STRONG_PASSWORD@127.0.0.1:3306/anytimediesel_hrms"
@@ -126,11 +131,19 @@ NODE_ENV=production
 
 For local LAN HTTP deployment, keep `COOKIE_SECURE=false`.
 
-If you later add HTTPS, change:
+For domain + HTTPS deployment, use values like this:
 
 ```text
+DATABASE_URL="mysql://atd_hrms:CHANGE_THIS_STRONG_PASSWORD@127.0.0.1:3306/anytimediesel_hrms"
+BACKEND_PORT=4000
+FRONTEND_ORIGIN="https://hrms.your-domain.com"
+VITE_API_BASE_URL="https://hrms.your-domain.com/api"
+JWT_ACCESS_SECRET="make-this-a-long-random-secret"
+JWT_REFRESH_SECRET="make-this-a-different-long-random-secret"
+SESSION_COOKIE_NAME="adh_session"
+REFRESH_COOKIE_NAME="adh_refresh"
 COOKIE_SECURE=true
-FRONTEND_ORIGIN="https://your-domain-or-server-name"
+NODE_ENV=production
 ```
 
 ## 8. Install Project Dependencies
@@ -232,7 +245,7 @@ pm2 logs atd-hrms-backend
 pm2 logs atd-hrms-frontend
 ```
 
-## 13. Configure Nginx
+## 13. Configure Nginx For IP/LAN Access
 
 Create a site config:
 
@@ -295,14 +308,172 @@ Now open:
 http://YOUR_SERVER_IP
 ```
 
-## 14. Firewall
+## 14. Connect Your Domain
 
-Allow SSH and web traffic:
+Use this when you want users to open the HRMS using a domain like:
+
+```text
+https://hrms.anytimediesel.com
+```
+
+### Step 1: Point DNS To The Server
+
+In your domain provider or DNS panel, create an `A` record:
+
+| Type | Name   | Value                 |
+| ---- | ------ | --------------------- |
+| `A`  | `hrms` | Your public server IP |
+
+Example:
+
+```text
+hrms.anytimediesel.com -> 203.0.113.10
+```
+
+If the Linux server is inside the office and does not have a public IP, you have two options:
+
+- Use local LAN only, for example `http://192.168.1.50`.
+- Ask your internet provider/router admin to set a static public IP and port forwarding to the Linux server.
+
+Do not expose MySQL. Only web traffic should be opened to the internet.
+
+### Step 2: Update `.env`
+
+Edit:
+
+```bash
+cd /opt/anytime-crew-hub
+nano .env
+```
+
+Set:
+
+```text
+FRONTEND_ORIGIN="https://hrms.your-domain.com"
+VITE_API_BASE_URL="https://hrms.your-domain.com/api"
+COOKIE_SECURE=true
+NODE_ENV=production
+```
+
+### Step 3: Update Nginx For Domain
+
+Edit:
+
+```bash
+sudo nano /etc/nginx/sites-available/anytime-hrms
+```
+
+Use this config. Replace `hrms.your-domain.com` with your real domain.
+
+```nginx
+server {
+    listen 80;
+    server_name hrms.your-domain.com;
+
+    client_max_body_size 20m;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:4000/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /health {
+        proxy_pass http://127.0.0.1:4000/health;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+
+    location /health/db {
+        proxy_pass http://127.0.0.1:4000/health/db;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:8081;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Test and reload:
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### Step 4: Rebuild Frontend After Domain Change
+
+The frontend reads `VITE_API_BASE_URL` during build, so rebuild after changing `.env`:
+
+```bash
+cd /opt/anytime-crew-hub
+npm run build
+pm2 restart atd-hrms-frontend
+pm2 restart atd-hrms-backend
+```
+
+## 15. Add HTTPS SSL Certificate
+
+Install Certbot:
+
+```bash
+sudo apt install -y certbot python3-certbot-nginx
+```
+
+Request SSL certificate:
+
+```bash
+sudo certbot --nginx -d hrms.your-domain.com
+```
+
+Choose the option to redirect HTTP to HTTPS when Certbot asks.
+
+Check auto-renewal:
+
+```bash
+sudo certbot renew --dry-run
+```
+
+After HTTPS is working, confirm `.env` has:
+
+```text
+FRONTEND_ORIGIN="https://hrms.your-domain.com"
+VITE_API_BASE_URL="https://hrms.your-domain.com/api"
+COOKIE_SECURE=true
+```
+
+Then rebuild and restart:
+
+```bash
+npm run build
+pm2 restart all
+```
+
+## 16. Firewall
+
+For LAN/IP deployment, allow SSH and web traffic:
 
 ```bash
 sudo ufw allow OpenSSH
 sudo ufw allow 80/tcp
 sudo ufw enable
+sudo ufw status
+```
+
+For domain + HTTPS deployment, also allow HTTPS:
+
+```bash
+sudo ufw allow 443/tcp
 sudo ufw status
 ```
 
@@ -314,12 +485,18 @@ sudo ufw allow 8081/tcp
 
 After Nginx is working, direct frontend port access is not needed.
 
-## 15. Frontend API URL
+## 17. Frontend API URL
 
 For Nginx deployment, set frontend API base URL before building:
 
 ```text
 VITE_API_BASE_URL="http://YOUR_SERVER_IP/api"
+```
+
+For domain + HTTPS deployment:
+
+```text
+VITE_API_BASE_URL="https://hrms.your-domain.com/api"
 ```
 
 Add it to `.env`, then rebuild:
@@ -335,13 +512,39 @@ Without Nginx, the frontend can talk directly to:
 VITE_API_BASE_URL="http://YOUR_SERVER_IP:4000"
 ```
 
-## 16. Update Deployment Later
+## 18. Update Deployment To A New Version
 
-When new code is pushed:
+Use this every time a new version is pushed to GitHub.
+
+### Safe Update Checklist
+
+1. Inform users about short downtime.
+2. Backup MySQL.
+3. Pull latest code.
+4. Install dependencies.
+5. Apply database migrations.
+6. Build frontend and backend.
+7. Restart PM2.
+8. Test login and key pages.
+
+### Step 1: Backup Before Updating
+
+```bash
+mysqldump -u atd_hrms -p anytimediesel_hrms > /var/backups/anytime-hrms/before_update_$(date +%F_%H-%M).sql
+```
+
+### Step 2: Pull Latest Code
 
 ```bash
 cd /opt/anytime-crew-hub
+git fetch origin
+git status
 git pull origin main
+```
+
+### Step 3: Install, Migrate, Build, Restart
+
+```bash
 npm ci
 npm run db:deploy
 npm run typecheck
@@ -351,7 +554,77 @@ pm2 restart atd-hrms-backend
 pm2 restart atd-hrms-frontend
 ```
 
-## 17. Backup MySQL Daily
+### Step 4: Verify After Update
+
+```bash
+pm2 status
+curl http://localhost:4000/health
+curl http://localhost:4000/health/db
+```
+
+Then open the app and check:
+
+- Login
+- Dashboard
+- Employee list
+- Leave apply
+- Attendance page
+- Notifications
+
+## 19. Version Tagging
+
+When you want to mark a stable deployment version, tag it in Git:
+
+```bash
+git tag -a v1.0.0 -m "Anytime Diesel HRMS v1.0.0"
+git push origin v1.0.0
+```
+
+For the next version:
+
+```bash
+git tag -a v1.1.0 -m "Anytime Diesel HRMS v1.1.0"
+git push origin v1.1.0
+```
+
+Use simple version meaning:
+
+- `v1.0.0` - first stable local deployment
+- `v1.1.0` - new feature release
+- `v1.1.1` - small fix release
+
+## 20. Roll Back To Previous Version
+
+Use rollback only if the latest update has a serious issue.
+
+### Roll Back Code
+
+List recent commits:
+
+```bash
+git log --oneline -10
+```
+
+Go back to a known good tag or commit:
+
+```bash
+git checkout v1.0.0
+npm ci
+npm run db:deploy
+npm run build
+npm run build:backend
+pm2 restart all
+```
+
+Important: database migrations are not always reversible. If a database migration caused the problem, restore the backup taken before update:
+
+```bash
+mysql -u atd_hrms -p anytimediesel_hrms < /var/backups/anytime-hrms/before_update_YYYY-MM-DD_HH-MM.sql
+```
+
+After rollback, test login and important pages again.
+
+## 21. Backup MySQL Daily
 
 Create backup folder:
 
@@ -380,7 +653,7 @@ Add:
 
 Important: if you put the password in cron, keep server access restricted.
 
-## 18. Performance Notes For 200-300 Users
+## 22. Performance Notes For 200-300 Users
 
 Use these settings as a practical starting point.
 
@@ -423,18 +696,19 @@ pm2 save
 
 Use `-i 4` only if the server has enough CPU cores.
 
-## 19. Security Checklist
+## 23. Security Checklist
 
 - Use strong MySQL password.
 - Use strong `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET`.
 - Do not expose MySQL port `3306` to the network.
 - Keep only ports `80` and `22` open unless HTTPS is configured.
-- Use HTTPS if users access from outside the office LAN.
+- Use HTTPS if users access by domain or from outside the office LAN.
+- Keep MySQL bound to localhost where possible.
 - Keep `.env` private.
 - Run regular MySQL backups.
 - Create Linux user accounts only for trusted admins.
 
-## 20. Common Problems
+## 24. Common Problems
 
 ### Login works on server but not other computers
 
@@ -444,6 +718,29 @@ Check:
 - `VITE_API_BASE_URL` points to the backend or Nginx `/api`.
 - Nginx config is reloaded.
 - Firewall allows port `80`.
+
+### Domain opens but login fails
+
+Check:
+
+- DNS points to the correct server IP.
+- Nginx `server_name` matches the domain.
+- `.env` has the exact domain in `FRONTEND_ORIGIN`.
+- `.env` has the exact API URL in `VITE_API_BASE_URL`.
+- Frontend was rebuilt after changing `.env`.
+- For HTTPS, `COOKIE_SECURE=true`.
+
+### SSL certificate fails
+
+Check:
+
+```bash
+sudo nginx -t
+sudo ufw status
+dig hrms.your-domain.com
+```
+
+The domain must point to the server public IP before Certbot can issue a certificate.
 
 ### Database connection fails
 
