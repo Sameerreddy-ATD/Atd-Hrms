@@ -1,10 +1,11 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/common/PasswordInput";
 import {
   Select,
   SelectContent,
@@ -21,11 +22,6 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
-// ⚠️ DEMO MODE BLOCK
-// The "Continue as role" selector below is a mock-mode convenience only.
-// Remove this entire section (and `loginAsRole` from AuthContext) before
-// wiring the real backend. Employees cannot self-register — logins are
-// created by Developer Admin, Main Admin or HR.
 function LoginPage() {
   const { login, loginAsRole, user } = useAuth();
   const navigate = useNavigate();
@@ -37,7 +33,8 @@ function LoginPage() {
   const showDemoLogin = import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_LOGIN === "true";
 
   useEffect(() => {
-    if (user) navigate({ to: "/dashboard", replace: true });
+    if (user?.mustChangePassword) navigate({ to: "/first-login", replace: true });
+    else if (user) navigate({ to: "/dashboard", replace: true });
   }, [user, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -51,9 +48,12 @@ function LoginPage() {
 
     setLoading(true);
     try {
-      await login(email, password);
+      const signedIn = await login(email, password);
       toast.success("Signed in");
-      navigate({ to: "/dashboard" });
+      if (signedIn.mustChangePassword) {
+        sessionStorage.setItem("atd.temp.pw", password);
+      }
+      navigate({ to: signedIn.mustChangePassword ? "/first-login" : "/dashboard" });
     } catch (err) {
       toast.error((err as Error).message || "Login failed");
     } finally {
@@ -75,39 +75,17 @@ function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <div className="mx-auto grid min-h-screen max-w-6xl grid-cols-1 items-center gap-8 px-4 py-8 lg:grid-cols-2 lg:gap-12">
-        {/* Brand panel */}
-        <div className="hidden flex-col justify-between rounded-2xl border border-border bg-card p-10 lg:flex">
-          <Logo className="h-10 w-auto" />
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-              AnytimeDiesel HRMS
-            </h1>
-            <p className="mt-3 max-w-md text-sm text-muted-foreground">
-              Manage attendance, leave, biometric devices, branches and field staff across the
-              organization in one place.
-            </p>
-            <ul className="mt-6 space-y-2 text-sm text-muted-foreground">
-              <li>• Thumb scanner &amp; branch-wise attendance</li>
-              <li>• Field GPS check-in for sales, drivers and field staff</li>
-              <li>• Role-based dashboards for HR, Managers and CEO</li>
-            </ul>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Internal use only. Unauthorized access is prohibited.
-          </p>
+    <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-8">
+      <div className="w-full max-w-md space-y-8">
+        <div className="flex justify-center">
+          <Logo className="h-12 w-auto" />
         </div>
 
-        {/* Login form */}
         <Card className="border-border shadow-sm">
           <CardContent className="p-6 sm:p-8">
-            <div className="mb-6 flex flex-col items-start gap-2 lg:hidden">
-              <Logo className="h-9 w-auto" />
-            </div>
             <h2 className="text-lg font-semibold text-foreground">Sign in</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Enter the credentials issued by your HR or admin.
+              Use the work email and password issued by your administrator.
             </p>
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
@@ -125,18 +103,9 @@ function LoginPage() {
                 {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
               </div>
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
-                  <Link
-                    to="/forgot-password"
-                    className="text-xs font-medium text-primary hover:underline"
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
-                <Input
+                <Label htmlFor="password">Password</Label>
+                <PasswordInput
                   id="password"
-                  type="password"
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -156,8 +125,7 @@ function LoginPage() {
                   Development mode
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Preview the app as any role. This selector will be removed once the real
-                  authentication backend is connected.
+                  Preview the app as any role. This selector is only available during development.
                 </p>
                 <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                   <Select value={role} onValueChange={(v) => setRole(v as Role)}>
@@ -180,7 +148,10 @@ function LoginPage() {
             )}
 
             <p className="mt-6 text-center text-xs text-muted-foreground">
-              Accounts are provisioned by HR or Admin. Public sign-up is disabled.
+              If you forgot your password, contact HR.
+            </p>
+            <p className="mt-2 text-center text-[10px] text-muted-foreground/60">
+              Version 1.0
             </p>
           </CardContent>
         </Card>

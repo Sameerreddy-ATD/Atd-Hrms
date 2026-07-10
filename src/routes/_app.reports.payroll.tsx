@@ -1,10 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { PlaceholderPage } from "@/components/common/PlaceholderPage";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
+
 export const Route = createFileRoute("/_app/reports/payroll")({
-  component: () => (
-    <PlaceholderPage
-      title="Payroll Attendance Export"
-      description="Export monthly attendance data for payroll processing."
-    />
-  ),
+  component: () => <Navigate to="/attendance" replace />,
 });

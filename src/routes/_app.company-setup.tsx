@@ -1,10 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { PlaceholderPage } from "@/components/common/PlaceholderPage";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
+
 export const Route = createFileRoute("/_app/company-setup")({
-  component: () => (
-    <PlaceholderPage
-      title="Company Setup"
-      description="Configure company information, working hours, and defaults."
-    />
-  ),
+  component: () => <Navigate to="/branches" replace />,
 });

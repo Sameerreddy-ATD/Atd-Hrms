@@ -17,6 +17,11 @@ dist-ssr
 .tanstack/**
 .nitro
 *.local
+.env
+.mysql-data/
+.mysql-data-clean/
+.mysql-data-clean-broken-*/
+scripts/.mysql-migration-batch.sql
 
 # Wrangler / Cloudflare
 .wrangler/

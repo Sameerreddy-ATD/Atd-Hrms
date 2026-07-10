@@ -1,5 +1,10 @@
 import { EventSource, EventType, Prisma, WorkType } from "@prisma/client";
 import { prisma } from "./prisma.js";
+import {
+  findApprovedLeaveForDay,
+  resolveNoEventStatus,
+  startOfDayUtc,
+} from "./attendanceDayRules.js";
 
 const outTypes = new Set<EventType>([
   EventType.OFFICE_OUT,
@@ -18,12 +23,45 @@ const inTypes = new Set<EventType>([
 ]);
 
 function startOfDay(date: string | Date) {
-  const d = new Date(date);
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  return startOfDayUtc(date);
 }
 
 function hoursBetween(a: Date, b: Date) {
   return Math.max(0, (b.getTime() - a.getTime()) / 36e5);
+}
+
+const officeGeofences = [
+  { names: ["Banjara", "Hills"], latitude: 17.4131417, longitude: 78.423295 },
+  { names: ["Madhapur"], latitude: 17.4391592, longitude: 78.3947783 },
+];
+const branchDetectionRadiusKm = 0.3;
+
+function distanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const radius = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return radius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+async function branchForCoordinates(latitude?: number, longitude?: number) {
+  if (latitude === undefined || longitude === undefined) return undefined;
+  for (const geofence of officeGeofences) {
+    if (distanceKm(latitude, longitude, geofence.latitude, geofence.longitude) > branchDetectionRadiusKm)
+      continue;
+    const branch = await prisma.branch.findFirst({
+      where: {
+        status: "ACTIVE",
+        OR: geofence.names.map((name) => ({
+          branchName: { contains: name },
+        })),
+      },
+    });
+    if (branch) return branch.branchId;
+  }
+  return undefined;
 }
 
 export async function inferThumbEventType(employeeId: string, branchId: string, eventTime: Date) {
@@ -58,11 +96,19 @@ export async function createAttendanceEvent(input: {
 }) {
   const eventTime = input.eventTime ?? new Date();
   const eventDate = startOfDay(eventTime);
-  const eventType =
+  let eventType =
     input.eventType ??
     (input.eventSource === EventSource.THUMB_SCANNER && input.branchId
       ? await inferThumbEventType(input.employeeId, input.branchId, eventTime)
       : EventType.FIELD_CHECK_IN);
+
+  let branchId = input.branchId;
+
+  if (input.eventSource === EventSource.MOBILE_GPS) {
+    branchId = branchId ?? (await branchForCoordinates(input.latitude, input.longitude));
+    if (branchId && eventType === EventType.FIELD_CHECK_IN) eventType = EventType.OFFICE_IN;
+    if (branchId && eventType === EventType.FIELD_CHECK_OUT) eventType = EventType.OFFICE_OUT;
+  }
 
   const event = await prisma.attendanceEvent.create({
     data: {
@@ -71,7 +117,7 @@ export async function createAttendanceEvent(input: {
       eventTime,
       eventSource: input.eventSource,
       eventType,
-      branchId: input.branchId,
+      branchId,
       deviceId: input.deviceId,
       latitude: input.latitude,
       longitude: input.longitude,
@@ -92,7 +138,7 @@ export async function createAttendanceEvent(input: {
 
 export async function recalculateDailySummary(employeeId: string, date: string | Date) {
   const eventDate = startOfDay(date);
-  const [employee, schedule, events, paidLeave, unpaidLeave] = await Promise.all([
+  const [employee, schedule, events] = await Promise.all([
     prisma.employee.findUniqueOrThrow({ where: { employeeId } }),
     prisma.employeeBranchSchedule.findUnique({
       where: { employeeId_date: { employeeId, date: eventDate } },
@@ -101,24 +147,6 @@ export async function recalculateDailySummary(employeeId: string, date: string |
       where: { employeeId, eventDate },
       orderBy: { eventTime: "asc" },
       include: { branch: true },
-    }),
-    prisma.leaveRequest.findFirst({
-      where: {
-        employeeId,
-        fromDate: { lte: eventDate },
-        toDate: { gte: eventDate },
-        status: "APPROVED",
-        leaveType: { paid: true },
-      },
-    }),
-    prisma.leaveRequest.findFirst({
-      where: {
-        employeeId,
-        fromDate: { lte: eventDate },
-        toDate: { gte: eventDate },
-        status: "APPROVED",
-        leaveType: { paid: false },
-      },
     }),
   ]);
 
@@ -144,7 +172,9 @@ export async function recalculateDailySummary(employeeId: string, date: string |
           ? "MOBILE_GPS"
           : "SYSTEM";
   const lastOut = [...events].reverse().find((e) => outTypes.has(e.eventType));
-  const hasMissingOutEvent = events.length > 0 && !lastOut;
+  const hasMissingOutEvent =
+    events.length > 0 &&
+    (!lastOut || Boolean(inTypes.has(events[events.length - 1]!.eventType)));
   const hasMissedCheckout =
     events.some((e) => e.eventType === EventType.CLIENT_CHECK_IN) &&
     !events.some((e) => e.eventType === EventType.CLIENT_CHECK_OUT);
@@ -170,6 +200,8 @@ export async function recalculateDailySummary(employeeId: string, date: string |
   }
 
   const firstCheckIn = events[0]?.eventTime;
+  const totalPresenceHours =
+    firstCheckIn && lastOut ? hoursBetween(firstCheckIn, lastOut.eventTime) : 0;
   const isBranchMismatch = Boolean(
     schedule?.scheduledBranchId &&
     branches.length &&
@@ -189,13 +221,14 @@ export async function recalculateDailySummary(employeeId: string, date: string |
   if (events.length) {
     if (hasThumb && hasGps) status = "Present - Office + Field";
     else if (branches.length > 1) status = "Present - Multi Branch";
-    else if (hasGps) status = "Present - Field";
+    else if (hasGps && !branches.length) status = "Present - Field";
     else if (isBranchMismatch) status = "Present - Other Branch";
     else status = "Present";
     if (hasMissedCheckout) status = "Missed Checkout";
     else if (hasMissingOutEvent) status = "Missed Punch";
-  } else if (paidLeave) status = "Paid Leave";
-  else if (unpaidLeave) status = "Unpaid Leave / LOP";
+  } else {
+    status = await resolveNoEventStatus(employeeId, eventDate);
+  }
 
   return prisma.attendanceDailySummary.upsert({
     where: { employeeId_date: { employeeId, date: eventDate } },
@@ -204,7 +237,7 @@ export async function recalculateDailySummary(employeeId: string, date: string |
       date: eventDate,
       firstCheckIn,
       lastCheckOut: lastOut?.eventTime,
-      totalHours: new Prisma.Decimal(officeHours + fieldHours + clientVisitHours),
+      totalHours: new Prisma.Decimal(totalPresenceHours),
       officeHours: new Prisma.Decimal(officeHours),
       fieldHours: new Prisma.Decimal(fieldHours),
       clientVisitHours: new Prisma.Decimal(clientVisitHours),
@@ -231,7 +264,7 @@ export async function recalculateDailySummary(employeeId: string, date: string |
     update: {
       firstCheckIn,
       lastCheckOut: lastOut?.eventTime,
-      totalHours: new Prisma.Decimal(officeHours + fieldHours + clientVisitHours),
+      totalHours: new Prisma.Decimal(totalPresenceHours),
       officeHours: new Prisma.Decimal(officeHours),
       fieldHours: new Prisma.Decimal(fieldHours),
       clientVisitHours: new Prisma.Decimal(clientVisitHours),

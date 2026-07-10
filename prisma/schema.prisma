@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -35,6 +35,18 @@ enum AttendanceMode {
   THUMB_ONLY
   MOBILE_GPS_ONLY
   BOTH
+}
+
+enum Gender {
+  FEMALE
+  MALE
+  PREFER_NOT_TO_SAY
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  INTERN
 }
 
 enum WorkType {
@@ -102,6 +114,8 @@ model User {
   createdByUserId                  String?    @map("created_by_user_id")
   createdAt                        DateTime   @default(now()) @map("created_at")
   updatedAt                        DateTime   @updatedAt @map("updated_at")
+  suspendedUntil                   DateTime?  @map("suspended_until")
+  suspensionStartsAt               DateTime?  @map("suspension_starts_at")
   createdUsers                     User[]     @relation("CreatedUsers")
   creator                          User?      @relation("CreatedUsers", fields: [createdByUserId], references: [id])
   performedAuditLogs               AuditLog[] @relation("AuditPerformedBy")
@@ -125,8 +139,10 @@ model Employee {
   manager           Employee?                  @relation("ManagerTeam", fields: [managerId], references: [employeeId])
   teamMembers       Employee[]                 @relation("ManagerTeam")
   joiningDate       DateTime?                  @map("joining_date") @db.Date
-  employmentType    String?                    @map("employment_type")
-  attendanceMode    AttendanceMode             @default(THUMB_ONLY) @map("attendance_mode")
+  dateOfBirth       DateTime?                  @map("date_of_birth") @db.Date
+  gender            Gender?
+  employmentType    EmploymentType?            @map("employment_type")
+  attendanceMode    AttendanceMode             @default(BOTH) @map("attendance_mode")
   isFieldEmployee   Boolean                    @default(false) @map("is_field_employee")
   status            EmployeeStatus             @default(ACTIVE)
   createdAt         DateTime                   @default(now()) @map("created_at")
@@ -139,15 +155,19 @@ model Employee {
   biometricMappings BiometricEmployeeMapping[]
   leaveRequests     LeaveRequest[]
   leaveBalances     LeaveBalance[]
+  correctionRequests AttendanceCorrectionRequest[]
   emergencyContact  EmergencyContact?
+  headedDepartments Department[]               @relation("DepartmentHead")
 
   @@map("employees")
 }
 
 model Department {
-  departmentId String     @id @default(cuid()) @map("department_id")
-  name         String     @unique
-  employees    Employee[]
+  departmentId    String     @id @default(cuid()) @map("department_id")
+  name            String     @unique
+  headEmployeeId  String?    @map("head_employee_id")
+  headEmployee    Employee?  @relation("DepartmentHead", fields: [headEmployeeId], references: [employeeId])
+  employees       Employee[]
 
   @@map("departments")
 }
@@ -165,8 +185,24 @@ model Branch {
   employees  Employee[]
   schedules  EmployeeBranchSchedule[]
   events     AttendanceEvent[]
+  holidays   Holiday[]
 
   @@map("branches")
+}
+
+model Holiday {
+  holidayId String   @id @default(cuid()) @map("holiday_id")
+  name      String
+  date      DateTime @db.Date
+  branchId  String?  @map("branch_id")
+  branch    Branch?  @relation(fields: [branchId], references: [branchId])
+  type      String
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([date])
+  @@map("holidays")
 }
 
 model BiometricDevice {
@@ -397,4 +433,30 @@ model AuditLog {
   createdAt         DateTime @default(now()) @map("created_at")
 
   @@map("audit_logs")
+}
+
+model AttendanceCorrectionRequest {
+  requestId       String         @id @default(cuid()) @map("request_id")
+  employeeId      String         @map("employee_id")
+  employee        Employee       @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  date            DateTime       @db.Date
+  punchTime       DateTime       @map("punch_time")
+  eventType       EventType      @map("event_type")
+  remarks         String
+  status          ApprovalStatus @default(PENDING)
+  reviewedBy      String?        @map("reviewed_by")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  @@map("attendance_correction_requests")
+}
+
+model SystemSetting {
+  key         String   @id
+  value       String   @db.Text
+  updatedById String?  @map("updated_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
 }

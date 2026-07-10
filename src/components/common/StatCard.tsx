@@ -23,13 +23,11 @@ export function StatCard({
   };
   return (
     <Card className="border-border shadow-sm">
-      <CardContent className="p-5">
+      <CardContent className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {label}
-            </p>
-            <p className={`mt-2 text-2xl font-semibold ${toneMap[tone]}`}>{value}</p>
+            <p className="text-[11px] font-semibold uppercase text-muted-foreground">{label}</p>
+            <p className={`mt-1.5 text-2xl font-semibold ${toneMap[tone]}`}>{value}</p>
             {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
           </div>
           {Icon && (

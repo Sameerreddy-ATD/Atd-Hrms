@@ -18,6 +18,8 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
+    "db:start-mysql": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-mysql.ps1",
+    "db:verify": "node scripts/verify-mysql.mjs",
     "audit:deps": "npm audit --omit=dev"
   },
   "dependencies": {
@@ -88,7 +90,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
-    "@lovable.dev/vite-tanstack-config": "2.7.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/compression": "^1.7.5",
     "@types/cookie-parser": "^1.4.8",

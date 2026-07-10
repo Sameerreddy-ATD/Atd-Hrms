@@ -4,7 +4,6 @@ import {
   Users,
   Building2,
   Fingerprint,
-  Shield,
   Settings,
   ScrollText,
   UserCog,
@@ -16,15 +15,10 @@ import {
   BadgeCheck,
   IdCard,
   BellRing,
-  Phone,
-  UserPlus,
   ClipboardCheck,
   History,
-  Wallet,
   Building,
-  AlertTriangle,
   Briefcase,
-  Download,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -33,6 +27,7 @@ export interface MenuItem {
   to: string;
   icon: ComponentType<{ className?: string }>;
   roles: Role[];
+  requiresReportingManager?: boolean;
 }
 
 export interface MenuGroup {
@@ -55,40 +50,28 @@ const ALL: Role[] = [
 export const menuGroups: MenuGroup[] = [
   {
     label: "Overview",
-    items: [{ label: "Dashboard", to: "/app/dashboard", icon: LayoutDashboard, roles: ALL }],
+    items: [{ label: "Dashboard", to: "/dashboard", icon: LayoutDashboard, roles: ALL }],
   },
   {
     label: "People",
     items: [
       {
         label: "Employees",
-        to: "/app/employees",
+        to: "/employees",
         icon: Users,
         roles: ["developer_admin", "main_admin", "hr", "manager"],
       },
       {
         label: "User Logins",
-        to: "/app/users",
+        to: "/users",
         icon: UserCog,
         roles: ["developer_admin", "main_admin", "hr"],
       },
       {
-        label: "Create Login",
-        to: "/app/users/new",
-        icon: UserPlus,
-        roles: ["developer_admin", "main_admin", "hr"],
-      },
-      {
-        label: "Roles & Permissions",
-        to: "/app/roles",
-        icon: Shield,
-        roles: ["developer_admin", "main_admin"],
-      },
-      {
         label: "Departments",
-        to: "/app/departments",
+        to: "/departments",
         icon: Briefcase,
-        roles: ["developer_admin", "main_admin", "hr"],
+        roles: ["developer_admin"],
       },
     ],
   },
@@ -97,49 +80,43 @@ export const menuGroups: MenuGroup[] = [
     items: [
       {
         label: "My Attendance",
-        to: "/app/attendance/mine",
+        to: "/attendance/mine",
         icon: CalendarCheck,
         roles: ["employee", "manager", "hr", "sales", "driver", "field_staff"],
       },
       {
-        label: "Attendance Logs",
-        to: "/app/attendance",
+        label: "Attendance Overview",
+        to: "/attendance",
         icon: ClipboardList,
-        roles: ["developer_admin", "main_admin", "hr", "manager", "ceo"],
+        roles: ["main_admin", "hr", "manager", "ceo"],
       },
       {
         label: "Branch Attendance",
-        to: "/app/attendance/branch",
+        to: "/attendance/branch",
         icon: Building,
         roles: ["hr", "manager", "ceo", "main_admin"],
       },
       {
         label: "Field Attendance",
-        to: "/app/attendance/field",
+        to: "/attendance/field",
         icon: MapPin,
         roles: ["hr", "manager", "ceo", "main_admin"],
       },
       {
-        label: "Field Staff Location",
-        to: "/app/attendance/locations",
+        label: "Day Logs",
+        to: "/attendance/locations",
         icon: MapPin,
-        roles: ["manager"],
+        roles: ["manager", "hr", "main_admin", "ceo"],
       },
       {
         label: "Attendance Corrections",
-        to: "/app/attendance/corrections",
+        to: "/attendance/corrections",
         icon: ClipboardCheck,
         roles: ["manager", "hr"],
       },
       {
-        label: "Branch Mismatch Alerts",
-        to: "/app/attendance/mismatch",
-        icon: AlertTriangle,
-        roles: ["manager", "hr"],
-      },
-      {
         label: "Missed Punch Request",
-        to: "/app/attendance/missed-punch",
+        to: "/attendance/missed-punch",
         icon: ClipboardCheck,
         roles: ["employee", "sales", "driver", "field_staff"],
       },
@@ -150,37 +127,32 @@ export const menuGroups: MenuGroup[] = [
     items: [
       {
         label: "Apply Leave",
-        to: "/app/leave/apply",
+        to: "/leave/apply",
         icon: PlaneTakeoff,
         roles: ["employee", "manager", "hr", "sales", "driver", "field_staff"],
       },
       {
         label: "Leave History",
-        to: "/app/leave/history",
+        to: "/leave/history",
         icon: History,
         roles: ["employee", "manager", "hr", "sales", "driver", "field_staff"],
       },
       {
-        label: "Leave Balance",
-        to: "/app/leave/balance",
-        icon: Wallet,
-        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff"],
-      },
-      {
         label: "Leave Approvals",
-        to: "/app/leave/approvals",
+        to: "/leave/approvals",
         icon: BadgeCheck,
-        roles: ["manager", "hr"],
+        roles: [],
+        requiresReportingManager: true,
       },
       {
-        label: "Leave Reports",
-        to: "/app/leave/reports",
+        label: "Leave Tracking",
+        to: "/leave/reports",
         icon: FileText,
         roles: ["hr", "ceo", "main_admin"],
       },
       {
         label: "Leave Policy",
-        to: "/app/leave/policy",
+        to: "/leave/policy",
         icon: Settings,
         roles: ["hr", "developer_admin", "main_admin"],
       },
@@ -191,33 +163,21 @@ export const menuGroups: MenuGroup[] = [
     items: [
       {
         label: "Branches",
-        to: "/app/branches",
+        to: "/branches",
         icon: Building2,
         roles: ["developer_admin", "main_admin", "hr"],
       },
       {
         label: "Biometric Devices",
-        to: "/app/devices",
+        to: "/devices",
         icon: Fingerprint,
         roles: ["developer_admin", "main_admin", "hr"],
       },
       {
-        label: "Biometric Mapping",
-        to: "/app/devices/mapping",
-        icon: Fingerprint,
-        roles: ["hr", "developer_admin"],
-      },
-      {
         label: "Holidays",
-        to: "/app/holidays",
+        to: "/holidays",
         icon: CalendarCheck,
         roles: ["hr", "main_admin", "developer_admin"],
-      },
-      {
-        label: "Company Setup",
-        to: "/app/company-setup",
-        icon: Building2,
-        roles: ["developer_admin"],
       },
     ],
   },
@@ -226,50 +186,37 @@ export const menuGroups: MenuGroup[] = [
     items: [
       {
         label: "Reports",
-        to: "/app/reports",
+        to: "/reports",
         icon: FileText,
-        roles: ["ceo", "hr", "main_admin", "manager"],
+        roles: ["ceo", "main_admin", "manager"],
       },
-      { label: "Payroll Export", to: "/app/reports/payroll", icon: Download, roles: ["hr", "ceo"] },
       {
         label: "Audit Logs",
-        to: "/app/audit",
+        to: "/audit",
         icon: ScrollText,
-        roles: ["developer_admin", "main_admin", "hr"],
+        roles: ["developer_admin", "main_admin"],
       },
     ],
   },
   {
     label: "Me",
     items: [
-      { label: "My Profile", to: "/app/profile", icon: UserCog, roles: ALL },
+      { label: "My Profile", to: "/profile", icon: UserCog, roles: ALL },
       {
         label: "ID Card",
-        to: "/app/id-card",
+        to: "/id-card",
         icon: IdCard,
         roles: ["employee", "manager", "hr", "sales", "driver", "field_staff"],
       },
-      {
-        label: "Emergency Contact",
-        to: "/app/emergency-contact",
-        icon: Phone,
-        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff"],
-      },
-      { label: "Notifications", to: "/app/notifications", icon: BellRing, roles: ALL },
+      { label: "Notifications", to: "/notifications", icon: BellRing, roles: ALL },
     ],
   },
   {
     label: "System",
     items: [
       {
-        label: "Device Settings",
-        to: "/app/settings/devices",
-        icon: Fingerprint,
-        roles: ["developer_admin"],
-      },
-      {
         label: "System Settings",
-        to: "/app/settings",
+        to: "/settings",
         icon: Settings,
         roles: ["developer_admin", "main_admin"],
       },
@@ -277,8 +224,16 @@ export const menuGroups: MenuGroup[] = [
   },
 ];
 
-export function menuForRole(role: Role): MenuGroup[] {
+export function menuForRole(role: Role, options?: { isReportingManager?: boolean }): MenuGroup[] {
   return menuGroups
-    .map((g) => ({ ...g, items: g.items.filter((i) => i.roles.includes(role)) }))
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((i) => {
+        if (i.requiresReportingManager) {
+          return options?.isReportingManager === true;
+        }
+        return i.roles.includes(role);
+      }),
+    }))
     .filter((g) => g.items.length > 0);
 }

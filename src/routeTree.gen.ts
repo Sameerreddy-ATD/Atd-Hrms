@@ -14,6 +14,7 @@ import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as FirstLoginRouteImport } from './routes/first-login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as VerifyIdEmployeeIdRouteImport } from './routes/verify-id.$employeeId'
 import { Route as AppUsersRouteImport } from './routes/_app.users'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppRolesRouteImport } from './routes/_app.roles'
@@ -31,6 +32,7 @@ import { Route as AppCompanySetupRouteImport } from './routes/_app.company-setup
 import { Route as AppBranchesRouteImport } from './routes/_app.branches'
 import { Route as AppAuditRouteImport } from './routes/_app.audit'
 import { Route as AppAttendanceRouteImport } from './routes/_app.attendance'
+import { Route as AppAttendanceIndexRouteImport } from './routes/_app.attendance.index'
 import { Route as AppUsersNewRouteImport } from './routes/_app.users.new'
 import { Route as AppSettingsDevicesRouteImport } from './routes/_app.settings.devices'
 import { Route as AppReportsPayrollRouteImport } from './routes/_app.reports.payroll'
@@ -71,6 +73,11 @@ const AppRoute = AppRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VerifyIdEmployeeIdRoute = VerifyIdEmployeeIdRouteImport.update({
+  id: '/verify-id/$employeeId',
+  path: '/verify-id/$employeeId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppUsersRoute = AppUsersRouteImport.update({
@@ -157,6 +164,11 @@ const AppAttendanceRoute = AppAttendanceRouteImport.update({
   id: '/attendance',
   path: '/attendance',
   getParentRoute: () => AppRoute,
+} as any)
+const AppAttendanceIndexRoute = AppAttendanceIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppAttendanceRoute,
 } as any)
 const AppUsersNewRoute = AppUsersNewRouteImport.update({
   id: '/new',
@@ -268,6 +280,7 @@ export interface FileRoutesByFullPath {
   '/roles': typeof AppRolesRoute
   '/settings': typeof AppSettingsRouteWithChildren
   '/users': typeof AppUsersRouteWithChildren
+  '/verify-id/$employeeId': typeof VerifyIdEmployeeIdRoute
   '/attendance/branch': typeof AppAttendanceBranchRoute
   '/attendance/corrections': typeof AppAttendanceCorrectionsRoute
   '/attendance/field': typeof AppAttendanceFieldRoute
@@ -285,13 +298,13 @@ export interface FileRoutesByFullPath {
   '/reports/payroll': typeof AppReportsPayrollRoute
   '/settings/devices': typeof AppSettingsDevicesRoute
   '/users/new': typeof AppUsersNewRoute
+  '/attendance/': typeof AppAttendanceIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/first-login': typeof FirstLoginRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
-  '/attendance': typeof AppAttendanceRouteWithChildren
   '/audit': typeof AppAuditRoute
   '/branches': typeof AppBranchesRoute
   '/company-setup': typeof AppCompanySetupRoute
@@ -308,6 +321,7 @@ export interface FileRoutesByTo {
   '/roles': typeof AppRolesRoute
   '/settings': typeof AppSettingsRouteWithChildren
   '/users': typeof AppUsersRouteWithChildren
+  '/verify-id/$employeeId': typeof VerifyIdEmployeeIdRoute
   '/attendance/branch': typeof AppAttendanceBranchRoute
   '/attendance/corrections': typeof AppAttendanceCorrectionsRoute
   '/attendance/field': typeof AppAttendanceFieldRoute
@@ -325,6 +339,7 @@ export interface FileRoutesByTo {
   '/reports/payroll': typeof AppReportsPayrollRoute
   '/settings/devices': typeof AppSettingsDevicesRoute
   '/users/new': typeof AppUsersNewRoute
+  '/attendance': typeof AppAttendanceIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -350,6 +365,7 @@ export interface FileRoutesById {
   '/_app/roles': typeof AppRolesRoute
   '/_app/settings': typeof AppSettingsRouteWithChildren
   '/_app/users': typeof AppUsersRouteWithChildren
+  '/verify-id/$employeeId': typeof VerifyIdEmployeeIdRoute
   '/_app/attendance/branch': typeof AppAttendanceBranchRoute
   '/_app/attendance/corrections': typeof AppAttendanceCorrectionsRoute
   '/_app/attendance/field': typeof AppAttendanceFieldRoute
@@ -367,6 +383,7 @@ export interface FileRoutesById {
   '/_app/reports/payroll': typeof AppReportsPayrollRoute
   '/_app/settings/devices': typeof AppSettingsDevicesRoute
   '/_app/users/new': typeof AppUsersNewRoute
+  '/_app/attendance/': typeof AppAttendanceIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -392,6 +409,7 @@ export interface FileRouteTypes {
     | '/roles'
     | '/settings'
     | '/users'
+    | '/verify-id/$employeeId'
     | '/attendance/branch'
     | '/attendance/corrections'
     | '/attendance/field'
@@ -409,13 +427,13 @@ export interface FileRouteTypes {
     | '/reports/payroll'
     | '/settings/devices'
     | '/users/new'
+    | '/attendance/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/first-login'
     | '/forgot-password'
     | '/login'
-    | '/attendance'
     | '/audit'
     | '/branches'
     | '/company-setup'
@@ -432,6 +450,7 @@ export interface FileRouteTypes {
     | '/roles'
     | '/settings'
     | '/users'
+    | '/verify-id/$employeeId'
     | '/attendance/branch'
     | '/attendance/corrections'
     | '/attendance/field'
@@ -449,6 +468,7 @@ export interface FileRouteTypes {
     | '/reports/payroll'
     | '/settings/devices'
     | '/users/new'
+    | '/attendance'
   id:
     | '__root__'
     | '/'
@@ -473,6 +493,7 @@ export interface FileRouteTypes {
     | '/_app/roles'
     | '/_app/settings'
     | '/_app/users'
+    | '/verify-id/$employeeId'
     | '/_app/attendance/branch'
     | '/_app/attendance/corrections'
     | '/_app/attendance/field'
@@ -490,6 +511,7 @@ export interface FileRouteTypes {
     | '/_app/reports/payroll'
     | '/_app/settings/devices'
     | '/_app/users/new'
+    | '/_app/attendance/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -498,6 +520,7 @@ export interface RootRouteChildren {
   FirstLoginRoute: typeof FirstLoginRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
+  VerifyIdEmployeeIdRoute: typeof VerifyIdEmployeeIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -535,6 +558,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/verify-id/$employeeId': {
+      id: '/verify-id/$employeeId'
+      path: '/verify-id/$employeeId'
+      fullPath: '/verify-id/$employeeId'
+      preLoaderRoute: typeof VerifyIdEmployeeIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/users': {
@@ -655,6 +685,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/attendance'
       preLoaderRoute: typeof AppAttendanceRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/_app/attendance/': {
+      id: '/_app/attendance/'
+      path: '/'
+      fullPath: '/attendance/'
+      preLoaderRoute: typeof AppAttendanceIndexRouteImport
+      parentRoute: typeof AppAttendanceRoute
     }
     '/_app/users/new': {
       id: '/_app/users/new'
@@ -786,6 +823,7 @@ interface AppAttendanceRouteChildren {
   AppAttendanceMineRoute: typeof AppAttendanceMineRoute
   AppAttendanceMismatchRoute: typeof AppAttendanceMismatchRoute
   AppAttendanceMissedPunchRoute: typeof AppAttendanceMissedPunchRoute
+  AppAttendanceIndexRoute: typeof AppAttendanceIndexRoute
 }
 
 const AppAttendanceRouteChildren: AppAttendanceRouteChildren = {
@@ -796,6 +834,7 @@ const AppAttendanceRouteChildren: AppAttendanceRouteChildren = {
   AppAttendanceMineRoute: AppAttendanceMineRoute,
   AppAttendanceMismatchRoute: AppAttendanceMismatchRoute,
   AppAttendanceMissedPunchRoute: AppAttendanceMissedPunchRoute,
+  AppAttendanceIndexRoute: AppAttendanceIndexRoute,
 }
 
 const AppAttendanceRouteWithChildren = AppAttendanceRoute._addFileChildren(
@@ -910,6 +949,7 @@ const rootRouteChildren: RootRouteChildren = {
   FirstLoginRoute: FirstLoginRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
+  VerifyIdEmployeeIdRoute: VerifyIdEmployeeIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

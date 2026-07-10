@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
@@ -22,36 +22,79 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { leaveRequests as initial } from "@/mock/data";
 import type { LeaveRequest } from "@/mock/types";
-import { leaveApi } from "@/services/api";
+import { employeesApi, leaveApi } from "@/services/api";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_app/leave/approvals")({
   component: LeaveApprovalsPage,
 });
 
 function LeaveApprovalsPage() {
-  const [rows, setRows] = useState<LeaveRequest[]>([...initial]);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [rows, setRows] = useState<LeaveRequest[]>([]);
   const [confirm, setConfirm] = useState<{ id: string; action: "Approved" | "Rejected" } | null>(
     null,
   );
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [accessChecked, setAccessChecked] = useState(false);
+  const [canApprove, setCanApprove] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    employeesApi
+      .isReportingManager()
+      .then((result) => {
+        setCanApprove(result.isReportingManager);
+        setAccessChecked(true);
+        if (!result.isReportingManager) {
+          void navigate({ to: "/dashboard", replace: true });
+        }
+      })
+      .catch(() => {
+        setAccessChecked(true);
+        setCanApprove(false);
+        void navigate({ to: "/dashboard", replace: true });
+      });
+  }, [navigate, user]);
+
+  useEffect(() => {
+    if (!canApprove) return;
+    leaveApi
+      .list({ status: "PENDING" })
+      .then(setRows)
+      .catch((err) => setError((err as Error).message))
+      .finally(() => setLoading(false));
+  }, [canApprove]);
 
   async function apply() {
     if (!confirm) return;
     const { id, action } = confirm;
     if (action === "Approved") await leaveApi.approve(id);
     else await leaveApi.reject(id);
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status: action } : r)));
+    setRows((prev) => prev.filter((r) => r.id !== id));
     toast.success(`Request ${action.toLowerCase()}`);
     setConfirm(null);
+  }
+
+  if (!accessChecked || !canApprove) {
+    return (
+      <div className="text-sm text-muted-foreground">
+        Checking reporting manager access...
+      </div>
+    );
   }
 
   return (
     <div>
       <PageHeader
         title="Leave Approvals"
-        description="Approve or reject leave requests from your team."
+        description="Approve or reject pending leave for employees who report to you. Only the assigned reporting manager can take action."
       />
+      {loading && <p className="text-sm text-muted-foreground">Loading leave approvals...</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
           <Table>
@@ -107,6 +150,9 @@ function LeaveApprovalsPage() {
             </TableBody>
           </Table>
         </div>
+        {!loading && rows.length === 0 && (
+          <div className="p-6 text-sm text-muted-foreground">No pending leave requests.</div>
+        )}
       </div>
 
       <AlertDialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
@@ -116,7 +162,8 @@ function LeaveApprovalsPage() {
               {confirm?.action === "Approved" ? "Approve leave request?" : "Reject leave request?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              The employee will be notified of your decision. This action is logged for audit.
+              Approved leave is added to day logs only on days without attendance. If the employee
+              punches in on a leave day, attendance will override the leave mark.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

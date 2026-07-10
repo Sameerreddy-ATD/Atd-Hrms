@@ -6,7 +6,19 @@ const prisma = new PrismaClient();
 
 async function main() {
   const passwordHash = await hashPassword("ChangeMe@12345");
-
+  await prisma.systemSetting.upsert({
+    where: { key: "PREDEFINED_PASSWORD_HASH" },
+    update: {},
+    create: {
+      key: "PREDEFINED_PASSWORD_HASH",
+      value: passwordHash,
+    },
+  });
+  const userCount = await prisma.user.count();
+  if (userCount > 0) {
+    console.log("Database already has data. Skipping seed.");
+    return;
+  }
   const operations = await prisma.department.upsert({
     where: { name: "Operations" },
     update: {},
@@ -78,6 +90,7 @@ async function main() {
     designation: string,
     managerId?: string,
     isFieldEmployee = false,
+    dateOfBirth?: Date,
   ) {
     return prisma.employee.upsert({
       where: { employeeCode: code },
@@ -92,8 +105,9 @@ async function main() {
         designation,
         managerId,
         joiningDate: new Date("2025-01-01"),
+        dateOfBirth: dateOfBirth || null,
         employmentType: "FULL_TIME",
-        attendanceMode: isFieldEmployee ? "BOTH" : "THUMB_ONLY",
+        attendanceMode: "BOTH",
         isFieldEmployee,
       },
     });
@@ -106,6 +120,9 @@ async function main() {
     b1.branchId,
     hrDept.departmentId,
     "HR Manager",
+    undefined,
+    false,
+    new Date("1990-05-15"),
   );
   const manager = await employee(
     "EMP-0005",
@@ -114,6 +131,9 @@ async function main() {
     b1.branchId,
     operations.departmentId,
     "Operations Manager",
+    undefined,
+    false,
+    new Date("1985-08-22"),
   );
   const emp = await employee(
     "EMP-0006",
@@ -123,6 +143,8 @@ async function main() {
     operations.departmentId,
     "Executive",
     manager.employeeId,
+    false,
+    new Date("1993-10-14"),
   );
   const sales = await employee(
     "EMP-0007",
@@ -133,6 +155,7 @@ async function main() {
     "Sales Executive",
     manager.employeeId,
     true,
+    new Date("1994-03-05"),
   );
   const driver = await employee(
     "EMP-0008",
@@ -143,6 +166,7 @@ async function main() {
     "Driver",
     manager.employeeId,
     true,
+    new Date("1988-12-10"),
   );
 
   const userData = [
@@ -201,6 +225,22 @@ async function main() {
     ["Comp Off", true],
   ] as const) {
     await prisma.leaveType.upsert({ where: { name }, update: { paid }, create: { name, paid } });
+  }
+
+  for (const holiday of [
+    { name: "Republic Day", date: new Date("2026-01-26"), type: "Public" },
+    { name: "Independence Day", date: new Date("2026-08-15"), type: "Public" },
+    {
+      name: "Founders' Day",
+      date: new Date("2026-09-12"),
+      type: "Optional",
+      branchId: b1.branchId,
+    },
+  ]) {
+    const existing = await prisma.holiday.findFirst({
+      where: { name: holiday.name, date: holiday.date },
+    });
+    if (!existing) await prisma.holiday.create({ data: holiday });
   }
 
   await prisma.employeeBranchSchedule.upsert({

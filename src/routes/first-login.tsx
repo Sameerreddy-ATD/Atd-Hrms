@@ -1,12 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/common/Logo";
-import { authApi } from "@/services/api";
+import { PasswordInput } from "@/components/common/PasswordInput";
+import { useAuth } from "@/lib/auth";
 import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/first-login")({
@@ -15,10 +15,21 @@ export const Route = createFileRoute("/first-login")({
 
 function FirstLoginPage() {
   const navigate = useNavigate();
+  const { changePassword } = useAuth();
   const [oldPw, setOldPw] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
+  const [hasCached, setHasCached] = useState(false);
+
+  useEffect(() => {
+    const cached = sessionStorage.getItem("atd.temp.pw");
+    if (cached) {
+      setOldPw(cached);
+      setHasCached(true);
+      sessionStorage.removeItem("atd.temp.pw");
+    }
+  }, []);
 
   const rules = [
     { label: "At least 8 characters", ok: next.length >= 8 },
@@ -29,15 +40,24 @@ function FirstLoginPage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!oldPw) {
+      toast.error("Temporary password is missing. Please log in again.");
+      return;
+    }
     if (rules.some((r) => !r.ok)) {
       toast.error("Please meet all password requirements");
       return;
     }
     setLoading(true);
-    await authApi.changePassword(oldPw, next);
-    setLoading(false);
-    toast.success("Password updated. Please sign in again.");
-    navigate({ to: "/login" });
+    try {
+      await changePassword(oldPw, next);
+      toast.success("Password updated. You are signed in.");
+      navigate({ to: "/dashboard", replace: true });
+    } catch (err) {
+      toast.error((err as Error).message || "Unable to update password");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -50,29 +70,31 @@ function FirstLoginPage() {
             For security, you must change the temporary password issued to you before continuing.
           </p>
           <form onSubmit={submit} className="mt-6 space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="old">Temporary password</Label>
-              <Input
-                id="old"
-                type="password"
-                value={oldPw}
-                onChange={(e) => setOldPw(e.target.value)}
-              />
-            </div>
+            {!hasCached && (
+              <div className="space-y-1.5">
+                <Label htmlFor="old">Temporary password</Label>
+                <PasswordInput
+                  id="old"
+                  autoComplete="current-password"
+                  value={oldPw}
+                  onChange={(e) => setOldPw(e.target.value)}
+                />
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="new">New password</Label>
-              <Input
+              <PasswordInput
                 id="new"
-                type="password"
+                autoComplete="new-password"
                 value={next}
                 onChange={(e) => setNext(e.target.value)}
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="confirm">Confirm new password</Label>
-              <Input
+              <PasswordInput
                 id="confirm"
-                type="password"
+                autoComplete="new-password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
               />

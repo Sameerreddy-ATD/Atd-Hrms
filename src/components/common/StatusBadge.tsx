@@ -26,7 +26,8 @@ function classify(status: string): keyof typeof map {
   if (s.includes("approved")) return "approved";
   if (s.includes("missed") || s.includes("manual")) return "missed";
   if (s.includes("holiday") || s.includes("week off")) return "holiday";
-  if (s.includes("leave")) return "leave";
+  if (s.includes("holiday") || s.includes("week off") || s.includes("sunday")) return "holiday";
+  if (s.includes("leave") || s.includes("lop")) return "leave";
   if (s.includes("present")) return "present";
   return "neutral";
 }

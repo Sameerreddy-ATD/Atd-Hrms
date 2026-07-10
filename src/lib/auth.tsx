@@ -20,47 +20,98 @@ import {
 import type { Role, User } from "@/mock/types";
 import { authApi } from "@/services/api";
 
+const SESSION_USER_KEY = "atd.session.user";
+
+function readSessionUser() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(SESSION_USER_KEY);
+    return raw ? (JSON.parse(raw) as User) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSessionUser(user: User | null) {
+  if (typeof window === "undefined") return;
+  if (!user) {
+    window.sessionStorage.removeItem(SESSION_USER_KEY);
+    return;
+  }
+  window.sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
+}
+
+function initialAuthState() {
+  const user = readSessionUser();
+  return { user, loading: !user };
+}
+
 interface AuthState {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<User>;
   loginAsRole: (role: Role) => Promise<User>;
+  changePassword: (oldPassword: string, nextPassword: string) => Promise<User>;
+  updateCurrentUser: (user: User) => void;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [initial] = useState(initialAuthState);
+  const [user, setUser] = useState<User | null>(initial.user);
+  const [loading, setLoading] = useState(initial.loading);
 
   useEffect(() => {
     authApi
       .me()
-      .then(({ user }) => setUser(user))
-      .catch(() => setUser(null))
+      .then(({ user }) => {
+        setUser(user);
+        writeSessionUser(user);
+      })
+      .catch(() => {
+        setUser(null);
+        writeSessionUser(null);
+      })
       .finally(() => setLoading(false));
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
     const { user } = await authApi.login(email, password);
     setUser(user);
+    writeSessionUser(user);
     return user;
   }, []);
 
   const loginAsRole = useCallback(async (role: Role) => {
     const { user } = await authApi.loginAsRole(role);
     setUser(user);
+    writeSessionUser(user);
     return user;
   }, []);
 
+  const changePassword = useCallback(async (oldPassword: string, nextPassword: string) => {
+    const { user } = await authApi.changePassword(oldPassword, nextPassword);
+    setUser(user);
+    writeSessionUser(user);
+    return user;
+  }, []);
+
+  const updateCurrentUser = useCallback((nextUser: User) => {
+    setUser(nextUser);
+    writeSessionUser(nextUser);
+  }, []);
+
   const logout = useCallback(() => {
-    void authApi.logout().finally(() => setUser(null));
+    writeSessionUser(null);
+    setUser(null);
+    void authApi.logout();
   }, []);
 
   const value = useMemo<AuthState>(
-    () => ({ user, loading, login, loginAsRole, logout }),
-    [user, loading, login, loginAsRole, logout],
+    () => ({ user, loading, login, loginAsRole, changePassword, updateCurrentUser, logout }),
+    [user, loading, login, loginAsRole, changePassword, updateCurrentUser, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

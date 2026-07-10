@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/common/StatusBadge";
@@ -10,7 +11,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { leaveRequests } from "@/mock/data";
+import type { LeaveRequest } from "@/mock/types";
+import { leaveApi } from "@/services/api";
 import { Plus } from "lucide-react";
 
 export const Route = createFileRoute("/_app/leave/history")({
@@ -18,19 +20,26 @@ export const Route = createFileRoute("/_app/leave/history")({
 });
 
 function LeaveHistoryPage() {
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    leaveApi
+      .list()
+      .then(setLeaveRequests)
+      .catch((err) => setError((err as Error).message))
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <div>
       <PageHeader
         title="Leave History"
         description="All your submitted leave requests and their current status."
-        actions={
-          <Button asChild size="sm">
-            <Link to="/leave/apply">
-              <Plus className="mr-2 h-4 w-4" /> Apply leave
-            </Link>
-          </Button>
-        }
       />
+      {loading && <p className="text-sm text-muted-foreground">Loading leave history...</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
           <Table>
@@ -53,7 +62,7 @@ function LeaveHistoryPage() {
                   <TableCell>{l.to}</TableCell>
                   <TableCell>{l.days}</TableCell>
                   <TableCell>{l.appliedOn}</TableCell>
-                  <TableCell>{l.approverName ?? "—"}</TableCell>
+                  <TableCell>{l.approverName ?? "-"}</TableCell>
                   <TableCell>
                     <StatusBadge status={l.status} />
                   </TableCell>
@@ -62,6 +71,9 @@ function LeaveHistoryPage() {
             </TableBody>
           </Table>
         </div>
+        {!loading && leaveRequests.length === 0 && (
+          <div className="p-6 text-sm text-muted-foreground">No leave requests found.</div>
+        )}
       </div>
     </div>
   );

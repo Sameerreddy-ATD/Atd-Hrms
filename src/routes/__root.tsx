@@ -10,9 +10,16 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider } from "@/lib/auth";
+import { NotificationBridge } from "@/components/layout/NotificationBridge";
+import { SystemThemeSync } from "@/components/layout/SystemThemeSync";
 import { Toaster } from "@/components/ui/sonner";
+import { registerAppServiceWorker } from "@/lib/browser-notifications";
+
+const SITE_TITLE = "Anytime Diesel HRMS";
+const SITE_DESCRIPTION =
+  "Secure HRMS for Anytime Diesel employee attendance, leave, payroll reports, biometric devices, GPS field work, branches, and HR operations.";
+const SITE_IMAGE = "/atd-logo.png";
 
 function NotFoundComponent() {
   return (
@@ -39,9 +46,6 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
-  useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
-  }, [error]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -79,31 +83,38 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "AnytimeDiesel HRMS" },
-      { name: "description", content: "Internal HR management system for AnytimeDiesel." },
-      { property: "og:title", content: "AnytimeDiesel HRMS" },
-      { property: "og:description", content: "Internal HR management system for AnytimeDiesel." },
+      { title: SITE_TITLE },
+      { name: "description", content: SITE_DESCRIPTION },
+      {
+        name: "keywords",
+        content:
+          "Anytime Diesel, HRMS, attendance management, leave management, biometric attendance, GPS attendance, payroll attendance, employee management",
+      },
+      { name: "application-name", content: SITE_TITLE },
+      { name: "apple-mobile-web-app-title", content: SITE_TITLE },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "theme-color", content: "#0f172a" },
+      { name: "robots", content: "noindex,nofollow" },
+      { property: "og:site_name", content: SITE_TITLE },
+      { property: "og:title", content: SITE_TITLE },
+      { property: "og:description", content: SITE_DESCRIPTION },
       { property: "og:type", content: "website" },
+      { property: "og:image", content: SITE_IMAGE },
+      { property: "og:image:alt", content: "Anytime Diesel logo" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "AnytimeDiesel HRMS" },
-      { name: "twitter:description", content: "Internal HR management system for AnytimeDiesel." },
-      {
-        property: "og:image",
-        content:
-          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ff3d8958-0b68-4ea7-a0bf-fd4d079480ea/id-preview-dfe1a0bc--0de0c413-c03d-44a8-8689-c929d75ea750.lovable.app-1783409936751.png",
-      },
-      {
-        name: "twitter:image",
-        content:
-          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ff3d8958-0b68-4ea7-a0bf-fd4d079480ea/id-preview-dfe1a0bc--0de0c413-c03d-44a8-8689-c929d75ea750.lovable.app-1783409936751.png",
-      },
+      { name: "twitter:title", content: SITE_TITLE },
+      { name: "twitter:description", content: SITE_DESCRIPTION },
+      { name: "twitter:image", content: SITE_IMAGE },
     ],
     links: [
       {
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/atd-favicon.png", type: "image/png" },
+      { rel: "shortcut icon", href: "/atd-favicon.png", type: "image/png" },
+      { rel: "apple-touch-icon", href: "/atd-favicon.png" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
     ],
   }),
   shellComponent: RootShell,
@@ -129,11 +140,17 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  useEffect(() => {
+    void registerAppServiceWorker();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
+        <SystemThemeSync />
+        <NotificationBridge />
         <Toaster position="top-right" />
       </AuthProvider>
     </QueryClientProvider>

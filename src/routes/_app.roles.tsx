@@ -1,10 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { PlaceholderPage } from "@/components/common/PlaceholderPage";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
+
 export const Route = createFileRoute("/_app/roles")({
-  component: () => (
-    <PlaceholderPage
-      title="Roles & Permissions"
-      description="Configure role-based permissions across modules."
-    />
-  ),
+  component: () => <Navigate to="/dashboard" replace />,
 });
