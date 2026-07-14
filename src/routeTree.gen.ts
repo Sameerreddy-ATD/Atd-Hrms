@@ -16,6 +16,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as VerifyIdEmployeeIdRouteImport } from './routes/verify-id.$employeeId'
 import { Route as AppUsersRouteImport } from './routes/_app.users'
+import { Route as AppTasksRouteImport } from './routes/_app.tasks'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppRolesRouteImport } from './routes/_app.roles'
 import { Route as AppReportsRouteImport } from './routes/_app.reports'
@@ -32,6 +33,7 @@ import { Route as AppCompanySetupRouteImport } from './routes/_app.company-setup
 import { Route as AppBranchesRouteImport } from './routes/_app.branches'
 import { Route as AppAuditRouteImport } from './routes/_app.audit'
 import { Route as AppAttendanceRouteImport } from './routes/_app.attendance'
+import { Route as AppAssetsRouteImport } from './routes/_app.assets'
 import { Route as AppAttendanceIndexRouteImport } from './routes/_app.attendance.index'
 import { Route as AppUsersNewRouteImport } from './routes/_app.users.new'
 import { Route as AppSettingsDevicesRouteImport } from './routes/_app.settings.devices'
@@ -83,6 +85,11 @@ const VerifyIdEmployeeIdRoute = VerifyIdEmployeeIdRouteImport.update({
 const AppUsersRoute = AppUsersRouteImport.update({
   id: '/users',
   path: '/users',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTasksRoute = AppTasksRouteImport.update({
+  id: '/tasks',
+  path: '/tasks',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
@@ -163,6 +170,11 @@ const AppAuditRoute = AppAuditRouteImport.update({
 const AppAttendanceRoute = AppAttendanceRouteImport.update({
   id: '/attendance',
   path: '/attendance',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAssetsRoute = AppAssetsRouteImport.update({
+  id: '/assets',
+  path: '/assets',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAttendanceIndexRoute = AppAttendanceIndexRouteImport.update({
@@ -263,6 +275,7 @@ export interface FileRoutesByFullPath {
   '/first-login': typeof FirstLoginRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/assets': typeof AppAssetsRoute
   '/attendance': typeof AppAttendanceRouteWithChildren
   '/audit': typeof AppAuditRoute
   '/branches': typeof AppBranchesRoute
@@ -279,6 +292,7 @@ export interface FileRoutesByFullPath {
   '/reports': typeof AppReportsRouteWithChildren
   '/roles': typeof AppRolesRoute
   '/settings': typeof AppSettingsRouteWithChildren
+  '/tasks': typeof AppTasksRoute
   '/users': typeof AppUsersRouteWithChildren
   '/verify-id/$employeeId': typeof VerifyIdEmployeeIdRoute
   '/attendance/branch': typeof AppAttendanceBranchRoute
@@ -305,6 +319,7 @@ export interface FileRoutesByTo {
   '/first-login': typeof FirstLoginRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/assets': typeof AppAssetsRoute
   '/audit': typeof AppAuditRoute
   '/branches': typeof AppBranchesRoute
   '/company-setup': typeof AppCompanySetupRoute
@@ -320,6 +335,7 @@ export interface FileRoutesByTo {
   '/reports': typeof AppReportsRouteWithChildren
   '/roles': typeof AppRolesRoute
   '/settings': typeof AppSettingsRouteWithChildren
+  '/tasks': typeof AppTasksRoute
   '/users': typeof AppUsersRouteWithChildren
   '/verify-id/$employeeId': typeof VerifyIdEmployeeIdRoute
   '/attendance/branch': typeof AppAttendanceBranchRoute
@@ -348,6 +364,7 @@ export interface FileRoutesById {
   '/first-login': typeof FirstLoginRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/_app/assets': typeof AppAssetsRoute
   '/_app/attendance': typeof AppAttendanceRouteWithChildren
   '/_app/audit': typeof AppAuditRoute
   '/_app/branches': typeof AppBranchesRoute
@@ -364,6 +381,7 @@ export interface FileRoutesById {
   '/_app/reports': typeof AppReportsRouteWithChildren
   '/_app/roles': typeof AppRolesRoute
   '/_app/settings': typeof AppSettingsRouteWithChildren
+  '/_app/tasks': typeof AppTasksRoute
   '/_app/users': typeof AppUsersRouteWithChildren
   '/verify-id/$employeeId': typeof VerifyIdEmployeeIdRoute
   '/_app/attendance/branch': typeof AppAttendanceBranchRoute
@@ -392,6 +410,7 @@ export interface FileRouteTypes {
     | '/first-login'
     | '/forgot-password'
     | '/login'
+    | '/assets'
     | '/attendance'
     | '/audit'
     | '/branches'
@@ -408,6 +427,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/roles'
     | '/settings'
+    | '/tasks'
     | '/users'
     | '/verify-id/$employeeId'
     | '/attendance/branch'
@@ -434,6 +454,7 @@ export interface FileRouteTypes {
     | '/first-login'
     | '/forgot-password'
     | '/login'
+    | '/assets'
     | '/audit'
     | '/branches'
     | '/company-setup'
@@ -449,6 +470,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/roles'
     | '/settings'
+    | '/tasks'
     | '/users'
     | '/verify-id/$employeeId'
     | '/attendance/branch'
@@ -476,6 +498,7 @@ export interface FileRouteTypes {
     | '/first-login'
     | '/forgot-password'
     | '/login'
+    | '/_app/assets'
     | '/_app/attendance'
     | '/_app/audit'
     | '/_app/branches'
@@ -492,6 +515,7 @@ export interface FileRouteTypes {
     | '/_app/reports'
     | '/_app/roles'
     | '/_app/settings'
+    | '/_app/tasks'
     | '/_app/users'
     | '/verify-id/$employeeId'
     | '/_app/attendance/branch'
@@ -572,6 +596,13 @@ declare module '@tanstack/react-router' {
       path: '/users'
       fullPath: '/users'
       preLoaderRoute: typeof AppUsersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/tasks': {
+      id: '/_app/tasks'
+      path: '/tasks'
+      fullPath: '/tasks'
+      preLoaderRoute: typeof AppTasksRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/settings': {
@@ -684,6 +715,13 @@ declare module '@tanstack/react-router' {
       path: '/attendance'
       fullPath: '/attendance'
       preLoaderRoute: typeof AppAttendanceRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/assets': {
+      id: '/_app/assets'
+      path: '/assets'
+      fullPath: '/assets'
+      preLoaderRoute: typeof AppAssetsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/attendance/': {
@@ -890,6 +928,7 @@ const AppUsersRouteWithChildren = AppUsersRoute._addFileChildren(
 )
 
 interface AppRouteChildren {
+  AppAssetsRoute: typeof AppAssetsRoute
   AppAttendanceRoute: typeof AppAttendanceRouteWithChildren
   AppAuditRoute: typeof AppAuditRoute
   AppBranchesRoute: typeof AppBranchesRoute
@@ -906,6 +945,7 @@ interface AppRouteChildren {
   AppReportsRoute: typeof AppReportsRouteWithChildren
   AppRolesRoute: typeof AppRolesRoute
   AppSettingsRoute: typeof AppSettingsRouteWithChildren
+  AppTasksRoute: typeof AppTasksRoute
   AppUsersRoute: typeof AppUsersRouteWithChildren
   AppLeaveApplyRoute: typeof AppLeaveApplyRoute
   AppLeaveApprovalsRoute: typeof AppLeaveApprovalsRoute
@@ -916,6 +956,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAssetsRoute: AppAssetsRoute,
   AppAttendanceRoute: AppAttendanceRouteWithChildren,
   AppAuditRoute: AppAuditRoute,
   AppBranchesRoute: AppBranchesRoute,
@@ -932,6 +973,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppReportsRoute: AppReportsRouteWithChildren,
   AppRolesRoute: AppRolesRoute,
   AppSettingsRoute: AppSettingsRouteWithChildren,
+  AppTasksRoute: AppTasksRoute,
   AppUsersRoute: AppUsersRouteWithChildren,
   AppLeaveApplyRoute: AppLeaveApplyRoute,
   AppLeaveApprovalsRoute: AppLeaveApprovalsRoute,

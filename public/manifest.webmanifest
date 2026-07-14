@@ -10,12 +10,12 @@
   "icons": [
     {
       "src": "/atd-favicon.png",
-      "sizes": "192x192",
+      "sizes": "164x137",
       "type": "image/png"
     },
     {
       "src": "/atd-logo.png",
-      "sizes": "512x512",
+      "sizes": "531x137",
       "type": "image/png"
     }
   ]

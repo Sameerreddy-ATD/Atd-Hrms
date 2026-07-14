@@ -15,9 +15,9 @@ declare global {
 
 const creationRules: Record<Role, Role[]> = {
   DEVELOPER_ADMIN: Object.values(Role),
-  MAIN_ADMIN: [Role.CEO, Role.HR, Role.MANAGER, Role.EMPLOYEE],
+  MAIN_ADMIN: [],
   CEO: [],
-  HR: [Role.EMPLOYEE, Role.MANAGER, Role.SALES, Role.DRIVER, Role.FIELD_STAFF],
+  HR: [],
   MANAGER: [],
   EMPLOYEE: [],
   SALES: [],
@@ -33,7 +33,20 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
   const token = req.cookies?.[config.sessionCookie];
   if (!token) return next(new HttpError(401, "Authentication required"));
   try {
-    req.user = verifyAccessToken(token);
+    const user = verifyAccessToken(token);
+    req.user = user;
+
+    if (
+      user.mustChangePassword &&
+      req.path !== "/auth/change-password" &&
+      req.path !== "/auth/logout" &&
+      req.path !== "/auth/me" &&
+      req.path !== "/health" &&
+      req.path !== "/health/db"
+    ) {
+      return next(new HttpError(403, "Password change required on first login"));
+    }
+
     return next();
   } catch {
     return next(new HttpError(401, "Session expired"));
@@ -48,6 +61,58 @@ export function requireRoles(...roles: Role[]) {
   };
 }
 
+/** Returns active employees in the units below an organizational head. */
+export async function getOrganizationTeamEmployeeIds(employeeId: string) {
+  const [employee, units] = await Promise.all([
+    prisma.employee.findUnique({
+      where: { employeeId },
+      select: { departmentId: true, organizationLevel: true },
+    }),
+    prisma.department.findMany({
+      select: { departmentId: true, parentDepartmentId: true, headEmployeeId: true },
+    }),
+  ]);
+  if (!employee) return [];
+
+  const ownedUnitIds = units
+    .filter((unit) => unit.headEmployeeId === employeeId)
+    .map((unit) => unit.departmentId);
+  if (ownedUnitIds.length === 0 && employee.organizationLevel === "HEAD" && employee.departmentId) {
+    ownedUnitIds.push(employee.departmentId);
+  }
+  if (ownedUnitIds.length === 0) return [];
+
+  const children = new Map<string, string[]>();
+  for (const unit of units) {
+    if (!unit.parentDepartmentId) continue;
+    children.set(unit.parentDepartmentId, [
+      ...(children.get(unit.parentDepartmentId) ?? []),
+      unit.departmentId,
+    ]);
+  }
+  const visibleUnitIds = new Set(ownedUnitIds);
+  const queue = [...ownedUnitIds];
+  while (queue.length) {
+    const current = queue.shift()!;
+    for (const childId of children.get(current) ?? []) {
+      if (!visibleUnitIds.has(childId)) {
+        visibleUnitIds.add(childId);
+        queue.push(childId);
+      }
+    }
+  }
+
+  const team = await prisma.employee.findMany({
+    where: {
+      departmentId: { in: [...visibleUnitIds] },
+      status: "ACTIVE",
+      employeeId: { not: employeeId },
+    },
+    select: { employeeId: true },
+  });
+  return team.map((member) => member.employeeId);
+}
+
 export async function assertEmployeeAccess(viewer: Express.Request["user"], employeeId: string) {
   if (!viewer) throw new HttpError(401, "Authentication required");
   if (
@@ -60,11 +125,8 @@ export async function assertEmployeeAccess(viewer: Express.Request["user"], empl
   }
   if (viewer.employeeId === employeeId) return;
   if (viewer.role === Role.MANAGER && viewer.employeeId) {
-    const employee = await prisma.employee.findUnique({
-      where: { employeeId },
-      select: { managerId: true },
-    });
-    if (employee?.managerId === viewer.employeeId) return;
+    const teamEmployeeIds = await getOrganizationTeamEmployeeIds(viewer.employeeId);
+    if (teamEmployeeIds.includes(employeeId)) return;
   }
   throw new HttpError(403, "You can only access permitted employee data");
 }

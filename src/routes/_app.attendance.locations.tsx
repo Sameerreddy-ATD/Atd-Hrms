@@ -27,11 +27,11 @@ import type { AttendanceRecord, AttendanceTimelineEvent, Branch, User } from "@/
 import { attendanceApi, branchesApi, employeesApi, reportsApi } from "@/services/api";
 import { downloadCsv, downloadExcel, downloadAttendanceExcel } from "@/lib/csv";
 import {
-  attendanceSourceLabel,
   movementEventLabel,
   captureSourceLabel,
   movementSourceLabel,
   movementDirectionLabel,
+  punchSourceLabel,
 } from "@/lib/attendance-labels";
 import {
   ArrowRight,
@@ -50,9 +50,42 @@ export const Route = createFileRoute("/_app/attendance/locations")({
 function DayLogsPage() {
   const [employees, setEmployees] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
-  const [from, setFrom] = useState(new Date().toISOString().slice(0, 10));
-  const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState(() => {
+    const savedSelectionRaw = sessionStorage.getItem("attendance-day-log-selection");
+    if (savedSelectionRaw) {
+      try {
+        const savedSelection = JSON.parse(savedSelectionRaw) as { employeeId?: string };
+        return savedSelection.employeeId || "all";
+      } catch {
+        return "all";
+      }
+    }
+    return "all";
+  });
+  const [from, setFrom] = useState(() => {
+    const savedSelectionRaw = sessionStorage.getItem("attendance-day-log-selection");
+    if (savedSelectionRaw) {
+      try {
+        const savedSelection = JSON.parse(savedSelectionRaw) as { from?: string };
+        if (savedSelection.from !== undefined) return savedSelection.from;
+      } catch {
+        // Use today's date when a saved selection cannot be read.
+      }
+    }
+    return new Date().toISOString().slice(0, 10);
+  });
+  const [to, setTo] = useState(() => {
+    const savedSelectionRaw = sessionStorage.getItem("attendance-day-log-selection");
+    if (savedSelectionRaw) {
+      try {
+        const savedSelection = JSON.parse(savedSelectionRaw) as { to?: string };
+        if (savedSelection.to !== undefined) return savedSelection.to;
+      } catch {
+        // Use today's date when a saved selection cannot be read.
+      }
+    }
+    return new Date().toISOString().slice(0, 10);
+  });
   const [branchId, setBranchId] = useState("all");
   const [employeeRows, setEmployeeRows] = useState<AttendanceRecord[]>([]);
   const [movementRows, setMovementRows] = useState<AttendanceTimelineEvent[]>([]);
@@ -72,26 +105,7 @@ function DayLogsPage() {
         const sortedEmployees = [...employeeRows].sort((a, b) => a.name.localeCompare(b.name));
         setEmployees(sortedEmployees);
         setBranches(branchRows);
-
-        const savedSelectionRaw = sessionStorage.getItem("attendance-day-log-selection");
-        if (savedSelectionRaw) {
-          try {
-            const savedSelection = JSON.parse(savedSelectionRaw) as {
-              employeeId?: string;
-              from?: string;
-              to?: string;
-            };
-            if (savedSelection.employeeId) setSelectedEmployeeId(savedSelection.employeeId);
-            if (savedSelection.from) setFrom(savedSelection.from);
-            if (savedSelection.to) setTo(savedSelection.to);
-            sessionStorage.removeItem("attendance-day-log-selection");
-            return;
-          } catch {
-            sessionStorage.removeItem("attendance-day-log-selection");
-          }
-        }
-
-        setSelectedEmployeeId("all");
+        sessionStorage.removeItem("attendance-day-log-selection");
       })
       .catch(() => {
         setEmployees([]);
@@ -113,13 +127,21 @@ function DayLogsPage() {
       .then((rows) => {
         const filtered = rows.filter((row) => {
           const emp = employees.find((e) => (e.employeeId || e.id) === row.employeeId);
-          return !emp || (emp.role !== "developer_admin" && emp.role !== "main_admin");
+          return emp && emp.role !== "developer_admin" && emp.role !== "main_admin";
         });
         setEmployeeRows(
           [...filtered].sort(
             (a, b) => b.date.localeCompare(a.date) || a.employeeName.localeCompare(b.employeeName),
           ),
         );
+        if (!from && !to && filtered.length > 0) {
+          const dates = filtered.map((r) => r.date).filter(Boolean);
+          if (dates.length > 0) {
+            dates.sort();
+            setFrom(dates[0]);
+            setTo(dates[dates.length - 1]);
+          }
+        }
       })
       .catch((err) => setEmployeeError((err as Error).message))
       .finally(() => setLoadingEmployeeRows(false));
@@ -137,9 +159,9 @@ function DayLogsPage() {
       })
       .then((rows) => {
         const filtered = rows.filter((row) => {
-          if (!row.employeeId) return true;
+          if (!row.employeeId) return false;
           const emp = employees.find((e) => (e.employeeId || e.id) === row.employeeId);
-          return !emp || (emp.role !== "developer_admin" && emp.role !== "main_admin");
+          return emp && emp.role !== "developer_admin" && emp.role !== "main_admin";
         });
         setMovementRows([...filtered].sort((a, b) => +new Date(b.time) - +new Date(a.time)));
       })
@@ -310,7 +332,12 @@ function DayLogsPage() {
                       actualBranch: branchName(row.actualBranchId),
                       punchIn: row.punchIn ?? "",
                       punchOut: row.punchOut ?? "",
-                      source: attendanceSourceLabel(row, branches),
+                      sourceIn: punchSourceLabel(row.punchInSource, row.punchInBranchId, branches),
+                      sourceOut: punchSourceLabel(
+                        row.punchOutSource,
+                        row.punchOutBranchId,
+                        branches,
+                      ),
                     };
                   }),
                 )
@@ -337,7 +364,6 @@ function DayLogsPage() {
                       <TableHead>Actual Branch</TableHead>
                       <TableHead>Punch In</TableHead>
                       <TableHead>Punch Out</TableHead>
-                      <TableHead>Source</TableHead>
                       <TableHead className="text-right">Navigation</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -357,9 +383,18 @@ function DayLogsPage() {
                         </TableCell>
                         <TableCell>{branchName(row.homeBranchId)}</TableCell>
                         <TableCell>{branchName(row.actualBranchId)}</TableCell>
-                        <TableCell>{row.punchIn ?? "-"}</TableCell>
-                        <TableCell>{row.punchOut ?? "-"}</TableCell>
-                        <TableCell>{attendanceSourceLabel(row, branches)}</TableCell>
+                        <TableCell>
+                          <div>{row.punchIn ?? "-"}</div>
+                          <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
+                            {punchSourceLabel(row.punchInSource, row.punchInBranchId, branches)}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>{row.punchOut ?? "-"}</div>
+                          <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
+                            {punchSourceLabel(row.punchOutSource, row.punchOutBranchId, branches)}
+                          </div>
+                        </TableCell>
                         <TableCell className="text-right">
                           <Button
                             size="sm"
@@ -494,19 +529,19 @@ function DayLogsPage() {
                         <TableCell>
                           {(() => {
                             const src = captureSourceLabel(row);
-                            if (src === "Biometric") {
+                            if (src.startsWith("Biometric")) {
                               return (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-purple-50 text-purple-700 border border-purple-100 dark:bg-purple-950/20 dark:text-purple-400 dark:border-purple-900/30">
                                   <Fingerprint className="h-3.5 w-3.5" />
-                                  Biometric
+                                  {src}
                                 </span>
                               );
                             }
-                            if (src === "Mobile GPS") {
+                            if (src.startsWith("Mobile -")) {
                               return (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-900/30">
                                   <Smartphone className="h-3.5 w-3.5" />
-                                  Mobile GPS
+                                  {src}
                                 </span>
                               );
                             }

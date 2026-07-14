@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite dev",
     "dev:backend": "tsx watch server/src/index.ts",
-    "dev:all": "concurrently \"bun run dev\" \"bun run dev:backend\"",
+    "dev:all": "concurrently \"npm run dev\" \"npm run dev:backend\"",
+    "dev:with-db": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-all.ps1",
     "start:backend": "node dist-server/server/src/index.js",
     "start:frontend": "vite preview --host 0.0.0.0",
     "build": "vite build",

@@ -1,217 +1,306 @@
-import { EventSource, EventType, PrismaClient, Role, WorkType } from "@prisma/client";
-import { createAttendanceEvent } from "../server/src/attendanceEngine.js";
+import { EmploymentType, Gender, PrismaClient, Role } from "@prisma/client";
 import { hashPassword } from "../server/src/security.js";
 
 const prisma = new PrismaClient();
 
 async function main() {
-  const passwordHash = await hashPassword("ChangeMe@12345");
-  await prisma.systemSetting.upsert({
-    where: { key: "PREDEFINED_PASSWORD_HASH" },
-    update: {},
-    create: {
-      key: "PREDEFINED_PASSWORD_HASH",
-      value: passwordHash,
-    },
-  });
-  const userCount = await prisma.user.count();
-  if (userCount > 0) {
-    console.log("Database already has data. Skipping seed.");
-    return;
-  }
-  const operations = await prisma.department.upsert({
-    where: { name: "Operations" },
-    update: {},
-    create: { name: "Operations" },
-  });
-  const salesDept = await prisma.department.upsert({
-    where: { name: "Sales" },
-    update: {},
-    create: { name: "Sales" },
-  });
-  const hrDept = await prisma.department.upsert({
-    where: { name: "Human Resources" },
-    update: {},
-    create: { name: "Human Resources" },
+  const seedPassword = process.env.SEED_PASSWORD;
+  if (!seedPassword) throw new Error("SEED_PASSWORD is required to create fresh accounts");
+  const passwordHash = await hashPassword(seedPassword);
+
+  await prisma.systemSetting.create({
+    data: { key: "PREDEFINED_PASSWORD_HASH", value: passwordHash },
   });
 
-  const b1 = await prisma.branch.upsert({
-    where: { branchCode: "B1" },
-    update: {},
-    create: {
-      branchName: "Branch 1 - Head Office",
-      branchCode: "B1",
-      address: "Plot 12, Industrial Area, Phase 1",
-      city: "Mumbai",
-    },
-  });
-  const b2 = await prisma.branch.upsert({
-    where: { branchCode: "B2" },
-    update: {},
-    create: {
-      branchName: "Branch 2 - Depot",
-      branchCode: "B2",
-      address: "NH-8 Bypass Road, Depot Zone",
-      city: "Mumbai",
-    },
-  });
-
-  const d1 = await prisma.biometricDevice.upsert({
-    where: { deviceCode: "ZKT-B1-01" },
-    update: {},
-    create: {
-      deviceName: "B1-Scanner-01",
-      deviceCode: "ZKT-B1-01",
-      branchId: b1.branchId,
-      deviceIp: "10.0.1.20",
-      port: 4370,
-      location: "Main gate",
-    },
-  });
-  const d2 = await prisma.biometricDevice.upsert({
-    where: { deviceCode: "ZKT-B2-01" },
-    update: {},
-    create: {
-      deviceName: "B2-Scanner-01",
-      deviceCode: "ZKT-B2-01",
-      branchId: b2.branchId,
-      deviceIp: "10.0.2.20",
-      port: 4370,
-      location: "Depot gate",
-    },
-  });
-
-  async function employee(
-    code: string,
-    name: string,
-    email: string,
-    branchId: string,
-    departmentId: string,
-    designation: string,
-    managerId?: string,
-    isFieldEmployee = false,
-    dateOfBirth?: Date,
-  ) {
-    return prisma.employee.upsert({
-      where: { employeeCode: code },
-      update: {},
-      create: {
-        employeeCode: code,
-        name,
-        email,
-        phone: "+91 9800000000",
-        homeBranchId: branchId,
-        departmentId,
-        designation,
-        managerId,
-        joiningDate: new Date("2025-01-01"),
-        dateOfBirth: dateOfBirth || null,
-        employmentType: "FULL_TIME",
-        attendanceMode: "BOTH",
-        isFieldEmployee,
-      },
-    });
-  }
-
-  const hr = await employee(
-    "EMP-0004",
-    "Suman Iyer",
-    "hr@anytimediesel.local",
-    b1.branchId,
-    hrDept.departmentId,
-    "HR Manager",
-    undefined,
-    false,
-    new Date("1990-05-15"),
-  );
-  const manager = await employee(
-    "EMP-0005",
-    "Vijay Nair",
-    "manager@anytimediesel.local",
-    b1.branchId,
-    operations.departmentId,
-    "Operations Manager",
-    undefined,
-    false,
-    new Date("1985-08-22"),
-  );
-  const emp = await employee(
-    "EMP-0006",
-    "Neha Sharma",
-    "employee@anytimediesel.local",
-    b1.branchId,
-    operations.departmentId,
-    "Executive",
-    manager.employeeId,
-    false,
-    new Date("1993-10-14"),
-  );
-  const sales = await employee(
-    "EMP-0007",
-    "Arjun Kapoor",
-    "sales@anytimediesel.local",
-    b2.branchId,
-    salesDept.departmentId,
-    "Sales Executive",
-    manager.employeeId,
-    true,
-    new Date("1994-03-05"),
-  );
-  const driver = await employee(
-    "EMP-0008",
-    "Mohan Das",
-    "driver@anytimediesel.local",
-    b2.branchId,
-    operations.departmentId,
-    "Driver",
-    manager.employeeId,
-    true,
-    new Date("1988-12-10"),
-  );
-
-  const userData = [
-    ["Dev Admin", "dev@anytimediesel.local", Role.DEVELOPER_ADMIN, null],
-    ["Rakesh Menon", "ceo@anytimediesel.local", Role.CEO, null],
-    [hr.name, hr.email!, Role.HR, hr.employeeId],
-    [manager.name, manager.email!, Role.MANAGER, manager.employeeId],
-    [emp.name, emp.email!, Role.EMPLOYEE, emp.employeeId],
-    [sales.name, sales.email!, Role.SALES, sales.employeeId],
-    [driver.name, driver.email!, Role.DRIVER, driver.employeeId],
+  const unitData = [
+    ["Executive Leadership", null, "TEAM", 1],
+    ["Sales", null, "TEAM", 10],
+    ["Field Sales", "Sales", "SUBTEAM", 11],
+    ["Tele Sales", "Sales", "SUBTEAM", 12],
+    ["Operations", null, "TEAM", 20],
+    ["Route Planning", "Operations", "SUBTEAM", 21],
+    ["Maintenance & Parking Hub", "Operations", "SUBTEAM", 22],
+    ["Data Entry", "Operations", "SUBTEAM", 23],
+    ["Drivers", "Operations", "SUBTEAM", 24],
+    ["Accounts", null, "TEAM", 30],
+    ["Administration", null, "TEAM", 40],
+    ["Human Resources", "Administration", "SUBTEAM", 41],
   ] as const;
 
-  for (const [name, email, role, employeeId] of userData) {
-    await prisma.user.upsert({
-      where: { email },
-      update: {},
+  const units = new Map<string, string>();
+  for (const [name, parentName, unitType, sortOrder] of unitData) {
+    const unit = await prisma.department.upsert({
+      where: { name },
+      update: {
+        unitType,
+        sortOrder,
+        parentDepartmentId: parentName ? units.get(parentName) : null,
+      },
       create: {
         name,
-        email,
-        role,
-        employeeId,
+        unitType,
+        sortOrder,
+        parentDepartmentId: parentName ? units.get(parentName) : undefined,
+      },
+    });
+    units.set(name, unit.departmentId);
+  }
+
+  const madhapur = await prisma.branch.create({
+    data: {
+      branchName: "Madhapur",
+      branchCode: "MADHAPUR",
+      address: "Anytime Diesel, Madhapur, Hyderabad",
+      city: "Hyderabad",
+    },
+  });
+  const banjaraHills = await prisma.branch.create({
+    data: {
+      branchName: "Banjara Hills",
+      branchCode: "BANJARA",
+      address: "Anytime Diesel, Banjara Hills, Hyderabad",
+      city: "Hyderabad",
+    },
+  });
+
+  type Person = {
+    code: string;
+    name: string;
+    email: string;
+    role: Role;
+    unit?: string;
+    designation: string;
+    level: "HEAD" | "SENIOR" | "JUNIOR" | "MEMBER";
+    managerCode?: string;
+    branch?: "madhapur" | "banjara";
+    field?: boolean;
+  };
+
+  const people: Person[] = [
+    {
+      code: "EMP-0001",
+      name: "Chief Executive Officer",
+      email: "ceo@anytimediesel.local",
+      role: Role.CEO,
+      designation: "CEO",
+      level: "HEAD",
+    },
+    {
+      code: "EMP-0002",
+      name: "Company Admin",
+      email: "admin@anytimediesel.local",
+      role: Role.MAIN_ADMIN,
+      unit: "Administration",
+      designation: "Administration Head",
+      level: "HEAD",
+      managerCode: "EMP-0001",
+    },
+    {
+      code: "EMP-0003",
+      name: "HR Manager",
+      email: "hr@anytimediesel.local",
+      role: Role.HR,
+      unit: "Administration",
+      designation: "HR Manager",
+      level: "SENIOR",
+      managerCode: "EMP-0002",
+    },
+    {
+      code: "EMP-0010",
+      name: "Sales Head",
+      email: "sales.head@anytimediesel.local",
+      role: Role.MANAGER,
+      unit: "Sales",
+      designation: "Sales Head",
+      level: "HEAD",
+      managerCode: "EMP-0001",
+    },
+    {
+      code: "EMP-0011",
+      name: "Field Sales Head",
+      email: "field.head@anytimediesel.local",
+      role: Role.MANAGER,
+      unit: "Field Sales",
+      designation: "Field Sales Head",
+      level: "HEAD",
+      managerCode: "EMP-0010",
+      field: true,
+    },
+    {
+      code: "EMP-0012",
+      name: "Senior Field Executive",
+      email: "field.senior@anytimediesel.local",
+      role: Role.SALES,
+      unit: "Field Sales",
+      designation: "Senior Field Executive",
+      level: "SENIOR",
+      managerCode: "EMP-0011",
+      field: true,
+    },
+    {
+      code: "EMP-0013",
+      name: "Junior Field Executive",
+      email: "field.junior@anytimediesel.local",
+      role: Role.SALES,
+      unit: "Field Sales",
+      designation: "Junior Field Executive",
+      level: "JUNIOR",
+      managerCode: "EMP-0012",
+      field: true,
+    },
+    {
+      code: "EMP-0014",
+      name: "Tele Sales Head",
+      email: "tele.head@anytimediesel.local",
+      role: Role.MANAGER,
+      unit: "Tele Sales",
+      designation: "Tele Sales Head",
+      level: "HEAD",
+      managerCode: "EMP-0010",
+    },
+    {
+      code: "EMP-0015",
+      name: "Senior Tele Executive",
+      email: "tele.senior@anytimediesel.local",
+      role: Role.EMPLOYEE,
+      unit: "Tele Sales",
+      designation: "Senior Tele Executive",
+      level: "SENIOR",
+      managerCode: "EMP-0014",
+    },
+    {
+      code: "EMP-0016",
+      name: "Junior Tele Executive",
+      email: "tele.junior@anytimediesel.local",
+      role: Role.EMPLOYEE,
+      unit: "Tele Sales",
+      designation: "Junior Tele Executive",
+      level: "JUNIOR",
+      managerCode: "EMP-0015",
+    },
+    {
+      code: "EMP-0020",
+      name: "Operations Head",
+      email: "operations.head@anytimediesel.local",
+      role: Role.MANAGER,
+      unit: "Operations",
+      designation: "Operations Head",
+      level: "HEAD",
+      managerCode: "EMP-0001",
+    },
+    {
+      code: "EMP-0021",
+      name: "Route Planning Head",
+      email: "route.head@anytimediesel.local",
+      role: Role.MANAGER,
+      unit: "Route Planning",
+      designation: "Route Planning Head",
+      level: "HEAD",
+      managerCode: "EMP-0020",
+    },
+    {
+      code: "EMP-0022",
+      name: "Senior Route Planner",
+      email: "route.senior@anytimediesel.local",
+      role: Role.EMPLOYEE,
+      unit: "Route Planning",
+      designation: "Senior Route Planner",
+      level: "SENIOR",
+      managerCode: "EMP-0021",
+    },
+    {
+      code: "EMP-0023",
+      name: "Junior Route Planner",
+      email: "route.junior@anytimediesel.local",
+      role: Role.EMPLOYEE,
+      unit: "Route Planning",
+      designation: "Junior Route Planner",
+      level: "JUNIOR",
+      managerCode: "EMP-0022",
+    },
+    {
+      code: "EMP-0024",
+      name: "Maintenance & Parking Head",
+      email: "maintenance.head@anytimediesel.local",
+      role: Role.MANAGER,
+      unit: "Maintenance & Parking Hub",
+      designation: "Maintenance & Parking Head",
+      level: "HEAD",
+      managerCode: "EMP-0020",
+    },
+    {
+      code: "EMP-0025",
+      name: "Data Entry Executive",
+      email: "data.entry@anytimediesel.local",
+      role: Role.EMPLOYEE,
+      unit: "Data Entry",
+      designation: "Data Entry Executive",
+      level: "MEMBER",
+      managerCode: "EMP-0020",
+    },
+    {
+      code: "EMP-0026",
+      name: "Driver",
+      email: "driver@anytimediesel.local",
+      role: Role.DRIVER,
+      unit: "Drivers",
+      designation: "Driver",
+      level: "MEMBER",
+      managerCode: "EMP-0020",
+      branch: "banjara",
+      field: true,
+    },
+    {
+      code: "EMP-0030",
+      name: "Accounts Head",
+      email: "accounts.head@anytimediesel.local",
+      role: Role.MANAGER,
+      unit: "Accounts",
+      designation: "Accounts Head",
+      level: "HEAD",
+      managerCode: "EMP-0001",
+    },
+  ];
+
+  const employeeIds = new Map<string, string>();
+  for (const person of people) {
+    const employee = await prisma.employee.create({
+      data: {
+        employeeCode: person.code,
+        name: person.name,
+        email: person.email,
+        departmentId: person.unit ? units.get(person.unit) : undefined,
+        designation: person.designation,
+        organizationLevel: person.level,
+        managerId: person.managerCode ? employeeIds.get(person.managerCode) : undefined,
+        homeBranchId: person.branch === "banjara" ? banjaraHills.branchId : madhapur.branchId,
+        joiningDate: new Date("2026-07-01"),
+        gender: Gender.PREFER_NOT_TO_SAY,
+        employmentType: EmploymentType.FULL_TIME,
+        attendanceMode: "BOTH",
+        isFieldEmployee: person.field ?? false,
+      },
+    });
+    employeeIds.set(person.code, employee.employeeId);
+    await prisma.user.create({
+      data: {
+        name: person.name,
+        email: person.email,
+        role: person.role,
+        employeeId: employee.employeeId,
         passwordHash,
         firstLoginPasswordChangeRequired: true,
       },
     });
   }
 
-  await prisma.biometricEmployeeMapping.upsert({
-    where: { mappingId: "seed-map-emp-b1" },
-    update: {},
-    create: {
-      mappingId: "seed-map-emp-b1",
-      employeeId: emp.employeeId,
-      biometricUserId: "1006",
-      deviceId: d1.deviceId,
-    },
-  });
-  await prisma.biometricEmployeeMapping.upsert({
-    where: { mappingId: "seed-map-sales-b2" },
-    update: {},
-    create: {
-      mappingId: "seed-map-sales-b2",
-      employeeId: sales.employeeId,
-      biometricUserId: "1007",
-      deviceId: d2.deviceId,
+  await prisma.user.create({
+    data: {
+      name: "Developer Admin",
+      email: "dev@anytimediesel.local",
+      role: Role.DEVELOPER_ADMIN,
+      passwordHash,
+      firstLoginPasswordChangeRequired: true,
     },
   });
 
@@ -219,113 +308,33 @@ async function main() {
     ["Paid Leave", true],
     ["Sick Leave", true],
     ["Casual Leave", true],
-    ["Half-Day Leave", true],
     ["Unpaid Leave", false],
-    ["Emergency Leave", true],
-    ["Comp Off", true],
   ] as const) {
-    await prisma.leaveType.upsert({ where: { name }, update: { paid }, create: { name, paid } });
+    await prisma.leaveType.create({ data: { name, paid } });
   }
 
-  for (const holiday of [
-    { name: "Republic Day", date: new Date("2026-01-26"), type: "Public" },
-    { name: "Independence Day", date: new Date("2026-08-15"), type: "Public" },
-    {
-      name: "Founders' Day",
-      date: new Date("2026-09-12"),
-      type: "Optional",
-      branchId: b1.branchId,
-    },
-  ]) {
-    const existing = await prisma.holiday.findFirst({
-      where: { name: holiday.name, date: holiday.date },
+  for (const [unitName, headCode] of [
+    ["Sales", "EMP-0010"],
+    ["Field Sales", "EMP-0011"],
+    ["Tele Sales", "EMP-0014"],
+    ["Operations", "EMP-0020"],
+    ["Route Planning", "EMP-0021"],
+    ["Maintenance & Parking Hub", "EMP-0024"],
+    ["Accounts", "EMP-0030"],
+    ["Administration", "EMP-0002"],
+  ] as const) {
+    await prisma.department.update({
+      where: { departmentId: units.get(unitName)! },
+      data: { headEmployeeId: employeeIds.get(headCode) },
     });
-    if (!existing) await prisma.holiday.create({ data: holiday });
   }
 
-  await prisma.employeeBranchSchedule.upsert({
-    where: { employeeId_date: { employeeId: sales.employeeId, date: new Date("2026-07-07") } },
-    update: {},
-    create: {
-      employeeId: sales.employeeId,
-      date: new Date("2026-07-07"),
-      scheduledBranchId: b1.branchId,
-      workType: WorkType.BRANCH,
-      remarks: "Seed multi-branch day",
-    },
-  });
-
-  await prisma.attendanceEvent.deleteMany({
-    where: { employeeId: sales.employeeId, eventDate: new Date("2026-07-07") },
-  });
-  await createAttendanceEvent({
-    employeeId: sales.employeeId,
-    eventSource: EventSource.THUMB_SCANNER,
-    eventType: EventType.OFFICE_IN,
-    branchId: b1.branchId,
-    deviceId: d1.deviceId,
-    eventTime: new Date("2026-07-07T09:30:00.000Z"),
-  });
-  await createAttendanceEvent({
-    employeeId: sales.employeeId,
-    eventSource: EventSource.THUMB_SCANNER,
-    eventType: EventType.OFFICE_OUT,
-    branchId: b1.branchId,
-    deviceId: d1.deviceId,
-    eventTime: new Date("2026-07-07T12:00:00.000Z"),
-  });
-  await createAttendanceEvent({
-    employeeId: sales.employeeId,
-    eventSource: EventSource.THUMB_SCANNER,
-    eventType: EventType.BRANCH_IN,
-    branchId: b2.branchId,
-    deviceId: d2.deviceId,
-    eventTime: new Date("2026-07-07T13:15:00.000Z"),
-  });
-  await createAttendanceEvent({
-    employeeId: sales.employeeId,
-    eventSource: EventSource.THUMB_SCANNER,
-    eventType: EventType.BRANCH_OUT,
-    branchId: b2.branchId,
-    deviceId: d2.deviceId,
-    eventTime: new Date("2026-07-07T15:30:00.000Z"),
-  });
-  await createAttendanceEvent({
-    employeeId: sales.employeeId,
-    eventSource: EventSource.MOBILE_GPS,
-    eventType: EventType.CLIENT_CHECK_IN,
-    eventTime: new Date("2026-07-07T16:15:00.000Z"),
-    latitude: 19.076,
-    longitude: 72.8777,
-    address: "Andheri East, Mumbai",
-    clientName: "Western Logistics",
-    clientLocationName: "Client yard",
-    workType: WorkType.CLIENT_VISIT,
-    mobileDeviceId: "seed-mobile-01",
-  });
-  await createAttendanceEvent({
-    employeeId: sales.employeeId,
-    eventSource: EventSource.MOBILE_GPS,
-    eventType: EventType.CLIENT_CHECK_OUT,
-    eventTime: new Date("2026-07-07T18:30:00.000Z"),
-    latitude: 19.077,
-    longitude: 72.878,
-    address: "Andheri East, Mumbai",
-    clientName: "Western Logistics",
-    clientLocationName: "Client yard",
-    workType: WorkType.CLIENT_VISIT,
-    mobileDeviceId: "seed-mobile-01",
-  });
-
-  console.log("Seed complete. Login with any seeded email and password ChangeMe@12345");
+  console.log(`Fresh seed complete: ${people.length + 1} accounts created.`);
 }
 
 main()
-  .finally(async () => {
-    await prisma.$disconnect();
-  })
-  .catch(async (error) => {
+  .catch((error) => {
     console.error(error);
-    await prisma.$disconnect();
-    process.exit(1);
-  });
+    process.exitCode = 1;
+  })
+  .finally(() => prisma.$disconnect());

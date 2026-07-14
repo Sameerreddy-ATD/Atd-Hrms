@@ -10,15 +10,15 @@ import {
   FileText,
   CalendarCheck,
   MapPin,
-  ClipboardList,
   PlaneTakeoff,
   BadgeCheck,
   IdCard,
   BellRing,
-  ClipboardCheck,
   History,
-  Building,
   Briefcase,
+  Package,
+  ListTodo,
+  FileClock,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -65,7 +65,7 @@ export const menuGroups: MenuGroup[] = [
         label: "User Logins",
         to: "/users",
         icon: UserCog,
-        roles: ["developer_admin", "main_admin", "hr"],
+        roles: ["developer_admin"],
       },
       {
         label: "Departments",
@@ -85,24 +85,6 @@ export const menuGroups: MenuGroup[] = [
         roles: ["employee", "manager", "hr", "sales", "driver", "field_staff"],
       },
       {
-        label: "Attendance Overview",
-        to: "/attendance",
-        icon: ClipboardList,
-        roles: ["main_admin", "hr", "manager", "ceo"],
-      },
-      {
-        label: "Branch Attendance",
-        to: "/attendance/branch",
-        icon: Building,
-        roles: ["hr", "manager", "ceo", "main_admin"],
-      },
-      {
-        label: "Field Attendance",
-        to: "/attendance/field",
-        icon: MapPin,
-        roles: ["hr", "manager", "ceo", "main_admin"],
-      },
-      {
         label: "Day Logs",
         to: "/attendance/locations",
         icon: MapPin,
@@ -111,16 +93,14 @@ export const menuGroups: MenuGroup[] = [
       {
         label: "Attendance Corrections",
         to: "/attendance/corrections",
-        icon: ClipboardCheck,
-        roles: ["manager", "hr"],
-      },
-      {
-        label: "Missed Punch Request",
-        to: "/attendance/missed-punch",
-        icon: ClipboardCheck,
-        roles: ["employee", "sales", "driver", "field_staff"],
+        icon: FileClock,
+        roles: ["hr", "main_admin", "developer_admin"],
       },
     ],
+  },
+  {
+    label: "Work",
+    items: [{ label: "Tasks & Daily Logs", to: "/tasks", icon: ListTodo, roles: ALL }],
   },
   {
     label: "Leave",
@@ -151,7 +131,7 @@ export const menuGroups: MenuGroup[] = [
         roles: ["hr", "ceo", "main_admin"],
       },
       {
-        label: "Leave Policy",
+        label: "Leave Types",
         to: "/leave/policy",
         icon: Settings,
         roles: ["hr", "developer_admin", "main_admin"],
@@ -179,22 +159,11 @@ export const menuGroups: MenuGroup[] = [
         icon: CalendarCheck,
         roles: ["hr", "main_admin", "developer_admin"],
       },
-    ],
-  },
-  {
-    label: "Reports",
-    items: [
       {
-        label: "Reports",
-        to: "/reports",
-        icon: FileText,
-        roles: ["ceo", "main_admin", "manager"],
-      },
-      {
-        label: "Audit Logs",
-        to: "/audit",
-        icon: ScrollText,
-        roles: ["developer_admin", "main_admin"],
+        label: "Asset Management",
+        to: "/assets",
+        icon: Package,
+        roles: ["hr"],
       },
     ],
   },
@@ -218,6 +187,12 @@ export const menuGroups: MenuGroup[] = [
         label: "System Settings",
         to: "/settings",
         icon: Settings,
+        roles: ["developer_admin", "main_admin"],
+      },
+      {
+        label: "Audit Logs",
+        to: "/audit",
+        icon: ScrollText,
         roles: ["developer_admin", "main_admin"],
       },
     ],

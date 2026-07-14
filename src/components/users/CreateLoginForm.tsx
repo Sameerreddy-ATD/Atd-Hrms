@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PasswordInput } from "@/components/common/PasswordInput";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
-import { ROLE_LABELS, type Branch, type Department, type Role, type User } from "@/mock/types";
+import { type Branch, type Department, type Role, type User } from "@/mock/types";
 import { branchesApi, employeesApi, usersApi } from "@/services/api";
 
 const CAN_CREATE: Record<Role, Role[]> = {
@@ -27,8 +27,8 @@ const CAN_CREATE: Record<Role, Role[]> = {
     "driver",
     "field_staff",
   ],
-  main_admin: ["ceo", "hr", "manager", "employee"],
-  hr: ["employee", "manager", "sales", "driver", "field_staff"],
+  main_admin: [],
+  hr: [],
   ceo: [],
   manager: [],
   employee: [],
@@ -48,18 +48,20 @@ export function CreateLoginForm({
   const allowed = user ? CAN_CREATE[user.role] : [];
   const [branches, setBranches] = useState<Branch[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [managers, setManagers] = useState<User[]>([]);
   const [unlinkedEmployees, setUnlinkedEmployees] = useState<User[]>([]);
   const [creationMode] = useState<"new" | "link">("new");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const [employeeCode, setEmployeeCode] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<Role>(allowed[0] ?? "employee");
   const [branch, setBranch] = useState("");
   const [dept, setDept] = useState("");
-  const [managerId, setManagerId] = useState("none");
+  const [organizationUnitId, setOrganizationUnitId] = useState("");
+  const [childOrganizationUnitId, setChildOrganizationUnitId] = useState("none");
   const [designation, setDesignation] = useState("");
+  const [organizationLevel, setOrganizationLevel] = useState<
+    "HEAD" | "SENIOR" | "JUNIOR" | "MEMBER"
+  >("MEMBER");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [gender, setGender] = useState<"FEMALE" | "MALE" | "PREFER_NOT_TO_SAY">(
     "PREFER_NOT_TO_SAY",
@@ -67,9 +69,42 @@ export function CreateLoginForm({
   const [employmentType, setEmploymentType] = useState<"FULL_TIME" | "PART_TIME" | "INTERN">(
     "FULL_TIME",
   );
+  const [weeklyOffDays, setWeeklyOffDays] = useState<string[]>(["SUNDAY"]);
   const usePredefinedPassword = false;
   const [temporaryPassword, setTemporaryPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const topLevelUnits = useMemo(
+    () => departments.filter((department) => !department.parentDepartmentId),
+    [departments],
+  );
+  const childUnits = useMemo(
+    () => departments.filter((department) => department.parentDepartmentId === organizationUnitId),
+    [departments, organizationUnitId],
+  );
+  const selectedUnit = departments.find((department) => department.id === dept);
+  const role: Role = selectedUnit
+    ? selectedUnit.name === "Executive Leadership"
+      ? "ceo"
+      : selectedUnit.name === "Human Resources"
+        ? "hr"
+        : selectedUnit.name === "Administration" && organizationLevel === "HEAD"
+          ? "main_admin"
+          : selectedUnit.name === "Drivers"
+            ? "driver"
+            : organizationLevel === "HEAD"
+              ? "manager"
+              : selectedUnit.name.toLowerCase().includes("sales")
+                ? "sales"
+                : "employee"
+    : "employee";
+  const positionTitle = selectedUnit
+    ? organizationLevel === "HEAD"
+      ? `${selectedUnit.name} Head`
+      : organizationLevel === "MEMBER"
+        ? selectedUnit.name
+        : `${organizationLevel === "SENIOR" ? "Senior" : "Junior"} ${selectedUnit.name}`
+    : "Select an organization unit";
 
   useEffect(() => {
     Promise.all([
@@ -81,12 +116,6 @@ export function CreateLoginForm({
       .then(([branchRows, departmentRows, employees, usersList]) => {
         setBranches(branchRows);
         setDepartments(departmentRows);
-        setManagers(
-          employees.filter((employee) =>
-            ["manager", "hr", "main_admin", "developer_admin"].includes(employee.role),
-          ),
-        );
-
         // Filter out employees that already have user login accounts
         const userEmpIds = new Set(usersList.map((u) => u.employeeId).filter(Boolean));
         const unlinked = employees.filter((e) => !userEmpIds.has(e.employeeId));
@@ -96,15 +125,30 @@ export function CreateLoginForm({
         }
 
         setBranch((current) => current || branchRows[0]?.id || "");
-        setDept((current) => current || departmentRows[0]?.id || "");
+        const firstTopLevel = departmentRows.find((department) => !department.parentDepartmentId);
+        setOrganizationUnitId((current) => current || firstTopLevel?.id || "");
+        setDept((current) => current || firstTopLevel?.id || "");
       })
       .catch(() => {
         setBranches([]);
         setDepartments([]);
-        setManagers([]);
         setUnlinkedEmployees([]);
       });
   }, []);
+
+  useEffect(() => {
+    const selectedChild = childOrganizationUnitId === "none" ? "" : childOrganizationUnitId;
+    setDept(selectedChild || organizationUnitId);
+  }, [organizationUnitId, childOrganizationUnitId]);
+
+  useEffect(() => {
+    if (
+      childOrganizationUnitId !== "none" &&
+      !childUnits.some((unit) => unit.id === childOrganizationUnitId)
+    ) {
+      setChildOrganizationUnitId("none");
+    }
+  }, [childOrganizationUnitId, childUnits]);
 
   // Sync details from selected employee if linking
   useEffect(() => {
@@ -118,7 +162,7 @@ export function CreateLoginForm({
         setDesignation(emp.designation || "");
         setGender(emp.gender || "PREFER_NOT_TO_SAY");
         setEmploymentType(emp.employmentType || "FULL_TIME");
-        setManagerId(emp.managerId || "none");
+        setWeeklyOffDays(emp.weeklyOffDays?.length ? emp.weeklyOffDays : ["SUNDAY"]);
       }
     }
   }, [creationMode, selectedEmployeeId, unlinkedEmployees, branches, departments]);
@@ -139,7 +183,6 @@ export function CreateLoginForm({
       const payload: any = {
         name: creationMode === "link" ? name : name,
         email,
-        role,
         phone: undefined,
         active: true,
         mustChangePassword: true,
@@ -152,11 +195,12 @@ export function CreateLoginForm({
         payload.employeeCode = employeeCode || undefined;
         payload.homeBranchId = branch || undefined;
         payload.departmentId = dept || undefined;
-        payload.designation = designation || undefined;
-        payload.managerId = managerId === "none" ? undefined : managerId;
+        payload.designation = designation.trim() || positionTitle;
+        payload.organizationLevel = organizationLevel;
         payload.dateOfBirth = dateOfBirth || undefined;
         payload.gender = gender;
         payload.employmentType = employmentType;
+        payload.weeklyOffDays = weeklyOffDays;
         payload.attendanceMode = "BOTH";
         payload.isFieldEmployee = ["sales", "driver", "field_staff"].includes(role);
       }
@@ -184,18 +228,28 @@ export function CreateLoginForm({
   }
 
   return (
-    <div className="w-full">
-      <form onSubmit={submit} className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label>Employee Code / ID (Predefined)</Label>
+    <div className="min-h-0 w-full">
+      <form
+        onSubmit={submit}
+        className="grid max-h-[calc(100dvh-6rem)] min-w-0 grid-cols-1 gap-x-5 gap-y-4 overflow-y-auto px-3 py-4 sm:max-h-[calc(92dvh-8rem)] sm:grid-cols-2 sm:px-6 sm:py-5"
+      >
+        <div className="sm:col-span-2">
+          <h3 className="text-sm font-semibold text-foreground">Account details</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Sign-in information and the employee's internal ID.
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Employee ID</Label>
           <Input
-            placeholder="Leave blank to auto-generate (e.g. EMP-0001)"
+            placeholder="Auto-generated when empty"
             value={employeeCode}
             onChange={(e) => setEmployeeCode(e.target.value)}
           />
         </div>
 
-        <div className="space-y-1.5 sm:col-span-2">
+        <div className="space-y-1.5">
           <Label>Full name</Label>
           <Input
             value={name}
@@ -204,7 +258,7 @@ export function CreateLoginForm({
           />
         </div>
 
-        <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
+        <div className="space-y-1.5">
           <Label>Email</Label>
           <Input
             type="email"
@@ -214,7 +268,7 @@ export function CreateLoginForm({
           />
         </div>
 
-        <div className="space-y-1.5 sm:col-span-2">
+        <div className="space-y-1.5">
           <Label>Temporary password</Label>
           <PasswordInput
             value={temporaryPassword}
@@ -226,24 +280,15 @@ export function CreateLoginForm({
           </p>
         </div>
 
-        <div className="space-y-1.5">
-          <Label>Role</Label>
-          <Select value={role} onValueChange={(v) => setRole(v as Role)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {allowed.map((r) => (
-                <SelectItem key={r} value={r}>
-                  {ROLE_LABELS[r]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
         {creationMode === "new" && (
           <>
+            <div className="border-t border-border pt-4 sm:col-span-2">
+              <h3 className="text-sm font-semibold text-foreground">Organization assignment</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Place the employee in the company hierarchy. Access is assigned automatically.
+              </p>
+            </div>
+
             <div className="space-y-1.5">
               <Label>Home branch</Label>
               <Select value={branch} onValueChange={setBranch}>
@@ -260,14 +305,14 @@ export function CreateLoginForm({
               </Select>
             </div>
 
-            <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
-              <Label>Department</Label>
-              <Select value={dept} onValueChange={setDept}>
+            <div className="space-y-1.5">
+              <Label>Main organization unit</Label>
+              <Select value={organizationUnitId} onValueChange={setOrganizationUnitId}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select main unit" />
                 </SelectTrigger>
                 <SelectContent>
-                  {departments.map((d) => (
+                  {topLevelUnits.map((d) => (
                     <SelectItem key={d.id} value={d.id}>
                       {d.name}
                     </SelectItem>
@@ -277,8 +322,68 @@ export function CreateLoginForm({
             </div>
 
             <div className="space-y-1.5">
-              <Label>Designation</Label>
-              <Input value={designation} onChange={(e) => setDesignation(e.target.value)} />
+              <Label>Child organization unit</Label>
+              <Select
+                value={childOrganizationUnitId}
+                onValueChange={setChildOrganizationUnitId}
+                disabled={childUnits.length === 0}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select child unit" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Use main unit</SelectItem>
+                  {childUnits.map((unit) => (
+                    <SelectItem key={unit.id} value={unit.id}>
+                      {unit.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Job title (optional)</Label>
+              <Input
+                value={designation}
+                placeholder={positionTitle}
+                onChange={(e) => setDesignation(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Organization level</Label>
+              <Select
+                value={organizationLevel}
+                onValueChange={(value) => setOrganizationLevel(value as typeof organizationLevel)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="HEAD">Head</SelectItem>
+                  <SelectItem value="SENIOR">Senior</SelectItem>
+                  <SelectItem value="JUNIOR">Junior</SelectItem>
+                  <SelectItem value="MEMBER">Member</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="rounded-md border border-border bg-muted/40 px-4 py-3 sm:col-span-2">
+              <p className="text-xs font-medium text-muted-foreground">Position preview</p>
+              <p className="mt-1 text-base font-semibold text-foreground">{positionTitle}</p>
+              <p className="mt-1 break-words text-xs text-muted-foreground">
+                {selectedUnit?.parentDepartmentId
+                  ? `${departments.find((unit) => unit.id === selectedUnit.parentDepartmentId)?.name ?? "Organization"} / ${selectedUnit.name}`
+                  : (selectedUnit?.name ?? "Choose a unit to continue")}
+              </p>
+            </div>
+
+            <div className="border-t border-border pt-4 sm:col-span-2">
+              <h3 className="text-sm font-semibold text-foreground">Employment details</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Personal details and employment type. Reporting follows the organization structure.
+              </p>
             </div>
 
             <div className="space-y-1.5">
@@ -328,36 +433,41 @@ export function CreateLoginForm({
               </Select>
             </div>
 
-            <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
-              <Label>Reporting manager</Label>
-              <Select value={managerId} onValueChange={setManagerId}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No manager</SelectItem>
-                  {managers.map((manager) => (
-                    <SelectItem
-                      key={manager.employeeId ?? manager.id}
-                      value={manager.employeeId ?? manager.id}
-                    >
-                      {manager.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Weekly off days</Label>
+              <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-md border border-border p-3">
+                {["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"].map(
+                  (day) => (
+                    <label key={day} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={weeklyOffDays.includes(day)}
+                        onChange={(event) =>
+                          setWeeklyOffDays((current) =>
+                            event.target.checked
+                              ? [...current, day]
+                              : current.filter((value) => value !== day),
+                          )
+                        }
+                      />
+                      {day[0]}
+                      {day.slice(1).toLowerCase()}
+                    </label>
+                  ),
+                )}
+              </div>
             </div>
           </>
         )}
 
-        <div className="flex flex-col-reverse gap-2 sm:col-span-2 sm:flex-row sm:justify-end lg:col-span-3 mt-2">
+        <div className="sticky -bottom-5 z-10 -mx-5 mt-2 flex flex-col-reverse gap-2 border-t border-border bg-background px-5 py-4 sm:col-span-2 sm:-mx-6 sm:flex-row sm:justify-end sm:px-6">
           {onCancel && (
             <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">
               Cancel
             </Button>
           )}
-          <Button type="submit" disabled={loading} className="w-full sm:w-auto">
-            Create login
+          <Button type="submit" disabled={loading} className="w-full sm:min-w-36 sm:w-auto">
+            {loading ? "Creating..." : "Create account"}
           </Button>
         </div>
       </form>

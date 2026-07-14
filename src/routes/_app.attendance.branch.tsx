@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/table";
 import type { AttendanceRecord, Branch } from "@/mock/types";
 import { attendanceApi, branchesApi } from "@/services/api";
-import { attendanceSourceLabel } from "@/lib/attendance-labels";
+import { punchSourceLabel } from "@/lib/attendance-labels";
 import { ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/_app/attendance/branch")({
@@ -44,6 +44,15 @@ function BranchAttendancePage() {
       .then(([attendanceRows, branchRows]) => {
         setRows(attendanceRows);
         setBranches(branchRows);
+
+        if (!from && !to && attendanceRows.length > 0) {
+          const dates = attendanceRows.map((r) => r.date).filter(Boolean);
+          if (dates.length > 0) {
+            dates.sort();
+            setFrom(dates[0]);
+            setTo(dates[dates.length - 1]);
+          }
+        }
       })
       .catch((err) => setError((err as Error).message))
       .finally(() => setLoading(false));
@@ -115,8 +124,6 @@ function BranchAttendancePage() {
                 <TableHead>Employee</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Home Branch</TableHead>
-                <TableHead>Actual Branch</TableHead>
-                <TableHead>Source</TableHead>
                 <TableHead>Punch In</TableHead>
                 <TableHead>Punch Out</TableHead>
                 <TableHead>Status</TableHead>
@@ -131,10 +138,18 @@ function BranchAttendancePage() {
                   </TableCell>
                   <TableCell>{r.date}</TableCell>
                   <TableCell>{branchName(r.homeBranchId)}</TableCell>
-                  <TableCell>{branchName(r.actualBranchId)}</TableCell>
-                  <TableCell>{attendanceSourceLabel(r, branches)}</TableCell>
-                  <TableCell>{r.punchIn ?? "-"}</TableCell>
-                  <TableCell>{r.punchOut ?? "-"}</TableCell>
+                  <TableCell>
+                    <div>{r.punchIn ?? "-"}</div>
+                    <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
+                      {punchSourceLabel(r.punchInSource, r.punchInBranchId, branches)}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div>{r.punchOut ?? "-"}</div>
+                    <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
+                      {punchSourceLabel(r.punchOutSource, r.punchOutBranchId, branches)}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <StatusBadge status={r.status} />
                   </TableCell>

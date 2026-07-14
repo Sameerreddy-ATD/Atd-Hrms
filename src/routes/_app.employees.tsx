@@ -62,10 +62,15 @@ function EmployeesPage() {
     dateOfBirth: "",
     gender: "PREFER_NOT_TO_SAY" as "FEMALE" | "MALE" | "PREFER_NOT_TO_SAY",
     employmentType: "FULL_TIME" as "FULL_TIME" | "PART_TIME" | "INTERN",
+    organizationLevel: "MEMBER" as "HEAD" | "SENIOR" | "JUNIOR" | "MEMBER",
     attendanceMode: "BOTH" as "THUMB_ONLY" | "MOBILE_GPS_ONLY" | "BOTH",
+    weeklyOffDays: ["SUNDAY"] as string[],
   });
 
-  const canEdit = currentUser && ["developer_admin", "main_admin", "hr"].includes(currentUser.role);
+  const canEdit = currentUser?.role === "developer_admin";
+  const canSeeCompanyDirectory = Boolean(
+    currentUser && ["developer_admin", "main_admin", "hr"].includes(currentUser.role),
+  );
 
   useEffect(() => {
     Promise.all([employeesApi.list(), branchesApi.list(), branchesApi.departments()])
@@ -77,24 +82,6 @@ function EmployeesPage() {
       .catch((err) => setError((err as Error).message))
       .finally(() => setLoading(false));
   }, []);
-
-  const managerOptions = employees.filter((employee) =>
-    ["manager", "hr", "main_admin", "developer_admin"].includes(employee.role),
-  );
-
-  async function updateManager(employee: User, managerId: string) {
-    try {
-      const updated = await employeesApi.update(employee.employeeId ?? employee.id, {
-        managerId: managerId === "none" ? undefined : managerId,
-      });
-      setEmployees((prev) =>
-        prev.map((row) => (row.employeeId === updated.employeeId ? { ...row, ...updated } : row)),
-      );
-      toast.success("Reporting manager updated");
-    } catch (err) {
-      toast.error((err as Error).message);
-    }
-  }
 
   function openEditDialog(emp: User) {
     setEditingEmployee(emp);
@@ -108,7 +95,9 @@ function EmployeesPage() {
       dateOfBirth: emp.dateOfBirth || "",
       gender: emp.gender || "PREFER_NOT_TO_SAY",
       employmentType: emp.employmentType || "FULL_TIME",
+      organizationLevel: emp.organizationLevel || "MEMBER",
       attendanceMode: "BOTH",
+      weeklyOffDays: emp.weeklyOffDays?.length ? emp.weeklyOffDays : ["SUNDAY"],
     });
   }
 
@@ -126,7 +115,9 @@ function EmployeesPage() {
         dateOfBirth: editForm.dateOfBirth || undefined,
         gender: editForm.gender,
         employmentType: editForm.employmentType,
+        organizationLevel: editForm.organizationLevel,
         attendanceMode: "BOTH" as const,
+        weeklyOffDays: editForm.weeklyOffDays,
       };
       const updated = await employeesApi.update(
         editingEmployee.employeeId ?? editingEmployee.id,
@@ -156,15 +147,30 @@ function EmployeesPage() {
     [q, branch, dept, employees],
   );
 
+  const visibleDepartments = useMemo(() => {
+    if (canSeeCompanyDirectory) return departments;
+    const allowedIds = new Set(employees.map((employee) => employee.departmentId).filter(Boolean));
+    const allowedNames = new Set(employees.map((employee) => employee.department).filter(Boolean));
+    return departments.filter(
+      (department) => allowedIds.has(department.id) || allowedNames.has(department.name),
+    );
+  }, [canSeeCompanyDirectory, departments, employees]);
+
   return (
     <div>
       <PageHeader
         title="Employees"
-        description="Directory of all employees across branches and departments."
+        description={
+          canSeeCompanyDirectory
+            ? "Directory of employees across branches and organization units."
+            : "Employees in your organization unit and its child teams."
+        }
         actions={
-          <Button size="sm" onClick={() => navigate({ to: "/users", search: { create: true } })}>
-            <Plus className="mr-2 h-4 w-4" /> Add employee
-          </Button>
+          canEdit ? (
+            <Button size="sm" onClick={() => navigate({ to: "/users", search: { create: true } })}>
+              <Plus className="mr-2 h-4 w-4" /> Add employee
+            </Button>
+          ) : undefined
         }
       />
       {loading && <p className="text-sm text-muted-foreground">Loading employees...</p>}
@@ -198,7 +204,7 @@ function EmployeesPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All departments</SelectItem>
-            {departments.map((d) => (
+            {visibleDepartments.map((d) => (
               <SelectItem key={d.id} value={d.id}>
                 {d.name}
               </SelectItem>
@@ -208,7 +214,63 @@ function EmployeesPage() {
       </TableToolbar>
 
       <div className="overflow-hidden rounded-lg border border-border bg-card">
-        <div className="overflow-x-auto">
+        <div className="space-y-2 p-3 md:hidden">
+          {rows.map((employee) => (
+            <div key={employee.id} className="rounded-lg border bg-background p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{employee.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">{employee.email}</p>
+                </div>
+                {employee.active ? (
+                  <Badge
+                    variant="outline"
+                    className="border-emerald-200 bg-emerald-50 text-emerald-700"
+                  >
+                    Active
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="border-slate-200 bg-slate-100 text-slate-600">
+                    Inactive
+                  </Badge>
+                )}
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                <div>
+                  <p className="text-muted-foreground">Employee ID</p>
+                  <p className="mt-0.5 font-mono">{employee.employeeCode ?? employee.employeeId}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Role</p>
+                  <p className="mt-0.5">{ROLE_LABELS[employee.role]}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Department</p>
+                  <p className="mt-0.5 break-words">{employee.department ?? "-"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Branch</p>
+                  <p className="mt-0.5 break-words">
+                    {branches.find((item) => item.id === employee.homeBranchId)?.name ??
+                      employee.homeBranchName ??
+                      "-"}
+                  </p>
+                </div>
+              </div>
+              {canEdit && (
+                <Button
+                  className="mt-3 w-full"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => openEditDialog(employee)}
+                >
+                  <Pencil className="h-4 w-4" /> Edit details
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -217,7 +279,6 @@ function EmployeesPage() {
                 <TableHead>Role</TableHead>
                 <TableHead>Department</TableHead>
                 <TableHead>Home Branch</TableHead>
-                <TableHead>Reporting Manager</TableHead>
                 <TableHead>Phone</TableHead>
                 <TableHead>Status</TableHead>
                 {canEdit && <TableHead className="w-[80px]">Actions</TableHead>}
@@ -237,29 +298,6 @@ function EmployeesPage() {
                   <TableCell>{u.department ?? "-"}</TableCell>
                   <TableCell>
                     {branches.find((b) => b.id === u.homeBranchId)?.name ?? u.homeBranchName ?? "-"}
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={u.managerId ?? "none"}
-                      onValueChange={(value) => updateManager(u, value)}
-                    >
-                      <SelectTrigger className="min-w-44">
-                        <SelectValue placeholder="Manager" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">No manager</SelectItem>
-                        {managerOptions
-                          .filter((manager) => manager.employeeId !== u.employeeId)
-                          .map((manager) => (
-                            <SelectItem
-                              key={manager.employeeId}
-                              value={manager.employeeId ?? manager.id}
-                            >
-                              {manager.name}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
                   </TableCell>
                   <TableCell className="text-sm">{u.phone ?? "-"}</TableCell>
                   <TableCell>
@@ -303,12 +341,12 @@ function EmployeesPage() {
 
       {editingEmployee && (
         <Dialog open={!!editingEmployee} onOpenChange={(open) => !open && setEditingEmployee(null)}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
+          <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[92dvh]">
+            <DialogHeader className="border-b border-border px-5 py-4 sm:px-6">
               <DialogTitle>Edit Employee Details</DialogTitle>
             </DialogHeader>
-            <form onSubmit={saveEmployee} className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2">
+            <form onSubmit={saveEmployee} className="flex min-h-0 flex-1 flex-col">
+              <div className="grid flex-1 grid-cols-1 gap-x-5 gap-y-4 overflow-y-auto px-3 py-4 sm:grid-cols-2 sm:px-6 sm:py-5">
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label>Full name</Label>
                   <Input
@@ -376,6 +414,28 @@ function EmployeesPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
+                  <Label>Organization level</Label>
+                  <Select
+                    value={editForm.organizationLevel}
+                    onValueChange={(value) =>
+                      setEditForm((current) => ({
+                        ...current,
+                        organizationLevel: value as typeof current.organizationLevel,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="HEAD">Head</SelectItem>
+                      <SelectItem value="SENIOR">Senior</SelectItem>
+                      <SelectItem value="JUNIOR">Junior</SelectItem>
+                      <SelectItem value="MEMBER">Member</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
                   <Label>Date of Birth</Label>
                   <Input
                     type="date"
@@ -419,6 +479,37 @@ function EmployeesPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Weekly off days</Label>
+                  <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-md border border-border p-3">
+                    {[
+                      "SUNDAY",
+                      "MONDAY",
+                      "TUESDAY",
+                      "WEDNESDAY",
+                      "THURSDAY",
+                      "FRIDAY",
+                      "SATURDAY",
+                    ].map((day) => (
+                      <label key={day} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={editForm.weeklyOffDays.includes(day)}
+                          onChange={(event) =>
+                            setEditForm((current) => ({
+                              ...current,
+                              weeklyOffDays: event.target.checked
+                                ? [...current.weeklyOffDays, day]
+                                : current.weeklyOffDays.filter((value) => value !== day),
+                            }))
+                          }
+                        />
+                        {day[0]}
+                        {day.slice(1).toLowerCase()}
+                      </label>
+                    ))}
+                  </div>
+                </div>
                 <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 sm:col-span-2">
                   <p className="text-sm font-medium text-emerald-900">
                     Flexible attendance enabled
@@ -429,7 +520,7 @@ function EmployeesPage() {
                   </p>
                 </div>
               </div>
-              <DialogFooter className="mt-4">
+              <DialogFooter className="border-t border-border bg-background px-5 py-4 sm:px-6">
                 <Button type="button" variant="outline" onClick={() => setEditingEmployee(null)}>
                   Cancel
                 </Button>

@@ -1,9 +1,13 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -13,11 +17,31 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { attendanceApi } from "@/services/api";
-import type { AttendanceRecord } from "@/mock/types";
+import { attendanceApi, branchesApi } from "@/services/api";
+import type { AttendanceRecord, Branch } from "@/mock/types";
 import { useAuth } from "@/lib/auth";
-import { punchTypeLabel } from "@/lib/attendance-labels";
-import { Plus } from "lucide-react";
+import {
+  MISSED_PUNCH_TYPE_OPTIONS,
+  punchSourceLabel,
+  punchTypeLabel,
+} from "@/lib/attendance-labels";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+function todayDateInputValue() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function currentTimeInputValue() {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+}
 
 function calculateDistance(
   lat1?: number,
@@ -59,23 +83,32 @@ interface CorrectionRequestItem {
 
 function MyAttendancePage() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [myRequests, setMyRequests] = useState<CorrectionRequestItem[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [eventType, setEventType] = useState<string>(MISSED_PUNCH_TYPE_OPTIONS[0]);
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const maxDate = todayDateInputValue();
+  const maxTime = date === maxDate ? currentTimeInputValue() : undefined;
 
   const load = useCallback(
     async (showLoading = true) => {
       if (showLoading) setLoading(true);
       setError("");
       try {
-        const [attendanceRows, requestsList] = await Promise.all([
+        const [attendanceRows, requestsList, branchRows] = await Promise.all([
           attendanceApi.listMine(user?.employeeId ?? ""),
           attendanceApi.listCorrectionRequests(),
+          branchesApi.list(),
         ]);
         setRecords(attendanceRows);
         setMyRequests(requestsList || []);
+        setBranches(branchRows || []);
       } catch (err) {
         setError((err as Error).message);
       } finally {
@@ -88,6 +121,38 @@ function MyAttendancePage() {
   useEffect(() => {
     if (user) void load();
   }, [load, user]);
+
+  async function submitMissedPunch(event: React.FormEvent) {
+    event.preventDefault();
+    if (!user?.employeeId || !date || !time || reason.trim().length < 3) {
+      toast.error("Enter a date, time, punch type, and a reason of at least 3 characters.");
+      return;
+    }
+    const punchTime = new Date(`${date}T${time}:00+05:30`);
+    if (date > maxDate || punchTime.getTime() > Date.now()) {
+      toast.error("A missed punch must be for a past time.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await attendanceApi.requestCorrection({
+        employeeId: user.employeeId,
+        date: new Date(date),
+        punchTime,
+        eventType,
+        remarks: reason.trim(),
+      });
+      setDate("");
+      setTime("");
+      setReason("");
+      toast.success("Missed punch request submitted");
+      await load(false);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   useEffect(() => {
     if (!user) return;
@@ -105,6 +170,11 @@ function MyAttendancePage() {
       <PageHeader
         title="My Attendance"
         description="Your attendance history and requests are shown here. Use the dashboard for check-in and check-out."
+        actions={
+          <Button asChild>
+            <Link to="/leave/apply">Apply Leave</Link>
+          </Button>
+        }
       />
 
       {loading && (
@@ -127,7 +197,7 @@ function MyAttendancePage() {
               Attendance Log
             </TabsTrigger>
             <TabsTrigger value="requests" className="rounded-md py-1.5 text-xs font-semibold">
-              My Requests
+              Missed Punch
             </TabsTrigger>
           </TabsList>
 
@@ -144,12 +214,62 @@ function MyAttendancePage() {
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
+                <div className="space-y-2 p-3 md:hidden">
+                  {records.length === 0 ? (
+                    <p className="py-8 text-center text-sm text-muted-foreground">
+                      No attendance history records logged yet.
+                    </p>
+                  ) : (
+                    records.map((record) => (
+                      <div key={record.id} className="rounded-lg border bg-background p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold">{record.date}</p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">{record.source}</p>
+                          </div>
+                          <StatusBadge status={record.status} />
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                          <div className="rounded-md bg-muted/50 p-2">
+                            <p className="text-muted-foreground">Check in</p>
+                            <p className="mt-1 font-medium">{record.punchIn ?? "-"}</p>
+                            <p className="mt-0.5 break-words text-[10px] text-muted-foreground">
+                              {punchSourceLabel(
+                                record.punchInSource,
+                                record.punchInBranchId,
+                                branches,
+                              )}
+                            </p>
+                          </div>
+                          <div className="rounded-md bg-muted/50 p-2">
+                            <p className="text-muted-foreground">Check out</p>
+                            <p className="mt-1 font-medium">{record.punchOut ?? "-"}</p>
+                            <p className="mt-0.5 break-words text-[10px] text-muted-foreground">
+                              {punchSourceLabel(
+                                record.punchOutSource,
+                                record.punchOutBranchId,
+                                branches,
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                        {(record.address || record.deviceName || record.branchMovementCount) && (
+                          <p className="mt-2 break-words text-xs text-muted-foreground">
+                            {record.branchMovementCount
+                              ? `${record.branchMovementCount} branch movement(s)`
+                              : (record.deviceName ?? record.address)}
+                          </p>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="hidden overflow-x-auto md:block">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/40">
                         <TableHead>Date</TableHead>
-                        <TableHead>Source</TableHead>
+                        <TableHead>Daily Summary</TableHead>
                         <TableHead>Movement Details</TableHead>
                         <TableHead>Punch In (Click Location)</TableHead>
                         <TableHead>Punch Out (Click Location)</TableHead>
@@ -174,6 +294,13 @@ function MyAttendancePage() {
                             </TableCell>
                             <TableCell className="text-xs">
                               <div>{a.source}</div>
+                              {a.source === "Mobile GPS" && a.actualBranchId && (
+                                <div className="text-[10px] text-muted-foreground font-semibold mt-0.5">
+                                  Near:{" "}
+                                  {branches.find((b) => b.id === a.actualBranchId)?.name ||
+                                    "Branch"}
+                                </div>
+                              )}
                               {a.source === "Mobile GPS" &&
                                 a.fieldCheckInLatitude &&
                                 a.fieldCheckOutLatitude &&
@@ -205,7 +332,10 @@ function MyAttendancePage() {
                             </TableCell>
                             <TableCell className="text-xs whitespace-nowrap">
                               <div>{a.punchIn ?? "-"}</div>
-                              {a.source === "Mobile GPS" &&
+                              <div className="mt-0.5 text-[10px] font-semibold text-muted-foreground">
+                                {punchSourceLabel(a.punchInSource, a.punchInBranchId, branches)}
+                              </div>
+                              {a.punchInSource === "Mobile GPS" &&
                                 a.fieldCheckInLatitude &&
                                 a.fieldCheckInLongitude && (
                                   <a
@@ -222,7 +352,10 @@ function MyAttendancePage() {
                             </TableCell>
                             <TableCell className="text-xs whitespace-nowrap">
                               <div>{a.punchOut ?? "-"}</div>
-                              {a.source === "Mobile GPS" &&
+                              <div className="mt-0.5 text-[10px] font-semibold text-muted-foreground">
+                                {punchSourceLabel(a.punchOutSource, a.punchOutBranchId, branches)}
+                              </div>
+                              {a.punchOutSource === "Mobile GPS" &&
                                 a.fieldCheckOutLatitude &&
                                 a.fieldCheckOutLongitude && (
                                   <a
@@ -252,6 +385,64 @@ function MyAttendancePage() {
 
           <TabsContent value="requests" className="space-y-4">
             <Card className="border-border shadow-sm">
+              <CardContent className="p-4 sm:p-5">
+                <form onSubmit={submitMissedPunch} className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="missed-date">Date</Label>
+                    <Input
+                      id="missed-date"
+                      type="date"
+                      value={date}
+                      max={maxDate}
+                      onChange={(event) => setDate(event.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="missed-time">Time</Label>
+                    <Input
+                      id="missed-time"
+                      type="time"
+                      value={time}
+                      max={maxTime}
+                      onChange={(event) => setTime(event.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Punch type</Label>
+                    <Select value={eventType} onValueChange={setEventType}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MISSED_PUNCH_TYPE_OPTIONS.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {punchTypeLabel(type)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label htmlFor="missed-reason">Reason</Label>
+                    <Textarea
+                      id="missed-reason"
+                      rows={3}
+                      value={reason}
+                      onChange={(event) => setReason(event.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="flex justify-end sm:col-span-2">
+                    <Button className="w-full sm:w-auto" type="submit" disabled={submitting}>
+                      {submitting ? "Submitting..." : "Submit missed punch"}
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+            <Card className="border-border shadow-sm">
               <CardHeader className="pb-3 flex flex-row items-center justify-between">
                 <div>
                   <CardTitle className="text-base font-bold text-foreground">
@@ -263,7 +454,45 @@ function MyAttendancePage() {
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
+                <div className="space-y-2 p-3 md:hidden">
+                  {myRequests.length === 0 ? (
+                    <p className="py-8 text-center text-sm text-muted-foreground">
+                      No missed punch requests submitted yet.
+                    </p>
+                  ) : (
+                    myRequests.map((request) => (
+                      <div key={request.id} className="rounded-lg border bg-background p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold">
+                              {request.date} · {punchTypeLabel(request.eventType)}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {new Date(request.punchTime).toLocaleTimeString("en-IN", {
+                                timeZone: "Asia/Kolkata",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </p>
+                          </div>
+                          <StatusBadge
+                            status={
+                              request.status === "PENDING"
+                                ? "Pending Approval"
+                                : request.status === "APPROVED"
+                                  ? "Present"
+                                  : "Rejected Attendance"
+                            }
+                          />
+                        </div>
+                        <p className="mt-3 break-words text-xs text-muted-foreground">
+                          {request.remarks}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="hidden overflow-x-auto md:block">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/40">

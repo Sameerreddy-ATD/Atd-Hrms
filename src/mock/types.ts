@@ -14,8 +14,8 @@ export type Role =
 
 export const ROLE_LABELS: Record<Role, string> = {
   developer_admin: "Developer Admin",
-  main_admin: "Main Admin",
-  ceo: "CEO / Management",
+  main_admin: "Admin",
+  ceo: "CEO",
   hr: "HR",
   manager: "Manager",
   employee: "Employee",
@@ -49,6 +49,8 @@ export interface User {
   dateOfBirth?: string;
   gender?: "FEMALE" | "MALE" | "PREFER_NOT_TO_SAY";
   employmentType?: "FULL_TIME" | "PART_TIME" | "INTERN";
+  organizationLevel?: "HEAD" | "SENIOR" | "JUNIOR" | "MEMBER";
+  weeklyOffDays?: string[];
   mustChangePassword?: boolean;
 }
 
@@ -66,6 +68,9 @@ export interface Department {
   name: string;
   headEmployeeId?: string;
   head?: string;
+  parentDepartmentId?: string;
+  unitType?: "TEAM" | "SUBTEAM" | "FUNCTION";
+  sortOrder?: number;
 }
 
 export interface BiometricDevice {
@@ -92,6 +97,51 @@ export interface BiometricMapping {
   deviceName?: string;
   deviceCode?: string;
   deviceBranchId?: string;
+  status: string;
+}
+
+export interface CompanyAsset {
+  id: string;
+  assetCode: string;
+  name: string;
+  category: string;
+  catalogId?: string;
+  serialNumber?: string;
+  purchaseValue: number;
+  purchaseDate?: string;
+  assetType: "PHYSICAL" | "ONLINE";
+  costFrequency: "ONE_TIME" | "MONTHLY" | "YEARLY";
+  renewalDate?: string;
+  monthlyEquivalent: number;
+  annualRecurring: number;
+  status: "AVAILABLE" | "ASSIGNED" | "UNDER_REPAIR" | "RETIRED";
+  assignedEmployeeId?: string;
+  assignedEmployeeName?: string;
+  assignedEmployeeCode?: string;
+  branchId?: string;
+  branchName?: string;
+  location?: string;
+  notes?: string;
+}
+
+export interface EmployeeAssetInvestment {
+  employeeId: string;
+  employeeName: string;
+  employeeCode: string;
+  department?: string;
+  physicalAssets: number;
+  onlineAssets: number;
+  oneTimeInvestment: number;
+  monthlyRecurring: number;
+  annualRecurring: number;
+  firstYearInvestment: number;
+}
+
+export interface AssetCatalogItem {
+  id: string;
+  name: string;
+  category: string;
+  defaultValue?: number;
   status: string;
 }
 
@@ -132,6 +182,10 @@ export interface AttendanceRecord {
   deviceName?: string;
   punchIn?: string;
   punchOut?: string;
+  punchInSource?: AttendanceSource;
+  punchInBranchId?: string;
+  punchOutSource?: AttendanceSource;
+  punchOutBranchId?: string;
   status: AttendanceStatus;
   source: AttendanceSource;
   latitude?: number;
@@ -186,6 +240,8 @@ export interface LeaveRequest {
   appliedOn: string;
   updatedOn?: string;
   approverName?: string;
+  cancelledDates?: string[];
+  cancelledDays?: number;
 }
 
 export interface LeaveBalance {
@@ -231,6 +287,8 @@ export interface AuditLog {
   target: string;
   timestamp: string;
   ipAddress?: string;
+  oldValue?: Record<string, unknown> | null;
+  newValue?: Record<string, unknown> | null;
 }
 
 export interface NotificationItem {
@@ -238,7 +296,49 @@ export interface NotificationItem {
   title: string;
   desc: string;
   time: string;
-  type: "leave" | "holiday" | "system" | "birthday";
+  type: "leave" | "holiday" | "system" | "birthday" | "task";
+}
+
+export type TaskStatus = "TODO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "COMPLETED" | "CANCELLED";
+export type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+
+export interface TaskUpdate {
+  id: string;
+  authorName: string;
+  message: string;
+  progress?: number;
+  status?: TaskStatus;
+  minutesWorked?: number;
+  createdAt: string;
+}
+
+export interface WorkTask {
+  id: string;
+  title: string;
+  description?: string;
+  assignees: TaskAssignee[];
+  createdByUserId: string;
+  createdByName: string;
+  parentTaskId?: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  progress: number;
+  startDate?: string;
+  dueDate?: string;
+  completedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  subtaskCount: number;
+  updateCount: number;
+  updates: TaskUpdate[];
+}
+
+export interface TaskAssignee {
+  id: string;
+  name: string;
+  employeeCode: string;
+  designation?: string;
+  department?: string;
 }
 
 export interface EmergencyContact {

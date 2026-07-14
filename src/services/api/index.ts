@@ -2,17 +2,24 @@ import type {
   AttendanceRecord,
   AttendanceTimelineEvent,
   AuditLog,
+  AssetCatalogItem,
   BiometricMapping,
+  CompanyAsset,
   BiometricDevice,
   Branch,
   Department,
+  EmployeeAssetInvestment,
   Holiday,
   LeaveBalance,
   LeaveRequest,
   LeaveTypeOption,
   NotificationItem,
   Role,
+  TaskAssignee,
+  TaskPriority,
+  TaskStatus,
   User,
+  WorkTask,
 } from "@/mock/types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
@@ -166,6 +173,8 @@ export const employeesApi = {
 export const leaveApi = {
   list: (filters: { status?: string } = {}) =>
     request<LeaveRequest[]>(`/leave/requests${toQuery(filters)}`),
+  mine: () => request<LeaveRequest[]>("/leave/requests?mine=true"),
+  approver: () => request<{ approverName: string | null; canApply: boolean }>("/leave/approver"),
   types: () => request<LeaveTypeOption[]>("/leave/types"),
   createType: (payload: { name: string; paid: boolean }) =>
     request<LeaveTypeOption>("/leave/types", { method: "POST", body: JSON.stringify(payload) }),
@@ -200,6 +209,7 @@ export const leaveApi = {
   approve: (id: string) =>
     request<LeaveRequest>(`/leave/requests/${id}/approve`, { method: "POST" }),
   reject: (id: string) => request<LeaveRequest>(`/leave/requests/${id}/reject`, { method: "POST" }),
+  cancel: (id: string) => request<LeaveRequest>(`/leave/requests/${id}/cancel`, { method: "POST" }),
 };
 
 export const attendanceApi = {
@@ -219,6 +229,7 @@ export const attendanceApi = {
     latitude?: number;
     longitude?: number;
     mobileDeviceId?: string;
+    confirmLeaveCancellation?: boolean;
   }) =>
     request<{ eventId: string }>("/attendance/mobile/check-in", {
       method: "POST",
@@ -305,13 +316,74 @@ export const branchesApi = {
   delete: (id: string) => request<Branch>(`/branches/${id}`, { method: "DELETE" }),
   departments: () => request<Department[]>("/departments"),
   createDepartment: (
-    department: Omit<Department, "id" | "headEmployeeId"> & { headEmployeeId?: string | null },
+    department: Omit<Department, "id" | "headEmployeeId" | "head" | "parentDepartmentId"> & {
+      headEmployeeId?: string | null;
+      parentDepartmentId?: string | null;
+    },
   ) => request<Department>("/departments", { method: "POST", body: JSON.stringify(department) }),
   updateDepartment: (
     id: string,
-    patch: Omit<Partial<Department>, "headEmployeeId"> & { headEmployeeId?: string | null },
+    patch: Omit<Partial<Department>, "headEmployeeId" | "parentDepartmentId"> & {
+      headEmployeeId?: string | null;
+      parentDepartmentId?: string | null;
+    },
   ) => request<Department>(`/departments/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteDepartment: (id: string) => request<Department>(`/departments/${id}`, { method: "DELETE" }),
+};
+
+type CompanyAssetPayload = Omit<
+  CompanyAsset,
+  | "id"
+  | "assignedEmployeeName"
+  | "assignedEmployeeCode"
+  | "branchName"
+  | "serialNumber"
+  | "purchaseDate"
+  | "renewalDate"
+  | "monthlyEquivalent"
+  | "annualRecurring"
+  | "assignedEmployeeId"
+  | "branchId"
+  | "location"
+  | "notes"
+  | "catalogId"
+  | "assetCode"
+  | "status"
+> & {
+  assetCode?: string;
+  status?: CompanyAsset["status"];
+  catalogId?: string | null;
+  serialNumber?: string | null;
+  purchaseDate?: string | null;
+  renewalDate?: string | null;
+  assignedEmployeeId?: string | null;
+  branchId?: string | null;
+  location?: string | null;
+  notes?: string | null;
+};
+
+export const assetsApi = {
+  list: (filters: Record<string, string | undefined> = {}) =>
+    request<CompanyAsset[]>(`/assets${toQuery(filters)}`),
+  investmentSummary: () => request<EmployeeAssetInvestment[]>("/assets/investment-summary"),
+  create: (asset: CompanyAssetPayload) =>
+    request<CompanyAsset>("/assets", { method: "POST", body: JSON.stringify(asset) }),
+  update: (id: string, asset: Partial<CompanyAssetPayload>) =>
+    request<CompanyAsset>(`/assets/${id}`, { method: "PATCH", body: JSON.stringify(asset) }),
+  catalog: (includeInactive = false) =>
+    request<AssetCatalogItem[]>(`/assets/catalog${includeInactive ? "?includeInactive=true" : ""}`),
+  createCatalogItem: (item: Omit<AssetCatalogItem, "id" | "status">) =>
+    request<AssetCatalogItem>("/assets/catalog", {
+      method: "POST",
+      body: JSON.stringify(item),
+    }),
+  updateCatalogItem: (id: string, item: Partial<Omit<AssetCatalogItem, "id" | "status">>) =>
+    request<AssetCatalogItem>(`/assets/catalog/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(item),
+    }),
+  deactivateCatalogItem: (id: string) =>
+    request<AssetCatalogItem>(`/assets/catalog/${id}`, { method: "DELETE" }),
 };
 
 export const biometricApi = {
@@ -389,8 +461,46 @@ export const reportsApi = {
 
 export const auditApi = {
   list: () => request<AuditLog[]>("/audit-logs"),
+  summary: () =>
+    request<{ count: number; oldest?: string; latest?: string }>("/audit-logs/summary"),
 };
 
 export const notificationsApi = {
   list: () => request<NotificationItem[]>("/notifications"),
+};
+
+export const tasksApi = {
+  list: (scope: "mine" | "team" = "team") => request<WorkTask[]>(`/tasks${toQuery({ scope })}`),
+  assignees: () => request<TaskAssignee[]>("/tasks/assignees"),
+  create: (payload: {
+    title: string;
+    description?: string | null;
+    assigneeEmployeeIds: string[];
+    parentTaskId?: string | null;
+    priority: TaskPriority;
+    startDate?: string | null;
+    dueDate?: string | null;
+  }) => request<WorkTask>("/tasks", { method: "POST", body: JSON.stringify(payload) }),
+  update: (
+    id: string,
+    payload: Partial<{
+      title: string;
+      description: string | null;
+      assigneeEmployeeIds: string[];
+      priority: TaskPriority;
+      status: TaskStatus;
+      progress: number;
+      startDate: string | null;
+      dueDate: string | null;
+    }>,
+  ) => request<WorkTask>(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  addLog: (
+    id: string,
+    payload: {
+      message: string;
+      progress?: number;
+      status?: TaskStatus;
+      minutesWorked?: number;
+    },
+  ) => request<WorkTask>(`/tasks/${id}/logs`, { method: "POST", body: JSON.stringify(payload) }),
 };

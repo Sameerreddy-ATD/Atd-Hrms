@@ -22,16 +22,6 @@ import { authApi } from "@/services/api";
 
 const SESSION_USER_KEY = "atd.session.user";
 
-function readSessionUser() {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.sessionStorage.getItem(SESSION_USER_KEY);
-    return raw ? (JSON.parse(raw) as User) : null;
-  } catch {
-    return null;
-  }
-}
-
 function writeSessionUser(user: User | null) {
   if (typeof window === "undefined") return;
   if (!user) {
@@ -39,11 +29,6 @@ function writeSessionUser(user: User | null) {
     return;
   }
   window.sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
-}
-
-function initialAuthState() {
-  const user = readSessionUser();
-  return { user, loading: !user };
 }
 
 interface AuthState {
@@ -59,9 +44,9 @@ interface AuthState {
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [initial] = useState(initialAuthState);
-  const [user, setUser] = useState<User | null>(initial.user);
-  const [loading, setLoading] = useState(initial.loading);
+  // Keep SSR and the first browser render identical; the cookie session is loaded after hydration.
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     authApi

@@ -10,6 +10,7 @@ export interface SessionUser {
   role: Role;
   name: string;
   email: string;
+  mustChangePassword: boolean;
 }
 
 const cookieOptions = {
@@ -29,7 +30,10 @@ export async function verifyPassword(password: string, hash: string) {
 
 export function issueCookies(
   res: Response,
-  user: Pick<User, "id" | "employeeId" | "role" | "name" | "email">,
+  user: Pick<
+    User,
+    "id" | "employeeId" | "role" | "name" | "email" | "firstLoginPasswordChangeRequired"
+  >,
 ) {
   const payload: SessionUser = {
     id: user.id,
@@ -37,6 +41,7 @@ export function issueCookies(
     role: user.role,
     name: user.name,
     email: user.email,
+    mustChangePassword: user.firstLoginPasswordChangeRequired,
   };
   const access = jwt.sign(payload, config.accessSecret, { expiresIn: "15m" });
   const refresh = jwt.sign({ id: user.id }, config.refreshSecret, { expiresIn: "7d" });

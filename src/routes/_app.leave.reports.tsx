@@ -49,7 +49,7 @@ function LeaveReportsPage() {
   const csvRows = filteredRows.map((row) => ({
     employee: row.employeeName,
     employeeId: row.employeeId,
-    reportingManager: row.managerName ?? "",
+    organizationApprover: row.approverName ?? row.managerName ?? "",
     leaveType: row.type,
     from: row.from,
     to: row.to,
@@ -65,7 +65,7 @@ function LeaveReportsPage() {
     <div>
       <PageHeader
         title="Leave Tracking"
-        description="Read-only view of the full leave request flow — from submission through manager approval or rejection. HR cannot approve leave here."
+        description="Read-only view of every leave request and its approval progress. HR can monitor the flow but cannot approve it here."
         actions={
           <div className="flex items-center gap-2">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -98,7 +98,7 @@ function LeaveReportsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Employee</TableHead>
-                <TableHead>Reporting manager</TableHead>
+                <TableHead>Organization approver</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>From</TableHead>
                 <TableHead>To</TableHead>
@@ -116,7 +116,7 @@ function LeaveReportsPage() {
                     <div className="font-medium">{row.employeeName}</div>
                     <div className="text-xs text-muted-foreground">{row.employeeId}</div>
                   </TableCell>
-                  <TableCell>{row.managerName ?? "-"}</TableCell>
+                  <TableCell>{row.approverName ?? row.managerName ?? "-"}</TableCell>
                   <TableCell>{row.type}</TableCell>
                   <TableCell>{row.from}</TableCell>
                   <TableCell>{row.to}</TableCell>

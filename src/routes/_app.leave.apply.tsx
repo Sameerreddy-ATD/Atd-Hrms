@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { leaveApi, employeesApi } from "@/services/api";
+import { leaveApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
 import type { LeaveTypeOption } from "@/mock/types";
 
@@ -31,8 +31,8 @@ function ApplyLeavePage() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [reason, setReason] = useState("");
-  const [managerName, setManagerName] = useState<string | null>(null);
-  const [managerLoading, setManagerLoading] = useState(true);
+  const [approverName, setApproverName] = useState<string | null>(null);
+  const [approverLoading, setApproverLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [typesLoading, setTypesLoading] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -50,21 +50,12 @@ function ApplyLeavePage() {
   }, []);
 
   useEffect(() => {
-    if (!user?.employeeId) {
-      setManagerLoading(false);
-      return;
-    }
-    employeesApi
-      .get(user.employeeId)
-      .then((employee) => {
-        if (employee?.managerId && employee.managerName) {
-          setManagerName(employee.managerName);
-        } else {
-          setManagerName(null);
-        }
-      })
-      .catch(() => setManagerName(null))
-      .finally(() => setManagerLoading(false));
+    if (!user?.employeeId) return;
+    leaveApi
+      .approver()
+      .then((result) => setApproverName(result.approverName))
+      .catch(() => setApproverName(null))
+      .finally(() => setApproverLoading(false));
   }, [user?.employeeId]);
 
   async function submit(e: React.FormEvent) {
@@ -109,20 +100,20 @@ function ApplyLeavePage() {
     <div>
       <PageHeader
         title="Apply for Leave"
-        description="Submit a leave request to your reporting manager for approval."
+        description="Your request follows the organization chart to the responsible team head."
       />
       <Card className="max-w-2xl mx-auto w-full">
-        <CardContent className="p-6">
-          {!managerLoading && !managerName && (
+        <CardContent className="p-4 sm:p-6">
+          {!approverLoading && !approverName && (
             <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-              No reporting manager is assigned to your profile. Contact HR before applying for
-              leave.
+              No organization head is available for your unit. Contact HR to complete the
+              organization chart before applying for leave.
             </p>
           )}
-          {!managerLoading && managerName && (
+          {!approverLoading && approverName && (
             <p className="mb-4 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-              This request will be sent to your reporting manager:{" "}
-              <span className="font-medium text-foreground">{managerName}</span>
+              This request will be sent to your organization head:{" "}
+              <span className="font-medium text-foreground">{approverName}</span>
             </p>
           )}
           <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2" noValidate>
@@ -189,7 +180,7 @@ function ApplyLeavePage() {
               </Button>
               <Button
                 type="submit"
-                disabled={loading || typesLoading || managerLoading || !managerName}
+                disabled={loading || typesLoading || approverLoading || !approverName}
               >
                 Submit request
               </Button>

@@ -79,7 +79,7 @@ function PolicyPage() {
   return (
     <div>
       <PageHeader
-        title="Leave Policy"
+        title="Leave Types"
         description="HR, Developer Admin, and Main Admin can manage leave types used in applications."
       />
 
@@ -105,7 +105,7 @@ function PolicyPage() {
         </CardContent>
       </Card>
 
-      {loading && <p className="text-sm text-muted-foreground">Loading leave policy...</p>}
+      {loading && <p className="text-sm text-muted-foreground">Loading leave types...</p>}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {types.map((type) => (
           <Card key={type.id}>

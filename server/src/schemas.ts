@@ -5,6 +5,8 @@ import {
   EventType,
   Gender,
   Role,
+  TaskPriority,
+  TaskStatus,
   UserStatus,
   WorkType,
 } from "@prisma/client";
@@ -20,7 +22,7 @@ export const createUserSchema = z.object({
   email: z.string().email().max(255),
   phone: z.string().max(30).optional(),
   password: z.string().min(10).max(200).optional(),
-  role: z.nativeEnum(Role),
+  role: z.nativeEnum(Role).optional(),
   employeeId: z.string().optional(),
   employeeCode: z.string().max(40).optional(),
   departmentId: z.string().nullable().optional(),
@@ -33,6 +35,11 @@ export const createUserSchema = z.object({
   dateOfBirth: z.coerce.date().nullable().optional(),
   gender: z.nativeEnum(Gender).nullable().optional(),
   employmentType: z.nativeEnum(EmploymentType).nullable().optional(),
+  organizationLevel: z.enum(["HEAD", "SENIOR", "JUNIOR", "MEMBER"]).optional(),
+  weeklyOffDays: z
+    .array(z.enum(["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"]))
+    .max(7)
+    .optional(),
 });
 
 export const predefinedPasswordSchema = z.object({
@@ -77,9 +84,14 @@ export const updateEmployeeSchema = z.object({
   dateOfBirth: z.coerce.date().nullable().optional(),
   gender: z.nativeEnum(Gender).nullable().optional(),
   employmentType: z.nativeEnum(EmploymentType).nullable().optional(),
+  organizationLevel: z.enum(["HEAD", "SENIOR", "JUNIOR", "MEMBER"]).optional(),
   attendanceMode: z.nativeEnum(AttendanceMode).optional(),
   isFieldEmployee: z.boolean().optional(),
   status: z.nativeEnum(EmployeeStatus).optional(),
+  weeklyOffDays: z
+    .array(z.enum(["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"]))
+    .max(7)
+    .optional(),
 });
 
 export const branchSchema = z.object({
@@ -95,9 +107,40 @@ export const branchUpdateSchema = branchSchema.partial();
 export const departmentSchema = z.object({
   name: z.string().min(2).max(160),
   headEmployeeId: z.string().nullable().optional(),
+  parentDepartmentId: z.string().nullable().optional(),
+  unitType: z.enum(["TEAM", "SUBTEAM", "FUNCTION"]).optional(),
+  sortOrder: z.coerce.number().int().min(0).max(10000).optional(),
 });
 
 export const departmentUpdateSchema = departmentSchema.partial();
+
+export const taskSchema = z.object({
+  title: z.string().trim().min(2).max(200),
+  description: z.string().trim().max(5000).nullable().optional(),
+  assigneeEmployeeIds: z.array(z.string().min(1)).min(1).max(100),
+  parentTaskId: z.string().nullable().optional(),
+  priority: z.nativeEnum(TaskPriority).optional(),
+  startDate: z.coerce.date().nullable().optional(),
+  dueDate: z.coerce.date().nullable().optional(),
+});
+
+export const taskUpdateSchema = z.object({
+  title: z.string().trim().min(2).max(200).optional(),
+  description: z.string().trim().max(5000).nullable().optional(),
+  assigneeEmployeeIds: z.array(z.string().min(1)).min(1).max(100).optional(),
+  priority: z.nativeEnum(TaskPriority).optional(),
+  status: z.nativeEnum(TaskStatus).optional(),
+  progress: z.coerce.number().int().min(0).max(100).optional(),
+  startDate: z.coerce.date().nullable().optional(),
+  dueDate: z.coerce.date().nullable().optional(),
+});
+
+export const taskLogSchema = z.object({
+  message: z.string().trim().min(2).max(5000),
+  progress: z.coerce.number().int().min(0).max(100).optional(),
+  status: z.nativeEnum(TaskStatus).optional(),
+  minutesWorked: z.coerce.number().int().min(0).max(1440).optional(),
+});
 
 export const holidaySchema = z.object({
   name: z.string().min(2).max(160),
@@ -108,6 +151,34 @@ export const holidaySchema = z.object({
 });
 
 export const holidayUpdateSchema = holidaySchema.partial();
+
+export const companyAssetSchema = z.object({
+  catalogId: z.string().min(1).nullable().optional(),
+  assetCode: z.string().min(2).max(60).optional(),
+  name: z.string().min(2).max(160),
+  category: z.string().min(2).max(80).optional(),
+  serialNumber: z.string().max(120).nullable().optional(),
+  purchaseValue: z.coerce.number().min(0).max(100_000_000),
+  purchaseDate: z.coerce.date().nullable().optional(),
+  assetType: z.enum(["PHYSICAL", "ONLINE"]).optional(),
+  costFrequency: z.enum(["ONE_TIME", "MONTHLY", "YEARLY"]).optional(),
+  renewalDate: z.coerce.date().nullable().optional(),
+  status: z.enum(["AVAILABLE", "ASSIGNED", "UNDER_REPAIR", "RETIRED"]).optional(),
+  assignedEmployeeId: z.string().nullable().optional(),
+  branchId: z.string().min(1).nullable().optional(),
+  location: z.string().max(160).nullable().optional(),
+  notes: z.string().max(1000).nullable().optional(),
+});
+
+export const companyAssetUpdateSchema = companyAssetSchema.partial();
+
+export const assetCatalogItemSchema = z.object({
+  name: z.string().min(2).max(160),
+  category: z.string().min(2).max(80),
+  defaultValue: z.coerce.number().min(0).max(100_000_000).nullable().optional(),
+});
+
+export const assetCatalogItemUpdateSchema = assetCatalogItemSchema.partial();
 
 export const biometricMappingSchema = z.object({
   employeeId: z.string().min(1),
@@ -148,6 +219,7 @@ export const mobileEventSchema = z.object({
   mobileDeviceId: z.string().min(3).max(200),
   remarks: z.string().max(1000).optional(),
   eventTime: z.coerce.date().optional(),
+  confirmLeaveCancellation: z.boolean().optional(),
 });
 
 export const clientEventSchema = mobileEventSchema.extend({

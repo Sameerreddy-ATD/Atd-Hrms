@@ -30,6 +30,7 @@ import { Plus, Trash2, Key, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -191,7 +192,11 @@ function UsersPage() {
                     {u.employeeCode || u.employeeId || "-"}
                   </TableCell>
                   <TableCell>
-                    {u.active ? (
+                    {u.role === "developer_admin" ? (
+                      <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700">
+                        Protected
+                      </Badge>
+                    ) : u.active ? (
                       <Badge
                         variant="outline"
                         className="border-emerald-200 bg-emerald-50 text-emerald-700"
@@ -226,7 +231,7 @@ function UsersPage() {
                       >
                         <Key className="h-4 w-4" />
                       </Button>
-                      {u.active && !u.suspensionStartsAt ? (
+                      {u.role === "developer_admin" ? null : u.active && !u.suspensionStartsAt ? (
                         <Button
                           size="sm"
                           className="bg-orange-600 text-white hover:bg-orange-700"
@@ -259,7 +264,7 @@ function UsersPage() {
                       <Button
                         size="sm"
                         variant="destructive"
-                        disabled={u.id === currentUser?.id}
+                        disabled={u.id === currentUser?.id || u.role === "developer_admin"}
                         onClick={() => setDeleteUser(u)}
                         title="Delete User"
                       >
@@ -401,9 +406,12 @@ function UsersPage() {
       </Dialog>
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="max-w-5xl">
-          <DialogHeader>
-            <DialogTitle>Create Login</DialogTitle>
+        <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[92dvh]">
+          <DialogHeader className="border-b border-border px-5 py-4 sm:px-6">
+            <DialogTitle>Create employee account</DialogTitle>
+            <DialogDescription>
+              Add login details, organization placement, and employment information.
+            </DialogDescription>
           </DialogHeader>
           <CreateLoginForm
             onCreated={(created) => {

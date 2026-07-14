@@ -10,6 +10,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   ROLE_LABELS,
   type AttendanceRecord,
   type AttendanceTimelineEvent,
@@ -23,7 +41,6 @@ import {
   AlertTriangle,
   Building2,
   CalendarClock,
-  Clock,
   FileClock,
   Fingerprint,
   LogIn,
@@ -31,7 +48,6 @@ import {
   MapPin,
   PlaneTakeoff,
   UserCheck,
-  UserX,
   Users,
   Cake,
 } from "lucide-react";
@@ -132,6 +148,18 @@ function countStatusIncludes(rows: AttendanceRecord[], fragment: string) {
   return ids.size;
 }
 
+function indiaDateKey() {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((value) => value.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
 function DashboardPage() {
   const { user } = useAuth();
   const [reloadKey, setReloadKey] = useState(0);
@@ -149,10 +177,7 @@ function DashboardPage() {
     () => ["employee", "sales", "driver", "field_staff"].includes(user?.role ?? ""),
     [user?.role],
   );
-  const selfPunchRoles = useMemo(
-    () => ["employee", "sales", "driver", "field_staff", "hr"].includes(user?.role ?? ""),
-    [user?.role],
-  );
+  const selfPunchRoles = Boolean(user?.employeeId);
 
   const refreshDashboard = useCallback(() => {
     setReloadKey((value) => value + 1);
@@ -161,7 +186,7 @@ function DashboardPage() {
   useEffect(() => {
     if (!user) return;
     let active = true;
-    const adminPeopleRoles = ["developer_admin", "main_admin", "hr"];
+    const adminPeopleRoles = ["developer_admin"];
 
     setSummaryLoading(true);
     setSecondaryLoading(true);
@@ -207,18 +232,19 @@ function DashboardPage() {
 
   if (!user) return null;
 
+  const todayAttendance = attendance.filter((row) => row.date === indiaDateKey());
   const total = people.filter((u) => u.employeeId).length;
-  const presentToday = countUniquePresent(attendance);
-  const absent = countStatus(attendance, "Absent");
-  const late = countStatus(attendance, "Late");
-  const onLeave = countStatusIncludes(attendance, "Leave");
-  const fieldPresent = countFieldPresent(attendance);
-  const missed = countStatusIncludes(attendance, "Missed");
-  const mismatch = attendance.filter((r) => r.branchMismatch).length;
+  const presentToday = countUniquePresent(todayAttendance);
+  const absent = countStatus(todayAttendance, "Absent");
+  const late = countStatus(todayAttendance, "Late");
+  const onLeave = countStatusIncludes(todayAttendance, "Leave");
+  const fieldPresent = countFieldPresent(todayAttendance);
+  const missed = countStatusIncludes(todayAttendance, "Missed");
+  const mismatch = todayAttendance.filter((r) => r.branchMismatch).length;
   const pendingLeaves = leaves.filter((l) => l.status === "Pending").length;
   const branchPresentCounts = branches.map((branch) => ({
     branch,
-    present: countBranchPresent(attendance, branch.id),
+    present: countBranchPresent(todayAttendance, branch.id),
   }));
 
   return (
@@ -249,7 +275,7 @@ function DashboardPage() {
       {["employee", "sales", "driver", "field_staff"].includes(user.role) ? (
         <EmployeeDashboard
           user={user}
-          attendance={attendance}
+          attendance={todayAttendance}
           timeline={timeline}
           branches={branches}
           birthdays={birthdays}
@@ -257,17 +283,18 @@ function DashboardPage() {
         />
       ) : user.role === "manager" ? (
         <ManagerDashboard
+          user={user}
           data={{
             present: presentToday,
-            absent,
-            late,
             onLeave,
-            fieldActive: fieldPresent,
             pendingLeaves,
             mismatch,
           }}
-          attendance={attendance}
+          attendance={todayAttendance}
+          timeline={timeline}
+          branches={branches}
           birthdays={birthdays}
+          onAttendanceChanged={refreshDashboard}
         />
       ) : user.role === "hr" ? (
         <HRDashboard
@@ -281,6 +308,7 @@ function DashboardPage() {
         />
       ) : user.role === "ceo" ? (
         <CEODashboard
+          user={user}
           data={{
             total,
             branchPresentCounts,
@@ -288,10 +316,15 @@ function DashboardPage() {
             pendingLeaves,
             onLeave,
           }}
+          attendance={todayAttendance}
+          timeline={timeline}
+          branches={branches}
           birthdays={birthdays}
+          onAttendanceChanged={refreshDashboard}
         />
       ) : (
         <AdminDashboard
+          user={user}
           data={{
             total,
             present: presentToday,
@@ -300,8 +333,11 @@ function DashboardPage() {
             users: people.length,
             branches: branches.length,
           }}
-          attendance={attendance}
+          attendance={todayAttendance}
+          timeline={timeline}
+          branches={branches}
           birthdays={birthdays}
+          onAttendanceChanged={refreshDashboard}
         />
       )}
     </div>
@@ -355,6 +391,9 @@ function MarkAttendanceCard({
 }) {
   const navigate = useNavigate();
   const [actionLoading, setActionLoading] = useState(false);
+  const [leaveCheckIn, setLeaveCheckIn] = useState<{ latitude: number; longitude: number } | null>(
+    null,
+  );
   const isCheckedIn = useMemo(() => {
     const last = timeline.at(-1)?.type;
     return ["OFFICE_IN", "BRANCH_IN", "FIELD_CHECK_IN", "CLIENT_CHECK_IN", "BREAK_IN"].includes(
@@ -362,6 +401,31 @@ function MarkAttendanceCard({
     );
   }, [timeline]);
   const branchName = branches.find((branch) => branch.id === user.homeBranchId)?.name ?? "-";
+
+  async function submitCheckIn(
+    coordinates: { latitude: number; longitude: number },
+    confirmLeaveCancellation = false,
+  ) {
+    if (!user.employeeId) return;
+    try {
+      await attendanceApi.checkIn({
+        employeeId: user.employeeId,
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+        confirmLeaveCancellation,
+      });
+      setLeaveCheckIn(null);
+      toast.success("You are checked in");
+      onAttendanceChanged();
+    } catch (err) {
+      const message = (err as Error).message;
+      if (message.includes("Confirm check-in to cancel leave")) {
+        setLeaveCheckIn(coordinates);
+        return;
+      }
+      toast.error(message);
+    }
+  }
 
   async function checkIn() {
     if (!user.employeeId) {
@@ -371,15 +435,20 @@ function MarkAttendanceCard({
     setActionLoading(true);
     try {
       const position = await getGeolocation();
-      await attendanceApi.checkIn({
-        employeeId: user.employeeId,
+      await submitCheckIn({
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
       });
-      toast.success("You are checked in");
-      onAttendanceChanged();
-    } catch (err) {
-      toast.error((err as Error).message);
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function confirmLeaveCheckIn() {
+    if (!leaveCheckIn) return;
+    setActionLoading(true);
+    try {
+      await submitCheckIn(leaveCheckIn, true);
     } finally {
       setActionLoading(false);
     }
@@ -404,19 +473,20 @@ function MarkAttendanceCard({
 
   return (
     <Card className={`border-border shadow-sm ${className ?? ""}`}>
-      <CardHeader className="flex flex-row items-center justify-between gap-3">
+      <CardHeader className="flex flex-col items-stretch gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <CardTitle className="text-sm font-bold text-foreground">Mark Attendance</CardTitle>
         <Button
           size="sm"
           variant="outline"
+          className="w-full sm:w-auto"
           onClick={() => navigate({ to: "/attendance/missed-punch" })}
         >
           <FileClock className="mr-1.5 h-4 w-4" />
           Missed Punch
         </Button>
       </CardHeader>
-      <CardContent className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-lg border border-border/60 bg-card p-4">
+      <CardContent className="grid gap-3 p-4 pt-0 md:grid-cols-[1.1fr_0.9fr] sm:gap-4 sm:p-6 sm:pt-0">
+        <div className="rounded-lg border border-border/60 bg-card p-3 sm:p-4">
           <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Fingerprint className="h-4 w-4 text-primary" />
             Live GPS Attendance
@@ -425,10 +495,10 @@ function MarkAttendanceCard({
             Use this dashboard card for mobile attendance. Biometric punches will still sync
             automatically.
           </p>
-          <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+          <div className="mt-4 grid grid-cols-1 gap-2 text-xs min-[380px]:grid-cols-2">
             <div className="rounded-md bg-muted/40 px-3 py-2">
               <div className="text-muted-foreground">Home Branch</div>
-              <div className="font-medium text-foreground">{branchName}</div>
+              <div className="break-words font-medium text-foreground">{branchName}</div>
             </div>
             <div className="rounded-md bg-muted/40 px-3 py-2">
               <div className="text-muted-foreground">Punch Status</div>
@@ -437,13 +507,13 @@ function MarkAttendanceCard({
           </div>
         </div>
 
-        <div className="flex flex-col justify-center gap-3 rounded-lg border border-border/60 bg-muted/20 p-4">
+        <div className="flex flex-col justify-center gap-3 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
           <p className="text-center text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
             {isCheckedIn ? "Currently In" : "Currently Out"}
           </p>
           <Button onClick={checkIn} disabled={actionLoading || isCheckedIn} className="h-12 w-full">
             <LogIn className="mr-2 h-4 w-4" />
-            {actionLoading ? "Getting location..." : "In"}
+            {actionLoading ? "Getting location..." : "Check In"}
           </Button>
           <Button
             variant="outline"
@@ -452,42 +522,61 @@ function MarkAttendanceCard({
             className="h-12 w-full bg-background"
           >
             <LogOut className="mr-2 h-4 w-4 text-red-500" />
-            {actionLoading ? "Getting location..." : "Out"}
+            {actionLoading ? "Getting location..." : "Check Out"}
           </Button>
           <p className="text-center text-[11px] leading-normal text-muted-foreground">
             GPS is captured securely from your browser location.
           </p>
         </div>
       </CardContent>
+      <AlertDialog open={!!leaveCheckIn} onOpenChange={(open) => !open && setLeaveCheckIn(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel leave for today?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have approved leave today. Continuing with mobile check-in will cancel leave only
+              for today and record your attendance. Other leave dates will remain unchanged.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionLoading}>Keep leave</AlertDialogCancel>
+            <AlertDialogAction disabled={actionLoading} onClick={confirmLeaveCheckIn}>
+              Check in and cancel today&apos;s leave
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
 
 function ManagerDashboard({
+  user,
   data,
   attendance,
+  timeline,
+  branches,
   birthdays,
+  onAttendanceChanged,
 }: {
+  user: User;
   data: {
     present: number;
-    absent: number;
-    late: number;
     onLeave: number;
-    fieldActive: number;
     pendingLeaves: number;
     mismatch: number;
   };
   attendance: AttendanceRecord[];
+  timeline: AttendanceTimelineEvent[];
+  branches: Branch[];
   birthdays: BirthdayItem[];
+  onAttendanceChanged: () => void;
 }) {
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Team present" value={data.present} icon={UserCheck} tone="success" />
-        <StatCard label="Team absent" value={data.absent} icon={UserX} tone="danger" />
-        <StatCard label="Team late" value={data.late} icon={Clock} tone="warning" />
         <StatCard label="On leave" value={data.onLeave} icon={PlaneTakeoff} tone="info" />
-        <StatCard label="Field staff checked in" value={data.fieldActive} icon={MapPin} />
         <StatCard
           label="Pending leave approvals"
           value={data.pendingLeaves}
@@ -499,11 +588,20 @@ function ManagerDashboard({
           value={data.mismatch}
           icon={AlertTriangle}
           tone="warning"
+          hint="Punch recorded at a branch other than the scheduled branch"
         />
       </div>
       <div className="grid gap-3 lg:grid-cols-2">
-        <RecentAttendanceCard rows={attendance} />
-        <AttendanceAnalyticsCard rows={attendance} />
+        <MarkAttendanceCard
+          user={user}
+          timeline={timeline}
+          branches={branches}
+          onAttendanceChanged={onAttendanceChanged}
+          className="lg:col-span-2"
+        />
+        <div className="lg:col-span-2">
+          <TeamAttendanceCard rows={attendance} branches={branches} title="Team attendance today" />
+        </div>
         <div className="lg:col-span-2">
           <UpcomingBirthdaysCard birthdays={birthdays} />
         </div>
@@ -547,7 +645,13 @@ function HRDashboard({
           hint="Office and field"
         />
         <StatCard label="On leave today" value={data.onLeave} icon={PlaneTakeoff} tone="info" />
-        <StatCard label="Missed punch" value={data.missed} icon={AlertTriangle} tone="warning" />
+        <StatCard
+          label="Missed punch"
+          value={data.missed}
+          icon={AlertTriangle}
+          tone="warning"
+          hint="Checked in without a matching check-out"
+        />
         <StatCard label="Field present" value={data.fieldPresent} icon={MapPin} />
       </div>
       <div className="grid gap-3 lg:grid-cols-2">
@@ -569,9 +673,15 @@ function HRDashboard({
 }
 
 function CEODashboard({
+  user,
   data,
+  attendance,
+  timeline,
+  branches,
   birthdays,
+  onAttendanceChanged,
 }: {
+  user: User;
   data: {
     total: number;
     branchPresentCounts: Array<{ branch: Branch; present: number }>;
@@ -579,7 +689,11 @@ function CEODashboard({
     pendingLeaves: number;
     onLeave: number;
   };
+  attendance: AttendanceRecord[];
+  timeline: AttendanceTimelineEvent[];
+  branches: Branch[];
   birthdays: BirthdayItem[];
+  onAttendanceChanged: () => void;
 }) {
   const b1 = data.branchPresentCounts[0]?.present ?? 0;
   const b2 = data.branchPresentCounts[1]?.present ?? 0;
@@ -601,6 +715,12 @@ function CEODashboard({
           tone="warning"
         />
       </div>
+      <MarkAttendanceCard
+        user={user}
+        timeline={timeline}
+        branches={branches}
+        onAttendanceChanged={onAttendanceChanged}
+      />
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-sm">Operations snapshot</CardTitle>
@@ -648,6 +768,12 @@ function CEODashboard({
           </div>
         </CardContent>
       </Card>
+      <TeamAttendanceCard
+        rows={attendance}
+        branches={branches}
+        title="Company attendance detail"
+        viewAllHref="/attendance"
+      />
       <div className="mt-4">
         <UpcomingBirthdaysCard birthdays={birthdays} />
       </div>
@@ -656,10 +782,15 @@ function CEODashboard({
 }
 
 function AdminDashboard({
+  user,
   data,
   attendance,
+  timeline,
+  branches,
   birthdays,
+  onAttendanceChanged,
 }: {
+  user: User;
   data: {
     total: number;
     present: number;
@@ -669,7 +800,10 @@ function AdminDashboard({
     branches: number;
   };
   attendance: AttendanceRecord[];
+  timeline: AttendanceTimelineEvent[];
+  branches: Branch[];
   birthdays: BirthdayItem[];
+  onAttendanceChanged: () => void;
 }) {
   return (
     <div className="space-y-4">
@@ -685,6 +819,15 @@ function AdminDashboard({
         />
       </div>
       <div className="grid gap-3 lg:grid-cols-2">
+        {user.employeeId && (
+          <MarkAttendanceCard
+            user={user}
+            timeline={timeline}
+            branches={branches}
+            onAttendanceChanged={onAttendanceChanged}
+            className="lg:col-span-2"
+          />
+        )}
         <RecentAttendanceCard rows={attendance} />
         <AttendanceAnalyticsCard rows={attendance} />
         <div className="lg:col-span-2">
@@ -757,12 +900,116 @@ function RecentAttendanceCard({ rows }: { rows: AttendanceRecord[] }) {
   );
 }
 
+function TeamAttendanceCard({
+  rows,
+  branches,
+  title,
+  viewAllHref,
+}: {
+  rows: AttendanceRecord[];
+  branches: Branch[];
+  title: string;
+  viewAllHref?: string;
+}) {
+  const todayParts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    todayParts.find((value) => value.type === type)?.value ?? "";
+  const today = `${part("year")}-${part("month")}-${part("day")}`;
+  const todayRows = rows.filter((row) => row.date === today);
+  const branchName = (branchId?: string) =>
+    branches.find((branch) => branch.id === branchId)?.name ?? "-";
+  const time = (value?: string) =>
+    value ? new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "-";
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <CardTitle className="text-sm">{title}</CardTitle>
+        {viewAllHref && (
+          <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
+            <a href={viewAllHref}>View all employees</a>
+          </Button>
+        )}
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="space-y-2 p-3 md:hidden">
+          {todayRows.slice(0, 12).map((row) => (
+            <div key={row.id} className="rounded-lg border bg-background p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{row.employeeName}</p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {branchName(row.actualBranchId ?? row.homeBranchId)}
+                  </p>
+                </div>
+                <StatusBadge status={row.status} />
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                <div>
+                  <p className="text-muted-foreground">In</p>
+                  <p className="mt-0.5 font-medium">{time(row.punchIn)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Out</p>
+                  <p className="mt-0.5 font-medium">{time(row.punchOut)}</p>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-muted-foreground">Source</p>
+                  <p className="mt-0.5 truncate font-medium">{row.source}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
+          <Table className="min-w-[760px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Employee</TableHead>
+                <TableHead>In</TableHead>
+                <TableHead>Out</TableHead>
+                <TableHead>Branch</TableHead>
+                <TableHead>Source</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {todayRows.slice(0, 12).map((row) => (
+                <TableRow key={row.id}>
+                  <TableCell>
+                    <div className="font-medium">{row.employeeName}</div>
+                    <div className="text-xs text-muted-foreground">{row.date}</div>
+                  </TableCell>
+                  <TableCell>{time(row.punchIn)}</TableCell>
+                  <TableCell>{time(row.punchOut)}</TableCell>
+                  <TableCell>{branchName(row.actualBranchId ?? row.homeBranchId)}</TableCell>
+                  <TableCell className="text-sm">{row.source}</TableCell>
+                  <TableCell>
+                    <StatusBadge status={row.status} />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        {todayRows.length === 0 && (
+          <p className="p-5 text-sm text-muted-foreground">No attendance recorded today.</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function AttendanceAnalyticsCard({ rows }: { rows: AttendanceRecord[] }) {
   const total = Math.max(rows.length, 1);
   const present = rows.filter((row) => row.status.startsWith("Present")).length;
   const leave = rows.filter((row) => row.status.includes("Leave")).length;
   const missed = rows.filter((row) => row.status.includes("Missed")).length;
-  const field = rows.filter((row) => row.source === "Mobile GPS").length;
 
   return (
     <Card>
@@ -773,7 +1020,6 @@ function AttendanceAnalyticsCard({ rows }: { rows: AttendanceRecord[] }) {
         <MetricBar label="Present" value={present} total={total} tone="bg-emerald-600" />
         <MetricBar label="On leave" value={leave} total={total} tone="bg-blue-600" />
         <MetricBar label="Missed punch" value={missed} total={total} tone="bg-amber-600" />
-        <MetricBar label="Field/GPS" value={field} total={total} tone="bg-primary" />
       </CardContent>
     </Card>
   );

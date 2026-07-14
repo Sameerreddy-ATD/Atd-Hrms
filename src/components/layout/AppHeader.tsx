@@ -64,7 +64,7 @@ export function AppHeader() {
     : "??";
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 bg-[#F6F8FC]/40 dark:bg-zinc-950/45 backdrop-blur-md border-b border-slate-200/20 dark:border-zinc-900/30 px-4 md:px-6">
+    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-1 border-b border-slate-200/20 bg-[#F6F8FC]/40 px-2 backdrop-blur-md dark:border-zinc-900/30 dark:bg-zinc-950/45 sm:h-16 sm:gap-3 sm:px-4 md:px-6">
       {/* Left: Collapsible Toggle, Logo & Page Title */}
       <div className="flex items-center gap-2">
         <Button
@@ -76,10 +76,10 @@ export function AppHeader() {
         >
           <Menu className="h-5 w-5 text-slate-700 dark:text-zinc-300" />
         </Button>
-        <div className="flex items-center gap-2 pl-1">
+        <div className="flex min-w-0 items-center gap-2 pl-0.5 sm:pl-1">
           <img src="/atd-favicon.png" alt="ATD" className="h-6 w-6 rounded-sm object-contain" />
-          <span className="font-semibold text-sm sm:text-base text-slate-800 dark:text-slate-100 tracking-tight whitespace-nowrap">
-            Anytime Diesel HRMS
+          <span className="truncate text-sm font-semibold tracking-tight text-slate-800 dark:text-slate-100 sm:text-base">
+            <span className="hidden min-[390px]:inline">Anytime Diesel </span>HRMS
           </span>
           <span className="hidden sm:inline text-slate-300 dark:text-zinc-700">|</span>
           <span className="hidden sm:inline text-xs sm:text-sm font-medium text-slate-500 dark:text-zinc-400 capitalize whitespace-nowrap">

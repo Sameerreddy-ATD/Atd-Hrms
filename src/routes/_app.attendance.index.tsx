@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { TableToolbar } from "@/components/common/TableToolbar";
@@ -46,13 +46,10 @@ function AttendanceOverviewPage() {
 
   const [branch, setBranch] = useState("all");
   const [dept, setDept] = useState("all");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
   const [employees, setEmployees] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -74,6 +71,7 @@ function AttendanceOverviewPage() {
     () =>
       [...employees]
         .filter((employee) => {
+          if (employee.role === "developer_admin" || employee.role === "main_admin") return false;
           const haystack =
             `${employee.name} ${employee.email} ${employee.employeeCode ?? ""} ${employee.employeeId ?? ""}`.toLowerCase();
           if (q && !haystack.includes(q.toLowerCase())) return false;
@@ -91,42 +89,11 @@ function AttendanceOverviewPage() {
       JSON.stringify({
         employeeId: employee.employeeId || employee.id,
         employeeName: employee.name,
-        from: from || new Date().toISOString().slice(0, 10),
-        to: to || from || new Date().toISOString().slice(0, 10),
+        from: "",
+        to: "",
       }),
     );
     void navigate({ to: "/attendance/locations" });
-  }
-
-  async function exportAllAttendance() {
-    setExporting(true);
-    try {
-      const rows = await attendanceApi.list({
-        from: from || undefined,
-        to: to || undefined,
-        branchId: branch !== "all" ? branch : undefined,
-        departmentId: dept !== "all" ? dept : undefined,
-        limit: !from && !to ? "none" : undefined,
-      });
-      downloadCsv(
-        `attendance-overview-${from || "all"}-to-${to || "all"}.csv`,
-        rows.map((row) => ({
-          employee: row.employeeName,
-          employeeId: row.employeeId,
-          date: row.date,
-          homeBranch: branchName(row.homeBranchId),
-          actualBranch: branchName(row.actualBranchId),
-          punchIn: row.punchIn ?? "",
-          punchOut: row.punchOut ?? "",
-          source: attendanceSourceLabel(row, branches),
-          status: row.status,
-        })),
-      );
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setExporting(false);
-    }
   }
 
   return (
@@ -135,13 +102,8 @@ function AttendanceOverviewPage() {
         title="Attendance Overview"
         description="Employee-wise attendance directory. Open any employee to review day-wise logs and movement details."
         actions={
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={exporting}
-            onClick={() => void exportAllAttendance()}
-          >
-            {exporting ? "Exporting..." : "Export All Employees"}
+          <Button asChild>
+            <Link to="/leave/apply">Apply Leave</Link>
           </Button>
         }
       />
@@ -156,70 +118,6 @@ function AttendanceOverviewPage() {
             className="pl-8"
           />
         </div>
-
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="justify-start text-left font-normal sm:w-[240px]">
-              <Calendar className="mr-2 h-4 w-4" />
-              {from || to ? (
-                <span>
-                  {from ? from : "Start"} to {to ? to : "End"}
-                </span>
-              ) : (
-                <span>Date range for export</span>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-80 p-4" align="start">
-            <div className="space-y-4">
-              <h4 className="font-semibold leading-none text-sm">Select Date Range</h4>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label htmlFor="overview-from" className="text-xs">
-                    Start Date
-                  </Label>
-                  <Input
-                    id="overview-from"
-                    type="date"
-                    value={from}
-                    max={to || undefined}
-                    onChange={(e) => {
-                      const nextFrom = e.target.value;
-                      setFrom(nextFrom);
-                      if (to && nextFrom && to < nextFrom) setTo(nextFrom);
-                    }}
-                    className="h-8"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="overview-to" className="text-xs">
-                    End Date
-                  </Label>
-                  <Input
-                    id="overview-to"
-                    type="date"
-                    value={to}
-                    min={from || undefined}
-                    onChange={(e) => setTo(e.target.value)}
-                    className="h-8"
-                  />
-                </div>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => {
-                  setFrom("");
-                  setTo("");
-                }}
-              >
-                Clear Selection
-              </Button>
-            </div>
-          </PopoverContent>
-        </Popover>
 
         <Select value={branch} onValueChange={setBranch}>
           <SelectTrigger className="sm:w-44">

@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import type { AttendanceRecord } from "@/mock/types";
 import { attendanceApi } from "@/services/api";
-import { attendanceSourceLabel } from "@/lib/attendance-labels";
+import { punchSourceLabel } from "@/lib/attendance-labels";
 import { ArrowRight, MapPin } from "lucide-react";
 
 function calculateDistance(
@@ -55,7 +55,17 @@ function FieldAttendancePage() {
   useEffect(() => {
     attendanceApi
       .listField({ from, to })
-      .then(setRows)
+      .then((attendanceRows) => {
+        setRows(attendanceRows);
+        if (!from && !to && attendanceRows.length > 0) {
+          const dates = attendanceRows.map((r) => r.date).filter(Boolean);
+          if (dates.length > 0) {
+            dates.sort();
+            setFrom(dates[0]);
+            setTo(dates[dates.length - 1]);
+          }
+        }
+      })
       .catch((err) => setError((err as Error).message))
       .finally(() => setLoading(false));
   }, [from, to]);
@@ -112,10 +122,7 @@ function FieldAttendancePage() {
                 <TableHead>Date</TableHead>
                 <TableHead>Check In</TableHead>
                 <TableHead>Check Out</TableHead>
-                <TableHead>Check-in Coordinate</TableHead>
-                <TableHead>Check-out Coordinate</TableHead>
                 <TableHead>Check In-Out Distance</TableHead>
-                <TableHead>Address</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
@@ -127,9 +134,11 @@ function FieldAttendancePage() {
                     <div className="text-xs text-muted-foreground font-mono">{r.employeeId}</div>
                   </TableCell>
                   <TableCell>{r.date}</TableCell>
-                  <TableCell>{r.punchIn ?? "-"}</TableCell>
-                  <TableCell>{r.punchOut ?? "-"}</TableCell>
                   <TableCell>
+                    <div>{r.punchIn ?? "-"}</div>
+                    <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
+                      {punchSourceLabel(r.punchInSource, r.punchInBranchId, [])}
+                    </div>
                     {r.fieldCheckInLatitude && r.fieldCheckInLongitude ? (
                       <a
                         href={`https://www.google.com/maps/search/?api=1&query=${r.fieldCheckInLatitude},${r.fieldCheckInLongitude}`}
@@ -146,6 +155,10 @@ function FieldAttendancePage() {
                     )}
                   </TableCell>
                   <TableCell>
+                    <div>{r.punchOut ?? "-"}</div>
+                    <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
+                      {punchSourceLabel(r.punchOutSource, r.punchOutBranchId, [])}
+                    </div>
                     {r.fieldCheckOutLatitude && r.fieldCheckOutLongitude ? (
                       <a
                         href={`https://www.google.com/maps/search/?api=1&query=${r.fieldCheckOutLatitude},${r.fieldCheckOutLongitude}`}
@@ -184,10 +197,6 @@ function FieldAttendancePage() {
                           );
                         })()
                       : "-"}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    <MapPin className="mr-1 inline h-3 w-3" />
-                    {r.address ?? "-"}
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={r.status} />

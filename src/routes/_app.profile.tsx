@@ -64,7 +64,7 @@ function ProfilePage() {
   }, [user]);
 
   if (!user) return null;
-  const canSaveDirectly = ["developer_admin", "main_admin", "hr"].includes(user.role);
+  const canSaveDirectly = user.role === "developer_admin";
   const profile = employee ?? user;
   const branchName =
     branches.find((b) => b.id === profile.homeBranchId)?.name ?? profile.homeBranchName ?? "-";

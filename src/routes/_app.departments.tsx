@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,18 @@ import {
 import type { Department, User } from "@/mock/types";
 import { useAuth } from "@/lib/auth";
 import { branchesApi, employeesApi } from "@/services/api";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  Crown,
+  Network,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Trash2,
+  UserRound,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_app/departments")({
   component: DeptPage,
@@ -53,12 +64,25 @@ function DeptPage() {
   const [employees, setEmployees] = useState<User[]>([]);
   const [name, setName] = useState("");
   const [headEmployeeId, setHeadEmployeeId] = useState("none");
+  const [parentDepartmentId, setParentDepartmentId] = useState("none");
+  const [unitType, setUnitType] = useState<"TEAM" | "SUBTEAM" | "FUNCTION">("TEAM");
   const [editing, setEditing] = useState<Department | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [deleteDept, setDeleteDept] = useState<Department | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [zoom, setZoom] = useState(0.8);
+  const [expandedUnits, setExpandedUnits] = useState<Set<string>>(() => new Set());
+
+  function toggleUnit(unitId: string) {
+    setExpandedUnits((current) => {
+      const next = new Set(current);
+      if (next.has(unitId)) next.delete(unitId);
+      else next.add(unitId);
+      return next;
+    });
+  }
 
   useEffect(() => {
     Promise.all([branchesApi.departments(), employeesApi.list()])
@@ -74,18 +98,44 @@ function DeptPage() {
     () => employees.filter((employee) => !!employee.employeeId),
     [employees],
   );
+  const topLevelDepartments = useMemo(
+    () =>
+      departments
+        .filter((department) => !department.parentDepartmentId)
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
+    [departments],
+  );
+
+  const childrenOf = (parentId: string) =>
+    departments
+      .filter((department) => department.parentDepartmentId === parentId)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  const chartWidth = Math.max(1120, topLevelDepartments.length * 388 - 28);
 
   function resetForm() {
     setEditing(null);
     setName("");
     setHeadEmployeeId("none");
+    setParentDepartmentId("none");
+    setUnitType("TEAM");
     setShowForm(false);
   }
 
-  function openCreateDialog() {
+  function openCreateTopLevel() {
     setEditing(null);
     setName("");
     setHeadEmployeeId("none");
+    setParentDepartmentId("none");
+    setUnitType("TEAM");
+    setShowForm(true);
+  }
+
+  function openCreateUnder(parent: Department) {
+    setEditing(null);
+    setName("");
+    setHeadEmployeeId("none");
+    setParentDepartmentId(parent.id);
+    setUnitType(parent.parentDepartmentId ? "FUNCTION" : "SUBTEAM");
     setShowForm(true);
   }
 
@@ -93,6 +143,8 @@ function DeptPage() {
     setEditing(department);
     setName(department.name);
     setHeadEmployeeId(department.headEmployeeId ?? "none");
+    setParentDepartmentId(department.parentDepartmentId ?? "none");
+    setUnitType(department.unitType ?? "TEAM");
     setShowForm(true);
   }
 
@@ -107,6 +159,8 @@ function DeptPage() {
       const payload = {
         name: name.trim(),
         headEmployeeId: headEmployeeId === "none" ? null : headEmployeeId,
+        parentDepartmentId: parentDepartmentId === "none" ? null : parentDepartmentId,
+        unitType,
       };
       const saved = editing
         ? await branchesApi.updateDepartment(editing.id, payload)
@@ -117,6 +171,9 @@ function DeptPage() {
         ),
       );
       toast.success(editing ? "Department updated" : "Department added");
+      if (!editing && parentDepartmentId !== "none") {
+        setExpandedUnits((current) => new Set(current).add(parentDepartmentId));
+      }
       resetForm();
     } catch (err) {
       toast.error((err as Error).message);
@@ -133,6 +190,87 @@ function DeptPage() {
     } catch (err) {
       toast.error((err as Error).message);
     }
+  }
+
+  function renderChildNode(department: Department): ReactNode {
+    const children = childrenOf(department.id);
+    const isExpanded = expandedUnits.has(department.id);
+    return (
+      <div key={department.id} className="relative">
+        <div
+          className="relative cursor-pointer rounded-md border border-border bg-background p-3 shadow-sm transition-[border-color,box-shadow,transform] duration-200 before:absolute before:-left-4 before:top-6 before:h-px before:w-4 before:animate-pulse before:border-t before:border-dashed before:border-primary/60 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+          role="button"
+          tabIndex={0}
+          aria-expanded={isExpanded}
+          onClick={() => children.length > 0 && toggleUnit(department.id)}
+          onKeyDown={(event) => {
+            if (children.length > 0 && (event.key === "Enter" || event.key === " ")) {
+              event.preventDefault();
+              toggleUnit(department.id);
+            }
+          }}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="break-words text-sm font-semibold text-foreground">{department.name}</p>
+              <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <UserRound className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{department.head ?? "Head not assigned"}</span>
+              </p>
+            </div>
+            <div className="flex shrink-0 gap-1">
+              {children.length > 0 && (
+                <span className="flex h-8 items-center gap-1 rounded-md bg-muted px-2 text-xs font-medium text-muted-foreground">
+                  {children.length}
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                  />
+                </span>
+              )}
+              <Button
+                size="icon"
+                variant="ghost"
+                title="Add child unit"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openCreateUnder(department);
+                }}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                title="Edit unit"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openEditDialog(department);
+                }}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="text-destructive hover:text-destructive"
+                title="Delete unit"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setDeleteDept(department);
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+        {children.length > 0 && isExpanded && (
+          <div className="ml-5 animate-in space-y-3 border-l border-dashed border-primary/50 pl-4 pt-4 duration-300 fade-in slide-in-from-top-2">
+            {children.map((child) => renderChildNode(child))}
+          </div>
+        )}
+      </div>
+    );
   }
 
   if (user && user.role !== "developer_admin") {
@@ -153,22 +291,195 @@ function DeptPage() {
     <div>
       <PageHeader
         title="Departments"
-        description="Developer Admin can add, edit, and delete departments."
-        actions={
-          <Button size="sm" onClick={openCreateDialog}>
-            <Plus className="mr-2 h-4 w-4" /> Add department
-          </Button>
-        }
+        description="Build the company structure from CEO-level teams to subteams and functions."
       />
 
       {loading && <p className="text-sm text-muted-foreground">Loading departments...</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
+      {!loading && departments.length > 0 && (
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/30 px-3 py-2 sm:px-4">
+            <div>
+              <p className="text-sm font-medium text-foreground">Organization chart</p>
+              <p className="text-xs text-muted-foreground">
+                Drag the lower scrollbar to move across the chart.
+              </p>
+            </div>
+            <div className="flex items-center gap-1 rounded-md border border-border bg-background p-1">
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                title="Zoom out"
+                disabled={zoom <= 0.5}
+                onClick={() => setZoom((value) => Math.max(0.5, Number((value - 0.1).toFixed(1))))}
+              >
+                <ZoomOut className="h-4 w-4" />
+              </Button>
+              <span className="w-12 text-center text-xs font-medium tabular-nums text-muted-foreground">
+                {Math.round(zoom * 100)}%
+              </span>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                title="Zoom in"
+                disabled={zoom >= 1.4}
+                onClick={() => setZoom((value) => Math.min(1.4, Number((value + 0.1).toFixed(1))))}
+              >
+                <ZoomIn className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                title="Reset zoom"
+                onClick={() => setZoom(0.8)}
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto overscroll-x-contain px-4 py-6 sm:px-6">
+            <div
+              className="transition-transform duration-200 ease-out motion-reduce:transition-none"
+              style={{
+                zoom,
+                width: chartWidth,
+              }}
+            >
+              <div className="mx-auto flex max-w-xs items-center gap-3 rounded-md border border-primary/30 bg-primary/5 px-4 py-3 shadow-sm">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                  <Crown className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">Leadership</p>
+                  <p className="font-semibold text-foreground">Chief Executive Officer</p>
+                </div>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="ml-auto shrink-0"
+                  title="Add organization unit under CEO"
+                  onClick={openCreateTopLevel}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="mx-auto h-6 w-px bg-border" />
+              <div className="relative mb-6 flex items-center justify-center">
+                <div className="absolute inset-x-0 top-1/2 hidden h-px bg-border sm:block" />
+                <span className="relative flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                  <Network className="h-3.5 w-3.5" /> Organization units
+                </span>
+              </div>
+
+              <div className="flex w-max items-start gap-7">
+                {topLevelDepartments.map((department) => {
+                  const children = childrenOf(department.id);
+                  const isExpanded = expandedUnits.has(department.id);
+                  return (
+                    <section
+                      key={department.id}
+                      className="relative w-[360px] shrink-0 pt-6 before:absolute before:left-1/2 before:top-0 before:h-6 before:w-px before:bg-border"
+                    >
+                      <div
+                        className="cursor-pointer rounded-md border border-border bg-background p-4 shadow-sm transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={isExpanded}
+                        onClick={() => children.length > 0 && toggleUnit(department.id)}
+                        onKeyDown={(event) => {
+                          if (children.length > 0 && (event.key === "Enter" || event.key === " ")) {
+                            event.preventDefault();
+                            toggleUnit(department.id);
+                          }
+                        }}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium uppercase text-muted-foreground">
+                              {(department.unitType ?? "TEAM").toLowerCase()}
+                            </p>
+                            <h2 className="mt-1 break-words text-base font-semibold text-foreground">
+                              {department.name}
+                            </h2>
+                          </div>
+                          <div className="flex shrink-0 gap-1">
+                            {children.length > 0 && (
+                              <span className="mr-1 flex h-8 items-center gap-1 rounded-md bg-muted px-2 text-xs font-medium text-muted-foreground">
+                                {children.length}
+                                <ChevronDown
+                                  className={`h-3.5 w-3.5 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                                />
+                              </span>
+                            )}
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              title={`Add under ${department.name}`}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openCreateUnder(department);
+                              }}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              title="Edit unit"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openEditDialog(department);
+                              }}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="text-destructive hover:text-destructive"
+                              title="Delete unit"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setDeleteDept(department);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+                          <UserRound className="h-4 w-4 shrink-0" />
+                          <span className="truncate">{department.head ?? "Head not assigned"}</span>
+                        </div>
+                      </div>
+
+                      {children.length > 0 && isExpanded && (
+                        <div className="ml-5 animate-in space-y-3 border-l border-dashed border-primary/50 pl-4 pt-4 duration-300 fade-in slide-in-from-top-2">
+                          {children.map((child) => renderChildNode(child))}
+                        </div>
+                      )}
+                    </section>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="hidden overflow-hidden rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
           <Table className="min-w-[620px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Reports under</TableHead>
                 <TableHead>Head</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -176,7 +487,19 @@ function DeptPage() {
             <TableBody>
               {departments.map((d) => (
                 <TableRow key={d.id}>
-                  <TableCell className="font-medium">{d.name}</TableCell>
+                  <TableCell className="font-medium">
+                    {d.parentDepartmentId ? (
+                      <span className="mr-2 text-muted-foreground">↳</span>
+                    ) : null}
+                    {d.name}
+                  </TableCell>
+                  <TableCell className="capitalize">
+                    {(d.unitType ?? "TEAM").toLowerCase()}
+                  </TableCell>
+                  <TableCell>
+                    {departments.find((parent) => parent.id === d.parentDepartmentId)?.name ??
+                      "CEO"}
+                  </TableCell>
                   <TableCell>{d.head ?? "-"}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
@@ -207,9 +530,15 @@ function DeptPage() {
       <Dialog open={showForm} onOpenChange={(open) => !open && resetForm()}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editing ? "Edit department" : "Add department"}</DialogTitle>
+            <DialogTitle>
+              {editing
+                ? "Edit organization unit"
+                : parentDepartmentId !== "none"
+                  ? `Add under ${departments.find((item) => item.id === parentDepartmentId)?.name ?? "unit"}`
+                  : "Add organization unit"}
+            </DialogTitle>
             <DialogDescription>
-              Update the department name and assign a department head from the user list.
+              Create an expandable team, subteam, or function and assign its organizational head.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={saveDepartment} className="space-y-4">
@@ -217,6 +546,53 @@ function DeptPage() {
               <Label>Department name</Label>
               <Input value={name} onChange={(e) => setName(e.target.value)} />
             </div>
+            {editing ? (
+              <>
+                <div className="space-y-1.5">
+                  <Label>Unit type</Label>
+                  <Select
+                    value={unitType}
+                    onValueChange={(value) => setUnitType(value as typeof unitType)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="TEAM">Organization unit</SelectItem>
+                      <SelectItem value="SUBTEAM">Team</SelectItem>
+                      <SelectItem value="FUNCTION">Subteam / function</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Reports under</Label>
+                  <Select value={parentDepartmentId} onValueChange={setParentDepartmentId}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">CEO (top level)</SelectItem>
+                      {departments
+                        .filter((item) => item.id !== editing.id)
+                        .map((item) => (
+                          <SelectItem key={item.id} value={item.id}>
+                            {item.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            ) : (
+              <div className="rounded-md border border-border bg-muted/40 px-3 py-2.5">
+                <p className="text-xs font-medium text-muted-foreground">Adding under</p>
+                <p className="mt-1 text-sm font-semibold text-foreground">
+                  {parentDepartmentId === "none"
+                    ? "Chief Executive Officer"
+                    : departments.find((item) => item.id === parentDepartmentId)?.name}
+                </p>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label>Department head</Label>
               <Select value={headEmployeeId} onValueChange={setHeadEmployeeId}>

@@ -28,6 +28,24 @@ export function isSunday(date: Date) {
   return istDateParts(date).weekday === 0;
 }
 
+const WEEKDAY_KEYS = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
+
+function dayKey(date: Date) {
+  return startOfDayUtc(date).toISOString().slice(0, 10);
+}
+
+function cancelledDateKeys(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((date): date is string => typeof date === "string")
+    : [];
+}
+
+function dayHasEnded(eventDate: Date) {
+  const now = istDateParts(new Date());
+  const today = Date.UTC(now.year, now.month, now.day);
+  return startOfDayUtc(eventDate).getTime() < today;
+}
+
 export function eachDateInRange(from: string | Date, to: string | Date) {
   const start = startOfDayUtc(from);
   const end = startOfDayUtc(to);
@@ -59,23 +77,76 @@ export async function findHolidayForEmployee(employeeId: string, eventDate: Date
 }
 
 export async function findApprovedLeaveForDay(employeeId: string, eventDate: Date, paid: boolean) {
-  return prisma.leaveRequest.findFirst({
+  const date = startOfDayUtc(eventDate);
+  const requests = await prisma.leaveRequest.findMany({
     where: {
       employeeId,
-      fromDate: { lte: eventDate },
-      toDate: { gte: eventDate },
+      fromDate: { lte: date },
+      toDate: { gte: date },
       status: { in: APPROVED_LEAVE_STATUSES },
       leaveType: { paid },
     },
     include: { leaveType: true },
   });
+  return requests.find(
+    (request) => !cancelledDateKeys(request.cancelledDates).includes(dayKey(date)),
+  );
+}
+
+export async function cancelApprovedLeaveForDay(employeeId: string, eventDate: Date) {
+  const date = startOfDayUtc(eventDate);
+  const dateKey = dayKey(date);
+  const requests = await prisma.leaveRequest.findMany({
+    where: {
+      employeeId,
+      fromDate: { lte: date },
+      toDate: { gte: date },
+      status: { in: APPROVED_LEAVE_STATUSES },
+    },
+  });
+  const updated = [];
+  for (const request of requests) {
+    if (cancelledDateKeys(request.cancelledDates).includes(dateKey)) continue;
+    updated.push(await cancelLeaveDates(request.leaveRequestId, [date]));
+  }
+  return updated;
+}
+
+export async function cancelLeaveDates(leaveRequestId: string, dates: Array<string | Date>) {
+  const request = await prisma.leaveRequest.findUniqueOrThrow({ where: { leaveRequestId } });
+  const rangeKeys = eachDateInRange(request.fromDate, request.toDate).map(dayKey);
+  const requestedKeys = dates.map((date) => dayKey(new Date(date)));
+  const cancelled = new Set(cancelledDateKeys(request.cancelledDates));
+  for (const date of requestedKeys) {
+    if (rangeKeys.includes(date)) cancelled.add(date);
+  }
+  const cancelledDates = [...cancelled].sort();
+  const fullyCancelled = rangeKeys.every((date) => cancelled.has(date));
+  return prisma.leaveRequest.update({
+    where: { leaveRequestId },
+    data: {
+      cancelledDates,
+      ...(fullyCancelled ? { status: "CANCELLED" } : {}),
+    },
+    include: { leaveType: true, employee: { include: { manager: true } } },
+  });
 }
 
 export async function resolveNoEventStatus(employeeId: string, eventDate: Date): Promise<string> {
+  if (!dayHasEnded(eventDate)) return "Pending attendance";
+
   const holiday = await findHolidayForEmployee(employeeId, eventDate);
   if (holiday) return `Holiday - ${holiday.name}`;
 
-  if (isSunday(eventDate)) return "Week Off (Sunday)";
+  const employee = await prisma.employee.findUnique({
+    where: { employeeId },
+    select: { weeklyOffDays: true },
+  });
+  const weeklyOffDays = cancelledDateKeys(employee?.weeklyOffDays);
+  const dayOfWeek = WEEKDAY_KEYS[istDateParts(eventDate).weekday];
+  if ((weeklyOffDays.length ? weeklyOffDays : ["SUNDAY"]).includes(dayOfWeek)) {
+    return `Week Off (${dayOfWeek[0]}${dayOfWeek.slice(1).toLowerCase()})`;
+  }
 
   const paidLeave = await findApprovedLeaveForDay(employeeId, eventDate, true);
   if (paidLeave) return "Paid Leave";

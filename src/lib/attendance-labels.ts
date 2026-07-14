@@ -81,8 +81,8 @@ export function movementStatusLabel(row: AttendanceTimelineEvent) {
 
 export function captureSourceLabel(row: AttendanceTimelineEvent) {
   const source = row.source?.toUpperCase() ?? "";
-  if (source === "THUMB_SCANNER") return "Biometric";
-  if (source === "MOBILE_GPS") return "Mobile GPS";
+  if (source === "THUMB_SCANNER") return `Biometric - ${row.branchName ?? "Branch"}`;
+  if (source === "MOBILE_GPS") return `Mobile - ${row.branchName ?? "Field GPS"}`;
   return row.source || "-";
 }
 
@@ -95,4 +95,15 @@ export function attendanceSourceLabel(
   if (row.source === "Mobile GPS" && row.actualBranchId) return `${branch ?? "Branch"} - mobile`;
   if (row.source === "Mobile GPS") return "Field - mobile";
   return row.source;
+}
+
+export function punchSourceLabel(
+  source: AttendanceRecord["punchInSource"] | AttendanceRecord["punchOutSource"],
+  branchId: string | undefined,
+  branches: Array<{ id: string; name: string }>,
+) {
+  const branch = branchNameFromMap(branches, branchId);
+  if (source === "Thumb Scanner") return `Biometric - ${branch ?? "Branch"}`;
+  if (source === "Mobile GPS") return `Mobile - ${branch ?? "Field GPS"}`;
+  return source ?? "-";
 }

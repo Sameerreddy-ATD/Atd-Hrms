@@ -1,23 +1,43 @@
+import { z } from "zod";
 import compression from "compression";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
+import { randomUUID } from "node:crypto";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import morgan from "morgan";
-import { EventSource, EventType, Prisma, Role, UserStatus, WorkType } from "@prisma/client";
+import {
+  EventSource,
+  EventType,
+  Prisma,
+  Role,
+  TaskStatus,
+  UserStatus,
+  WorkType,
+} from "@prisma/client";
 import { parse } from "csv-parse/sync";
 import { audit } from "./audit.js";
 import { birthdayMessage } from "./birthdayMessages.js";
 import { isUpcomingBirthday } from "./birthdays.js";
-import { ensureDailySummariesForRange, recalculateLeaveDateRange } from "./attendanceDayRules.js";
+import {
+  cancelApprovedLeaveForDay,
+  cancelLeaveDates,
+  eachDateInRange,
+  ensureDailySummariesForRange,
+  findApprovedLeaveForDay,
+  recalculateLeaveDateRange,
+  startOfDayUtc,
+} from "./attendanceDayRules.js";
 import { createAttendanceEvent, recalculateDailySummary } from "./attendanceEngine.js";
 import { config } from "./config.js";
 import { asyncHandler, errorHandler, HttpError } from "./errors.js";
 import {
+  assetCatalogItemDto,
   attendanceRecordDto,
   biometricMappingDto,
   branchDto,
+  companyAssetDto,
   deviceDto,
   employeeDto,
   eventDto,
@@ -25,7 +45,13 @@ import {
   userDto,
 } from "./mapper.js";
 import { prisma } from "./prisma.js";
-import { assertEmployeeAccess, canCreateRole, requireAuth, requireRoles } from "./rbac.js";
+import {
+  assertEmployeeAccess,
+  canCreateRole,
+  getOrganizationTeamEmployeeIds,
+  requireAuth,
+  requireRoles,
+} from "./rbac.js";
 import {
   clearCookies,
   hashPassword,
@@ -34,6 +60,8 @@ import {
   verifyRefreshToken,
 } from "./security.js";
 import {
+  assetCatalogItemSchema,
+  assetCatalogItemUpdateSchema,
   biometricMappingSchema,
   biometricMappingUpdateSchema,
   biometricDeviceSchema,
@@ -42,6 +70,8 @@ import {
   branchUpdateSchema,
   changePasswordSchema,
   clientEventSchema,
+  companyAssetSchema,
+  companyAssetUpdateSchema,
   correctionSchema,
   createUserSchema,
   departmentSchema,
@@ -56,6 +86,9 @@ import {
   profileEditSchema,
   predefinedPasswordSchema,
   resetPasswordSchema,
+  taskLogSchema,
+  taskSchema,
+  taskUpdateSchema,
   thumbEventSchema,
   updateEmployeeSchema,
   updateUserSchema,
@@ -84,6 +117,45 @@ export function createApp() {
   app.use(express.text({ type: "text/csv", limit: "5mb" }));
   app.use(cookieParser());
   app.use(cors({ origin: config.frontendOrigin, credentials: true }));
+  app.use((req, res, next) => {
+    const stateChangingMethods = ["POST", "PUT", "DELETE", "PATCH"];
+    if (stateChangingMethods.includes(req.method)) {
+      const allowedOrigin = config.frontendOrigin;
+      if (allowedOrigin && allowedOrigin !== "*") {
+        try {
+          let allowedHost = "";
+          try {
+            allowedHost = new URL(allowedOrigin).host;
+          } catch {
+            allowedHost = allowedOrigin.replace(/^https?:\/\//, "").split("/")[0];
+          }
+          const origin = req.headers.origin;
+          const referer = req.headers.referer;
+
+          if (origin) {
+            const originHost = new URL(origin).host;
+            if (originHost !== allowedHost) {
+              return next(new HttpError(403, "CSRF validation failed: Origin mismatch"));
+            }
+          } else if (referer) {
+            const refererHost = new URL(referer).host;
+            if (refererHost !== allowedHost) {
+              return next(new HttpError(403, "CSRF validation failed: Referer mismatch"));
+            }
+          } else if (config.isProduction) {
+            return next(
+              new HttpError(403, "CSRF validation failed: Missing Origin and Referer headers"),
+            );
+          }
+        } catch (err) {
+          return next(
+            new HttpError(400, "CSRF validation failed: Invalid Origin/Referer header format"),
+          );
+        }
+      }
+    }
+    next();
+  });
   app.use(
     morgan(config.isProduction ? "combined" : "dev", {
       skip: (req) => req.path.startsWith("/health"),
@@ -177,11 +249,15 @@ export function createApp() {
     }
     if (
       !manager.user ||
-      !([Role.MANAGER, Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN] as Role[]).includes(
+      (!([Role.CEO, Role.MANAGER, Role.HR, Role.MAIN_ADMIN] as Role[]).includes(
         manager.user.role,
-      )
+      ) &&
+        !["HEAD", "SENIOR"].includes(manager.organizationLevel))
     ) {
-      throw new HttpError(400, "Reporting manager must have Manager, HR, or Admin role");
+      throw new HttpError(
+        400,
+        "Reporting manager must be a CEO, Head, Senior, Manager, HR, or Admin",
+      );
     }
   }
 
@@ -194,13 +270,11 @@ export function createApp() {
     if (!head || head.status !== "ACTIVE" || head.user?.status !== "ACTIVE") {
       throw new HttpError(400, "Department head must be an active employee");
     }
-    if (
-      !head.user ||
-      !([Role.MANAGER, Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN] as Role[]).includes(
-        head.user.role,
-      )
-    ) {
-      throw new HttpError(400, "Department head must have Manager, HR, or Admin role");
+    if (!head.user || head.user.role === Role.DEVELOPER_ADMIN) {
+      throw new HttpError(
+        400,
+        "Developer Admin is a system owner and cannot be an organizational head",
+      );
     }
   }
 
@@ -208,6 +282,9 @@ export function createApp() {
     departmentId: string;
     name: string;
     headEmployeeId: string | null;
+    parentDepartmentId: string | null;
+    unitType: string;
+    sortOrder: number;
     headEmployee?: { name: string } | null;
   }) {
     return {
@@ -215,6 +292,9 @@ export function createApp() {
       name: department.name,
       headEmployeeId: department.headEmployeeId ?? undefined,
       head: department.headEmployee?.name ?? undefined,
+      parentDepartmentId: department.parentDepartmentId ?? undefined,
+      unitType: department.unitType,
+      sortOrder: department.sortOrder,
     };
   }
 
@@ -231,7 +311,11 @@ export function createApp() {
     status: string;
     createdAt: Date;
     updatedAt?: Date;
+    cancelledDates?: unknown;
   }) {
+    const cancelledDates = Array.isArray(row.cancelledDates)
+      ? row.cancelledDates.filter((date): date is string => typeof date === "string")
+      : [];
     const employeeStatusMap: Record<string, string> = {
       PENDING: "Pending",
       MANAGER_APPROVED: "Approved",
@@ -241,11 +325,11 @@ export function createApp() {
       CANCELLED: "Cancelled",
     };
     const workflowStatusMap: Record<string, string> = {
-      PENDING: "Submitted — awaiting reporting manager",
-      MANAGER_APPROVED: "Approved by reporting manager",
+      PENDING: "Submitted — awaiting organization head",
+      MANAGER_APPROVED: "Approved by organization head",
       HR_VERIFIED: "HR verified",
-      APPROVED: "Approved by reporting manager",
-      REJECTED: "Rejected by reporting manager",
+      APPROVED: "Approved by organization head",
+      REJECTED: "Rejected by organization head",
       CANCELLED: "Cancelled",
     };
     return {
@@ -253,34 +337,82 @@ export function createApp() {
       employeeId: row.employeeId,
       employeeName: row.employee?.name ?? row.employeeId,
       managerName: row.employee?.manager?.name,
+      approverName: row.employee?.manager?.name,
       type: row.leaveType?.name ?? "-",
       from: row.fromDate.toISOString().slice(0, 10),
       to: row.toDate.toISOString().slice(0, 10),
       days: Number(row.days),
       reason: row.reason,
       status: employeeStatusMap[row.status] ?? row.status,
-      workflowStatus: workflowStatusMap[row.status] ?? row.status,
+      workflowStatus:
+        cancelledDates.length && row.status !== "CANCELLED"
+          ? `${workflowStatusMap[row.status] ?? row.status} — ${cancelledDates.length} day${cancelledDates.length === 1 ? "" : "s"} cancelled`
+          : (workflowStatusMap[row.status] ?? row.status),
       appliedOn: row.createdAt.toISOString().slice(0, 10),
       updatedOn: row.updatedAt?.toISOString().slice(0, 10),
+      cancelledDates,
+      cancelledDays: cancelledDates.length,
     };
   }
 
-  function assertReportingManagerForLeave(
+  async function findLeaveApprover(employeeId: string) {
+    const [employee, units] = await Promise.all([
+      prisma.employee.findUnique({ where: { employeeId }, select: { departmentId: true } }),
+      prisma.department.findMany({
+        select: { departmentId: true, parentDepartmentId: true, headEmployeeId: true },
+      }),
+    ]);
+    if (!employee?.departmentId) return null;
+
+    const byId = new Map(units.map((unit) => [unit.departmentId, unit]));
+    let unit = byId.get(employee.departmentId);
+    while (unit) {
+      if (unit.headEmployeeId && unit.headEmployeeId !== employeeId) {
+        const approver = await prisma.employee.findFirst({
+          where: { employeeId: unit.headEmployeeId, status: "ACTIVE", user: { status: "ACTIVE" } },
+          select: { employeeId: true, name: true },
+        });
+        if (approver) return approver;
+      }
+      unit = unit.parentDepartmentId ? byId.get(unit.parentDepartmentId) : undefined;
+    }
+    return prisma.employee.findFirst({
+      where: { status: "ACTIVE", user: { role: Role.CEO, status: "ACTIVE" } },
+      select: { employeeId: true, name: true },
+    });
+  }
+
+  async function assertOrganizationApproverForLeave(
     user: { employeeId?: string | null },
-    leave: { managerId?: string | null; employee: { managerId?: string | null } },
+    leave: { managerId?: string | null; employeeId: string },
   ) {
     if (!user.employeeId) {
-      throw new HttpError(403, "Only the assigned reporting manager can approve or reject leave.");
+      throw new HttpError(
+        403,
+        "Only the responsible organization head can approve or reject leave.",
+      );
     }
-    const isReportingManager =
-      leave.managerId === user.employeeId || leave.employee.managerId === user.employeeId;
-    if (!isReportingManager) {
-      throw new HttpError(403, "Only the assigned reporting manager can approve or reject leave.");
+    const teamEmployeeIds = await getOrganizationTeamEmployeeIds(user.employeeId);
+    if (!teamEmployeeIds.includes(leave.employeeId) || leave.managerId !== user.employeeId) {
+      throw new HttpError(
+        403,
+        "Only the responsible organization head can approve or reject leave.",
+      );
     }
   }
 
   function leaveTypeDto(row: { leaveTypeId: string; name: string; paid: boolean }) {
     return { id: row.leaveTypeId, name: row.name, paid: row.paid };
+  }
+
+  function safeAuditValue(value: unknown): Record<string, unknown> | null {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, nestedValue]) => [
+        key,
+        /password|token|secret|hash/i.test(key) ? "[protected]" : nestedValue,
+      ]),
+    );
   }
 
   async function nextEmployeeCode(tx: Prisma.TransactionClient) {
@@ -312,11 +444,13 @@ export function createApp() {
       });
       if (!user) throw new HttpError(401, "Invalid credentials");
 
-      if (user.status === UserStatus.LOCKED) {
+      const isDeveloperAdmin = user.role === Role.DEVELOPER_ADMIN;
+
+      if (!isDeveloperAdmin && user.status === UserStatus.LOCKED) {
         throw new HttpError(403, "Account blocked. Please contact HR to reset your password.");
       }
 
-      if (user.status !== UserStatus.ACTIVE) {
+      if (!isDeveloperAdmin && user.status !== UserStatus.ACTIVE) {
         throw new HttpError(401, "Invalid credentials");
       }
 
@@ -325,7 +459,7 @@ export function createApp() {
         user.suspendedUntil &&
         user.suspensionStartsAt.getTime() <= Date.now() &&
         user.suspendedUntil.getTime() > Date.now();
-      if (suspensionIsActive) {
+      if (!isDeveloperAdmin && suspensionIsActive) {
         throw new HttpError(
           403,
           `Account suspended until ${user.suspendedUntil!.toISOString().slice(0, 10)}`,
@@ -333,6 +467,9 @@ export function createApp() {
       }
       const ok = await verifyPassword(body.password, user.passwordHash);
       if (!ok) {
+        if (isDeveloperAdmin) {
+          throw new HttpError(401, "Invalid email address or password.");
+        }
         const nextAttempts = user.failedLoginAttempts + 1;
         const isLocked = nextAttempts >= 5;
         await prisma.user.update({
@@ -342,20 +479,20 @@ export function createApp() {
             status: isLocked ? UserStatus.LOCKED : undefined,
           },
         });
-        if (isLocked) {
-          throw new HttpError(403, "Account blocked. Please contact HR to reset your password.");
-        }
-        const attemptsLeft = 5 - nextAttempts;
-        throw new HttpError(
-          401,
-          `Invalid credentials. ${attemptsLeft} attempt${attemptsLeft === 1 ? "" : "s"} left before your account is blocked.`,
-        );
+        throw new HttpError(401, "Invalid email address or password.");
       }
       const updated = await prisma.user.update({
         where: { id: user.id },
         data: {
           failedLoginAttempts: 0,
           lastLoginAt: new Date(),
+          ...(isDeveloperAdmin
+            ? {
+                status: UserStatus.ACTIVE,
+                suspendedUntil: null,
+                suspensionStartsAt: null,
+              }
+            : {}),
           ...(user.suspendedUntil && user.suspendedUntil.getTime() <= Date.now()
             ? { suspendedUntil: null, suspensionStartsAt: null }
             : {}),
@@ -378,7 +515,7 @@ export function createApp() {
   app.patch(
     "/users/:id",
     requireAuth,
-    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
+    requireRoles(Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const id = String(req.params.id);
       const body = updateUserSchema.parse(req.body);
@@ -391,6 +528,18 @@ export function createApp() {
       }
       if (body.role === Role.DEVELOPER_ADMIN && req.user!.role !== Role.DEVELOPER_ADMIN) {
         throw new HttpError(403, "Only Developer Admin can assign Developer Admin");
+      }
+      if (
+        existing.role === Role.DEVELOPER_ADMIN &&
+        ((body.status !== undefined && body.status !== UserStatus.ACTIVE) ||
+          (body.role !== undefined && body.role !== Role.DEVELOPER_ADMIN) ||
+          body.suspendedUntil != null ||
+          body.suspensionStartsAt != null)
+      ) {
+        throw new HttpError(
+          403,
+          "Developer Admin accounts cannot be deactivated, suspended, or demoted",
+        );
       }
       const updated = await prisma.user.update({
         where: { id },
@@ -421,7 +570,7 @@ export function createApp() {
   app.post(
     "/users/:id/suspend",
     requireAuth,
-    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
+    requireRoles(Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const id = String(req.params.id);
       const suspensionStartsAt = new Date(String(req.body.suspensionStartsAt));
@@ -436,8 +585,8 @@ export function createApp() {
       }
       const existing = await prisma.user.findUniqueOrThrow({ where: { id } });
       if (existing.id === req.user!.id) throw new HttpError(400, "You cannot suspend yourself");
-      if (existing.role === Role.DEVELOPER_ADMIN && req.user!.role !== Role.DEVELOPER_ADMIN) {
-        throw new HttpError(403, "Only Developer Admin can suspend Developer Admin");
+      if (existing.role === Role.DEVELOPER_ADMIN) {
+        throw new HttpError(403, "Developer Admin accounts cannot be suspended");
       }
       const updated = await prisma.user.update({
         where: { id },
@@ -462,13 +611,13 @@ export function createApp() {
   app.post(
     "/users/:id/deactivate",
     requireAuth,
-    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
+    requireRoles(Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const id = String(req.params.id);
       const existing = await prisma.user.findUniqueOrThrow({ where: { id } });
       if (existing.id === req.user!.id) throw new HttpError(400, "You cannot deactivate yourself");
-      if (existing.role === Role.DEVELOPER_ADMIN && req.user!.role !== Role.DEVELOPER_ADMIN) {
-        throw new HttpError(403, "Only Developer Admin can deactivate Developer Admin");
+      if (existing.role === Role.DEVELOPER_ADMIN) {
+        throw new HttpError(403, "Developer Admin accounts cannot be deactivated");
       }
       const updated = await prisma.user.update({
         where: { id },
@@ -490,7 +639,7 @@ export function createApp() {
   app.delete(
     "/users/:id",
     requireAuth,
-    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
+    requireRoles(Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const id = String(req.params.id);
       const existing = await prisma.user.findUniqueOrThrow({
@@ -500,8 +649,8 @@ export function createApp() {
       if (existing.id === req.user!.id) {
         throw new HttpError(400, "You cannot delete your own account");
       }
-      if (existing.role === Role.DEVELOPER_ADMIN && req.user!.role !== Role.DEVELOPER_ADMIN) {
-        throw new HttpError(403, "Only Developer Admin can delete Developer Admin");
+      if (existing.role === Role.DEVELOPER_ADMIN) {
+        throw new HttpError(403, "Developer Admin accounts cannot be deleted");
       }
 
       const employeeId = existing.employeeId;
@@ -562,7 +711,7 @@ export function createApp() {
   app.post(
     "/users/:id/reset-password",
     requireAuth,
-    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
+    requireRoles(Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const id = String(req.params.id);
       const body = resetPasswordSchema.parse(req.body);
@@ -678,7 +827,7 @@ export function createApp() {
   app.get(
     "/users",
     requireAuth,
-    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
+    requireRoles(Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const users = await prisma.user.findMany({
         include: { employee: true },
@@ -692,12 +841,33 @@ export function createApp() {
   app.post(
     "/users",
     requireAuth,
-    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
+    requireRoles(Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const body = createUserSchema.parse(req.body);
-      if (!canCreateRole(req.user!.role, body.role))
+      const organizationUnit = body.departmentId
+        ? await prisma.department.findUnique({ where: { departmentId: body.departmentId } })
+        : null;
+      if (!organizationUnit) throw new HttpError(400, "Select an organization unit");
+      const unitName = organizationUnit.name.toLowerCase();
+      const targetRole =
+        unitName === "executive leadership"
+          ? Role.CEO
+          : unitName === "human resources"
+            ? Role.HR
+            : unitName === "administration" && body.organizationLevel === "HEAD"
+              ? Role.MAIN_ADMIN
+              : unitName === "drivers"
+                ? Role.DRIVER
+                : body.organizationLevel === "HEAD"
+                  ? Role.MANAGER
+                  : unitName.includes("sales")
+                    ? Role.SALES
+                    : Role.EMPLOYEE;
+      if (!canCreateRole(req.user!.role, targetRole))
         throw new HttpError(403, "This role cannot create the requested login");
       const employeeRoles = [
+        Role.MAIN_ADMIN,
+        Role.CEO,
         Role.HR,
         Role.MANAGER,
         Role.EMPLOYEE,
@@ -705,8 +875,31 @@ export function createApp() {
         Role.DRIVER,
         Role.FIELD_STAFF,
       ] as Role[];
-      const shouldCreateEmployee = employeeRoles.includes(body.role) && !body.employeeId;
-      if (shouldCreateEmployee) await assertValidManager("new-employee", body.managerId);
+      const shouldCreateEmployee = employeeRoles.includes(targetRole) && !body.employeeId;
+      let reportingManagerId = body.managerId ?? null;
+      if (shouldCreateEmployee && !reportingManagerId && targetRole !== Role.CEO) {
+        const unitWithParent = await prisma.department.findUnique({
+          where: { departmentId: organizationUnit.departmentId },
+          select: {
+            headEmployeeId: true,
+            parentDepartment: { select: { headEmployeeId: true } },
+          },
+        });
+        reportingManagerId =
+          body.organizationLevel === "HEAD"
+            ? (unitWithParent?.parentDepartment?.headEmployeeId ?? null)
+            : (unitWithParent?.headEmployeeId ??
+              unitWithParent?.parentDepartment?.headEmployeeId ??
+              null);
+        if (!reportingManagerId) {
+          const ceo = await prisma.user.findFirst({
+            where: { role: Role.CEO, status: "ACTIVE", employeeId: { not: null } },
+            select: { employeeId: true },
+          });
+          reportingManagerId = ceo?.employeeId ?? null;
+        }
+      }
+      if (shouldCreateEmployee) await assertValidManager("new-employee", reportingManagerId);
       const predefinedPassword = body.password
         ? null
         : await prisma.systemSetting.findUnique({ where: { key: "PREDEFINED_PASSWORD_HASH" } });
@@ -730,15 +923,17 @@ export function createApp() {
                 departmentId: body.departmentId ?? undefined,
                 designation: body.designation ?? undefined,
                 homeBranchId: body.homeBranchId ?? undefined,
-                managerId: body.managerId ?? undefined,
+                managerId: reportingManagerId ?? undefined,
+                weeklyOffDays: body.weeklyOffDays ?? ["SUNDAY"],
                 attendanceMode: "BOTH",
                 isFieldEmployee:
                   body.isFieldEmployee ??
-                  ([Role.SALES, Role.DRIVER, Role.FIELD_STAFF] as Role[]).includes(body.role),
+                  ([Role.SALES, Role.DRIVER, Role.FIELD_STAFF] as Role[]).includes(targetRole),
                 joiningDate: body.joiningDate ?? undefined,
                 dateOfBirth: body.dateOfBirth ?? undefined,
                 gender: body.gender ?? undefined,
                 employmentType: body.employmentType ?? "FULL_TIME",
+                organizationLevel: body.organizationLevel ?? "MEMBER",
               },
             })
           : null;
@@ -748,7 +943,7 @@ export function createApp() {
             email: body.email.toLowerCase(),
             phone: body.phone,
             passwordHash,
-            role: body.role,
+            role: targetRole,
             employeeId: body.employeeId ?? employee?.employeeId,
             createdByUserId: req.user!.id,
           },
@@ -769,7 +964,7 @@ export function createApp() {
   app.get(
     "/settings/security",
     requireAuth,
-    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
+    requireRoles(Role.DEVELOPER_ADMIN),
     asyncHandler(async (_req, res) => {
       const setting = await prisma.systemSetting.findUnique({
         where: { key: "PREDEFINED_PASSWORD_HASH" },
@@ -813,9 +1008,7 @@ export function createApp() {
         res.json({ isReportingManager: false, teamCount: 0 });
         return;
       }
-      const teamCount = await prisma.employee.count({
-        where: { managerId: req.user!.employeeId, status: "ACTIVE" },
-      });
+      const teamCount = (await getOrganizationTeamEmployeeIds(req.user!.employeeId)).length;
       res.json({ isReportingManager: teamCount > 0, teamCount });
     }),
   );
@@ -824,10 +1017,14 @@ export function createApp() {
     "/employees",
     requireAuth,
     asyncHandler(async (req, res) => {
-      const where =
-        req.user!.role === Role.MANAGER && req.user!.employeeId
-          ? { managerId: req.user!.employeeId }
-          : {};
+      const directoryRoles: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.CEO, Role.HR];
+      const where = directoryRoles.includes(req.user!.role)
+        ? {}
+        : req.user!.role === Role.MANAGER && req.user!.employeeId
+          ? { employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) } }
+          : req.user!.employeeId
+            ? { employeeId: req.user!.employeeId }
+            : { employeeId: "__none__" };
       const employees = await prisma.employee.findMany({
         where,
         include: { user: true, department: true, homeBranch: true, manager: true },
@@ -835,6 +1032,16 @@ export function createApp() {
         take: listLimit(req, 750, 1000),
       });
       res.json(employees.map((emp) => employeeDto(emp, req.user!)));
+    }),
+  );
+
+  app.get(
+    "/leave/approver",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      if (!req.user!.employeeId) throw new HttpError(400, "No employee profile");
+      const approver = await findLeaveApprover(req.user!.employeeId);
+      res.json({ approverName: approver?.name ?? null, canApply: Boolean(approver) });
     }),
   );
 
@@ -911,10 +1118,16 @@ export function createApp() {
   app.patch(
     "/employees/:id",
     requireAuth,
-    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
+    requireRoles(Role.DEVELOPER_ADMIN, Role.HR),
     asyncHandler(async (req, res) => {
       const employeeId = String(req.params.id);
       const body = updateEmployeeSchema.parse(req.body);
+      if (
+        req.user!.role === Role.HR &&
+        (body.managerId === undefined || Object.keys(body).some((key) => key !== "managerId"))
+      ) {
+        throw new HttpError(403, "HR can update only the reporting manager");
+      }
       const existing = await prisma.employee.findUniqueOrThrow({ where: { employeeId } });
       await assertValidManager(employeeId, body.managerId);
       const employee = await prisma.employee.update({
@@ -953,6 +1166,305 @@ export function createApp() {
         orderBy: { branchName: "asc" },
       });
       res.json(branches.map(branchDto));
+    }),
+  );
+
+  app.get(
+    "/assets",
+    requireAuth,
+    requireRoles(Role.HR),
+    asyncHandler(async (req, res) => {
+      const query = String(req.query.q ?? "").trim();
+      const status = typeof req.query.status === "string" ? req.query.status : undefined;
+      const assets = await prisma.companyAsset.findMany({
+        where: {
+          ...(status && status !== "all" ? { status } : {}),
+          ...(query
+            ? {
+                OR: [
+                  { assetCode: { contains: query } },
+                  { name: { contains: query } },
+                  { category: { contains: query } },
+                  { serialNumber: { contains: query } },
+                  { assignedEmployee: { name: { contains: query } } },
+                ],
+              }
+            : {}),
+        },
+        include: { assignedEmployee: true, branch: true },
+        orderBy: [{ status: "asc" }, { name: "asc" }],
+        take: listLimit(req, 500, 1000),
+      });
+      res.json(assets.map(companyAssetDto));
+    }),
+  );
+
+  app.get(
+    "/assets/investment-summary",
+    requireAuth,
+    requireRoles(Role.HR),
+    asyncHandler(async (_req, res) => {
+      const assets = await prisma.companyAsset.findMany({
+        where: { assignedEmployeeId: { not: null }, status: { not: "RETIRED" } },
+        include: { assignedEmployee: { include: { department: true } } },
+      });
+      const summary = new Map<
+        string,
+        {
+          employeeId: string;
+          employeeName: string;
+          employeeCode: string;
+          department?: string;
+          physicalAssets: number;
+          onlineAssets: number;
+          oneTimeInvestment: number;
+          monthlyRecurring: number;
+          annualRecurring: number;
+          firstYearInvestment: number;
+        }
+      >();
+      for (const asset of assets) {
+        const employee = asset.assignedEmployee;
+        if (!employee) continue;
+        const value = Number(asset.purchaseValue);
+        const monthly =
+          asset.costFrequency === "MONTHLY"
+            ? value
+            : asset.costFrequency === "YEARLY"
+              ? value / 12
+              : 0;
+        const annual =
+          asset.costFrequency === "MONTHLY"
+            ? value * 12
+            : asset.costFrequency === "YEARLY"
+              ? value
+              : 0;
+        const row = summary.get(employee.employeeId) ?? {
+          employeeId: employee.employeeId,
+          employeeName: employee.name,
+          employeeCode: employee.employeeCode,
+          department: employee.department?.name,
+          physicalAssets: 0,
+          onlineAssets: 0,
+          oneTimeInvestment: 0,
+          monthlyRecurring: 0,
+          annualRecurring: 0,
+          firstYearInvestment: 0,
+        };
+        if (asset.assetType === "PHYSICAL") row.physicalAssets += 1;
+        else row.onlineAssets += 1;
+        if (asset.costFrequency === "ONE_TIME") row.oneTimeInvestment += value;
+        row.monthlyRecurring += monthly;
+        row.annualRecurring += annual;
+        row.firstYearInvestment = row.oneTimeInvestment + row.annualRecurring;
+        summary.set(employee.employeeId, row);
+      }
+      res.json([...summary.values()].sort((a, b) => b.firstYearInvestment - a.firstYearInvestment));
+    }),
+  );
+
+  app.get(
+    "/assets/catalog",
+    requireAuth,
+    requireRoles(Role.HR),
+    asyncHandler(async (req, res) => {
+      const includeInactive = req.query.includeInactive === "true";
+      const items = await prisma.assetCatalogItem.findMany({
+        where: includeInactive ? {} : { status: "ACTIVE" },
+        orderBy: [{ category: "asc" }, { name: "asc" }],
+      });
+      res.json(items.map(assetCatalogItemDto));
+    }),
+  );
+
+  app.post(
+    "/assets/catalog",
+    requireAuth,
+    requireRoles(Role.HR),
+    asyncHandler(async (req, res) => {
+      const body = assetCatalogItemSchema.parse(req.body);
+      const item = await prisma.assetCatalogItem.create({ data: body });
+      await audit({
+        action: "asset catalog item created",
+        performedByUserId: req.user!.id,
+        newValue: { catalogId: item.catalogId, name: item.name },
+        ipAddress: req.ip,
+      });
+      res.status(201).json(assetCatalogItemDto(item));
+    }),
+  );
+
+  app.patch(
+    "/assets/catalog/:id",
+    requireAuth,
+    requireRoles(Role.HR),
+    asyncHandler(async (req, res) => {
+      const body = assetCatalogItemUpdateSchema.parse(req.body);
+      const existing = await prisma.assetCatalogItem.findUniqueOrThrow({
+        where: { catalogId: String(req.params.id) },
+      });
+      const item = await prisma.assetCatalogItem.update({
+        where: { catalogId: existing.catalogId },
+        data: body,
+      });
+      await audit({
+        action: "asset catalog item updated",
+        performedByUserId: req.user!.id,
+        oldValue: { name: existing.name, category: existing.category },
+        newValue: { catalogId: item.catalogId, name: item.name, category: item.category },
+        ipAddress: req.ip,
+      });
+      res.json(assetCatalogItemDto(item));
+    }),
+  );
+
+  app.delete(
+    "/assets/catalog/:id",
+    requireAuth,
+    requireRoles(Role.HR),
+    asyncHandler(async (req, res) => {
+      const item = await prisma.assetCatalogItem.update({
+        where: { catalogId: String(req.params.id) },
+        data: { status: "INACTIVE" },
+      });
+      await audit({
+        action: "asset catalog item deactivated",
+        performedByUserId: req.user!.id,
+        newValue: { catalogId: item.catalogId, status: item.status },
+        ipAddress: req.ip,
+      });
+      res.json(assetCatalogItemDto(item));
+    }),
+  );
+
+  app.post(
+    "/assets",
+    requireAuth,
+    requireRoles(Role.HR),
+    asyncHandler(async (req, res) => {
+      const body = companyAssetSchema.parse(req.body);
+      if (body.assetType !== "ONLINE" && !body.assetCode) {
+        throw new HttpError(400, "Asset ID is required for physical assets");
+      }
+      const catalogItem = body.catalogId
+        ? await prisma.assetCatalogItem.findFirst({
+            where: { catalogId: body.catalogId, status: "ACTIVE" },
+          })
+        : undefined;
+      if (body.catalogId && !catalogItem) {
+        throw new HttpError(400, "Select an active item from Asset Catalog");
+      }
+      const assetType = body.assetType ?? "PHYSICAL";
+      const catalogType =
+        catalogItem?.category === "Company Asset" ? "PHYSICAL" : catalogItem?.category;
+      if (catalogType && catalogType !== assetType) {
+        throw new HttpError(400, "Asset name does not match the selected asset type");
+      }
+      if (body.assignedEmployeeId) {
+        const employee = await prisma.employee.findFirst({
+          where: { employeeId: body.assignedEmployeeId, status: "ACTIVE" },
+        });
+        if (!employee) throw new HttpError(400, "Assigned employee must be active");
+      }
+      const asset = await prisma.companyAsset.create({
+        data: {
+          ...body,
+          assetCode: body.assetCode ?? `ATD-ONL-${randomUUID().slice(0, 8).toUpperCase()}`,
+          name: catalogItem?.name ?? body.name,
+          category: assetType,
+          catalogId: body.catalogId || null,
+          serialNumber: body.serialNumber || null,
+          assignedEmployeeId: body.assignedEmployeeId || null,
+          branchId: body.assetType === "ONLINE" ? null : body.branchId || null,
+          status:
+            body.assetType === "ONLINE"
+              ? body.assignedEmployeeId
+                ? "ASSIGNED"
+                : "AVAILABLE"
+              : (body.status ?? (body.assignedEmployeeId ? "ASSIGNED" : "AVAILABLE")),
+        },
+        include: { assignedEmployee: true, branch: true },
+      });
+      await audit({
+        action: "company asset created",
+        performedByUserId: req.user!.id,
+        newValue: { assetId: asset.assetId, assetCode: asset.assetCode },
+        ipAddress: req.ip,
+      });
+      res.status(201).json(companyAssetDto(asset));
+    }),
+  );
+
+  app.patch(
+    "/assets/:id",
+    requireAuth,
+    requireRoles(Role.HR),
+    asyncHandler(async (req, res) => {
+      const body = companyAssetUpdateSchema.parse(req.body);
+      const catalogItem = body.catalogId
+        ? await prisma.assetCatalogItem.findFirst({
+            where: { catalogId: body.catalogId, status: "ACTIVE" },
+          })
+        : undefined;
+      if (body.catalogId && !catalogItem) {
+        throw new HttpError(400, "Select an active item from Asset Catalog");
+      }
+      const nextAssetType = body.assetType;
+      const catalogType =
+        catalogItem?.category === "Company Asset" ? "PHYSICAL" : catalogItem?.category;
+      if (catalogType && nextAssetType && catalogType !== nextAssetType) {
+        throw new HttpError(400, "Asset name does not match the selected asset type");
+      }
+      if (body.assignedEmployeeId) {
+        const employee = await prisma.employee.findFirst({
+          where: { employeeId: body.assignedEmployeeId, status: "ACTIVE" },
+        });
+        if (!employee) throw new HttpError(400, "Assigned employee must be active");
+      }
+      const existing = await prisma.companyAsset.findUniqueOrThrow({
+        where: { assetId: String(req.params.id) },
+      });
+      const asset = await prisma.companyAsset.update({
+        where: { assetId: existing.assetId },
+        data: {
+          ...body,
+          name: catalogItem?.name,
+          category: catalogItem?.category,
+          serialNumber: body.serialNumber === undefined ? undefined : body.serialNumber || null,
+          assignedEmployeeId:
+            body.assignedEmployeeId === undefined ? undefined : body.assignedEmployeeId || null,
+          branchId:
+            body.assetType === "ONLINE"
+              ? null
+              : body.branchId === undefined
+                ? undefined
+                : body.branchId || null,
+          status:
+            (body.assetType === "ONLINE"
+              ? existing.assignedEmployeeId
+                ? "ASSIGNED"
+                : "AVAILABLE"
+              : body.status) ??
+            (body.assignedEmployeeId === undefined
+              ? undefined
+              : body.assignedEmployeeId
+                ? "ASSIGNED"
+                : "AVAILABLE"),
+        },
+        include: { assignedEmployee: true, branch: true },
+      });
+      await audit({
+        action: "company asset updated",
+        performedByUserId: req.user!.id,
+        oldValue: { assignedEmployeeId: existing.assignedEmployeeId, status: existing.status },
+        newValue: {
+          assetId: asset.assetId,
+          assignedEmployeeId: asset.assignedEmployeeId,
+          status: asset.status,
+        },
+        ipAddress: req.ip,
+      });
+      res.json(companyAssetDto(asset));
     }),
   );
 
@@ -1032,7 +1544,7 @@ export function createApp() {
     asyncHandler(async (_req, res) => {
       const departments = await prisma.department.findMany({
         include: { headEmployee: true },
-        orderBy: { name: "asc" },
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       });
       res.json(departments.map(departmentDto));
     }),
@@ -1045,8 +1557,19 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       const body = departmentSchema.parse(req.body);
       await assertValidDepartmentHead(body.headEmployeeId);
+      if (body.parentDepartmentId) {
+        await prisma.department.findUniqueOrThrow({
+          where: { departmentId: body.parentDepartmentId },
+        });
+      }
       const department = await prisma.department.create({
-        data: { name: body.name, headEmployeeId: body.headEmployeeId ?? undefined },
+        data: {
+          name: body.name,
+          headEmployeeId: body.headEmployeeId ?? undefined,
+          parentDepartmentId: body.parentDepartmentId ?? undefined,
+          unitType: body.unitType ?? "TEAM",
+          sortOrder: body.sortOrder ?? 0,
+        },
         include: { headEmployee: true },
       });
       await audit({
@@ -1073,9 +1596,31 @@ export function createApp() {
       const existing = await prisma.department.findUniqueOrThrow({
         where: { departmentId: String(req.params.id) },
       });
+      if (body.parentDepartmentId === existing.departmentId) {
+        throw new HttpError(400, "An organizational unit cannot be its own parent");
+      }
+      if (body.parentDepartmentId) {
+        let cursor: string | null = body.parentDepartmentId;
+        while (cursor) {
+          if (cursor === existing.departmentId)
+            throw new HttpError(400, "This parent would create a hierarchy cycle");
+          const parent: { parentDepartmentId: string | null } | null =
+            await prisma.department.findUnique({
+              where: { departmentId: cursor },
+              select: { parentDepartmentId: true },
+            });
+          cursor = parent?.parentDepartmentId ?? null;
+        }
+      }
       const department = await prisma.department.update({
         where: { departmentId: String(req.params.id) },
-        data: { name: body.name, headEmployeeId: body.headEmployeeId },
+        data: {
+          name: body.name,
+          headEmployeeId: body.headEmployeeId,
+          parentDepartmentId: body.parentDepartmentId,
+          unitType: body.unitType,
+          sortOrder: body.sortOrder,
+        },
         include: { headEmployee: true },
       });
       await audit({
@@ -1102,6 +1647,10 @@ export function createApp() {
         where: { departmentId: String(req.params.id) },
       });
       if (employeeCount > 0) throw new HttpError(400, "Department has employees assigned");
+      const childCount = await prisma.department.count({
+        where: { parentDepartmentId: String(req.params.id) },
+      });
+      if (childCount > 0) throw new HttpError(400, "Move or delete child units first");
       const department = await prisma.department.delete({
         where: { departmentId: String(req.params.id) },
       });
@@ -1354,6 +1903,27 @@ export function createApp() {
         skip_empty_lines: true,
         trim: true,
       }) as Array<Record<string, string>>;
+
+      const csvRowSchema = z.object({
+        employeeId: z.string().min(1, "employeeId is required"),
+        branchId: z.string().min(1, "branchId is required"),
+        deviceId: z.string().optional(),
+        eventTime: z.string().refine((val) => !isNaN(Date.parse(val)), {
+          message: "Invalid eventTime date format",
+        }),
+      });
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const parsed = csvRowSchema.safeParse(row);
+        if (!parsed.success) {
+          throw new HttpError(
+            400,
+            `CSV validation failed at row ${i + 1}: ${parsed.error.errors.map((e) => e.message).join(", ")}`,
+          );
+        }
+      }
+
       for (const row of rows) {
         await createAttendanceEvent({
           employeeId: row.employeeId,
@@ -1383,7 +1953,7 @@ export function createApp() {
     const employeeId = body.employeeId ?? req.user?.employeeId;
     if (!employeeId) throw new HttpError(400, "employeeId is required");
     await assertEmployeeAccess(req.user, employeeId);
-    const eventDate = new Date(new Date().toISOString().slice(0, 10));
+    const eventDate = startOfDayUtc(body.eventTime ?? new Date());
     const latestEvent = await prisma.attendanceEvent.findFirst({
       where: { employeeId, eventDate },
       orderBy: { eventTime: "desc" },
@@ -1402,6 +1972,18 @@ export function createApp() {
     }
     if (isCheckOut && !latestIsOpen) {
       throw new HttpError(409, "No active check-in was found. Refresh to see the latest punch.");
+    }
+    if (!isCheckOut) {
+      const approvedLeave = await findApprovedLeaveForDay(employeeId, eventDate, true).then(
+        (paidLeave) => paidLeave ?? findApprovedLeaveForDay(employeeId, eventDate, false),
+      );
+      if (approvedLeave && !body.confirmLeaveCancellation) {
+        throw new HttpError(
+          409,
+          "You are on approved leave today. Confirm check-in to cancel leave for this date.",
+        );
+      }
+      if (approvedLeave) await cancelApprovedLeaveForDay(employeeId, eventDate);
     }
     const matchingCheckOut = (checkInType: EventType): EventType => {
       switch (checkInType) {
@@ -1467,6 +2049,61 @@ export function createApp() {
     ),
   );
 
+  type AttendanceSummaryRow = Prisma.AttendanceDailySummaryGetPayload<{
+    include: { employee: true };
+  }>;
+
+  async function mapSummariesToDtos(summaries: AttendanceSummaryRow | AttendanceSummaryRow[]) {
+    const isArray = Array.isArray(summaries);
+    const list = isArray ? summaries : [summaries];
+    if (list.length === 0) return [];
+
+    const employeeIds = list.map((s) => s.employeeId);
+    const dates = list.map((s) => s.date);
+
+    const events = await prisma.attendanceEvent.findMany({
+      where: {
+        employeeId: { in: employeeIds },
+        eventDate: { in: dates },
+      },
+      orderBy: { eventTime: "asc" },
+      include: { branch: true },
+    });
+
+    const dtos = list.map((summary) => {
+      const summaryEvents = events.filter(
+        (e) =>
+          e.employeeId === summary.employeeId &&
+          e.eventDate.toISOString().slice(0, 10) === summary.date.toISOString().slice(0, 10),
+      );
+
+      const firstEvent = summaryEvents[0];
+      const lastEvent = summaryEvents[summaryEvents.length - 1];
+
+      const dto = attendanceRecordDto(summary);
+
+      return {
+        ...dto,
+        punchInSource:
+          firstEvent?.eventSource === "THUMB_SCANNER"
+            ? "Thumb Scanner"
+            : firstEvent?.eventSource === "MOBILE_GPS"
+              ? "Mobile GPS"
+              : dto.source,
+        punchInBranchId: firstEvent?.branchId ?? summary.primaryAttendedBranchId ?? undefined,
+        punchOutSource:
+          lastEvent?.eventSource === "THUMB_SCANNER"
+            ? "Thumb Scanner"
+            : lastEvent?.eventSource === "MOBILE_GPS"
+              ? "Mobile GPS"
+              : dto.source,
+        punchOutBranchId: lastEvent?.branchId ?? summary.primaryAttendedBranchId ?? undefined,
+      };
+    });
+
+    return isArray ? dtos : dtos[0];
+  }
+
   app.get(
     "/attendance/my/today",
     requireAuth,
@@ -1483,7 +2120,7 @@ export function createApp() {
         },
         include: { employee: true },
       });
-      res.json(summary ? attendanceRecordDto(summary) : null);
+      res.json(summary ? await mapSummariesToDtos(summary) : null);
     }),
   );
 
@@ -1513,7 +2150,7 @@ export function createApp() {
         orderBy: { date: "desc" },
         take: listLimit(req, 120, 366),
       });
-      res.json(rows.map(attendanceRecordDto));
+      res.json(await mapSummariesToDtos(rows));
     }),
   );
 
@@ -1527,7 +2164,9 @@ export function createApp() {
         req.user!.role === Role.MANAGER && req.user!.employeeId
           ? {
               date,
-              employee: employeeAttendanceVisibilityFilter({ managerId: req.user!.employeeId }),
+              employee: employeeAttendanceVisibilityFilter({
+                employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) },
+              }),
             }
           : { date, employee: employeeAttendanceVisibilityFilter() };
       const rows = await prisma.attendanceDailySummary.findMany({
@@ -1536,7 +2175,7 @@ export function createApp() {
         orderBy: { employeeId: "asc" },
         take: listLimit(req, 750, 1000),
       });
-      res.json(rows.map(attendanceRecordDto));
+      res.json(await mapSummariesToDtos(rows));
     }),
   );
 
@@ -1566,7 +2205,7 @@ export function createApp() {
         const departmentId =
           typeof req.query.departmentId === "string" ? req.query.departmentId : undefined;
         where.employee = employeeAttendanceVisibilityFilter({
-          managerId: req.user!.employeeId,
+          employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) },
           ...(departmentId ? { departmentId } : {}),
         });
       }
@@ -1585,7 +2224,7 @@ export function createApp() {
         orderBy: { date: "desc" },
         take: req.query.limit === "none" ? undefined : listLimit(req, 500, 1000),
       });
-      res.json(rows.map(attendanceRecordDto));
+      res.json(await mapSummariesToDtos(rows));
     }),
   );
 
@@ -1653,7 +2292,7 @@ export function createApp() {
           const departmentId =
             typeof req.query.departmentId === "string" ? req.query.departmentId : undefined;
           where.employee = employeeAttendanceVisibilityFilter({
-            managerId: req.user!.employeeId,
+            employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) },
             ...(departmentId ? { departmentId } : {}),
           });
         }
@@ -1663,7 +2302,7 @@ export function createApp() {
           orderBy: { date: "desc" },
           take: listLimit(req, 500, 1000),
         });
-        res.json(rows.map(attendanceRecordDto));
+        res.json(await mapSummariesToDtos(rows));
       }),
     );
   }
@@ -1683,7 +2322,9 @@ export function createApp() {
       if (typeof req.query.employeeId === "string") where.employeeId = req.query.employeeId;
       if (typeof req.query.status === "string") where.status = req.query.status as never;
       if (req.user!.role === Role.MANAGER && req.user!.employeeId) {
-        where.employee = { managerId: req.user!.employeeId };
+        where.employee = {
+          employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) },
+        };
       }
       const rows = await prisma.leaveRequest.findMany({
         where,
@@ -1705,7 +2346,7 @@ export function createApp() {
         const departmentId =
           typeof req.query.departmentId === "string" ? req.query.departmentId : undefined;
         where.employee = employeeAttendanceVisibilityFilter({
-          managerId: req.user!.employeeId,
+          employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) },
           ...(departmentId ? { departmentId } : {}),
         });
       }
@@ -1715,7 +2356,7 @@ export function createApp() {
         orderBy: [{ date: "desc" }, { employeeId: "asc" }],
         take: listLimit(req, 500, 1000),
       });
-      res.json(rows.map(attendanceRecordDto));
+      res.json(await mapSummariesToDtos(rows));
     }),
   );
 
@@ -1729,7 +2370,7 @@ export function createApp() {
         const departmentId =
           typeof req.query.departmentId === "string" ? req.query.departmentId : undefined;
         where.employee = employeeAttendanceVisibilityFilter({
-          managerId: req.user!.employeeId,
+          employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) },
           ...(departmentId ? { departmentId } : {}),
         });
       }
@@ -1766,7 +2407,7 @@ export function createApp() {
         newValue: { employeeId, date },
         ipAddress: req.ip,
       });
-      res.json(attendanceRecordDto(refreshed));
+      res.json(await mapSummariesToDtos(refreshed));
     }),
   );
 
@@ -1820,7 +2461,9 @@ export function createApp() {
 
       const where: Prisma.AttendanceCorrectionRequestWhereInput = {};
       if (isManager && req.user!.employeeId) {
-        where.employee = { managerId: req.user!.employeeId };
+        where.employee = {
+          employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) },
+        };
       } else if (!isHrOrAdmin) {
         where.employeeId = req.user!.employeeId ?? "__none__";
       }
@@ -2105,16 +2748,16 @@ export function createApp() {
     requireAuth,
     asyncHandler(async (req, res) => {
       const operationalRoles: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR, Role.CEO];
-      const where: Prisma.LeaveRequestWhereInput = operationalRoles.includes(req.user!.role)
-        ? {}
-        : req.user!.role === Role.MANAGER && req.user!.employeeId
-          ? {
-              OR: [
-                { managerId: req.user!.employeeId },
-                { employee: { managerId: req.user!.employeeId } },
-              ],
-            }
-          : { employeeId: req.user!.employeeId ?? "__none__" };
+      const ownOnly = req.query.mine === "true";
+      const where: Prisma.LeaveRequestWhereInput = ownOnly
+        ? { employeeId: req.user!.employeeId ?? "__none__" }
+        : operationalRoles.includes(req.user!.role)
+          ? {}
+          : req.user!.role === Role.MANAGER && req.user!.employeeId
+            ? {
+                employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) },
+              }
+            : { employeeId: req.user!.employeeId ?? "__none__" };
       if (typeof req.query.status === "string") {
         const status = req.query.status.toUpperCase();
         if (status === "PENDING") where.status = "PENDING";
@@ -2138,21 +2781,18 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       if (!req.user!.employeeId) throw new HttpError(400, "No employee profile");
       const body = leaveRequestSchema.parse(req.body);
-      const employee = await prisma.employee.findUniqueOrThrow({
-        where: { employeeId: req.user!.employeeId },
-        select: { managerId: true },
-      });
-      if (!employee.managerId) {
+      const approver = await findLeaveApprover(req.user!.employeeId);
+      if (!approver) {
         throw new HttpError(
           400,
-          "Reporting manager is not assigned. Contact HR to set your reporting manager before applying for leave.",
+          "No organization head is available for this leave request. Contact HR to complete the organization chart.",
         );
       }
       const request = await prisma.leaveRequest.create({
         data: {
           ...body,
           employeeId: req.user!.employeeId,
-          managerId: employee.managerId,
+          managerId: approver.employeeId,
           status: "PENDING",
         },
         include: { leaveType: true, employee: { include: { manager: true } } },
@@ -2174,7 +2814,7 @@ export function createApp() {
         where: { leaveRequestId: String(req.params.id) },
         include: { employee: true },
       });
-      assertReportingManagerForLeave(req.user!, existing);
+      await assertOrganizationApproverForLeave(req.user!, existing);
       if (existing.status !== "PENDING") {
         throw new HttpError(400, "Only pending leave requests can be approved.");
       }
@@ -2206,7 +2846,7 @@ export function createApp() {
         where: { leaveRequestId: String(req.params.id) },
         include: { employee: true },
       });
-      assertReportingManagerForLeave(req.user!, existing);
+      await assertOrganizationApproverForLeave(req.user!, existing);
       if (existing.status !== "PENDING") {
         throw new HttpError(400, "Only pending leave requests can be rejected.");
       }
@@ -2219,6 +2859,52 @@ export function createApp() {
         action: "leave rejected",
         performedByUserId: req.user!.id,
         newValue: { leaveRequestId: leave.leaveRequestId },
+        ipAddress: req.ip,
+      });
+      res.json(leaveRequestDto(leave));
+    }),
+  );
+
+  app.post(
+    "/leave/requests/:id/cancel",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      if (!req.user!.employeeId) throw new HttpError(400, "No employee profile");
+      const existing = await prisma.leaveRequest.findUniqueOrThrow({
+        where: { leaveRequestId: String(req.params.id) },
+        include: { leaveType: true, employee: { include: { manager: true } } },
+      });
+      if (existing.employeeId !== req.user!.employeeId) {
+        throw new HttpError(403, "You can only cancel your own leave request.");
+      }
+      if (existing.status === "CANCELLED" || existing.status === "REJECTED") {
+        throw new HttpError(400, "This leave request is already closed.");
+      }
+
+      let leave = existing;
+      if (existing.status === "PENDING") {
+        leave = await prisma.leaveRequest.update({
+          where: { leaveRequestId: existing.leaveRequestId },
+          data: { status: "CANCELLED" },
+          include: { leaveType: true, employee: { include: { manager: true } } },
+        });
+      } else {
+        const today = startOfDayUtc(new Date());
+        const datesToCancel = eachDateInRange(existing.fromDate, existing.toDate).filter(
+          (date) => date.getTime() >= today.getTime(),
+        );
+        if (datesToCancel.length === 0) {
+          throw new HttpError(400, "Only current or future leave dates can be cancelled.");
+        }
+        leave = await cancelLeaveDates(existing.leaveRequestId, datesToCancel);
+        await Promise.all(
+          datesToCancel.map((date) => recalculateDailySummary(existing.employeeId, date)),
+        );
+      }
+      await audit({
+        action: "leave cancelled by employee",
+        performedByUserId: req.user!.id,
+        newValue: { leaveRequestId: existing.leaveRequestId },
         ipAddress: req.ip,
       });
       res.json(leaveRequestDto(leave));
@@ -2281,8 +2967,288 @@ export function createApp() {
           target: log.affectedUser?.name ?? "",
           timestamp: log.createdAt.toISOString(),
           ipAddress: log.ipAddress,
+          oldValue: safeAuditValue(log.oldValue),
+          newValue: safeAuditValue(log.newValue),
         })),
       );
+    }),
+  );
+
+  app.get(
+    "/audit-logs/summary",
+    requireAuth,
+    requireRoles(Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN, Role.CEO),
+    asyncHandler(async (_req, res) => {
+      const summary = await prisma.auditLog.aggregate({
+        _count: { auditId: true },
+        _min: { createdAt: true },
+        _max: { createdAt: true },
+      });
+      res.json({
+        count: summary._count.auditId,
+        oldest: summary._min.createdAt?.toISOString(),
+        latest: summary._max.createdAt?.toISOString(),
+      });
+    }),
+  );
+
+  const taskInclude = {
+    assignments: {
+      include: {
+        employee: {
+          select: {
+            employeeId: true,
+            employeeCode: true,
+            name: true,
+            designation: true,
+            department: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { assignedAt: "asc" as const },
+    },
+    createdBy: { select: { id: true, name: true } },
+    updates: {
+      include: { author: { select: { id: true, name: true } } },
+      orderBy: { createdAt: "desc" as const },
+      take: 20,
+    },
+    _count: { select: { subtasks: true, updates: true } },
+  } satisfies Prisma.WorkTaskInclude;
+
+  type TaskWithDetails = Prisma.WorkTaskGetPayload<{ include: typeof taskInclude }>;
+
+  function taskDto(task: TaskWithDetails) {
+    return {
+      id: task.taskId,
+      title: task.title,
+      description: task.description ?? undefined,
+      assignees: task.assignments.map(({ employee }) => ({
+        id: employee.employeeId,
+        name: employee.name,
+        employeeCode: employee.employeeCode,
+        designation: employee.designation ?? undefined,
+        department: employee.department?.name,
+      })),
+      createdByUserId: task.createdByUserId,
+      createdByName: task.createdBy.name,
+      parentTaskId: task.parentTaskId ?? undefined,
+      status: task.status,
+      priority: task.priority,
+      progress: task.progress,
+      startDate: task.startDate?.toISOString().slice(0, 10),
+      dueDate: task.dueDate?.toISOString().slice(0, 10),
+      completedAt: task.completedAt?.toISOString(),
+      createdAt: task.createdAt.toISOString(),
+      updatedAt: task.updatedAt.toISOString(),
+      subtaskCount: task._count?.subtasks ?? 0,
+      updateCount: task._count?.updates ?? 0,
+      updates: task.updates.map((entry) => ({
+        id: entry.updateId,
+        authorName: entry.author.name,
+        message: entry.message,
+        progress: entry.progress ?? undefined,
+        status: entry.status ?? undefined,
+        minutesWorked: entry.minutesWorked ?? undefined,
+        createdAt: entry.createdAt.toISOString(),
+      })),
+    };
+  }
+
+  async function taskScope(user: NonNullable<express.Request["user"]>) {
+    const unrestrictedRoles: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.CEO, Role.HR];
+    const assignmentAdminRoles: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.CEO];
+    const unrestricted = unrestrictedRoles.includes(user.role);
+    const teamIds = user.employeeId ? await getOrganizationTeamEmployeeIds(user.employeeId) : [];
+    const visibleIds = unrestricted
+      ? undefined
+      : [...new Set([...(user.employeeId ? [user.employeeId] : []), ...teamIds])];
+    const assignableIds = assignmentAdminRoles.includes(user.role) ? undefined : teamIds;
+    return { visibleIds, assignableIds };
+  }
+
+  app.get(
+    "/tasks/assignees",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const { assignableIds } = await taskScope(req.user!);
+      const employees = await prisma.employee.findMany({
+        where: {
+          status: "ACTIVE",
+          ...(assignableIds ? { employeeId: { in: assignableIds } } : {}),
+          OR: [{ user: null }, { user: { role: { not: Role.DEVELOPER_ADMIN } } }],
+        },
+        include: { department: true },
+        orderBy: { name: "asc" },
+      });
+      res.json(
+        employees.map((employee) => ({
+          id: employee.employeeId,
+          name: employee.name,
+          employeeCode: employee.employeeCode,
+          designation: employee.designation ?? undefined,
+          department: employee.department?.name,
+        })),
+      );
+    }),
+  );
+
+  app.get(
+    "/tasks",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const { visibleIds } = await taskScope(req.user!);
+      const scope =
+        req.query.scope === "mine" && req.user!.employeeId ? [req.user!.employeeId] : visibleIds;
+      const requestedStatus = z.nativeEnum(TaskStatus).safeParse(req.query.status);
+      const tasks = await prisma.workTask.findMany({
+        where: {
+          ...(scope ? { assignments: { some: { employeeId: { in: scope } } } } : {}),
+          ...(requestedStatus.success ? { status: requestedStatus.data } : {}),
+        },
+        include: taskInclude,
+        orderBy: [{ dueDate: "asc" }, { updatedAt: "desc" }],
+        take: listLimit(req, 300, 1000),
+      });
+      res.json(tasks.map(taskDto));
+    }),
+  );
+
+  app.post(
+    "/tasks",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const body = taskSchema.parse(req.body);
+      const { assignableIds } = await taskScope(req.user!);
+      const employeeIds = [...new Set(body.assigneeEmployeeIds)];
+      if (assignableIds && employeeIds.some((id) => !assignableIds.includes(id))) {
+        throw new HttpError(403, "Tasks can only be assigned within your organization team");
+      }
+      const activeAssigneeCount = await prisma.employee.count({
+        where: { employeeId: { in: employeeIds }, status: "ACTIVE" },
+      });
+      if (activeAssigneeCount !== employeeIds.length)
+        throw new HttpError(400, "Select active employees");
+      const { assigneeEmployeeIds: _assigneeEmployeeIds, ...taskData } = body;
+      const task = await prisma.workTask.create({
+        data: {
+          ...taskData,
+          description: body.description || null,
+          parentTaskId: body.parentTaskId || null,
+          createdByUserId: req.user!.id,
+          assignments: { create: employeeIds.map((employeeId) => ({ employeeId })) },
+        },
+        include: taskInclude,
+      });
+      await audit({
+        action: "task assigned",
+        performedByUserId: req.user!.id,
+        newValue: {
+          taskId: task.taskId,
+          title: task.title,
+          assigneeEmployeeIds: employeeIds,
+        },
+        ipAddress: req.ip,
+      });
+      res.status(201).json(taskDto(task));
+    }),
+  );
+
+  app.patch(
+    "/tasks/:id",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const body = taskUpdateSchema.parse(req.body);
+      const existing = await prisma.workTask.findUniqueOrThrow({
+        where: { taskId: String(req.params.id) },
+      });
+      const { visibleIds, assignableIds } = await taskScope(req.user!);
+      const existingAssignments = await prisma.taskAssignment.findMany({
+        where: { taskId: existing.taskId },
+        select: { employeeId: true },
+      });
+      const existingEmployeeIds = existingAssignments.map(({ employeeId }) => employeeId);
+      if (visibleIds && !existingEmployeeIds.some((id) => visibleIds.includes(id)))
+        throw new HttpError(403, "Task is outside your organization team");
+      const isOwn = !!req.user!.employeeId && existingEmployeeIds.includes(req.user!.employeeId);
+      const canManage =
+        assignableIds === undefined || existingEmployeeIds.some((id) => assignableIds.includes(id));
+      if (
+        isOwn &&
+        !canManage &&
+        Object.keys(body).some((key) => !["status", "progress"].includes(key))
+      )
+        throw new HttpError(403, "Employees can update only task status and progress");
+      if (
+        body.assigneeEmployeeIds &&
+        assignableIds &&
+        body.assigneeEmployeeIds.some((id) => !assignableIds.includes(id))
+      )
+        throw new HttpError(403, "Tasks can only be reassigned within your organization team");
+      const progress = body.status === "COMPLETED" ? 100 : body.progress;
+      const { assigneeEmployeeIds, ...taskPatch } = body;
+      if (assigneeEmployeeIds) {
+        const replacementIds = [...new Set(assigneeEmployeeIds)];
+        await prisma.$transaction([
+          prisma.taskAssignment.deleteMany({ where: { taskId: existing.taskId } }),
+          prisma.taskAssignment.createMany({
+            data: replacementIds.map((employeeId) => ({ taskId: existing.taskId, employeeId })),
+          }),
+        ]);
+      }
+      const task = await prisma.workTask.update({
+        where: { taskId: existing.taskId },
+        data: {
+          ...taskPatch,
+          progress,
+          completedAt: body.status === "COMPLETED" ? new Date() : body.status ? null : undefined,
+        },
+        include: taskInclude,
+      });
+      await audit({
+        action: "task updated",
+        performedByUserId: req.user!.id,
+        newValue: { taskId: task.taskId, status: task.status, progress: task.progress },
+        ipAddress: req.ip,
+      });
+      res.json(taskDto(task));
+    }),
+  );
+
+  app.post(
+    "/tasks/:id/logs",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const body = taskLogSchema.parse(req.body);
+      const existing = await prisma.workTask.findUniqueOrThrow({
+        where: { taskId: String(req.params.id) },
+      });
+      const { visibleIds } = await taskScope(req.user!);
+      const visibleAssignment = visibleIds
+        ? await prisma.taskAssignment.findFirst({
+            where: { taskId: existing.taskId, employeeId: { in: visibleIds } },
+          })
+        : true;
+      if (!visibleAssignment) throw new HttpError(403, "Task is outside your organization team");
+      const progress = body.status === "COMPLETED" ? 100 : body.progress;
+      await prisma.$transaction([
+        prisma.taskUpdate.create({
+          data: { taskId: existing.taskId, authorUserId: req.user!.id, ...body, progress },
+        }),
+        prisma.workTask.update({
+          where: { taskId: existing.taskId },
+          data: {
+            progress,
+            status: body.status,
+            completedAt: body.status === "COMPLETED" ? new Date() : body.status ? null : undefined,
+          },
+        }),
+      ]);
+      const task = await prisma.workTask.findUniqueOrThrow({
+        where: { taskId: existing.taskId },
+        include: taskInclude,
+      });
+      res.status(201).json(taskDto(task));
     }),
   );
 
@@ -2298,20 +3264,17 @@ export function createApp() {
         : canSeeTeam
           ? {
               status: "PENDING",
-              OR: [
-                { managerId: req.user!.employeeId },
-                { employee: { managerId: req.user!.employeeId } },
-              ],
+              employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId!) },
             }
           : req.user!.employeeId
             ? { employeeId: req.user!.employeeId }
             : { employeeId: "__none__" };
       const leaveWorkflowTitle: Record<string, string> = {
-        PENDING: "Leave submitted — awaiting manager",
-        APPROVED: "Leave approved by reporting manager",
-        MANAGER_APPROVED: "Leave approved by reporting manager",
+        PENDING: "Leave submitted — awaiting organization head",
+        APPROVED: "Leave approved by organization head",
+        MANAGER_APPROVED: "Leave approved by organization head",
         HR_VERIFIED: "Leave HR verified",
-        REJECTED: "Leave rejected by reporting manager",
+        REJECTED: "Leave rejected by organization head",
         CANCELLED: "Leave cancelled",
       };
       const currentEmployee = req.user!.employeeId
@@ -2325,54 +3288,70 @@ export function createApp() {
       const suspensionWindowEnd = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
       const suspensionManagerRoles: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR];
       const canManageSuspensions = suspensionManagerRoles.includes(req.user!.role);
-      const [audits, pendingLeaves, holidays, birthdayEmployees, upcomingSuspensions] =
-        await Promise.all([
-          canSeeOperational
-            ? prisma.auditLog.findMany({
-                include: { performedBy: true, affectedUser: true },
-                orderBy: { createdAt: "desc" },
-                take: 15,
-              })
-            : Promise.resolve([]),
-          prisma.leaveRequest.findMany({
-            where: leaveWhere,
-            include: { employee: true, leaveType: true },
-            orderBy: { createdAt: "desc" },
-            take: 10,
-          }),
-          prisma.holiday.findMany({
-            where: {
-              status: "ACTIVE",
-              date: { gte: new Date() },
-              OR: holidayBranchId
-                ? [{ branchId: null }, { branchId: holidayBranchId }]
-                : [{ branchId: null }],
-            },
-            orderBy: { date: "asc" },
-            take: 5,
-          }),
-          prisma.employee.findMany({
-            where: {
-              dateOfBirth: { not: null },
-              status: "ACTIVE",
-            },
-            select: {
-              employeeId: true,
-              name: true,
-              dateOfBirth: true,
-            },
-          }),
-          prisma.user.findMany({
-            where: {
-              suspensionStartsAt: { gt: new Date(), lte: suspensionWindowEnd },
-              suspendedUntil: { gt: new Date() },
-              ...(canManageSuspensions ? {} : { id: req.user!.id }),
-            },
-            select: { id: true, name: true, suspensionStartsAt: true, suspendedUntil: true },
-            orderBy: { suspensionStartsAt: "asc" },
-            take: canManageSuspensions ? 50 : 1,
-          }),
-        ]);
+      const [
+        audits,
+        pendingLeaves,
+        holidays,
+        birthdayEmployees,
+        upcomingSuspensions,
+        assignedTasks,
+      ] = await Promise.all([
+        canSeeOperational
+          ? prisma.auditLog.findMany({
+              include: { performedBy: true, affectedUser: true },
+              orderBy: { createdAt: "desc" },
+              take: 15,
+            })
+          : Promise.resolve([]),
+        prisma.leaveRequest.findMany({
+          where: leaveWhere,
+          include: { employee: true, leaveType: true },
+          orderBy: { createdAt: "desc" },
+          take: 10,
+        }),
+        prisma.holiday.findMany({
+          where: {
+            status: "ACTIVE",
+            date: { gte: new Date() },
+            OR: holidayBranchId
+              ? [{ branchId: null }, { branchId: holidayBranchId }]
+              : [{ branchId: null }],
+          },
+          orderBy: { date: "asc" },
+          take: 5,
+        }),
+        prisma.employee.findMany({
+          where: {
+            dateOfBirth: { not: null },
+            status: "ACTIVE",
+          },
+          select: {
+            employeeId: true,
+            name: true,
+            dateOfBirth: true,
+          },
+        }),
+        prisma.user.findMany({
+          where: {
+            suspensionStartsAt: { gt: new Date(), lte: suspensionWindowEnd },
+            suspendedUntil: { gt: new Date() },
+            ...(canManageSuspensions ? {} : { id: req.user!.id }),
+          },
+          select: { id: true, name: true, suspensionStartsAt: true, suspendedUntil: true },
+          orderBy: { suspensionStartsAt: "asc" },
+          take: canManageSuspensions ? 50 : 1,
+        }),
+        req.user!.employeeId
+          ? prisma.workTask.findMany({
+              where: {
+                assignments: { some: { employeeId: req.user!.employeeId } },
+                status: { notIn: [TaskStatus.COMPLETED, TaskStatus.CANCELLED] },
+              },
+              orderBy: { updatedAt: "desc" },
+              take: 10,
+            })
+          : Promise.resolve([]),
+      ]);
 
       const today = new Date();
       const todayMonth = today.getUTCMonth();
@@ -2397,6 +3376,13 @@ export function createApp() {
         });
 
       const items = [
+        ...assignedTasks.map((task) => ({
+          id: `task-${task.taskId}-${task.updatedAt.toISOString()}`,
+          title: task.status === TaskStatus.TODO ? "New task assigned" : "Task progress reminder",
+          desc: `${task.title}${task.dueDate ? ` - due ${task.dueDate.toISOString().slice(0, 10)}` : ""}`,
+          time: task.updatedAt.toISOString(),
+          type: "task" as const,
+        })),
         ...upcomingSuspensions.map((account) => {
           const endDate = account.suspendedUntil!.toISOString().slice(0, 10);
           const startDate = account.suspensionStartsAt!.toISOString().slice(0, 10);

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/carousel";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Logo } from "@/components/common/Logo";
 
 interface BirthdayInfo {
   employeeId: string;
@@ -18,6 +19,8 @@ interface BirthdayInfo {
   designation?: string;
   department?: string;
   isToday: boolean;
+  age?: number;
+  message?: string;
 }
 
 function BirthdayCard({
@@ -31,21 +34,22 @@ function BirthdayCard({
 }) {
   const firstName = birthday.name.split(" ")[0];
   const teamWish = isSelf
-    ? "The Anytime Diesel Team wishes you a very happy birthday!"
-    : `The Anytime Diesel Team wishes ${firstName} a very happy birthday!`;
+    ? `Wishing you a very happy birthday, ${firstName}!`
+    : `${firstName} is celebrating a birthday today. Join us in wishing them a wonderful year ahead!`;
 
   return (
     <div
       className={cn(
-        "relative w-full overflow-hidden rounded-xl border border-pink-200/80 bg-gradient-to-r from-pink-50 via-white to-purple-50 p-4 shadow-sm dark:border-pink-900/40 dark:from-pink-950/20 dark:via-card dark:to-purple-950/20 sm:p-5 lg:px-6 lg:py-5",
+        "relative w-full overflow-hidden rounded-lg border border-red-200 bg-card shadow-sm dark:border-red-950",
         className,
       )}
     >
-      <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-pink-200/40 blur-3xl dark:bg-pink-950/30" />
-      <div className="pointer-events-none absolute -bottom-10 left-10 h-24 w-24 rounded-full bg-purple-200/40 blur-3xl dark:bg-purple-950/20" />
-
-      <div className="relative flex items-center gap-4 lg:gap-5">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500 to-purple-500 text-white shadow-md sm:h-14 sm:w-14 lg:h-16 lg:w-16">
+      <div className="flex items-center justify-between border-b border-red-100 bg-red-50/60 px-4 py-2 dark:border-red-950 dark:bg-red-950/20">
+        <Logo className="h-6 w-auto" />
+        <span className="text-xs font-semibold uppercase text-red-700">Birthday celebration</span>
+      </div>
+      <div className="flex items-center gap-4 p-4 sm:p-5 lg:px-6">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-red-600 text-white sm:h-14 sm:w-14">
           <Cake className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8" />
         </div>
 
@@ -55,12 +59,16 @@ function BirthdayCard({
               {birthday.name}
             </p>
           </div>
-          <p className="mt-1.5 text-sm font-medium text-foreground sm:text-base lg:text-[17px]">
-            {teamWish}
-          </p>
+          <p className="mt-1.5 text-sm text-foreground sm:text-base">{teamWish}</p>
+          {birthday.designation && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {birthday.designation}
+              {birthday.department ? ` - ${birthday.department}` : ""}
+            </p>
+          )}
         </div>
 
-        <PartyPopper className="hidden h-6 w-6 shrink-0 text-pink-500 lg:block" />
+        <PartyPopper className="hidden h-6 w-6 shrink-0 text-red-600 lg:block" />
       </div>
     </div>
   );

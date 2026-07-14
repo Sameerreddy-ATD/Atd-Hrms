@@ -19,6 +19,7 @@ import { ROLE_LABELS } from "@/mock/types";
 import { employeesApi } from "@/services/api";
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Logo } from "@/components/common/Logo";
 
 export function AppSidebar() {
   const { user } = useAuth();
@@ -47,34 +48,14 @@ export function AppSidebar() {
       collapsible="icon"
       className="border-r border-slate-200/20 dark:border-zinc-900/30 bg-[#F6F8FC]/40 dark:bg-zinc-950/40 backdrop-blur-md"
     >
-      {/* Header containing the Gmail-style Compose (Apply Leave) Button - Hidden on mobile screens */}
+      {/* Header containing the Company Logo - Hidden on mobile screens */}
       {!isMobile && (
-        <SidebarHeader className="bg-transparent border-b-0 pt-4 pb-2 px-3">
-          <div className="flex justify-start w-full">
-            {collapsed ? (
-              <Link
-                to="/leave/apply"
-                onClick={() => {
-                  if (isMobile) setOpenMobile(false);
-                }}
-                className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-slate-200/30 dark:border-zinc-800/40 shadow-[0_1px_3px_rgba(0,0,0,0.1),0_4px_8px_rgba(0,0,0,0.1)] hover:shadow-[0_2px_6px_rgba(0,0,0,0.15),0_8px_16px_rgba(0,0,0,0.15)] hover:scale-105 transition-all duration-150 mx-auto"
-                title="Apply Leave"
-              >
-                <Plus className="h-6 w-6 text-slate-700 dark:text-zinc-300" />
-              </Link>
-            ) : (
-              <Link
-                to="/leave/apply"
-                onClick={() => {
-                  if (isMobile) setOpenMobile(false);
-                }}
-                className="flex h-12 items-center justify-center gap-3 rounded-2xl bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-slate-200/30 dark:border-zinc-800/40 shadow-[0_1px_3px_rgba(0,0,0,0.1),0_4px_8px_rgba(0,0,0,0.1)] hover:shadow-[0_2px_6px_rgba(0,0,0,0.15),0_8px_16px_rgba(0,0,0,0.15)] hover:scale-102 px-6 text-sm font-semibold text-slate-700 dark:text-zinc-300 transition-all duration-150 min-w-[140px] ml-1"
-              >
-                <Plus className="h-5 w-5 text-blue-600 dark:text-blue-400 stroke-[3]" />
-                <span>Apply Leave</span>
-              </Link>
-            )}
-          </div>
+        <SidebarHeader className="bg-transparent border-b-0 pt-4 pb-2 px-3 flex justify-start items-center w-full min-h-[48px]">
+          {collapsed ? (
+            <img src="/atd-favicon.png" alt="ATD" className="h-8 w-8 object-contain mx-auto" />
+          ) : (
+            <Logo className="h-9 w-auto px-1" />
+          )}
         </SidebarHeader>
       )}
 
@@ -89,7 +70,15 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu className="gap-0.5">
                 {group.items.map((item) => {
-                  const active = pathname === item.to || pathname.startsWith(item.to + "/");
+                  const allMenuItems = groups.flatMap((g) => g.items);
+                  const siblingActive = allMenuItems.some(
+                    (other) =>
+                      other.to !== item.to &&
+                      other.to.startsWith(item.to) &&
+                      (pathname === other.to || pathname.startsWith(other.to + "/")),
+                  );
+                  const active =
+                    (pathname === item.to || pathname.startsWith(item.to + "/")) && !siblingActive;
                   return (
                     <SidebarMenuItem key={item.to}>
                       <SidebarMenuButton

@@ -81,7 +81,7 @@ function LeaveApprovalsPage() {
 
   if (!accessChecked || !canApprove) {
     return (
-      <div className="text-sm text-muted-foreground">Checking reporting manager access...</div>
+      <div className="text-sm text-muted-foreground">Checking organization approval access...</div>
     );
   }
 
@@ -89,7 +89,7 @@ function LeaveApprovalsPage() {
     <div>
       <PageHeader
         title="Leave Approvals"
-        description="Approve or reject pending leave for employees who report to you. Only the assigned reporting manager can take action."
+        description="Approve or reject pending leave from employees in your organization units."
       />
       {loading && <p className="text-sm text-muted-foreground">Loading leave approvals...</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}

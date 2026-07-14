@@ -1,6 +1,7 @@
 import { EventSource, EventType, Prisma, WorkType } from "@prisma/client";
 import { prisma } from "./prisma.js";
 import {
+  cancelApprovedLeaveForDay,
   findApprovedLeaveForDay,
   resolveNoEventStatus,
   startOfDayUtc,
@@ -135,6 +136,9 @@ export async function createAttendanceEvent(input: {
       createdByUserId: input.createdByUserId,
     },
   });
+  if (input.eventSource === EventSource.THUMB_SCANNER) {
+    await cancelApprovedLeaveForDay(input.employeeId, eventDate);
+  }
   await recalculateDailySummary(input.employeeId, eventDate);
   return event;
 }

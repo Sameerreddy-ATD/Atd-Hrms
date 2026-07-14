@@ -75,7 +75,8 @@ export function downloadAttendanceExcel(
     actualBranch: string;
     punchIn: string;
     punchOut: string;
-    source: string;
+    sourceIn: string;
+    sourceOut: string;
   }>,
 ) {
   if (rows.length === 0) return;
@@ -185,7 +186,8 @@ export function downloadAttendanceExcel(
         <Cell ss:StyleID="DetailHeader"><Data ss:Type="String">Actual Branch</Data></Cell>
         <Cell ss:StyleID="DetailHeader"><Data ss:Type="String">Punch In</Data></Cell>
         <Cell ss:StyleID="DetailHeader"><Data ss:Type="String">Punch Out</Data></Cell>
-        <Cell ss:StyleID="DetailHeader"><Data ss:Type="String">Source</Data></Cell>
+        <Cell ss:StyleID="DetailHeader"><Data ss:Type="String">Source In</Data></Cell>
+        <Cell ss:StyleID="DetailHeader"><Data ss:Type="String">Source Out</Data></Cell>
       </Row>
     `;
 
@@ -207,7 +209,8 @@ export function downloadAttendanceExcel(
           <Cell><Data ss:Type="String">${escapeXml(row.actualBranch)}</Data></Cell>
           <Cell><Data ss:Type="String">${escapeXml(row.punchIn)}</Data></Cell>
           <Cell><Data ss:Type="String">${escapeXml(row.punchOut)}</Data></Cell>
-          <Cell><Data ss:Type="String">${escapeXml(row.source)}</Data></Cell>
+          <Cell><Data ss:Type="String">${escapeXml(row.sourceIn)}</Data></Cell>
+          <Cell><Data ss:Type="String">${escapeXml(row.sourceOut)}</Data></Cell>
         </Row>
       `;
     }

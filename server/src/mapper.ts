@@ -4,6 +4,7 @@ import type {
   BiometricDevice,
   BiometricEmployeeMapping,
   Branch,
+  CompanyAsset,
   Employee,
   Holiday,
   User,
@@ -112,6 +113,30 @@ export function employeeDto(
     dateOfBirth: dobString,
     gender: employee.gender ?? undefined,
     employmentType: employee.employmentType ?? undefined,
+    organizationLevel: employee.organizationLevel,
+    weeklyOffDays: Array.isArray(employee.weeklyOffDays)
+      ? employee.weeklyOffDays.filter((day): day is string => typeof day === "string")
+      : ["SUNDAY"],
+  };
+}
+
+export function departmentDto(department: {
+  departmentId: string;
+  name: string;
+  headEmployeeId: string | null;
+  parentDepartmentId: string | null;
+  unitType: string;
+  sortOrder: number;
+  headEmployee?: Pick<Employee, "name"> | null;
+}) {
+  return {
+    id: department.departmentId,
+    name: department.name,
+    headEmployeeId: department.headEmployeeId ?? undefined,
+    head: department.headEmployee?.name,
+    parentDepartmentId: department.parentDepartmentId ?? undefined,
+    unitType: department.unitType,
+    sortOrder: department.sortOrder,
   };
 }
 
@@ -290,5 +315,62 @@ export function holidayDto(holiday: Holiday) {
     branchId: holiday.branchId ?? undefined,
     type: holiday.type,
     status: holiday.status,
+  };
+}
+
+export function companyAssetDto(
+  asset: CompanyAsset & {
+    assignedEmployee?: Pick<Employee, "employeeId" | "employeeCode" | "name"> | null;
+    branch?: Pick<Branch, "branchId" | "branchName"> | null;
+  },
+) {
+  return {
+    id: asset.assetId,
+    assetCode: asset.assetCode,
+    name: asset.name,
+    category: asset.category,
+    catalogId: asset.catalogId ?? undefined,
+    serialNumber: asset.serialNumber ?? undefined,
+    purchaseValue: Number(asset.purchaseValue),
+    purchaseDate: asset.purchaseDate?.toISOString().slice(0, 10),
+    assetType: asset.assetType,
+    costFrequency: asset.costFrequency,
+    renewalDate: asset.renewalDate?.toISOString().slice(0, 10),
+    monthlyEquivalent:
+      asset.costFrequency === "MONTHLY"
+        ? Number(asset.purchaseValue)
+        : asset.costFrequency === "YEARLY"
+          ? Number(asset.purchaseValue) / 12
+          : 0,
+    annualRecurring:
+      asset.costFrequency === "MONTHLY"
+        ? Number(asset.purchaseValue) * 12
+        : asset.costFrequency === "YEARLY"
+          ? Number(asset.purchaseValue)
+          : 0,
+    status: asset.status,
+    assignedEmployeeId: asset.assignedEmployeeId ?? undefined,
+    assignedEmployeeName: asset.assignedEmployee?.name,
+    assignedEmployeeCode: asset.assignedEmployee?.employeeCode,
+    branchId: asset.branchId ?? undefined,
+    branchName: asset.branch?.branchName,
+    location: asset.location ?? undefined,
+    notes: asset.notes ?? undefined,
+  };
+}
+
+export function assetCatalogItemDto(item: {
+  catalogId: string;
+  name: string;
+  category: string;
+  defaultValue: { toString(): string } | null;
+  status: string;
+}) {
+  return {
+    id: item.catalogId,
+    name: item.name,
+    category: item.category,
+    defaultValue: item.defaultValue === null ? undefined : Number(item.defaultValue),
+    status: item.status,
   };
 }
