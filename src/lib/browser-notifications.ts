@@ -3,6 +3,7 @@ import type { NotificationItem } from "@/mock/types";
 const CLEARED_AT_KEY = "adh_notifications_cleared_at";
 const DESKTOP_ALERTS_KEY = "adh_desktop_alerts_enabled";
 const SEEN_NOTIFICATION_IDS_KEY = "adh_seen_notification_ids";
+export const NOTIFICATION_COUNT_CHANGED_EVENT = "adh:notification-count-changed";
 
 function readLocalStorage(key: string) {
   try {
@@ -27,6 +28,7 @@ export function getNotificationsClearedAt() {
 export function clearNotifications(items: NotificationItem[]) {
   const newestTime = items.map((item) => item.time).sort((a, b) => +new Date(b) - +new Date(a))[0];
   if (newestTime) writeLocalStorage(CLEARED_AT_KEY, newestTime);
+  window.dispatchEvent(new Event(NOTIFICATION_COUNT_CHANGED_EVENT));
 }
 
 export function filterVisibleNotifications(items: NotificationItem[]) {

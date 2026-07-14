@@ -32,6 +32,11 @@ import {
 import { useAuth } from "@/lib/auth";
 import { ROLE_LABELS } from "@/mock/types";
 import { getTheme, setTheme, type Theme } from "@/lib/system-theme";
+import { notificationsApi } from "@/services/api";
+import {
+  filterVisibleNotifications,
+  NOTIFICATION_COUNT_CHANGED_EVENT,
+} from "@/lib/browser-notifications";
 
 function toTitle(pathname: string) {
   const seg = pathname.split("/").filter(Boolean).slice(-1)[0] ?? "dashboard";
@@ -44,10 +49,32 @@ export function AppHeader() {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const { toggleSidebar } = useSidebar();
   const [activeTheme, setActiveTheme] = useState<Theme>("system");
+  const [notificationCount, setNotificationCount] = useState(0);
 
   useEffect(() => {
     setActiveTheme(getTheme());
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    const refreshCount = async () => {
+      try {
+        const items = filterVisibleNotifications(await notificationsApi.list());
+        if (!cancelled) setNotificationCount(items.length);
+      } catch {
+        if (!cancelled) setNotificationCount(0);
+      }
+    };
+    void refreshCount();
+    const interval = window.setInterval(refreshCount, 60000);
+    window.addEventListener(NOTIFICATION_COUNT_CHANGED_EVENT, refreshCount);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener(NOTIFICATION_COUNT_CHANGED_EVENT, refreshCount);
+    };
+  }, [user]);
 
   const handleThemeChange = (t: Theme) => {
     setTheme(t);
@@ -115,11 +142,16 @@ export function AppHeader() {
         <Button
           variant="ghost"
           size="icon"
-          className="h-10 w-10 rounded-full text-slate-600 dark:text-zinc-300 hover:bg-slate-200/50 dark:hover:bg-zinc-800/50"
-          aria-label="Notifications"
+          className="relative h-10 w-10 rounded-full text-slate-600 dark:text-zinc-300 hover:bg-slate-200/50 dark:hover:bg-zinc-800/50"
+          aria-label={`Notifications${notificationCount ? ` (${notificationCount})` : ""}`}
           onClick={() => navigate({ to: "/notifications" })}
         >
           <Bell className="h-[20px] w-[20px]" />
+          {notificationCount > 0 && (
+            <span className="absolute right-0.5 top-0.5 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground">
+              {notificationCount > 99 ? "99+" : notificationCount}
+            </span>
+          )}
         </Button>
 
         <DropdownMenu>

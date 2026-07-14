@@ -24,6 +24,23 @@ import type {
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
 const REQUEST_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS ?? 20000);
+let refreshRequest: Promise<boolean> | null = null;
+
+async function refreshSession() {
+  if (!refreshRequest) {
+    refreshRequest = fetch(`${API_BASE}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    })
+      .then((response) => response.ok)
+      .catch(() => false)
+      .finally(() => {
+        refreshRequest = null;
+      });
+  }
+  return refreshRequest;
+}
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
@@ -35,12 +52,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const timeout = globalThis.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}${path}`, {
+    const fetchOptions: RequestInit = {
       ...options,
       credentials: "include",
       headers,
       signal: controller.signal,
-    });
+    };
+    res = await fetch(`${API_BASE}${path}`, fetchOptions);
+    if (res.status === 401 && path !== "/auth/login" && path !== "/auth/refresh") {
+      const refreshed = await refreshSession();
+      if (refreshed) res = await fetch(`${API_BASE}${path}`, fetchOptions);
+    }
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") {
       throw new Error("Request timed out. Please try again.");

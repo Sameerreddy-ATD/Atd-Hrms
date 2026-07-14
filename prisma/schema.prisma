@@ -467,7 +467,7 @@ model LeaveRequest {
   fromDate       DateTime    @map("from_date") @db.Date
   toDate         DateTime    @map("to_date") @db.Date
   days           Decimal     @db.Decimal(8, 2)
-  reason         String
+  reason         String      @db.Text
   status         LeaveStatus @default(PENDING)
   managerId      String?     @map("manager_id")
   hrVerifiedBy   String?     @map("hr_verified_by")

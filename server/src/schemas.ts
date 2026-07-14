@@ -233,7 +233,7 @@ export const leaveRequestSchema = z.object({
   fromDate: z.coerce.date(),
   toDate: z.coerce.date(),
   days: z.number().positive().max(365),
-  reason: z.string().min(3).max(1000),
+  reason: z.string().trim().min(3).max(1000),
 });
 
 export const leaveTypeSchema = z.object({

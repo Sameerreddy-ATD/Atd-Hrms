@@ -34,6 +34,7 @@ function LeaveApprovalsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [rows, setRows] = useState<LeaveRequest[]>([]);
+  const [history, setHistory] = useState<LeaveRequest[]>([]);
   const [confirm, setConfirm] = useState<{ id: string; action: "Approved" | "Rejected" } | null>(
     null,
   );
@@ -62,9 +63,11 @@ function LeaveApprovalsPage() {
 
   useEffect(() => {
     if (!canApprove) return;
-    leaveApi
-      .list({ status: "PENDING" })
-      .then(setRows)
+    Promise.all([leaveApi.list({ status: "PENDING" }), leaveApi.list()])
+      .then(([pending, all]) => {
+        setRows(pending);
+        setHistory(all.filter((request) => request.status !== "Pending"));
+      })
       .catch((err) => setError((err as Error).message))
       .finally(() => setLoading(false));
   }, [canApprove]);
@@ -72,9 +75,9 @@ function LeaveApprovalsPage() {
   async function apply() {
     if (!confirm) return;
     const { id, action } = confirm;
-    if (action === "Approved") await leaveApi.approve(id);
-    else await leaveApi.reject(id);
+    const updated = action === "Approved" ? await leaveApi.approve(id) : await leaveApi.reject(id);
     setRows((prev) => prev.filter((r) => r.id !== id));
+    setHistory((prev) => [updated, ...prev.filter((request) => request.id !== id)]);
     toast.success(`Request ${action.toLowerCase()}`);
     setConfirm(null);
   }
@@ -93,6 +96,7 @@ function LeaveApprovalsPage() {
       />
       {loading && <p className="text-sm text-muted-foreground">Loading leave approvals...</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
+      <h2 className="mb-3 text-base font-semibold">Pending approvals</h2>
       <div className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
           <Table>
@@ -150,6 +154,49 @@ function LeaveApprovalsPage() {
         </div>
         {!loading && rows.length === 0 && (
           <div className="p-6 text-sm text-muted-foreground">No pending leave requests.</div>
+        )}
+      </div>
+
+      <h2 className="mb-3 mt-8 text-base font-semibold">Leave approval history</h2>
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Employee</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>From</TableHead>
+                <TableHead>To</TableHead>
+                <TableHead>Days</TableHead>
+                <TableHead>Reason</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Updated</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {history.map((leave) => (
+                <TableRow key={leave.id}>
+                  <TableCell className="font-medium">{leave.employeeName}</TableCell>
+                  <TableCell>{leave.type}</TableCell>
+                  <TableCell>{leave.from}</TableCell>
+                  <TableCell>{leave.to}</TableCell>
+                  <TableCell>{leave.days}</TableCell>
+                  <TableCell className="max-w-[280px] whitespace-normal text-sm text-muted-foreground">
+                    {leave.reason}
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge status={leave.status} />
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                    {leave.updatedOn ? new Date(leave.updatedOn).toLocaleDateString() : "-"}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        {!loading && history.length === 0 && (
+          <div className="p-6 text-sm text-muted-foreground">No completed leave approvals yet.</div>
         )}
       </div>
 

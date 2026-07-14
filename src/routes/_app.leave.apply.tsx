@@ -73,7 +73,8 @@ function ApplyLeavePage() {
       errs.to = "End date cannot be in the past";
     }
     if (from && to && from > to) errs.to = "End date must be after start";
-    if (!reason.trim()) errs.reason = "Reason required";
+    if (reason.trim().length < 3) errs.reason = "Enter at least 3 characters";
+    if (reason.length > 1000) errs.reason = "Reason cannot exceed 1,000 characters";
     setErrors(errs);
     if (Object.keys(errs).length) return;
 
@@ -85,7 +86,7 @@ function ApplyLeavePage() {
         fromDate: from,
         toDate: to,
         days,
-        reason,
+        reason: reason.trim(),
       });
       toast.success("Leave request submitted");
       navigate({ to: "/leave/history" });
@@ -166,9 +167,19 @@ function ApplyLeavePage() {
                 id="reason"
                 rows={4}
                 value={reason}
-                onChange={(e) => setReason(e.target.value)}
+                maxLength={1000}
+                onChange={(e) => setReason(e.target.value.slice(0, 1000))}
               />
-              {errors.reason && <p className="text-xs text-destructive">{errors.reason}</p>}
+              <div className="flex items-center justify-between gap-3">
+                {errors.reason ? (
+                  <p className="text-xs text-destructive">{errors.reason}</p>
+                ) : (
+                  <span />
+                )}
+                <p className="text-xs tabular-nums text-muted-foreground">
+                  {1000 - reason.length} characters left
+                </p>
+              </div>
             </div>
             <div className="sm:col-span-2 flex justify-end gap-2">
               <Button
