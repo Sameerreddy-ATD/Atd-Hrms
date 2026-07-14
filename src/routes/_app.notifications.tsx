@@ -84,7 +84,7 @@ function NotificationsPage() {
     <div>
       <PageHeader
         title="Notifications"
-        description="Real alerts from leave, holidays and system activity."
+        description="Relevant requests, assignments, account notices, holidays, and birthdays."
         actions={
           <>
             {alertStatus.effectivelyEnabled ? (

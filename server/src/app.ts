@@ -3316,70 +3316,57 @@ export function createApp() {
       const suspensionWindowEnd = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
       const suspensionManagerRoles: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR];
       const canManageSuspensions = suspensionManagerRoles.includes(req.user!.role);
-      const [
-        audits,
-        pendingLeaves,
-        holidays,
-        birthdayEmployees,
-        upcomingSuspensions,
-        assignedTasks,
-      ] = await Promise.all([
-        canSeeOperational
-          ? prisma.auditLog.findMany({
-              include: { performedBy: true, affectedUser: true },
-              orderBy: { createdAt: "desc" },
-              take: 15,
-            })
-          : Promise.resolve([]),
-        prisma.leaveRequest.findMany({
-          where: leaveWhere,
-          include: { employee: true, leaveType: true },
-          orderBy: { createdAt: "desc" },
-          take: 10,
-        }),
-        prisma.holiday.findMany({
-          where: {
-            status: "ACTIVE",
-            date: { gte: new Date() },
-            OR: holidayBranchId
-              ? [{ branchId: null }, { branchId: holidayBranchId }]
-              : [{ branchId: null }],
-          },
-          orderBy: { date: "asc" },
-          take: 5,
-        }),
-        prisma.employee.findMany({
-          where: {
-            dateOfBirth: { not: null },
-            status: "ACTIVE",
-          },
-          select: {
-            employeeId: true,
-            name: true,
-            dateOfBirth: true,
-          },
-        }),
-        prisma.user.findMany({
-          where: {
-            suspensionStartsAt: { gt: new Date(), lte: suspensionWindowEnd },
-            suspendedUntil: { gt: new Date() },
-            ...(canManageSuspensions ? {} : { id: req.user!.id }),
-          },
-          select: { id: true, name: true, suspensionStartsAt: true, suspendedUntil: true },
-          orderBy: { suspensionStartsAt: "asc" },
-          take: canManageSuspensions ? 50 : 1,
-        }),
-        req.user!.employeeId
-          ? prisma.workTask.findMany({
-              where: {
-                assignments: { some: { employeeId: req.user!.employeeId } },
-                status: { notIn: [TaskStatus.COMPLETED, TaskStatus.CANCELLED] },
-              },
-              orderBy: { updatedAt: "desc" },
-              take: 10,
-            })
-          : Promise.resolve([]),
-      ]);
+      const [pendingLeaves, holidays, birthdayEmployees, upcomingSuspensions, assignedTasks] =
+        await Promise.all([
+          prisma.leaveRequest.findMany({
+            where: leaveWhere,
+            include: { employee: true, leaveType: true },
+            orderBy: { createdAt: "desc" },
+            take: 10,
+          }),
+          prisma.holiday.findMany({
+            where: {
+              status: "ACTIVE",
+              date: { gte: new Date() },
+              OR: holidayBranchId
+                ? [{ branchId: null }, { branchId: holidayBranchId }]
+                : [{ branchId: null }],
+            },
+            orderBy: { date: "asc" },
+            take: 5,
+          }),
+          prisma.employee.findMany({
+            where: {
+              dateOfBirth: { not: null },
+              status: "ACTIVE",
+            },
+            select: {
+              employeeId: true,
+              name: true,
+              dateOfBirth: true,
+            },
+          }),
+          prisma.user.findMany({
+            where: {
+              suspensionStartsAt: { gt: new Date(), lte: suspensionWindowEnd },
+              suspendedUntil: { gt: new Date() },
+              ...(canManageSuspensions ? {} : { id: req.user!.id }),
+            },
+            select: { id: true, name: true, suspensionStartsAt: true, suspendedUntil: true },
+            orderBy: { suspensionStartsAt: "asc" },
+            take: canManageSuspensions ? 50 : 1,
+          }),
+          req.user!.employeeId
+            ? prisma.workTask.findMany({
+                where: {
+                  assignments: { some: { employeeId: req.user!.employeeId } },
+                  status: { notIn: [TaskStatus.COMPLETED, TaskStatus.CANCELLED] },
+                },
+                orderBy: { updatedAt: "desc" },
+                take: 10,
+              })
+            : Promise.resolve([]),
+        ]);
 
       const today = new Date();
       const todayMonth = today.getUTCMonth();
@@ -3452,13 +3439,6 @@ export function createApp() {
           desc: `${holiday.name} on ${holiday.date.toISOString().slice(0, 10)}`,
           time: holiday.updatedAt.toISOString(),
           type: "holiday",
-        })),
-        ...audits.map((log) => ({
-          id: `audit-${log.auditId}`,
-          title: log.action,
-          desc: `${log.performedBy?.name ?? "System"}${log.affectedUser ? ` - ${log.affectedUser.name}` : ""}`,
-          time: log.createdAt.toISOString(),
-          type: "system",
         })),
       ]
         .sort((a, b) => +new Date(b.time) - +new Date(a.time))
