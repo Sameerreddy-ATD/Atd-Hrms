@@ -1,5 +1,5 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CreateLoginForm } from "@/components/users/CreateLoginForm";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -39,6 +39,15 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/common/PasswordInput";
 import { PasswordMatchHint } from "@/components/common/PasswordMatchHint";
+import { TableToolbar } from "@/components/common/TableToolbar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Search } from "lucide-react";
 
 export const Route = createFileRoute("/_app/users")({
   component: UsersPage,
@@ -63,6 +72,9 @@ function UsersPage() {
   const [resetting, setResetting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   useEffect(() => {
     loadUsers();
@@ -156,6 +168,40 @@ function UsersPage() {
     }
   }
 
+  const visibleUsers = useMemo(() => {
+    const search = query.trim().toLowerCase();
+    return users.filter((user) => {
+      if (roleFilter !== "all" && user.role !== roleFilter) return false;
+      if (statusFilter === "active" && !user.active) return false;
+      if (statusFilter === "inactive" && user.active) return false;
+      const searchable =
+        `${user.name} ${user.email} ${user.employeeCode ?? ""} ${user.employeeId ?? ""}`.toLowerCase();
+      return !search || searchable.includes(search);
+    });
+  }, [query, roleFilter, statusFilter, users]);
+
+  function openReset(user: User) {
+    setResetUser(user);
+    setNewPassword("");
+    setConfirmPassword("");
+  }
+
+  function openSuspend(user: User) {
+    setConfirmUser(user);
+    setConfirmAction("suspend");
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    setSuspensionStartsAt(tomorrow.toISOString().slice(0, 10));
+    const endDate = new Date(tomorrow);
+    endDate.setDate(endDate.getDate() + 1);
+    setSuspendedUntil(endDate.toISOString().slice(0, 10));
+  }
+
+  function openReactivate(user: User) {
+    setConfirmUser(user);
+    setConfirmAction("reactivate");
+  }
+
   return (
     <div>
       <PageHeader
@@ -169,8 +215,112 @@ function UsersPage() {
       />
       {loading && <p className="text-sm text-muted-foreground">Loading users...</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
+      <TableToolbar>
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="pl-8"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search name, email, or employee ID"
+          />
+        </div>
+        <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <SelectTrigger className="sm:w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All roles</SelectItem>
+            {Object.entries(ROLE_LABELS).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="sm:w-40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="inactive">Inactive</SelectItem>
+          </SelectContent>
+        </Select>
+      </TableToolbar>
       <div className="overflow-hidden rounded-lg border border-border bg-card">
-        <div className="overflow-x-auto">
+        <div className="space-y-2 p-3 md:hidden">
+          {visibleUsers.map((user) => (
+            <div key={user.id} className="rounded-lg border bg-background p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{user.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+                </div>
+                <LoginStatus user={user} />
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <p className="text-muted-foreground">Employee ID</p>
+                  <p className="mt-0.5 font-mono">{user.employeeCode || user.employeeId || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Role</p>
+                  <p className="mt-0.5">{ROLE_LABELS[user.role]}</p>
+                </div>
+                {user.department && (
+                  <div>
+                    <p className="text-muted-foreground">Department</p>
+                    <p className="mt-0.5 break-words">{user.department}</p>
+                  </div>
+                )}
+                {user.designation && (
+                  <div>
+                    <p className="text-muted-foreground">Designation</p>
+                    <p className="mt-0.5 break-words">{user.designation}</p>
+                  </div>
+                )}
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Button size="sm" variant="outline" onClick={() => openReset(user)}>
+                  <Key className="h-4 w-4" /> Reset password
+                </Button>
+                {user.role !== "developer_admin" &&
+                  (user.active && !user.suspensionStartsAt ? (
+                    <Button
+                      size="sm"
+                      className="bg-orange-600 text-white hover:bg-orange-700"
+                      disabled={user.id === currentUser?.id}
+                      onClick={() => openSuspend(user)}
+                    >
+                      Suspend
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="bg-emerald-600 text-white hover:bg-emerald-700"
+                      onClick={() => openReactivate(user)}
+                    >
+                      Reactivate
+                    </Button>
+                  ))}
+                {user.role !== "developer_admin" && (
+                  <Button
+                    className="col-span-2"
+                    size="sm"
+                    variant="destructive"
+                    disabled={user.id === currentUser?.id}
+                    onClick={() => setDeleteUser(user)}
+                  >
+                    <Trash2 className="h-4 w-4" /> Delete account
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
           <Table className="min-w-[760px]">
             <TableHeader>
               <TableRow>
@@ -183,7 +333,7 @@ function UsersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((u) => (
+              {visibleUsers.map((u) => (
                 <TableRow key={u.id}>
                   <TableCell className="font-medium">{u.name}</TableCell>
                   <TableCell>{u.email}</TableCell>
@@ -192,41 +342,14 @@ function UsersPage() {
                     {u.employeeCode || u.employeeId || "-"}
                   </TableCell>
                   <TableCell>
-                    {u.role === "developer_admin" ? (
-                      <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700">
-                        Protected
-                      </Badge>
-                    ) : u.active ? (
-                      <Badge
-                        variant="outline"
-                        className="border-emerald-200 bg-emerald-50 text-emerald-700"
-                      >
-                        {u.suspensionStartsAt &&
-                        new Date(u.suspensionStartsAt).getTime() > Date.now()
-                          ? `Suspension scheduled ${new Date(u.suspensionStartsAt).toLocaleDateString("en-IN")}`
-                          : "Active"}
-                      </Badge>
-                    ) : (
-                      <Badge
-                        variant="outline"
-                        className="border-slate-200 bg-slate-100 text-slate-600"
-                      >
-                        {u.suspendedUntil && new Date(u.suspendedUntil).getTime() > Date.now()
-                          ? `Suspended until ${new Date(u.suspendedUntil).toLocaleDateString("en-IN")}`
-                          : "Inactive"}
-                      </Badge>
-                    )}
+                    <LoginStatus user={u} />
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => {
-                          setResetUser(u);
-                          setNewPassword("");
-                          setConfirmPassword("");
-                        }}
+                        onClick={() => openReset(u)}
                         title="Reset Password"
                       >
                         <Key className="h-4 w-4" />
@@ -236,16 +359,7 @@ function UsersPage() {
                           size="sm"
                           className="bg-orange-600 text-white hover:bg-orange-700"
                           disabled={u.id === currentUser?.id}
-                          onClick={() => {
-                            setConfirmUser(u);
-                            setConfirmAction("suspend");
-                            const tomorrow = new Date();
-                            tomorrow.setDate(tomorrow.getDate() + 1);
-                            setSuspensionStartsAt(tomorrow.toISOString().slice(0, 10));
-                            const endDate = new Date(tomorrow);
-                            endDate.setDate(endDate.getDate() + 1);
-                            setSuspendedUntil(endDate.toISOString().slice(0, 10));
-                          }}
+                          onClick={() => openSuspend(u)}
                         >
                           Suspend
                         </Button>
@@ -253,10 +367,7 @@ function UsersPage() {
                         <Button
                           size="sm"
                           className="bg-emerald-600 text-white hover:bg-emerald-700"
-                          onClick={() => {
-                            setConfirmUser(u);
-                            setConfirmAction("reactivate");
-                          }}
+                          onClick={() => openReactivate(u)}
                         >
                           Reactivate
                         </Button>
@@ -277,8 +388,10 @@ function UsersPage() {
             </TableBody>
           </Table>
         </div>
-        {!loading && users.length === 0 && (
-          <div className="p-6 text-sm text-muted-foreground">No users found.</div>
+        {!loading && visibleUsers.length === 0 && (
+          <div className="p-6 text-center text-sm text-muted-foreground">
+            No user logins match these filters.
+          </div>
         )}
       </div>
 
@@ -423,5 +536,39 @@ function UsersPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function LoginStatus({ user }: { user: User }) {
+  if (user.role === "developer_admin") {
+    return (
+      <Badge variant="outline" className="shrink-0 border-red-200 bg-red-50 text-red-700">
+        Protected
+      </Badge>
+    );
+  }
+  if (user.active) {
+    const scheduled =
+      user.suspensionStartsAt && new Date(user.suspensionStartsAt).getTime() > Date.now();
+    return (
+      <Badge
+        variant="outline"
+        className="max-w-44 shrink-0 whitespace-normal border-emerald-200 bg-emerald-50 text-center text-emerald-700"
+      >
+        {scheduled
+          ? `Suspends ${new Date(user.suspensionStartsAt!).toLocaleDateString("en-IN")}`
+          : "Active"}
+      </Badge>
+    );
+  }
+  return (
+    <Badge
+      variant="outline"
+      className="max-w-44 shrink-0 whitespace-normal border-slate-200 bg-slate-100 text-center text-slate-600"
+    >
+      {user.suspendedUntil && new Date(user.suspendedUntil).getTime() > Date.now()
+        ? `Suspended until ${new Date(user.suspendedUntil).toLocaleDateString("en-IN")}`
+        : "Inactive"}
+    </Badge>
   );
 }
