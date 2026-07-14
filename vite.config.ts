@@ -12,6 +12,9 @@ export default defineConfig({
       ignored: ["**/.mysql-data/**", "**/.mysql-data-clean/**", "**/.mysql-data-clean-broken-*/**"],
     },
   },
+  preview: {
+    allowedHosts: ["hrms.sameerreddy.in"],
+  },
   plugins: [
     tanstackStart({
       server: {
