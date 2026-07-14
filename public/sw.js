@@ -10,8 +10,8 @@ self.addEventListener("push", (event) => {
   let payload = {
     title: "Anytime Diesel HRMS",
     body: "You have a new update.",
-    icon: "/atd-logo.png",
-    badge: "/atd-favicon.png",
+    icon: "/pwa-192.png",
+    badge: "/pwa-192.png",
     data: { href: "/notifications" },
   };
 
