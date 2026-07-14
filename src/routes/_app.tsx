@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { PermissionSetup } from "@/components/layout/PermissionSetup";
 import { useAuth } from "@/lib/auth";
 
 // FRONTEND-ONLY GUARD
@@ -32,6 +33,7 @@ function AppLayout() {
   return (
     <SidebarProvider>
       <AppSidebar />
+      <PermissionSetup />
       <SidebarInset className="relative flex h-[100dvh] min-w-0 flex-col overflow-hidden bg-gradient-to-tr from-[#f3f7ff] via-[#f8faff] to-[#f4f7fe] dark:from-zinc-950 dark:via-zinc-900/90 dark:to-slate-950">
         {/* Decorative glassmorphic background blobs */}
         <div className="absolute top-[-20%] left-[-10%] w-[55%] h-[55%] bg-blue-400/8 dark:bg-blue-600/10 rounded-full blur-[120px] pointer-events-none z-0" />

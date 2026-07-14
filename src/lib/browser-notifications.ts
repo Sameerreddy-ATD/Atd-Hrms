@@ -50,6 +50,7 @@ export function disableDesktopAlerts() {
 export type NotificationPermissionState = "granted" | "denied" | "default" | "unsupported";
 
 export function getNotificationPermission(): NotificationPermissionState {
+  if (typeof window === "undefined") return "unsupported";
   if (!("Notification" in window)) return "unsupported";
   return Notification.permission;
 }
