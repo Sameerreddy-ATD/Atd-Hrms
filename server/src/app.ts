@@ -743,6 +743,34 @@ export function createApp() {
     res.json({ ok: true });
   });
 
+  app.post(
+    "/auth/restore",
+    asyncHandler(async (req, res) => {
+      const token = req.cookies?.[config.refreshCookie];
+      if (!token) throw new HttpError(401, "Refresh token missing");
+      const payload = verifyRefreshToken(token);
+      const user = await prisma.user.findUniqueOrThrow({
+        where: { id: payload.id },
+        include: { employee: true },
+      });
+      if (user.status !== UserStatus.ACTIVE) {
+        clearCookies(res);
+        throw new HttpError(403, "Account inactive");
+      }
+      if (
+        user.suspensionStartsAt &&
+        user.suspendedUntil &&
+        user.suspensionStartsAt.getTime() <= Date.now() &&
+        user.suspendedUntil.getTime() > Date.now()
+      ) {
+        clearCookies(res);
+        throw new HttpError(403, "Account temporarily suspended");
+      }
+      issueCookies(res, user);
+      res.json({ user: userDto(user) });
+    }),
+  );
+
   app.get(
     "/auth/me",
     requireAuth,

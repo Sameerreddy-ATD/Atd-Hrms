@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     authApi
-      .me()
+      .restore()
       .then(({ user }) => {
         setUser(user);
         writeSessionUser(user);

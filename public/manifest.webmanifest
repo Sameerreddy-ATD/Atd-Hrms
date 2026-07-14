@@ -3,7 +3,7 @@
   "short_name": "ATD HRMS",
   "description": "Employee attendance, leave, branches, biometric devices, and HR workflows for Anytime Diesel.",
   "id": "/",
-  "start_url": "/",
+  "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
   "display_override": ["standalone"],

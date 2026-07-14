@@ -59,7 +59,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       signal: controller.signal,
     };
     res = await fetch(`${API_BASE}${path}`, fetchOptions);
-    if (res.status === 401 && path !== "/auth/login" && path !== "/auth/refresh") {
+    if (
+      res.status === 401 &&
+      path !== "/auth/login" &&
+      path !== "/auth/refresh" &&
+      path !== "/auth/restore"
+    ) {
       const refreshed = await refreshSession();
       if (refreshed) res = await fetch(`${API_BASE}${path}`, fetchOptions);
     }
@@ -95,6 +100,7 @@ function toQuery(params: Record<string, string | number | undefined>) {
 }
 
 export const authApi = {
+  restore: () => request<{ user: User }>("/auth/restore", { method: "POST" }),
   login: (email: string, password: string) =>
     request<{ user: User }>("/auth/login", {
       method: "POST",
