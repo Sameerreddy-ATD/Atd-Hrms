@@ -24,7 +24,7 @@ export const MISSED_PUNCH_TYPE_OPTIONS = [
   "FIELD_CHECK_OUT",
 ] as const;
 
-function movementPlaceLabel(eventType: string, eventSource?: string, branchName?: string): string {
+function movementPlaceLabel(eventType?: string, eventSource?: string, branchName?: string): string {
   if (eventSource === "THUMB_SCANNER") {
     return `${branchName ?? "Branch"} - biometric`;
   }
@@ -35,16 +35,16 @@ function movementPlaceLabel(eventType: string, eventSource?: string, branchName?
     return "Field - mobile";
   }
 
-  const meta = PUNCH_TYPE_META[eventType.toUpperCase()];
+  const meta = PUNCH_TYPE_META[eventType?.toUpperCase() ?? ""];
   if (meta?.place === "Branch") {
     return `${branchName ?? "Branch"} - mobile`;
   }
   return "Field - mobile";
 }
 
-export function punchTypeLabel(eventType: string, eventSource?: string, branchName?: string) {
-  const meta = PUNCH_TYPE_META[eventType.toUpperCase()];
-  if (!meta) return eventType.replaceAll("_", " ");
+export function punchTypeLabel(eventType?: string, eventSource?: string, branchName?: string) {
+  const meta = PUNCH_TYPE_META[eventType?.toUpperCase() ?? ""];
+  if (!meta) return eventType?.replaceAll("_", " ") ?? "Attendance event";
 
   const direction = meta.direction;
   let source = movementPlaceLabel(eventType, eventSource, branchName);
@@ -58,8 +58,8 @@ export function branchNameFromMap(branches: Array<{ id: string; name: string }>,
   return branches.find((branch) => branch.id === id)?.name;
 }
 
-export function movementDirectionLabel(type: string) {
-  const upper = type.toUpperCase();
+export function movementDirectionLabel(type?: string) {
+  const upper = type?.toUpperCase() ?? "";
   if (upper.endsWith("_IN") || upper === "BREAK_IN") return "In";
   if (upper.endsWith("_OUT") || upper === "BREAK_OUT") return "Out";
   return "";

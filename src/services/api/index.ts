@@ -128,7 +128,7 @@ export const usersApi = {
       method: "POST",
       body: JSON.stringify({
         ...u,
-        role: u.role.toUpperCase(),
+        role: u.role ? u.role.toUpperCase() : undefined,
         password: u.password,
       }),
     }),

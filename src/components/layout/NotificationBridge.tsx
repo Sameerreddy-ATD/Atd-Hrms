@@ -15,7 +15,8 @@ export function NotificationBridge() {
   const initialized = useRef(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || user.mustChangePassword) return;
+    initialized.current = false;
 
     let cancelled = false;
 
@@ -23,7 +24,12 @@ export function NotificationBridge() {
       syncDesktopAlertsWithPermission();
       if (!areDesktopAlertsEnabled()) return;
 
-      const items = filterVisibleNotifications(await notificationsApi.list());
+      let items;
+      try {
+        items = filterVisibleNotifications(await notificationsApi.list());
+      } catch {
+        return;
+      }
       if (cancelled) return;
 
       const seenIds = new Set(getSeenNotificationIds());

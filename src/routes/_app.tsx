@@ -20,9 +20,12 @@ function AppLayout() {
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/login", replace: true });
+    else if (!loading && user?.mustChangePassword) {
+      navigate({ to: "/first-login", replace: true });
+    }
   }, [loading, user, navigate]);
 
-  if (loading || !user) {
+  if (loading || !user || user.mustChangePassword) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
         Loading...

@@ -96,8 +96,8 @@ export function AttendanceTimelineSheet({
 
   // Determine icon & color based on event type & source
   function getEventStyles(event: AttendanceTimelineEvent) {
-    const type = event.type.toUpperCase();
-    const source = event.source.toUpperCase();
+    const type = event.type?.toUpperCase() ?? "";
+    const source = event.source?.toUpperCase() ?? "";
 
     if (source === "THUMB_SCANNER") {
       return {
