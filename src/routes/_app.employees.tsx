@@ -34,6 +34,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { BulkEmployeeImport } from "@/components/employees/BulkEmployeeImport";
 
 export const Route = createFileRoute("/_app/employees")({
   component: EmployeesPage,
@@ -167,9 +168,19 @@ function EmployeesPage() {
         }
         actions={
           canEdit ? (
-            <Button size="sm" onClick={() => navigate({ to: "/users", search: { create: true } })}>
-              <Plus className="mr-2 h-4 w-4" /> Add employee
-            </Button>
+            <>
+              <BulkEmployeeImport
+                branches={branches}
+                departments={departments}
+                onImported={async () => setEmployees(await employeesApi.list())}
+              />
+              <Button
+                size="sm"
+                onClick={() => navigate({ to: "/users", search: { create: true } })}
+              >
+                <Plus className="mr-2 h-4 w-4" /> Add employee
+              </Button>
+            </>
           ) : undefined
         }
       />
