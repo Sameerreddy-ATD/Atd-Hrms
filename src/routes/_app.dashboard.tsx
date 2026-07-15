@@ -37,6 +37,7 @@ import {
 } from "@/mock/types";
 import { attendanceApi, branchesApi, employeesApi, leaveApi, usersApi } from "@/services/api";
 import { downloadCsv } from "@/lib/csv";
+import { formatWorkedTime, workedTime } from "@/lib/worked-time";
 import {
   AlertTriangle,
   Building2,
@@ -50,6 +51,7 @@ import {
   UserCheck,
   Users,
   Cake,
+  Clock3,
 } from "lucide-react";
 
 interface BirthdayItem {
@@ -391,16 +393,28 @@ function MarkAttendanceCard({
 }) {
   const navigate = useNavigate();
   const [actionLoading, setActionLoading] = useState(false);
+  const [clockNow, setClockNow] = useState(() => Date.now());
   const [leaveCheckIn, setLeaveCheckIn] = useState<{ latitude: number; longitude: number } | null>(
     null,
   );
-  const isCheckedIn = useMemo(() => {
-    const last = timeline.at(-1)?.type;
-    return ["OFFICE_IN", "BRANCH_IN", "FIELD_CHECK_IN", "CLIENT_CHECK_IN", "BREAK_IN"].includes(
-      last ?? "",
-    );
-  }, [timeline]);
+  const workSession = useMemo(() => workedTime(timeline, clockNow), [clockNow, timeline]);
+  const isCheckedIn = workSession.isCheckedIn;
+  const firstCheckInLabel = workSession.firstCheckIn
+    ? new Intl.DateTimeFormat("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+        timeZone: "Asia/Kolkata",
+      }).format(workSession.firstCheckIn)
+    : "Not checked in";
   const branchName = branches.find((branch) => branch.id === user.homeBranchId)?.name ?? "-";
+
+  useEffect(() => {
+    setClockNow(Date.now());
+    if (!isCheckedIn) return;
+    const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [isCheckedIn]);
 
   async function submitCheckIn(
     coordinates: { latitude: number; longitude: number },
@@ -473,59 +487,87 @@ function MarkAttendanceCard({
 
   return (
     <Card className={`border-border shadow-sm ${className ?? ""}`}>
-      <CardHeader className="flex flex-col items-stretch gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-        <CardTitle className="text-sm font-bold text-foreground">Mark Attendance</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between gap-3 p-4 sm:p-5">
+        <div className="min-w-0">
+          <CardTitle className="text-base font-semibold text-foreground">Mark Attendance</CardTitle>
+          <p className="mt-0.5 text-xs text-muted-foreground">Today&apos;s live work session</p>
+        </div>
         <Button
           size="sm"
           variant="outline"
-          className="w-full sm:w-auto"
+          className="shrink-0"
           onClick={() => navigate({ to: "/attendance/missed-punch" })}
         >
           <FileClock className="mr-1.5 h-4 w-4" />
           Missed Punch
         </Button>
       </CardHeader>
-      <CardContent className="grid gap-3 p-4 pt-0 md:grid-cols-[1.1fr_0.9fr] sm:gap-4 sm:p-6 sm:pt-0">
-        <div className="rounded-lg border border-border/60 bg-card p-3 sm:p-4">
-          <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <Fingerprint className="h-4 w-4 text-primary" />
-            Live GPS Attendance
-          </p>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Use this dashboard card for mobile attendance. Biometric punches will still sync
-            automatically.
-          </p>
-          <div className="mt-4 grid grid-cols-1 gap-2 text-xs min-[380px]:grid-cols-2">
-            <div className="rounded-md bg-muted/40 px-3 py-2">
-              <div className="text-muted-foreground">Home Branch</div>
-              <div className="break-words font-medium text-foreground">{branchName}</div>
+      <CardContent className="grid gap-4 p-4 pt-0 sm:p-5 sm:pt-0 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.72fr)]">
+        <div className="overflow-hidden rounded-md border border-border/70 bg-muted/15">
+          <div className="flex items-center gap-3 border-b border-border/60 p-4">
+            <span
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${isCheckedIn ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}
+            >
+              <Clock3 className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-muted-foreground">Worked today</p>
+              <p className="font-mono text-3xl font-semibold tabular-nums text-foreground sm:text-4xl">
+                {formatWorkedTime(workSession.milliseconds)}
+              </p>
             </div>
-            <div className="rounded-md bg-muted/40 px-3 py-2">
-              <div className="text-muted-foreground">Punch Status</div>
-              <div className="font-medium text-foreground">{isCheckedIn ? "In" : "Out"}</div>
+          </div>
+          <div className="grid grid-cols-2 divide-x divide-border/60">
+            <div className="min-w-0 p-3 sm:p-4">
+              <p className="text-xs text-muted-foreground">First check-in</p>
+              <p className="mt-1 truncate text-sm font-medium text-foreground">
+                {firstCheckInLabel}
+              </p>
+            </div>
+            <div className="min-w-0 p-3 sm:p-4">
+              <p className="text-xs text-muted-foreground">Home branch</p>
+              <p className="mt-1 truncate text-sm font-medium text-foreground">{branchName}</p>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col justify-center gap-3 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
-          <p className="text-center text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-            {isCheckedIn ? "Currently In" : "Currently Out"}
-          </p>
-          <Button onClick={checkIn} disabled={actionLoading || isCheckedIn} className="h-12 w-full">
-            <LogIn className="mr-2 h-4 w-4" />
-            {actionLoading ? "Getting location..." : "Check In"}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={checkOut}
-            disabled={actionLoading || !isCheckedIn}
-            className="h-12 w-full bg-background"
-          >
-            <LogOut className="mr-2 h-4 w-4 text-red-500" />
-            {actionLoading ? "Getting location..." : "Check Out"}
-          </Button>
-          <p className="text-center text-[11px] leading-normal text-muted-foreground">
-            GPS is captured securely from your browser location.
+        <div className="flex flex-col justify-center gap-3 rounded-md border border-border/70 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Fingerprint className="h-4 w-4 text-primary" />
+              Attendance status
+            </div>
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${isCheckedIn ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${isCheckedIn ? "animate-pulse bg-emerald-600" : "bg-slate-400"}`}
+              />
+              {isCheckedIn ? "Checked in" : "Checked out"}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+            <Button
+              onClick={checkIn}
+              disabled={actionLoading || isCheckedIn}
+              className="h-12 w-full"
+            >
+              <LogIn className="mr-2 h-4 w-4" />
+              {actionLoading ? "Getting location..." : "Check In"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={checkOut}
+              disabled={actionLoading || !isCheckedIn}
+              className="h-12 w-full bg-background"
+            >
+              <LogOut className="mr-2 h-4 w-4 text-red-500" />
+              {actionLoading ? "Getting location..." : "Check Out"}
+            </Button>
+          </div>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Mobile punches use your current location. Biometric punches appear in the same timer
+            after the dashboard refreshes.
           </p>
         </div>
       </CardContent>

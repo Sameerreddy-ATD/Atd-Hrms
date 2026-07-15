@@ -2,13 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Logo } from "@/components/common/Logo";
 import { useAuth } from "@/lib/auth";
 import { ROLE_LABELS, type Branch } from "@/mock/types";
 import { branchesApi } from "@/services/api";
-import { Download, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 
 export const Route = createFileRoute("/_app/id-card")({
   component: IdCardPage,
@@ -40,11 +39,6 @@ function IdCardPage() {
       <PageHeader
         title="Employee ID Card"
         description="Your official digital company identification."
-        actions={
-          <Button size="sm" variant="outline" onClick={() => window.print()}>
-            <Download className="mr-2 h-4 w-4" /> Print card
-          </Button>
-        }
       />
       <div className="mx-auto w-full max-w-lg print:max-w-md">
         <Card className="overflow-hidden border-red-200 shadow-md print:shadow-none">
