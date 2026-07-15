@@ -2,6 +2,7 @@ import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CreateLoginForm } from "@/components/users/CreateLoginForm";
+import { BulkEmployeeImport } from "@/components/employees/BulkEmployeeImport";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,8 +24,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ROLE_LABELS, type User } from "@/mock/types";
-import { usersApi } from "@/services/api";
+import { ROLE_LABELS, type Branch, type Department, type User } from "@/mock/types";
+import { branchesApi, usersApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
 import { Plus, Trash2, Key, Loader2 } from "lucide-react";
 import {
@@ -60,6 +61,8 @@ function UsersPage() {
   const { user: currentUser } = useAuth();
   const { create } = useSearch({ from: "/_app/users" });
   const [users, setUsers] = useState<User[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [confirmUser, setConfirmUser] = useState<User | null>(null);
   const [confirmAction, setConfirmAction] = useState<"suspend" | "reactivate">("suspend");
@@ -78,6 +81,12 @@ function UsersPage() {
 
   useEffect(() => {
     loadUsers();
+    Promise.all([branchesApi.list(), branchesApi.departments()])
+      .then(([branchRows, departmentRows]) => {
+        setBranches(branchRows);
+        setDepartments(departmentRows);
+      })
+      .catch((err) => setError((err as Error).message));
   }, []);
 
   useEffect(() => {
@@ -208,9 +217,17 @@ function UsersPage() {
         title="User Logins"
         description="Create, delete, deactivate, and reset passwords for employee accounts."
         actions={
-          <Button size="sm" onClick={() => setShowCreate(true)}>
-            <Plus className="mr-2 h-4 w-4" /> Create login
-          </Button>
+          <>
+            <BulkEmployeeImport
+              branches={branches}
+              departments={departments}
+              existingEmployees={users}
+              onImported={loadUsers}
+            />
+            <Button size="sm" onClick={() => setShowCreate(true)}>
+              <Plus className="mr-2 h-4 w-4" /> Create login
+            </Button>
+          </>
         }
       />
       {loading && <p className="text-sm text-muted-foreground">Loading users...</p>}

@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -24,7 +24,7 @@ import {
 import type { Branch, Department, User } from "@/mock/types";
 import { ROLE_LABELS } from "@/mock/types";
 import { branchesApi, employeesApi } from "@/services/api";
-import { Plus, Search, Pencil } from "lucide-react";
+import { Search, Pencil } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
   Dialog,
@@ -34,14 +34,12 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { BulkEmployeeImport } from "@/components/employees/BulkEmployeeImport";
 
 export const Route = createFileRoute("/_app/employees")({
   component: EmployeesPage,
 });
 
 function EmployeesPage() {
-  const navigate = useNavigate();
   const { user: currentUser } = useAuth();
   const [employees, setEmployees] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -165,24 +163,6 @@ function EmployeesPage() {
           canSeeCompanyDirectory
             ? "Directory of employees across branches and organization units."
             : "Employees in your organization unit and its child teams."
-        }
-        actions={
-          canEdit ? (
-            <>
-              <BulkEmployeeImport
-                branches={branches}
-                departments={departments}
-                existingEmployees={employees}
-                onImported={async () => setEmployees(await employeesApi.list())}
-              />
-              <Button
-                size="sm"
-                onClick={() => navigate({ to: "/users", search: { create: true } })}
-              >
-                <Plus className="mr-2 h-4 w-4" /> Add employee
-              </Button>
-            </>
-          ) : undefined
         }
       />
       {loading && <p className="text-sm text-muted-foreground">Loading employees...</p>}
