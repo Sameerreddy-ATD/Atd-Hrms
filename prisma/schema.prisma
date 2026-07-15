@@ -152,6 +152,7 @@ model User {
   announcements                    Announcement[]     @relation("AnnouncementAuthor")
   pushSubscriptions                PushSubscription[]
 
+  @@index([status, role])
   @@map("users")
 }
 
@@ -441,6 +442,8 @@ model AttendanceDailySummary {
   updatedAt               DateTime       @updatedAt @map("updated_at")
 
   @@unique([employeeId, date])
+  @@index([date, status])
+  @@index([primaryAttendedBranchId, date])
   @@map("attendance_daily_summary")
 }
 
@@ -469,6 +472,7 @@ model FieldAttendance {
   createdAt          DateTime       @default(now()) @map("created_at")
   updatedAt          DateTime       @updatedAt @map("updated_at")
 
+  @@index([employeeId, date])
   @@map("field_attendance")
 }
 
@@ -513,6 +517,8 @@ model LeaveRequest {
   createdAt      DateTime    @default(now()) @map("created_at")
   updatedAt      DateTime    @updatedAt @map("updated_at")
 
+  @@index([employeeId, createdAt])
+  @@index([managerId, status, createdAt])
   @@map("leave_requests")
 }
 
@@ -554,6 +560,8 @@ model AuditLog {
   ipAddress         String?  @map("ip_address")
   createdAt         DateTime @default(now()) @map("created_at")
 
+  @@index([createdAt])
+  @@index([performedByUserId, createdAt])
   @@map("audit_logs")
 }
 
@@ -626,6 +634,8 @@ model AttendanceCorrectionRequest {
   createdAt  DateTime       @default(now()) @map("created_at")
   updatedAt  DateTime       @updatedAt @map("updated_at")
 
+  @@index([employeeId, createdAt])
+  @@index([status, createdAt])
   @@map("attendance_correction_requests")
 }
 

@@ -1,4 +1,4 @@
-import { LoaderCircle } from "lucide-react";
+import { Logo } from "@/components/common/Logo";
 import { cn } from "@/lib/utils";
 
 export function LoadingState({
@@ -21,16 +21,20 @@ export function LoadingState({
       )}
     >
       <div className="flex max-w-xs flex-col items-center gap-3 text-center">
-        <div className="relative grid h-11 w-11 place-items-center rounded-lg border border-primary/20 bg-primary/5 sm:h-12 sm:w-12">
-          <span className="absolute inset-1 rounded-md bg-primary/10 motion-safe:animate-pulse" />
-          <LoaderCircle className="relative h-5 w-5 animate-spin text-primary motion-reduce:animate-none sm:h-6 sm:w-6" />
+        <div className="relative w-36 overflow-hidden px-2 py-1 sm:w-40">
+          <Logo className="h-auto w-full" />
+          <span
+            className="absolute inset-y-0 -left-1/2 w-1/3 skew-x-[-18deg] bg-white/75 blur-sm motion-safe:animate-[atd-sweep_1.35s_ease-in-out_infinite] motion-reduce:hidden"
+            aria-hidden="true"
+          />
         </div>
         <div>
           <p className="text-sm font-medium text-foreground sm:text-base">{label}</p>
-          <div className="mx-auto mt-2 flex w-20 gap-1" aria-hidden="true">
-            <span className="h-1 flex-1 rounded-full bg-primary/70 motion-safe:animate-pulse" />
-            <span className="h-1 flex-1 rounded-full bg-primary/40 motion-safe:animate-pulse [animation-delay:150ms]" />
-            <span className="h-1 flex-1 rounded-full bg-primary/20 motion-safe:animate-pulse [animation-delay:300ms]" />
+          <div
+            className="mx-auto mt-2 h-1 w-24 overflow-hidden rounded-full bg-primary/15"
+            aria-hidden="true"
+          >
+            <span className="block h-full w-2/5 rounded-full bg-primary motion-safe:animate-[atd-progress_1.15s_ease-in-out_infinite] motion-reduce:w-full" />
           </div>
         </div>
       </div>

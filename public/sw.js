@@ -1,9 +1,58 @@
+self.ATD_STATIC_CACHE = "atd-static-v1";
+self.ATD_SHELL_ASSETS = [
+  "/atd-logo.png",
+  "/atd-favicon.png",
+  "/pwa-192.png",
+  "/pwa-512.png",
+  "/apple-touch-icon.png",
+];
+
 self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(self.ATD_STATIC_CACHE).then((cache) => cache.addAll(self.ATD_SHELL_ASSETS)),
+  );
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    Promise.all([
+      caches
+        .keys()
+        .then((keys) =>
+          Promise.all(
+            keys
+              .filter((key) => key.startsWith("atd-static-") && key !== self.ATD_STATIC_CACHE)
+              .map((key) => caches.delete(key)),
+          ),
+        ),
+      self.clients.claim(),
+    ]),
+  );
+});
+
+self.addEventListener("fetch", (event) => {
+  const request = event.request;
+  if (request.method !== "GET") return;
+
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+
+  const cacheableDestination = ["script", "style", "font", "image"].includes(request.destination);
+  if (!cacheableDestination) return;
+
+  event.respondWith(
+    caches.match(request).then((cached) => {
+      const network = fetch(request).then((response) => {
+        if (response.ok) {
+          const copy = response.clone();
+          void caches.open(self.ATD_STATIC_CACHE).then((cache) => cache.put(request, copy));
+        }
+        return response;
+      });
+      return cached ?? network;
+    }),
+  );
 });
 
 self.addEventListener("push", (event) => {

@@ -1,11 +1,9 @@
 // ---------------------------------------------------------------------------
-// Mock auth context.
+// Cookie-backed authentication context.
 //
 // ⚠️ DEMO MODE ONLY
-// - Persists the current mock user in `localStorage`. Replace with an
-//   HTTP-only cookie session from the backend before production.
-// - Frontend route guards below MUST be paired with backend RBAC. Never
-//   rely on client checks for security.
+// Browser storage contains display-only user data for a fast first paint.
+// Authentication remains in HTTP-only cookies and backend RBAC remains authoritative.
 // ---------------------------------------------------------------------------
 
 import {
@@ -26,9 +24,26 @@ function writeSessionUser(user: User | null) {
   if (typeof window === "undefined") return;
   if (!user) {
     window.sessionStorage.removeItem(SESSION_USER_KEY);
+    window.localStorage.removeItem(SESSION_USER_KEY);
     return;
   }
-  window.sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
+  const serialized = JSON.stringify(user);
+  window.sessionStorage.setItem(SESSION_USER_KEY, serialized);
+  window.localStorage.setItem(SESSION_USER_KEY, serialized);
+}
+
+function readSessionUser() {
+  if (typeof window === "undefined") return null;
+  const serialized =
+    window.sessionStorage.getItem(SESSION_USER_KEY) ??
+    window.localStorage.getItem(SESSION_USER_KEY);
+  if (!serialized) return null;
+  try {
+    return JSON.parse(serialized) as User;
+  } catch {
+    writeSessionUser(null);
+    return null;
+  }
 }
 
 interface AuthState {
@@ -49,6 +64,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const cachedUser = readSessionUser();
+    if (cachedUser) {
+      setUser(cachedUser);
+      setLoading(false);
+    }
+
     authApi
       .restore()
       .then(({ user }) => {

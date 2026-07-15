@@ -168,3 +168,25 @@
     font-size: 1rem;
   }
 }
+
+@keyframes atd-sweep {
+  0% {
+    transform: translateX(0) skewX(-18deg);
+  }
+  55%,
+  100% {
+    transform: translateX(650%) skewX(-18deg);
+  }
+}
+
+@keyframes atd-progress {
+  0% {
+    transform: translateX(-110%);
+  }
+  50% {
+    transform: translateX(75%);
+  }
+  100% {
+    transform: translateX(260%);
+  }
+}

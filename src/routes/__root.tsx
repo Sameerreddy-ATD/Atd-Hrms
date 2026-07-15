@@ -114,6 +114,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", href: "/atd-favicon.png", type: "image/png" },
       { rel: "shortcut icon", href: "/atd-favicon.png", type: "image/png" },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
+      { rel: "preload", href: "/atd-logo.png", as: "image", type: "image/png" },
       { rel: "manifest", href: "/manifest.webmanifest" },
     ],
   }),

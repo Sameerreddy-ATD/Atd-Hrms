@@ -39,6 +39,8 @@ export function startAttendanceSettlementScheduler() {
     });
   };
 
-  tick();
+  // Let health checks and returning user sessions complete before this
+  // database-heavy maintenance pass starts after a deployment or restart.
+  setTimeout(tick, 30_000).unref();
   setInterval(tick, 60 * 60 * 1000).unref();
 }

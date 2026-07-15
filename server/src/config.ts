@@ -5,7 +5,9 @@ export const config = {
   frontendOrigin: process.env.FRONTEND_ORIGIN ?? "http://localhost:5173",
   requestTimeoutMs: Number(process.env.REQUEST_TIMEOUT_MS ?? 30000),
   generalRateLimitWindowMs: Number(process.env.GENERAL_RATE_LIMIT_WINDOW_MS ?? 60 * 1000),
-  generalRateLimitMax: Number(process.env.GENERAL_RATE_LIMIT_MAX ?? 1200),
+  // Employees commonly share one office IP. Authentication has a separate,
+  // stricter limiter while regular dashboard traffic can tolerate shared NAT.
+  generalRateLimitMax: Number(process.env.GENERAL_RATE_LIMIT_MAX ?? 12000),
   authRateLimitWindowMs: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS ?? 15 * 60 * 1000),
   authRateLimitMax: Number(process.env.AUTH_RATE_LIMIT_MAX ?? 50),
   accessSecret: process.env.JWT_ACCESS_SECRET ?? "dev-access-secret-change-me",
