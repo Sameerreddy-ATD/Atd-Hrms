@@ -274,3 +274,22 @@ export const resetPasswordSchema = z.object({
     .regex(/[A-Z]/, "Password must contain an uppercase letter")
     .regex(/[0-9]/, "Password must contain a number"),
 });
+
+const announcementFields = z.object({
+  title: z.string().trim().min(3).max(160),
+  message: z.string().trim().min(3).max(3000),
+  priority: z.enum(["NORMAL", "IMPORTANT", "URGENT"]).default("NORMAL"),
+  publishAt: z.coerce.date().optional(),
+  expiresAt: z.coerce.date().nullable().optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const announcementSchema = announcementFields.refine(
+  (value) => !value.expiresAt || !value.publishAt || value.expiresAt > value.publishAt,
+  {
+    message: "Expiry must be after the publish date",
+    path: ["expiresAt"],
+  },
+);
+
+export const announcementUpdateSchema = announcementFields.partial();

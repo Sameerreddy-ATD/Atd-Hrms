@@ -61,6 +61,8 @@ import {
   verifyRefreshToken,
 } from "./security.js";
 import {
+  announcementSchema,
+  announcementUpdateSchema,
   assetCatalogItemSchema,
   assetCatalogItemUpdateSchema,
   biometricMappingSchema,
@@ -93,6 +95,23 @@ import {
   updateEmployeeSchema,
   updateUserSchema,
 } from "./schemas.js";
+
+function announcementDto(
+  announcement: Prisma.AnnouncementGetPayload<{ include: { createdBy: true } }>,
+) {
+  return {
+    id: announcement.announcementId,
+    title: announcement.title,
+    message: announcement.message,
+    priority: announcement.priority,
+    publishAt: announcement.publishAt.toISOString(),
+    expiresAt: announcement.expiresAt?.toISOString(),
+    isActive: announcement.isActive,
+    authorName: announcement.createdBy.name,
+    createdAt: announcement.createdAt.toISOString(),
+    updatedAt: announcement.updatedAt.toISOString(),
+  };
+}
 
 export function createApp() {
   const app = express();
@@ -3313,6 +3332,105 @@ export function createApp() {
   );
 
   app.get(
+    "/announcements",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const announcementManagerRoles: Role[] = [Role.HR, Role.DEVELOPER_ADMIN];
+      const canManage = announcementManagerRoles.includes(req.user!.role);
+      const includeInactive = canManage && req.query.includeInactive === "true";
+      const now = new Date();
+      const announcements = await prisma.announcement.findMany({
+        where: includeInactive
+          ? {}
+          : {
+              isActive: true,
+              publishAt: { lte: now },
+              OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+            },
+        include: { createdBy: true },
+        orderBy: [{ priority: "desc" }, { publishAt: "desc" }],
+        take: listLimit(req, 100, 250),
+      });
+      res.json(announcements.map(announcementDto));
+    }),
+  );
+
+  app.post(
+    "/announcements",
+    requireAuth,
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const body = announcementSchema.parse(req.body);
+      const announcement = await prisma.announcement.create({
+        data: {
+          ...body,
+          publishAt: body.publishAt ?? new Date(),
+          expiresAt: body.expiresAt ?? null,
+          createdById: req.user!.id,
+        },
+        include: { createdBy: true },
+      });
+      await audit({
+        action: "announcement created",
+        performedByUserId: req.user!.id,
+        newValue: { announcementId: announcement.announcementId, title: announcement.title },
+        ipAddress: req.ip,
+      });
+      res.status(201).json(announcementDto(announcement));
+    }),
+  );
+
+  app.patch(
+    "/announcements/:id",
+    requireAuth,
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const body = announcementUpdateSchema.parse(req.body);
+      const existing = await prisma.announcement.findUniqueOrThrow({
+        where: { announcementId: String(req.params.id) },
+      });
+      const publishAt = body.publishAt ?? existing.publishAt;
+      const expiresAt = body.expiresAt === undefined ? existing.expiresAt : body.expiresAt;
+      if (expiresAt && expiresAt <= publishAt) {
+        throw new HttpError(400, "Expiry must be after the publish date");
+      }
+      const announcement = await prisma.announcement.update({
+        where: { announcementId: existing.announcementId },
+        data: body,
+        include: { createdBy: true },
+      });
+      await audit({
+        action: "announcement updated",
+        performedByUserId: req.user!.id,
+        oldValue: { title: existing.title, isActive: existing.isActive },
+        newValue: { title: announcement.title, isActive: announcement.isActive },
+        ipAddress: req.ip,
+      });
+      res.json(announcementDto(announcement));
+    }),
+  );
+
+  app.delete(
+    "/announcements/:id",
+    requireAuth,
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const announcement = await prisma.announcement.update({
+        where: { announcementId: String(req.params.id) },
+        data: { isActive: false },
+        include: { createdBy: true },
+      });
+      await audit({
+        action: "announcement deactivated",
+        performedByUserId: req.user!.id,
+        newValue: { announcementId: announcement.announcementId, title: announcement.title },
+        ipAddress: req.ip,
+      });
+      res.json(announcementDto(announcement));
+    }),
+  );
+
+  app.get(
     "/notifications",
     requireAuth,
     asyncHandler(async (req, res) => {
@@ -3404,6 +3522,17 @@ export function createApp() {
       const todayMonth = today.getUTCMonth();
       const todayDate = today.getUTCDate();
 
+      const announcements = await prisma.announcement.findMany({
+        where: {
+          isActive: true,
+          publishAt: { lte: today },
+          OR: [{ expiresAt: null }, { expiresAt: { gt: today } }],
+        },
+        include: { createdBy: true },
+        orderBy: { publishAt: "desc" },
+        take: 10,
+      });
+
       const birthdayItems = birthdayEmployees
         .filter((emp) => {
           const dob = new Date(emp.dateOfBirth!);
@@ -3423,6 +3552,15 @@ export function createApp() {
         });
 
       const items = [
+        ...announcements.map((announcement) => ({
+          id: `announcement-${announcement.announcementId}-${announcement.updatedAt.toISOString()}`,
+          title: announcement.title,
+          desc: announcement.message,
+          time: announcement.publishAt.toISOString(),
+          type: "announcement" as const,
+          priority: announcement.priority,
+          authorName: announcement.createdBy.name,
+        })),
         ...assignedTasks.map((task) => ({
           id: `task-${task.taskId}-${task.updatedAt.toISOString()}`,
           title: task.status === TaskStatus.TODO ? "New task assigned" : "Task progress reminder",

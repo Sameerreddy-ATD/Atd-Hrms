@@ -126,31 +126,49 @@ enum AssetCostFrequency {
 }
 
 model User {
-  id                               String       @id @default(cuid())
-  employeeId                       String?      @unique @map("employee_id")
-  employee                         Employee?    @relation(fields: [employeeId], references: [employeeId])
+  id                               String         @id @default(cuid())
+  employeeId                       String?        @unique @map("employee_id")
+  employee                         Employee?      @relation(fields: [employeeId], references: [employeeId])
   name                             String
-  email                            String       @unique
+  email                            String         @unique
   phone                            String?
-  passwordHash                     String       @map("password_hash")
+  passwordHash                     String         @map("password_hash")
   role                             Role
-  status                           UserStatus   @default(ACTIVE)
-  firstLoginPasswordChangeRequired Boolean      @default(true) @map("first_login_password_change_required")
-  failedLoginAttempts              Int          @default(0) @map("failed_login_attempts")
-  lastLoginAt                      DateTime?    @map("last_login_at")
-  createdByUserId                  String?      @map("created_by_user_id")
-  createdAt                        DateTime     @default(now()) @map("created_at")
-  updatedAt                        DateTime     @updatedAt @map("updated_at")
-  suspendedUntil                   DateTime?    @map("suspended_until")
-  suspensionStartsAt               DateTime?    @map("suspension_starts_at")
-  createdUsers                     User[]       @relation("CreatedUsers")
-  creator                          User?        @relation("CreatedUsers", fields: [createdByUserId], references: [id])
-  performedAuditLogs               AuditLog[]   @relation("AuditPerformedBy")
-  affectedAuditLogs                AuditLog[]   @relation("AuditAffectedUser")
-  createdTasks                     WorkTask[]   @relation("TaskCreator")
+  status                           UserStatus     @default(ACTIVE)
+  firstLoginPasswordChangeRequired Boolean        @default(true) @map("first_login_password_change_required")
+  failedLoginAttempts              Int            @default(0) @map("failed_login_attempts")
+  lastLoginAt                      DateTime?      @map("last_login_at")
+  createdByUserId                  String?        @map("created_by_user_id")
+  createdAt                        DateTime       @default(now()) @map("created_at")
+  updatedAt                        DateTime       @updatedAt @map("updated_at")
+  suspendedUntil                   DateTime?      @map("suspended_until")
+  suspensionStartsAt               DateTime?      @map("suspension_starts_at")
+  createdUsers                     User[]         @relation("CreatedUsers")
+  creator                          User?          @relation("CreatedUsers", fields: [createdByUserId], references: [id])
+  performedAuditLogs               AuditLog[]     @relation("AuditPerformedBy")
+  affectedAuditLogs                AuditLog[]     @relation("AuditAffectedUser")
+  createdTasks                     WorkTask[]     @relation("TaskCreator")
   taskUpdates                      TaskUpdate[]
+  announcements                    Announcement[] @relation("AnnouncementAuthor")
 
   @@map("users")
+}
+
+model Announcement {
+  announcementId String    @id @default(cuid()) @map("announcement_id")
+  title          String
+  message        String    @db.Text
+  priority       String    @default("NORMAL")
+  publishAt      DateTime  @default(now()) @map("publish_at")
+  expiresAt      DateTime? @map("expires_at")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdById    String    @map("created_by_id")
+  createdBy      User      @relation("AnnouncementAuthor", fields: [createdById], references: [id])
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([isActive, publishAt, expiresAt])
+  @@map("announcements")
 }
 
 model Employee {

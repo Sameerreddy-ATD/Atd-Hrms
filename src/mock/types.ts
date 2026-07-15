@@ -300,7 +300,22 @@ export interface NotificationItem {
   title: string;
   desc: string;
   time: string;
-  type: "leave" | "holiday" | "system" | "birthday" | "task";
+  type: "leave" | "holiday" | "system" | "birthday" | "task" | "announcement";
+  priority?: "NORMAL" | "IMPORTANT" | "URGENT";
+  authorName?: string;
+}
+
+export interface Announcement {
+  id: string;
+  title: string;
+  message: string;
+  priority: "NORMAL" | "IMPORTANT" | "URGENT";
+  publishAt: string;
+  expiresAt?: string;
+  isActive: boolean;
+  authorName: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type TaskStatus = "TODO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "COMPLETED" | "CANCELLED";

@@ -14,6 +14,7 @@ import type {
   LeaveRequest,
   LeaveTypeOption,
   NotificationItem,
+  Announcement,
   Role,
   TaskAssignee,
   TaskPriority,
@@ -485,6 +486,30 @@ export const auditApi = {
 
 export const notificationsApi = {
   list: () => request<NotificationItem[]>("/notifications"),
+};
+
+export const announcementsApi = {
+  list: (includeInactive = false) =>
+    request<Announcement[]>(
+      `/announcements${toQuery({ includeInactive: String(includeInactive) })}`,
+    ),
+  create: (payload: {
+    title: string;
+    message: string;
+    priority: Announcement["priority"];
+    publishAt?: string;
+    expiresAt?: string | null;
+  }) =>
+    request<Announcement>("/announcements", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  update: (id: string, payload: Partial<Announcement>) =>
+    request<Announcement>(`/announcements/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  deactivate: (id: string) => request<Announcement>(`/announcements/${id}`, { method: "DELETE" }),
 };
 
 export const tasksApi = {
