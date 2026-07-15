@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 import { createHash, randomUUID } from "node:crypto";
+import { freemem, loadavg, totalmem } from "node:os";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import morgan from "morgan";
@@ -116,6 +117,7 @@ function announcementDto(
 }
 
 export function createApp() {
+  const backendStartedAt = new Date();
   const app = express();
   app.disable("x-powered-by");
   app.use(helmet());
@@ -460,6 +462,46 @@ export function createApp() {
   }
 
   app.get("/health", (_req, res) => res.json({ ok: true }));
+
+  app.get(
+    "/system/health",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (_req, res) => {
+      const databaseStartedAt = performance.now();
+      let databaseReachable = true;
+      let databaseError: string | undefined;
+      try {
+        await prisma.$queryRaw`SELECT 1`;
+      } catch (error) {
+        databaseReachable = false;
+        databaseError = error instanceof Error ? error.message : "Database check failed";
+      }
+      const databaseLatencyMs = Math.round(performance.now() - databaseStartedAt);
+      const totalMemoryBytes = totalmem();
+      const usedMemoryBytes = totalMemoryBytes - freemem();
+      const memoryUsedPercent = Math.round((usedMemoryBytes / totalMemoryBytes) * 1000) / 10;
+      const degraded = !databaseReachable || databaseLatencyMs > 1500 || memoryUsedPercent > 92;
+
+      res.json({
+        status: degraded ? "DEGRADED" : "HEALTHY",
+        checkedAt: new Date().toISOString(),
+        backendStartedAt: backendStartedAt.toISOString(),
+        uptimeSeconds: Math.floor(process.uptime()),
+        database: {
+          reachable: databaseReachable,
+          latencyMs: databaseLatencyMs,
+          error: databaseError,
+        },
+        memory: {
+          usedPercent: memoryUsedPercent,
+          processRssMb: Math.round(process.memoryUsage().rss / 1024 / 1024),
+        },
+        loadAverage: Math.round(loadavg()[0] * 100) / 100,
+        nodeVersion: process.version,
+      });
+    }),
+  );
   app.get(
     "/health/db",
     asyncHandler(async (_req, res) => {

@@ -484,6 +484,21 @@ export const auditApi = {
     request<{ count: number; oldest?: string; latest?: string }>("/audit-logs/summary"),
 };
 
+export interface SystemHealth {
+  status: "HEALTHY" | "DEGRADED";
+  checkedAt: string;
+  backendStartedAt: string;
+  uptimeSeconds: number;
+  database: { reachable: boolean; latencyMs: number; error?: string };
+  memory: { usedPercent: number; processRssMb: number };
+  loadAverage: number;
+  nodeVersion: string;
+}
+
+export const systemApi = {
+  health: () => request<SystemHealth>("/system/health"),
+};
+
 export const notificationsApi = {
   list: () => request<NotificationItem[]>("/notifications"),
 };
