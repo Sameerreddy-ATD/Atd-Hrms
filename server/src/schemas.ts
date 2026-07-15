@@ -276,8 +276,8 @@ export const resetPasswordSchema = z.object({
 });
 
 const announcementFields = z.object({
-  title: z.string().trim().min(3).max(160),
-  message: z.string().trim().min(3).max(3000),
+  title: z.string().trim().min(3).max(120),
+  message: z.string().trim().min(3).max(1000),
   priority: z.enum(["NORMAL", "IMPORTANT", "URGENT"]).default("NORMAL"),
   publishAt: z.coerce.date().optional(),
   expiresAt: z.coerce.date().nullable().optional(),

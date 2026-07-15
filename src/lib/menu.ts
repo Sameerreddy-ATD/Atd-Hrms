@@ -19,6 +19,7 @@ import {
   Package,
   ListTodo,
   FileClock,
+  Megaphone,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -178,6 +179,7 @@ export const menuGroups: MenuGroup[] = [
         roles: ["employee", "manager", "hr", "sales", "driver", "field_staff"],
       },
       { label: "Notifications", to: "/notifications", icon: BellRing, roles: ALL },
+      { label: "Announcements", to: "/announcements", icon: Megaphone, roles: ALL },
     ],
   },
   {

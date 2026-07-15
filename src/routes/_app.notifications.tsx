@@ -239,7 +239,7 @@ function NotificationsPage() {
                 <Input
                   id="announcement-title"
                   value={announcementForm.title}
-                  maxLength={160}
+                  maxLength={120}
                   required
                   placeholder="Office update, event, or important notice"
                   onChange={(event) =>
@@ -252,7 +252,7 @@ function NotificationsPage() {
                 <Textarea
                   id="announcement-message"
                   value={announcementForm.message}
-                  maxLength={3000}
+                  maxLength={1000}
                   required
                   rows={4}
                   placeholder="Write the announcement clearly for all employees."
@@ -261,7 +261,7 @@ function NotificationsPage() {
                   }
                 />
                 <p className="text-right text-xs text-muted-foreground">
-                  {announcementForm.message.length}/3000
+                  {announcementForm.message.length}/1000
                 </p>
               </div>
               <div className="space-y-1.5">

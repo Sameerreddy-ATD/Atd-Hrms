@@ -34,6 +34,7 @@ import { Route as AppBranchesRouteImport } from './routes/_app.branches'
 import { Route as AppAuditRouteImport } from './routes/_app.audit'
 import { Route as AppAttendanceRouteImport } from './routes/_app.attendance'
 import { Route as AppAssetsRouteImport } from './routes/_app.assets'
+import { Route as AppAnnouncementsRouteImport } from './routes/_app.announcements'
 import { Route as AppAttendanceIndexRouteImport } from './routes/_app.attendance.index'
 import { Route as AppUsersNewRouteImport } from './routes/_app.users.new'
 import { Route as AppSettingsDevicesRouteImport } from './routes/_app.settings.devices'
@@ -177,6 +178,11 @@ const AppAssetsRoute = AppAssetsRouteImport.update({
   path: '/assets',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAnnouncementsRoute = AppAnnouncementsRouteImport.update({
+  id: '/announcements',
+  path: '/announcements',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAttendanceIndexRoute = AppAttendanceIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -275,6 +281,7 @@ export interface FileRoutesByFullPath {
   '/first-login': typeof FirstLoginRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/announcements': typeof AppAnnouncementsRoute
   '/assets': typeof AppAssetsRoute
   '/attendance': typeof AppAttendanceRouteWithChildren
   '/audit': typeof AppAuditRoute
@@ -319,6 +326,7 @@ export interface FileRoutesByTo {
   '/first-login': typeof FirstLoginRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/announcements': typeof AppAnnouncementsRoute
   '/assets': typeof AppAssetsRoute
   '/audit': typeof AppAuditRoute
   '/branches': typeof AppBranchesRoute
@@ -364,6 +372,7 @@ export interface FileRoutesById {
   '/first-login': typeof FirstLoginRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/_app/announcements': typeof AppAnnouncementsRoute
   '/_app/assets': typeof AppAssetsRoute
   '/_app/attendance': typeof AppAttendanceRouteWithChildren
   '/_app/audit': typeof AppAuditRoute
@@ -410,6 +419,7 @@ export interface FileRouteTypes {
     | '/first-login'
     | '/forgot-password'
     | '/login'
+    | '/announcements'
     | '/assets'
     | '/attendance'
     | '/audit'
@@ -454,6 +464,7 @@ export interface FileRouteTypes {
     | '/first-login'
     | '/forgot-password'
     | '/login'
+    | '/announcements'
     | '/assets'
     | '/audit'
     | '/branches'
@@ -498,6 +509,7 @@ export interface FileRouteTypes {
     | '/first-login'
     | '/forgot-password'
     | '/login'
+    | '/_app/announcements'
     | '/_app/assets'
     | '/_app/attendance'
     | '/_app/audit'
@@ -724,6 +736,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAssetsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/announcements': {
+      id: '/_app/announcements'
+      path: '/announcements'
+      fullPath: '/announcements'
+      preLoaderRoute: typeof AppAnnouncementsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/attendance/': {
       id: '/_app/attendance/'
       path: '/'
@@ -928,6 +947,7 @@ const AppUsersRouteWithChildren = AppUsersRoute._addFileChildren(
 )
 
 interface AppRouteChildren {
+  AppAnnouncementsRoute: typeof AppAnnouncementsRoute
   AppAssetsRoute: typeof AppAssetsRoute
   AppAttendanceRoute: typeof AppAttendanceRouteWithChildren
   AppAuditRoute: typeof AppAuditRoute
@@ -956,6 +976,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAnnouncementsRoute: AppAnnouncementsRoute,
   AppAssetsRoute: AppAssetsRoute,
   AppAttendanceRoute: AppAttendanceRouteWithChildren,
   AppAuditRoute: AppAuditRoute,
