@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -197,7 +198,81 @@ function DeviceMappingPage() {
         )}
       </form>
 
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="grid gap-3 md:hidden">
+        {mappings.map((mapping) => (
+          <Card key={mapping.id}>
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-semibold">{mapping.employeeName ?? mapping.employeeId}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {mapping.employeeCode ?? mapping.employeeId}
+                  </p>
+                </div>
+                <span
+                  className={`rounded-full px-2 py-1 text-xs font-medium ${mapping.status === "ACTIVE" ? "bg-emerald-50 text-emerald-700" : "bg-muted text-muted-foreground"}`}
+                >
+                  {mapping.status}
+                </span>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3 rounded-md bg-muted/40 p-3 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">Branch</p>
+                  <p className="font-medium">{branchName(mapping.homeBranchId)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Biometric ID</p>
+                  <p className="break-all font-mono font-medium">{mapping.biometricUserId}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-xs text-muted-foreground">Device</p>
+                  <p className="font-medium">
+                    {mapping.deviceName ?? "-"}{" "}
+                    {mapping.deviceCode ? `· ${mapping.deviceCode}` : ""}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setEditingMapping(mapping);
+                    setEmployeeId(mapping.employeeId);
+                    setDeviceId(mapping.deviceId ?? "");
+                    setBiometricUserId(mapping.biometricUserId);
+                  }}
+                >
+                  <Pencil className="mr-2 h-4 w-4" /> Edit
+                </Button>
+                {mapping.status === "INACTIVE" ? (
+                  <Button
+                    className="bg-emerald-600 text-white hover:bg-emerald-700"
+                    onClick={() => reactivateMapping(mapping)}
+                  >
+                    Reactivate
+                  </Button>
+                ) : (
+                  <Button
+                    className="bg-red-600 text-white hover:bg-red-700"
+                    onClick={() => deactivateMapping(mapping)}
+                  >
+                    Deactivate
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      {!loading && mappings.length === 0 && (
+        <div className="rounded-lg border bg-card p-6 md:hidden">
+          <EmptyState
+            title="No biometric mappings"
+            description="Create a mapping above to connect an employee to a biometric device user ID."
+          />
+        </div>
+      )}
+      <div className="hidden overflow-hidden rounded-lg border border-border bg-card md:block">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>

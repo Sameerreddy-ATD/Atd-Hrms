@@ -182,7 +182,70 @@ function DevicesPage() {
       />
       {loading && <p className="text-sm text-muted-foreground">Loading devices...</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="grid gap-3 md:hidden">
+        {devices.map((device) => (
+          <Card key={device.id}>
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{device.name}</p>
+                  <p className="mt-0.5 break-all font-mono text-xs text-muted-foreground">
+                    {device.serial}
+                  </p>
+                </div>
+                <Badge
+                  variant="outline"
+                  className={
+                    device.status === "online"
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : "border-red-200 bg-red-50 text-red-700"
+                  }
+                >
+                  {device.status === "online" ? "Online" : "Offline"}
+                </Badge>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3 rounded-md bg-muted/40 p-3 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">Branch</p>
+                  <p className="font-medium">
+                    {branches.find((branch) => branch.id === device.branchId)?.name ?? "-"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">IP / Port</p>
+                  <p className="break-all font-medium">
+                    {device.deviceIp
+                      ? `${device.deviceIp}${device.port ? `:${device.port}` : ""}`
+                      : "-"}
+                  </p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-xs text-muted-foreground">Last sync</p>
+                  <p className="font-medium">{device.lastSync}</p>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Button variant="outline" onClick={() => openEditDialog(device)}>
+                  <Pencil className="mr-2 h-4 w-4" /> Edit
+                </Button>
+                <Button
+                  className="bg-red-600 text-white hover:bg-red-700"
+                  onClick={() => setDeleteDeviceTarget(device)}
+                  disabled={device.status === "offline"}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Deactivate
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      {!loading && devices.length === 0 && (
+        <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground md:hidden">
+          No devices found.
+        </div>
+      )}
+      <div className="hidden overflow-hidden rounded-lg border border-border bg-card md:block">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -246,7 +309,7 @@ function DevicesPage() {
       </div>
 
       <Dialog open={showForm} onOpenChange={(open) => !open && resetForm()}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-h-[90dvh] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? "Edit biometric device" : "Add biometric device"}</DialogTitle>
             <DialogDescription>

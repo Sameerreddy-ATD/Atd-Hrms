@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
   Table,
@@ -14,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import type { LeaveRequest } from "@/mock/types";
 import { leaveApi } from "@/services/api";
-import { Plus } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 
 export const Route = createFileRoute("/_app/leave/history")({
   component: LeaveHistoryPage,
@@ -57,7 +58,58 @@ function LeaveHistoryPage() {
       />
       {loading && <p className="text-sm text-muted-foreground">Loading leave history...</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="space-y-3 md:hidden">
+        {leaveRequests.map((leave) => (
+          <Card key={leave.id}>
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-semibold">{leave.type}</p>
+                  <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <CalendarDays className="h-4 w-4 shrink-0" />
+                    {leave.from} to {leave.to}
+                  </p>
+                </div>
+                <StatusBadge status={leave.status} />
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 rounded-md bg-muted/40 p-3 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">Days</p>
+                  <p className="font-medium">{leave.days}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Applied</p>
+                  <p className="font-medium">{leave.appliedOn}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Approver</p>
+                  <p className="break-words font-medium">{leave.approverName ?? "-"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Progress</p>
+                  <p className="break-words font-medium">{leave.workflowStatus ?? leave.status}</p>
+                </div>
+              </div>
+              {(leave.cancelledDates?.length ?? 0) > 0 && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Cancelled: {leave.cancelledDates?.join(", ")}
+                </p>
+              )}
+              {["Pending", "Approved"].includes(leave.status) && (
+                <Button
+                  className="mt-3 w-full"
+                  variant="outline"
+                  disabled={cancellingId === leave.id}
+                  onClick={() => cancelLeave(leave)}
+                >
+                  {cancellingId === leave.id ? "Cancelling..." : "Cancel leave"}
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <div className="hidden overflow-hidden rounded-lg border border-border bg-card md:block">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -112,6 +164,11 @@ function LeaveHistoryPage() {
           <div className="p-6 text-sm text-muted-foreground">No leave requests found.</div>
         )}
       </div>
+      {!loading && leaveRequests.length === 0 && (
+        <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground md:hidden">
+          No leave requests found.
+        </div>
+      )}
     </div>
   );
 }

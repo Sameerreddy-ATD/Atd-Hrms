@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -41,7 +42,7 @@ import {
 } from "@/components/ui/select";
 import type { Branch, Holiday } from "@/mock/types";
 import { branchesApi, reportsApi } from "@/services/api";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { CalendarDays, Pencil, Plus, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/holidays")({
   component: HolidaysPage,
@@ -147,7 +148,44 @@ function HolidaysPage() {
       />
       {loading && <p className="text-sm text-muted-foreground">Loading holidays...</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="grid gap-3 md:hidden">
+        {holidays.map((holiday) => (
+          <Card key={holiday.id}>
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-semibold">{holiday.name}</p>
+                  <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <CalendarDays className="h-4 w-4" /> {holiday.date}
+                  </p>
+                </div>
+                <Badge variant="outline">{holiday.type}</Badge>
+              </div>
+              <div className="mt-3 rounded-md bg-muted/40 p-3">
+                <p className="text-xs text-muted-foreground">Applies to</p>
+                <p className="text-sm font-medium">{branchName(holiday.branchId)}</p>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Button variant="outline" onClick={() => openEditDialog(holiday)}>
+                  <Pencil className="mr-2 h-4 w-4" /> Edit
+                </Button>
+                <Button
+                  className="bg-red-600 text-white hover:bg-red-700"
+                  onClick={() => setDeleteHolidayTarget(holiday)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      {!loading && holidays.length === 0 && (
+        <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground md:hidden">
+          No holidays found.
+        </div>
+      )}
+      <div className="hidden overflow-hidden rounded-lg border border-border bg-card md:block">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -193,7 +231,7 @@ function HolidaysPage() {
       </div>
 
       <Dialog open={showForm} onOpenChange={(open) => !open && resetForm()}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? "Edit holiday" : "Add holiday"}</DialogTitle>
             <DialogDescription>

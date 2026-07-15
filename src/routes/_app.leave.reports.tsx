@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState } from "@/components/common/EmptyState";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -22,7 +23,7 @@ import {
 import { leaveApi } from "@/services/api";
 import type { LeaveRequest } from "@/mock/types";
 import { downloadCsv } from "@/lib/csv";
-import { Download } from "lucide-react";
+import { CalendarDays, Download } from "lucide-react";
 
 export const Route = createFileRoute("/_app/leave/reports")({
   component: LeaveReportsPage,
@@ -67,9 +68,9 @@ function LeaveReportsPage() {
         title="Leave Tracking"
         description="Read-only view of every leave request and its approval progress. HR can monitor the flow but cannot approve it here."
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Filter status" />
               </SelectTrigger>
               <SelectContent>
@@ -92,7 +93,52 @@ function LeaveReportsPage() {
       />
       {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
       {loading && <p className="text-sm text-muted-foreground">Loading leave requests...</p>}
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="space-y-3 md:hidden">
+        {filteredRows.map((row) => (
+          <Card key={row.id}>
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-semibold">{row.employeeName}</p>
+                  <p className="text-xs text-muted-foreground">{row.employeeId}</p>
+                </div>
+                <StatusBadge status={row.status} />
+              </div>
+              <p className="mt-3 text-sm font-medium">{row.type}</p>
+              <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                <CalendarDays className="h-4 w-4" /> {row.from} to {row.to} · {row.days} day(s)
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-3 border-t pt-3 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">Approver</p>
+                  <p className="break-words font-medium">
+                    {row.approverName ?? row.managerName ?? "-"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Flow</p>
+                  <p className="break-words font-medium">{row.workflowStatus ?? row.status}</p>
+                </div>
+              </div>
+              {row.reason && (
+                <div className="mt-3 rounded-md bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">Reason</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm">{row.reason}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      {!loading && filteredRows.length === 0 && (
+        <div className="rounded-lg border bg-card p-6 md:hidden">
+          <EmptyState
+            title="No leave requests"
+            description="No leave requests match the selected filter."
+          />
+        </div>
+      )}
+      <div className="hidden overflow-hidden rounded-lg border border-border bg-card md:block">
         <div className="overflow-x-auto">
           <Table className="min-w-[1100px]">
             <TableHeader>

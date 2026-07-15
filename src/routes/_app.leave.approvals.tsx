@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -97,7 +98,54 @@ function LeaveApprovalsPage() {
       {loading && <p className="text-sm text-muted-foreground">Loading leave approvals...</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <h2 className="mb-3 text-base font-semibold">Pending approvals</h2>
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="space-y-3 md:hidden">
+        {rows.map((leave) => (
+          <Card key={leave.id}>
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold">{leave.employeeName}</p>
+                  <p className="text-sm text-muted-foreground">{leave.type}</p>
+                </div>
+                <StatusBadge status={leave.status} />
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-2 rounded-md bg-muted/40 p-3 text-sm">
+                <div className="col-span-2">
+                  <p className="text-xs text-muted-foreground">Dates</p>
+                  <p className="font-medium">
+                    {leave.from} to {leave.to}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Days</p>
+                  <p className="font-medium">{leave.days}</p>
+                </div>
+              </div>
+              <div className="mt-3">
+                <p className="text-xs text-muted-foreground">Reason</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm">{leave.reason || "-"}</p>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setConfirm({ id: leave.id, action: "Rejected" })}
+                >
+                  Reject
+                </Button>
+                <Button onClick={() => setConfirm({ id: leave.id, action: "Approved" })}>
+                  Approve
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      {!loading && rows.length === 0 && (
+        <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground md:hidden">
+          No pending leave requests.
+        </div>
+      )}
+      <div className="hidden overflow-hidden rounded-lg border border-border bg-card md:block">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -158,7 +206,38 @@ function LeaveApprovalsPage() {
       </div>
 
       <h2 className="mb-3 mt-8 text-base font-semibold">Leave approval history</h2>
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="space-y-3 md:hidden">
+        {history.map((leave) => (
+          <Card key={leave.id}>
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold">{leave.employeeName}</p>
+                  <p className="text-sm text-muted-foreground">{leave.type}</p>
+                </div>
+                <StatusBadge status={leave.status} />
+              </div>
+              <p className="mt-3 text-sm">
+                {leave.from} to {leave.to} · {leave.days} day(s)
+              </p>
+              {leave.reason && (
+                <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
+                  {leave.reason}
+                </p>
+              )}
+              <p className="mt-2 text-xs text-muted-foreground">
+                Updated {leave.updatedOn ? new Date(leave.updatedOn).toLocaleDateString() : "-"}
+              </p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      {!loading && history.length === 0 && (
+        <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground md:hidden">
+          No completed leave approvals yet.
+        </div>
+      )}
+      <div className="hidden overflow-hidden rounded-lg border border-border bg-card md:block">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
