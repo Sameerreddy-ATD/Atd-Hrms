@@ -151,6 +151,9 @@ export function BulkEmployeeImport({
     instructions.addRow([
       "7. Date of Birth accepts an Excel date between 1900-01-01 and today. Leave it blank when unknown.",
     ]);
+    instructions.addRow([
+      "8. Rows 2 to 6 are examples only. Replace them with real employee details or delete them before upload.",
+    ]);
     instructions.getColumn(1).width = 100;
     instructions.getRow(1).font = { bold: true, size: 16, color: { argb: "FFD92D20" } };
 
@@ -204,6 +207,48 @@ export function BulkEmployeeImport({
             : "";
     }
     styleReferenceSheet(departmentSheet);
+
+    const sampleNames = [
+      "Sample Employee One",
+      "Sample Employee Two",
+      "Sample Employee Three",
+      "Sample Employee Four",
+      "Sample Employee Five",
+    ];
+    const sampleLevels = ["MEMBER", "SENIOR", "JUNIOR", "MEMBER", "SENIOR"];
+    const sampleGenders = ["MALE", "FEMALE", "MALE", "FEMALE", "PREFER_NOT_TO_SAY"];
+    const sampleEmploymentTypes = ["FULL_TIME", "FULL_TIME", "INTERN", "PART_TIME", "FULL_TIME"];
+    for (let index = 0; index < 5; index += 1) {
+      const mainUnit = mainUnits[index % Math.max(1, mainUnits.length)];
+      const childUnit = childUnits.find(
+        (department) => department.parentDepartmentId === mainUnit?.id,
+      );
+      const branch = branches[index % Math.max(1, branches.length)];
+      const childChoice = childUnit
+        ? `${mainUnit?.name ?? "Parent"} > ${childUnit.name}`
+        : "Use main unit";
+      const sampleRow = employees.getRow(index + 2);
+      sampleRow.values = [
+        `SAMPLE-${String(index + 1).padStart(3, "0")}`,
+        sampleNames[index],
+        `sample.employee${index + 1}@example.com`,
+        "Welcome123",
+        branch?.name ?? "",
+        mainUnit?.name ?? "",
+        childChoice,
+        childUnit?.name ? `${childUnit.name} Executive` : "Team Member",
+        sampleLevels[index],
+        new Date(1995 + index, index, 10 + index),
+        sampleGenders[index],
+        sampleEmploymentTypes[index],
+        index === 3 ? "WEDNESDAY" : "SUNDAY",
+        index === 1 ? "SATURDAY" : "",
+      ];
+      sampleRow.eachCell({ includeEmpty: true }, (cell) => {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF4CC" } };
+      });
+      sampleRow.getCell(1).note = "EXAMPLE ROW: replace with real details or delete before upload.";
+    }
 
     const values = workbook.addWorksheet("Allowed Values");
     values.addRow(["Organization Level", "Gender", "Employment Type", "Weekday"]);
