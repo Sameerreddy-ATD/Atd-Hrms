@@ -25,6 +25,7 @@ import {
   punchSourceLabel,
   punchTypeLabel,
 } from "@/lib/attendance-labels";
+import { formatStoredWorkedTime } from "@/lib/worked-time";
 import {
   Select,
   SelectContent,
@@ -254,8 +255,7 @@ function MyAttendancePage() {
                           </div>
                         </div>
                         <p className="mt-2 text-xs font-semibold tabular-nums text-foreground">
-                          Worked:{" "}
-                          {record.workedMinutes ?? Math.round((record.totalHours ?? 0) * 60)} min
+                          Worked: {formatStoredWorkedTime(record.totalHours, record.workedMinutes)}
                         </p>
                         {(record.address || record.deviceName || record.branchMovementCount) && (
                           <p className="mt-2 break-words text-xs text-muted-foreground">
@@ -277,7 +277,7 @@ function MyAttendancePage() {
                         <TableHead>Movement Details</TableHead>
                         <TableHead>Punch In (Click Location)</TableHead>
                         <TableHead>Punch Out (Click Location)</TableHead>
-                        <TableHead>Worked Minutes</TableHead>
+                        <TableHead>Worked Time</TableHead>
                         <TableHead>Status</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -355,9 +355,6 @@ function MyAttendancePage() {
                                   </a>
                                 )}
                             </TableCell>
-                            <TableCell className="text-xs font-semibold tabular-nums whitespace-nowrap">
-                              {a.workedMinutes ?? Math.round((a.totalHours ?? 0) * 60)} min
-                            </TableCell>
                             <TableCell className="text-xs whitespace-nowrap">
                               <div>{a.punchOut ?? "-"}</div>
                               <div className="mt-0.5 text-[10px] font-semibold text-muted-foreground">
@@ -377,6 +374,9 @@ function MyAttendancePage() {
                                     {a.fieldCheckOutLongitude.toFixed(4)}
                                   </a>
                                 )}
+                            </TableCell>
+                            <TableCell className="text-xs font-semibold tabular-nums whitespace-nowrap">
+                              {formatStoredWorkedTime(a.totalHours, a.workedMinutes)}
                             </TableCell>
                             <TableCell>
                               <StatusBadge status={a.status} />

@@ -16,6 +16,7 @@ import {
 import type { AttendanceRecord } from "@/mock/types";
 import { attendanceApi } from "@/services/api";
 import { punchSourceLabel } from "@/lib/attendance-labels";
+import { formatStoredWorkedTime } from "@/lib/worked-time";
 import { ArrowRight, MapPin } from "lucide-react";
 
 function calculateDistance(
@@ -122,7 +123,7 @@ function FieldAttendancePage() {
                 <TableHead>Date</TableHead>
                 <TableHead>Check In</TableHead>
                 <TableHead>Check Out</TableHead>
-                <TableHead>Worked Minutes</TableHead>
+                <TableHead>Worked Time</TableHead>
                 <TableHead>Check In-Out Distance</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
@@ -155,9 +156,6 @@ function FieldAttendancePage() {
                       "-"
                     )}
                   </TableCell>
-                  <TableCell className="font-medium tabular-nums">
-                    {r.workedMinutes ?? Math.round((r.totalHours ?? 0) * 60)} min
-                  </TableCell>
                   <TableCell>
                     <div>{r.punchOut ?? "-"}</div>
                     <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
@@ -177,6 +175,9 @@ function FieldAttendancePage() {
                     ) : (
                       "-"
                     )}
+                  </TableCell>
+                  <TableCell className="font-medium tabular-nums">
+                    {formatStoredWorkedTime(r.totalHours, r.workedMinutes)}
                   </TableCell>
                   <TableCell>
                     {r.fieldCheckInLatitude && r.fieldCheckOutLatitude

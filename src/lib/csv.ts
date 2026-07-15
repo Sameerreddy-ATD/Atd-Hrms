@@ -64,6 +64,14 @@ export function downloadExcel(
   URL.revokeObjectURL(url);
 }
 
+function formatDurationSeconds(value: number) {
+  const totalSeconds = Math.max(0, Math.round(value));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
+}
+
 export function downloadAttendanceExcel(
   filename: string,
   rows: Array<{
@@ -77,7 +85,7 @@ export function downloadAttendanceExcel(
     punchOut: string;
     sourceIn: string;
     sourceOut: string;
-    workedMinutes: number;
+    workedSeconds: number;
   }>,
 ) {
   if (rows.length === 0) return;
@@ -100,7 +108,7 @@ export function downloadAttendanceExcel(
       present: number;
       absent: number;
       total: number;
-      workedMinutes: number;
+      workedSeconds: number;
       records: typeof rows;
     }
   >();
@@ -115,7 +123,7 @@ export function downloadAttendanceExcel(
         present: 0,
         absent: 0,
         total: 0,
-        workedMinutes: 0,
+        workedSeconds: 0,
         records: [],
       };
       summaryMap.set(key, stats);
@@ -123,7 +131,7 @@ export function downloadAttendanceExcel(
 
     stats.records.push(row);
     stats.total++;
-    stats.workedMinutes += row.workedMinutes;
+    stats.workedSeconds += row.workedSeconds;
     const statusLower = row.status.toLowerCase();
     if (
       statusLower.includes("absent") ||
@@ -145,7 +153,7 @@ export function downloadAttendanceExcel(
       <Cell ss:StyleID="Header"><Data ss:Type="String">Days Present</Data></Cell>
       <Cell ss:StyleID="Header"><Data ss:Type="String">Days Absent/Leave</Data></Cell>
       <Cell ss:StyleID="Header"><Data ss:Type="String">Total Days</Data></Cell>
-      <Cell ss:StyleID="Header"><Data ss:Type="String">Worked Minutes</Data></Cell>
+      <Cell ss:StyleID="Header"><Data ss:Type="String">Worked Time (HH:MM:SS)</Data></Cell>
       <Cell ss:StyleID="Header"><Data ss:Type="String">Attendance Rate</Data></Cell>
     </Row>
   `;
@@ -160,7 +168,7 @@ export function downloadAttendanceExcel(
         <Cell ss:StyleID="PresentCell"><Data ss:Type="Number">${s.present}</Data></Cell>
         <Cell ss:StyleID="AbsentCell"><Data ss:Type="Number">${s.absent}</Data></Cell>
         <Cell><Data ss:Type="Number">${s.total}</Data></Cell>
-        <Cell><Data ss:Type="Number">${s.workedMinutes}</Data></Cell>
+        <Cell><Data ss:Type="String">${formatDurationSeconds(s.workedSeconds)}</Data></Cell>
         <Cell ss:StyleID="${rateStyle}"><Data ss:Type="String">${rate}%</Data></Cell>
       </Row>
     `;
@@ -193,7 +201,7 @@ export function downloadAttendanceExcel(
         <Cell ss:StyleID="DetailHeader"><Data ss:Type="String">Actual Branch</Data></Cell>
         <Cell ss:StyleID="DetailHeader"><Data ss:Type="String">Punch In</Data></Cell>
         <Cell ss:StyleID="DetailHeader"><Data ss:Type="String">Punch Out</Data></Cell>
-        <Cell ss:StyleID="DetailHeader"><Data ss:Type="String">Worked Minutes</Data></Cell>
+        <Cell ss:StyleID="DetailHeader"><Data ss:Type="String">Worked Time (HH:MM:SS)</Data></Cell>
         <Cell ss:StyleID="DetailHeader"><Data ss:Type="String">Source In</Data></Cell>
         <Cell ss:StyleID="DetailHeader"><Data ss:Type="String">Source Out</Data></Cell>
       </Row>
@@ -217,7 +225,7 @@ export function downloadAttendanceExcel(
           <Cell><Data ss:Type="String">${escapeXml(row.actualBranch)}</Data></Cell>
           <Cell><Data ss:Type="String">${escapeXml(row.punchIn)}</Data></Cell>
           <Cell><Data ss:Type="String">${escapeXml(row.punchOut)}</Data></Cell>
-          <Cell><Data ss:Type="Number">${row.workedMinutes}</Data></Cell>
+          <Cell><Data ss:Type="String">${formatDurationSeconds(row.workedSeconds)}</Data></Cell>
           <Cell><Data ss:Type="String">${escapeXml(row.sourceIn)}</Data></Cell>
           <Cell><Data ss:Type="String">${escapeXml(row.sourceOut)}</Data></Cell>
         </Row>

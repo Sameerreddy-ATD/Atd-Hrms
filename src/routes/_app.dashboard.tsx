@@ -37,7 +37,7 @@ import {
 } from "@/mock/types";
 import { attendanceApi, branchesApi, employeesApi, leaveApi, usersApi } from "@/services/api";
 import { downloadCsv } from "@/lib/csv";
-import { formatWorkedTime, workedMinutes, workedTime } from "@/lib/worked-time";
+import { formatWorkedTime, workedTime } from "@/lib/worked-time";
 import {
   AlertTriangle,
   Building2,
@@ -514,9 +514,6 @@ function MarkAttendanceCard({
               <p className="text-xs font-medium text-muted-foreground">Worked today</p>
               <p className="font-mono text-3xl font-semibold tabular-nums text-foreground sm:text-4xl">
                 {formatWorkedTime(workSession.milliseconds)}
-              </p>
-              <p className="mt-1 text-sm font-semibold tabular-nums text-primary">
-                {workedMinutes(workSession.milliseconds)} worked minutes
               </p>
             </div>
           </div>

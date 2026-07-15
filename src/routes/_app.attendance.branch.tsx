@@ -23,6 +23,7 @@ import {
 import type { AttendanceRecord, Branch } from "@/mock/types";
 import { attendanceApi, branchesApi } from "@/services/api";
 import { punchSourceLabel } from "@/lib/attendance-labels";
+import { formatStoredWorkedTime } from "@/lib/worked-time";
 import { ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/_app/attendance/branch")({
@@ -126,7 +127,7 @@ function BranchAttendancePage() {
                 <TableHead>Home Branch</TableHead>
                 <TableHead>Punch In</TableHead>
                 <TableHead>Punch Out</TableHead>
-                <TableHead>Worked Minutes</TableHead>
+                <TableHead>Worked Time</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
@@ -145,14 +146,14 @@ function BranchAttendancePage() {
                       {punchSourceLabel(r.punchInSource, r.punchInBranchId, branches)}
                     </div>
                   </TableCell>
-                  <TableCell className="font-medium tabular-nums">
-                    {r.workedMinutes ?? Math.round((r.totalHours ?? 0) * 60)} min
-                  </TableCell>
                   <TableCell>
                     <div>{r.punchOut ?? "-"}</div>
                     <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
                       {punchSourceLabel(r.punchOutSource, r.punchOutBranchId, branches)}
                     </div>
+                  </TableCell>
+                  <TableCell className="font-medium tabular-nums">
+                    {formatStoredWorkedTime(r.totalHours, r.workedMinutes)}
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={r.status} />

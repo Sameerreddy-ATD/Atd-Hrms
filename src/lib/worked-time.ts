@@ -53,6 +53,9 @@ export function formatWorkedTime(milliseconds: number) {
   return [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
 }
 
-export function workedMinutes(milliseconds: number) {
-  return Math.max(0, Math.floor(milliseconds / 60_000));
+export function formatStoredWorkedTime(totalHours?: number, workedMinutes?: number) {
+  const milliseconds = Number.isFinite(totalHours)
+    ? Math.max(0, totalHours ?? 0) * 3_600_000
+    : Math.max(0, workedMinutes ?? 0) * 60_000;
+  return formatWorkedTime(milliseconds);
 }

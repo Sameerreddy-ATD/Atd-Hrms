@@ -33,6 +33,7 @@ import {
   movementDirectionLabel,
   punchSourceLabel,
 } from "@/lib/attendance-labels";
+import { formatStoredWorkedTime } from "@/lib/worked-time";
 import {
   ArrowRight,
   CalendarRange,
@@ -332,7 +333,9 @@ function DayLogsPage() {
                       actualBranch: branchName(row.actualBranchId),
                       punchIn: row.punchIn ?? "",
                       punchOut: row.punchOut ?? "",
-                      workedMinutes: row.workedMinutes ?? Math.round((row.totalHours ?? 0) * 60),
+                      workedSeconds: Math.round(
+                        (row.totalHours ?? (row.workedMinutes ?? 0) / 60) * 3600,
+                      ),
                       sourceIn: punchSourceLabel(row.punchInSource, row.punchInBranchId, branches),
                       sourceOut: punchSourceLabel(
                         row.punchOutSource,
@@ -365,7 +368,7 @@ function DayLogsPage() {
                       <TableHead>Actual Branch</TableHead>
                       <TableHead>Punch In</TableHead>
                       <TableHead>Punch Out</TableHead>
-                      <TableHead>Worked Minutes</TableHead>
+                      <TableHead>Worked Time</TableHead>
                       <TableHead className="text-right">Navigation</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -398,7 +401,7 @@ function DayLogsPage() {
                           </div>
                         </TableCell>
                         <TableCell className="font-medium tabular-nums">
-                          {row.workedMinutes ?? Math.round((row.totalHours ?? 0) * 60)} min
+                          {formatStoredWorkedTime(row.totalHours, row.workedMinutes)}
                         </TableCell>
                         <TableCell className="text-right">
                           <Button

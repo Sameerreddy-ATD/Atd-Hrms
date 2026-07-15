@@ -17,6 +17,7 @@ import {
   movementSourceLabel,
   captureSourceLabel,
 } from "@/lib/attendance-labels";
+import { formatWorkedTime } from "@/lib/worked-time";
 import {
   Fingerprint,
   MapPin,
@@ -81,14 +82,8 @@ export function AttendanceTimelineSheet({
       const d1 = new Date(t1);
       const d2 = new Date(t2);
       const diffMs = d2.getTime() - d1.getTime();
-      const diffMins = Math.floor(diffMs / 60000);
-      if (diffMins <= 0) return "";
-      const hrs = Math.floor(diffMins / 60);
-      const mins = diffMins % 60;
-      if (hrs > 0) {
-        return `${hrs} hr ${mins} min`;
-      }
-      return `${mins} min`;
+      if (diffMs <= 0) return "";
+      return formatWorkedTime(diffMs);
     } catch {
       return "";
     }
