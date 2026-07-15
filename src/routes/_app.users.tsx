@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { CreateLoginForm } from "@/components/users/CreateLoginForm";
 import { BulkEmployeeImport } from "@/components/employees/BulkEmployeeImport";
 import { PageHeader } from "@/components/common/PageHeader";
+import { LoadingState } from "@/components/common/LoadingState";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -230,7 +231,7 @@ function UsersPage() {
           </>
         }
       />
-      {loading && <p className="text-sm text-muted-foreground">Loading users...</p>}
+      {loading && <LoadingState label="Loading user logins" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <TableToolbar>
         <div className="relative min-w-0 flex-1">

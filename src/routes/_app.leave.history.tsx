@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { LoadingState } from "@/components/common/LoadingState";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/common/StatusBadge";
@@ -56,7 +57,7 @@ function LeaveHistoryPage() {
         title="Leave History"
         description="All your submitted leave requests and their current status."
       />
-      {loading && <p className="text-sm text-muted-foreground">Loading leave history...</p>}
+      {loading && <LoadingState label="Loading leave history" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="space-y-3 md:hidden">
         {leaveRequests.map((leave) => (

@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { LoadingState } from "@/components/common/LoadingState";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -151,7 +152,7 @@ function BranchesPage() {
           </Button>
         }
       />
-      {loading && <p className="text-sm text-muted-foreground">Loading branches...</p>}
+      {loading && <LoadingState label="Loading branches" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="grid gap-4 sm:grid-cols-2">
         {branches.map((b) => (

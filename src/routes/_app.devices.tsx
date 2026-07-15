@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { LoadingState } from "@/components/common/LoadingState";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -180,7 +181,7 @@ function DevicesPage() {
           </div>
         }
       />
-      {loading && <p className="text-sm text-muted-foreground">Loading devices...</p>}
+      {loading && <LoadingState label="Loading biometric devices" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="grid gap-3 md:hidden">
         {devices.map((device) => (

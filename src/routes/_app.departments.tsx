@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { LoadingState } from "@/components/common/LoadingState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -294,7 +295,7 @@ function DeptPage() {
         description="Build the company structure from CEO-level teams to subteams and functions."
       />
 
-      {loading && <p className="text-sm text-muted-foreground">Loading departments...</p>}
+      {loading && <LoadingState label="Loading organization chart" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       {!loading && departments.length > 0 && (
         <div className="overflow-hidden rounded-lg border border-border bg-card">

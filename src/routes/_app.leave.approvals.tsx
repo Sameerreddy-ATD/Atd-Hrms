@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { LoadingState } from "@/components/common/LoadingState";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -95,7 +96,7 @@ function LeaveApprovalsPage() {
         title="Leave Approvals"
         description="Approve or reject leave assigned directly to you as the employee's organization head."
       />
-      {loading && <p className="text-sm text-muted-foreground">Loading leave approvals...</p>}
+      {loading && <LoadingState label="Loading leave approvals" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <h2 className="mb-3 text-base font-semibold">Pending approvals</h2>
       <div className="space-y-3 md:hidden">

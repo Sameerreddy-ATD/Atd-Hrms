@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { LoadingState } from "@/components/common/LoadingState";
 import { TableToolbar } from "@/components/common/TableToolbar";
 import { EmptyState } from "@/components/common/EmptyState";
 import {
@@ -148,7 +149,7 @@ function AttendanceOverviewPage() {
         </Select>
       </TableToolbar>
 
-      {loading && <p className="text-sm text-muted-foreground">Loading employees...</p>}
+      {loading && <LoadingState label="Loading attendance logs" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <div className="overflow-hidden rounded-lg border border-border bg-card">

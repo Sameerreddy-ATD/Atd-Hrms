@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { LoadingState } from "@/components/common/LoadingState";
 import { TableToolbar } from "@/components/common/TableToolbar";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -165,7 +166,7 @@ function EmployeesPage() {
             : "Employees in your organization unit and its child teams."
         }
       />
-      {loading && <p className="text-sm text-muted-foreground">Loading employees...</p>}
+      {loading && <LoadingState label="Loading employees" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <TableToolbar>
         <div className="relative min-w-0 flex-1">

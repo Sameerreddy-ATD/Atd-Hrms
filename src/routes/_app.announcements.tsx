@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { CalendarClock, Megaphone, Power, Send } from "lucide-react";
+import { CalendarClock, LoaderCircle, Megaphone, Plus, Power, Send, X } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState } from "@/components/common/EmptyState";
+import { LoadingState } from "@/components/common/LoadingState";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,6 +34,7 @@ function AnnouncementsPage() {
   const [filter, setFilter] = useState("active");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showComposer, setShowComposer] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({
     title: "",
@@ -63,6 +65,22 @@ function AnnouncementsPage() {
     });
   }, [announcements, filter]);
 
+  const summary = useMemo(() => {
+    const now = Date.now();
+    return announcements.reduce(
+      (result, announcement) => {
+        const expired = Boolean(announcement.expiresAt && +new Date(announcement.expiresAt) <= now);
+        if (announcement.isActive && !expired) result.active += 1;
+        if (announcement.isActive && !expired && announcement.priority === "URGENT") {
+          result.urgent += 1;
+        }
+        if (expired) result.expired += 1;
+        return result;
+      },
+      { active: 0, urgent: 0, expired: 0 },
+    );
+  }, [announcements]);
+
   async function publish(event: React.FormEvent) {
     event.preventDefault();
     if (!form.expiresAt || new Date(form.expiresAt) <= new Date()) {
@@ -78,6 +96,7 @@ function AnnouncementsPage() {
         expiresAt: new Date(form.expiresAt).toISOString(),
       });
       setForm({ title: "", message: "", priority: "NORMAL", expiresAt: "" });
+      setShowComposer(false);
       await load();
       toast.success("Announcement published to everyone");
     } catch (err) {
@@ -94,25 +113,52 @@ function AnnouncementsPage() {
         description="Company updates published for every Anytime Diesel employee."
         actions={
           canManage ? (
-            <Select value={filter} onValueChange={setFilter}>
-              <SelectTrigger className="w-full sm:w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="expired">Expired</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-              </SelectContent>
-            </Select>
+            <>
+              <Select value={filter} onValueChange={setFilter}>
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="expired">Expired</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button onClick={() => setShowComposer((current) => !current)}>
+                {showComposer ? <X className="mr-2 h-4 w-4" /> : <Plus className="mr-2 h-4 w-4" />}
+                {showComposer ? "Close" : "New announcement"}
+              </Button>
+            </>
           ) : undefined
         }
       />
 
-      {canManage && (
+      {canManage && !loading && !error && (
+        <div className="mb-5 grid grid-cols-3 divide-x rounded-lg border bg-muted/25">
+          {[
+            ["Active", summary.active],
+            ["Urgent", summary.urgent],
+            ["Expired", summary.expired],
+          ].map(([label, value]) => (
+            <div key={label} className="min-w-0 px-2 py-3 text-center sm:px-4">
+              <p className="text-lg font-semibold tabular-nums sm:text-xl">{value}</p>
+              <p className="truncate text-xs text-muted-foreground sm:text-sm">{label}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {canManage && showComposer && (
         <form
           onSubmit={publish}
-          className="mb-5 grid gap-4 rounded-lg border bg-card p-4 sm:p-5 lg:grid-cols-2"
+          className="mb-5 grid gap-4 rounded-lg border border-primary/20 bg-primary/[0.025] p-4 sm:p-5 lg:grid-cols-2"
         >
+          <div className="lg:col-span-2">
+            <h2 className="font-semibold">Publish company announcement</h2>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              This will be visible to every active employee until the selected time.
+            </p>
+          </div>
           <div className="lg:col-span-2">
             <div className="mb-1.5 flex items-center justify-between gap-3">
               <Label htmlFor="announcement-page-title">Title</Label>
@@ -184,14 +230,18 @@ function AnnouncementsPage() {
           </div>
           <div className="flex justify-end lg:col-span-2">
             <Button type="submit" disabled={saving} className="w-full sm:w-auto">
-              <Send className="mr-2 h-4 w-4" />
+              {saving ? (
+                <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="mr-2 h-4 w-4" />
+              )}
               {saving ? "Publishing..." : "Publish Announcement"}
             </Button>
           </div>
         </form>
       )}
 
-      {loading && <p className="text-sm text-muted-foreground">Loading announcements...</p>}
+      {loading && <LoadingState label="Loading announcements" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       {!loading && !error && visible.length === 0 && (
         <EmptyState
@@ -204,16 +254,16 @@ function AnnouncementsPage() {
         />
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-2">
         {visible.map((announcement) => (
           <Card
             key={announcement.id}
             className={
               announcement.priority === "URGENT"
-                ? "border-red-300"
+                ? "border-l-4 border-l-red-500"
                 : announcement.priority === "IMPORTANT"
-                  ? "border-amber-300"
-                  : "border-primary/20"
+                  ? "border-l-4 border-l-amber-500"
+                  : "border-l-4 border-l-primary/50"
             }
           >
             <CardContent className="p-4 sm:p-5">
@@ -231,9 +281,9 @@ function AnnouncementsPage() {
                   <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">
                     {announcement.message}
                   </p>
-                  <div className="mt-4 flex flex-col gap-2 border-t pt-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+                  <div className="mt-4 grid gap-2 border-t pt-3 text-xs text-muted-foreground sm:grid-cols-2 sm:items-center">
                     <span>Published by {announcement.authorName}</span>
-                    <span className="flex items-center gap-1.5">
+                    <span className="flex items-start gap-1.5 sm:justify-self-end sm:text-right">
                       <CalendarClock className="h-3.5 w-3.5" />
                       Until{" "}
                       {announcement.expiresAt

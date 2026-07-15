@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { LoadingState } from "@/components/common/LoadingState";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -43,7 +44,7 @@ function DeviceSettingsPage() {
         title="Device Settings"
         description="Configured biometric devices and sync status."
       />
-      {loading && <p className="text-sm text-muted-foreground">Loading devices...</p>}
+      {loading && <LoadingState label="Loading device settings" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">

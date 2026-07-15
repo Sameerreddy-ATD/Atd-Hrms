@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { LoadingState } from "@/components/common/LoadingState";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { TableToolbar } from "@/components/common/TableToolbar";
 import { Input } from "@/components/ui/input";
@@ -112,7 +113,7 @@ function FieldAttendancePage() {
           aria-label="To date"
         />
       </TableToolbar>
-      {loading && <p className="text-sm text-muted-foreground">Loading field attendance...</p>}
+      {loading && <LoadingState label="Loading field attendance" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">

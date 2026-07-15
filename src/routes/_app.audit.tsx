@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { LoadingState } from "@/components/common/LoadingState";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { StatCard } from "@/components/common/StatCard";
@@ -58,7 +59,7 @@ function AuditPage() {
         title="Audit Logs"
         description="A protected history of saved system activity and changes."
       />
-      {loading && <p className="text-sm text-muted-foreground">Loading audit logs...</p>}
+      {loading && <LoadingState label="Loading audit logs" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       {!loading && summary && (
         <div className="mb-4 grid gap-3 sm:grid-cols-3">

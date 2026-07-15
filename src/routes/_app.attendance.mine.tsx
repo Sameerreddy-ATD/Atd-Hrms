@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { LoadingState } from "@/components/common/LoadingState";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -178,12 +179,7 @@ function MyAttendancePage() {
         }
       />
 
-      {loading && (
-        <div className="py-12 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          Loading your attendance data...
-        </div>
-      )}
+      {loading && <LoadingState label="Loading your attendance data" />}
 
       {error && (
         <div className="p-4 text-sm text-destructive bg-destructive/5 border border-destructive/10 rounded-lg">

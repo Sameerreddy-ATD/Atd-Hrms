@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { LoadingState } from "@/components/common/LoadingState";
 import { StatCard } from "@/components/common/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -111,7 +112,7 @@ function SettingsPage() {
         title="System Settings"
         description="Read-only operational configuration currently active in the backend."
       />
-      {loading && <p className="text-sm text-muted-foreground">Loading settings...</p>}
+      {loading && <LoadingState label="Loading system settings" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       {isDeveloperAdmin && (

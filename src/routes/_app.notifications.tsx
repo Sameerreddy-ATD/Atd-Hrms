@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { LoadingState } from "@/components/common/LoadingState";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -449,7 +450,7 @@ function NotificationsPage() {
         </p>
       )}
 
-      {loading && <p className="text-sm text-muted-foreground">Loading notifications...</p>}
+      {loading && <LoadingState label="Loading notifications" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="space-y-3">
         {items.map((n) => {

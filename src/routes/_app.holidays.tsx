@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { LoadingState } from "@/components/common/LoadingState";
 import {
   Table,
   TableBody,
@@ -146,7 +147,7 @@ function HolidaysPage() {
           </Button>
         }
       />
-      {loading && <p className="text-sm text-muted-foreground">Loading holidays...</p>}
+      {loading && <LoadingState label="Loading holidays" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="grid gap-3 md:hidden">
         {holidays.map((holiday) => (

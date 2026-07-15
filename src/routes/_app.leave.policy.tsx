@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { LoadingState } from "@/components/common/LoadingState";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -105,7 +106,7 @@ function PolicyPage() {
         </CardContent>
       </Card>
 
-      {loading && <p className="text-sm text-muted-foreground">Loading leave types...</p>}
+      {loading && <LoadingState label="Loading leave types" />}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {types.map((type) => (
           <Card key={type.id}>

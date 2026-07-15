@@ -13,6 +13,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { LoadingState } from "@/components/common/LoadingState";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -288,11 +289,7 @@ function TasksPage() {
         </div>
       </div>
 
-      {loading && (
-        <div className="rounded-lg border p-8 text-center text-sm text-muted-foreground">
-          Loading tasks...
-        </div>
-      )}
+      {loading && <LoadingState label="Loading tasks" />}
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           {error}

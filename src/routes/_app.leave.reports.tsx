@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { LoadingState } from "@/components/common/LoadingState";
 import { EmptyState } from "@/components/common/EmptyState";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -92,7 +93,7 @@ function LeaveReportsPage() {
         }
       />
       {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
-      {loading && <p className="text-sm text-muted-foreground">Loading leave requests...</p>}
+      {loading && <LoadingState label="Loading leave requests" />}
       <div className="space-y-3 md:hidden">
         {filteredRows.map((row) => (
           <Card key={row.id}>

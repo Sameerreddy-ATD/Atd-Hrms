@@ -4,6 +4,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { PermissionSetup } from "@/components/layout/PermissionSetup";
+import { LoadingState } from "@/components/common/LoadingState";
 import { useAuth } from "@/lib/auth";
 
 // FRONTEND-ONLY GUARD
@@ -27,8 +28,8 @@ function AppLayout() {
 
   if (loading || !user || user.mustChangePassword) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
-        Loading...
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <LoadingState label="Preparing your workspace" className="min-h-screen" />
       </div>
     );
   }

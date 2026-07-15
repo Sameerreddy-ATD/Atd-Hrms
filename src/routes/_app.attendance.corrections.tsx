@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { LoadingState } from "@/components/common/LoadingState";
 import { EmptyState } from "@/components/common/EmptyState";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { TableToolbar } from "@/components/common/TableToolbar";
@@ -202,9 +203,7 @@ function AttendanceCorrectionsPage() {
         </TabsList>
 
         <TabsContent value="requests" className="mt-4">
-          {loadingReqs && (
-            <p className="text-sm text-muted-foreground">Loading pending requests...</p>
-          )}
+          {loadingReqs && <LoadingState label="Loading pending requests" compact />}
 
           <div className="overflow-hidden rounded-lg border border-border bg-card">
             <div className="overflow-x-auto">
@@ -310,7 +309,7 @@ function AttendanceCorrectionsPage() {
             />
           </TableToolbar>
 
-          {loading && <p className="text-sm text-muted-foreground">Loading system alerts...</p>}
+          {loading && <LoadingState label="Loading system alerts" compact />}
           {error && <p className="text-sm text-destructive">{error}</p>}
 
           <div className="overflow-hidden rounded-lg border border-border bg-card">

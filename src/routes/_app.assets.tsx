@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { LoadingState } from "@/components/common/LoadingState";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -440,7 +441,7 @@ function AssetsPage() {
         </Select>
       </div>
 
-      {loading && <p className="mt-5 text-sm text-muted-foreground">Loading assets...</p>}
+      {loading && <LoadingState label="Loading assets" className="mt-5" />}
       {error && <p className="mt-5 text-sm text-destructive">{error}</p>}
       {!loading && !error && (
         <div className="mt-5 overflow-hidden rounded-lg border border-border bg-card">

@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { LoadingState } from "@/components/common/LoadingState";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { AttendanceTimelineSheet } from "@/components/common/AttendanceTimelineSheet";
 import { TableToolbar } from "@/components/common/TableToolbar";
@@ -352,9 +353,7 @@ function DayLogsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {loadingEmployeeRows && (
-            <p className="text-sm text-muted-foreground">Loading employee day logs...</p>
-          )}
+          {loadingEmployeeRows && <LoadingState label="Loading employee day logs" compact />}
           {employeeError && <p className="text-sm text-destructive">{employeeError}</p>}
           {!loadingEmployeeRows && !employeeError && (
             <div className="overflow-hidden rounded-lg border border-border">
@@ -474,9 +473,7 @@ function DayLogsPage() {
             </div>
           </TableToolbar>
 
-          {loadingMovementRows && (
-            <p className="text-sm text-muted-foreground">Loading movement logs...</p>
-          )}
+          {loadingMovementRows && <LoadingState label="Loading movement logs" compact />}
           {movementError && <p className="text-sm text-destructive">{movementError}</p>}
           {!loadingMovementRows && !movementError && (
             <div className="overflow-hidden rounded-lg border border-border">
