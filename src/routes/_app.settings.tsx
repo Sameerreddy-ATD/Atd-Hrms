@@ -1,29 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatCard } from "@/components/common/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  auditApi,
-  biometricApi,
-  branchesApi,
-  reportsApi,
-  securitySettingsApi,
-  usersApi,
-} from "@/services/api";
+import { auditApi, biometricApi, branchesApi, reportsApi, usersApi } from "@/services/api";
 import { BellRing, Building2, CalendarCheck, Fingerprint, Shield, Users } from "lucide-react";
-import { useAuth } from "@/lib/auth";
-import { PasswordInput } from "@/components/common/PasswordInput";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/_app/settings")({
   component: SettingsPage,
 });
 
 function SettingsPage() {
-  const { user } = useAuth();
   const [counts, setCounts] = useState({
     users: 0,
     branches: 0,
@@ -34,10 +21,6 @@ function SettingsPage() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [predefinedPassword, setPredefinedPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordConfigured, setPasswordConfigured] = useState(false);
-  const [savingPassword, setSavingPassword] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -47,9 +30,8 @@ function SettingsPage() {
       biometricApi.list(),
       reportsApi.holidays(),
       auditApi.list(),
-      securitySettingsApi.get(),
     ])
-      .then(([users, branches, departments, devices, holidays, auditLogs, security]) => {
+      .then(([users, branches, departments, devices, holidays, auditLogs]) => {
         setCounts({
           users: users.length,
           branches: branches.length,
@@ -58,7 +40,6 @@ function SettingsPage() {
           holidays: holidays.length,
           auditLogs: auditLogs.length,
         });
-        setPasswordConfigured(security.predefinedPasswordConfigured);
       })
       .catch((err) => setError((err as Error).message))
       .finally(() => setLoading(false));
@@ -93,67 +74,6 @@ function SettingsPage() {
           <SettingRow label="Attendance source" value="Thumb scanner and mobile GPS" />
         </CardContent>
       </Card>
-
-      {user && ["developer_admin", "main_admin", "hr"].includes(user.role) && (
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="text-sm">Predefined New-Account Password</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="mb-4 text-sm text-muted-foreground">
-              {passwordConfigured
-                ? "A predefined password is configured. Its value is never displayed or stored as plain text."
-                : "No predefined password is configured yet."}
-            </p>
-            <form
-              className="grid max-w-xl gap-4 sm:grid-cols-2"
-              onSubmit={async (event) => {
-                event.preventDefault();
-                if (predefinedPassword !== confirmPassword) {
-                  toast.error("Passwords do not match");
-                  return;
-                }
-                setSavingPassword(true);
-                try {
-                  await securitySettingsApi.updatePredefinedPassword(predefinedPassword);
-                  setPasswordConfigured(true);
-                  setPredefinedPassword("");
-                  setConfirmPassword("");
-                  toast.success("Predefined password updated");
-                } catch (err) {
-                  toast.error((err as Error).message);
-                } finally {
-                  setSavingPassword(false);
-                }
-              }}
-            >
-              <div className="space-y-1.5">
-                <Label htmlFor="predefined-password">New predefined password</Label>
-                <PasswordInput
-                  id="predefined-password"
-                  value={predefinedPassword}
-                  onChange={(event) => setPredefinedPassword(event.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="confirm-predefined-password">Confirm password</Label>
-                <PasswordInput
-                  id="confirm-predefined-password"
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  required
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <Button type="submit" disabled={savingPassword}>
-                  Update predefined password
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

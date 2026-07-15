@@ -84,7 +84,6 @@ import {
   loginSchema,
   mobileEventSchema,
   profileEditSchema,
-  predefinedPasswordSchema,
   resetPasswordSchema,
   taskLogSchema,
   taskSchema,
@@ -928,18 +927,7 @@ export function createApp() {
         }
       }
       if (shouldCreateEmployee) await assertValidManager("new-employee", reportingManagerId);
-      const predefinedPassword = body.password
-        ? null
-        : await prisma.systemSetting.findUnique({ where: { key: "PREDEFINED_PASSWORD_HASH" } });
-      if (!body.password && !predefinedPassword) {
-        throw new HttpError(
-          400,
-          "No predefined password is configured. Ask HR or Admin to configure it in System Settings.",
-        );
-      }
-      const passwordHash = body.password
-        ? await hashPassword(body.password)
-        : predefinedPassword!.value;
+      const passwordHash = await hashPassword(body.password);
       const user = await prisma.$transaction(async (tx) => {
         const employee = shouldCreateEmployee
           ? await tx.employee.create({
@@ -986,45 +974,6 @@ export function createApp() {
         ipAddress: req.ip,
       });
       res.status(201).json(userDto(user));
-    }),
-  );
-
-  app.get(
-    "/settings/security",
-    requireAuth,
-    requireRoles(Role.DEVELOPER_ADMIN),
-    asyncHandler(async (_req, res) => {
-      const setting = await prisma.systemSetting.findUnique({
-        where: { key: "PREDEFINED_PASSWORD_HASH" },
-      });
-      res.json({ predefinedPasswordConfigured: Boolean(setting) });
-    }),
-  );
-
-  app.put(
-    "/settings/security/predefined-password",
-    requireAuth,
-    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
-    asyncHandler(async (req, res) => {
-      const body = predefinedPasswordSchema.parse(req.body);
-      await prisma.systemSetting.upsert({
-        where: { key: "PREDEFINED_PASSWORD_HASH" },
-        create: {
-          key: "PREDEFINED_PASSWORD_HASH",
-          value: await hashPassword(body.password),
-          updatedById: req.user!.id,
-        },
-        update: {
-          value: await hashPassword(body.password),
-          updatedById: req.user!.id,
-        },
-      });
-      await audit({
-        action: "predefined temporary password updated",
-        performedByUserId: req.user!.id,
-        ipAddress: req.ip,
-      });
-      res.json({ ok: true, predefinedPasswordConfigured: true });
     }),
   );
 

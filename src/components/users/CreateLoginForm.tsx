@@ -70,7 +70,6 @@ export function CreateLoginForm({
     "FULL_TIME",
   );
   const [weeklyOffDays, setWeeklyOffDays] = useState<string[]>(["SUNDAY"]);
-  const usePredefinedPassword = false;
   const [temporaryPassword, setTemporaryPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -173,8 +172,16 @@ export function CreateLoginForm({
       toast.error("Full name is required");
       return;
     }
-    if (!email || (!usePredefinedPassword && !temporaryPassword)) {
+    if (!email || !temporaryPassword) {
       toast.error("Email and temporary password are required");
+      return;
+    }
+    if (
+      temporaryPassword.length < 10 ||
+      !/[A-Z]/.test(temporaryPassword) ||
+      !/[0-9]/.test(temporaryPassword)
+    ) {
+      toast.error("Password must be at least 10 characters with an uppercase letter and number");
       return;
     }
     setLoading(true);
@@ -186,7 +193,7 @@ export function CreateLoginForm({
         phone: undefined,
         active: true,
         mustChangePassword: true,
-        password: usePredefinedPassword ? undefined : temporaryPassword,
+        password: temporaryPassword,
       };
 
       if (creationMode === "link") {
@@ -273,10 +280,13 @@ export function CreateLoginForm({
           <PasswordInput
             value={temporaryPassword}
             autoComplete="new-password"
+            required
+            minLength={10}
             onChange={(e) => setTemporaryPassword(e.target.value)}
           />
           <p className="text-xs text-muted-foreground">
-            The user changes this after first sign in.
+            At least 10 characters, including an uppercase letter and number. The user changes it
+            after first sign in.
           </p>
         </div>
 

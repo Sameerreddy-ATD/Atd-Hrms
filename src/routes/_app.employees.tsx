@@ -172,6 +172,7 @@ function EmployeesPage() {
               <BulkEmployeeImport
                 branches={branches}
                 departments={departments}
+                existingEmployees={employees}
                 onImported={async () => setEmployees(await employeesApi.list())}
               />
               <Button

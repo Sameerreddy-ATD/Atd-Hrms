@@ -21,7 +21,12 @@ export const createUserSchema = z.object({
   name: z.string().min(2).max(120),
   email: z.string().email().max(255),
   phone: z.string().max(30).optional(),
-  password: z.string().min(10).max(200).optional(),
+  password: z
+    .string()
+    .min(10)
+    .max(200)
+    .regex(/[A-Z]/, "Password must contain an uppercase letter")
+    .regex(/[0-9]/, "Password must contain a number"),
   role: z.nativeEnum(Role).optional(),
   employeeId: z.string().optional(),
   employeeCode: z.string().max(40).optional(),
@@ -40,15 +45,6 @@ export const createUserSchema = z.object({
     .array(z.enum(["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"]))
     .max(7)
     .optional(),
-});
-
-export const predefinedPasswordSchema = z.object({
-  password: z
-    .string()
-    .min(10)
-    .max(200)
-    .regex(/[A-Z]/, "Password must contain an uppercase letter")
-    .regex(/[0-9]/, "Password must contain a number"),
 });
 
 export const updateUserSchema = z.object({

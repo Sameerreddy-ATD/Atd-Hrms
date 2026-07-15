@@ -154,18 +154,6 @@ export const usersApi = {
     }),
 };
 
-export const securitySettingsApi = {
-  get: () => request<{ predefinedPasswordConfigured: boolean }>("/settings/security"),
-  updatePredefinedPassword: (password: string) =>
-    request<{ ok: boolean; predefinedPasswordConfigured: boolean }>(
-      "/settings/security/predefined-password",
-      {
-        method: "PUT",
-        body: JSON.stringify({ password }),
-      },
-    ),
-};
-
 export const employeesApi = {
   list: () => request<User[]>("/employees"),
   isReportingManager: () =>
