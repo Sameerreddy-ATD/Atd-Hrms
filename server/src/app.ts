@@ -2123,27 +2123,38 @@ export function createApp() {
           e.eventDate.toISOString().slice(0, 10) === summary.date.toISOString().slice(0, 10),
       );
 
-      const firstEvent = summaryEvents[0];
-      const lastEvent = summaryEvents[summaryEvents.length - 1];
+      const inEventTypes = new Set<EventType>([
+        EventType.OFFICE_IN,
+        EventType.BRANCH_IN,
+        EventType.FIELD_CHECK_IN,
+        EventType.CLIENT_CHECK_IN,
+      ]);
+      const outEventTypes = new Set<EventType>([
+        EventType.OFFICE_OUT,
+        EventType.BRANCH_OUT,
+        EventType.FIELD_CHECK_OUT,
+        EventType.CLIENT_CHECK_OUT,
+      ]);
+      const firstInEvent = summaryEvents.find((event) => inEventTypes.has(event.eventType));
+      const lastOutEvent = [...summaryEvents]
+        .reverse()
+        .find((event) => outEventTypes.has(event.eventType));
+
+      const sourceLabel = (event: (typeof summaryEvents)[number] | undefined) =>
+        event?.eventSource === "THUMB_SCANNER"
+          ? "Thumb Scanner"
+          : event?.eventSource === "MOBILE_GPS"
+            ? "Mobile GPS"
+            : undefined;
 
       const dto = attendanceRecordDto(summary);
 
       return {
         ...dto,
-        punchInSource:
-          firstEvent?.eventSource === "THUMB_SCANNER"
-            ? "Thumb Scanner"
-            : firstEvent?.eventSource === "MOBILE_GPS"
-              ? "Mobile GPS"
-              : dto.source,
-        punchInBranchId: firstEvent?.branchId ?? summary.primaryAttendedBranchId ?? undefined,
-        punchOutSource:
-          lastEvent?.eventSource === "THUMB_SCANNER"
-            ? "Thumb Scanner"
-            : lastEvent?.eventSource === "MOBILE_GPS"
-              ? "Mobile GPS"
-              : dto.source,
-        punchOutBranchId: lastEvent?.branchId ?? summary.primaryAttendedBranchId ?? undefined,
+        punchInSource: sourceLabel(firstInEvent),
+        punchInBranchId: firstInEvent?.branchId ?? undefined,
+        punchOutSource: sourceLabel(lastOutEvent),
+        punchOutBranchId: lastOutEvent?.branchId ?? undefined,
       };
     });
 

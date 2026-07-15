@@ -205,6 +205,7 @@ export interface AttendanceRecord {
   fieldVisitCount?: number;
   clientVisitCount?: number;
   totalHours?: number;
+  workedMinutes?: number;
   officeHours?: number;
   fieldHours?: number;
   clientVisitHours?: number;

@@ -122,6 +122,7 @@ function FieldAttendancePage() {
                 <TableHead>Date</TableHead>
                 <TableHead>Check In</TableHead>
                 <TableHead>Check Out</TableHead>
+                <TableHead>Worked Minutes</TableHead>
                 <TableHead>Check In-Out Distance</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
@@ -153,6 +154,9 @@ function FieldAttendancePage() {
                     ) : (
                       "-"
                     )}
+                  </TableCell>
+                  <TableCell className="font-medium tabular-nums">
+                    {r.workedMinutes ?? Math.round((r.totalHours ?? 0) * 60)} min
                   </TableCell>
                   <TableCell>
                     <div>{r.punchOut ?? "-"}</div>

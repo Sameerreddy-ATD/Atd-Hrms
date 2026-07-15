@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatWorkedTime, workedTime } from "../src/lib/worked-time.js";
+import { formatWorkedTime, workedMinutes, workedTime } from "../src/lib/worked-time.js";
 
 describe("worked time", () => {
   it("adds completed mixed-source sessions without checked-out gaps", () => {
@@ -23,5 +23,9 @@ describe("worked time", () => {
     );
     expect(formatWorkedTime(result.milliseconds)).toBe("01:30:05");
     expect(result.isCheckedIn).toBe(true);
+  });
+
+  it("converts elapsed time to completed whole minutes", () => {
+    expect(workedMinutes(5 * 60_000 + 59_000)).toBe(5);
   });
 });

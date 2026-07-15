@@ -112,7 +112,7 @@ function ProfilePage() {
         description={
           canSaveDirectly
             ? "Update your account details directly."
-            : "Your account and employment information. Submit an edit request to HR to update locked fields."
+            : "Your account and employment information."
         }
       />
       <div className="grid gap-4 lg:grid-cols-3">
@@ -206,10 +206,7 @@ function ProfilePage() {
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
-                if (!canSaveDirectly) {
-                  toast.success("Profile edit request submitted to HR");
-                  return;
-                }
+                if (!canSaveDirectly) return;
                 setSaving(true);
                 try {
                   const updatedAccount = await usersApi.update(user.id, {
@@ -241,7 +238,7 @@ function ProfilePage() {
             >
               <Field label="Full name" value={name} onChange={setName} editable={canSaveDirectly} />
               <Field label="Email" value={email} onChange={setEmail} editable={canSaveDirectly} />
-              <Field label="Phone" value={phone} onChange={setPhone} editable />
+              <Field label="Phone" value={phone} onChange={setPhone} editable={canSaveDirectly} />
               <Field
                 label="Date of Birth"
                 value={dob}
@@ -273,23 +270,13 @@ function ProfilePage() {
                       : "Inactive"
                 }
               />
-              <div className="sm:col-span-2 flex justify-end gap-2 border-t border-border pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setName(user.name);
-                    setEmail(user.email);
-                    setPhone(user.phone ?? "");
-                    setDob(user.dateOfBirth ?? "");
-                  }}
-                >
-                  Reset
-                </Button>
-                <Button type="submit" disabled={saving}>
-                  {canSaveDirectly ? "Save profile" : "Submit edit request"}
-                </Button>
-              </div>
+              {canSaveDirectly && (
+                <div className="flex justify-end border-t border-border pt-4 sm:col-span-2">
+                  <Button type="submit" disabled={saving}>
+                    Save profile
+                  </Button>
+                </div>
+              )}
             </form>
           </CardContent>
         </Card>

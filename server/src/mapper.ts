@@ -255,6 +255,7 @@ export function attendanceRecordDto(
     fieldVisitCount: summary.fieldVisitCount,
     clientVisitCount: summary.clientVisitCount,
     totalHours: Number(summary.totalHours),
+    workedMinutes: Math.round(Number(summary.totalHours) * 60),
     officeHours: Number(summary.officeHours),
     fieldHours: Number(summary.fieldHours),
     clientVisitHours: Number(summary.clientVisitHours),

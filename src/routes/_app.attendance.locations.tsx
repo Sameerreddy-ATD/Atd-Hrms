@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/table";
 import type { AttendanceRecord, AttendanceTimelineEvent, Branch, User } from "@/mock/types";
 import { attendanceApi, branchesApi, employeesApi, reportsApi } from "@/services/api";
-import { downloadCsv, downloadExcel, downloadAttendanceExcel } from "@/lib/csv";
+import { downloadCsv, downloadAttendanceExcel } from "@/lib/csv";
 import {
   movementEventLabel,
   captureSourceLabel,
@@ -332,6 +332,7 @@ function DayLogsPage() {
                       actualBranch: branchName(row.actualBranchId),
                       punchIn: row.punchIn ?? "",
                       punchOut: row.punchOut ?? "",
+                      workedMinutes: row.workedMinutes ?? Math.round((row.totalHours ?? 0) * 60),
                       sourceIn: punchSourceLabel(row.punchInSource, row.punchInBranchId, branches),
                       sourceOut: punchSourceLabel(
                         row.punchOutSource,
@@ -343,7 +344,7 @@ function DayLogsPage() {
                 )
               }
             >
-              {selectedEmployeeId === "all" ? "Export All Employees" : "Export Employee"}
+              {selectedEmployeeId === "all" ? "Export All to Excel" : "Export to Excel"}
             </Button>
           </div>
         </CardHeader>
@@ -364,6 +365,7 @@ function DayLogsPage() {
                       <TableHead>Actual Branch</TableHead>
                       <TableHead>Punch In</TableHead>
                       <TableHead>Punch Out</TableHead>
+                      <TableHead>Worked Minutes</TableHead>
                       <TableHead className="text-right">Navigation</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -394,6 +396,9 @@ function DayLogsPage() {
                           <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
                             {punchSourceLabel(row.punchOutSource, row.punchOutBranchId, branches)}
                           </div>
+                        </TableCell>
+                        <TableCell className="font-medium tabular-nums">
+                          {row.workedMinutes ?? Math.round((row.totalHours ?? 0) * 60)} min
                         </TableCell>
                         <TableCell className="text-right">
                           <Button

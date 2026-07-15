@@ -126,6 +126,7 @@ function BranchAttendancePage() {
                 <TableHead>Home Branch</TableHead>
                 <TableHead>Punch In</TableHead>
                 <TableHead>Punch Out</TableHead>
+                <TableHead>Worked Minutes</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
@@ -143,6 +144,9 @@ function BranchAttendancePage() {
                     <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
                       {punchSourceLabel(r.punchInSource, r.punchInBranchId, branches)}
                     </div>
+                  </TableCell>
+                  <TableCell className="font-medium tabular-nums">
+                    {r.workedMinutes ?? Math.round((r.totalHours ?? 0) * 60)} min
                   </TableCell>
                   <TableCell>
                     <div>{r.punchOut ?? "-"}</div>

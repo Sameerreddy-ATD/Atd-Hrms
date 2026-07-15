@@ -188,8 +188,16 @@ export async function recalculateDailySummary(employeeId: string, date: string |
   let officeHours = 0;
   let fieldHours = 0;
   let clientVisitHours = 0;
+  let totalWorkedHours = 0;
+  let activeWorkStart: Date | undefined;
   const open = new Map<string, Date>();
   for (const event of events) {
+    if (inTypes.has(event.eventType) && !activeWorkStart) activeWorkStart = event.eventTime;
+    if (outTypes.has(event.eventType) && activeWorkStart) {
+      totalWorkedHours += hoursBetween(activeWorkStart, event.eventTime);
+      activeWorkStart = undefined;
+    }
+
     const key = event.eventType.includes("CLIENT")
       ? "client"
       : event.eventType.includes("FIELD")
@@ -205,9 +213,7 @@ export async function recalculateDailySummary(employeeId: string, date: string |
     }
   }
 
-  const firstCheckIn = events[0]?.eventTime;
-  const totalPresenceHours =
-    firstCheckIn && lastOut ? hoursBetween(firstCheckIn, lastOut.eventTime) : 0;
+  const firstCheckIn = events.find((event) => inTypes.has(event.eventType))?.eventTime;
   const isBranchMismatch = Boolean(
     schedule?.scheduledBranchId &&
     branches.length &&
@@ -243,7 +249,7 @@ export async function recalculateDailySummary(employeeId: string, date: string |
       date: eventDate,
       firstCheckIn,
       lastCheckOut: lastOut?.eventTime,
-      totalHours: new Prisma.Decimal(totalPresenceHours),
+      totalHours: new Prisma.Decimal(totalWorkedHours),
       officeHours: new Prisma.Decimal(officeHours),
       fieldHours: new Prisma.Decimal(fieldHours),
       clientVisitHours: new Prisma.Decimal(clientVisitHours),
@@ -270,7 +276,7 @@ export async function recalculateDailySummary(employeeId: string, date: string |
     update: {
       firstCheckIn,
       lastCheckOut: lastOut?.eventTime,
-      totalHours: new Prisma.Decimal(totalPresenceHours),
+      totalHours: new Prisma.Decimal(totalWorkedHours),
       officeHours: new Prisma.Decimal(officeHours),
       fieldHours: new Prisma.Decimal(fieldHours),
       clientVisitHours: new Prisma.Decimal(clientVisitHours),

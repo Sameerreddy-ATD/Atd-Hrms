@@ -253,6 +253,10 @@ function MyAttendancePage() {
                             </p>
                           </div>
                         </div>
+                        <p className="mt-2 text-xs font-semibold tabular-nums text-foreground">
+                          Worked:{" "}
+                          {record.workedMinutes ?? Math.round((record.totalHours ?? 0) * 60)} min
+                        </p>
                         {(record.address || record.deviceName || record.branchMovementCount) && (
                           <p className="mt-2 break-words text-xs text-muted-foreground">
                             {record.branchMovementCount
@@ -273,6 +277,7 @@ function MyAttendancePage() {
                         <TableHead>Movement Details</TableHead>
                         <TableHead>Punch In (Click Location)</TableHead>
                         <TableHead>Punch Out (Click Location)</TableHead>
+                        <TableHead>Worked Minutes</TableHead>
                         <TableHead>Status</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -280,7 +285,7 @@ function MyAttendancePage() {
                       {records.length === 0 ? (
                         <TableRow>
                           <TableCell
-                            colSpan={6}
+                            colSpan={7}
                             className="text-center py-12 text-sm text-muted-foreground italic"
                           >
                             No attendance history records logged yet.
@@ -349,6 +354,9 @@ function MyAttendancePage() {
                                     {a.fieldCheckInLongitude.toFixed(4)}
                                   </a>
                                 )}
+                            </TableCell>
+                            <TableCell className="text-xs font-semibold tabular-nums whitespace-nowrap">
+                              {a.workedMinutes ?? Math.round((a.totalHours ?? 0) * 60)} min
                             </TableCell>
                             <TableCell className="text-xs whitespace-nowrap">
                               <div>{a.punchOut ?? "-"}</div>

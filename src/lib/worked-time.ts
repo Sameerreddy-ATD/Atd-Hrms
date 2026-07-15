@@ -52,3 +52,7 @@ export function formatWorkedTime(milliseconds: number) {
   const seconds = totalSeconds % 60;
   return [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
 }
+
+export function workedMinutes(milliseconds: number) {
+  return Math.max(0, Math.floor(milliseconds / 60_000));
+}
