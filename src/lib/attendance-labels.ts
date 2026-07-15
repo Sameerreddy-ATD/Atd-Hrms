@@ -29,17 +29,17 @@ function movementPlaceLabel(eventType?: string, eventSource?: string, branchName
     return `${branchName ?? "Branch"} - biometric`;
   }
   if (eventSource === "MOBILE_GPS" && branchName) {
-    return `${branchName} - mobile`;
+    return `Mobile - ${branchName}`;
   }
   if (eventSource === "MOBILE_GPS") {
-    return "Field - mobile";
+    return "Mobile";
   }
 
   const meta = PUNCH_TYPE_META[eventType?.toUpperCase() ?? ""];
   if (meta?.place === "Branch") {
-    return `${branchName ?? "Branch"} - mobile`;
+    return `Mobile - ${branchName ?? "Branch"}`;
   }
-  return "Field - mobile";
+  return "Mobile";
 }
 
 export function punchTypeLabel(eventType?: string, eventSource?: string, branchName?: string) {
@@ -82,7 +82,7 @@ export function movementStatusLabel(row: AttendanceTimelineEvent) {
 export function captureSourceLabel(row: AttendanceTimelineEvent) {
   const source = row.source?.toUpperCase() ?? "";
   if (source === "THUMB_SCANNER") return `Biometric - ${row.branchName ?? "Branch"}`;
-  if (source === "MOBILE_GPS") return `Mobile - ${row.branchName ?? "Field GPS"}`;
+  if (source === "MOBILE_GPS") return row.branchName ? `Mobile - ${row.branchName}` : "Mobile";
   return row.source || "-";
 }
 
@@ -92,8 +92,8 @@ export function attendanceSourceLabel(
 ) {
   const branch = branchNameFromMap(branches, row.actualBranchId);
   if (row.source === "Thumb Scanner") return `${branch ?? "Branch"} - biometric`;
-  if (row.source === "Mobile GPS" && row.actualBranchId) return `${branch ?? "Branch"} - mobile`;
-  if (row.source === "Mobile GPS") return "Field - mobile";
+  if (row.source === "Mobile GPS" && row.actualBranchId) return `Mobile - ${branch ?? "Branch"}`;
+  if (row.source === "Mobile GPS") return "Mobile";
   return row.source;
 }
 
@@ -104,6 +104,6 @@ export function punchSourceLabel(
 ) {
   const branch = branchNameFromMap(branches, branchId);
   if (source === "Thumb Scanner") return `Biometric - ${branch ?? "Branch"}`;
-  if (source === "Mobile GPS") return `Mobile - ${branch ?? "Field GPS"}`;
+  if (source === "Mobile GPS") return branch ? `Mobile - ${branch}` : "Mobile";
   return source ?? "-";
 }

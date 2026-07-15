@@ -62,8 +62,9 @@ flowchart LR
 1. The device requests browser location permission.
 2. The frontend sends latitude and longitude over HTTPS.
 3. The backend calculates the nearest active branch with configured coordinates.
-4. The punch is accepted only when distance is within that branch's attendance radius.
-5. The event stores the matched branch and Mobile GPS source.
+4. When the device is within a branch's radius, the event is matched to that branch and displayed as `Mobile - Branch Name`.
+5. Outside every branch radius, attendance is still accepted as `Mobile` without a branch match.
+6. The submitted coordinates are stored on the attendance event in both cases.
 
 Madhapur is configured at `17.4391592, 78.3947783` with a default 250 meter radius. Each additional branch must be given latitude, longitude, and radius in Branches before it accepts mobile branch attendance. Client visits remain a separate field workflow and are not restricted to an office radius.
 

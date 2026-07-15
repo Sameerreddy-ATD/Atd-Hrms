@@ -1984,28 +1984,19 @@ export function createApp() {
           attendanceRadiusMeters: true,
         },
       });
-      if (!configuredBranches.length) {
-        throw new HttpError(
-          503,
-          "Mobile attendance is unavailable until a branch geofence is configured.",
+      if (configuredBranches.length) {
+        const nearest = nearestBranch(
+          { latitude: body.latitude, longitude: body.longitude },
+          configuredBranches.map((branch) => ({
+            ...branch,
+            latitude: Number(branch.latitude),
+            longitude: Number(branch.longitude),
+          })),
         );
+        if (nearest && nearest.distance <= nearest.branch.attendanceRadiusMeters) {
+          nearbyBranchId = nearest.branch.branchId;
+        }
       }
-      const nearest = nearestBranch(
-        { latitude: body.latitude, longitude: body.longitude },
-        configuredBranches.map((branch) => ({
-          ...branch,
-          latitude: Number(branch.latitude),
-          longitude: Number(branch.longitude),
-        })),
-      );
-      if (!nearest || nearest.distance > nearest.branch.attendanceRadiusMeters) {
-        const distance = nearest ? Math.round(nearest.distance) : 0;
-        throw new HttpError(
-          422,
-          `You are outside the attendance area. Nearest branch: ${nearest?.branch.branchName ?? "unknown"} (${distance} m away).`,
-        );
-      }
-      nearbyBranchId = nearest.branch.branchId;
     }
     const eventDate = startOfDayUtc(body.eventTime ?? new Date());
     const latestEvent = await prisma.attendanceEvent.findFirst({

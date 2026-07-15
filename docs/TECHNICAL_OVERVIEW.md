@@ -213,7 +213,7 @@ Attendance events take precedence over no-event classifications. After a day end
 
 ### Mobile Branch Geofence
 
-Mobile branch attendance sends coordinates to the authenticated API. The server calculates distance to active branches that have latitude, longitude, and attendance radius configured, selects the nearest branch, and rejects an out-of-radius punch. Client-visit endpoints remain a separate field workflow. Browser coordinates are never accepted as proof without this server-side comparison.
+Mobile attendance sends coordinates to the authenticated API and stores them on the event. The server calculates distance to active branches with latitude, longitude, and attendance radius configured. A point inside the radius is labeled `Mobile - Branch Name`; a point outside every radius remains valid attendance labeled `Mobile`. Client-visit endpoints remain a separate field workflow.
 
 ### Leave Authorization
 

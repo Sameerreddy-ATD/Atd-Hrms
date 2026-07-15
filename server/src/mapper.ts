@@ -214,18 +214,18 @@ function movementPlaceLabel(
     return `${branchName ?? "Branch"} - biometric`;
   }
   if (eventSource === "MOBILE_GPS" && branchName) {
-    return `${branchName} - mobile`;
+    return `Mobile - ${branchName}`;
   }
   if (eventSource === "MOBILE_GPS") {
-    return "Field - mobile";
+    return "Mobile";
   }
 
   const upper = eventType.toUpperCase();
   if (upper === "OFFICE_IN" || upper === "OFFICE_OUT" || upper.includes("BRANCH")) {
-    return `${branchName ?? "Branch"} - mobile`;
+    return `Mobile - ${branchName ?? "Branch"}`;
   }
   if (upper.includes("CLIENT") || upper.includes("FIELD") || upper.includes("BREAK")) {
-    return "Field - mobile";
+    return "Mobile";
   }
 
   return eventType.replaceAll("_", " ");

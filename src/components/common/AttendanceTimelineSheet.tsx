@@ -111,7 +111,7 @@ export function AttendanceTimelineSheet({
       return {
         icon: MapPin,
         bgClass: "bg-emerald-100 border-emerald-200 text-emerald-700",
-        label: "Field - mobile",
+        label: event.branchName ? `Mobile - ${event.branchName}` : "Mobile",
       };
     }
 

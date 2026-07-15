@@ -20,7 +20,7 @@ The application uses responsive web and Progressive Web App behavior. The suppor
 - The application cannot force an Allow/Block system dialog. When permission was previously denied, the user must change it in browser or operating-system site settings.
 - iPhone users should enable Precise Location for accurate branch-radius checks.
 - Android users should enable device Location and grant the browser precise location while using the app.
-- A branch needs valid latitude, longitude, and radius in the Branches screen.
+- A branch needs valid latitude, longitude, and radius in the Branches screen to classify nearby punches as `Mobile - Branch Name`. Outside punches remain `Mobile` and retain their coordinates.
 
 ## Installed App Behavior
 
