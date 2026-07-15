@@ -148,6 +148,9 @@ export function branchDto(branch: Branch) {
     address: branch.address,
     city: branch.city ?? undefined,
     status: branch.status,
+    latitude: branch.latitude == null ? undefined : Number(branch.latitude),
+    longitude: branch.longitude == null ? undefined : Number(branch.longitude),
+    attendanceRadiusMeters: branch.attendanceRadiusMeters,
   };
 }
 

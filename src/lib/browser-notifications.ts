@@ -118,7 +118,7 @@ export async function enableDesktopAlerts() {
   setDesktopAlertsEnabled(true);
   await showDesktopNotification({
     id: "alerts-enabled",
-    title: "Anytime Diesel HRMS alerts enabled",
+    title: "Anytime Diesel employee alerts enabled",
     desc: "Browser alerts are ready while the app is open.",
     time: new Date().toISOString(),
     type: "system",

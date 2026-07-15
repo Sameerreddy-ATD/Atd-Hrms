@@ -6,7 +6,9 @@ import { prisma } from "./prisma.js";
 assertSecureConfig();
 
 const server = createApp().listen(config.port, () => {
-  console.log(`Anytime Diesel HRMS API listening on http://localhost:${config.port}`);
+  console.log(
+    `Anytime Diesel Employee Management API listening on http://localhost:${config.port}`,
+  );
   startAttendanceSettlementScheduler();
 });
 server.requestTimeout = config.requestTimeoutMs;

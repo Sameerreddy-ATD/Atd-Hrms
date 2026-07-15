@@ -106,7 +106,8 @@ export function AppHeader() {
         <div className="flex min-w-0 items-center gap-2 pl-0.5 sm:pl-1">
           <img src="/atd-favicon.png" alt="ATD" className="h-6 w-6 rounded-sm object-contain" />
           <span className="truncate text-sm font-semibold tracking-tight text-slate-800 dark:text-slate-100 sm:text-base">
-            <span className="hidden min-[390px]:inline">Anytime Diesel </span>HRMS
+            <span className="sm:hidden">ATD Employees</span>
+            <span className="hidden sm:inline">Anytime Diesel Employee Management</span>
           </span>
           <span className="hidden sm:inline text-slate-300 dark:text-zinc-700">|</span>
           <span className="hidden sm:inline text-xs sm:text-sm font-medium text-slate-500 dark:text-zinc-400 capitalize whitespace-nowrap">

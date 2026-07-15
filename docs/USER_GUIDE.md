@@ -1,65 +1,56 @@
-# Anytime Diesel HRMS User Guide
+# Anytime Diesel Employee Management System User Guide
 
-This guide explains how HR, managers, employees, field staff, and leadership use the Anytime Diesel HRMS application.
+This guide explains how Developer Admin, HR, organization heads, employees, field staff, and leadership use the Anytime Diesel Employee Management System.
 
 ## Who Can Do What
 
-| Area                           | Developer Admin                                            | Main Admin                                                 | HR                                                 | CEO                     | Manager                     | Employee / Sales / Driver / Field Staff |
-| ------------------------------ | ---------------------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------- | ----------------------- | --------------------------- | --------------------------------------- |
-| Dashboard                      | Full system view                                           | Admin view                                                 | HR operations view                                 | Summary/report view     | Team view                   | Personal view                           |
-| User logins                    | Create, edit, suspend, deactivate, delete, reset passwords | Create, edit, suspend, deactivate, delete, reset passwords | Create, edit, suspend, deactivate, reset passwords | View only where allowed | No                          | No                                      |
-| Employees                      | Full access                                                | Full access                                                | Full access                                        | Summary/report access   | Assigned team only          | Own profile only                        |
-| Departments                    | Add, edit, delete, assign department heads                 | As configured                                              | As configured                                      | View reports            | No                          | No                                      |
-| Branches                       | Add, edit, deactivate                                      | Add, edit, deactivate                                      | Add, edit, deactivate                              | View reports            | View assigned/team data     | No                                      |
-| Biometric devices and mappings | Planned next version                                       | Planned next version                                       | Planned next version                               | Planned next version    | Planned next version        | No                                      |
-| Attendance                     | Full operational access                                    | Full operational access                                    | Full operational access                            | Reports and summaries   | Assigned team only          | Own attendance only                     |
-| Leave policy and types         | Add, edit, delete                                          | Add, edit, delete                                          | Add, edit, delete                                  | View reports            | Approve assigned team leave | Apply and track own leave               |
-| Holidays                       | Add, edit, delete                                          | Add, edit, delete                                          | Add, edit, delete                                  | View                    | View                        | View                                    |
-| Audit logs                     | View                                                       | View                                                       | No                                                 | No                      | No                          | No                                      |
-| System settings                | Full access                                                | Full access                                                | Limited security settings                          | No                      | No                          | No                                      |
+| Area                           | Developer Admin                                                | Main Admin              | HR                      | CEO                   | Manager                     | Employee / Sales / Driver / Field Staff |
+| ------------------------------ | -------------------------------------------------------------- | ----------------------- | ----------------------- | --------------------- | --------------------------- | --------------------------------------- |
+| Dashboard                      | Full system view                                               | Admin view              | HR operations view      | Summary/report view   | Team view                   | Personal view                           |
+| User logins                    | Create, edit, suspend, deactivate, reactivate, reset passwords | No                      | No                      | No                    | No                          | No                                      |
+| Employees                      | Full access                                                    | Full access             | Full access             | Summary/report access | Assigned team only          | Own profile only                        |
+| Departments                    | Add, edit, delete, assign department heads                     | As configured           | As configured           | View reports          | No                          | No                                      |
+| Branches                       | Add, edit, deactivate                                          | Add, edit, deactivate   | Add, edit, deactivate   | View reports          | View assigned/team data     | No                                      |
+| Biometric devices and mappings | Planned next version                                           | Planned next version    | Planned next version    | Planned next version  | Planned next version        | No                                      |
+| Attendance                     | Full operational access                                        | Full operational access | Full operational access | Reports and summaries | Assigned team only          | Own attendance only                     |
+| Leave policy and types         | Add, edit, delete                                              | Add, edit, delete       | Add, edit, delete       | View reports          | Approve assigned team leave | Apply and track own leave               |
+| Holidays                       | Add, edit, delete                                              | Add, edit, delete       | Add, edit, delete       | View                  | View                        | View                                    |
+| Audit logs                     | View                                                           | View                    | No                      | No                    | No                          | No                                      |
+| Asset management               | Full access                                                    | No                      | Full access             | No                    | No                          | No                                      |
+| System settings                | Full access                                                    | As configured           | No                      | No                    | No                          | No                                      |
 
 ## Login And First Password Change
 
 1. Open the application URL.
-2. Enter the email and temporary password given by HR or Admin.
+2. Enter the email and temporary password issued by the Developer Admin.
 3. If the account requires a first password change, enter a new password.
 4. After changing the password, the application signs the user in automatically.
 
-Public signup is disabled. All accounts must be created by HR, Main Admin, or Developer Admin.
+Public signup is disabled. All accounts are created by the Developer Admin.
 
-## HR: Create A New Login
+## Developer Admin: Create A New Login
 
 1. Open **User Logins**.
 2. Select **Create Login**.
-3. Choose the employee details, role, department, branch, reporting manager, gender, and employment type.
-4. Choose whether to use the predefined temporary password or enter a custom temporary password.
+3. Choose the employee details, organization unit, branch, gender, and employment type.
+4. Enter a temporary password for this account.
 5. Save the login.
 6. Share the login email and temporary password with the employee.
 
 Notes:
 
-- Reporting manager must be active and must have an allowed leadership role.
-- Employees cannot be their own reporting manager.
-- Account creation and manager changes are recorded in audit logs.
+- Leave and team workflows follow the organization-unit head hierarchy.
+- Account creation and organization changes are recorded in audit logs.
 
-## HR/Admin: Suspend Or Deactivate A Login
+## Developer Admin: Suspend, Deactivate, Or Reactivate A Login
 
 Use **User Logins** for account lifecycle actions.
 
 - **Suspend**: blocks login only for the selected date window. Attendance and employee history remain in the database.
-- **Deactivate**: turns off the login until HR/Admin reactivates or updates it.
-- **Permanent delete**: removes the login/employee data according to the backend delete behavior. Use only when the company really wants to remove the account.
+- **Deactivate**: turns off the login until the Developer Admin reactivates it.
+- **Blocked**: five consecutive incorrect passwords block login. Only the Developer Admin can reactivate it. Attendance history, biometric mappings, and task assignments are retained.
 
 Employees receive account suspension notifications before the suspension date where the scheduled suspension notification feature is active.
-
-## HR/Admin: Update The Predefined Temporary Password
-
-1. Open **System Settings**.
-2. Find **Predefined New Account Password**.
-3. Enter a strong new temporary password.
-4. Save.
-
-Only the password hash is stored in MySQL. Existing users keep their own passwords.
 
 ## Employee: Mark Attendance
 
@@ -78,21 +69,21 @@ sequenceDiagram
   participant Branch1 as Branch 1 Device Next Version
   participant Branch2 as Branch 2 Device Next Version
   participant Mobile as Mobile App
-  participant HRMS as HRMS Backend
+  participant EMS as Employee Management Backend
 
   Employee->>Branch1: Thumb in
-  Branch1->>HRMS: Branch in event
+  Branch1->>EMS: Branch in event
   Employee->>Branch1: Thumb out
-  Branch1->>HRMS: Branch out event
+  Branch1->>EMS: Branch out event
   Employee->>Branch2: Thumb in
-  Branch2->>HRMS: Branch in event
+  Branch2->>EMS: Branch in event
   Employee->>Branch2: Thumb out
-  Branch2->>HRMS: Branch out event
+  Branch2->>EMS: Branch out event
   Employee->>Mobile: Client GPS check-in
-  Mobile->>HRMS: Client check-in event
+  Mobile->>EMS: Client check-in event
   Employee->>Mobile: Client GPS check-out
-  Mobile->>HRMS: Client check-out event
-  HRMS-->>Employee: Full daily timeline
+  Mobile->>EMS: Client check-out event
+  EMS-->>Employee: Full daily timeline
 ```
 
 ## Employee: Request Missed Punch Correction
@@ -113,21 +104,20 @@ Managers/HR can approve or reject corrections from **Attendance Corrections**.
 4. Enter the number of days and reason.
 5. Submit.
 
-The request moves through manager and HR review according to the configured workflow.
+The request is assigned to the nearest organization-unit head above the employee. Only that exact head can approve or reject it.
 
 ```mermaid
 flowchart LR
-  A["Employee applies for leave"] --> B["Manager review"]
-  B -->|Approve| C["HR verification"]
+  A["Employee applies for leave"] --> B["Exact organization head"]
+  B -->|Approve| C["Approved"]
   B -->|Reject| R["Rejected"]
-  C -->|Verify/approve| D["Approved"]
-  C -->|Reject| R
-  D --> E["Balance and reports updated"]
+  C --> D["Employee may cancel current or future dates"]
+  C --> E["Attendance cancels leave for that date"]
 ```
 
 ## Manager: Review Team Leave And Attendance
 
-Managers see only assigned team members.
+Organization heads see employees within their permitted unit hierarchy. Leave actions show only requests assigned directly to that head; a super-head cannot approve or reject a lower head's assigned request.
 
 Use:
 
@@ -139,11 +129,11 @@ Use:
 
 ## HR: Manage Leave Types
 
-1. Open **Leave Policy**.
+1. Open **Leave Types**.
 2. Add, edit, or delete leave types.
-3. Mark each type as paid or unpaid.
+3. Save the type so it becomes available for future leave applications.
 
-Changes affect future leave applications and reports.
+Paid/unpaid leave behavior and leave balances are planned for a future version.
 
 ## HR/Admin: Manage Departments And Department Heads
 
@@ -157,7 +147,7 @@ Department head assignment is stored on the department record and can be changed
 ## HR/Admin: Manage Branches
 
 1. Open **Branches**.
-2. Add a new branch with code, name, city, address, and status.
+2. Add a new branch with code, name, city, address, latitude, longitude, attendance radius, and status.
 3. Edit details when a branch changes.
 4. Deactivate/delete only when the branch should no longer be used operationally.
 
@@ -172,11 +162,20 @@ Status: planned for the next version. The current application documents the inte
 
 When eSSL integration is added in the next version, imported device punches should create attendance events for mapped employees.
 
-## Future Attendance Verification Roadmap
+## Holiday Management
+
+1. Open **Holidays**.
+2. Add the holiday name, date, classification, and branch scope.
+3. Use **All branches** for a company-wide holiday or select one branch.
+4. Edit or deactivate the entry when the calendar changes.
+
+Every active entry visible in the Holiday list counts as a holiday for attendance. Public, Optional, and Restricted are classification labels only. A punch still records the employee as working, and no-punch holiday status is settled after the day ends. Holiday changes recalculate existing summaries for the affected date and branch.
+
+## Current And Future Attendance Verification
 
 The next attendance improvements should make branch-mobile attendance stricter and easier to trust:
 
-- GPS/location check near the selected branch.
+- GPS/location check near a configured branch is implemented and enforced by the backend.
 - Approved branch Wi-Fi check, so attendance is accepted only when the mobile is connected to that branch network.
 - Photo/selfie verification during check-in and check-out.
 - Combined proof for branch-mobile attendance: location + Wi-Fi + optional photo.
@@ -202,7 +201,7 @@ Common report pages:
 
 ## Mobile Use
 
-The app is designed for both laptop and mobile screens.
+The app is designed for phones, tablets, and laptops. See [DEVICE_COMPATIBILITY.md](DEVICE_COMPATIBILITY.md) for the iPhone, Pixel, Samsung, Vivo, Oppo, tablet, and desktop release checklist.
 
 Recommended mobile workflows:
 

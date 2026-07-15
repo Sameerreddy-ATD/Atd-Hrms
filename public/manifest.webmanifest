@@ -1,7 +1,7 @@
 {
-  "name": "Anytime Diesel HRMS",
-  "short_name": "ATD HRMS",
-  "description": "Employee attendance, leave, branches, biometric devices, and HR workflows for Anytime Diesel.",
+  "name": "Anytime Diesel Employee Management System",
+  "short_name": "ATD Employees",
+  "description": "Employee records, attendance, leave, tasks, assets, branches, and company operations for Anytime Diesel.",
   "id": "/",
   "start_url": "/dashboard",
   "scope": "/",

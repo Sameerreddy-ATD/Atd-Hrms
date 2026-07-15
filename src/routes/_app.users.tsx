@@ -564,6 +564,13 @@ function LoginStatus({ user }: { user: User }) {
       </Badge>
     );
   }
+  if (user.status === "LOCKED") {
+    return (
+      <Badge variant="outline" className="shrink-0 border-red-200 bg-red-50 text-red-700">
+        Blocked
+      </Badge>
+    );
+  }
   if (user.active) {
     const scheduled =
       user.suspensionStartsAt && new Date(user.suspensionStartsAt).getTime() > Date.now();

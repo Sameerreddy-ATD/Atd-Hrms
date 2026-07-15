@@ -17,6 +17,7 @@ import { Logo } from "@/components/common/Logo";
 import { useAuth } from "@/lib/auth";
 import { ROLE_LABELS, type Role } from "@/mock/types";
 import { Loader2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -30,6 +31,7 @@ function LoginPage() {
   const [role, setRole] = useState<Role>("employee");
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [loginError, setLoginError] = useState("");
   const showDemoLogin = import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_LOGIN === "true";
 
   useEffect(() => {
@@ -47,6 +49,7 @@ function LoginPage() {
     if (Object.keys(errs).length) return;
 
     setLoading(true);
+    setLoginError("");
     try {
       const signedIn = await login(email, password);
       toast.success("Signed in");
@@ -55,7 +58,9 @@ function LoginPage() {
       }
       navigate({ to: signedIn.mustChangePassword ? "/first-login" : "/dashboard" });
     } catch (err) {
-      toast.error((err as Error).message || "Login failed");
+      const message = (err as Error).message || "Login failed";
+      setLoginError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -113,6 +118,11 @@ function LoginPage() {
                 />
                 {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
               </div>
+              {loginError && (
+                <Alert variant="destructive" role="alert">
+                  <AlertDescription>{loginError}</AlertDescription>
+                </Alert>
+              )}
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Sign in

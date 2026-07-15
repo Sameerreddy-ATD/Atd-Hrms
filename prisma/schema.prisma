@@ -212,20 +212,23 @@ model Department {
 }
 
 model Branch {
-  branchId   String                   @id @default(cuid()) @map("branch_id")
-  branchName String                   @map("branch_name")
-  branchCode String                   @unique @map("branch_code")
-  address    String
-  city       String?
-  status     String                   @default("ACTIVE")
-  createdAt  DateTime                 @default(now()) @map("created_at")
-  updatedAt  DateTime                 @updatedAt @map("updated_at")
-  devices    BiometricDevice[]
-  employees  Employee[]
-  schedules  EmployeeBranchSchedule[]
-  events     AttendanceEvent[]
-  holidays   Holiday[]
-  assets     CompanyAsset[]
+  branchId               String                   @id @default(cuid()) @map("branch_id")
+  branchName             String                   @map("branch_name")
+  branchCode             String                   @unique @map("branch_code")
+  address                String
+  city                   String?
+  status                 String                   @default("ACTIVE")
+  latitude               Decimal?                 @db.Decimal(10, 7)
+  longitude              Decimal?                 @db.Decimal(10, 7)
+  attendanceRadiusMeters Int                      @default(250) @map("attendance_radius_meters")
+  createdAt              DateTime                 @default(now()) @map("created_at")
+  updatedAt              DateTime                 @updatedAt @map("updated_at")
+  devices                BiometricDevice[]
+  employees              Employee[]
+  schedules              EmployeeBranchSchedule[]
+  events                 AttendanceEvent[]
+  holidays               Holiday[]
+  assets                 CompanyAsset[]
 
   @@map("branches")
 }

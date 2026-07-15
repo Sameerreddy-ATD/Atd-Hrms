@@ -32,6 +32,7 @@ import {
 import { createAttendanceEvent, recalculateDailySummary } from "./attendanceEngine.js";
 import { config } from "./config.js";
 import { asyncHandler, errorHandler, HttpError } from "./errors.js";
+import { nearestBranch } from "./geofence.js";
 import {
   assetCatalogItemDto,
   attendanceRecordDto,
@@ -297,21 +298,24 @@ export function createApp() {
     };
   }
 
-  function leaveRequestDto(row: {
-    leaveRequestId: string;
-    employeeId: string;
-    managerId?: string | null;
-    employee?: { name: string; manager?: { name: string } | null } | null;
-    leaveType?: { name: string } | null;
-    fromDate: Date;
-    toDate: Date;
-    days: Prisma.Decimal | number;
-    reason: string;
-    status: string;
-    createdAt: Date;
-    updatedAt?: Date;
-    cancelledDates?: unknown;
-  }) {
+  function leaveRequestDto(
+    row: {
+      leaveRequestId: string;
+      employeeId: string;
+      managerId?: string | null;
+      employee?: { name: string; manager?: { name: string } | null } | null;
+      leaveType?: { name: string } | null;
+      fromDate: Date;
+      toDate: Date;
+      days: Prisma.Decimal | number;
+      reason: string;
+      status: string;
+      createdAt: Date;
+      updatedAt?: Date;
+      cancelledDates?: unknown;
+    },
+    approverName?: string,
+  ) {
     const cancelledDates = Array.isArray(row.cancelledDates)
       ? row.cancelledDates.filter((date): date is string => typeof date === "string")
       : [];
@@ -336,7 +340,7 @@ export function createApp() {
       employeeId: row.employeeId,
       employeeName: row.employee?.name ?? row.employeeId,
       managerName: row.employee?.manager?.name,
-      approverName: row.employee?.manager?.name,
+      approverName,
       type: row.leaveType?.name ?? "-",
       from: row.fromDate.toISOString().slice(0, 10),
       to: row.toDate.toISOString().slice(0, 10),
@@ -354,6 +358,18 @@ export function createApp() {
     };
   }
 
+  async function leaveRequestDtos<T extends Parameters<typeof leaveRequestDto>[0]>(rows: T[]) {
+    const approverIds = [...new Set(rows.map((row) => row.managerId).filter(Boolean))] as string[];
+    const approvers = await prisma.employee.findMany({
+      where: { employeeId: { in: approverIds } },
+      select: { employeeId: true, name: true },
+    });
+    const names = new Map(approvers.map((approver) => [approver.employeeId, approver.name]));
+    return rows.map((row) =>
+      leaveRequestDto(row, row.managerId ? names.get(row.managerId) : undefined),
+    );
+  }
+
   async function findLeaveApprover(employeeId: string) {
     const [employee, units] = await Promise.all([
       prisma.employee.findUnique({ where: { employeeId }, select: { departmentId: true } }),
@@ -368,7 +384,7 @@ export function createApp() {
     while (unit) {
       if (unit.headEmployeeId && unit.headEmployeeId !== employeeId) {
         const approver = await prisma.employee.findFirst({
-          where: { employeeId: unit.headEmployeeId, status: "ACTIVE", user: { status: "ACTIVE" } },
+          where: { employeeId: unit.headEmployeeId, status: "ACTIVE" },
           select: { employeeId: true, name: true },
         });
         if (approver) return approver;
@@ -376,7 +392,7 @@ export function createApp() {
       unit = unit.parentDepartmentId ? byId.get(unit.parentDepartmentId) : undefined;
     }
     return prisma.employee.findFirst({
-      where: { status: "ACTIVE", user: { role: Role.CEO, status: "ACTIVE" } },
+      where: { status: "ACTIVE", user: { role: Role.CEO } },
       select: { employeeId: true, name: true },
     });
   }
@@ -391,8 +407,7 @@ export function createApp() {
         "Only the responsible organization head can approve or reject leave.",
       );
     }
-    const teamEmployeeIds = await getOrganizationTeamEmployeeIds(user.employeeId);
-    if (!teamEmployeeIds.includes(leave.employeeId) || leave.managerId !== user.employeeId) {
+    if (leave.managerId !== user.employeeId) {
       throw new HttpError(
         403,
         "Only the responsible organization head can approve or reject leave.",
@@ -446,7 +461,10 @@ export function createApp() {
       const isDeveloperAdmin = user.role === Role.DEVELOPER_ADMIN;
 
       if (!isDeveloperAdmin && user.status === UserStatus.LOCKED) {
-        throw new HttpError(403, "Account blocked. Please contact HR to reset your password.");
+        throw new HttpError(
+          403,
+          "Account blocked after 5 failed attempts. Contact your HR team; a Developer Admin must reactivate the login.",
+        );
       }
 
       if (!isDeveloperAdmin && user.status !== UserStatus.ACTIVE) {
@@ -478,7 +496,13 @@ export function createApp() {
             status: isLocked ? UserStatus.LOCKED : undefined,
           },
         });
-        throw new HttpError(401, "Invalid email address or password.");
+        const remainingAttempts = Math.max(0, 5 - nextAttempts);
+        throw new HttpError(
+          isLocked ? 403 : 401,
+          isLocked
+            ? "Account blocked after 5 failed attempts. Contact your HR team; a Developer Admin must reactivate the login."
+            : `Invalid email address or password. ${remainingAttempts} attempt${remainingAttempts === 1 ? "" : "s"} remaining before the account is blocked.`,
+        );
       }
       const updated = await prisma.user.update({
         where: { id: user.id },
@@ -551,6 +575,7 @@ export function createApp() {
           firstLoginPasswordChangeRequired: body.firstLoginPasswordChangeRequired,
           suspendedUntil: body.suspendedUntil,
           suspensionStartsAt: body.suspensionStartsAt,
+          failedLoginAttempts: body.status === UserStatus.ACTIVE ? 0 : undefined,
         },
         include: { employee: true },
       });
@@ -1149,7 +1174,7 @@ export function createApp() {
   app.get(
     "/assets",
     requireAuth,
-    requireRoles(Role.HR),
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const query = String(req.query.q ?? "").trim();
       const status = typeof req.query.status === "string" ? req.query.status : undefined;
@@ -1179,7 +1204,7 @@ export function createApp() {
   app.get(
     "/assets/investment-summary",
     requireAuth,
-    requireRoles(Role.HR),
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
     asyncHandler(async (_req, res) => {
       const assets = await prisma.companyAsset.findMany({
         where: { assignedEmployeeId: { not: null }, status: { not: "RETIRED" } },
@@ -1243,7 +1268,7 @@ export function createApp() {
   app.get(
     "/assets/catalog",
     requireAuth,
-    requireRoles(Role.HR),
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const includeInactive = req.query.includeInactive === "true";
       const items = await prisma.assetCatalogItem.findMany({
@@ -1257,7 +1282,7 @@ export function createApp() {
   app.post(
     "/assets/catalog",
     requireAuth,
-    requireRoles(Role.HR),
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const body = assetCatalogItemSchema.parse(req.body);
       const item = await prisma.assetCatalogItem.create({ data: body });
@@ -1274,7 +1299,7 @@ export function createApp() {
   app.patch(
     "/assets/catalog/:id",
     requireAuth,
-    requireRoles(Role.HR),
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const body = assetCatalogItemUpdateSchema.parse(req.body);
       const existing = await prisma.assetCatalogItem.findUniqueOrThrow({
@@ -1298,7 +1323,7 @@ export function createApp() {
   app.delete(
     "/assets/catalog/:id",
     requireAuth,
-    requireRoles(Role.HR),
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const item = await prisma.assetCatalogItem.update({
         where: { catalogId: String(req.params.id) },
@@ -1317,7 +1342,7 @@ export function createApp() {
   app.post(
     "/assets",
     requireAuth,
-    requireRoles(Role.HR),
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const body = companyAssetSchema.parse(req.body);
       if (body.assetType !== "ONLINE" && !body.assetCode) {
@@ -1375,7 +1400,7 @@ export function createApp() {
   app.patch(
     "/assets/:id",
     requireAuth,
-    requireRoles(Role.HR),
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const body = companyAssetUpdateSchema.parse(req.body);
       const catalogItem = body.catalogId
@@ -1451,6 +1476,9 @@ export function createApp() {
     requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
     asyncHandler(async (req, res) => {
       const body = branchSchema.parse(req.body);
+      if ((body.latitude == null) !== (body.longitude == null)) {
+        throw new HttpError(400, "Latitude and longitude must be provided together");
+      }
       const branch = await prisma.branch.create({
         data: {
           branchName: body.name,
@@ -1458,6 +1486,9 @@ export function createApp() {
           address: body.address,
           city: body.city ?? undefined,
           status: body.status ?? "ACTIVE",
+          latitude: body.latitude,
+          longitude: body.longitude,
+          attendanceRadiusMeters: body.attendanceRadiusMeters,
         },
       });
       await audit({
@@ -1476,6 +1507,14 @@ export function createApp() {
     requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
     asyncHandler(async (req, res) => {
       const body = branchUpdateSchema.parse(req.body);
+      const changesLatitude = body.latitude !== undefined;
+      const changesLongitude = body.longitude !== undefined;
+      if (
+        changesLatitude !== changesLongitude ||
+        (body.latitude == null) !== (body.longitude == null)
+      ) {
+        throw new HttpError(400, "Latitude and longitude must be updated together");
+      }
       const branch = await prisma.branch.update({
         where: { branchId: String(req.params.id) },
         data: {
@@ -1484,6 +1523,9 @@ export function createApp() {
           address: body.address,
           city: body.city,
           status: body.status,
+          latitude: body.latitude,
+          longitude: body.longitude,
+          attendanceRadiusMeters: body.attendanceRadiusMeters,
         },
       });
       await audit({
@@ -1930,6 +1972,41 @@ export function createApp() {
     const employeeId = body.employeeId ?? req.user?.employeeId;
     if (!employeeId) throw new HttpError(400, "employeeId is required");
     await assertEmployeeAccess(req.user, employeeId);
+    let nearbyBranchId: string | undefined;
+    if (workType === WorkType.FIELD) {
+      const configuredBranches = await prisma.branch.findMany({
+        where: { status: "ACTIVE", latitude: { not: null }, longitude: { not: null } },
+        select: {
+          branchId: true,
+          branchName: true,
+          latitude: true,
+          longitude: true,
+          attendanceRadiusMeters: true,
+        },
+      });
+      if (!configuredBranches.length) {
+        throw new HttpError(
+          503,
+          "Mobile attendance is unavailable until a branch geofence is configured.",
+        );
+      }
+      const nearest = nearestBranch(
+        { latitude: body.latitude, longitude: body.longitude },
+        configuredBranches.map((branch) => ({
+          ...branch,
+          latitude: Number(branch.latitude),
+          longitude: Number(branch.longitude),
+        })),
+      );
+      if (!nearest || nearest.distance > nearest.branch.attendanceRadiusMeters) {
+        const distance = nearest ? Math.round(nearest.distance) : 0;
+        throw new HttpError(
+          422,
+          `You are outside the attendance area. Nearest branch: ${nearest?.branch.branchName ?? "unknown"} (${distance} m away).`,
+        );
+      }
+      nearbyBranchId = nearest.branch.branchId;
+    }
     const eventDate = startOfDayUtc(body.eventTime ?? new Date());
     const latestEvent = await prisma.attendanceEvent.findFirst({
       where: { employeeId, eventDate },
@@ -1984,6 +2061,7 @@ export function createApp() {
     }>;
     const event = await createAttendanceEvent({
       employeeId,
+      branchId: nearbyBranchId,
       eventSource: EventSource.MOBILE_GPS,
       eventType: resolvedType,
       eventTime: body.eventTime,
@@ -2309,7 +2387,7 @@ export function createApp() {
         orderBy: { createdAt: "desc" },
         take: listLimit(req, 500, 1000),
       });
-      res.json(rows.map(leaveRequestDto));
+      res.json(await leaveRequestDtos(rows));
     }),
   );
 
@@ -2726,15 +2804,18 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       const operationalRoles: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR, Role.CEO];
       const ownOnly = req.query.mine === "true";
+      const assignedApprovals = req.query.assignedApprovals === "true";
       const where: Prisma.LeaveRequestWhereInput = ownOnly
         ? { employeeId: req.user!.employeeId ?? "__none__" }
-        : operationalRoles.includes(req.user!.role)
-          ? {}
-          : req.user!.role === Role.MANAGER && req.user!.employeeId
-            ? {
-                employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) },
-              }
-            : { employeeId: req.user!.employeeId ?? "__none__" };
+        : assignedApprovals
+          ? { managerId: req.user!.employeeId ?? "__none__" }
+          : operationalRoles.includes(req.user!.role)
+            ? {}
+            : req.user!.role === Role.MANAGER && req.user!.employeeId
+              ? {
+                  employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) },
+                }
+              : { employeeId: req.user!.employeeId ?? "__none__" };
       if (typeof req.query.status === "string") {
         const status = req.query.status.toUpperCase();
         if (status === "PENDING") where.status = "PENDING";
@@ -2749,7 +2830,7 @@ export function createApp() {
         orderBy: { createdAt: "desc" },
         take: listLimit(req, 500, 1000),
       });
-      res.json(rows.map(leaveRequestDto));
+      res.json(await leaveRequestDtos(rows));
     }),
   );
   app.post(
@@ -2780,7 +2861,7 @@ export function createApp() {
         newValue: { leaveRequestId: request.leaveRequestId },
         ipAddress: req.ip,
       });
-      res.status(201).json(leaveRequestDto(request));
+      res.status(201).json(leaveRequestDto(request, approver.name));
     }),
   );
   app.post(
@@ -2812,7 +2893,7 @@ export function createApp() {
         newValue: { leaveRequestId: leave.leaveRequestId },
         ipAddress: req.ip,
       });
-      res.json(leaveRequestDto(leave));
+      res.json((await leaveRequestDtos([leave]))[0]);
     }),
   );
   app.post(
@@ -2838,7 +2919,7 @@ export function createApp() {
         newValue: { leaveRequestId: leave.leaveRequestId },
         ipAddress: req.ip,
       });
-      res.json(leaveRequestDto(leave));
+      res.json((await leaveRequestDtos([leave]))[0]);
     }),
   );
 
@@ -2884,7 +2965,7 @@ export function createApp() {
         newValue: { leaveRequestId: existing.leaveRequestId },
         ipAddress: req.ip,
       });
-      res.json(leaveRequestDto(leave));
+      res.json((await leaveRequestDtos([leave]))[0]);
     }),
   );
 
@@ -3411,15 +3492,52 @@ export function createApp() {
     }),
   );
 
+  async function recalculateHolidayImpact(date: Date, branchId: string | null) {
+    const summaries = await prisma.attendanceDailySummary.findMany({
+      where: {
+        date: startOfDayUtc(date),
+        ...(branchId ? { employee: { homeBranchId: branchId } } : {}),
+      },
+      select: { employeeId: true },
+    });
+    for (const summary of summaries) {
+      await recalculateDailySummary(summary.employeeId, date);
+    }
+  }
+
+  async function assertNoDuplicateHoliday(input: {
+    date: Date;
+    branchId?: string | null;
+    excludeHolidayId?: string;
+  }) {
+    const duplicate = await prisma.holiday.findFirst({
+      where: {
+        date: startOfDayUtc(input.date),
+        branchId: input.branchId || null,
+        status: "ACTIVE",
+        ...(input.excludeHolidayId ? { holidayId: { not: input.excludeHolidayId } } : {}),
+      },
+      select: { name: true },
+    });
+    if (duplicate) {
+      throw new HttpError(
+        409,
+        `A holiday named ${duplicate.name} already exists for this date and branch.`,
+      );
+    }
+  }
+
   app.post(
     "/holidays",
     requireAuth,
     requireRoles(Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const body = holidaySchema.parse(req.body);
+      await assertNoDuplicateHoliday({ date: body.date, branchId: body.branchId });
       const holiday = await prisma.holiday.create({
         data: { ...body, branchId: body.branchId || null },
       });
+      await recalculateHolidayImpact(holiday.date, holiday.branchId);
       await audit({
         action: "holiday created",
         performedByUserId: req.user!.id,
@@ -3439,6 +3557,11 @@ export function createApp() {
       const existing = await prisma.holiday.findUniqueOrThrow({
         where: { holidayId: String(req.params.id) },
       });
+      await assertNoDuplicateHoliday({
+        date: body.date ?? existing.date,
+        branchId: body.branchId === undefined ? existing.branchId : body.branchId,
+        excludeHolidayId: existing.holidayId,
+      });
       const holiday = await prisma.holiday.update({
         where: { holidayId: String(req.params.id) },
         data: {
@@ -3446,6 +3569,13 @@ export function createApp() {
           branchId: body.branchId === undefined ? undefined : body.branchId || null,
         },
       });
+      await recalculateHolidayImpact(existing.date, existing.branchId);
+      if (
+        holiday.date.getTime() !== existing.date.getTime() ||
+        holiday.branchId !== existing.branchId
+      ) {
+        await recalculateHolidayImpact(holiday.date, holiday.branchId);
+      }
       await audit({
         action: "holiday updated",
         performedByUserId: req.user!.id,
@@ -3462,10 +3592,14 @@ export function createApp() {
     requireAuth,
     requireRoles(Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
+      const existing = await prisma.holiday.findUniqueOrThrow({
+        where: { holidayId: String(req.params.id) },
+      });
       const holiday = await prisma.holiday.update({
         where: { holidayId: String(req.params.id) },
         data: { status: "INACTIVE" },
       });
+      await recalculateHolidayImpact(existing.date, existing.branchId);
       await audit({
         action: "holiday deactivated",
         performedByUserId: req.user!.id,

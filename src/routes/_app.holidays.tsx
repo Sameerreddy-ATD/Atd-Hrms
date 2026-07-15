@@ -138,7 +138,7 @@ function HolidaysPage() {
     <div>
       <PageHeader
         title="Holidays"
-        description="Add, edit, and remove company holidays."
+        description="Every active holiday listed here counts in attendance for its selected branch scope."
         actions={
           <Button size="sm" onClick={openCreateDialog}>
             <Plus className="mr-2 h-4 w-4" /> Add holiday
@@ -197,7 +197,8 @@ function HolidaysPage() {
           <DialogHeader>
             <DialogTitle>{editing ? "Edit holiday" : "Add holiday"}</DialogTitle>
             <DialogDescription>
-              Create or update holiday applicability, type, and branch scope in one popup.
+              Every active entry counts as a holiday. Type is a classification label; branch scope
+              controls which employees are affected.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={saveHoliday} className="grid gap-3 sm:grid-cols-2">

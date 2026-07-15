@@ -163,7 +163,7 @@ export const menuGroups: MenuGroup[] = [
         label: "Asset Management",
         to: "/assets",
         icon: Package,
-        roles: ["hr"],
+        roles: ["hr", "developer_admin"],
       },
     ],
   },

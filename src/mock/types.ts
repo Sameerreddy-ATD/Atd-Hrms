@@ -61,6 +61,9 @@ export interface Branch {
   code: string;
   city?: string;
   status?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  attendanceRadiusMeters?: number;
 }
 
 export interface Department {

@@ -1,6 +1,6 @@
 # Linux Local Deployment Guide
 
-This guide explains how to deploy Anytime Diesel HRMS on a local Linux computer or server for approximately 200-300 users.
+This guide explains how to deploy the Anytime Diesel Employee Management System on a local Linux computer or server for approximately 200-300 users.
 
 The recommended local production setup is:
 
@@ -310,7 +310,7 @@ http://YOUR_SERVER_IP
 
 ## 14. Connect Your Domain
 
-Use this when you want users to open the HRMS using a domain like:
+Use this when you want users to open the Employee Management System using a domain like:
 
 ```text
 https://hrms.anytimediesel.com
@@ -576,14 +576,14 @@ Then open the app and check:
 When you want to mark a stable deployment version, tag it in Git:
 
 ```bash
-git tag -a v1.0.0 -m "Anytime Diesel HRMS v1.0.0"
+git tag -a v1.0.0 -m "Anytime Diesel Employee Management System v1.0.0"
 git push origin v1.0.0
 ```
 
 For the next version:
 
 ```bash
-git tag -a v1.1.0 -m "Anytime Diesel HRMS v1.1.0"
+git tag -a v1.1.0 -m "Anytime Diesel Employee Management System v1.1.0"
 git push origin v1.1.0
 ```
 

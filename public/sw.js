@@ -8,7 +8,7 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("push", (event) => {
   let payload = {
-    title: "Anytime Diesel HRMS",
+    title: "Anytime Diesel Employee Management",
     body: "You have a new update.",
     icon: "/pwa-192.png",
     badge: "/pwa-192.png",

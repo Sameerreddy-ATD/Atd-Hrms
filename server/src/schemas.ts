@@ -96,6 +96,9 @@ export const branchSchema = z.object({
   address: z.string().min(2).max(500),
   city: z.string().max(120).nullable().optional(),
   status: z.string().max(40).optional(),
+  latitude: z.coerce.number().min(-90).max(90).nullable().optional(),
+  longitude: z.coerce.number().min(-180).max(180).nullable().optional(),
+  attendanceRadiusMeters: z.coerce.number().int().min(25).max(5000).optional(),
 });
 
 export const branchUpdateSchema = branchSchema.partial();

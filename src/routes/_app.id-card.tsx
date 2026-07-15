@@ -54,7 +54,7 @@ function IdCardPage() {
               <span className="block text-xs font-semibold uppercase text-red-700">
                 Employee ID
               </span>
-              <span className="text-[10px] text-muted-foreground">Anytime Diesel HRMS</span>
+              <span className="text-[10px] text-muted-foreground">Employee Management System</span>
             </div>
           </div>
           <CardContent className="p-6">

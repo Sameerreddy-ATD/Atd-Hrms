@@ -16,9 +16,9 @@ import { SystemThemeSync } from "@/components/layout/SystemThemeSync";
 import { Toaster } from "@/components/ui/sonner";
 import { registerAppServiceWorker } from "@/lib/browser-notifications";
 
-const SITE_TITLE = "Anytime Diesel HRMS";
+const SITE_TITLE = "Anytime Diesel Employee Management System";
 const SITE_DESCRIPTION =
-  "Secure HRMS for Anytime Diesel employee attendance, leave, payroll reports, biometric devices, GPS field work, branches, and HR operations.";
+  "Anytime Diesel Employee Management System for employee records, attendance, leave, tasks, assets, branches, and company operations.";
 const SITE_IMAGE = "/atd-logo.png";
 
 function NotFoundComponent() {
@@ -88,7 +88,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "keywords",
         content:
-          "Anytime Diesel, HRMS, attendance management, leave management, biometric attendance, GPS attendance, payroll attendance, employee management",
+          "Anytime Diesel, employee management system, attendance management, leave management, biometric attendance, GPS attendance, tasks, assets",
       },
       { name: "application-name", content: SITE_TITLE },
       { name: "apple-mobile-web-app-title", content: SITE_TITLE },

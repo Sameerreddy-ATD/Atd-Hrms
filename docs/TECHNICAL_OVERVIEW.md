@@ -1,4 +1,4 @@
-# Anytime Diesel HRMS Technical Overview
+# Anytime Diesel Employee Management System Technical Overview
 
 This document describes the current local architecture, setup, backend modules, frontend areas, and verification commands.
 
@@ -207,6 +207,20 @@ erDiagram
 | Notifications          | `/notifications`           |
 | System Settings        | `/settings`                |
 
+### Attendance Rule Precedence
+
+Attendance events take precedence over no-event classifications. After a day ends, an employee without events is resolved using the active portal Holiday list, employee weekly-off configuration, approved leave, and finally absence. Every active holiday entry counts regardless of its Public, Optional, or Restricted classification; branch-scoped holidays apply only to employees assigned to that home branch. Holiday mutations recalculate existing summaries for the affected date and scope.
+
+### Mobile Branch Geofence
+
+Mobile branch attendance sends coordinates to the authenticated API. The server calculates distance to active branches that have latitude, longitude, and attendance radius configured, selects the nearest branch, and rejects an out-of-radius punch. Client-visit endpoints remain a separate field workflow. Browser coordinates are never accepted as proof without this server-side comparison.
+
+### Leave Authorization
+
+Each leave request stores the employee ID of the organization head selected by hierarchy traversal. Approval-list queries return requests assigned to the signed-in head, and approve/reject endpoints independently compare that stored ID. Parent heads may receive authorized reporting visibility but cannot action a request assigned to a lower head.
+
+For release procedures and device verification, see [UPGRADE_AND_MAINTENANCE.md](UPGRADE_AND_MAINTENANCE.md) and [DEVICE_COMPATIBILITY.md](DEVICE_COMPATIBILITY.md).
+
 ## Verification Commands
 
 Run these before pushing production changes:
@@ -238,7 +252,7 @@ Current version:
 Next version attendance verification plan:
 
 - eSSL/fingerprint device sync/import.
-- Branch geofence verification using latitude and longitude.
+- Additional geofence administration, monitoring, and exception analytics.
 - Approved branch Wi-Fi verification for branch-mobile attendance.
 - Photo/selfie capture during mobile check-in and check-out.
 - Attendance proof summary showing source: biometric, GPS, Wi-Fi, photo, manual correction, or combined verification.

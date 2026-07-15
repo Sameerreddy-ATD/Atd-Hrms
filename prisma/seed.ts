@@ -5,12 +5,8 @@ const prisma = new PrismaClient();
 
 async function main() {
   const seedPassword = process.env.SEED_PASSWORD;
-  if (!seedPassword) throw new Error("SEED_PASSWORD is required to create fresh accounts");
+  if (!seedPassword) throw new Error("SEED_PASSWORD is required to seed baseline accounts");
   const passwordHash = await hashPassword(seedPassword);
-
-  await prisma.systemSetting.create({
-    data: { key: "PREDEFINED_PASSWORD_HASH", value: passwordHash },
-  });
 
   const unitData = [
     ["Executive Leadership", null, "TEAM", 1],
@@ -46,16 +42,23 @@ async function main() {
     units.set(name, unit.departmentId);
   }
 
-  const madhapur = await prisma.branch.create({
-    data: {
+  const madhapur = await prisma.branch.upsert({
+    where: { branchCode: "MADHAPUR" },
+    update: { latitude: 17.4391592, longitude: 78.3947783, attendanceRadiusMeters: 250 },
+    create: {
       branchName: "Madhapur",
       branchCode: "MADHAPUR",
       address: "Anytime Diesel, Madhapur, Hyderabad",
       city: "Hyderabad",
+      latitude: 17.4391592,
+      longitude: 78.3947783,
+      attendanceRadiusMeters: 250,
     },
   });
-  const banjaraHills = await prisma.branch.create({
-    data: {
+  const banjaraHills = await prisma.branch.upsert({
+    where: { branchCode: "BANJARA" },
+    update: {},
+    create: {
       branchName: "Banjara Hills",
       branchCode: "BANJARA",
       address: "Anytime Diesel, Banjara Hills, Hyderabad",
@@ -264,8 +267,18 @@ async function main() {
 
   const employeeIds = new Map<string, string>();
   for (const person of people) {
-    const employee = await prisma.employee.create({
-      data: {
+    const employee = await prisma.employee.upsert({
+      where: { employeeCode: person.code },
+      update: {
+        name: person.name,
+        email: person.email,
+        departmentId: person.unit ? units.get(person.unit) : undefined,
+        designation: person.designation,
+        organizationLevel: person.level,
+        managerId: person.managerCode ? employeeIds.get(person.managerCode) : undefined,
+        homeBranchId: person.branch === "banjara" ? banjaraHills.branchId : madhapur.branchId,
+      },
+      create: {
         employeeCode: person.code,
         name: person.name,
         email: person.email,
@@ -282,8 +295,10 @@ async function main() {
       },
     });
     employeeIds.set(person.code, employee.employeeId);
-    await prisma.user.create({
-      data: {
+    await prisma.user.upsert({
+      where: { email: person.email },
+      update: { name: person.name, role: person.role, employeeId: employee.employeeId },
+      create: {
         name: person.name,
         email: person.email,
         role: person.role,
@@ -294,8 +309,10 @@ async function main() {
     });
   }
 
-  await prisma.user.create({
-    data: {
+  await prisma.user.upsert({
+    where: { email: "dev@anytimediesel.local" },
+    update: { role: Role.DEVELOPER_ADMIN, status: "ACTIVE", failedLoginAttempts: 0 },
+    create: {
       name: "Developer Admin",
       email: "dev@anytimediesel.local",
       role: Role.DEVELOPER_ADMIN,
@@ -305,12 +322,10 @@ async function main() {
   });
 
   for (const [name, paid] of [
-    ["Paid Leave", true],
     ["Sick Leave", true],
     ["Casual Leave", true],
-    ["Unpaid Leave", false],
   ] as const) {
-    await prisma.leaveType.create({ data: { name, paid } });
+    await prisma.leaveType.upsert({ where: { name }, update: {}, create: { name, paid } });
   }
 
   for (const [unitName, headCode] of [
@@ -329,7 +344,7 @@ async function main() {
     });
   }
 
-  console.log(`Fresh seed complete: ${people.length + 1} accounts created.`);
+  console.log(`Seed complete: ${people.length + 1} baseline accounts are available.`);
 }
 
 main()

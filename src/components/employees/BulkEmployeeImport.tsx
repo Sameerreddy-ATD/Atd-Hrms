@@ -125,11 +125,11 @@ export function BulkEmployeeImport({
   async function downloadTemplate() {
     const { Workbook } = await import("exceljs");
     const workbook = new Workbook();
-    workbook.creator = "Anytime Diesel HRMS";
+    workbook.creator = "Anytime Diesel Employee Management System";
     workbook.created = new Date();
 
     const instructions = workbook.addWorksheet("Instructions");
-    instructions.addRow(["Anytime Diesel HRMS Employee Import"]);
+    instructions.addRow(["Anytime Diesel Employee Import"]);
     instructions.addRow([
       "1. Enter employees only in the Employees sheet. Do not rename the column headers.",
     ]);

@@ -190,6 +190,8 @@ export const leaveApi = {
   list: (filters: { status?: string } = {}) =>
     request<LeaveRequest[]>(`/leave/requests${toQuery(filters)}`),
   mine: () => request<LeaveRequest[]>("/leave/requests?mine=true"),
+  assignedApprovals: (status?: string) =>
+    request<LeaveRequest[]>(`/leave/requests${toQuery({ assignedApprovals: "true", status })}`),
   approver: () => request<{ approverName: string | null; canApply: boolean }>("/leave/approver"),
   types: () => request<LeaveTypeOption[]>("/leave/types"),
   createType: (payload: { name: string; paid: boolean }) =>

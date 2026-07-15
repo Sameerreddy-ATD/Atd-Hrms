@@ -1,6 +1,6 @@
-# Anytime Diesel HRMS
+# Anytime Diesel Employee Management System
 
-Anytime Diesel HRMS is a production-oriented employee operations system for login management, employee records, branch setup, attendance, leave, notifications, reports, audit logs, and role-based dashboards.
+The Anytime Diesel Employee Management System is a production-oriented employee operations platform for login management, employee records, organization structure, attendance, leave, tasks, assets, notifications, reports, audit logs, and role-based dashboards.
 
 The application uses **MySQL 8.0** at runtime. Prisma connects through `DATABASE_URL`; the frontend communicates only with the Express backend APIs.
 
@@ -9,15 +9,18 @@ The application uses **MySQL 8.0** at runtime. Prisma connects through `DATABASE
 - [User Guide](docs/USER_GUIDE.md) - HR, manager, employee, field staff, and leadership usage.
 - [Technical Overview](docs/TECHNICAL_OVERVIEW.md) - architecture, setup, API areas, database model, and verification.
 - [Linux Local Deployment Guide](docs/LINUX_LOCAL_DEPLOYMENT.md) - step-by-step local Linux deployment for 200-300 users.
+- [Operations And Workflow Manual](docs/OPERATIONS_AND_WORKFLOWS.md) - complete account, organization, attendance, leave, holiday, task, asset, and notification flows.
+- [Upgrade And Maintenance Guide](docs/UPGRADE_AND_MAINTENANCE.md) - safe future releases, database backups, migrations, verification, and rollback.
+- [Device Compatibility Guide](docs/DEVICE_COMPATIBILITY.md) - iPhone, Pixel, Samsung, Vivo, Oppo, tablet, and laptop requirements.
 - [Database Scripts](scripts/README.md) - MySQL helper scripts and migration utilities.
 
 ## Core Features
 
 - Secure login with HTTP-only cookies.
 - First-login password update with automatic sign-in after password change.
-- No public signup; HR/Admin creates accounts.
+- No public signup; Developer Admin creates accounts.
 - Role-based access for Developer Admin, Main Admin, CEO, HR, Manager, Employee, Sales, Driver, and Field Staff.
-- Employee profiles with department, branch, reporting manager, gender, employment type, birthday, and attendance mode.
+- Employee profiles with organization unit, branch, gender, employment type, birthday, and attendance mode.
 - User lifecycle management: create, update, suspend, deactivate, delete, and reset password.
 - Department head assignment.
 - Branch, holiday, and leave type administration.
@@ -112,13 +115,13 @@ Do not commit `.env` or real passwords.
 
 ## Database Commands
 
-| Command                  | Purpose                                         |
-| ------------------------ | ----------------------------------------------- |
-| `npm run db:start-mysql` | Start project-local MySQL on `127.0.0.1:3306`   |
-| `npm run db:migrate`     | Create/apply Prisma migrations in development   |
-| `npm run db:deploy`      | Apply committed migrations                      |
-| `npm run db:seed`        | Seed predefined password and demo/baseline data |
-| `npm run db:verify`      | Confirm Prisma can read from MySQL              |
+| Command                  | Purpose                                                |
+| ------------------------ | ------------------------------------------------------ |
+| `npm run db:start-mysql` | Start project-local MySQL on `127.0.0.1:3306`          |
+| `npm run db:migrate`     | Create/apply Prisma migrations in development          |
+| `npm run db:deploy`      | Apply committed migrations                             |
+| `npm run db:seed`        | Seed organization structure and demo/baseline accounts |
+| `npm run db:verify`      | Confirm Prisma can read from MySQL                     |
 
 Active MySQL migrations live in `prisma/migrations/`. Legacy PostgreSQL migrations are archived in `prisma/postgresql-migrations/` for reference only.
 
@@ -139,7 +142,7 @@ npm run db:verify
 
 ```mermaid
 flowchart LR
-  HR["HR/Admin creates login"] --> Temp["Temporary password"]
+  HR["Developer Admin creates login"] --> Temp["Temporary password"]
   Temp --> FirstLogin["First login"]
   FirstLogin --> Password["User changes password"]
   Password --> Dashboard["Role-based dashboard"]
@@ -168,13 +171,13 @@ flowchart LR
 
 Current version:
 
-- Mobile attendance and attendance reporting are part of the working HRMS flow.
+- Mobile attendance, server-side branch geofencing, and attendance reporting are part of the working Employee Management System flow.
 - Biometric/eSSL devices are not live yet. They are planned for the next version.
 
 Future attendance verification roadmap:
 
 - eSSL/fingerprint device sync.
-- Branch GPS/location checks.
+- Geofence administration, exception monitoring, and branch-location analytics.
 - Approved branch Wi-Fi checks, so branch-mobile attendance is accepted only when the mobile is connected to the correct branch Wi-Fi.
 - Photo/selfie verification for mobile check-in and check-out.
 - Combined branch-mobile proof using location, Wi-Fi, and photo verification.

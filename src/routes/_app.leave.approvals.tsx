@@ -63,7 +63,7 @@ function LeaveApprovalsPage() {
 
   useEffect(() => {
     if (!canApprove) return;
-    Promise.all([leaveApi.list({ status: "PENDING" }), leaveApi.list()])
+    Promise.all([leaveApi.assignedApprovals("PENDING"), leaveApi.assignedApprovals()])
       .then(([pending, all]) => {
         setRows(pending);
         setHistory(all.filter((request) => request.status !== "Pending"));
@@ -92,7 +92,7 @@ function LeaveApprovalsPage() {
     <div>
       <PageHeader
         title="Leave Approvals"
-        description="Approve or reject pending leave from employees in your organization units."
+        description="Approve or reject leave assigned directly to you as the employee's organization head."
       />
       {loading && <p className="text-sm text-muted-foreground">Loading leave approvals...</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}

@@ -37,7 +37,15 @@ function BranchesPage() {
   const [editing, setEditing] = useState<Branch | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [deleteBranchTarget, setDeleteBranchTarget] = useState<Branch | null>(null);
-  const [form, setForm] = useState({ name: "", code: "", address: "", city: "" });
+  const [form, setForm] = useState({
+    name: "",
+    code: "",
+    address: "",
+    city: "",
+    latitude: "",
+    longitude: "",
+    attendanceRadiusMeters: "250",
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -51,13 +59,29 @@ function BranchesPage() {
 
   function resetForm() {
     setEditing(null);
-    setForm({ name: "", code: "", address: "", city: "" });
+    setForm({
+      name: "",
+      code: "",
+      address: "",
+      city: "",
+      latitude: "",
+      longitude: "",
+      attendanceRadiusMeters: "250",
+    });
     setShowForm(false);
   }
 
   function openCreateDialog() {
     setEditing(null);
-    setForm({ name: "", code: "", address: "", city: "" });
+    setForm({
+      name: "",
+      code: "",
+      address: "",
+      city: "",
+      latitude: "",
+      longitude: "",
+      attendanceRadiusMeters: "250",
+    });
     setShowForm(true);
   }
 
@@ -68,6 +92,9 @@ function BranchesPage() {
       code: branch.code,
       address: branch.address,
       city: branch.city ?? "",
+      latitude: branch.latitude?.toString() ?? "",
+      longitude: branch.longitude?.toString() ?? "",
+      attendanceRadiusMeters: String(branch.attendanceRadiusMeters ?? 250),
     });
     setShowForm(true);
   }
@@ -79,7 +106,17 @@ function BranchesPage() {
       return;
     }
     try {
-      const payload = { ...form, status: "ACTIVE" };
+      if ((form.latitude && !form.longitude) || (!form.latitude && form.longitude)) {
+        toast.error("Enter both latitude and longitude");
+        return;
+      }
+      const payload = {
+        ...form,
+        latitude: form.latitude ? Number(form.latitude) : null,
+        longitude: form.longitude ? Number(form.longitude) : null,
+        attendanceRadiusMeters: Number(form.attendanceRadiusMeters),
+        status: "ACTIVE",
+      };
       const saved = editing
         ? await branchesApi.update(editing.id, payload)
         : await branchesApi.create(payload);
@@ -187,6 +224,38 @@ function BranchesPage() {
               <Input
                 value={form.city}
                 onChange={(e) => setForm((current) => ({ ...current, city: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Latitude</Label>
+              <Input
+                type="number"
+                step="any"
+                value={form.latitude}
+                onChange={(e) => setForm((current) => ({ ...current, latitude: e.target.value }))}
+                placeholder="17.4391592"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Longitude</Label>
+              <Input
+                type="number"
+                step="any"
+                value={form.longitude}
+                onChange={(e) => setForm((current) => ({ ...current, longitude: e.target.value }))}
+                placeholder="78.3947783"
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Mobile attendance radius (meters)</Label>
+              <Input
+                type="number"
+                min="25"
+                max="5000"
+                value={form.attendanceRadiusMeters}
+                onChange={(e) =>
+                  setForm((current) => ({ ...current, attendanceRadiusMeters: e.target.value }))
+                }
               />
             </div>
             <DialogFooter className="sm:col-span-2">
