@@ -114,6 +114,12 @@ function NotificationsPage() {
     event.preventDefault();
     setAnnouncementSaving(true);
     try {
+      if (!announcementForm.expiresAt) {
+        throw new Error("Select the date and time until which the announcement should display");
+      }
+      if (new Date(announcementForm.expiresAt) <= new Date()) {
+        throw new Error("Display-until date and time must be in the future");
+      }
       await announcementsApi.create({
         title: announcementForm.title,
         message: announcementForm.message,
@@ -152,8 +158,8 @@ function NotificationsPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  disableDesktopAlerts();
+                onClick={async () => {
+                  await disableDesktopAlerts();
                   refreshAlertStatus();
                   toast.success("Browser alerts disabled in app");
                 }}
@@ -277,10 +283,11 @@ function NotificationsPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="announcement-expiry">Expiry (optional)</Label>
+                <Label htmlFor="announcement-expiry">Display until</Label>
                 <Input
                   id="announcement-expiry"
                   type="datetime-local"
+                  required
                   value={announcementForm.expiresAt}
                   onChange={(event) =>
                     setAnnouncementForm((current) => ({
@@ -289,6 +296,9 @@ function NotificationsPage() {
                     }))
                   }
                 />
+                <p className="text-xs text-muted-foreground">
+                  The announcement automatically disappears after this date and time.
+                </p>
               </div>
               <div className="flex justify-end lg:col-span-2">
                 <Button type="submit" disabled={announcementSaving} className="w-full sm:w-auto">
@@ -315,6 +325,11 @@ function NotificationsPage() {
                         </div>
                         <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
                           {announcement.message}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {announcement.expiresAt
+                            ? `Visible until ${new Date(announcement.expiresAt).toLocaleString()}`
+                            : "No expiry"}
                         </p>
                       </div>
                       <Button
@@ -386,6 +401,11 @@ function NotificationsPage() {
                   <p className="mt-3 text-xs text-muted-foreground">
                     {announcement.authorName} · {new Date(announcement.publishAt).toLocaleString()}
                   </p>
+                  {announcement.expiresAt && (
+                    <p className="mt-1 text-xs font-medium text-muted-foreground">
+                      Visible until {new Date(announcement.expiresAt).toLocaleString()}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             ))}
@@ -414,6 +434,11 @@ function NotificationsPage() {
           >
             {alertStatus.effectivelyEnabled ? "Alerts active" : "Alerts inactive"}
           </Badge>
+        </CardContent>
+        <CardContent className="border-t px-4 py-3 text-xs text-muted-foreground">
+          Installed Android apps can receive company alerts in the background. On iPhone or iPad
+          16.4 and later, add the app to the Home Screen, open it from the icon, then tap Enable
+          Alerts.
         </CardContent>
       </Card>
 
@@ -448,6 +473,19 @@ function NotificationsPage() {
                   <Icon className="h-4 w-4" />
                 </div>
                 <div className="min-w-0 flex-1">
+                  <div className="mb-1 flex flex-wrap items-center gap-2">
+                    <Badge variant="outline" className="text-[10px]">
+                      Anytime Diesel
+                    </Badge>
+                    <span className="text-[10px] font-medium uppercase text-muted-foreground">
+                      {n.type}
+                    </span>
+                    {n.priority && n.priority !== "NORMAL" && (
+                      <Badge variant={n.priority === "URGENT" ? "destructive" : "secondary"}>
+                        {n.priority.toLowerCase()}
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-sm font-medium capitalize">{n.title}</p>
                   <p className="text-sm text-muted-foreground">{n.desc}</p>
                   {n.type === "announcement" && n.authorName && (

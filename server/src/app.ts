@@ -3,7 +3,7 @@ import compression from "compression";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import morgan from "morgan";
@@ -46,6 +46,7 @@ import {
   userDto,
 } from "./mapper.js";
 import { prisma } from "./prisma.js";
+import { isWebPushConfigured, sendPushToAll } from "./push.js";
 import {
   assertEmployeeAccess,
   canCreateRole,
@@ -87,6 +88,7 @@ import {
   loginSchema,
   mobileEventSchema,
   profileEditSchema,
+  pushSubscriptionSchema,
   resetPasswordSchema,
   taskLogSchema,
   taskSchema,
@@ -3331,6 +3333,52 @@ export function createApp() {
     }),
   );
 
+  app.get("/push/public-key", requireAuth, (_req, res) => {
+    res.json({ publicKey: isWebPushConfigured() ? config.vapidPublicKey : null });
+  });
+
+  app.post(
+    "/push/subscriptions",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      if (!isWebPushConfigured()) throw new HttpError(503, "Push notifications are not configured");
+      const body = pushSubscriptionSchema.parse(req.body);
+      const endpointHash = createHash("sha256").update(body.endpoint).digest("hex");
+      await prisma.pushSubscription.upsert({
+        where: { endpointHash },
+        create: {
+          userId: req.user!.id,
+          endpoint: body.endpoint,
+          endpointHash,
+          p256dh: body.keys.p256dh,
+          auth: body.keys.auth,
+          userAgent: req.get("user-agent"),
+        },
+        update: {
+          userId: req.user!.id,
+          endpoint: body.endpoint,
+          p256dh: body.keys.p256dh,
+          auth: body.keys.auth,
+          userAgent: req.get("user-agent"),
+        },
+      });
+      res.status(201).json({ ok: true });
+    }),
+  );
+
+  app.delete(
+    "/push/subscriptions",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const endpoint = z.object({ endpoint: z.string().url() }).parse(req.body).endpoint;
+      const endpointHash = createHash("sha256").update(endpoint).digest("hex");
+      await prisma.pushSubscription.deleteMany({
+        where: { endpointHash, userId: req.user!.id },
+      });
+      res.json({ ok: true });
+    }),
+  );
+
   app.get(
     "/announcements",
     requireAuth,
@@ -3361,6 +3409,9 @@ export function createApp() {
     requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const body = announcementSchema.parse(req.body);
+      if (body.expiresAt && body.expiresAt <= new Date()) {
+        throw new HttpError(400, "Display-until date and time must be in the future");
+      }
       const announcement = await prisma.announcement.create({
         data: {
           ...body,
@@ -3375,6 +3426,12 @@ export function createApp() {
         performedByUserId: req.user!.id,
         newValue: { announcementId: announcement.announcementId, title: announcement.title },
         ipAddress: req.ip,
+      });
+      void sendPushToAll({
+        title: `Anytime Diesel: ${announcement.title}`,
+        body: announcement.message,
+        href: "/notifications",
+        tag: `announcement-${announcement.announcementId}`,
       });
       res.status(201).json(announcementDto(announcement));
     }),

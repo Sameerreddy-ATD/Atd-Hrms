@@ -512,6 +512,20 @@ export const announcementsApi = {
   deactivate: (id: string) => request<Announcement>(`/announcements/${id}`, { method: "DELETE" }),
 };
 
+export const pushApi = {
+  publicKey: () => request<{ publicKey: string | null }>("/push/public-key"),
+  subscribe: (subscription: PushSubscriptionJSON) =>
+    request<{ ok: true }>("/push/subscriptions", {
+      method: "POST",
+      body: JSON.stringify(subscription),
+    }),
+  unsubscribe: (endpoint: string) =>
+    request<{ ok: true }>("/push/subscriptions", {
+      method: "DELETE",
+      body: JSON.stringify({ endpoint }),
+    }),
+};
+
 export const tasksApi = {
   list: (scope: "mine" | "team" = "team") => request<WorkTask[]>(`/tasks${toQuery({ scope })}`),
   assignees: () => request<TaskAssignee[]>("/tasks/assignees"),

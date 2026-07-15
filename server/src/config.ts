@@ -14,6 +14,9 @@ export const config = {
   refreshCookie: process.env.REFRESH_COOKIE_NAME ?? "adh_refresh",
   secureCookies: process.env.COOKIE_SECURE === "true" || process.env.NODE_ENV === "production",
   isProduction: process.env.NODE_ENV === "production",
+  vapidPublicKey: process.env.VAPID_PUBLIC_KEY ?? "",
+  vapidPrivateKey: process.env.VAPID_PRIVATE_KEY ?? "",
+  vapidSubject: process.env.VAPID_SUBJECT ?? "mailto:hrms@example.com",
 };
 
 export function assertSecureConfig() {

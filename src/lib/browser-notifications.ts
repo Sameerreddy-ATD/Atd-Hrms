@@ -1,4 +1,5 @@
 import type { NotificationItem } from "@/mock/types";
+import { pushApi } from "@/services/api";
 
 const CLEARED_AT_KEY = "adh_notifications_cleared_at";
 const DESKTOP_ALERTS_KEY = "adh_desktop_alerts_enabled";
@@ -45,7 +46,15 @@ export function setDesktopAlertsEnabled(enabled: boolean) {
   writeLocalStorage(DESKTOP_ALERTS_KEY, enabled ? "true" : "false");
 }
 
-export function disableDesktopAlerts() {
+export async function disableDesktopAlerts() {
+  if ("serviceWorker" in navigator) {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager?.getSubscription();
+    if (subscription) {
+      await pushApi.unsubscribe(subscription.endpoint).catch(() => undefined);
+      await subscription.unsubscribe();
+    }
+  }
   setDesktopAlertsEnabled(false);
 }
 
@@ -116,6 +125,25 @@ export async function enableDesktopAlerts() {
     throw new Error("Notification permission was not granted.");
   }
   setDesktopAlertsEnabled(true);
+  await registerAppServiceWorker();
+  const registration = await navigator.serviceWorker.ready;
+  if (registration.pushManager) {
+    const { publicKey } = await pushApi.publicKey();
+    if (publicKey) {
+      const padding = "=".repeat((4 - (publicKey.length % 4)) % 4);
+      const base64 = (publicKey + padding).replace(/-/g, "+").replace(/_/g, "/");
+      const applicationServerKey = Uint8Array.from(atob(base64), (character) =>
+        character.charCodeAt(0),
+      );
+      const subscription =
+        (await registration.pushManager.getSubscription()) ??
+        (await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey,
+        }));
+      await pushApi.subscribe(subscription.toJSON());
+    }
+  }
   await showDesktopNotification({
     id: "alerts-enabled",
     title: "Anytime Diesel employee alerts enabled",

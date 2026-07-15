@@ -293,3 +293,11 @@ export const announcementSchema = announcementFields.refine(
 );
 
 export const announcementUpdateSchema = announcementFields.partial();
+
+export const pushSubscriptionSchema = z.object({
+  endpoint: z.string().url().max(5000),
+  keys: z.object({
+    p256dh: z.string().min(1).max(5000),
+    auth: z.string().min(1).max(5000),
+  }),
+});

@@ -24,10 +24,16 @@ self.addEventListener("push", (event) => {
   }
 
   event.waitUntil(self.registration.showNotification(payload.title, payload));
+  if (self.navigator && "setAppBadge" in self.navigator) {
+    event.waitUntil(self.navigator.setAppBadge(1));
+  }
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  if (self.navigator && "clearAppBadge" in self.navigator) {
+    event.waitUntil(self.navigator.clearAppBadge());
+  }
   const targetUrl = event.notification.data?.href || "/notifications";
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
