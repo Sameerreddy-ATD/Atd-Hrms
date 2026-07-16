@@ -147,7 +147,11 @@ export const usersApi = {
       method: "POST",
       body: JSON.stringify({ suspensionStartsAt, suspendedUntil }),
     }),
-  delete: (id: string) => request<{ ok: boolean }>(`/users/${id}`, { method: "DELETE" }),
+  delete: (id: string, confirmation: string) =>
+    request<{ ok: boolean }>(`/users/${id}`, {
+      method: "DELETE",
+      body: JSON.stringify({ confirmation }),
+    }),
   resetPassword: (id: string, password: string) =>
     request<User>(`/users/${id}/reset-password`, {
       method: "POST",

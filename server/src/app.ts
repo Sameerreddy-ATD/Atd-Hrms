@@ -740,6 +740,9 @@ export function createApp() {
       if (existing.role === Role.DEVELOPER_ADMIN) {
         throw new HttpError(403, "Developer Admin accounts cannot be deleted");
       }
+      if (req.body?.confirmation !== "DELETE") {
+        throw new HttpError(400, "Type DELETE to approve permanent account deletion");
+      }
 
       const employeeId = existing.employeeId;
       await prisma.$transaction(async (tx) => {
@@ -755,6 +758,13 @@ export function createApp() {
           where: { affectedUserId: id },
           data: { affectedUserId: null },
         });
+        await tx.workTask.updateMany({
+          where: { parentTask: { createdByUserId: id } },
+          data: { parentTaskId: null },
+        });
+        await tx.taskUpdate.deleteMany({ where: { authorUserId: id } });
+        await tx.workTask.deleteMany({ where: { createdByUserId: id } });
+        await tx.announcement.deleteMany({ where: { createdById: id } });
         if (employeeId) {
           await tx.department.updateMany({
             where: { headEmployeeId: employeeId },
@@ -764,6 +774,8 @@ export function createApp() {
             where: { managerId: employeeId },
             data: { managerId: null },
           });
+          await tx.companyAsset.deleteMany({ where: { assignedEmployeeId: employeeId } });
+          await tx.taskAssignment.deleteMany({ where: { employeeId } });
           await tx.profileEditRequest.deleteMany({ where: { employeeId } });
           await tx.attendanceCorrectionRequest.deleteMany({ where: { employeeId } });
           await tx.leaveBalance.deleteMany({ where: { employeeId } });

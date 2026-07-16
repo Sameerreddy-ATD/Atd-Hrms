@@ -81,6 +81,13 @@ function EmployeesPage() {
       })
       .catch((err) => setError((err as Error).message))
       .finally(() => setLoading(false));
+    const statusTimer = window.setInterval(() => {
+      void employeesApi
+        .list()
+        .then(setEmployees)
+        .catch(() => undefined);
+    }, 15_000);
+    return () => window.clearInterval(statusTimer);
   }, []);
 
   function openEditDialog(emp: User) {
@@ -215,18 +222,7 @@ function EmployeesPage() {
                   <p className="truncate text-sm font-semibold">{employee.name}</p>
                   <p className="truncate text-xs text-muted-foreground">{employee.email}</p>
                 </div>
-                {employee.active ? (
-                  <Badge
-                    variant="outline"
-                    className="border-emerald-200 bg-emerald-50 text-emerald-700"
-                  >
-                    Active
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="border-slate-200 bg-slate-100 text-slate-600">
-                    Inactive
-                  </Badge>
-                )}
+                <EmployeeAccountStatus employee={employee} />
               </div>
               <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
                 <div>
@@ -294,21 +290,7 @@ function EmployeesPage() {
                   </TableCell>
                   <TableCell className="text-sm">{u.phone ?? "-"}</TableCell>
                   <TableCell>
-                    {u.active ? (
-                      <Badge
-                        variant="outline"
-                        className="border-emerald-200 bg-emerald-50 text-emerald-700"
-                      >
-                        Active
-                      </Badge>
-                    ) : (
-                      <Badge
-                        variant="outline"
-                        className="border-slate-200 bg-slate-100 text-slate-600"
-                      >
-                        Inactive
-                      </Badge>
-                    )}
+                    <EmployeeAccountStatus employee={u} />
                   </TableCell>
                   {canEdit && (
                     <TableCell>
@@ -524,5 +506,52 @@ function EmployeesPage() {
         </Dialog>
       )}
     </div>
+  );
+}
+
+function EmployeeAccountStatus({ employee }: { employee: User }) {
+  const scheduledSuspension =
+    employee.suspensionStartsAt && new Date(employee.suspensionStartsAt).getTime() > Date.now();
+  if (scheduledSuspension) {
+    return (
+      <Badge
+        variant="outline"
+        className="max-w-44 whitespace-normal border-amber-200 bg-amber-50 text-center text-amber-800"
+      >
+        Suspends {new Date(employee.suspensionStartsAt!).toLocaleDateString("en-IN")}
+      </Badge>
+    );
+  }
+  if (employee.accountStatus === "LOCKED") {
+    return (
+      <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700">
+        Blocked
+      </Badge>
+    );
+  }
+  if (employee.accountStatus === "SUSPENDED") {
+    return (
+      <Badge
+        variant="outline"
+        className="max-w-44 whitespace-normal border-orange-200 bg-orange-50 text-center text-orange-800"
+      >
+        Suspended
+        {employee.suspendedUntil
+          ? ` until ${new Date(employee.suspendedUntil).toLocaleDateString("en-IN")}`
+          : ""}
+      </Badge>
+    );
+  }
+  if (employee.active) {
+    return (
+      <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">
+        Active
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="border-slate-200 bg-slate-100 text-slate-600">
+      Inactive
+    </Badge>
   );
 }

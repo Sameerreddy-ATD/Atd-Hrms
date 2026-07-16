@@ -22,6 +22,7 @@ export function userDto(
     | "role"
     | "status"
     | "firstLoginPasswordChangeRequired"
+    | "failedLoginAttempts"
     | "suspendedUntil"
     | "suspensionStartsAt"
   > & {
@@ -45,6 +46,8 @@ export function userDto(
     email: user.email,
     phone: user.phone ?? undefined,
     role: roleToUi(user.role),
+    status: user.status,
+    failedLoginAttempts: user.failedLoginAttempts,
     active:
       user.status === "ACTIVE" &&
       (!user.suspendedUntil ||
@@ -67,7 +70,10 @@ export function userDto(
 
 export function employeeDto(
   employee: Employee & {
-    user?: Pick<User, "id" | "role" | "status"> | null;
+    user?: Pick<
+      User,
+      "id" | "role" | "status" | "failedLoginAttempts" | "suspensionStartsAt" | "suspendedUntil"
+    > | null;
     department?: { name: string } | null;
     homeBranch?: Branch | null;
     manager?: Pick<Employee, "employeeId" | "name"> | null;
@@ -90,6 +96,13 @@ export function employeeDto(
     }
   }
 
+  const accountSuspended = Boolean(
+    employee.user?.suspensionStartsAt &&
+    employee.user.suspendedUntil &&
+    employee.user.suspensionStartsAt.getTime() <= Date.now() &&
+    employee.user.suspendedUntil.getTime() > Date.now(),
+  );
+
   return {
     id: employee.user?.id ?? employee.employeeId,
     employeeId: employee.employeeId,
@@ -98,8 +111,12 @@ export function employeeDto(
     email: employee.email ?? "",
     phone: employee.phone ?? undefined,
     role: employee.user ? roleToUi(employee.user.role) : "employee",
-    active: employee.status === "ACTIVE" && employee.user?.status !== "INACTIVE",
+    active: employee.status === "ACTIVE" && employee.user?.status === "ACTIVE" && !accountSuspended,
     status: employee.status,
+    accountStatus: accountSuspended ? "SUSPENDED" : (employee.user?.status ?? "INACTIVE"),
+    failedLoginAttempts: employee.user?.failedLoginAttempts ?? 0,
+    suspensionStartsAt: employee.user?.suspensionStartsAt?.toISOString() ?? null,
+    suspendedUntil: employee.user?.suspendedUntil?.toISOString() ?? null,
     homeBranchId: employee.homeBranchId ?? undefined,
     homeBranchName: employee.homeBranch?.branchName,
     department: employee.department?.name ?? employee.departmentId ?? undefined,

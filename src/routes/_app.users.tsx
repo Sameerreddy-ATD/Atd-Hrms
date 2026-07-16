@@ -70,6 +70,8 @@ function UsersPage() {
   const [suspensionStartsAt, setSuspensionStartsAt] = useState("");
   const [suspendedUntil, setSuspendedUntil] = useState("");
   const [deleteUser, setDeleteUser] = useState<User | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deleting, setDeleting] = useState(false);
   const [resetUser, setResetUser] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -88,20 +90,24 @@ function UsersPage() {
         setDepartments(departmentRows);
       })
       .catch((err) => setError((err as Error).message));
+    const statusTimer = window.setInterval(() => void loadUsers(false), 15_000);
+    return () => window.clearInterval(statusTimer);
   }, []);
 
   useEffect(() => {
     if (create) setShowCreate(true);
   }, [create]);
 
-  function loadUsers() {
-    setLoading(true);
+  function loadUsers(showLoading = true) {
+    if (showLoading) setLoading(true);
     setError("");
     usersApi
       .list()
       .then(setUsers)
       .catch((err) => setError((err as Error).message))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (showLoading) setLoading(false);
+      });
   }
 
   async function suspendUser(user: User) {
@@ -141,12 +147,18 @@ function UsersPage() {
   }
 
   async function performDeleteUser(user: User) {
+    if (deleteConfirmation !== "DELETE") return;
+    setDeleting(true);
     try {
-      await usersApi.delete(user.id);
+      await usersApi.delete(user.id, deleteConfirmation);
       setUsers((prev) => prev.filter((row) => row.id !== user.id));
-      toast.success("Login account deleted successfully");
+      setDeleteUser(null);
+      setDeleteConfirmation("");
+      toast.success("Account and related employee data permanently deleted");
     } catch (err) {
       toast.error((err as Error).message);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -471,28 +483,61 @@ function UsersPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!deleteUser} onOpenChange={(open) => !open && setDeleteUser(null)}>
-        <AlertDialogContent>
+      <AlertDialog
+        open={!!deleteUser}
+        onOpenChange={(open) => {
+          if (!open && !deleting) {
+            setDeleteUser(null);
+            setDeleteConfirmation("");
+          }
+        }}
+      >
+        <AlertDialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto sm:max-w-lg">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete user login account?</AlertDialogTitle>
+            <AlertDialogTitle>Permanently delete this account?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete the login account for {deleteUser?.name}? This will
-              permanently remove their login, employee profile, attendance, leave, biometric
-              mapping, and related HRMS records. This cannot be undone. Suspension does not delete
-              any of this data.
+              Deleting {deleteUser?.name}&apos;s account permanently removes all of their data from
+              this website. This action cannot be undone.
             </AlertDialogDescription>
+            <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+              <p className="font-semibold">The following data will be deleted:</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5 sm:text-sm">
+                <li>Login and employee profile</li>
+                <li>Attendance punches, daily summaries, schedules, and correction requests</li>
+                <li>Leave requests, emergency contact, and biometric mappings</li>
+                <li>Assets assigned to this employee</li>
+                <li>Task assignments, task updates, and tasks created by this account</li>
+              </ul>
+              <p className="mt-2 text-xs leading-5">
+                Suspension or blocking does not delete any employee data and biometric attendance
+                can continue to be recorded.
+              </p>
+            </div>
+            <div className="space-y-2 pt-2 text-left">
+              <Label htmlFor="delete-confirmation">
+                Type <span className="font-mono font-semibold">DELETE</span> to approve
+              </Label>
+              <Input
+                id="delete-confirmation"
+                autoComplete="off"
+                value={deleteConfirmation}
+                onChange={(event) => setDeleteConfirmation(event.target.value)}
+                placeholder="DELETE"
+              />
+            </div>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 text-white hover:bg-red-700"
+              disabled={deleteConfirmation !== "DELETE" || deleting}
               onClick={() => {
                 if (!deleteUser) return;
                 void performDeleteUser(deleteUser);
-                setDeleteUser(null);
               }}
             >
-              Delete Account
+              {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Permanently delete account
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

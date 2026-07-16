@@ -39,6 +39,8 @@ export interface User {
   phone?: string;
   active: boolean;
   status?: string;
+  accountStatus?: "ACTIVE" | "INACTIVE" | "LOCKED" | "SUSPENDED";
+  failedLoginAttempts?: number;
   suspendedUntil?: string;
   suspensionStartsAt?: string;
   managerId?: string;
