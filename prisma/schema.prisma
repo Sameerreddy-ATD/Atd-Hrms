@@ -630,11 +630,13 @@ model AttendanceCorrectionRequest {
   eventType  EventType      @map("event_type")
   remarks    String
   status     ApprovalStatus @default(PENDING)
+  approverId String?        @map("approver_id")
   reviewedBy String?        @map("reviewed_by")
   createdAt  DateTime       @default(now()) @map("created_at")
   updatedAt  DateTime       @updatedAt @map("updated_at")
 
   @@index([employeeId, createdAt])
+  @@index([approverId, status, createdAt])
   @@index([status, createdAt])
   @@map("attendance_correction_requests")
 }

@@ -440,6 +440,21 @@ export function createApp() {
     }
   }
 
+  async function assertOrganizationApproverForCorrection(
+    user: { employeeId?: string | null },
+    request: { approverId?: string | null; employeeId: string },
+  ) {
+    const assignedApproverId =
+      request.approverId ?? (await findLeaveApprover(request.employeeId))?.employeeId;
+    if (!user.employeeId || assignedApproverId !== user.employeeId) {
+      throw new HttpError(
+        403,
+        "Only the employee's responsible organization head can approve or reject this punch request.",
+      );
+    }
+    return assignedApproverId;
+  }
+
   function leaveTypeDto(row: { leaveTypeId: string; name: string; paid: boolean }) {
     return { id: row.leaveTypeId, name: row.name, paid: row.paid };
   }
@@ -2560,6 +2575,14 @@ export function createApp() {
         );
       }
 
+      const approver = await findLeaveApprover(body.employeeId);
+      if (!approver) {
+        throw new HttpError(
+          400,
+          "No organization head is available for this punch request. Contact HR to complete the organization chart.",
+        );
+      }
+
       const request = await prisma.attendanceCorrectionRequest.create({
         data: {
           employeeId: body.employeeId,
@@ -2568,6 +2591,7 @@ export function createApp() {
           eventType: body.eventType,
           remarks: body.remarks,
           status: "PENDING",
+          approverId: approver.employeeId,
         },
       });
 
@@ -2577,11 +2601,13 @@ export function createApp() {
         newValue: body as never,
         ipAddress: req.ip,
       });
+      publishNotificationChange("attendance-correction-requested", request.requestId);
 
       res.status(201).json({
         ok: true,
         requestId: request.requestId,
         status: request.status,
+        approverName: approver.name,
       });
     }),
   );
@@ -2593,13 +2619,14 @@ export function createApp() {
       const isHrOrAdmin = (
         [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR, Role.CEO] as Role[]
       ).includes(req.user!.role);
-      const isManager = req.user!.role === Role.MANAGER;
-
       const where: Prisma.AttendanceCorrectionRequestWhereInput = {};
-      if (isManager && req.user!.employeeId) {
-        where.employee = {
-          employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) },
-        };
+      if (!isHrOrAdmin && req.user!.employeeId) {
+        const teamEmployeeIds = await getOrganizationTeamEmployeeIds(req.user!.employeeId);
+        where.OR = [
+          { employeeId: req.user!.employeeId },
+          { approverId: req.user!.employeeId },
+          { approverId: null, employeeId: { in: teamEmployeeIds } },
+        ];
       } else if (!isHrOrAdmin) {
         where.employeeId = req.user!.employeeId ?? "__none__";
       }
@@ -2614,20 +2641,38 @@ export function createApp() {
         orderBy: { createdAt: "desc" },
       });
 
-      res.json(
-        requests.map((req) => ({
-          id: req.requestId,
-          employeeId: req.employeeId,
-          employeeName: req.employee?.name ?? req.employeeId,
-          employeeCode: req.employee?.employeeCode,
-          date: req.date.toISOString().slice(0, 10),
-          punchTime: req.punchTime.toISOString(),
-          eventType: req.eventType,
-          remarks: req.remarks,
-          status: req.status,
-          createdAt: req.createdAt.toISOString(),
-        })),
-      );
+      const visibleRequests = [];
+      for (const request of requests) {
+        const resolvedApproverId =
+          request.approverId ?? (await findLeaveApprover(request.employeeId))?.employeeId ?? null;
+        if (!request.approverId && resolvedApproverId && request.status === "PENDING") {
+          await prisma.attendanceCorrectionRequest.update({
+            where: { requestId: request.requestId },
+            data: { approverId: resolvedApproverId },
+          });
+        }
+        if (
+          !isHrOrAdmin &&
+          request.employeeId !== req.user!.employeeId &&
+          resolvedApproverId !== req.user!.employeeId
+        ) {
+          continue;
+        }
+        visibleRequests.push({
+          id: request.requestId,
+          employeeId: request.employeeId,
+          employeeName: request.employee?.name ?? request.employeeId,
+          employeeCode: request.employee?.employeeCode,
+          date: request.date.toISOString().slice(0, 10),
+          punchTime: request.punchTime.toISOString(),
+          eventType: request.eventType,
+          remarks: request.remarks,
+          status: request.status,
+          createdAt: request.createdAt.toISOString(),
+          canReview: resolvedApproverId === req.user!.employeeId,
+        });
+      }
+      res.json(visibleRequests);
     }),
   );
 
@@ -2665,7 +2710,6 @@ export function createApp() {
   app.post(
     "/attendance/correction-requests/:id/approve",
     requireAuth,
-    requireRoles(Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const id = String(req.params.id);
       const request = await prisma.attendanceCorrectionRequest.findUniqueOrThrow({
@@ -2675,11 +2719,12 @@ export function createApp() {
       if (request.status !== "PENDING") {
         throw new HttpError(400, "Only pending requests can be approved");
       }
+      const approverId = await assertOrganizationApproverForCorrection(req.user!, request);
 
       await prisma.$transaction([
         prisma.attendanceCorrectionRequest.update({
           where: { requestId: id },
-          data: { status: "APPROVED", reviewedBy: req.user!.id },
+          data: { status: "APPROVED", approverId, reviewedBy: req.user!.id },
         }),
       ]);
 
@@ -2699,6 +2744,7 @@ export function createApp() {
         newValue: { requestId: id, employeeId: request.employeeId, punchTime: request.punchTime },
         ipAddress: req.ip,
       });
+      publishNotificationChange("attendance-correction-approved", request.requestId);
 
       res.json({ ok: true, status: "APPROVED" });
     }),
@@ -2707,7 +2753,6 @@ export function createApp() {
   app.post(
     "/attendance/correction-requests/:id/reject",
     requireAuth,
-    requireRoles(Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const id = String(req.params.id);
       const request = await prisma.attendanceCorrectionRequest.findUniqueOrThrow({
@@ -2717,10 +2762,11 @@ export function createApp() {
       if (request.status !== "PENDING") {
         throw new HttpError(400, "Only pending requests can be rejected");
       }
+      const approverId = await assertOrganizationApproverForCorrection(req.user!, request);
 
       await prisma.attendanceCorrectionRequest.update({
         where: { requestId: id },
-        data: { status: "REJECTED", reviewedBy: req.user!.id },
+        data: { status: "REJECTED", approverId, reviewedBy: req.user!.id },
       });
 
       await audit({
@@ -2729,6 +2775,7 @@ export function createApp() {
         newValue: { requestId: id, employeeId: request.employeeId },
         ipAddress: req.ip,
       });
+      publishNotificationChange("attendance-correction-rejected", request.requestId);
 
       res.json({ ok: true, status: "REJECTED" });
     }),
@@ -3608,6 +3655,19 @@ export function createApp() {
           })
         : null;
       const holidayBranchId = currentEmployee?.homeBranchId;
+      const correctionNotifications = req.user!.employeeId
+        ? await prisma.attendanceCorrectionRequest.findMany({
+            where: {
+              OR: [
+                { employeeId: req.user!.employeeId },
+                { approverId: req.user!.employeeId, status: "PENDING" },
+              ],
+            },
+            include: { employee: { select: { name: true } } },
+            orderBy: { updatedAt: "desc" },
+            take: 10,
+          })
+        : [];
 
       const suspensionWindowEnd = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
       const suspensionManagerRoles: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR];
@@ -3748,6 +3808,18 @@ export function createApp() {
             .slice(0, 10)} to ${leave.toDate.toISOString().slice(0, 10)}`,
           time: (leave.updatedAt ?? leave.createdAt).toISOString(),
           type: "leave",
+        })),
+        ...correctionNotifications.map((request) => ({
+          id: `attendance-correction-${request.requestId}-${request.updatedAt.toISOString()}`,
+          title:
+            request.employeeId === req.user!.employeeId
+              ? request.status === "PENDING"
+                ? "Punch request awaiting your head"
+                : `Punch request ${request.status.toLowerCase()}`
+              : "Punch approval pending",
+          desc: `${request.employee.name} - ${request.eventType.replaceAll("_", " ").toLowerCase()} on ${request.date.toISOString().slice(0, 10)}`,
+          time: request.updatedAt.toISOString(),
+          type: "attendance" as const,
         })),
         ...holidays.map((holiday) => ({
           id: `holiday-${holiday.holidayId}`,

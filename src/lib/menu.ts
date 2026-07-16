@@ -29,6 +29,7 @@ export interface MenuItem {
   icon: ComponentType<{ className?: string }>;
   roles: Role[];
   requiresReportingManager?: boolean;
+  allowReportingManager?: boolean;
 }
 
 export interface MenuGroup {
@@ -96,6 +97,7 @@ export const menuGroups: MenuGroup[] = [
         to: "/attendance/corrections",
         icon: FileClock,
         roles: ["hr", "main_admin", "developer_admin"],
+        allowReportingManager: true,
       },
     ],
   },
@@ -209,7 +211,7 @@ export function menuForRole(role: Role, options?: { isReportingManager?: boolean
         if (i.requiresReportingManager) {
           return options?.isReportingManager === true;
         }
-        return i.roles.includes(role);
+        return i.roles.includes(role) || (i.allowReportingManager && options?.isReportingManager);
       }),
     }))
     .filter((g) => g.items.length > 0);

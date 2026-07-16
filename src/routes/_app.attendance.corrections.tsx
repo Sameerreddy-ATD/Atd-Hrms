@@ -47,6 +47,7 @@ interface CorrectionRequestItem {
   remarks: string;
   status: string;
   createdAt: string;
+  canReview: boolean;
 }
 
 function AttendanceCorrectionsPage() {
@@ -187,7 +188,7 @@ function AttendanceCorrectionsPage() {
     <div>
       <PageHeader
         title="Attendance Corrections"
-        description="Review employee missed punch requests and system mismatch logs."
+        description="Organization heads review their employees' punch requests. HR can track requests and maintain system alerts."
       />
 
       <Tabs defaultValue="requests" className="mt-6 w-full">
@@ -251,22 +252,26 @@ function AttendanceCorrectionsPage() {
                           >
                             Open Day Logs <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                           </Button>
-                          <Button
-                            size="sm"
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                            disabled={actionId === req.id}
-                            onClick={() => handleApprove(req.id)}
-                          >
-                            <Check className="mr-1 h-3.5 w-3.5" /> Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            disabled={actionId === req.id}
-                            onClick={() => handleReject(req.id)}
-                          >
-                            <X className="mr-1 h-3.5 w-3.5" /> Reject
-                          </Button>
+                          {req.canReview && (
+                            <>
+                              <Button
+                                size="sm"
+                                className="bg-emerald-600 text-white hover:bg-emerald-700"
+                                disabled={actionId === req.id}
+                                onClick={() => handleApprove(req.id)}
+                              >
+                                <Check className="mr-1 h-3.5 w-3.5" /> Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                disabled={actionId === req.id}
+                                onClick={() => handleReject(req.id)}
+                              >
+                                <X className="mr-1 h-3.5 w-3.5" /> Reject
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -278,7 +283,7 @@ function AttendanceCorrectionsPage() {
               <div className="p-6">
                 <EmptyState
                   title="No pending requests"
-                  description="All employee missed punch requests have been reviewed."
+                  description="There are no punch requests waiting for your review."
                 />
               </div>
             )}

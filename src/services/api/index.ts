@@ -305,6 +305,7 @@ export const attendanceApi = {
         remarks: string;
         status: string;
         createdAt: string;
+        canReview: boolean;
       }>
     >("/attendance/correction-requests"),
   approveCorrectionRequest: (id: string) =>
