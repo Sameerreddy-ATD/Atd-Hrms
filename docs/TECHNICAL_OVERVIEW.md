@@ -1,258 +1,124 @@
-# Anytime Diesel Employee Management System Technical Overview
-
-This document describes the current local architecture, setup, backend modules, frontend areas, and verification commands.
+# Technical Overview
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  Browser["React + TanStack Router frontend"] -->|HTTP-only cookies + JSON API| API["Express backend"]
-  API --> Prisma["Prisma Client"]
-  Prisma --> MySQL["MySQL 8.0 database"]
-  API --> Audit["Audit logging"]
-  API --> RBAC["RBAC + object-level access checks"]
+  Client["Browser or installed PWA"] -->|"HTTPS, JSON, HTTP-only cookies"| Nginx["Nginx"]
+  Nginx --> Frontend["TanStack Start frontend :8081"]
+  Nginx -->|"/api"| Backend["Express API :4000"]
+  Backend --> Prisma["Prisma Client"]
+  Prisma --> MySQL["MySQL 8"]
+  Backend --> Live["Authenticated SSE streams"]
+  Backend --> Push["Web Push service"]
+  Live --> Client
+  Push --> Client
 ```
 
-## Runtime Stack
+The frontend never connects directly to MySQL. Authorization and object-level access are enforced by Express before Prisma queries run.
 
-| Layer      | Technology                                                                |
-| ---------- | ------------------------------------------------------------------------- |
-| Frontend   | React 19, Vite, TanStack Router, TanStack Query, Tailwind/shadcn-style UI |
-| Backend    | Node.js, Express, TypeScript                                              |
-| Database   | MySQL 8.0                                                                 |
-| ORM        | Prisma                                                                    |
-| Auth       | JWT in HTTP-only cookies                                                  |
-| Validation | Zod                                                                       |
-| Testing    | Vitest                                                                    |
+## Runtime Modules
 
-## Important Folders
+| Path                               | Responsibility                                                 |
+| ---------------------------------- | -------------------------------------------------------------- |
+| `server/src/app.ts`                | API routes and feature orchestration                           |
+| `server/src/security.ts`           | Password hashing, tokens, cookies, and auth middleware         |
+| `server/src/rbac.ts`               | Roles, hierarchy access, and team visibility                   |
+| `server/src/schemas.ts`            | Zod request validation                                         |
+| `server/src/attendanceEngine.ts`   | Attendance event creation and summary recalculation            |
+| `server/src/attendanceDayRules.ts` | Workday, holiday, leave, and weekly-off settlement             |
+| `server/src/attendanceLive.ts`     | Employee-scoped live attendance refresh                        |
+| `server/src/notificationLive.ts`   | Authenticated live notification refresh                        |
+| `server/src/push.ts`               | VAPID Web Push delivery and stale subscription cleanup         |
+| `server/src/mapper.ts`             | Safe API DTOs and status mapping                               |
+| `src/services/api/index.ts`        | Central frontend API client                                    |
+| `src/lib/auth.tsx`                 | Browser session restore and auth state                         |
+| `src/lib/attendance-live.ts`       | Attendance EventSource client                                  |
+| `src/lib/notification-live.ts`     | Notification EventSource client                                |
+| `public/sw.js`                     | App shell cache, Web Push display, and notification navigation |
 
-| Path                               | Purpose                                         |
-| ---------------------------------- | ----------------------------------------------- |
-| `src/routes/`                      | Frontend pages and route definitions            |
-| `src/components/`                  | Shared UI, layout, and feature components       |
-| `src/services/api/`                | Frontend API client methods                     |
-| `server/src/app.ts`                | Express routes and feature handlers             |
-| `server/src/rbac.ts`               | Role and access helpers                         |
-| `server/src/attendanceEngine.ts`   | Attendance settlement/timeline logic            |
-| `server/src/attendanceDayRules.ts` | Daily attendance rules                          |
-| `server/src/mapper.ts`             | Backend-to-frontend response mapping            |
-| `prisma/schema.prisma`             | MySQL Prisma schema                             |
-| `prisma/migrations/`               | Active MySQL migrations                         |
-| `prisma/postgresql-migrations/`    | Archived legacy PostgreSQL migrations           |
-| `scripts/`                         | MySQL helpers and database verification scripts |
+## Authentication
 
-## Environment Setup
+1. `POST /auth/login` verifies the password.
+2. Normal accounts lock after five consecutive failures; a successful login resets the counter.
+3. Access and refresh JWTs are placed in HTTP-only cookies.
+4. First-login users must replace the temporary password and are automatically authenticated afterward.
+5. `/auth/restore` restores eligible sessions from the refresh cookie.
+6. Suspended, inactive, locked, and deleted accounts cannot restore a browser session.
 
-Create `.env` from `.env.example`.
+Developer Admin is protected from failed-password lockout and cannot be suspended, deactivated, or deleted.
 
-Minimum local values:
+## Data Statuses
 
-```text
-DATABASE_URL="mysql://root:5566@127.0.0.1:3306/anytimediesel_hrms"
-BACKEND_PORT=4000
-FRONTEND_ORIGIN="http://localhost:8081"
-JWT_ACCESS_SECRET="replace-with-strong-secret"
-JWT_REFRESH_SECRET="replace-with-another-strong-secret"
-COOKIE_SECURE=false
-```
+User login state and employee operational state are deliberately separate.
 
-Never commit `.env`.
+- `User.status`: `ACTIVE`, `INACTIVE`, or `LOCKED`
+- Scheduled suspension: `suspensionStartsAt` and `suspendedUntil`
+- `Employee.status`: `ACTIVE`, `INACTIVE`, or `TERMINATED`
 
-## Windows Local Runbook
+Lockout or suspension does not delete or disable the employee record, allowing historical reporting, task assignment, and future biometric imports to remain intact.
 
-Use Command Prompt or PowerShell from:
+## Main API Groups
 
-```bat
-D:
-cd D:\anytime-crew-hub
-```
+| Prefix           | Purpose                                                                    |
+| ---------------- | -------------------------------------------------------------------------- |
+| `/auth`          | Login, restore, logout, password change/reset                              |
+| `/users`         | Account creation, lifecycle, reset, and permanent deletion                 |
+| `/employees`     | Directory, details, organization placement, and birthdays                  |
+| `/departments`   | Organization hierarchy and unit heads                                      |
+| `/branches`      | Branches and server-side geofence configuration                            |
+| `/attendance`    | Mobile events, timelines, summaries, reports, corrections, and live stream |
+| `/leave`         | Leave types, requests, cancellation, approvals, and reports                |
+| `/holidays`      | Active holiday calendar and branch scope                                   |
+| `/tasks`         | Multi-assignee tasks and updates                                           |
+| `/assets`        | Physical/online assets and employee investment calculations                |
+| `/announcements` | Publishing, activation, expiry, and permanent deletion                     |
+| `/notifications` | User-scoped notification feed and live stream                              |
+| `/push`          | VAPID key and browser subscription management                              |
+| `/audit-logs`    | Administrative audit history                                               |
+| `/system`        | Health and Developer Admin system information                              |
 
-Install dependencies:
+## Attendance Model
 
-```bat
-npm install
-```
-
-Start the project-local MySQL helper if the Windows MySQL service is not running:
-
-```bat
-npm run db:start-mysql
-```
-
-Apply database migrations:
-
-```bat
-npm run db:deploy
-```
-
-Seed demo/baseline data:
-
-```bat
-npm run db:seed
-```
-
-Start backend:
-
-```bat
-npm run dev:backend
-```
-
-Start frontend in another terminal:
-
-```bat
-npm run dev
-```
-
-Open the frontend URL shown by Vite, commonly:
-
-```text
-http://localhost:5173
-```
-
-or the configured local URL:
-
-```text
-http://localhost:8081
-```
-
-Backend health checks:
-
-```text
-http://localhost:4000/health
-http://localhost:4000/health/db
-```
-
-## Main Backend API Areas
-
-The frontend API client currently calls these backend areas:
-
-| Area                          | Purpose                                                                             |
-| ----------------------------- | ----------------------------------------------------------------------------------- |
-| `/auth/*`                     | Login, logout, current user, first password change, forgot/reset password           |
-| `/users/*`                    | User list, create, update, suspend, deactivate, delete, reset password              |
-| `/employees/*`                | Employee list/detail/update, manager checks, birthdays                              |
-| `/branches/*`                 | Branch create/edit/delete/list                                                      |
-| `/departments/*`              | Department create/edit/delete/list and department head assignment                   |
-| `/biometric/devices/*`        | Planned eSSL/biometric device setup for next version                                |
-| `/biometric/mappings/*`       | Planned employee-to-biometric user/device mapping for next version                  |
-| `/attendance/*`               | My attendance, HR/team reports, mobile punches, correction requests, recalculation  |
-| `/leave/*`                    | Leave types, balances, requests, approvals/rejections                               |
-| `/holidays/*`                 | Holiday list/create/edit/delete                                                     |
-| `/reports/*`                  | Attendance, branch, movement, field, client visit, leave, payroll, timeline reports |
-| `/notifications`              | Signed-in user's notifications                                                      |
-| `/settings/security/*`        | Predefined new-account password configuration                                       |
-| `/audit-logs`                 | Audit trail for admin/developer review                                              |
-| `/verify-id-card/:employeeId` | Public ID verification endpoint                                                     |
-
-## Data Model Summary
+Every punch is an immutable `AttendanceEvent`. The engine sorts events, pairs compatible in/out sources, calculates worked duration, and maintains one `AttendanceDailySummary` per employee/date. A live event tells the employee’s other signed-in devices to reload the authoritative timeline.
 
 ```mermaid
-erDiagram
-  User ||--o| Employee : "employeeId"
-  Employee }o--o| Department : "departmentId"
-  Employee }o--o| Branch : "homeBranchId"
-  Employee ||--o{ AttendanceEvent : "events"
-  Employee ||--o{ AttendanceDailySummary : "summaries"
-  Employee ||--o{ LeaveRequest : "leave"
-  Employee ||--o{ LeaveBalance : "balances"
-  Employee ||--o{ BiometricEmployeeMapping : "biometric mappings"
-  Branch ||--o{ BiometricDevice : "devices"
-  Branch ||--o{ Holiday : "holidays"
-  BiometricDevice ||--o{ BiometricEmployeeMapping : "mappings"
-  LeaveType ||--o{ LeaveRequest : "requests"
-  LeaveType ||--o{ LeaveBalance : "balances"
+flowchart LR
+  Source["Mobile, biometric import, or approved correction"] --> Event["AttendanceEvent"]
+  Event --> Recalculate["Recalculate daily summary"]
+  Recalculate --> Stream["Publish employee live event"]
+  Stream --> Screens["Dashboard and My Attendance refresh"]
 ```
 
-## RBAC Rules To Preserve
+The live timer is calculated in the browser from the ordered timeline. Completed pairs are fixed; an unmatched final check-in adds elapsed time until a checkout arrives.
 
-- Developer Admin can access system-level controls.
-- Main Admin has broad administration access.
-- HR can manage operational employee, branch, leave, holiday, and attendance data.
-- CEO can view summary/report data.
-- Manager can view only assigned team members.
-- Employee, Sales, Driver, and Field Staff can view only their own data.
-- No public signup.
-- No production token storage in localStorage.
-- Sensitive changes should write audit logs.
+## Notifications
 
-## Frontend Areas
+Announcement creation writes MySQL first, writes an audit event, broadcasts an authenticated SSE change to open app sessions, and sends Web Push in parallel to registered installed/background devices. Notification queries still apply role and employee scope on the backend.
 
-| Page                   | Route                      |
-| ---------------------- | -------------------------- |
-| Dashboard              | `/dashboard`               |
-| Employees              | `/employees`               |
-| User Logins            | `/users`                   |
-| Departments            | `/departments`             |
-| My Attendance          | `/attendance/mine`         |
-| Attendance Overview    | `/attendance`              |
-| Branch Attendance      | `/attendance/branch`       |
-| Field Attendance       | `/attendance/field`        |
-| Day Logs               | `/attendance/locations`    |
-| Attendance Corrections | `/attendance/corrections`  |
-| Missed Punch Request   | `/attendance/missed-punch` |
-| Apply Leave            | `/leave/apply`             |
-| Leave History          | `/leave/history`           |
-| Leave Approvals        | `/leave/approvals`         |
-| Leave Tracking         | `/leave/reports`           |
-| Leave Policy           | `/leave/policy`            |
-| Branches               | `/branches`                |
-| Biometric Devices      | `/devices`                 |
-| Biometric Mapping      | `/devices/mapping`         |
-| Holidays               | `/holidays`                |
-| Reports                | `/reports`                 |
-| Audit Logs             | `/audit`                   |
-| Profile                | `/profile`                 |
-| ID Card                | `/id-card`                 |
-| Notifications          | `/notifications`           |
-| System Settings        | `/settings`                |
+SSE is in-memory and appropriate for the current single backend process. Before running multiple backend instances, replace the in-memory broadcaster with Redis or another shared pub/sub service.
 
-### Attendance Rule Precedence
+## Permanent Deletion
 
-Attendance events take precedence over no-event classifications. After a day ends, an employee without events is resolved using the active portal Holiday list, employee weekly-off configuration, approved leave, and finally absence. Every active holiday entry counts regardless of its Public, Optional, or Restricted classification; branch-scoped holidays apply only to employees assigned to that home branch. Holiday mutations recalculate existing summaries for the affected date and scope.
+Permanent account deletion is Developer Admin-only and requires a typed server-validated confirmation. One Prisma transaction removes user-specific employee, attendance, leave, biometric mapping, asset, and task data. The acting admin and a non-identifying deletion summary remain in audit history. Developer Admin and the current signed-in account cannot be deleted.
 
-### Mobile Branch Geofence
+Announcement permanent deletion is available to HR and Developer Admin, requires typed confirmation, and removes the announcement while retaining an audit event.
 
-Mobile attendance sends coordinates to the authenticated API and stores them on the event. The server calculates distance to active branches with latitude, longitude, and attendance radius configured. A point inside the radius is labeled `Mobile - Branch Name`; a point outside every radius remains valid attendance labeled `Mobile`. Client-visit endpoints remain a separate field workflow.
+## Database and Migrations
 
-### Leave Authorization
+- `prisma/schema.prisma`: active MySQL schema
+- `prisma/migrations/`: production MySQL migration history
+- `prisma/postgresql-migrations/`: read-only archive from the previous PostgreSQL implementation
+- `prisma/seed.ts`: first-install/demo baseline; never run casually on production
 
-Each leave request stores the employee ID of the organization head selected by hierarchy traversal. Approval-list queries return requests assigned to the signed-in head, and approve/reject endpoints independently compare that stored ID. Parent heads may receive authorized reporting visibility but cannot action a request assigned to a lower head.
+Use `npm run db:migrate` only during development. Use `npm run db:deploy` in production.
 
-For release procedures and device verification, see [UPGRADE_AND_MAINTENANCE.md](UPGRADE_AND_MAINTENANCE.md) and [DEVICE_COMPATIBILITY.md](DEVICE_COMPATIBILITY.md).
+## Engineering Rules
 
-## Verification Commands
-
-Run these before pushing production changes:
-
-```bat
-npm run typecheck
-npm run lint
-npm test
-npm run build
-npm run build:backend
-npm run db:verify
-```
-
-## Known Operational Notes
-
-- `npm run db:start-mysql` starts a project-local MySQL instance when the installed Windows MySQL service cannot be started without administrator permission.
-- The project uses MySQL at runtime. PostgreSQL migration files are retained only as historical reference.
-- Some lint warnings may remain from shared UI components that export both components and helper values; lint errors should be fixed before pushing.
-- Large frontend chunks may be reported during build. This is a performance warning, not a failed build.
-
-## Current Version Limits And Next Version Plan
-
-Current version:
-
-- Mobile attendance, leave, HR/admin setup, reports, user lifecycle, and role-based dashboards are the primary working flows.
-- Biometric/eSSL device integration is not considered live yet.
-- Biometric device and mapping routes/screens describe the intended data model and workflow, but real device sync/import should be completed in the next version before operational use.
-
-Next version attendance verification plan:
-
-- eSSL/fingerprint device sync/import.
-- Additional geofence administration, monitoring, and exception analytics.
-- Approved branch Wi-Fi verification for branch-mobile attendance.
-- Photo/selfie capture during mobile check-in and check-out.
-- Attendance proof summary showing source: biometric, GPS, Wi-Fi, photo, manual correction, or combined verification.
+- Validate requests with Zod and enforce RBAC in backend routes.
+- Keep tokens out of localStorage.
+- Add a migration for schema changes; never edit a deployed migration.
+- Use the central API client rather than direct page-level `fetch` calls.
+- Keep loading, error, empty, and mobile states for API-backed views.
+- Never commit `.env`, database dumps, generated builds, logs, private keys, or credentials.
+- Run all required checks in the root README before pushing.

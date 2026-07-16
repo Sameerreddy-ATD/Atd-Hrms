@@ -1,21 +1,15 @@
-# Routes
+# Frontend Routes
 
-TanStack Start uses **file-based routing**. Every `.tsx` file in this directory
-defines a route. Do **not** create `src/pages/`, `src/routes/_app/index.tsx`, or
-`app/layout.tsx` — those are Next.js / Remix conventions. The only root layout
-is `src/routes/__root.tsx`.
+TanStack Start uses file-based routing in this directory. `src/routeTree.gen.ts` is generated and must not be edited manually.
 
-## Conventions
+## Project Conventions
 
-| File                     | URL                                                     |
-| ------------------------ | ------------------------------------------------------- |
-| `index.tsx`              | `/`                                                     |
-| `about.tsx`              | `/about`                                                |
-| `users/index.tsx`        | `/users`                                                |
-| `users/$id.tsx`          | `/users/:id` (dynamic — bare `$`, no curly braces)      |
-| `posts/{-$category}.tsx` | `/posts/:category?` (optional segment)                  |
-| `files/$.tsx`            | `/files/*` (splat — read via `_splat` param, never `*`) |
-| `_layout.tsx`            | layout route (renders children via `<Outlet />`)        |
-| `__root.tsx`             | app shell — wraps every page; preserve `<Outlet />`     |
+- `__root.tsx` is the root document and application shell.
+- `_app.tsx` is the authenticated layout.
+- `_app.<name>.tsx` maps to an authenticated route such as `_app.users.tsx` -> `/users`.
+- `$employeeId` is a dynamic path parameter.
+- Route components call the central API client in `src/services/api/`.
+- Backend authorization remains mandatory even when a route or button is hidden.
+- Every API-backed page needs loading, error, empty, and responsive states.
 
-`routeTree.gen.ts` is auto-generated. Don't edit it by hand.
+Keep page-specific logic in the route and move reusable feature UI into `src/components/`. Do not create parallel `pages/` or Next.js-style route directories.

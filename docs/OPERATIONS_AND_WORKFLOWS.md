@@ -23,9 +23,11 @@ flowchart LR
   C --> D["Employee changes password"]
   D --> E["Automatic authenticated session"]
   E --> F["Active account"]
-  F --> G["Scheduled suspension or deactivation"]
+  F --> G["Scheduled suspension, deactivation, or lockout"]
   G --> H["Developer Admin reactivates"]
   H --> F
+  F --> I["Typed permanent deletion confirmation"]
+  I --> J["Transactional data removal and anonymized audit event"]
 ```
 
 - Public signup is disabled.
@@ -35,6 +37,9 @@ flowchart LR
 - Only Developer Admin can reactivate a blocked login; reactivation resets the failed-attempt counter.
 - Blocking or suspending login retains the employee, attendance, biometric mapping, leave, asset, and task data.
 - Biometric imports and task assignment use the employee record and continue to work while only the login is blocked.
+- User Logins and Employees display active, scheduled suspension, suspended, blocked, and inactive states from the same backend account status.
+- Developer Admin is the only role allowed to permanently delete an account. The current account and all Developer Admin accounts are protected.
+- Permanent deletion requires typing `DELETE` and removes the login, employee profile, attendance, leave, biometric mappings, assigned assets, and employee task data in one transaction. An anonymized audit event remains.
 
 ## Organization And Employee Visibility
 
@@ -51,7 +56,7 @@ An attendance day can combine sources. For example, biometric check-in followed 
 ```mermaid
 flowchart LR
   A["Biometric or mobile check-in"] --> B["Attendance event stored"]
-  B --> C["Employee timeline updates"]
+  B --> C["Employee timeline and signed-in devices update live"]
   C --> D["Biometric or mobile check-out"]
   D --> E["Daily summary recalculated"]
   E --> F["Head, HR, and CEO views update by permission"]
@@ -133,11 +138,21 @@ Required behavior:
 - Browser notification permission is optional; in-app notifications remain available.
 - HTTPS is required for reliable installed-app notifications and location access.
 
+## Announcements
+
+- HR and Developer Admin can publish a title, message, priority, and display-until time.
+- Active announcements appear for all employees until expiry.
+- Open app sessions refresh immediately through an authenticated live stream.
+- Installed/background applications receive Web Push when permission and VAPID configuration are available.
+- Deactivation hides an announcement while retaining it for reactivation.
+- Permanent deletion requires typing `DELETE`, removes the announcement from future feeds, and retains an audit event.
+
 ## Audit And Data Retention
 
 - Security and operational changes write audit records with actor, action, affected object, time, and protected values.
 - Passwords, tokens, hashes, and secrets are never written as readable audit values.
 - Suspension, deactivation, or login blocking does not remove historical employee records.
+- Permanent deletion is intentionally destructive and must be used only after confirming retention and legal requirements.
 
 ## Operational Verification Checklist
 

@@ -52,6 +52,18 @@ Use **User Logins** for account lifecycle actions.
 
 Employees receive account suspension notifications before the suspension date where the scheduled suspension notification feature is active.
 
+## Developer Admin: Permanently Delete An Account
+
+Use permanent deletion only when the employee and all related website data must be removed.
+
+1. Open **User Logins**.
+2. Select **Delete account** for the intended user.
+3. Review the displayed list of profile, attendance, leave, biometric, asset, and task data that will be removed.
+4. Type `DELETE` exactly.
+5. Confirm permanent deletion.
+
+The current signed-in account and Developer Admin accounts cannot be deleted. Use suspension, deactivation, or blocked-account reactivation when history must be retained.
+
 ## Employee: Mark Attendance
 
 Employees can use mobile attendance in the current version. Biometric/eSSL attendance is planned for the next version.
@@ -184,6 +196,17 @@ The next attendance improvements should make branch-mobile attendance stricter a
 ## Notifications
 
 Notifications are scoped to the signed-in user. Users should see only their own leave, birthday, system, suspension, and relevant workflow notifications.
+
+Open app sessions receive new announcement updates immediately. Installed/background devices can display Web Push after the user grants notification permission. Browser or operating-system denial must be changed in device settings; the application cannot override it.
+
+## HR/Developer Admin: Announcements
+
+1. Open **Announcements**.
+2. Select **New announcement**.
+3. Enter a clear title, message, priority, and display-until date/time.
+4. Publish. Open employee sessions refresh immediately and subscribed devices receive Web Push.
+5. Use **Deactivate** to hide an announcement temporarily, or **Reactivate** to restore it.
+6. Use **Permanently delete** only when the announcement must be removed. Type `DELETE` to confirm.
 
 ## Reports
 

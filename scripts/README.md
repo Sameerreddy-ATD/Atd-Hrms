@@ -35,3 +35,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/migrate-postgres-to-
 ```
 
 This script is not part of normal development after the MySQL cutover.
+
+## Script Safety
+
+- Run scripts from the repository root.
+- Back up production before migration or bulk data operations.
+- Never place passwords directly in scripts or commit generated SQL/database files.
+- Production uses `npm run db:deploy`; `npm run db:migrate` is development-only.

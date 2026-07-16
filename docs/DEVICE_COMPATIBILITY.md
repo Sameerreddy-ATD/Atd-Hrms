@@ -28,6 +28,15 @@ The application uses responsive web and Progressive Web App behavior. The suppor
 - Installed mode removes the normal browser address bar when the manifest and HTTPS requirements are satisfied.
 - Authentication uses secure cookies; no production token is stored in local storage.
 - Closing and reopening the installed app should restore the session through the refresh cookie.
+- Web Push requires HTTPS, a valid VAPID configuration, an installed service worker, and user permission. iOS Web Push requires the site to be added to the Home Screen on a supported iOS version.
+- Open app sessions receive live attendance and announcement refresh through authenticated server-sent events.
+
+## Low-Network Behavior
+
+- Previously loaded app pages and static assets can reopen from the service-worker cache when the network is slow.
+- API data, login, attendance submission, leave submission, and destructive actions still require a working server connection and are never treated as successful offline.
+- The UI should retain stable loading states and allow retry after connectivity returns.
+- Test network recovery by switching between Wi-Fi and mobile data while the installed app is open.
 
 ## Responsive Acceptance Matrix
 
@@ -42,7 +51,7 @@ Test at minimum:
 - 1366 x 768 laptop
 - 1920 x 1080 desktop
 
-For every size verify no overlapping text, horizontal page overflow, clipped dialogs, inaccessible actions, undersized touch targets, or tables without horizontal scrolling. Test login, navigation, attendance permission, leave submission, task details, employee/user lists, holidays, and assets.
+For every size verify no overlapping text, horizontal page overflow, clipped dialogs, inaccessible actions, undersized touch targets, or tables without horizontal scrolling. Test login, navigation, attendance permission, live timer/cross-device checkout, leave submission, task details, employee/user lists, holidays, assets, announcements, notification permission, and permanent-deletion confirmation dialogs.
 
 ## Important Limitation
 
