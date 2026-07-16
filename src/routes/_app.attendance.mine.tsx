@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { AttendanceDayList } from "@/components/attendance/AttendanceDayList";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -210,7 +211,15 @@ function MyAttendancePage() {
                   </p>
                 </div>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-3 sm:p-4">
+                <AttendanceDayList
+                  records={records}
+                  branches={branches}
+                  mine
+                  emptyText="No attendance history records logged yet."
+                />
+              </CardContent>
+              <CardContent className="hidden">
                 <div className="space-y-2 p-3 md:hidden">
                   {records.length === 0 ? (
                     <p className="py-8 text-center text-sm text-muted-foreground">

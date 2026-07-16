@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { AttendanceTimelineSheet } from "@/components/common/AttendanceTimelineSheet";
+import { AttendanceDayList } from "@/components/attendance/AttendanceDayList";
 import { TableToolbar } from "@/components/common/TableToolbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -122,8 +123,8 @@ function DayLogsPage() {
     attendanceApi
       .list({
         employeeId: selectedEmployeeId !== "all" ? selectedEmployeeId : undefined,
-        from,
-        to,
+        from: selectedEmployeeId === "all" ? from : undefined,
+        to: selectedEmployeeId === "all" ? to : undefined,
         branchId: branchId !== "all" ? branchId : undefined,
       })
       .then((rows) => {
@@ -148,28 +149,6 @@ function DayLogsPage() {
       .catch((err) => setEmployeeError((err as Error).message))
       .finally(() => setLoadingEmployeeRows(false));
   }, [selectedEmployeeId, from, to, branchId, employees]);
-
-  useEffect(() => {
-    setLoadingMovementRows(true);
-    setMovementError("");
-    reportsApi
-      .timeline({
-        from,
-        to,
-        branchId,
-        employeeId: selectedEmployeeId !== "all" ? selectedEmployeeId : undefined,
-      })
-      .then((rows) => {
-        const filtered = rows.filter((row) => {
-          if (!row.employeeId) return false;
-          const emp = employees.find((e) => (e.employeeId || e.id) === row.employeeId);
-          return emp && emp.role !== "developer_admin" && emp.role !== "main_admin";
-        });
-        setMovementRows([...filtered].sort((a, b) => +new Date(b.time) - +new Date(a.time)));
-      })
-      .catch((err) => setMovementError((err as Error).message))
-      .finally(() => setLoadingMovementRows(false));
-  }, [from, to, branchId, selectedEmployeeId, employees]);
 
   const employeeName = useMemo(
     () =>
@@ -215,7 +194,7 @@ function DayLogsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Day Logs"
-        description="Review employee day-wise attendance and full movement logs with date, branch, and employee filters."
+        description="Review day-wise attendance and expand any date to see every punch in chronological order."
       />
 
       <Card>
@@ -244,7 +223,7 @@ function DayLogsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
+            <div className={selectedEmployeeId === "all" ? "space-y-1.5" : "hidden"}>
               <Label>From</Label>
               <Input
                 type="date"
@@ -257,7 +236,7 @@ function DayLogsPage() {
                 }}
               />
             </div>
-            <div className="space-y-1.5">
+            <div className={selectedEmployeeId === "all" ? "space-y-1.5" : "hidden"}>
               <Label>To</Label>
               <Input
                 type="date"
@@ -287,7 +266,7 @@ function DayLogsPage() {
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle className="text-sm">Employee Day-wise Logs</CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -311,10 +290,10 @@ function DayLogsPage() {
               )}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
             <div className="inline-flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground">
               <CalendarRange className="h-3.5 w-3.5" />
-              {from} to {to}
+              {selectedEmployeeId === "all" ? `${from} to ${to}` : "All available dates"}
             </div>
             <Button
               size="sm"
@@ -356,77 +335,87 @@ function DayLogsPage() {
           {loadingEmployeeRows && <LoadingState label="Loading employee day logs" compact />}
           {employeeError && <p className="text-sm text-destructive">{employeeError}</p>}
           {!loadingEmployeeRows && !employeeError && (
-            <div className="overflow-hidden rounded-lg border border-border">
-              <div className="overflow-x-auto">
-                <Table className="min-w-[920px]">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Home Branch</TableHead>
-                      <TableHead>Actual Branch</TableHead>
-                      <TableHead>Punch In</TableHead>
-                      <TableHead>Punch Out</TableHead>
-                      <TableHead>Worked Time</TableHead>
-                      <TableHead className="text-right">Navigation</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {employeeRows.map((row) => (
-                      <TableRow
-                        key={row.id}
-                        className={
-                          row.status.toLowerCase().includes("leave")
-                            ? "bg-red-50/80 dark:bg-red-950/20"
-                            : undefined
-                        }
-                      >
-                        <TableCell>{row.date}</TableCell>
-                        <TableCell>
-                          <StatusBadge status={row.status} />
-                        </TableCell>
-                        <TableCell>{branchName(row.homeBranchId)}</TableCell>
-                        <TableCell>{branchName(row.actualBranchId)}</TableCell>
-                        <TableCell>
-                          <div>{row.punchIn ?? "-"}</div>
-                          <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
-                            {punchSourceLabel(row.punchInSource, row.punchInBranchId, branches)}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div>{row.punchOut ?? "-"}</div>
-                          <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
-                            {punchSourceLabel(row.punchOutSource, row.punchOutBranchId, branches)}
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-medium tabular-nums">
-                          {formatStoredWorkedTime(row.totalHours, row.workedMinutes)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openTimeline(row.employeeId, row.employeeName, row.date)}
-                          >
-                            View Timeline <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-                          </Button>
-                        </TableCell>
+            <>
+              <AttendanceDayList
+                records={employeeRows}
+                branches={branches}
+                showEmployee={selectedEmployeeId === "all"}
+                emptyText="No day-wise attendance records found."
+              />
+              <div className="hidden">
+                <div className="overflow-x-auto">
+                  <Table className="min-w-[920px]">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Home Branch</TableHead>
+                        <TableHead>Actual Branch</TableHead>
+                        <TableHead>Punch In</TableHead>
+                        <TableHead>Punch Out</TableHead>
+                        <TableHead>Worked Time</TableHead>
+                        <TableHead className="text-right">Navigation</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              {!employeeRows.length && (
-                <div className="p-6 text-sm text-muted-foreground">
-                  No day-wise records found for this employee.
+                    </TableHeader>
+                    <TableBody>
+                      {employeeRows.map((row) => (
+                        <TableRow
+                          key={row.id}
+                          className={
+                            row.status.toLowerCase().includes("leave")
+                              ? "bg-red-50/80 dark:bg-red-950/20"
+                              : undefined
+                          }
+                        >
+                          <TableCell>{row.date}</TableCell>
+                          <TableCell>
+                            <StatusBadge status={row.status} />
+                          </TableCell>
+                          <TableCell>{branchName(row.homeBranchId)}</TableCell>
+                          <TableCell>{branchName(row.actualBranchId)}</TableCell>
+                          <TableCell>
+                            <div>{row.punchIn ?? "-"}</div>
+                            <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
+                              {punchSourceLabel(row.punchInSource, row.punchInBranchId, branches)}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div>{row.punchOut ?? "-"}</div>
+                            <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
+                              {punchSourceLabel(row.punchOutSource, row.punchOutBranchId, branches)}
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-medium tabular-nums">
+                            {formatStoredWorkedTime(row.totalHours, row.workedMinutes)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                openTimeline(row.employeeId, row.employeeName, row.date)
+                              }
+                            >
+                              View Timeline <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
-              )}
-            </div>
+                {!employeeRows.length && (
+                  <div className="p-6 text-sm text-muted-foreground">
+                    No day-wise records found for this employee.
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="hidden">
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <CardTitle className="text-sm">Movement Logs</CardTitle>
