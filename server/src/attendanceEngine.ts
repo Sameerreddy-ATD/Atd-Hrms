@@ -1,5 +1,6 @@
 import { EventSource, EventType, Prisma, WorkType } from "@prisma/client";
 import { prisma } from "./prisma.js";
+import { publishAttendanceChange } from "./attendanceLive.js";
 import {
   cancelApprovedLeaveForDay,
   findApprovedLeaveForDay,
@@ -140,6 +141,7 @@ export async function createAttendanceEvent(input: {
     await cancelApprovedLeaveForDay(input.employeeId, eventDate);
   }
   await recalculateDailySummary(input.employeeId, eventDate);
+  publishAttendanceChange(input.employeeId, eventDate);
   return event;
 }
 

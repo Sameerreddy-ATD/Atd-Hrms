@@ -124,7 +124,9 @@ function LeaveApprovalsPage() {
               </div>
               <div className="mt-3">
                 <p className="text-xs text-muted-foreground">Reason</p>
-                <p className="mt-1 whitespace-pre-wrap text-sm">{leave.reason || "-"}</p>
+                <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6">
+                  {leave.reason || "-"}
+                </p>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <Button
@@ -169,7 +171,7 @@ function LeaveApprovalsPage() {
                   <TableCell>{l.from}</TableCell>
                   <TableCell>{l.to}</TableCell>
                   <TableCell>{l.days}</TableCell>
-                  <TableCell className="max-w-[240px] truncate text-sm text-muted-foreground">
+                  <TableCell className="min-w-[260px] max-w-[420px] whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">
                     {l.reason}
                   </TableCell>
                   <TableCell>
@@ -222,7 +224,7 @@ function LeaveApprovalsPage() {
                 {leave.from} to {leave.to} · {leave.days} day(s)
               </p>
               {leave.reason && (
-                <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
+                <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">
                   {leave.reason}
                 </p>
               )}
@@ -261,7 +263,7 @@ function LeaveApprovalsPage() {
                   <TableCell>{leave.from}</TableCell>
                   <TableCell>{leave.to}</TableCell>
                   <TableCell>{leave.days}</TableCell>
-                  <TableCell className="max-w-[280px] whitespace-normal text-sm text-muted-foreground">
+                  <TableCell className="min-w-[260px] max-w-[420px] whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">
                     {leave.reason}
                   </TableCell>
                   <TableCell>

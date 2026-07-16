@@ -38,6 +38,7 @@ import {
 import { attendanceApi, branchesApi, employeesApi, leaveApi, usersApi } from "@/services/api";
 import { downloadCsv } from "@/lib/csv";
 import { formatWorkedTime, workedTime } from "@/lib/worked-time";
+import { subscribeToAttendanceChanges } from "@/lib/attendance-live";
 import {
   AlertTriangle,
   Building2,
@@ -184,6 +185,15 @@ function DashboardPage() {
   const refreshDashboard = useCallback(() => {
     setReloadKey((value) => value + 1);
   }, []);
+
+  useEffect(() => {
+    if (!user?.employeeId) return;
+    let refreshTimer: number | undefined;
+    return subscribeToAttendanceChanges(() => {
+      window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(refreshDashboard, 250);
+    });
+  }, [refreshDashboard, user?.employeeId]);
 
   useEffect(() => {
     if (!user) return;
@@ -566,8 +576,7 @@ function MarkAttendanceCard({
             </Button>
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Mobile punches use your current location. Biometric punches appear in the same timer
-            after the dashboard refreshes.
+            Mobile and biometric punches synchronize automatically across your signed-in devices.
           </p>
         </div>
       </CardContent>

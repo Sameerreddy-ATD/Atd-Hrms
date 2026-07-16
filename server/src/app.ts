@@ -31,6 +31,7 @@ import {
   startOfDayUtc,
 } from "./attendanceDayRules.js";
 import { createAttendanceEvent, recalculateDailySummary } from "./attendanceEngine.js";
+import { openAttendanceStream } from "./attendanceLive.js";
 import { config } from "./config.js";
 import { asyncHandler, errorHandler, HttpError } from "./errors.js";
 import { nearestBranch } from "./geofence.js";
@@ -1974,6 +1975,8 @@ export function createApp() {
       res.status(201).json(event);
     }),
   );
+
+  app.get("/attendance/stream", requireAuth, openAttendanceStream);
 
   app.post(
     "/attendance/thumb/import-csv",

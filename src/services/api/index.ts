@@ -23,7 +23,7 @@ import type {
   WorkTask,
 } from "@/mock/types";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
+export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
 const REQUEST_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS ?? 20000);
 let refreshRequest: Promise<boolean> | null = null;
 

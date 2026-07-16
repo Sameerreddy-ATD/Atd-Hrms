@@ -124,7 +124,9 @@ function LeaveReportsPage() {
               {row.reason && (
                 <div className="mt-3 rounded-md bg-muted/40 p-3">
                   <p className="text-xs text-muted-foreground">Reason</p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm">{row.reason}</p>
+                  <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6">
+                    {row.reason}
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -175,7 +177,7 @@ function LeaveReportsPage() {
                   <TableCell>
                     <StatusBadge status={row.status} />
                   </TableCell>
-                  <TableCell className="max-w-[240px] truncate text-sm text-muted-foreground">
+                  <TableCell className="min-w-[260px] max-w-[420px] whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">
                     {row.reason}
                   </TableCell>
                 </TableRow>

@@ -22,6 +22,7 @@ import {
 import { attendanceApi, branchesApi } from "@/services/api";
 import type { AttendanceRecord, Branch } from "@/mock/types";
 import { useAuth } from "@/lib/auth";
+import { subscribeToAttendanceChanges } from "@/lib/attendance-live";
 import {
   MISSED_PUNCH_TYPE_OPTIONS,
   punchSourceLabel,
@@ -167,6 +168,11 @@ function MyAttendancePage() {
       window.removeEventListener("focus", refresh);
     };
   }, [load, user]);
+
+  useEffect(() => {
+    if (!user?.employeeId) return;
+    return subscribeToAttendanceChanges(() => void load(false));
+  }, [load, user?.employeeId]);
 
   return (
     <div className="space-y-6">

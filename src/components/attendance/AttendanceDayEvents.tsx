@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Building2, Clock3, Fingerprint, MapPin, Smartphone } from "lucide-react";
 import { LoadingState } from "@/components/common/LoadingState";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import {
   movementDirectionLabel,
   movementEventLabel,
 } from "@/lib/attendance-labels";
+import { subscribeToAttendanceChanges } from "@/lib/attendance-live";
 
 export function AttendanceDayEvents({
   employeeId,
@@ -23,7 +24,7 @@ export function AttendanceDayEvents({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
+  const load = useCallback(() => {
     setLoading(true);
     setError("");
     const request = mine
@@ -34,6 +35,15 @@ export function AttendanceDayEvents({
       .catch((err) => setError((err as Error).message))
       .finally(() => setLoading(false));
   }, [date, employeeId, mine]);
+
+  useEffect(() => void load(), [load]);
+
+  useEffect(() => {
+    if (!mine) return;
+    return subscribeToAttendanceChanges((changedDate) => {
+      if (changedDate === date) void load();
+    });
+  }, [date, load, mine]);
 
   if (loading) return <LoadingState label="Loading full-day punches" compact />;
   if (error)

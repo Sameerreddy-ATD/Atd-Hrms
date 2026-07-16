@@ -1,4 +1,4 @@
-self.ATD_STATIC_CACHE = "atd-static-v1";
+self.ATD_STATIC_CACHE = "atd-static-v2";
 self.ATD_SHELL_ASSETS = [
   "/atd-logo.png",
   "/atd-favicon.png",
@@ -37,6 +37,35 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+
+  if (request.mode === "navigate") {
+    event.respondWith(
+      Promise.race([
+        fetch(request),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Navigation network timeout")), 4000),
+        ),
+      ])
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            void caches.open(self.ATD_STATIC_CACHE).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(request);
+          if (cached) return cached;
+          const shell = await caches.match("/dashboard");
+          if (shell) return shell;
+          return new Response("The app could not load. Check your connection and try again.", {
+            status: 503,
+            headers: { "Content-Type": "text/plain; charset=utf-8" },
+          });
+        }),
+    );
+    return;
+  }
 
   const cacheableDestination = ["script", "style", "font", "image"].includes(request.destination);
   if (!cacheableDestination) return;
