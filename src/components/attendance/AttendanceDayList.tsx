@@ -8,7 +8,6 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import type { AttendanceRecord, Branch } from "@/mock/types";
-import { punchSourceLabel } from "@/lib/attendance-labels";
 import { formatStoredWorkedTime } from "@/lib/worked-time";
 
 export function AttendanceDayList({
@@ -79,22 +78,7 @@ export function AttendanceDayList({
               </div>
             </div>
           </AccordionTrigger>
-          <AccordionContent className="border-t px-3 pb-4 pt-3 sm:px-4">
-            <div className="mb-4 grid gap-2 rounded-md bg-muted/35 p-3 text-xs sm:grid-cols-2">
-              <div>
-                <span className="text-muted-foreground">Punch-in source: </span>
-                <span className="font-medium">
-                  {punchSourceLabel(record.punchInSource, record.punchInBranchId, branches)}
-                </span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Punch-out source: </span>
-                <span className="font-medium">
-                  {punchSourceLabel(record.punchOutSource, record.punchOutBranchId, branches)}
-                </span>
-              </div>
-            </div>
-            <h3 className="mb-3 text-sm font-semibold">All punches for this day</h3>
+          <AccordionContent className="border-t bg-muted/15 px-3 pb-4 pt-3 sm:px-4">
             <AttendanceDayEvents employeeId={record.employeeId} date={record.date} mine={mine} />
           </AccordionContent>
         </AccordionItem>

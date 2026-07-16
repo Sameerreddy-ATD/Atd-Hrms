@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Building2, Clock3, Fingerprint, MapPin, Smartphone } from "lucide-react";
 import { LoadingState } from "@/components/common/LoadingState";
-import { Badge } from "@/components/ui/badge";
 import { attendanceApi } from "@/services/api";
 import type { AttendanceTimelineEvent } from "@/mock/types";
 import {
@@ -57,7 +56,7 @@ export function AttendanceDayEvents({
   }
 
   return (
-    <div className="relative ml-3 border-l border-border pl-5 sm:ml-4 sm:pl-6">
+    <div className="relative ml-2 border-l-2 border-dashed border-border pl-4 sm:ml-5 sm:pl-6">
       {events.map((event, index) => {
         const direction = movementDirectionLabel(event.type);
         const source = captureSourceLabel(event);
@@ -67,78 +66,80 @@ export function AttendanceDayEvents({
             ? Smartphone
             : Clock3;
         return (
-          <div key={`${event.time}-${event.type}-${index}`} className="relative pb-4 last:pb-0">
+          <div key={`${event.time}-${event.type}-${index}`} className="relative pb-2.5 last:pb-0">
+            <span className="absolute -left-4 top-7 h-px w-4 bg-border sm:-left-6 sm:w-6" />
             <span
-              className={`absolute -left-[31px] top-3 grid h-5 w-5 place-items-center rounded-full border-2 border-background sm:-left-[35px] ${
+              className={`absolute -left-[21px] top-[23px] grid h-3 w-3 place-items-center rounded-full border-2 border-background sm:-left-[29px] ${
                 direction === "In"
                   ? "bg-emerald-500"
                   : direction === "Out"
                     ? "bg-amber-500"
                     : "bg-primary"
               }`}
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-white" />
-            </span>
-            <div className="rounded-lg border bg-background p-3 sm:p-4">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-semibold">{movementEventLabel(event)}</p>
-                    {direction && (
-                      <Badge variant="outline" className="text-xs">
-                        {direction}
-                      </Badge>
+            ></span>
+            <div className="rounded-md border bg-background px-3 py-3 sm:px-4">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-3 sm:grid-cols-4 lg:grid-cols-5">
+                <div className="col-span-2 min-w-0 sm:col-span-1">
+                  <p className="text-xs text-muted-foreground">Punch</p>
+                  <p className="mt-0.5 flex items-center gap-1.5 text-sm font-semibold">
+                    {direction === "In" ? (
+                      <span className="text-emerald-600">→</span>
+                    ) : direction === "Out" ? (
+                      <span className="text-amber-600">→</span>
+                    ) : (
+                      <Clock3 className="h-3.5 w-3.5" />
                     )}
-                  </div>
-                  <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <SourceIcon className="h-3.5 w-3.5 shrink-0" />
-                    {source}
+                    {movementEventLabel(event)}
                   </p>
                 </div>
-                <time className="rounded-md bg-muted px-2 py-1 text-sm font-semibold tabular-nums">
-                  {new Date(event.time).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                  })}
-                </time>
-              </div>
-
-              {(event.branchName || event.deviceName || event.clientName) && (
-                <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
-                  {event.branchName && (
-                    <span className="flex items-center gap-1.5">
-                      <Building2 className="h-3.5 w-3.5" /> {event.branchName}
-                    </span>
-                  )}
-                  {event.deviceName && (
-                    <span className="flex items-center gap-1.5">
-                      <Fingerprint className="h-3.5 w-3.5" /> {event.deviceName}
-                    </span>
-                  )}
-                  {event.clientName && (
-                    <span className="flex items-center gap-1.5">
-                      <MapPin className="h-3.5 w-3.5" /> {event.clientName}
-                    </span>
+                <div>
+                  <p className="text-xs text-muted-foreground">Time</p>
+                  <time className="mt-0.5 block text-sm font-semibold tabular-nums">
+                    {new Date(event.time).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    })}
+                  </time>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Source</p>
+                  <p className="mt-0.5 flex items-center gap-1.5 break-words text-sm font-medium">
+                    <SourceIcon className="h-3.5 w-3.5 shrink-0" /> {source}
+                  </p>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Branch / device</p>
+                  <p className="mt-0.5 flex items-center gap-1.5 break-words text-sm font-medium">
+                    {event.deviceName ? (
+                      <Fingerprint className="h-3.5 w-3.5 shrink-0" />
+                    ) : (
+                      <Building2 className="h-3.5 w-3.5 shrink-0" />
+                    )}
+                    {event.branchName ?? event.deviceName ?? event.clientName ?? "-"}
+                  </p>
+                </div>
+                <div className="col-span-2 min-w-0 sm:col-span-4 lg:col-span-1">
+                  <p className="text-xs text-muted-foreground">Location</p>
+                  {event.address || (event.latitude && event.longitude) ? (
+                    <a
+                      href={
+                        event.latitude && event.longitude
+                          ? `https://www.google.com/maps/search/?api=1&query=${event.latitude},${event.longitude}`
+                          : undefined
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-0.5 flex items-start gap-1.5 break-words text-sm font-medium hover:text-primary"
+                    >
+                      <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      {event.address ?? `${event.latitude}, ${event.longitude}`}
+                    </a>
+                  ) : (
+                    <p className="mt-0.5 text-sm font-medium">-</p>
                   )}
                 </div>
-              )}
-
-              {(event.address || (event.latitude && event.longitude)) && (
-                <a
-                  href={
-                    event.latitude && event.longitude
-                      ? `https://www.google.com/maps/search/?api=1&query=${event.latitude},${event.longitude}`
-                      : undefined
-                  }
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-3 flex items-start gap-1.5 break-words rounded-md bg-muted/50 p-2 text-xs text-muted-foreground hover:text-primary"
-                >
-                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  {event.address ?? `${event.latitude}, ${event.longitude}`}
-                </a>
-              )}
+              </div>
             </div>
           </div>
         );
