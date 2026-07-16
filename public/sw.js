@@ -90,6 +90,7 @@ self.addEventListener("push", (event) => {
     body: "You have a new update.",
     icon: "/pwa-192.png",
     badge: "/pwa-192.png",
+    renotify: true,
     data: { href: "/notifications" },
   };
 

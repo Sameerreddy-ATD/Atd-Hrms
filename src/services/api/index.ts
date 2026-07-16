@@ -529,6 +529,11 @@ export const announcementsApi = {
       body: JSON.stringify(payload),
     }),
   deactivate: (id: string) => request<Announcement>(`/announcements/${id}`, { method: "DELETE" }),
+  deletePermanently: (id: string, confirmation: string) =>
+    request<{ ok: true }>(`/announcements/${id}/permanent`, {
+      method: "DELETE",
+      body: JSON.stringify({ confirmation }),
+    }),
 };
 
 export const pushApi = {

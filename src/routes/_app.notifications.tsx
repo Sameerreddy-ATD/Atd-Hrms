@@ -26,6 +26,7 @@ import {
   filterVisibleNotifications,
   getDesktopAlertStatus,
   syncDesktopAlertsWithPermission,
+  NOTIFICATION_COUNT_CHANGED_EVENT,
 } from "@/lib/browser-notifications";
 import {
   Bell,
@@ -102,6 +103,15 @@ function NotificationsPage() {
       window.clearInterval(intervalId);
     };
   }, [loadAnnouncements, loadNotifications, refreshAlertStatus]);
+
+  useEffect(() => {
+    const refresh = () => {
+      void loadNotifications();
+      void loadAnnouncements();
+    };
+    window.addEventListener(NOTIFICATION_COUNT_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(NOTIFICATION_COUNT_CHANGED_EVENT, refresh);
+  }, [loadAnnouncements, loadNotifications]);
 
   const iconFor = (type: NotificationItem["type"]) => {
     if (type === "leave") return ClipboardCheck;

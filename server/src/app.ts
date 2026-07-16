@@ -49,6 +49,7 @@ import {
 } from "./mapper.js";
 import { prisma } from "./prisma.js";
 import { isWebPushConfigured, sendPushToAll } from "./push.js";
+import { openNotificationStream, publishNotificationChange } from "./notificationLive.js";
 import {
   assertEmployeeAccess,
   canCreateRole,
@@ -3460,6 +3461,8 @@ export function createApp() {
     }),
   );
 
+  app.get("/notifications/stream", requireAuth, openNotificationStream);
+
   app.post(
     "/announcements",
     requireAuth,
@@ -3484,11 +3487,16 @@ export function createApp() {
         newValue: { announcementId: announcement.announcementId, title: announcement.title },
         ipAddress: req.ip,
       });
+      publishNotificationChange("announcement-created", announcement.announcementId);
       void sendPushToAll({
-        title: `Anytime Diesel: ${announcement.title}`,
-        body: announcement.message,
+        title: `New announcement: ${announcement.title}`,
+        body:
+          announcement.message.length > 180
+            ? `${announcement.message.slice(0, 177)}...`
+            : announcement.message,
         href: "/notifications",
         tag: `announcement-${announcement.announcementId}`,
+        priority: announcement.priority,
       });
       res.status(201).json(announcementDto(announcement));
     }),
@@ -3520,6 +3528,7 @@ export function createApp() {
         newValue: { title: announcement.title, isActive: announcement.isActive },
         ipAddress: req.ip,
       });
+      publishNotificationChange("announcement-updated", announcement.announcementId);
       res.json(announcementDto(announcement));
     }),
   );
@@ -3540,7 +3549,30 @@ export function createApp() {
         newValue: { announcementId: announcement.announcementId, title: announcement.title },
         ipAddress: req.ip,
       });
+      publishNotificationChange("announcement-deactivated", announcement.announcementId);
       res.json(announcementDto(announcement));
+    }),
+  );
+
+  app.delete(
+    "/announcements/:id/permanent",
+    requireAuth,
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      if (req.body?.confirmation !== "DELETE") {
+        throw new HttpError(400, "Type DELETE to confirm permanent announcement deletion");
+      }
+      const announcement = await prisma.announcement.delete({
+        where: { announcementId: String(req.params.id) },
+      });
+      await audit({
+        action: "announcement permanently deleted",
+        performedByUserId: req.user!.id,
+        newValue: { announcementId: announcement.announcementId, title: announcement.title },
+        ipAddress: req.ip,
+      });
+      publishNotificationChange("announcement-deleted", announcement.announcementId);
+      res.json({ ok: true });
     }),
   );
 

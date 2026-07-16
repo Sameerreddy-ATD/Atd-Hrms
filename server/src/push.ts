@@ -17,6 +17,7 @@ export async function sendPushToAll(payload: {
   body: string;
   href?: string;
   tag?: string;
+  priority?: string;
 }) {
   if (!configureWebPush()) return { sent: 0, removed: 0 };
   const subscriptions = await prisma.pushSubscription.findMany();
@@ -37,6 +38,8 @@ export async function sendPushToAll(payload: {
             icon: "/pwa-192.png",
             badge: "/pwa-192.png",
             tag: payload.tag,
+            renotify: true,
+            requireInteraction: payload.priority === "URGENT",
             data: { href: payload.href ?? "/notifications" },
           }),
         );

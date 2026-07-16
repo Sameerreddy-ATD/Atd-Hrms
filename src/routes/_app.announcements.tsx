@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { CalendarClock, LoaderCircle, Megaphone, Plus, Power, Send, X } from "lucide-react";
+import { CalendarClock, LoaderCircle, Megaphone, Plus, Power, Send, Trash2, X } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState } from "@/components/common/EmptyState";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -21,6 +21,17 @@ import {
 import { useAuth } from "@/lib/auth";
 import type { Announcement } from "@/mock/types";
 import { announcementsApi } from "@/services/api";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { NOTIFICATION_COUNT_CHANGED_EVENT } from "@/lib/browser-notifications";
 
 export const Route = createFileRoute("/_app/announcements")({ component: AnnouncementsPage });
 
@@ -36,6 +47,9 @@ function AnnouncementsPage() {
   const [saving, setSaving] = useState(false);
   const [showComposer, setShowComposer] = useState(false);
   const [error, setError] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<Announcement | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState({
     title: "",
     message: "",
@@ -54,6 +68,12 @@ function AnnouncementsPage() {
   }, [canManage]);
 
   useEffect(() => void load(), [load]);
+
+  useEffect(() => {
+    const refresh = () => void load();
+    window.addEventListener(NOTIFICATION_COUNT_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(NOTIFICATION_COUNT_CHANGED_EVENT, refresh);
+  }, [load]);
 
   const visible = useMemo(() => {
     const now = Date.now();
@@ -103,6 +123,22 @@ function AnnouncementsPage() {
       toast.error((err as Error).message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function deleteAnnouncement() {
+    if (!deleteTarget || deleteConfirmation !== "DELETE") return;
+    setDeleting(true);
+    try {
+      await announcementsApi.deletePermanently(deleteTarget.id, deleteConfirmation);
+      setDeleteTarget(null);
+      setDeleteConfirmation("");
+      await load();
+      toast.success("Announcement permanently deleted");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -292,29 +328,37 @@ function AnnouncementsPage() {
                     </span>
                   </div>
                   {canManage && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="mt-3 w-full sm:w-auto"
-                      onClick={async () => {
-                        try {
-                          if (announcement.isActive)
-                            await announcementsApi.deactivate(announcement.id);
-                          else await announcementsApi.update(announcement.id, { isActive: true });
-                          await load();
-                          toast.success(
-                            announcement.isActive
-                              ? "Announcement deactivated"
-                              : "Announcement reactivated",
-                          );
-                        } catch (err) {
-                          toast.error((err as Error).message);
-                        }
-                      }}
-                    >
-                      <Power className="mr-2 h-4 w-4" />
-                      {announcement.isActive ? "Deactivate" : "Reactivate"}
-                    </Button>
+                    <div className="mt-3 grid gap-2 sm:flex sm:flex-wrap">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          try {
+                            if (announcement.isActive)
+                              await announcementsApi.deactivate(announcement.id);
+                            else await announcementsApi.update(announcement.id, { isActive: true });
+                            await load();
+                            toast.success(
+                              announcement.isActive
+                                ? "Announcement deactivated"
+                                : "Announcement reactivated",
+                            );
+                          } catch (err) {
+                            toast.error((err as Error).message);
+                          }
+                        }}
+                      >
+                        <Power className="mr-2 h-4 w-4" />
+                        {announcement.isActive ? "Deactivate" : "Reactivate"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => setDeleteTarget(announcement)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" /> Permanently delete
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -322,6 +366,49 @@ function AnnouncementsPage() {
           </Card>
         ))}
       </div>
+
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open && !deleting) {
+            setDeleteTarget(null);
+            setDeleteConfirmation("");
+          }
+        }}
+      >
+        <AlertDialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto sm:max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Permanently delete announcement?</AlertDialogTitle>
+            <AlertDialogDescription>
+              &quot;{deleteTarget?.title}&quot; will be removed from every employee&apos;s
+              announcement and notification history. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="announcement-delete-confirmation">
+              Type <span className="font-mono font-semibold">DELETE</span> to confirm
+            </Label>
+            <Input
+              id="announcement-delete-confirmation"
+              autoComplete="off"
+              value={deleteConfirmation}
+              onChange={(event) => setDeleteConfirmation(event.target.value)}
+              placeholder="DELETE"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 text-white hover:bg-red-700"
+              disabled={deleteConfirmation !== "DELETE" || deleting}
+              onClick={() => void deleteAnnouncement()}
+            >
+              {deleting && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+              Permanently delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

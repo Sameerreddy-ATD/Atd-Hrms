@@ -9,6 +9,8 @@ import {
   showDesktopNotification,
   syncDesktopAlertsWithPermission,
 } from "@/lib/browser-notifications";
+import { NOTIFICATION_COUNT_CHANGED_EVENT } from "@/lib/browser-notifications";
+import { subscribeToNotificationChanges } from "@/lib/notification-live";
 
 export function NotificationBridge() {
   const { user } = useAuth();
@@ -52,10 +54,15 @@ export function NotificationBridge() {
     const intervalId = window.setInterval(() => {
       void syncNotifications();
     }, 60000);
+    const unsubscribe = subscribeToNotificationChanges(() => {
+      window.dispatchEvent(new Event(NOTIFICATION_COUNT_CHANGED_EVENT));
+      void syncNotifications();
+    });
 
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
+      unsubscribe();
     };
   }, [user]);
 
