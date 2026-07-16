@@ -497,7 +497,7 @@ function MarkAttendanceCard({
 
   return (
     <Card className={`border-border shadow-sm ${className ?? ""}`}>
-      <CardHeader className="flex flex-row items-center justify-between gap-3 p-4 sm:p-5">
+      <CardHeader className="flex flex-col items-stretch justify-between gap-3 p-4 min-[420px]:flex-row min-[420px]:items-center sm:p-5">
         <div className="min-w-0">
           <CardTitle className="text-base font-semibold text-foreground">Mark Attendance</CardTitle>
           <p className="mt-0.5 text-xs text-muted-foreground">Today&apos;s live work session</p>
@@ -505,7 +505,7 @@ function MarkAttendanceCard({
         <Button
           size="sm"
           variant="outline"
-          className="shrink-0"
+          className="w-full shrink-0 min-[420px]:w-auto"
           onClick={() => navigate({ to: "/attendance/missed-punch" })}
         >
           <FileClock className="mr-1.5 h-4 w-4" />
@@ -522,7 +522,11 @@ function MarkAttendanceCard({
             </span>
             <div className="min-w-0">
               <p className="text-xs font-medium text-muted-foreground">Worked today</p>
-              <p className="font-mono text-3xl font-semibold tabular-nums text-foreground sm:text-4xl">
+              <p
+                className="font-mono text-2xl font-semibold tabular-nums text-foreground min-[360px]:text-3xl sm:text-4xl"
+                aria-live="polite"
+                aria-label={`Worked today ${formatWorkedTime(workSession.milliseconds)}`}
+              >
                 {formatWorkedTime(workSession.milliseconds)}
               </p>
             </div>
