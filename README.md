@@ -1,6 +1,6 @@
 # Anytime Diesel Employee Management System
 
-Internal employee operations platform for Anytime Diesel. It manages accounts, organization units, attendance, leave, tasks, assets, announcements, notifications, reports, and audit history through role-based web and installed PWA experiences.
+Internal employee operations platform for Anytime Diesel. It manages accounts, organization units, attendance, leave, tasks, assets and returns, expense claims, certificate requests, announcements, notifications, reports, and audit history through role-based web and installed PWA experiences.
 
 ## Current Release
 
@@ -126,6 +126,8 @@ Use `npm run db:verify` when the configured MySQL database is available.
 - Permanent account deletion is Developer Admin-only, requires typed confirmation, and removes related employee data transactionally while retaining an anonymized audit event.
 - Notifications are generated using the signed-in user’s role and employee scope.
 - Developer Admin accounts cannot be suspended, deactivated, or deleted.
+- Employees can view only their own expense and certificate requests. HR and Developer Admin can review organization-wide requests.
+- Asset returns are completed through a recorded HR checklist before an assignment is released.
 
 ## Production Update
 

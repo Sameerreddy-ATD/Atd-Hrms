@@ -3,8 +3,11 @@ import type {
   AttendanceTimelineEvent,
   AuditLog,
   AssetCatalogItem,
+  AssetReturnRecord,
   BiometricMapping,
   CompanyAsset,
+  CertificateRequest,
+  ExpenseClaim,
   BiometricDevice,
   Branch,
   Department,
@@ -429,6 +432,24 @@ export const assetsApi = {
     request<CompanyAsset>("/assets", { method: "POST", body: JSON.stringify(asset) }),
   update: (id: string, asset: Partial<CompanyAssetPayload>) =>
     request<CompanyAsset>(`/assets/${id}`, { method: "PATCH", body: JSON.stringify(asset) }),
+  returnHistory: () => request<AssetReturnRecord[]>("/assets/returns/history"),
+  returnAsset: (
+    id: string,
+    checklist: {
+      condition: AssetReturnRecord["condition"];
+      accessoriesReturned: boolean;
+      chargerReturned: boolean;
+      dataBackedUp: boolean;
+      dataWiped: boolean;
+      physicalDamage: boolean;
+      damageNotes?: string | null;
+      remarks?: string | null;
+    },
+  ) =>
+    request<{ asset: CompanyAsset; returnId: string }>(`/assets/${id}/return`, {
+      method: "POST",
+      body: JSON.stringify(checklist),
+    }),
   catalog: (includeInactive = false) =>
     request<AssetCatalogItem[]>(`/assets/catalog${includeInactive ? "?includeInactive=true" : ""}`),
   createCatalogItem: (item: Omit<AssetCatalogItem, "id" | "status">) =>
@@ -443,6 +464,47 @@ export const assetsApi = {
     }),
   deactivateCatalogItem: (id: string) =>
     request<AssetCatalogItem>(`/assets/catalog/${id}`, { method: "DELETE" }),
+};
+
+export const employeeServicesApi = {
+  expenseClaims: () => request<ExpenseClaim[]>("/expense-claims"),
+  submitExpense: (claim: {
+    category: string;
+    amount: number;
+    expenseDate: string;
+    description: string;
+    receiptUrl?: string | null;
+  }) =>
+    request<{ id: string; status: string }>("/expense-claims", {
+      method: "POST",
+      body: JSON.stringify(claim),
+    }),
+  reviewExpense: (id: string, status: "APPROVED" | "REJECTED" | "PAID", reviewNotes?: string) =>
+    request<{ id: string; status: string }>(`/expense-claims/${id}/review`, {
+      method: "PATCH",
+      body: JSON.stringify({ status, reviewNotes }),
+    }),
+  certificateRequests: () => request<CertificateRequest[]>("/certificate-requests"),
+  submitCertificate: (requestBody: {
+    certificateType: string;
+    purpose: string;
+    deliveryMode: "DIGITAL" | "PRINTED";
+    requiredBy?: string | null;
+  }) =>
+    request<{ id: string; status: string }>("/certificate-requests", {
+      method: "POST",
+      body: JSON.stringify(requestBody),
+    }),
+  reviewCertificate: (
+    id: string,
+    status: "IN_PROGRESS" | "READY" | "REJECTED" | "COLLECTED",
+    hrNotes?: string,
+    documentUrl?: string,
+  ) =>
+    request<{ id: string; status: string }>(`/certificate-requests/${id}/review`, {
+      method: "PATCH",
+      body: JSON.stringify({ status, hrNotes, documentUrl }),
+    }),
 };
 
 export const biometricApi = {

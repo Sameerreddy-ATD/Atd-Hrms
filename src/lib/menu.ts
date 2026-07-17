@@ -20,6 +20,7 @@ import {
   ListTodo,
   FileClock,
   Megaphone,
+  HandCoins,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -103,7 +104,24 @@ export const menuGroups: MenuGroup[] = [
   },
   {
     label: "Work",
-    items: [{ label: "Tasks & Daily Logs", to: "/tasks", icon: ListTodo, roles: ALL }],
+    items: [
+      { label: "Tasks & Daily Logs", to: "/tasks", icon: ListTodo, roles: ALL },
+      {
+        label: "Employee Services",
+        to: "/employee-services",
+        icon: HandCoins,
+        roles: [
+          "developer_admin",
+          "ceo",
+          "hr",
+          "manager",
+          "employee",
+          "sales",
+          "driver",
+          "field_staff",
+        ],
+      },
+    ],
   },
   {
     label: "Leave",

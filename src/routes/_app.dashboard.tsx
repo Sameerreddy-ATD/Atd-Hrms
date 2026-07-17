@@ -404,18 +404,33 @@ function MarkAttendanceCard({
   const navigate = useNavigate();
   const [actionLoading, setActionLoading] = useState(false);
   const [clockNow, setClockNow] = useState(() => Date.now());
+  const [optimisticSession, setOptimisticSession] = useState<{
+    state: "CHECKED_IN" | "CHECKED_OUT";
+    startedAt?: number;
+  } | null>(null);
   const [leaveCheckIn, setLeaveCheckIn] = useState<{ latitude: number; longitude: number } | null>(
     null,
   );
   const workSession = useMemo(() => workedTime(timeline, clockNow), [clockNow, timeline]);
-  const isCheckedIn = workSession.isCheckedIn;
-  const firstCheckInLabel = workSession.firstCheckIn
+  const isCheckedIn = optimisticSession
+    ? optimisticSession.state === "CHECKED_IN"
+    : workSession.isCheckedIn;
+  const workedMilliseconds =
+    optimisticSession?.state === "CHECKED_IN" && optimisticSession.startedAt
+      ? workSession.milliseconds + Math.max(0, clockNow - optimisticSession.startedAt)
+      : workSession.milliseconds;
+  const effectiveFirstCheckIn =
+    workSession.firstCheckIn ??
+    (optimisticSession?.state === "CHECKED_IN" && optimisticSession.startedAt
+      ? new Date(optimisticSession.startedAt)
+      : undefined);
+  const firstCheckInLabel = effectiveFirstCheckIn
     ? new Intl.DateTimeFormat("en-IN", {
         hour: "2-digit",
         minute: "2-digit",
         hour12: true,
         timeZone: "Asia/Kolkata",
-      }).format(workSession.firstCheckIn)
+      }).format(effectiveFirstCheckIn)
     : "Not checked in";
   const branchName = branches.find((branch) => branch.id === user.homeBranchId)?.name ?? "-";
 
@@ -425,6 +440,16 @@ function MarkAttendanceCard({
     const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, [isCheckedIn]);
+
+  useEffect(() => {
+    if (!optimisticSession) return;
+    if (
+      (optimisticSession.state === "CHECKED_IN" && workSession.isCheckedIn) ||
+      (optimisticSession.state === "CHECKED_OUT" && !workSession.isCheckedIn)
+    ) {
+      setOptimisticSession(null);
+    }
+  }, [optimisticSession, workSession.isCheckedIn]);
 
   async function submitCheckIn(
     coordinates: { latitude: number; longitude: number },
@@ -438,6 +463,8 @@ function MarkAttendanceCard({
         longitude: coordinates.longitude,
         confirmLeaveCancellation,
       });
+      setOptimisticSession({ state: "CHECKED_IN", startedAt: Date.now() });
+      setClockNow(Date.now());
       setLeaveCheckIn(null);
       toast.success("You are checked in");
       onAttendanceChanged();
@@ -486,6 +513,7 @@ function MarkAttendanceCard({
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
       });
+      setOptimisticSession({ state: "CHECKED_OUT" });
       toast.success("You are checked out");
       onAttendanceChanged();
     } catch (err) {
@@ -525,9 +553,9 @@ function MarkAttendanceCard({
               <p
                 className="font-mono text-2xl font-semibold tabular-nums text-foreground min-[360px]:text-3xl sm:text-4xl"
                 aria-live="polite"
-                aria-label={`Worked today ${formatWorkedTime(workSession.milliseconds)}`}
+                aria-label={`Worked today ${formatWorkedTime(workedMilliseconds)}`}
               >
-                {formatWorkedTime(workSession.milliseconds)}
+                {formatWorkedTime(workedMilliseconds)}
               </p>
             </div>
           </div>

@@ -150,6 +150,58 @@ export interface AssetCatalogItem {
   status: string;
 }
 
+export interface AssetReturnRecord {
+  id: string;
+  assetId: string;
+  assetCode: string;
+  assetName: string;
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  condition: "GOOD" | "FAIR" | "DAMAGED" | "NOT_WORKING";
+  accessoriesReturned: boolean;
+  chargerReturned: boolean;
+  dataBackedUp: boolean;
+  dataWiped: boolean;
+  physicalDamage: boolean;
+  damageNotes?: string;
+  remarks?: string;
+  returnedAt: string;
+}
+
+export interface ExpenseClaim {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  employeeCode: string;
+  category: string;
+  amount: number;
+  expenseDate: string;
+  description: string;
+  receiptUrl?: string;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "PAID";
+  reviewNotes?: string;
+  paidAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CertificateRequest {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  employeeCode: string;
+  certificateType: string;
+  purpose: string;
+  deliveryMode: "DIGITAL" | "PRINTED";
+  requiredBy?: string;
+  status: "PENDING" | "IN_PROGRESS" | "READY" | "REJECTED" | "COLLECTED";
+  hrNotes?: string;
+  documentUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type AttendanceStatus =
   | "Present"
   | "Present - Home Branch"

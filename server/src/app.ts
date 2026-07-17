@@ -70,6 +70,7 @@ import {
   announcementUpdateSchema,
   assetCatalogItemSchema,
   assetCatalogItemUpdateSchema,
+  assetReturnSchema,
   biometricMappingSchema,
   biometricMappingUpdateSchema,
   biometricDeviceSchema,
@@ -80,8 +81,12 @@ import {
   clientEventSchema,
   companyAssetSchema,
   companyAssetUpdateSchema,
+  certificateRequestReviewSchema,
+  certificateRequestSchema,
   correctionSchema,
   createUserSchema,
+  expenseClaimReviewSchema,
+  expenseClaimSchema,
   departmentSchema,
   departmentUpdateSchema,
   holidaySchema,
@@ -899,6 +904,13 @@ export function createApp() {
             where: { managerId: employeeId },
             data: { managerId: null },
           });
+          await tx.assetReturn.deleteMany({
+            where: {
+              OR: [{ employeeId }, { asset: { assignedEmployeeId: employeeId } }],
+            },
+          });
+          await tx.expenseClaim.deleteMany({ where: { employeeId } });
+          await tx.certificateRequest.deleteMany({ where: { employeeId } });
           await tx.companyAsset.deleteMany({ where: { assignedEmployeeId: employeeId } });
           await tx.taskAssignment.deleteMany({ where: { employeeId } });
           await tx.profileEditRequest.deleteMany({ where: { employeeId } });
@@ -1668,6 +1680,289 @@ export function createApp() {
         ipAddress: req.ip,
       });
       res.json(companyAssetDto(asset));
+    }),
+  );
+
+  app.get(
+    "/assets/returns/history",
+    requireAuth,
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
+    asyncHandler(async (_req, res) => {
+      const rows = await prisma.assetReturn.findMany({
+        include: { asset: true, employee: true },
+        orderBy: { returnedAt: "desc" },
+        take: 500,
+      });
+      res.json(
+        rows.map((row) => ({
+          id: row.returnId,
+          assetId: row.assetId,
+          assetCode: row.asset.assetCode,
+          assetName: row.asset.name,
+          employeeId: row.employeeId,
+          employeeCode: row.employee.employeeCode,
+          employeeName: row.employee.name,
+          condition: row.condition,
+          accessoriesReturned: row.accessoriesReturned,
+          chargerReturned: row.chargerReturned,
+          dataBackedUp: row.dataBackedUp,
+          dataWiped: row.dataWiped,
+          physicalDamage: row.physicalDamage,
+          damageNotes: row.damageNotes,
+          remarks: row.remarks,
+          returnedAt: row.returnedAt.toISOString(),
+        })),
+      );
+    }),
+  );
+
+  app.post(
+    "/assets/:id/return",
+    requireAuth,
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const body = assetReturnSchema.parse(req.body);
+      const existing = await prisma.companyAsset.findUniqueOrThrow({
+        where: { assetId: String(req.params.id) },
+      });
+      if (!existing.assignedEmployeeId || existing.status !== "ASSIGNED") {
+        throw new HttpError(409, "Only an assigned asset can be returned");
+      }
+      const result = await prisma.$transaction(async (tx) => {
+        const returned = await tx.assetReturn.create({
+          data: {
+            assetId: existing.assetId,
+            employeeId: existing.assignedEmployeeId!,
+            receivedByUserId: req.user!.id,
+            ...body,
+            damageNotes: body.damageNotes || null,
+            remarks: body.remarks || null,
+          },
+          include: { asset: true, employee: true },
+        });
+        const asset = await tx.companyAsset.update({
+          where: { assetId: existing.assetId },
+          data: {
+            assignedEmployeeId: null,
+            status: body.condition === "NOT_WORKING" ? "UNDER_REPAIR" : "AVAILABLE",
+          },
+          include: { assignedEmployee: true, branch: true },
+        });
+        return { returned, asset };
+      });
+      await audit({
+        action: "company asset returned",
+        performedByUserId: req.user!.id,
+        oldValue: { assignedEmployeeId: existing.assignedEmployeeId, status: existing.status },
+        newValue: { returnId: result.returned.returnId, condition: body.condition },
+        ipAddress: req.ip,
+      });
+      res.status(201).json({
+        asset: companyAssetDto(result.asset),
+        returnId: result.returned.returnId,
+      });
+    }),
+  );
+
+  app.get(
+    "/expense-claims",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const isHr = req.user!.role === Role.HR || req.user!.role === Role.DEVELOPER_ADMIN;
+      if (!isHr && !req.user!.employeeId) throw new HttpError(403, "Employee profile required");
+      const rows = await prisma.expenseClaim.findMany({
+        where: isHr ? {} : { employeeId: req.user!.employeeId! },
+        include: { employee: true },
+        orderBy: { createdAt: "desc" },
+        take: 500,
+      });
+      res.json(
+        rows.map((row) => ({
+          id: row.claimId,
+          employeeId: row.employeeId,
+          employeeName: row.employee.name,
+          employeeCode: row.employee.employeeCode,
+          category: row.category,
+          amount: Number(row.amount),
+          expenseDate: row.expenseDate.toISOString().slice(0, 10),
+          description: row.description,
+          receiptUrl: row.receiptUrl,
+          status: row.status,
+          reviewNotes: row.reviewNotes,
+          paidAt: row.paidAt?.toISOString() ?? null,
+          createdAt: row.createdAt.toISOString(),
+          updatedAt: row.updatedAt.toISOString(),
+        })),
+      );
+    }),
+  );
+
+  app.post(
+    "/expense-claims",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      if (!req.user!.employeeId) throw new HttpError(403, "Employee profile required");
+      const body = expenseClaimSchema.parse(req.body);
+      if (body.expenseDate.getTime() > Date.now()) {
+        throw new HttpError(400, "Expense date cannot be in the future");
+      }
+      const row = await prisma.expenseClaim.create({
+        data: { employeeId: req.user!.employeeId, ...body, receiptUrl: body.receiptUrl || null },
+        include: { employee: true },
+      });
+      await audit({
+        action: "expense claim submitted",
+        performedByUserId: req.user!.id,
+        newValue: { claimId: row.claimId, amount: Number(row.amount), category: row.category },
+        ipAddress: req.ip,
+      });
+      publishNotificationChange("expense-claim-submitted", row.claimId);
+      res.status(201).json({ id: row.claimId, status: row.status });
+    }),
+  );
+
+  app.patch(
+    "/expense-claims/:id/review",
+    requireAuth,
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const body = expenseClaimReviewSchema.parse(req.body);
+      const existing = await prisma.expenseClaim.findUniqueOrThrow({
+        where: { claimId: String(req.params.id) },
+      });
+      const allowedExpenseTransitions: Record<string, string[]> = {
+        PENDING: ["APPROVED", "REJECTED"],
+        APPROVED: ["PAID"],
+        REJECTED: [],
+        PAID: [],
+      };
+      if (!allowedExpenseTransitions[existing.status]?.includes(body.status)) {
+        throw new HttpError(
+          409,
+          `Cannot change an expense from ${existing.status} to ${body.status}`,
+        );
+      }
+      const row = await prisma.expenseClaim.update({
+        where: { claimId: existing.claimId },
+        data: {
+          status: body.status,
+          reviewNotes: body.reviewNotes || null,
+          reviewedByUserId: req.user!.id,
+          reviewedAt: new Date(),
+          paidAt: body.status === "PAID" ? new Date() : existing.paidAt,
+        },
+      });
+      await audit({
+        action: "expense claim reviewed",
+        performedByUserId: req.user!.id,
+        oldValue: { status: existing.status },
+        newValue: { claimId: row.claimId, status: row.status },
+        ipAddress: req.ip,
+      });
+      publishNotificationChange("expense-claim-updated", row.claimId);
+      res.json({ id: row.claimId, status: row.status, reviewNotes: row.reviewNotes });
+    }),
+  );
+
+  app.get(
+    "/certificate-requests",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const isHr = req.user!.role === Role.HR || req.user!.role === Role.DEVELOPER_ADMIN;
+      if (!isHr && !req.user!.employeeId) throw new HttpError(403, "Employee profile required");
+      const rows = await prisma.certificateRequest.findMany({
+        where: isHr ? {} : { employeeId: req.user!.employeeId! },
+        include: { employee: true },
+        orderBy: { createdAt: "desc" },
+        take: 500,
+      });
+      res.json(
+        rows.map((row) => ({
+          id: row.certificateRequestId,
+          employeeId: row.employeeId,
+          employeeName: row.employee.name,
+          employeeCode: row.employee.employeeCode,
+          certificateType: row.certificateType,
+          purpose: row.purpose,
+          deliveryMode: row.deliveryMode,
+          requiredBy: row.requiredBy?.toISOString().slice(0, 10) ?? null,
+          status: row.status,
+          hrNotes: row.hrNotes,
+          documentUrl: row.documentUrl,
+          createdAt: row.createdAt.toISOString(),
+          updatedAt: row.updatedAt.toISOString(),
+        })),
+      );
+    }),
+  );
+
+  app.post(
+    "/certificate-requests",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      if (!req.user!.employeeId) throw new HttpError(403, "Employee profile required");
+      const body = certificateRequestSchema.parse(req.body);
+      if (body.requiredBy && body.requiredBy.getTime() < startOfDayUtc(todayIstDate()).getTime()) {
+        throw new HttpError(400, "Required-by date cannot be in the past");
+      }
+      const row = await prisma.certificateRequest.create({
+        data: { employeeId: req.user!.employeeId, ...body },
+      });
+      await audit({
+        action: "certificate requested",
+        performedByUserId: req.user!.id,
+        newValue: { requestId: row.certificateRequestId, type: row.certificateType },
+        ipAddress: req.ip,
+      });
+      publishNotificationChange("certificate-request-submitted", row.certificateRequestId);
+      res.status(201).json({ id: row.certificateRequestId, status: row.status });
+    }),
+  );
+
+  app.patch(
+    "/certificate-requests/:id/review",
+    requireAuth,
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const body = certificateRequestReviewSchema.parse(req.body);
+      const existing = await prisma.certificateRequest.findUniqueOrThrow({
+        where: { certificateRequestId: String(req.params.id) },
+      });
+      const allowedCertificateTransitions: Record<string, string[]> = {
+        PENDING: ["IN_PROGRESS", "REJECTED"],
+        IN_PROGRESS: ["READY", "REJECTED"],
+        READY: ["COLLECTED"],
+        REJECTED: [],
+        COLLECTED: [],
+      };
+      if (!allowedCertificateTransitions[existing.status]?.includes(body.status)) {
+        throw new HttpError(
+          409,
+          `Cannot change a certificate request from ${existing.status} to ${body.status}`,
+        );
+      }
+      if (body.status === "READY" && existing.deliveryMode === "DIGITAL" && !body.documentUrl) {
+        throw new HttpError(400, "Add the digital certificate link before marking it ready");
+      }
+      const row = await prisma.certificateRequest.update({
+        where: { certificateRequestId: existing.certificateRequestId },
+        data: {
+          status: body.status,
+          hrNotes: body.hrNotes || null,
+          documentUrl: body.documentUrl || null,
+          reviewedByUserId: req.user!.id,
+          completedAt: ["READY", "COLLECTED"].includes(body.status) ? new Date() : null,
+        },
+      });
+      await audit({
+        action: "certificate request reviewed",
+        performedByUserId: req.user!.id,
+        oldValue: { status: existing.status },
+        newValue: { requestId: row.certificateRequestId, status: row.status },
+        ipAddress: req.ip,
+      });
+      publishNotificationChange("certificate-request-updated", row.certificateRequestId);
+      res.json({ id: row.certificateRequestId, status: row.status });
     }),
   );
 
@@ -4030,57 +4325,82 @@ export function createApp() {
       const suspensionWindowEnd = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
       const suspensionManagerRoles: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR];
       const canManageSuspensions = suspensionManagerRoles.includes(req.user!.role);
-      const [pendingLeaves, holidays, birthdayEmployees, upcomingSuspensions, assignedTasks] =
-        await Promise.all([
-          prisma.leaveRequest.findMany({
-            where: leaveWhere,
-            include: { employee: true, leaveType: true },
-            orderBy: { createdAt: "desc" },
-            take: 10,
-          }),
-          prisma.holiday.findMany({
-            where: {
-              status: "ACTIVE",
-              date: { gte: new Date() },
-              OR: holidayBranchId
-                ? [{ branchId: null }, { branchId: holidayBranchId }]
-                : [{ branchId: null }],
-            },
-            orderBy: { date: "asc" },
-            take: 5,
-          }),
-          prisma.employee.findMany({
-            where: {
-              dateOfBirth: { not: null },
-              status: "ACTIVE",
-            },
-            select: {
-              employeeId: true,
-              name: true,
-              dateOfBirth: true,
-            },
-          }),
-          prisma.user.findMany({
-            where: {
-              suspensionStartsAt: { gt: new Date(), lte: suspensionWindowEnd },
-              suspendedUntil: { gt: new Date() },
-              ...(canManageSuspensions ? {} : { id: req.user!.id }),
-            },
-            select: { id: true, name: true, suspensionStartsAt: true, suspendedUntil: true },
-            orderBy: { suspensionStartsAt: "asc" },
-            take: canManageSuspensions ? 50 : 1,
-          }),
-          req.user!.employeeId
-            ? prisma.workTask.findMany({
-                where: {
-                  assignments: { some: { employeeId: req.user!.employeeId } },
-                  status: { notIn: [TaskStatus.COMPLETED, TaskStatus.CANCELLED] },
-                },
-                orderBy: { updatedAt: "desc" },
-                take: 10,
-              })
-            : Promise.resolve([]),
-        ]);
+      const canManageEmployeeServices =
+        req.user!.role === Role.HR || req.user!.role === Role.DEVELOPER_ADMIN;
+      const [
+        pendingLeaves,
+        holidays,
+        birthdayEmployees,
+        upcomingSuspensions,
+        assignedTasks,
+        expenseNotifications,
+        certificateNotifications,
+      ] = await Promise.all([
+        prisma.leaveRequest.findMany({
+          where: leaveWhere,
+          include: { employee: true, leaveType: true },
+          orderBy: { createdAt: "desc" },
+          take: 10,
+        }),
+        prisma.holiday.findMany({
+          where: {
+            status: "ACTIVE",
+            date: { gte: new Date() },
+            OR: holidayBranchId
+              ? [{ branchId: null }, { branchId: holidayBranchId }]
+              : [{ branchId: null }],
+          },
+          orderBy: { date: "asc" },
+          take: 5,
+        }),
+        prisma.employee.findMany({
+          where: {
+            dateOfBirth: { not: null },
+            status: "ACTIVE",
+          },
+          select: {
+            employeeId: true,
+            name: true,
+            dateOfBirth: true,
+          },
+        }),
+        prisma.user.findMany({
+          where: {
+            suspensionStartsAt: { gt: new Date(), lte: suspensionWindowEnd },
+            suspendedUntil: { gt: new Date() },
+            ...(canManageSuspensions ? {} : { id: req.user!.id }),
+          },
+          select: { id: true, name: true, suspensionStartsAt: true, suspendedUntil: true },
+          orderBy: { suspensionStartsAt: "asc" },
+          take: canManageSuspensions ? 50 : 1,
+        }),
+        req.user!.employeeId
+          ? prisma.workTask.findMany({
+              where: {
+                assignments: { some: { employeeId: req.user!.employeeId } },
+                status: { notIn: [TaskStatus.COMPLETED, TaskStatus.CANCELLED] },
+              },
+              orderBy: { updatedAt: "desc" },
+              take: 10,
+            })
+          : Promise.resolve([]),
+        canManageEmployeeServices || req.user!.employeeId
+          ? prisma.expenseClaim.findMany({
+              where: canManageEmployeeServices ? {} : { employeeId: req.user!.employeeId! },
+              include: { employee: { select: { name: true } } },
+              orderBy: { updatedAt: "desc" },
+              take: 10,
+            })
+          : Promise.resolve([]),
+        canManageEmployeeServices || req.user!.employeeId
+          ? prisma.certificateRequest.findMany({
+              where: canManageEmployeeServices ? {} : { employeeId: req.user!.employeeId! },
+              include: { employee: { select: { name: true } } },
+              orderBy: { updatedAt: "desc" },
+              take: 10,
+            })
+          : Promise.resolve([]),
+      ]);
 
       const today = new Date();
       const todayMonth = today.getUTCMonth();
@@ -4190,6 +4510,30 @@ export function createApp() {
           desc: `${request.employee.name} - ${request.date.toISOString().slice(0, 10)}`,
           time: request.updatedAt.toISOString(),
           type: "leave" as const,
+        })),
+        ...expenseNotifications.map((claim) => ({
+          id: `expense-${claim.claimId}-${claim.updatedAt.toISOString()}`,
+          title:
+            claim.employeeId === req.user!.employeeId
+              ? `Expense claim ${claim.status.toLowerCase()}`
+              : claim.status === "PENDING"
+                ? "New expense claim"
+                : "Expense claim updated",
+          desc: `${claim.employee.name} - ${claim.category.replaceAll("_", " ").toLowerCase()} - INR ${Number(claim.amount).toLocaleString("en-IN")}`,
+          time: claim.updatedAt.toISOString(),
+          type: "system" as const,
+        })),
+        ...certificateNotifications.map((request) => ({
+          id: `certificate-${request.certificateRequestId}-${request.updatedAt.toISOString()}`,
+          title:
+            request.employeeId === req.user!.employeeId
+              ? `Certificate request ${request.status.replaceAll("_", " ").toLowerCase()}`
+              : request.status === "PENDING"
+                ? "New certificate request"
+                : "Certificate request updated",
+          desc: `${request.employee.name} - ${request.certificateType.replaceAll("_", " ").toLowerCase()}`,
+          time: request.updatedAt.toISOString(),
+          type: "system" as const,
         })),
         ...holidays.map((holiday) => ({
           id: `holiday-${holiday.holidayId}`,

@@ -6,6 +6,7 @@ import { LoadingState } from "@/components/common/LoadingState";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -30,7 +32,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { AssetCatalogItem, CompanyAsset, EmployeeAssetInvestment, User } from "@/mock/types";
+import type {
+  AssetCatalogItem,
+  AssetReturnRecord,
+  CompanyAsset,
+  EmployeeAssetInvestment,
+  User,
+} from "@/mock/types";
 import { assetsApi, branchesApi, employeesApi } from "@/services/api";
 import {
   IndianRupee,
@@ -65,6 +73,7 @@ function AssetsPage() {
   const [assets, setAssets] = useState<CompanyAsset[]>([]);
   const [investments, setInvestments] = useState<EmployeeAssetInvestment[]>([]);
   const [assetNames, setAssetNames] = useState<AssetCatalogItem[]>([]);
+  const [returnHistory, setReturnHistory] = useState<AssetReturnRecord[]>([]);
   const [employees, setEmployees] = useState<User[]>([]);
   const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([]);
   const [query, setQuery] = useState("");
@@ -84,24 +93,38 @@ function AssetsPage() {
     assetId: "",
     employeeId: "",
   });
+  const [returnTarget, setReturnTarget] = useState<CompanyAsset | null>(null);
+  const [returnForm, setReturnForm] = useState({
+    condition: "GOOD" as AssetReturnRecord["condition"],
+    accessoriesReturned: false,
+    chargerReturned: false,
+    dataBackedUp: false,
+    dataWiped: false,
+    physicalDamage: false,
+    damageNotes: "",
+    remarks: "",
+  });
+  const [returning, setReturning] = useState(false);
 
   async function load() {
     setLoading(true);
     setError("");
     try {
-      const [assetRows, employeeRows, branchRows, assetNameRows, investmentRows] =
+      const [assetRows, employeeRows, branchRows, assetNameRows, investmentRows, returnRows] =
         await Promise.all([
           assetsApi.list(),
           employeesApi.list(),
           branchesApi.list(),
           assetsApi.catalog(),
           assetsApi.investmentSummary(),
+          assetsApi.returnHistory(),
         ]);
       setAssets(assetRows);
       setEmployees(employeeRows.filter((employee) => employee.active && employee.employeeId));
       setBranches(branchRows);
       setAssetNames(assetNameRows);
       setInvestments(investmentRows);
+      setReturnHistory(returnRows);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -269,18 +292,40 @@ function AssetsPage() {
     }
   }
 
-  async function returnAsset(asset: CompanyAsset) {
+  function openReturnAsset(asset: CompanyAsset) {
+    setReturnTarget(asset);
+    setReturnForm({
+      condition: "GOOD",
+      accessoriesReturned: false,
+      chargerReturned: false,
+      dataBackedUp: false,
+      dataWiped: false,
+      physicalDamage: false,
+      damageNotes: "",
+      remarks: "",
+    });
+  }
+
+  async function returnAsset() {
+    if (!returnTarget) return;
+    if (returnForm.physicalDamage && !returnForm.damageNotes.trim()) {
+      toast.error("Describe the physical damage before completing the return.");
+      return;
+    }
+    setReturning(true);
     try {
-      const saved = await assetsApi.update(asset.id, {
-        assignedEmployeeId: null,
-        status: "AVAILABLE",
-        location: null,
+      await assetsApi.returnAsset(returnTarget.id, {
+        ...returnForm,
+        damageNotes: returnForm.damageNotes || null,
+        remarks: returnForm.remarks || null,
       });
-      setAssets((current) => current.map((row) => (row.id === saved.id ? saved : row)));
-      setInvestments(await assetsApi.investmentSummary());
-      toast.success("Asset returned and marked available");
+      setReturnTarget(null);
+      await load();
+      toast.success("Return checklist saved and asset released");
     } catch (err) {
       toast.error((err as Error).message);
+    } finally {
+      setReturning(false);
     }
   }
 
@@ -495,7 +540,7 @@ function AssetsPage() {
                       className="flex-1"
                       size="sm"
                       variant="outline"
-                      onClick={() => void returnAsset(asset)}
+                      onClick={() => openReturnAsset(asset)}
                     >
                       <RotateCcw className="h-4 w-4" /> Return
                     </Button>
@@ -574,7 +619,7 @@ function AssetsPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => void returnAsset(asset)}
+                            onClick={() => openReturnAsset(asset)}
                           >
                             <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Return
                           </Button>
@@ -604,6 +649,45 @@ function AssetsPage() {
           )}
         </div>
       )}
+
+      <section className="mt-5 overflow-hidden rounded-lg border bg-card">
+        <div className="border-b px-4 py-3">
+          <h2 className="text-sm font-semibold">Return history</h2>
+          <p className="text-xs text-muted-foreground">
+            Completed HR checklists for returned company assets.
+          </p>
+        </div>
+        {returnHistory.length === 0 ? (
+          <p className="p-6 text-center text-sm text-muted-foreground">
+            No asset returns recorded.
+          </p>
+        ) : (
+          <div className="divide-y">
+            {returnHistory.slice(0, 20).map((row) => (
+              <div
+                key={row.id}
+                className="grid gap-2 p-4 text-sm sm:grid-cols-[1fr_auto] sm:items-center"
+              >
+                <div>
+                  <p className="font-medium">
+                    {row.assetName}{" "}
+                    <span className="font-mono text-xs text-muted-foreground">{row.assetCode}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Returned by {row.employeeName} ·{" "}
+                    {new Date(row.returnedAt).toLocaleString("en-IN")}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  <Badge variant="outline">{row.condition.replaceAll("_", " ")}</Badge>
+                  {row.dataWiped && <Badge variant="outline">Data wiped</Badge>}
+                  {row.physicalDamage && <Badge variant="destructive">Damage recorded</Badge>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       <Dialog open={assetDialogOpen} onOpenChange={setAssetDialogOpen}>
         <DialogContent className="sm:max-w-xl">
@@ -877,6 +961,104 @@ function AssetsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={Boolean(returnTarget)} onOpenChange={(open) => !open && setReturnTarget(null)}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Asset return checklist</DialogTitle>
+          </DialogHeader>
+          {returnTarget && (
+            <div className="space-y-4">
+              <div className="rounded-md border bg-muted/30 p-3 text-sm">
+                <p className="font-semibold">
+                  {returnTarget.name} · {returnTarget.assetCode}
+                </p>
+                <p className="text-muted-foreground">
+                  Returning from {returnTarget.assignedEmployeeName}
+                </p>
+              </div>
+              <FormField label="Condition on return">
+                <Select
+                  value={returnForm.condition}
+                  onValueChange={(condition: AssetReturnRecord["condition"]) =>
+                    setReturnForm((v) => ({ ...v, condition }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="GOOD">Good</SelectItem>
+                    <SelectItem value="FAIR">Fair / normal wear</SelectItem>
+                    <SelectItem value="DAMAGED">Damaged</SelectItem>
+                    <SelectItem value="NOT_WORKING">Not working</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FormField>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <ChecklistItem
+                  label="Accessories returned"
+                  checked={returnForm.accessoriesReturned}
+                  onChange={(checked) =>
+                    setReturnForm((v) => ({ ...v, accessoriesReturned: checked }))
+                  }
+                />
+                <ChecklistItem
+                  label="Charger returned"
+                  checked={returnForm.chargerReturned}
+                  onChange={(checked) => setReturnForm((v) => ({ ...v, chargerReturned: checked }))}
+                />
+                <ChecklistItem
+                  label="Company data backed up"
+                  checked={returnForm.dataBackedUp}
+                  onChange={(checked) => setReturnForm((v) => ({ ...v, dataBackedUp: checked }))}
+                />
+                <ChecklistItem
+                  label="Company data wiped"
+                  checked={returnForm.dataWiped}
+                  onChange={(checked) => setReturnForm((v) => ({ ...v, dataWiped: checked }))}
+                />
+                <ChecklistItem
+                  label="Physical damage found"
+                  checked={returnForm.physicalDamage}
+                  onChange={(checked) => setReturnForm((v) => ({ ...v, physicalDamage: checked }))}
+                />
+              </div>
+              {returnForm.physicalDamage && (
+                <FormField label="Damage details">
+                  <Textarea
+                    rows={3}
+                    maxLength={2000}
+                    value={returnForm.damageNotes}
+                    onChange={(event) =>
+                      setReturnForm((v) => ({ ...v, damageNotes: event.target.value }))
+                    }
+                    required
+                  />
+                </FormField>
+              )}
+              <FormField label="Return remarks">
+                <Textarea
+                  rows={3}
+                  maxLength={2000}
+                  value={returnForm.remarks}
+                  onChange={(event) =>
+                    setReturnForm((v) => ({ ...v, remarks: event.target.value }))
+                  }
+                />
+              </FormField>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReturnTarget(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => void returnAsset()} disabled={returning}>
+              {returning ? "Saving..." : "Complete return"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -887,6 +1069,23 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
       <Label>{label}</Label>
       {children}
     </div>
+  );
+}
+
+function ChecklistItem({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border p-3 text-sm">
+      <Checkbox checked={checked} onCheckedChange={(value) => onChange(value === true)} />
+      <span>{label}</span>
+    </label>
   );
 }
 

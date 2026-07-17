@@ -1,0 +1,61 @@
+CREATE TABLE `asset_returns` (
+  `return_id` VARCHAR(191) NOT NULL,
+  `asset_id` VARCHAR(191) NOT NULL,
+  `employee_id` VARCHAR(191) NOT NULL,
+  `received_by_user_id` VARCHAR(191) NOT NULL,
+  `condition` VARCHAR(191) NOT NULL,
+  `accessories_returned` BOOLEAN NOT NULL DEFAULT false,
+  `charger_returned` BOOLEAN NOT NULL DEFAULT false,
+  `data_backed_up` BOOLEAN NOT NULL DEFAULT false,
+  `data_wiped` BOOLEAN NOT NULL DEFAULT false,
+  `physical_damage` BOOLEAN NOT NULL DEFAULT false,
+  `damage_notes` TEXT NULL,
+  `remarks` TEXT NULL,
+  `returned_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`return_id`),
+  INDEX `asset_returns_asset_id_returned_at_idx` (`asset_id`, `returned_at`),
+  INDEX `asset_returns_employee_id_returned_at_idx` (`employee_id`, `returned_at`),
+  CONSTRAINT `asset_returns_asset_id_fkey` FOREIGN KEY (`asset_id`) REFERENCES `company_assets` (`asset_id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `asset_returns_employee_id_fkey` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`employee_id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE `expense_claims` (
+  `claim_id` VARCHAR(191) NOT NULL,
+  `employee_id` VARCHAR(191) NOT NULL,
+  `category` VARCHAR(191) NOT NULL,
+  `amount` DECIMAL(12, 2) NOT NULL,
+  `expense_date` DATE NOT NULL,
+  `description` TEXT NOT NULL,
+  `receipt_url` TEXT NULL,
+  `status` VARCHAR(191) NOT NULL DEFAULT 'PENDING',
+  `reviewed_by_user_id` VARCHAR(191) NULL,
+  `review_notes` TEXT NULL,
+  `reviewed_at` DATETIME(3) NULL,
+  `paid_at` DATETIME(3) NULL,
+  `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NOT NULL,
+  PRIMARY KEY (`claim_id`),
+  INDEX `expense_claims_employee_id_created_at_idx` (`employee_id`, `created_at`),
+  INDEX `expense_claims_status_created_at_idx` (`status`, `created_at`),
+  CONSTRAINT `expense_claims_employee_id_fkey` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`employee_id`) ON DELETE CASCADE ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE `certificate_requests` (
+  `certificate_request_id` VARCHAR(191) NOT NULL,
+  `employee_id` VARCHAR(191) NOT NULL,
+  `certificate_type` VARCHAR(191) NOT NULL,
+  `purpose` TEXT NOT NULL,
+  `delivery_mode` VARCHAR(191) NOT NULL DEFAULT 'DIGITAL',
+  `required_by` DATE NULL,
+  `status` VARCHAR(191) NOT NULL DEFAULT 'PENDING',
+  `reviewed_by_user_id` VARCHAR(191) NULL,
+  `hr_notes` TEXT NULL,
+  `document_url` TEXT NULL,
+  `completed_at` DATETIME(3) NULL,
+  `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NOT NULL,
+  PRIMARY KEY (`certificate_request_id`),
+  INDEX `certificate_requests_employee_id_created_at_idx` (`employee_id`, `created_at`),
+  INDEX `certificate_requests_status_created_at_idx` (`status`, `created_at`),
+  CONSTRAINT `certificate_requests_employee_id_fkey` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`employee_id`) ON DELETE CASCADE ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

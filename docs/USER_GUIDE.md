@@ -17,6 +17,7 @@ This guide explains how Developer Admin, HR, organization heads, employees, fiel
 | Holidays                       | Add, edit, delete                                              | Add, edit, delete       | Add, edit, delete       | View                  | View                        | View                                    |
 | Audit logs                     | View                                                           | View                    | No                      | No                    | No                          | No                                      |
 | Asset management               | Full access                                                    | No                      | Full access             | No                    | No                          | No                                      |
+| Expenses and certificates      | Review all                                                     | Own requests            | Review all              | Own requests          | Own requests                | Own requests                            |
 | System settings                | Full access                                                    | As configured           | No                      | No                    | No                          | No                                      |
 
 ## Login And First Password Change
@@ -72,6 +73,28 @@ Employees can use mobile attendance in the current version. Biometric/eSSL atten
 2. Review today's timeline.
 3. Use mobile check-in or check-out when allowed.
 4. In the next version, biometric punches from eSSL/fingerprint devices will appear in the same daily timeline after they are imported or synced into the backend.
+
+After a successful mobile punch, the status and timer update immediately while the live server timeline refreshes. Keep the page open if the network is slow; the punch button remains disabled while the request is pending to prevent duplicate submissions. Other signed-in devices update through the attendance live stream.
+
+## Employee: Claim An Expense
+
+1. Open **Employee Services** and select **Expenses**.
+2. Select **New claim**.
+3. Enter category, amount, expense date, description, and an optional shareable receipt link.
+4. Submit. The request goes directly to HR.
+5. Track Pending, Approved, Rejected, or Paid status and read the HR note on the same page.
+
+HR reviews a pending claim first. A claim must be Approved before HR can mark it Paid. Payment processing itself remains an HR/accounting action outside the portal.
+
+## Employee: Request A Certificate
+
+1. Open **Employee Services** and select **Certificates**.
+2. Select **New request**.
+3. Choose certificate type, digital or printed delivery, optional required-by date, and explain the purpose.
+4. Track Pending, In Progress, Ready, Rejected, or Collected status.
+5. Open the document link when HR attaches a completed digital certificate.
+
+Employees see only their own requests. HR and Developer Admin see the complete request queues.
 
 Example movement timeline:
 

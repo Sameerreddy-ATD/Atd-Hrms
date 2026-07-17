@@ -25,6 +25,7 @@ import { Route as AppNotificationsRouteImport } from './routes/_app.notification
 import { Route as AppIdCardRouteImport } from './routes/_app.id-card'
 import { Route as AppHolidaysRouteImport } from './routes/_app.holidays'
 import { Route as AppEmployeesRouteImport } from './routes/_app.employees'
+import { Route as AppEmployeeServicesRouteImport } from './routes/_app.employee-services'
 import { Route as AppEmergencyContactRouteImport } from './routes/_app.emergency-contact'
 import { Route as AppDevicesRouteImport } from './routes/_app.devices'
 import { Route as AppDepartmentsRouteImport } from './routes/_app.departments'
@@ -131,6 +132,11 @@ const AppHolidaysRoute = AppHolidaysRouteImport.update({
 const AppEmployeesRoute = AppEmployeesRouteImport.update({
   id: '/employees',
   path: '/employees',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEmployeeServicesRoute = AppEmployeeServicesRouteImport.update({
+  id: '/employee-services',
+  path: '/employee-services',
   getParentRoute: () => AppRoute,
 } as any)
 const AppEmergencyContactRoute = AppEmergencyContactRouteImport.update({
@@ -291,6 +297,7 @@ export interface FileRoutesByFullPath {
   '/departments': typeof AppDepartmentsRoute
   '/devices': typeof AppDevicesRouteWithChildren
   '/emergency-contact': typeof AppEmergencyContactRoute
+  '/employee-services': typeof AppEmployeeServicesRoute
   '/employees': typeof AppEmployeesRoute
   '/holidays': typeof AppHolidaysRoute
   '/id-card': typeof AppIdCardRoute
@@ -335,6 +342,7 @@ export interface FileRoutesByTo {
   '/departments': typeof AppDepartmentsRoute
   '/devices': typeof AppDevicesRouteWithChildren
   '/emergency-contact': typeof AppEmergencyContactRoute
+  '/employee-services': typeof AppEmployeeServicesRoute
   '/employees': typeof AppEmployeesRoute
   '/holidays': typeof AppHolidaysRoute
   '/id-card': typeof AppIdCardRoute
@@ -382,6 +390,7 @@ export interface FileRoutesById {
   '/_app/departments': typeof AppDepartmentsRoute
   '/_app/devices': typeof AppDevicesRouteWithChildren
   '/_app/emergency-contact': typeof AppEmergencyContactRoute
+  '/_app/employee-services': typeof AppEmployeeServicesRoute
   '/_app/employees': typeof AppEmployeesRoute
   '/_app/holidays': typeof AppHolidaysRoute
   '/_app/id-card': typeof AppIdCardRoute
@@ -429,6 +438,7 @@ export interface FileRouteTypes {
     | '/departments'
     | '/devices'
     | '/emergency-contact'
+    | '/employee-services'
     | '/employees'
     | '/holidays'
     | '/id-card'
@@ -473,6 +483,7 @@ export interface FileRouteTypes {
     | '/departments'
     | '/devices'
     | '/emergency-contact'
+    | '/employee-services'
     | '/employees'
     | '/holidays'
     | '/id-card'
@@ -519,6 +530,7 @@ export interface FileRouteTypes {
     | '/_app/departments'
     | '/_app/devices'
     | '/_app/emergency-contact'
+    | '/_app/employee-services'
     | '/_app/employees'
     | '/_app/holidays'
     | '/_app/id-card'
@@ -671,6 +683,13 @@ declare module '@tanstack/react-router' {
       path: '/employees'
       fullPath: '/employees'
       preLoaderRoute: typeof AppEmployeesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/employee-services': {
+      id: '/_app/employee-services'
+      path: '/employee-services'
+      fullPath: '/employee-services'
+      preLoaderRoute: typeof AppEmployeeServicesRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/emergency-contact': {
@@ -957,6 +976,7 @@ interface AppRouteChildren {
   AppDepartmentsRoute: typeof AppDepartmentsRoute
   AppDevicesRoute: typeof AppDevicesRouteWithChildren
   AppEmergencyContactRoute: typeof AppEmergencyContactRoute
+  AppEmployeeServicesRoute: typeof AppEmployeeServicesRoute
   AppEmployeesRoute: typeof AppEmployeesRoute
   AppHolidaysRoute: typeof AppHolidaysRoute
   AppIdCardRoute: typeof AppIdCardRoute
@@ -986,6 +1006,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppDepartmentsRoute: AppDepartmentsRoute,
   AppDevicesRoute: AppDevicesRouteWithChildren,
   AppEmergencyContactRoute: AppEmergencyContactRoute,
+  AppEmployeeServicesRoute: AppEmployeeServicesRoute,
   AppEmployeesRoute: AppEmployeesRoute,
   AppHolidaysRoute: AppHolidaysRoute,
   AppIdCardRoute: AppIdCardRoute,

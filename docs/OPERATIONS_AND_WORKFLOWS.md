@@ -146,6 +146,35 @@ Required behavior:
 - Online assets use their own catalog names and recurring monthly/yearly or one-time cost model.
 - Investment summaries calculate physical count, online count, one-time investment, monthly recurring cost, annual recurring cost, and first-year investment by employee.
 - Employees do not receive company-wide asset visibility.
+- HR completes a return checklist before an assigned asset becomes available again. The checklist records condition, accessories, charger, backup/wipe confirmation, damage, notes, receiver, and time.
+- A non-working returned asset moves to `UNDER_REPAIR`; other completed returns move to `AVAILABLE`.
+- Return history is retained separately from the current asset assignment and written to the audit log.
+
+## Employee Services
+
+### Expense claims
+
+```mermaid
+flowchart LR
+  A["Employee submits expense"] --> B["HR reviews receipt and details"]
+  B -->|Approve| C["Approved"]
+  B -->|Reject| D["Rejected with HR note"]
+  C --> E["HR marks Paid"]
+```
+
+- Employees submit category, amount, expense date, description, and an optional HTTPS receipt link.
+- An employee can list only their own claims. HR and Developer Admin can list all claims.
+- Allowed transitions are Pending to Approved or Rejected, followed by Approved to Paid.
+- Marking a claim Paid records the payment time. Salary or accounting-system transfer is not performed automatically.
+- Submission and every HR decision are audited.
+
+### Certificate requests
+
+- Employees request Employment, Experience, Salary, Address Proof, Relieving, or Other certificates.
+- The request records its purpose, digital/printed delivery, and optional required-by date.
+- HR moves a request through Pending, In Progress, Ready, Rejected, and Collected.
+- A digital document link can be attached when ready. Printed certificates can be marked ready without a link.
+- Employees see only their own request status and HR notes. HR and Developer Admin see the complete queue.
 
 ## Notifications
 
@@ -172,4 +201,4 @@ Required behavior:
 
 ## Operational Verification Checklist
 
-After every deployment verify login, first-password change, blocked-account recovery, mobile attendance, mixed-source check-out, leave submission, exact-head approval, leave cancellation, holiday recalculation, task assignment, asset access, notifications, and organization visibility with separate test users.
+After every deployment verify login, first-password change, blocked-account recovery, mobile attendance, slow-network punch state, mixed-source check-out, leave submission, exact-head approval, leave cancellation, holiday recalculation, task assignment, asset return checklist, expense approval/payment, certificate readiness, notifications, and organization visibility with separate test users.

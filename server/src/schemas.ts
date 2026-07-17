@@ -171,6 +171,60 @@ export const companyAssetSchema = z.object({
 
 export const companyAssetUpdateSchema = companyAssetSchema.partial();
 
+export const assetReturnSchema = z
+  .object({
+    condition: z.enum(["GOOD", "FAIR", "DAMAGED", "NOT_WORKING"]),
+    accessoriesReturned: z.boolean(),
+    chargerReturned: z.boolean(),
+    dataBackedUp: z.boolean(),
+    dataWiped: z.boolean(),
+    physicalDamage: z.boolean(),
+    damageNotes: z.string().max(2000).nullable().optional(),
+    remarks: z.string().max(2000).nullable().optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.physicalDamage && !value.damageNotes?.trim()) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["damageNotes"],
+        message: "Describe the physical damage",
+      });
+    }
+  });
+
+export const expenseClaimSchema = z.object({
+  category: z.enum(["TRAVEL", "FUEL", "MEALS", "LODGING", "MOBILE_INTERNET", "OFFICE", "OTHER"]),
+  amount: z.coerce.number().positive().max(10_000_000),
+  expenseDate: z.coerce.date(),
+  description: z.string().trim().min(5).max(3000),
+  receiptUrl: z.string().url().max(2000).nullable().optional(),
+});
+
+export const expenseClaimReviewSchema = z.object({
+  status: z.enum(["APPROVED", "REJECTED", "PAID"]),
+  reviewNotes: z.string().trim().max(2000).nullable().optional(),
+});
+
+export const certificateRequestSchema = z.object({
+  certificateType: z.enum([
+    "EMPLOYMENT",
+    "EXPERIENCE",
+    "SALARY",
+    "ADDRESS_PROOF",
+    "RELIEVING",
+    "OTHER",
+  ]),
+  purpose: z.string().trim().min(5).max(3000),
+  deliveryMode: z.enum(["DIGITAL", "PRINTED"]).default("DIGITAL"),
+  requiredBy: z.coerce.date().nullable().optional(),
+});
+
+export const certificateRequestReviewSchema = z.object({
+  status: z.enum(["IN_PROGRESS", "READY", "REJECTED", "COLLECTED"]),
+  hrNotes: z.string().trim().max(2000).nullable().optional(),
+  documentUrl: z.string().url().max(2000).nullable().optional(),
+});
+
 export const assetCatalogItemSchema = z.object({
   name: z.string().min(2).max(160),
   category: z.string().min(2).max(80),
