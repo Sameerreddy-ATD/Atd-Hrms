@@ -180,7 +180,9 @@ function DashboardPage() {
     () => ["employee", "sales", "driver", "field_staff"].includes(user?.role ?? ""),
     [user?.role],
   );
-  const selfPunchRoles = Boolean(user?.employeeId);
+  const selfPunchRoles = Boolean(
+    user?.employeeId && !["ceo", "developer_admin"].includes(user.role),
+  );
 
   const refreshDashboard = useCallback(() => {
     setReloadKey((value) => value + 1);
@@ -245,7 +247,13 @@ function DashboardPage() {
   if (!user) return null;
 
   const todayAttendance = attendance.filter((row) => row.date === indiaDateKey());
-  const total = people.filter((u) => u.employeeId).length;
+  const total = people.filter((person) => person.employeeId && person.active !== false).length;
+  const attendanceRequiredTotal = people.filter(
+    (person) =>
+      person.employeeId &&
+      person.active !== false &&
+      !["ceo", "developer_admin"].includes(person.role),
+  ).length;
   const presentToday = countUniquePresent(todayAttendance);
   const absent = countStatus(todayAttendance, "Absent");
   const late = countStatus(todayAttendance, "Late");
@@ -320,19 +328,21 @@ function DashboardPage() {
         />
       ) : user.role === "ceo" ? (
         <CEODashboard
-          user={user}
           data={{
             total,
+            attendanceRequiredTotal,
+            present: presentToday,
+            absent,
+            missed,
+            mismatch,
             branchPresentCounts,
             fieldPresent,
             pendingLeaves,
             onLeave,
           }}
           attendance={todayAttendance}
-          timeline={timeline}
           branches={branches}
           birthdays={birthdays}
-          onAttendanceChanged={refreshDashboard}
         />
       ) : (
         <AdminDashboard
@@ -756,69 +766,86 @@ function HRDashboard({
 }
 
 function CEODashboard({
-  user,
   data,
   attendance,
-  timeline,
   branches,
   birthdays,
-  onAttendanceChanged,
 }: {
-  user: User;
   data: {
     total: number;
+    attendanceRequiredTotal: number;
+    present: number;
+    absent: number;
+    missed: number;
+    mismatch: number;
     branchPresentCounts: Array<{ branch: Branch; present: number }>;
     fieldPresent: number;
     pendingLeaves: number;
     onLeave: number;
   };
   attendance: AttendanceRecord[];
-  timeline: AttendanceTimelineEvent[];
   branches: Branch[];
   birthdays: BirthdayItem[];
-  onAttendanceChanged: () => void;
 }) {
-  const b1 = data.branchPresentCounts[0]?.present ?? 0;
-  const b2 = data.branchPresentCounts[1]?.present ?? 0;
-  const branch1Name = data.branchPresentCounts[0]?.branch.name ?? "Branch 1";
-  const branch2Name = data.branchPresentCounts[1]?.branch.name ?? "Branch 2";
+  const accountedFor = Math.min(
+    data.attendanceRequiredTotal,
+    data.present + data.onLeave + data.absent,
+  );
+  const awaitingAttendance = Math.max(0, data.attendanceRequiredTotal - accountedFor);
 
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard label="Total employees" value={data.total} icon={Users} />
-        <StatCard label={`${branch1Name} present`} value={b1} icon={Building2} tone="success" />
-        <StatCard label={`${branch2Name} present`} value={b2} icon={Building2} tone="success" />
-        <StatCard label="Field present" value={data.fieldPresent} icon={MapPin} tone="info" />
+        <StatCard label="Present today" value={data.present} icon={UserCheck} tone="success" />
         <StatCard label="On leave today" value={data.onLeave} icon={PlaneTakeoff} />
         <StatCard
-          label="Pending approvals"
+          label="Leave approvals pending"
           value={data.pendingLeaves}
           icon={CalendarClock}
           tone="warning"
         />
+        <StatCard
+          label="Attendance exceptions"
+          value={data.missed + data.mismatch}
+          icon={AlertTriangle}
+          tone="warning"
+          hint={`${data.missed} missed punch, ${data.mismatch} branch mismatch`}
+        />
+        <StatCard
+          label="Awaiting attendance"
+          value={awaitingAttendance}
+          icon={Clock3}
+          hint="Active employees without a settled attendance status"
+        />
       </div>
-      <MarkAttendanceCard
-        user={user}
-        timeline={timeline}
-        branches={branches}
-        onAttendanceChanged={onAttendanceChanged}
-      />
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-sm">Operations snapshot</CardTitle>
+        <CardHeader className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle className="text-sm">Company operations today</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Attendance coverage across every active branch and field operation.
+            </p>
+          </div>
           <Button
             size="sm"
             variant="outline"
+            className="w-full sm:w-auto"
             onClick={() =>
               downloadCsv("ceo-attendance-summary.csv", [
                 {
                   totalEmployees: data.total,
-                  branch1Present: b1,
-                  branch2Present: b2,
+                  attendanceRequired: data.attendanceRequiredTotal,
+                  presentToday: data.present,
+                  absentToday: data.absent,
                   fieldPresent: data.fieldPresent,
                   onLeaveToday: data.onLeave,
                   pendingApprovals: data.pendingLeaves,
+                  missedPunch: data.missed,
+                  branchMismatch: data.mismatch,
+                  branchPresence: data.branchPresentCounts
+                    .map(({ branch, present }) => `${branch.name}: ${present}`)
+                    .join("; "),
                 },
               ])
             }
@@ -827,27 +854,46 @@ function CEODashboard({
           </Button>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <MetricBar label="Present" value={data.present} total={data.attendanceRequiredTotal} />
             <MetricBar
-              label={`${branch1Name} present`}
-              value={b1}
-              total={Math.max(data.total, 1)}
-            />
-            <MetricBar
-              label={`${branch2Name} present`}
-              value={b2}
-              total={Math.max(data.total, 1)}
+              label="On leave"
+              value={data.onLeave}
+              total={data.attendanceRequiredTotal}
+              tone="bg-blue-600"
             />
             <MetricBar
               label="Field present"
               value={data.fieldPresent}
-              total={Math.max(data.total, 1)}
+              total={data.attendanceRequiredTotal}
             />
             <MetricBar
-              label="On leave today"
-              value={data.onLeave}
-              total={Math.max(data.total, 1)}
+              label="Absent"
+              value={data.absent}
+              total={data.attendanceRequiredTotal}
+              tone="bg-red-500"
             />
+          </div>
+          <div className="mt-5 border-t border-border pt-4">
+            <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">
+              Branch presence
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {data.branchPresentCounts.map(({ branch, present }) => (
+                <div
+                  key={branch.id}
+                  className="flex items-center justify-between gap-3 rounded-md border border-border p-3"
+                >
+                  <span className="min-w-0 truncate text-sm font-medium">{branch.name}</span>
+                  <span className="shrink-0 text-sm font-semibold text-emerald-700">
+                    {present} present
+                  </span>
+                </div>
+              ))}
+              {!data.branchPresentCounts.length && (
+                <p className="text-sm text-muted-foreground">No active branches are configured.</p>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

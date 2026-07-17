@@ -168,6 +168,7 @@ export async function activeEmployeeIdsExcludingDeveloperAdmin() {
   const employees = await prisma.employee.findMany({
     where: {
       status: "ACTIVE",
+      attendanceRequired: true,
       OR: [{ user: null }, { user: { role: { not: "DEVELOPER_ADMIN" } } }],
     },
     select: { employeeId: true },

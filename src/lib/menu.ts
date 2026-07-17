@@ -62,7 +62,7 @@ export const menuGroups: MenuGroup[] = [
         label: "Employees",
         to: "/employees",
         icon: Users,
-        roles: ["developer_admin", "main_admin", "hr", "manager"],
+        roles: ["developer_admin", "main_admin", "ceo", "hr", "manager"],
       },
       {
         label: "User Logins",

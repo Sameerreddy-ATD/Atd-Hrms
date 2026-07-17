@@ -209,6 +209,7 @@ model Employee {
   employmentType      EmploymentType?               @map("employment_type")
   organizationLevel   String                        @default("MEMBER") @map("organization_level")
   attendanceMode      AttendanceMode                @default(BOTH) @map("attendance_mode")
+  attendanceRequired  Boolean                       @default(true) @map("attendance_required")
   isFieldEmployee     Boolean                       @default(false) @map("is_field_employee")
   status              EmployeeStatus                @default(ACTIVE)
   createdAt           DateTime                      @default(now()) @map("created_at")

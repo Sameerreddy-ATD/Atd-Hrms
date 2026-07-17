@@ -75,6 +75,7 @@ Madhapur is configured at `17.4391592, 78.3947783` with a default 250 meter radi
 
 ### 10 AM attendance settlement
 
+- CEO and Developer Admin accounts do not require attendance and are excluded from automatic absence settlement and attendance totals.
 - A punch always takes priority over holiday, weekly off, or approved leave status for that day.
 - At 10:00 AM IST, every active no-punch employee is settled as Absent, approved Leave, approved Weekly Off, or Holiday.
 - A later mobile or biometric punch recalculates the same day immediately and changes it to the correct Present status.

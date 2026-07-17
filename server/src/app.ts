@@ -229,10 +229,11 @@ export function createApp() {
     extra: Prisma.EmployeeWhereInput = {},
   ): Prisma.EmployeeWhereInput {
     const hasExtra = Object.keys(extra).length > 0;
-    const excludeDeveloperAdmin: Prisma.EmployeeWhereInput = {
+    const attendanceEligible: Prisma.EmployeeWhereInput = {
+      attendanceRequired: true,
       OR: [{ user: null }, { user: { role: { not: Role.DEVELOPER_ADMIN } } }],
     };
-    return hasExtra ? { AND: [extra, excludeDeveloperAdmin] } : excludeDeveloperAdmin;
+    return hasExtra ? { AND: [extra, attendanceEligible] } : attendanceEligible;
   }
 
   function attendanceWhereFromQuery(req: express.Request): Prisma.AttendanceDailySummaryWhereInput {
@@ -1179,6 +1180,7 @@ export function createApp() {
                 homeBranchId: body.homeBranchId ?? undefined,
                 managerId: reportingManagerId ?? undefined,
                 attendanceMode: "BOTH",
+                attendanceRequired: targetRole !== Role.CEO,
                 isFieldEmployee:
                   body.isFieldEmployee ??
                   ([Role.SALES, Role.DRIVER, Role.FIELD_STAFF] as Role[]).includes(targetRole),

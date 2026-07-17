@@ -20,6 +20,8 @@ This guide explains how Developer Admin, HR, organization heads, employees, fiel
 | Expenses and certificates      | Review all                                                     | Own requests            | Review all              | Own requests          | Own requests                | Own requests                            |
 | System settings                | Full access                                                    | As configured           | No                      | No                    | No                          | No                                      |
 
+The CEO dashboard is a read-only company overview with workforce attendance coverage, branch presence, leave approvals, attendance exceptions, employee detail, and report export. CEO accounts do not mark attendance and are excluded from automatic absence settlement.
+
 ## Login And First Password Change
 
 1. Open the application URL.

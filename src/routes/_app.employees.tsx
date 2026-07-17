@@ -68,7 +68,7 @@ function EmployeesPage() {
 
   const canEdit = currentUser?.role === "developer_admin";
   const canSeeCompanyDirectory = Boolean(
-    currentUser && ["developer_admin", "main_admin", "hr"].includes(currentUser.role),
+    currentUser && ["developer_admin", "main_admin", "ceo", "hr"].includes(currentUser.role),
   );
 
   useEffect(() => {
