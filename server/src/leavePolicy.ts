@@ -50,7 +50,7 @@ export function calendarYearRange(date: Date) {
 
 export async function syncEmployeeLeaveBalances(employeeId: string, now = new Date()) {
   const { year, start: yearStart, end: yearEnd } = calendarYearRange(now);
-  const [employee, types, requests, compCredits] = await Promise.all([
+  const [employee, types, requests, compCredits, existingBalances] = await Promise.all([
     prisma.employee.findUniqueOrThrow({
       where: { employeeId },
       select: { joiningDate: true },
@@ -72,35 +72,34 @@ export async function syncEmployeeLeaveBalances(employeeId: string, now = new Da
         earnedDate: { gte: yearStart, lte: yearEnd },
       },
     }),
+    prisma.leaveBalance.findMany({ where: { employeeId } }),
   ]);
-  const result = [];
+  const existingByType = new Map(existingBalances.map((balance) => [balance.leaveTypeId, balance]));
 
-  for (const type of types) {
-    const existing = await prisma.leaveBalance.findUnique({
-      where: { employeeId_leaveTypeId: { employeeId, leaveTypeId: type.leaveTypeId } },
-    });
-    const resetsAnnually = type.code === LEAVE_CODES.SICK || type.code === LEAVE_CODES.COMP_OFF;
-    const relevant = requests.filter(
-      (request) =>
-        request.leaveTypeId === type.leaveTypeId &&
-        (!resetsAnnually || (request.fromDate >= yearStart && request.fromDate <= yearEnd)),
-    );
-    const used = relevant.reduce((total, request) => total + effectiveDays(request), 0);
-    let entitled = 0;
-    if (type.code === LEAVE_CODES.CASUAL) {
-      entitled = monthsCredited(employee.joiningDate, now) * Number(type.monthlyCredit ?? 1);
-    } else if (type.code === LEAVE_CODES.SICK) {
-      entitled = Number(type.annualAllowance ?? 6);
-    } else if (type.code === LEAVE_CODES.COMP_OFF) {
-      entitled = compCredits + used;
-    }
-    const adjustment =
-      type.code === LEAVE_CODES.COMP_OFF && existing?.calculationYear !== year
-        ? 0
-        : Number(existing?.manualAdjustment ?? 0);
-    const balance = type.code === LEAVE_CODES.LOP ? 0 : entitled + adjustment - used;
-    result.push(
-      await prisma.leaveBalance.upsert({
+  return Promise.all(
+    types.map(async (type) => {
+      const existing = existingByType.get(type.leaveTypeId);
+      const resetsAnnually = type.code === LEAVE_CODES.SICK || type.code === LEAVE_CODES.COMP_OFF;
+      const relevant = requests.filter(
+        (request) =>
+          request.leaveTypeId === type.leaveTypeId &&
+          (!resetsAnnually || (request.fromDate >= yearStart && request.fromDate <= yearEnd)),
+      );
+      const used = relevant.reduce((total, request) => total + effectiveDays(request), 0);
+      let entitled = 0;
+      if (type.code === LEAVE_CODES.CASUAL) {
+        entitled = monthsCredited(employee.joiningDate, now) * Number(type.monthlyCredit ?? 1);
+      } else if (type.code === LEAVE_CODES.SICK) {
+        entitled = Number(type.annualAllowance ?? 6);
+      } else if (type.code === LEAVE_CODES.COMP_OFF) {
+        entitled = compCredits + used;
+      }
+      const adjustment =
+        type.code === LEAVE_CODES.COMP_OFF && existing?.calculationYear !== year
+          ? 0
+          : Number(existing?.manualAdjustment ?? 0);
+      const balance = type.code === LEAVE_CODES.LOP ? 0 : entitled + adjustment - used;
+      return prisma.leaveBalance.upsert({
         where: { employeeId_leaveTypeId: { employeeId, leaveTypeId: type.leaveTypeId } },
         create: {
           employeeId,
@@ -119,10 +118,9 @@ export async function syncEmployeeLeaveBalances(employeeId: string, now = new Da
           calculationYear: resetsAnnually ? year : null,
         },
         include: { leaveType: true },
-      }),
-    );
-  }
-  return result;
+      });
+    }),
+  );
 }
 
 export async function validateLeaveApplication(input: {

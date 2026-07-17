@@ -29,6 +29,18 @@ import type {
 export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
 const REQUEST_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS ?? 20000);
 let refreshRequest: Promise<boolean> | null = null;
+const responseCache = new Map<string, { expiresAt: number; value: unknown }>();
+const pendingRequests = new Map<string, Promise<unknown>>();
+
+function cacheDuration(path: string) {
+  const pathname = path.split("?")[0];
+  if (["/branches", "/departments", "/leave/types", "/holidays"].includes(pathname)) {
+    return 60_000;
+  }
+  if (pathname === "/employees") return 15_000;
+  if (pathname === "/assets/catalog") return 30_000;
+  return 0;
+}
 
 async function refreshSession() {
   if (!refreshRequest) {
@@ -46,7 +58,7 @@ async function refreshSession() {
   return refreshRequest;
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+async function requestNetwork<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
   if (options.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
@@ -92,6 +104,30 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw new Error(body.error ?? "Request failed");
   }
   return res.json() as Promise<T>;
+}
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const method = (options.method ?? "GET").toUpperCase();
+  if (method !== "GET") {
+    responseCache.clear();
+    return requestNetwork<T>(path, options);
+  }
+
+  const duration = cacheDuration(path);
+  if (!duration) return requestNetwork<T>(path, options);
+  const cached = responseCache.get(path);
+  if (cached && cached.expiresAt > Date.now()) return cached.value as T;
+
+  const pending = pendingRequests.get(path);
+  if (pending) return pending as Promise<T>;
+  const next = requestNetwork<T>(path, options)
+    .then((value) => {
+      responseCache.set(path, { value, expiresAt: Date.now() + duration });
+      return value;
+    })
+    .finally(() => pendingRequests.delete(path));
+  pendingRequests.set(path, next);
+  return next;
 }
 
 function toQuery(params: Record<string, string | number | undefined>) {
