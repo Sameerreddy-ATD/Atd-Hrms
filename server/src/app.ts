@@ -1178,7 +1178,6 @@ export function createApp() {
                 designation: body.designation ?? undefined,
                 homeBranchId: body.homeBranchId ?? undefined,
                 managerId: reportingManagerId ?? undefined,
-                weeklyOffDays: body.weeklyOffDays ?? ["SUNDAY"],
                 attendanceMode: "BOTH",
                 isFieldEmployee:
                   body.isFieldEmployee ??
@@ -3561,7 +3560,12 @@ export function createApp() {
         include: { leaveType: true, employee: { include: { manager: true } } },
       });
       if (policy.type.code === LEAVE_CODES.COMP_OFF) {
-        await consumeCompOffCredits(req.user!.employeeId, request.leaveRequestId, body.days);
+        await consumeCompOffCredits(
+          req.user!.employeeId,
+          request.leaveRequestId,
+          body.days,
+          request.fromDate,
+        );
         await recalculateLeaveDateRange(
           request.employeeId,
           request.fromDate,

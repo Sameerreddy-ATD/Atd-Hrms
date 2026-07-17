@@ -208,7 +208,6 @@ model Employee {
   gender              Gender?
   employmentType      EmploymentType?               @map("employment_type")
   organizationLevel   String                        @default("MEMBER") @map("organization_level")
-  weeklyOffDays       Json?                         @map("weekly_off_days")
   attendanceMode      AttendanceMode                @default(BOTH) @map("attendance_mode")
   isFieldEmployee     Boolean                       @default(false) @map("is_field_employee")
   status              EmployeeStatus                @default(ACTIVE)

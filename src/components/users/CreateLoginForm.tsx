@@ -69,7 +69,6 @@ export function CreateLoginForm({
   const [employmentType, setEmploymentType] = useState<"FULL_TIME" | "PART_TIME" | "INTERN">(
     "FULL_TIME",
   );
-  const [weeklyOffDays, setWeeklyOffDays] = useState<string[]>(["SUNDAY"]);
   const [temporaryPassword, setTemporaryPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -161,7 +160,6 @@ export function CreateLoginForm({
         setDesignation(emp.designation || "");
         setGender(emp.gender || "PREFER_NOT_TO_SAY");
         setEmploymentType(emp.employmentType || "FULL_TIME");
-        setWeeklyOffDays(emp.weeklyOffDays?.length ? emp.weeklyOffDays : ["SUNDAY"]);
       }
     }
   }, [creationMode, selectedEmployeeId, unlinkedEmployees, branches, departments]);
@@ -207,7 +205,6 @@ export function CreateLoginForm({
         payload.dateOfBirth = dateOfBirth || undefined;
         payload.gender = gender;
         payload.employmentType = employmentType;
-        payload.weeklyOffDays = weeklyOffDays;
         payload.attendanceMode = "BOTH";
         payload.isFieldEmployee = ["sales", "driver", "field_staff"].includes(role);
       }
@@ -441,31 +438,6 @@ export function CreateLoginForm({
                   <SelectItem value="INTERN">Intern</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="space-y-2 sm:col-span-2">
-              <Label>Weekly off days</Label>
-              <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-md border border-border p-3">
-                {["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"].map(
-                  (day) => (
-                    <label key={day} className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={weeklyOffDays.includes(day)}
-                        onChange={(event) =>
-                          setWeeklyOffDays((current) =>
-                            event.target.checked
-                              ? [...current, day]
-                              : current.filter((value) => value !== day),
-                          )
-                        }
-                      />
-                      {day[0]}
-                      {day.slice(1).toLowerCase()}
-                    </label>
-                  ),
-                )}
-              </div>
             </div>
           </>
         )}

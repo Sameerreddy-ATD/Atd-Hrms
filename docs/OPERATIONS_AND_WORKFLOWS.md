@@ -109,11 +109,12 @@ flowchart LR
 - **Casual Leave:** one credit is added on the first of each month, beginning with the month after joining. A July 16 joiner receives the first credit on August 1. Twelve credits accrue per year, unused credits carry forward, and approved usage may make the balance negative. Payroll handling remains manual for HR.
 - **Sick Leave:** six credits are available per calendar year and expire at year end. At most two Sick Leave days may be used in one month, and usage cannot exceed the available balance. A Google Drive medical-report link shared with anyone who has the link is due within three calendar days after the leave ends.
 - **Unpaid Leave / LOP:** has no credit balance. The direct head approves the request and HR handles salary deductions manually.
-- **Comp Off:** one credit is earned automatically after a completed punch-in/out work session on an active portal holiday. One credit is used per request and no approval is required.
+- **Comp Off:** one credit is earned automatically after a completed punch-in/out work session on an active portal holiday. One credit is used per request and no approval is required. A credit expires on December 31 of the year it was earned and never carries into the next year.
 - The employee and direct head see available credit, requested days, and projected balance. HR can make audited manual credit adjustments.
 
 ### Weekly-off policy
 
+- Weekly off is not fixed during account creation or employee editing. The approved date request is the only source of truth.
 - An employee chooses one date in a Monday-Sunday week and submits it at least one calendar day in advance.
 - The exact direct organization head approves or rejects the request.
 - Only one weekly off may be used in a week. Unused entitlement expires and never carries forward.

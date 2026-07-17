@@ -52,7 +52,6 @@ export interface User {
   gender?: "FEMALE" | "MALE" | "PREFER_NOT_TO_SAY";
   employmentType?: "FULL_TIME" | "PART_TIME" | "INTERN";
   organizationLevel?: "HEAD" | "SENIOR" | "JUNIOR" | "MEMBER";
-  weeklyOffDays?: string[];
   mustChangePassword?: boolean;
 }
 

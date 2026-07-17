@@ -39,7 +39,17 @@ export function monthsCredited(joiningDate: Date | null, now: Date) {
   );
 }
 
+export function calendarYearRange(date: Date) {
+  const year = istDateParts(date).year;
+  return {
+    year,
+    start: new Date(Date.UTC(year, 0, 1)),
+    end: new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999)),
+  };
+}
+
 export async function syncEmployeeLeaveBalances(employeeId: string, now = new Date()) {
+  const { year, start: yearStart, end: yearEnd } = calendarYearRange(now);
   const [employee, types, requests, compCredits] = await Promise.all([
     prisma.employee.findUniqueOrThrow({
       where: { employeeId },
@@ -55,23 +65,25 @@ export async function syncEmployeeLeaveBalances(employeeId: string, now = new Da
         cancelledDates: true,
       },
     }),
-    prisma.compOffCredit.count({ where: { employeeId, consumedByLeaveRequestId: null } }),
+    prisma.compOffCredit.count({
+      where: {
+        employeeId,
+        consumedByLeaveRequestId: null,
+        earnedDate: { gte: yearStart, lte: yearEnd },
+      },
+    }),
   ]);
-
-  const year = istDateParts(now).year;
-  const yearStart = new Date(Date.UTC(year, 0, 1));
-  const yearEnd = new Date(Date.UTC(year, 11, 31));
   const result = [];
 
   for (const type of types) {
     const existing = await prisma.leaveBalance.findUnique({
       where: { employeeId_leaveTypeId: { employeeId, leaveTypeId: type.leaveTypeId } },
     });
+    const resetsAnnually = type.code === LEAVE_CODES.SICK || type.code === LEAVE_CODES.COMP_OFF;
     const relevant = requests.filter(
       (request) =>
         request.leaveTypeId === type.leaveTypeId &&
-        (type.code !== LEAVE_CODES.SICK ||
-          (request.fromDate >= yearStart && request.fromDate <= yearEnd)),
+        (!resetsAnnually || (request.fromDate >= yearStart && request.fromDate <= yearEnd)),
     );
     const used = relevant.reduce((total, request) => total + effectiveDays(request), 0);
     let entitled = 0;
@@ -82,7 +94,10 @@ export async function syncEmployeeLeaveBalances(employeeId: string, now = new Da
     } else if (type.code === LEAVE_CODES.COMP_OFF) {
       entitled = compCredits + used;
     }
-    const adjustment = Number(existing?.manualAdjustment ?? 0);
+    const adjustment =
+      type.code === LEAVE_CODES.COMP_OFF && existing?.calculationYear !== year
+        ? 0
+        : Number(existing?.manualAdjustment ?? 0);
     const balance = type.code === LEAVE_CODES.LOP ? 0 : entitled + adjustment - used;
     result.push(
       await prisma.leaveBalance.upsert({
@@ -94,13 +109,14 @@ export async function syncEmployeeLeaveBalances(employeeId: string, now = new Da
           used,
           balance,
           manualAdjustment: adjustment,
-          calculationYear: type.code === LEAVE_CODES.SICK ? year : null,
+          calculationYear: resetsAnnually ? year : null,
         },
         update: {
           entitled,
           used,
           balance,
-          calculationYear: type.code === LEAVE_CODES.SICK ? year : null,
+          manualAdjustment: adjustment,
+          calculationYear: resetsAnnually ? year : null,
         },
         include: { leaveType: true },
       }),
@@ -137,6 +153,13 @@ export async function validateLeaveApplication(input: {
     },
   });
   if (overlap) throw new HttpError(400, "Another active leave request overlaps these dates");
+
+  if (
+    type.code === LEAVE_CODES.COMP_OFF &&
+    istDateParts(input.fromDate).year !== istDateParts(new Date()).year
+  ) {
+    throw new HttpError(400, "Comp Off must be used by December 31 of the year it was earned");
+  }
 
   const balances = await syncEmployeeLeaveBalances(input.employeeId);
   const balance = balances.find((row) => row.leaveTypeId === type.leaveTypeId);
@@ -180,9 +203,11 @@ export async function consumeCompOffCredits(
   employeeId: string,
   leaveRequestId: string,
   days: number,
+  leaveDate: Date,
 ) {
+  const { start, end } = calendarYearRange(leaveDate);
   const credits = await prisma.compOffCredit.findMany({
-    where: { employeeId, consumedByLeaveRequestId: null },
+    where: { employeeId, consumedByLeaveRequestId: null, earnedDate: { gte: start, lte: end } },
     orderBy: { earnedDate: "asc" },
     take: days,
   });
@@ -214,6 +239,6 @@ export function leavePolicyDescription(code: string) {
   if (code === LEAVE_CODES.SICK)
     return "6 days are available each calendar year, with a maximum of 2 days per month. A shareable medical document link is due within 3 days after returning.";
   if (code === LEAVE_CODES.LOP)
-    return "Use when no paid balance is available. HR handles any salary deduction manually.";
-  return "Earned automatically after a completed work session on a listed company holiday. Usage does not require approval.";
+    return "Unpaid Leave / LOP is recorded separately from paid leave credits.";
+  return "Earned automatically after a completed work session on a listed company holiday. Use it by December 31 of the year earned; it expires at year end. Usage does not require approval.";
 }

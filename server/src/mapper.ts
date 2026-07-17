@@ -131,9 +131,6 @@ export function employeeDto(
     gender: employee.gender ?? undefined,
     employmentType: employee.employmentType ?? undefined,
     organizationLevel: employee.organizationLevel,
-    weeklyOffDays: Array.isArray(employee.weeklyOffDays)
-      ? employee.weeklyOffDays.filter((day): day is string => typeof day === "string")
-      : ["SUNDAY"],
   };
 }
 

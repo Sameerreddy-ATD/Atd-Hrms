@@ -141,7 +141,11 @@ Managers/HR can approve or reject corrections from **Attendance Corrections**.
 
 The screen shows the current balance and full rules for Casual Leave, Sick Leave, Unpaid Leave / LOP, and Comp Off. Sick Leave accepts a shareable Google Drive report link. If it is not available when applying, add it from **Leave History** within three days after returning; the countdown is shown there.
 
+Comp Off credits are valid only until December 31 of the year they are earned. Unused credits expire and cannot be requested in a later year.
+
 ### Request a weekly off
+
+Weekly off is selected through this request flow, not while the account is created or edited.
 
 1. Open **Apply Leave** and use **Request weekly off**.
 2. Select a date at least one day in advance.

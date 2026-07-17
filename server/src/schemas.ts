@@ -41,10 +41,6 @@ export const createUserSchema = z.object({
   gender: z.nativeEnum(Gender).nullable().optional(),
   employmentType: z.nativeEnum(EmploymentType).nullable().optional(),
   organizationLevel: z.enum(["HEAD", "SENIOR", "JUNIOR", "MEMBER"]).optional(),
-  weeklyOffDays: z
-    .array(z.enum(["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"]))
-    .max(7)
-    .optional(),
 });
 
 export const updateUserSchema = z.object({
@@ -84,10 +80,6 @@ export const updateEmployeeSchema = z.object({
   attendanceMode: z.nativeEnum(AttendanceMode).optional(),
   isFieldEmployee: z.boolean().optional(),
   status: z.nativeEnum(EmployeeStatus).optional(),
-  weeklyOffDays: z
-    .array(z.enum(["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"]))
-    .max(7)
-    .optional(),
 });
 
 export const branchSchema = z.object({

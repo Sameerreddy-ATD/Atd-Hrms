@@ -64,7 +64,6 @@ function EmployeesPage() {
     employmentType: "FULL_TIME" as "FULL_TIME" | "PART_TIME" | "INTERN",
     organizationLevel: "MEMBER" as "HEAD" | "SENIOR" | "JUNIOR" | "MEMBER",
     attendanceMode: "BOTH" as "THUMB_ONLY" | "MOBILE_GPS_ONLY" | "BOTH",
-    weeklyOffDays: ["SUNDAY"] as string[],
   });
 
   const canEdit = currentUser?.role === "developer_admin";
@@ -104,7 +103,6 @@ function EmployeesPage() {
       employmentType: emp.employmentType || "FULL_TIME",
       organizationLevel: emp.organizationLevel || "MEMBER",
       attendanceMode: "BOTH",
-      weeklyOffDays: emp.weeklyOffDays?.length ? emp.weeklyOffDays : ["SUNDAY"],
     });
   }
 
@@ -124,7 +122,6 @@ function EmployeesPage() {
         employmentType: editForm.employmentType,
         organizationLevel: editForm.organizationLevel,
         attendanceMode: "BOTH" as const,
-        weeklyOffDays: editForm.weeklyOffDays,
       };
       const updated = await employeesApi.update(
         editingEmployee.employeeId ?? editingEmployee.id,
@@ -453,37 +450,6 @@ function EmployeesPage() {
                       <SelectItem value="INTERN">Intern</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label>Weekly off days</Label>
-                  <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-md border border-border p-3">
-                    {[
-                      "SUNDAY",
-                      "MONDAY",
-                      "TUESDAY",
-                      "WEDNESDAY",
-                      "THURSDAY",
-                      "FRIDAY",
-                      "SATURDAY",
-                    ].map((day) => (
-                      <label key={day} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={editForm.weeklyOffDays.includes(day)}
-                          onChange={(event) =>
-                            setEditForm((current) => ({
-                              ...current,
-                              weeklyOffDays: event.target.checked
-                                ? [...current.weeklyOffDays, day]
-                                : current.weeklyOffDays.filter((value) => value !== day),
-                            }))
-                          }
-                        />
-                        {day[0]}
-                        {day.slice(1).toLowerCase()}
-                      </label>
-                    ))}
-                  </div>
                 </div>
                 <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 sm:col-span-2">
                   <p className="text-sm font-medium text-emerald-900">

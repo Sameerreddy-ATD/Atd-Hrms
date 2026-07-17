@@ -27,7 +27,6 @@ interface ImportRow {
   organizationLevel: "HEAD" | "SENIOR" | "JUNIOR" | "MEMBER";
   gender: "FEMALE" | "MALE" | "PREFER_NOT_TO_SAY";
   employmentType: "FULL_TIME" | "PART_TIME" | "INTERN";
-  weeklyOffDays: string[];
   dateOfBirth?: string;
   password?: string;
   errors: string[];
@@ -46,27 +45,11 @@ const HEADERS = [
   "Date of Birth",
   "Gender*",
   "Employment Type*",
-  "Weekly Off Day 1*",
-  "Weekly Off Day 2",
-  "Weekly Off Day 3",
-  "Weekly Off Day 4",
-  "Weekly Off Day 5",
-  "Weekly Off Day 6",
-  "Weekly Off Day 7",
 ] as const;
 
 const LEVELS = ["HEAD", "SENIOR", "JUNIOR", "MEMBER"] as const;
 const GENDERS = ["MALE", "FEMALE", "PREFER_NOT_TO_SAY"] as const;
 const EMPLOYMENT_TYPES = ["FULL_TIME", "PART_TIME", "INTERN"] as const;
-const WEEKDAYS = [
-  "SUNDAY",
-  "MONDAY",
-  "TUESDAY",
-  "WEDNESDAY",
-  "THURSDAY",
-  "FRIDAY",
-  "SATURDAY",
-] as const;
 
 function cellText(value: CellValue): string {
   if (value === null || value === undefined) return "";
@@ -137,7 +120,7 @@ export function BulkEmployeeImport({
       "2. Select branch and organization unit names from the supplied dropdowns.",
     ]);
     instructions.addRow([
-      "3. Select weekly offs in the Day 1 to Day 7 dropdowns. Day 1 is required; do not repeat a day.",
+      "3. Weekly offs are requested by employees for a specific date after account creation.",
     ]);
     instructions.addRow([
       "4. Leave Employee Code blank to auto-generate it, or enter a unique ID.",
@@ -171,9 +154,9 @@ export function BulkEmployeeImport({
     employees.getColumn(4).numFmt = "@";
     employees.getColumn(10).numFmt = "yyyy-mm-dd";
     employees.autoFilter = `A1:${employees.getColumn(HEADERS.length).letter}1`;
-    employees.columns = [
-      18, 26, 32, 24, 24, 28, 28, 24, 22, 18, 22, 22, 20, 20, 20, 20, 20, 20, 20,
-    ].map((width) => ({ width }));
+    employees.columns = [18, 26, 32, 24, 24, 28, 28, 24, 22, 18, 22, 22].map((width) => ({
+      width,
+    }));
 
     const branchSheet = workbook.addWorksheet("Branches");
     branchSheet.addRow(["Branch Name", "Branch ID"]);
@@ -241,8 +224,6 @@ export function BulkEmployeeImport({
         new Date(1995 + index, index, 10 + index),
         sampleGenders[index],
         sampleEmploymentTypes[index],
-        index === 3 ? "WEDNESDAY" : "SUNDAY",
-        index === 1 ? "SATURDAY" : "",
       ];
       sampleRow.eachCell({ includeEmpty: true }, (cell) => {
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF4CC" } };
@@ -251,20 +232,10 @@ export function BulkEmployeeImport({
     }
 
     const values = workbook.addWorksheet("Allowed Values");
-    values.addRow(["Organization Level", "Gender", "Employment Type", "Weekday"]);
-    const length = Math.max(
-      LEVELS.length,
-      GENDERS.length,
-      EMPLOYMENT_TYPES.length,
-      WEEKDAYS.length,
-    );
+    values.addRow(["Organization Level", "Gender", "Employment Type"]);
+    const length = Math.max(LEVELS.length, GENDERS.length, EMPLOYMENT_TYPES.length);
     for (let index = 0; index < length; index += 1) {
-      values.addRow([
-        LEVELS[index] ?? "",
-        GENDERS[index] ?? "",
-        EMPLOYMENT_TYPES[index] ?? "",
-        WEEKDAYS[index] ?? "",
-      ]);
+      values.addRow([LEVELS[index] ?? "", GENDERS[index] ?? "", EMPLOYMENT_TYPES[index] ?? ""]);
     }
     styleReferenceSheet(values);
 
@@ -315,13 +286,6 @@ export function BulkEmployeeImport({
         allowBlank: false,
         formulae: [`'Allowed Values'!$C$2:$C$${EMPLOYMENT_TYPES.length + 1}`],
       };
-      for (let dayColumn = 13; dayColumn <= 19; dayColumn += 1) {
-        employees.getCell(row, dayColumn).dataValidation = {
-          type: "list",
-          allowBlank: dayColumn !== 13,
-          formulae: [`'Allowed Values'!$D$2:$D$${WEEKDAYS.length + 1}`],
-        };
-      }
       employees.getCell(`D${row}`).note =
         "Required: at least 10 characters with an uppercase letter and a number.";
       if (row <= 81) {
@@ -407,11 +371,6 @@ export function BulkEmployeeImport({
         const level = cellText(values[8]).toUpperCase();
         const gender = cellText(values[10]).toUpperCase();
         const employmentType = cellText(values[11]).toUpperCase();
-        const weeklyOffDays = values
-          .slice(12, 19)
-          .map(cellText)
-          .map((day) => day.trim().toUpperCase())
-          .filter(Boolean);
         const branchRecord = branchMap.get(branchName.toLowerCase());
         const mainUnitRecord = departmentMap.get(mainUnitName.toLowerCase());
         const childUnitRecord = useMainUnit
@@ -439,13 +398,6 @@ export function BulkEmployeeImport({
         if (!GENDERS.includes(gender as (typeof GENDERS)[number])) errors.push("Invalid gender");
         if (!EMPLOYMENT_TYPES.includes(employmentType as (typeof EMPLOYMENT_TYPES)[number])) {
           errors.push("Invalid employment type");
-        }
-        if (
-          !weeklyOffDays.length ||
-          new Set(weeklyOffDays).size !== weeklyOffDays.length ||
-          weeklyOffDays.some((day) => !WEEKDAYS.includes(day as never))
-        ) {
-          errors.push("Weekly off days are missing, invalid, or repeated");
         }
         const dateOfBirth = normalizeDate(values[9]);
         if (cellText(values[9]) && !dateOfBirth) errors.push("Invalid date of birth");
@@ -477,7 +429,6 @@ export function BulkEmployeeImport({
           employmentType: (EMPLOYMENT_TYPES.includes(employmentType as never)
             ? employmentType
             : "FULL_TIME") as ImportRow["employmentType"],
-          weeklyOffDays,
           dateOfBirth,
           password: password || undefined,
           errors,
@@ -542,7 +493,6 @@ export function BulkEmployeeImport({
             organizationLevel: row.organizationLevel,
             gender: row.gender,
             employmentType: row.employmentType,
-            weeklyOffDays: row.weeklyOffDays,
             attendanceMode: "BOTH",
             dateOfBirth: row.dateOfBirth,
             password: row.password!,
