@@ -211,7 +211,7 @@ export const leaveApi = {
     }),
   deleteType: (id: string) => request<LeaveTypeOption>(`/leave/types/${id}`, { method: "DELETE" }),
   myBalance: () => request<LeaveBalance[]>("/leave/balances/me"),
-  listAllBalances: () =>
+  listAllBalances: (employeeId?: string) =>
     request<
       Array<{
         id: string;
@@ -227,7 +227,7 @@ export const leaveApi = {
         code: string;
         manualAdjustment: number;
       }>
-    >("/leave/balances"),
+    >(`/leave/balances${toQuery({ employeeId })}`),
   apply: (req: {
     leaveTypeId: string;
     fromDate: string;

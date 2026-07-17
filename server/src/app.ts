@@ -3429,12 +3429,16 @@ export function createApp() {
     requireAuth,
     requireRoles(Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
-      const employees = await prisma.employee.findMany({
-        where: { status: "ACTIVE" },
+      const employeeId = typeof req.query.employeeId === "string" ? req.query.employeeId : null;
+      if (!employeeId) return res.json([]);
+      const employee = await prisma.employee.findFirst({
+        where: { employeeId, status: "ACTIVE" },
         select: { employeeId: true },
       });
-      for (const employee of employees) await syncEmployeeLeaveBalances(employee.employeeId);
+      if (!employee) throw new HttpError(404, "Active employee not found");
+      await syncEmployeeLeaveBalances(employeeId);
       const balances = await prisma.leaveBalance.findMany({
+        where: { employeeId },
         include: {
           employee: {
             select: {
@@ -3446,7 +3450,7 @@ export function createApp() {
           },
           leaveType: true,
         },
-        orderBy: { employee: { name: "asc" } },
+        orderBy: { leaveType: { name: "asc" } },
       });
       res.json(
         balances.map((b) => ({
