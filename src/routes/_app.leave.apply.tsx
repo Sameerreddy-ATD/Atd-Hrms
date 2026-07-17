@@ -17,7 +17,8 @@ import {
 } from "@/components/ui/select";
 import { leaveApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
-import type { LeaveTypeOption } from "@/mock/types";
+import type { LeaveBalance, LeaveTypeOption, WeeklyOffRequest } from "@/mock/types";
+import { CalendarClock, ShieldCheck } from "lucide-react";
 
 export const Route = createFileRoute("/_app/leave/apply")({
   component: ApplyLeavePage,
@@ -31,6 +32,12 @@ function ApplyLeavePage() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [reason, setReason] = useState("");
+  const [medicalDocumentUrl, setMedicalDocumentUrl] = useState("");
+  const [balances, setBalances] = useState<LeaveBalance[]>([]);
+  const [weeklyOffs, setWeeklyOffs] = useState<WeeklyOffRequest[]>([]);
+  const [weeklyOffDate, setWeeklyOffDate] = useState("");
+  const [weeklyOffReason, setWeeklyOffReason] = useState("");
+  const [weeklyOffSaving, setWeeklyOffSaving] = useState(false);
   const [approverName, setApproverName] = useState<string | null>(null);
   const [approverLoading, setApproverLoading] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -39,15 +46,17 @@ function ApplyLeavePage() {
   const todayString = new Date().toISOString().split("T")[0];
 
   useEffect(() => {
-    leaveApi
-      .types()
-      .then((rows) => {
+    Promise.all([leaveApi.types(), leaveApi.myBalance(), leaveApi.weeklyOffs()])
+      .then(([rows, balanceRows, weeklyRows]) => {
         setTypes(rows);
         setTypeId(rows[0]?.id ?? "");
+        setBalances(balanceRows);
+        setWeeklyOffs(weeklyRows);
       })
       .catch((err) => toast.error((err as Error).message))
       .finally(() => setTypesLoading(false));
   }, []);
+  const selectedType = types.find((type) => type.id === typeId);
 
   useEffect(() => {
     if (!user?.employeeId) return;
@@ -87,6 +96,7 @@ function ApplyLeavePage() {
         toDate: to,
         days,
         reason: reason.trim(),
+        medicalDocumentUrl: medicalDocumentUrl.trim() || undefined,
       });
       toast.success("Leave request submitted");
       navigate({ to: "/leave/history" });
@@ -97,12 +107,55 @@ function ApplyLeavePage() {
     }
   }
 
+  async function submitWeeklyOff(e: React.FormEvent) {
+    e.preventDefault();
+    if (!weeklyOffDate) return toast.error("Select a weekly-off date");
+    setWeeklyOffSaving(true);
+    try {
+      const request = await leaveApi.requestWeeklyOff(
+        weeklyOffDate,
+        weeklyOffReason.trim() || undefined,
+      );
+      setWeeklyOffs((current) => [request, ...current]);
+      setWeeklyOffDate("");
+      setWeeklyOffReason("");
+      toast.success("Weekly-off request sent to your organization head");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setWeeklyOffSaving(false);
+    }
+  }
+
   return (
     <div>
       <PageHeader
         title="Apply for Leave"
         description="Your request follows the organization chart to the responsible team head."
       />
+      <section
+        className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+        aria-label="Leave policies"
+      >
+        {types.map((type) => {
+          const balance = balances.find((item) => item.code === type.code)?.balance ?? 0;
+          return (
+            <Card key={type.id} className="border-border/80">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold">{type.name}</p>
+                    <p className="mt-1 text-2xl font-semibold tabular-nums">{balance}</p>
+                    <p className="text-xs text-muted-foreground">available credit</p>
+                  </div>
+                  <ShieldCheck className="h-5 w-5 text-primary" />
+                </div>
+                <p className="mt-3 text-sm leading-5 text-muted-foreground">{type.description}</p>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </section>
       <Card className="max-w-2xl mx-auto w-full">
         <CardContent className="p-4 sm:p-6">
           {!approverLoading && !approverName && (
@@ -134,6 +187,22 @@ function ApplyLeavePage() {
               </Select>
               {errors.type && <p className="text-xs text-destructive">{errors.type}</p>}
             </div>
+            {selectedType?.requiresMedicalDocument && (
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="medical-document">Medical report Drive link (optional now)</Label>
+                <Input
+                  id="medical-document"
+                  type="url"
+                  value={medicalDocumentUrl}
+                  placeholder="https://drive.google.com/..."
+                  onChange={(event) => setMedicalDocumentUrl(event.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Set sharing to anyone with the link. It must be submitted within 3 days after you
+                  return from Sick Leave.
+                </p>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="from">From</Label>
               <Input
@@ -197,6 +266,53 @@ function ApplyLeavePage() {
               </Button>
             </div>
           </form>
+        </CardContent>
+      </Card>
+      <Card className="mx-auto mt-5 w-full max-w-2xl">
+        <CardContent className="p-4 sm:p-6">
+          <div className="mb-4 flex items-start gap-3">
+            <CalendarClock className="mt-0.5 h-5 w-5 text-primary" />
+            <div>
+              <h2 className="font-semibold">Request weekly off</h2>
+              <p className="text-sm text-muted-foreground">
+                Request at least one day earlier. One weekly off is allowed per Monday-Sunday week,
+                unused weekly offs expire, and two consecutive dates are not allowed.
+              </p>
+            </div>
+          </div>
+          <form onSubmit={submitWeeklyOff} className="grid gap-3 sm:grid-cols-[180px_1fr_auto]">
+            <Input
+              type="date"
+              value={weeklyOffDate}
+              min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+              onChange={(event) => setWeeklyOffDate(event.target.value)}
+              aria-label="Weekly-off date"
+            />
+            <Input
+              value={weeklyOffReason}
+              maxLength={500}
+              placeholder="Reason (optional)"
+              onChange={(event) => setWeeklyOffReason(event.target.value)}
+            />
+            <Button type="submit" disabled={weeklyOffSaving || !weeklyOffDate}>
+              {weeklyOffSaving ? "Sending..." : "Request"}
+            </Button>
+          </form>
+          {weeklyOffs.length > 0 && (
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {weeklyOffs.slice(0, 6).map((request) => (
+                <div
+                  key={request.id}
+                  className="flex items-center justify-between rounded-md border p-3 text-sm"
+                >
+                  <span className="font-medium">{request.date}</span>
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    {request.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

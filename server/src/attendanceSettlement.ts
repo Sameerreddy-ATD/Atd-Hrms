@@ -1,9 +1,8 @@
 import { recalculateDailySummary } from "./attendanceEngine.js";
 import { activeEmployeeIdsExcludingDeveloperAdmin, startOfDayUtc } from "./attendanceDayRules.js";
-function yesterdayIstDate(): Date {
+function todayIstDate(): Date {
   const now = new Date();
   const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
-  ist.setUTCDate(ist.getUTCDate() - 1);
   return startOfDayUtc(
     new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate())),
   );
@@ -21,7 +20,11 @@ export async function settleAttendanceForDate(date: Date) {
 let lastSettledDateKey = "";
 
 export async function runDailyAttendanceSettlement(force = false) {
-  const target = yesterdayIstDate();
+  const target = todayIstDate();
+  const istNow = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+  if (!force && istNow.getUTCHours() < 10) {
+    return { skipped: true, date: target.toISOString().slice(0, 10) };
+  }
   const key = target.toISOString().slice(0, 10);
   if (!force && lastSettledDateKey === key) {
     return { skipped: true, date: key };

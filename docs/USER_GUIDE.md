@@ -116,6 +116,16 @@ Managers/HR can approve or reject corrections from **Attendance Corrections**.
 4. Enter the number of days and reason.
 5. Submit.
 
+The screen shows the current balance and full rules for Casual Leave, Sick Leave, Unpaid Leave / LOP, and Comp Off. Sick Leave accepts a shareable Google Drive report link. If it is not available when applying, add it from **Leave History** within three days after returning; the countdown is shown there.
+
+### Request a weekly off
+
+1. Open **Apply Leave** and use **Request weekly off**.
+2. Select a date at least one day in advance.
+3. Submit it to the direct organization head.
+
+Only one date is allowed in each Monday-Sunday week. It expires unused, does not carry forward, and cannot be consecutive with another weekly off, including Sunday followed by Monday.
+
 The request is assigned to the nearest organization-unit head above the employee. Only that exact head can approve or reject it.
 
 ```mermaid
@@ -139,13 +149,14 @@ Use:
 - **Attendance Corrections** for missed punch requests.
 - **Leave Approvals** for team leave.
 
-## HR: Manage Leave Types
+## HR: Manage Leave Policies And Credits
 
-1. Open **Leave Types**.
-2. Add, edit, or delete leave types.
-3. Save the type so it becomes available for future leave applications.
+1. Open **Leave Policies & Credits**.
+2. Review the protected company policy cards.
+3. Search for an employee and leave type.
+4. Select the edit icon, enter the complete manual adjustment and reason, and save.
 
-Paid/unpaid leave behavior and leave balances are planned for a future version.
+Policy types cannot be added, renamed, or deleted. Adjustments are recorded in Audit Logs. Payroll deductions for negative Casual Leave or Unpaid Leave / LOP remain a manual HR responsibility.
 
 ## HR/Admin: Manage Departments And Department Heads
 
@@ -181,7 +192,7 @@ When eSSL integration is added in the next version, imported device punches shou
 3. Use **All branches** for a company-wide holiday or select one branch.
 4. Edit or deactivate the entry when the calendar changes.
 
-Every active entry visible in the Holiday list counts as a holiday for attendance. Public, Optional, and Restricted are classification labels only. A punch still records the employee as working, and no-punch holiday status is settled after the day ends. Holiday changes recalculate existing summaries for the affected date and branch.
+Every active entry visible in the Holiday list counts as a holiday for attendance. Public, Optional, and Restricted are classification labels only. At 10:00 AM IST a no-punch employee is marked Holiday; a later punch changes the day to Present. A completed holiday punch-in/out session automatically earns one Comp Off credit. Holiday changes recalculate existing summaries for the affected date and branch.
 
 ## Current And Future Attendance Verification
 

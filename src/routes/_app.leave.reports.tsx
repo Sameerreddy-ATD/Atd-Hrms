@@ -24,17 +24,35 @@ import {
 import { leaveApi } from "@/services/api";
 import type { LeaveRequest } from "@/mock/types";
 import { downloadCsv } from "@/lib/csv";
-import { CalendarDays, Download } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { CalendarDays, CheckCircle2, Download } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/leave/reports")({
   component: LeaveReportsPage,
 });
 
 function LeaveReportsPage() {
+  const { user } = useAuth();
   const [rows, setRows] = useState<LeaveRequest[]>([]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const canVerifyMedicalReport = ["developer_admin", "main_admin", "hr"].includes(user?.role ?? "");
+
+  const verifyMedicalReport = async (id: string) => {
+    setVerifyingId(id);
+    try {
+      const updated = await leaveApi.verifyMedicalDocument(id);
+      setRows((current) => current.map((row) => (row.id === id ? updated : row)));
+      toast.success("Medical report marked as verified");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setVerifyingId(null);
+    }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -61,6 +79,9 @@ function LeaveReportsPage() {
     appliedOn: row.appliedOn,
     updatedOn: row.updatedOn ?? "",
     reason: row.reason,
+    medicalDocument: row.medicalDocumentUrl ?? "",
+    medicalDocumentDue: row.medicalDocumentDueAt ?? "",
+    medicalDocumentVerified: row.medicalDocumentVerifiedAt ?? "",
   }));
 
   return (
@@ -129,6 +150,42 @@ function LeaveReportsPage() {
                   </p>
                 </div>
               )}
+              {row.type === "Sick Leave" && (
+                <div className="mt-3 rounded-md border p-3 text-sm">
+                  <p className="text-xs text-muted-foreground">Medical report</p>
+                  {row.medicalDocumentUrl ? (
+                    <a
+                      href={row.medicalDocumentUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium text-primary underline"
+                    >
+                      Open report
+                    </a>
+                  ) : (
+                    <p className="font-medium text-amber-700">Not submitted</p>
+                  )}
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {row.medicalDocumentVerifiedAt
+                      ? "Verified by HR"
+                      : `Due ${row.medicalDocumentDueAt ? new Date(row.medicalDocumentDueAt).toLocaleString() : "-"}`}
+                  </p>
+                  {canVerifyMedicalReport &&
+                    row.medicalDocumentUrl &&
+                    !row.medicalDocumentVerifiedAt && (
+                      <Button
+                        className="mt-3 w-full"
+                        size="sm"
+                        variant="outline"
+                        disabled={verifyingId === row.id}
+                        onClick={() => void verifyMedicalReport(row.id)}
+                      >
+                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                        {verifyingId === row.id ? "Verifying..." : "Mark verified"}
+                      </Button>
+                    )}
+                </div>
+              )}
             </CardContent>
           </Card>
         ))}
@@ -156,6 +213,7 @@ function LeaveReportsPage() {
                 <TableHead>Flow status</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Reason</TableHead>
+                <TableHead>Medical report</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -179,6 +237,41 @@ function LeaveReportsPage() {
                   </TableCell>
                   <TableCell className="min-w-[260px] max-w-[420px] whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">
                     {row.reason}
+                  </TableCell>
+                  <TableCell className="min-w-[180px] text-sm">
+                    {row.type === "Sick Leave" ? (
+                      row.medicalDocumentUrl ? (
+                        <div className="space-y-2">
+                          <a
+                            href={row.medicalDocumentUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block font-medium text-primary underline"
+                          >
+                            Open report
+                          </a>
+                          {row.medicalDocumentVerifiedAt ? (
+                            <span className="text-xs text-emerald-700">Verified by HR</span>
+                          ) : canVerifyMedicalReport ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={verifyingId === row.id}
+                              onClick={() => void verifyMedicalReport(row.id)}
+                            >
+                              <CheckCircle2 className="mr-2 h-4 w-4" />
+                              {verifyingId === row.id ? "Verifying..." : "Mark verified"}
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-amber-700">Awaiting verification</span>
+                          )}
+                        </div>
+                      ) : (
+                        "Not submitted"
+                      )
+                    ) : (
+                      "-"
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

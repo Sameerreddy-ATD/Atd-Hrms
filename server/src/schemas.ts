@@ -233,6 +233,21 @@ export const leaveRequestSchema = z.object({
   toDate: z.coerce.date(),
   days: z.number().positive().max(365),
   reason: z.string().trim().min(3).max(1000),
+  medicalDocumentUrl: z.string().url().max(2000).optional(),
+});
+
+export const medicalDocumentSchema = z.object({
+  url: z.string().url().max(2000),
+});
+
+export const leaveBalanceAdjustmentSchema = z.object({
+  adjustment: z.coerce.number().min(-365).max(365),
+  reason: z.string().trim().min(3).max(500),
+});
+
+export const weeklyOffRequestSchema = z.object({
+  date: z.coerce.date(),
+  reason: z.string().trim().max(500).optional(),
 });
 
 export const leaveTypeSchema = z.object({

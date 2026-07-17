@@ -73,11 +73,12 @@ flowchart LR
 
 Madhapur is configured at `17.4391592, 78.3947783` with a default 250 meter radius. Each additional branch must be given latitude, longitude, and radius in Branches before it accepts mobile branch attendance. Client visits remain a separate field workflow and are not restricted to an office radius.
 
-### End-of-day status
+### 10 AM attendance settlement
 
 - A punch always takes priority over holiday, weekly off, or approved leave status for that day.
-- A no-punch day is settled only after the day ends.
-- Weekly off follows each employee's configured weekdays.
+- At 10:00 AM IST, every active no-punch employee is settled as Absent, approved Leave, approved Weekly Off, or Holiday.
+- A later mobile or biometric punch recalculates the same day immediately and changes it to the correct Present status.
+- Weekly off is requested for a specific date at least one day earlier and approved only by the employee's direct organization head.
 - Every active entry in the portal Holiday list counts as a holiday. `Public`, `Optional`, and `Restricted` are classification labels only in this version.
 - A global holiday applies to everyone; a branch holiday applies only to employees whose home branch matches it.
 - Editing, moving, or deactivating a holiday recalculates existing attendance summaries for the affected date and branch.
@@ -102,7 +103,22 @@ flowchart LR
 - Employees can cancel current or future dates from approved leave; history retains the approval and cancellation record.
 - Mobile check-in warns before cancelling approved leave for that date. A biometric punch cancels that date directly.
 - Multi-day leave cancellation affects only the day on which attendance is given.
-- Leave balances and paid/unpaid policy automation are reserved for a future version.
+
+### Company leave policies
+
+- **Casual Leave:** one credit is added on the first of each month, beginning with the month after joining. A July 16 joiner receives the first credit on August 1. Twelve credits accrue per year, unused credits carry forward, and approved usage may make the balance negative. Payroll handling remains manual for HR.
+- **Sick Leave:** six credits are available per calendar year and expire at year end. At most two Sick Leave days may be used in one month, and usage cannot exceed the available balance. A Google Drive medical-report link shared with anyone who has the link is due within three calendar days after the leave ends.
+- **Unpaid Leave / LOP:** has no credit balance. The direct head approves the request and HR handles salary deductions manually.
+- **Comp Off:** one credit is earned automatically after a completed punch-in/out work session on an active portal holiday. One credit is used per request and no approval is required.
+- The employee and direct head see available credit, requested days, and projected balance. HR can make audited manual credit adjustments.
+
+### Weekly-off policy
+
+- An employee chooses one date in a Monday-Sunday week and submits it at least one calendar day in advance.
+- The exact direct organization head approves or rejects the request.
+- Only one weekly off may be used in a week. Unused entitlement expires and never carries forward.
+- Weekly offs cannot be on consecutive dates, including Sunday followed by Monday in the next week.
+- A punch on an approved weekly off changes attendance to Present automatically.
 
 ## Holiday Management
 

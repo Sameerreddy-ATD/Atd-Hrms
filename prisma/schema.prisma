@@ -222,6 +222,8 @@ model Employee {
   biometricMappings  BiometricEmployeeMapping[]
   leaveRequests      LeaveRequest[]
   leaveBalances      LeaveBalance[]
+  weeklyOffRequests  WeeklyOffRequest[]
+  compOffCredits     CompOffCredit[]
   correctionRequests AttendanceCorrectionRequest[]
   emergencyContact   EmergencyContact?
   headedDepartments  Department[]                  @relation("DepartmentHead")
@@ -479,7 +481,15 @@ model FieldAttendance {
 model LeaveType {
   leaveTypeId String         @id @default(cuid()) @map("leave_type_id")
   name        String         @unique
+  code        String         @unique
   paid        Boolean        @default(true)
+  active      Boolean        @default(true)
+  annualAllowance Decimal?   @map("annual_allowance") @db.Decimal(8, 2)
+  monthlyCredit Decimal?     @map("monthly_credit") @db.Decimal(8, 2)
+  maxPerMonth Decimal?       @map("max_per_month") @db.Decimal(8, 2)
+  carryForward Boolean       @default(false) @map("carry_forward")
+  requiresMedicalDocument Boolean @default(false) @map("requires_medical_document")
+  approvalRequired Boolean   @default(true) @map("approval_required")
   balances    LeaveBalance[]
   requests    LeaveRequest[]
 
@@ -495,6 +505,9 @@ model LeaveBalance {
   entitled       Decimal   @db.Decimal(8, 2)
   used           Decimal   @default(0) @db.Decimal(8, 2)
   balance        Decimal   @db.Decimal(8, 2)
+  manualAdjustment Decimal @default(0) @map("manual_adjustment") @db.Decimal(8, 2)
+  calculationYear Int?     @map("calculation_year")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   @@unique([employeeId, leaveTypeId])
   @@map("leave_balances")
@@ -514,12 +527,48 @@ model LeaveRequest {
   managerId      String?     @map("manager_id")
   hrVerifiedBy   String?     @map("hr_verified_by")
   cancelledDates Json?       @map("cancelled_dates")
+  medicalDocumentUrl String?  @map("medical_document_url") @db.Text
+  medicalDocumentDueAt DateTime? @map("medical_document_due_at")
+  medicalDocumentVerifiedAt DateTime? @map("medical_document_verified_at")
+  medicalDocumentVerifiedBy String? @map("medical_document_verified_by")
   createdAt      DateTime    @default(now()) @map("created_at")
   updatedAt      DateTime    @updatedAt @map("updated_at")
 
   @@index([employeeId, createdAt])
   @@index([managerId, status, createdAt])
   @@map("leave_requests")
+}
+
+model WeeklyOffRequest {
+  weeklyOffRequestId String         @id @default(cuid()) @map("weekly_off_request_id")
+  employeeId        String         @map("employee_id")
+  employee          Employee       @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  date              DateTime       @db.Date
+  weekStart         DateTime       @map("week_start") @db.Date
+  approverId        String         @map("approver_id")
+  status            ApprovalStatus @default(PENDING)
+  reason            String?        @db.Text
+  reviewedBy        String?        @map("reviewed_by")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+
+  @@unique([employeeId, weekStart])
+  @@index([approverId, status, date])
+  @@map("weekly_off_requests")
+}
+
+model CompOffCredit {
+  compOffCreditId String    @id @default(cuid()) @map("comp_off_credit_id")
+  employeeId     String    @map("employee_id")
+  employee       Employee  @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  earnedDate     DateTime  @map("earned_date") @db.Date
+  holidayId      String?   @map("holiday_id")
+  consumedByLeaveRequestId String? @map("consumed_by_leave_request_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  @@unique([employeeId, earnedDate])
+  @@index([employeeId, consumedByLeaveRequestId])
+  @@map("comp_off_credits")
 }
 
 model ProfileEditRequest {

@@ -217,9 +217,12 @@ export const leaveApi = {
         employeeName: string;
         department: string;
         leaveType: string;
+        leaveTypeId: string;
         entitled: number;
         used: number;
         balance: number;
+        code: string;
+        manualAdjustment: number;
       }>
     >("/leave/balances"),
   apply: (req: {
@@ -228,11 +231,43 @@ export const leaveApi = {
     toDate: string;
     days: number;
     reason: string;
+    medicalDocumentUrl?: string;
   }) => request<LeaveRequest>("/leave/requests", { method: "POST", body: JSON.stringify(req) }),
   approve: (id: string) =>
     request<LeaveRequest>(`/leave/requests/${id}/approve`, { method: "POST" }),
   reject: (id: string) => request<LeaveRequest>(`/leave/requests/${id}/reject`, { method: "POST" }),
   cancel: (id: string) => request<LeaveRequest>(`/leave/requests/${id}/cancel`, { method: "POST" }),
+  updateMedicalDocument: (id: string, url: string) =>
+    request<LeaveRequest>(`/leave/requests/${id}/medical-document`, {
+      method: "PATCH",
+      body: JSON.stringify({ url }),
+    }),
+  verifyMedicalDocument: (id: string) =>
+    request<LeaveRequest>(`/leave/requests/${id}/medical-document/verify`, {
+      method: "POST",
+    }),
+  adjustBalance: (employeeId: string, leaveTypeId: string, adjustment: number, reason: string) =>
+    request(`/leave/balances/${employeeId}/${leaveTypeId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ adjustment, reason }),
+    }),
+  weeklyOffs: (assignedApprovals = false) =>
+    request<import("@/mock/types").WeeklyOffRequest[]>(
+      `/weekly-offs${assignedApprovals ? "?assignedApprovals=true" : ""}`,
+    ),
+  requestWeeklyOff: (date: string, reason?: string) =>
+    request<import("@/mock/types").WeeklyOffRequest>("/weekly-offs", {
+      method: "POST",
+      body: JSON.stringify({ date, reason }),
+    }),
+  approveWeeklyOff: (id: string) =>
+    request<import("@/mock/types").WeeklyOffRequest>(`/weekly-offs/${id}/approve`, {
+      method: "POST",
+    }),
+  rejectWeeklyOff: (id: string) =>
+    request<import("@/mock/types").WeeklyOffRequest>(`/weekly-offs/${id}/reject`, {
+      method: "POST",
+    }),
 };
 
 export const attendanceApi = {

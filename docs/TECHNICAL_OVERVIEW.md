@@ -27,6 +27,7 @@ The frontend never connects directly to MySQL. Authorization and object-level ac
 | `server/src/schemas.ts`            | Zod request validation                                         |
 | `server/src/attendanceEngine.ts`   | Attendance event creation and summary recalculation            |
 | `server/src/attendanceDayRules.ts` | Workday, holiday, leave, and weekly-off settlement             |
+| `server/src/leavePolicy.ts`        | Protected leave policies, accrual, validation, and credit sync |
 | `server/src/attendanceLive.ts`     | Employee-scoped live attendance refresh                        |
 | `server/src/notificationLive.ts`   | Authenticated live notification refresh                        |
 | `server/src/push.ts`               | VAPID Web Push delivery and stale subscription cleanup         |
@@ -69,6 +70,7 @@ Lockout or suspension does not delete or disable the employee record, allowing h
 | `/branches`      | Branches and server-side geofence configuration                            |
 | `/attendance`    | Mobile events, timelines, summaries, reports, corrections, and live stream |
 | `/leave`         | Leave types, requests, cancellation, approvals, and reports                |
+| `/weekly-offs`   | Date-specific weekly-off requests and direct-head approval                 |
 | `/holidays`      | Active holiday calendar and branch scope                                   |
 | `/tasks`         | Multi-assignee tasks and updates                                           |
 | `/assets`        | Physical/online assets and employee investment calculations                |
@@ -112,6 +114,8 @@ Announcement permanent deletion is available to HR and Developer Admin, requires
 - `prisma/seed.ts`: first-install/demo baseline; never run casually on production
 
 Use `npm run db:migrate` only during development. Use `npm run db:deploy` in production.
+
+Migration `20260716190000_leave_policy_and_weekly_off` intentionally clears legacy leave requests, balances, and configurable leave types before installing the four protected system policies. Back up production before applying it when historical legacy leave data must be retained externally.
 
 ## Engineering Rules
 

@@ -134,7 +134,7 @@ export const menuGroups: MenuGroup[] = [
         roles: ["hr", "ceo", "main_admin"],
       },
       {
-        label: "Leave Types",
+        label: "Leave Policies",
         to: "/leave/policy",
         icon: Settings,
         roles: ["hr", "developer_admin", "main_admin"],

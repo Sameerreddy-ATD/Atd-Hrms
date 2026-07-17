@@ -244,7 +244,7 @@ export async function recalculateDailySummary(employeeId: string, date: string |
     status = await resolveNoEventStatus(employeeId, eventDate);
   }
 
-  return prisma.attendanceDailySummary.upsert({
+  const summary = await prisma.attendanceDailySummary.upsert({
     where: { employeeId_date: { employeeId, date: eventDate } },
     create: {
       employeeId,
@@ -303,4 +303,25 @@ export async function recalculateDailySummary(employeeId: string, date: string |
       hasMissedCheckout,
     },
   });
+  if (firstCheckIn && lastOut) {
+    const holiday = await prisma.holiday.findFirst({
+      where: {
+        status: "ACTIVE",
+        date: eventDate,
+        OR: [
+          { branchId: null },
+          ...(employee.homeBranchId ? [{ branchId: employee.homeBranchId }] : []),
+        ],
+      },
+      orderBy: { branchId: "desc" },
+    });
+    if (holiday) {
+      await prisma.compOffCredit.upsert({
+        where: { employeeId_earnedDate: { employeeId, earnedDate: eventDate } },
+        create: { employeeId, earnedDate: eventDate, holidayId: holiday.holidayId },
+        update: { holidayId: holiday.holidayId },
+      });
+    }
+  }
+  return summary;
 }

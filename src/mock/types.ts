@@ -227,6 +227,15 @@ export interface LeaveTypeOption {
   id: string;
   name: string;
   paid: boolean;
+  code: "CASUAL" | "SICK" | "LOP" | "COMP_OFF" | string;
+  active: boolean;
+  annualAllowance?: number;
+  monthlyCredit?: number;
+  maxPerMonth?: number;
+  carryForward: boolean;
+  requiresMedicalDocument: boolean;
+  approvalRequired: boolean;
+  description: string;
 }
 
 export type LeaveStatus = "Pending" | "Approved" | "Rejected" | "Cancelled";
@@ -248,6 +257,12 @@ export interface LeaveRequest {
   approverName?: string;
   cancelledDates?: string[];
   cancelledDays?: number;
+  medicalDocumentUrl?: string;
+  medicalDocumentDueAt?: string;
+  medicalDocumentVerifiedAt?: string;
+  availableBalance?: number;
+  requestedDays?: number;
+  projectedBalance?: number;
 }
 
 export interface LeaveBalance {
@@ -255,6 +270,21 @@ export interface LeaveBalance {
   entitled: number;
   used: number;
   balance: number;
+  code?: string;
+  manualAdjustment?: number;
+  description?: string;
+}
+
+export interface WeeklyOffRequest {
+  id: string;
+  employeeId: string;
+  employeeName?: string;
+  employeeCode?: string;
+  date: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  reason?: string;
+  approverId: string;
+  createdAt: string;
 }
 
 export interface Holiday {
@@ -302,7 +332,7 @@ export interface NotificationItem {
   title: string;
   desc: string;
   time: string;
-  type: "leave" | "holiday" | "system" | "birthday" | "task" | "announcement";
+  type: "leave" | "holiday" | "system" | "birthday" | "task" | "announcement" | "attendance";
   priority?: "NORMAL" | "IMPORTANT" | "URGENT";
   authorName?: string;
 }

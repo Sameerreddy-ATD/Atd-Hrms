@@ -24,6 +24,11 @@ export function istDateParts(date: Date) {
   };
 }
 
+export function todayIstDate(now = new Date()) {
+  const parts = istDateParts(now);
+  return new Date(Date.UTC(parts.year, parts.month, parts.day));
+}
+
 export function isSunday(date: Date) {
   return istDateParts(date).weekday === 0;
 }
@@ -40,10 +45,14 @@ function cancelledDateKeys(value: unknown) {
     : [];
 }
 
-function dayHasEnded(eventDate: Date) {
+function dayCanBeSettled(eventDate: Date) {
   const now = istDateParts(new Date());
   const today = Date.UTC(now.year, now.month, now.day);
-  return startOfDayUtc(eventDate).getTime() < today;
+  const eventDay = startOfDayUtc(eventDate).getTime();
+  if (eventDay < today) return true;
+  if (eventDay > today) return false;
+  const istNow = new Date(Date.now() + IST_OFFSET_MS);
+  return istNow.getUTCHours() >= 10;
 }
 
 export function eachDateInRange(from: string | Date, to: string | Date) {
@@ -133,18 +142,16 @@ export async function cancelLeaveDates(leaveRequestId: string, dates: Array<stri
 }
 
 export async function resolveNoEventStatus(employeeId: string, eventDate: Date): Promise<string> {
-  if (!dayHasEnded(eventDate)) return "Pending attendance";
+  if (!dayCanBeSettled(eventDate)) return "Pending attendance";
 
   const holiday = await findHolidayForEmployee(employeeId, eventDate);
   if (holiday) return `Holiday - ${holiday.name}`;
 
-  const employee = await prisma.employee.findUnique({
-    where: { employeeId },
-    select: { weeklyOffDays: true },
+  const weeklyOff = await prisma.weeklyOffRequest.findFirst({
+    where: { employeeId, date: startOfDayUtc(eventDate), status: "APPROVED" },
   });
-  const weeklyOffDays = cancelledDateKeys(employee?.weeklyOffDays);
-  const dayOfWeek = WEEKDAY_KEYS[istDateParts(eventDate).weekday];
-  if ((weeklyOffDays.length ? weeklyOffDays : ["SUNDAY"]).includes(dayOfWeek)) {
+  if (weeklyOff) {
+    const dayOfWeek = WEEKDAY_KEYS[istDateParts(eventDate).weekday];
     return `Week Off (${dayOfWeek[0]}${dayOfWeek.slice(1).toLowerCase()})`;
   }
 

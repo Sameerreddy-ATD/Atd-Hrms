@@ -7,58 +7,59 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { LeaveTypeOption } from "@/mock/types";
 import { leaveApi } from "@/services/api";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { CalendarCheck, Pencil } from "lucide-react";
 
-export const Route = createFileRoute("/_app/leave/policy")({
-  component: PolicyPage,
-});
+export const Route = createFileRoute("/_app/leave/policy")({ component: PolicyPage });
+
+type BalanceRow = Awaited<ReturnType<typeof leaveApi.listAllBalances>>[number];
 
 function PolicyPage() {
   const [types, setTypes] = useState<LeaveTypeOption[]>([]);
-  const [editing, setEditing] = useState<LeaveTypeOption | null>(null);
-  const [name, setName] = useState("");
+  const [balances, setBalances] = useState<BalanceRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [editing, setEditing] = useState<BalanceRow | null>(null);
+  const [adjustment, setAdjustment] = useState("0");
+  const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadTypes();
-  }, []);
-
-  function loadTypes() {
+  function load() {
     setLoading(true);
-    leaveApi
-      .types()
-      .then(setTypes)
+    Promise.all([leaveApi.types(), leaveApi.listAllBalances()])
+      .then(([policyRows, balanceRows]) => {
+        setTypes(policyRows);
+        setBalances(balanceRows);
+      })
       .catch((err) => toast.error((err as Error).message))
       .finally(() => setLoading(false));
   }
 
-  function resetForm() {
-    setEditing(null);
-    setName("");
-  }
+  useEffect(load, []);
 
-  async function saveType(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim()) {
-      toast.error("Leave type name is required");
-      return;
-    }
+  async function saveAdjustment() {
+    if (!editing || reason.trim().length < 3) return toast.error("Enter an adjustment reason");
     setSaving(true);
     try {
-      const saved = editing
-        ? await leaveApi.updateType(editing.id, { name: name.trim(), paid: editing.paid })
-        : await leaveApi.createType({ name: name.trim(), paid: true });
-      setTypes((current) =>
-        (editing
-          ? current.map((row) => (row.id === saved.id ? saved : row))
-          : [...current, saved]
-        ).sort((a, b) => a.name.localeCompare(b.name)),
+      await leaveApi.adjustBalance(
+        editing.employeeId,
+        editing.leaveTypeId,
+        Number(adjustment),
+        reason.trim(),
       );
-      toast.success(editing ? "Leave type updated" : "Leave type added");
-      resetForm();
+      toast.success("Leave balance adjustment saved and audited");
+      setEditing(null);
+      setReason("");
+      load();
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -66,78 +67,148 @@ function PolicyPage() {
     }
   }
 
-  async function deleteType(type: LeaveTypeOption) {
-    if (!window.confirm(`Delete ${type.name}?`)) return;
-    try {
-      await leaveApi.deleteType(type.id);
-      setTypes((current) => current.filter((row) => row.id !== type.id));
-      toast.success("Leave type deleted");
-    } catch (err) {
-      toast.error((err as Error).message);
-    }
-  }
+  const filtered = balances.filter((row) =>
+    `${row.employeeName} ${row.employeeCode} ${row.leaveType} ${row.department}`
+      .toLowerCase()
+      .includes(search.toLowerCase()),
+  );
 
   return (
     <div>
       <PageHeader
-        title="Leave Types"
-        description="HR, Developer Admin, and Main Admin can manage leave types used in applications."
+        title="Leave Policies & Credits"
+        description="Company leave rules are protected. HR can make audited employee credit adjustments below."
       />
-
-      <Card className="mb-4 max-w-2xl">
-        <CardContent className="p-4">
-          <form onSubmit={saveType} className="grid gap-3 sm:grid-cols-[1fr_auto]">
-            <div className="space-y-1.5">
-              <Label>Leave type name</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-            <div className="flex items-end gap-2">
-              {editing && (
-                <Button type="button" variant="outline" onClick={resetForm}>
-                  Cancel
-                </Button>
-              )}
-              <Button type="submit" disabled={saving}>
-                <Plus className="mr-2 h-4 w-4" />
-                {editing ? "Save" : "Add"}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      {loading && <LoadingState label="Loading leave types" />}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <section
+        className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+        aria-label="Company leave policies"
+      >
         {types.map((type) => (
           <Card key={type.id}>
-            <CardContent className="p-5">
+            <CardContent className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-medium">{type.name}</p>
+                  <p className="font-semibold">{type.name}</p>
+                  <p className="text-xs font-medium text-primary">
+                    {type.paid ? "Paid credit" : "Salary review by HR"}
+                  </p>
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    onClick={() => {
-                      setEditing(type);
-                      setName(type.name);
-                    }}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button size="icon" variant="outline" onClick={() => deleteType(type)}>
-                    <Trash2 className="h-4 w-4 text-red-600" />
-                  </Button>
-                </div>
+                <CalendarCheck className="h-5 w-5 text-primary" />
               </div>
+              <p className="mt-3 text-sm leading-5 text-muted-foreground">{type.description}</p>
             </CardContent>
           </Card>
         ))}
-      </div>
-      {!loading && types.length === 0 && (
-        <p className="text-sm text-muted-foreground">No leave types found.</p>
-      )}
+      </section>
+
+      <Card className="mt-5">
+        <CardContent className="p-4 sm:p-5">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-semibold">Employee leave credits</h2>
+              <p className="text-sm text-muted-foreground">
+                Adjustments change credits, not payroll. Every change is written to Audit Logs.
+              </p>
+            </div>
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search employee or leave type"
+              className="sm:max-w-xs"
+            />
+          </div>
+          {loading ? (
+            <LoadingState label="Calculating leave credits" />
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {filtered.map((row) => (
+                <div key={row.id} className="rounded-md border p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">{row.employeeName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {row.employeeCode} · {row.department}
+                      </p>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      title="Adjust leave credit"
+                      onClick={() => {
+                        setEditing(row);
+                        setAdjustment(String(row.manualAdjustment));
+                      }}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="mt-3 text-sm font-medium">{row.leaveType}</p>
+                  <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Credited</p>
+                      <p className="font-semibold">{row.entitled}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Used</p>
+                      <p className="font-semibold">{row.used}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Available</p>
+                      <p className="font-semibold">{row.balance}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adjust employee leave credit</DialogTitle>
+          </DialogHeader>
+          {editing && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {editing.employeeName} · {editing.leaveType}
+              </p>
+              <div className="space-y-1.5">
+                <Label htmlFor="manual-adjustment">Manual adjustment</Label>
+                <Input
+                  id="manual-adjustment"
+                  type="number"
+                  step="0.5"
+                  value={adjustment}
+                  onChange={(event) => setAdjustment(event.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Use a positive number to add credit or a negative number to reduce it.
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="adjustment-reason">Reason</Label>
+                <Textarea
+                  id="adjustment-reason"
+                  rows={3}
+                  maxLength={500}
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)}>
+              Cancel
+            </Button>
+            <Button onClick={saveAdjustment} disabled={saving}>
+              {saving ? "Saving..." : "Save adjustment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

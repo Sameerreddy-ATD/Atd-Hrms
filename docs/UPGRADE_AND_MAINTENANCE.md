@@ -50,6 +50,10 @@ mysqldump --single-transaction --routines --triggers -u atd_hrms -p anytimediese
 
 ## Standard Production Update
 
+### Leave-policy migration warning
+
+Release migration `20260716190000_leave_policy_and_weekly_off` removes legacy leave requests, leave balances, and configurable leave types before installing Casual Leave, Sick Leave, Unpaid Leave / LOP, and Comp Off. Create and verify the MySQL dump above before deploying this release. Keep that dump when historical legacy leave records may be needed for payroll or compliance.
+
 ```bash
 cd /opt/anytime-crew-hub
 git status

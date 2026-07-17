@@ -24,7 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type { LeaveRequest } from "@/mock/types";
+import type { LeaveRequest, WeeklyOffRequest } from "@/mock/types";
 import { employeesApi, leaveApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
 
@@ -37,6 +37,7 @@ function LeaveApprovalsPage() {
   const navigate = useNavigate();
   const [rows, setRows] = useState<LeaveRequest[]>([]);
   const [history, setHistory] = useState<LeaveRequest[]>([]);
+  const [weeklyOffs, setWeeklyOffs] = useState<WeeklyOffRequest[]>([]);
   const [confirm, setConfirm] = useState<{ id: string; action: "Approved" | "Rejected" } | null>(
     null,
   );
@@ -65,10 +66,15 @@ function LeaveApprovalsPage() {
 
   useEffect(() => {
     if (!canApprove) return;
-    Promise.all([leaveApi.assignedApprovals("PENDING"), leaveApi.assignedApprovals()])
-      .then(([pending, all]) => {
+    Promise.all([
+      leaveApi.assignedApprovals("PENDING"),
+      leaveApi.assignedApprovals(),
+      leaveApi.weeklyOffs(true),
+    ])
+      .then(([pending, all, weeklyRows]) => {
         setRows(pending);
         setHistory(all.filter((request) => request.status !== "Pending"));
+        setWeeklyOffs(weeklyRows);
       })
       .catch((err) => setError((err as Error).message))
       .finally(() => setLoading(false));
@@ -82,6 +88,18 @@ function LeaveApprovalsPage() {
     setHistory((prev) => [updated, ...prev.filter((request) => request.id !== id)]);
     toast.success(`Request ${action.toLowerCase()}`);
     setConfirm(null);
+  }
+
+  async function reviewWeeklyOff(id: string, approve: boolean) {
+    try {
+      const updated = approve
+        ? await leaveApi.approveWeeklyOff(id)
+        : await leaveApi.rejectWeeklyOff(id);
+      setWeeklyOffs((rows) => rows.map((row) => (row.id === id ? updated : row)));
+      toast.success(`Weekly off ${approve ? "approved" : "rejected"}`);
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
   }
 
   if (!accessChecked || !canApprove) {
@@ -98,6 +116,41 @@ function LeaveApprovalsPage() {
       />
       {loading && <LoadingState label="Loading leave approvals" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
+      <section className="mb-7">
+        <h2 className="mb-3 text-base font-semibold">Weekly-off approvals</h2>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {weeklyOffs
+            .filter((request) => request.status === "PENDING")
+            .map((request) => (
+              <Card key={request.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">{request.employeeName}</p>
+                      <p className="text-sm text-muted-foreground">{request.date}</p>
+                    </div>
+                    <StatusBadge status={request.status} />
+                  </div>
+                  {request.reason && <p className="mt-3 text-sm">{request.reason}</p>}
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    One weekly off per Monday-Sunday week. Consecutive weekly-off dates are blocked.
+                  </p>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <Button variant="outline" onClick={() => reviewWeeklyOff(request.id, false)}>
+                      Reject
+                    </Button>
+                    <Button onClick={() => reviewWeeklyOff(request.id, true)}>Approve</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+        </div>
+        {weeklyOffs.filter((request) => request.status === "PENDING").length === 0 && (
+          <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+            No weekly-off requests are waiting for approval.
+          </p>
+        )}
+      </section>
       <h2 className="mb-3 text-base font-semibold">Pending approvals</h2>
       <div className="space-y-3 md:hidden">
         {rows.map((leave) => (
@@ -122,12 +175,43 @@ function LeaveApprovalsPage() {
                   <p className="font-medium">{leave.days}</p>
                 </div>
               </div>
+              <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">Available</p>
+                  <p className="font-semibold">{leave.availableBalance ?? 0}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Requested</p>
+                  <p className="font-semibold">{leave.requestedDays ?? leave.days}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">After approval</p>
+                  <p className="font-semibold">{leave.projectedBalance ?? 0}</p>
+                </div>
+              </div>
               <div className="mt-3">
                 <p className="text-xs text-muted-foreground">Reason</p>
                 <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6">
                   {leave.reason || "-"}
                 </p>
               </div>
+              {leave.type === "Sick Leave" && (
+                <div className="mt-3 rounded-md border p-3 text-sm">
+                  <p className="text-xs text-muted-foreground">Medical report</p>
+                  {leave.medicalDocumentUrl ? (
+                    <a
+                      className="font-medium text-primary underline"
+                      href={leave.medicalDocumentUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Open shared report
+                    </a>
+                  ) : (
+                    <p className="font-medium text-amber-700">Awaiting employee link</p>
+                  )}
+                </div>
+              )}
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <Button
                   variant="outline"
@@ -158,6 +242,7 @@ function LeaveApprovalsPage() {
                 <TableHead>From</TableHead>
                 <TableHead>To</TableHead>
                 <TableHead>Days</TableHead>
+                <TableHead>Balance</TableHead>
                 <TableHead>Reason</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -171,6 +256,13 @@ function LeaveApprovalsPage() {
                   <TableCell>{l.from}</TableCell>
                   <TableCell>{l.to}</TableCell>
                   <TableCell>{l.days}</TableCell>
+                  <TableCell className="whitespace-nowrap text-sm">
+                    {l.availableBalance ?? 0} available
+                    <br />
+                    <span className="text-xs text-muted-foreground">
+                      {l.projectedBalance ?? 0} after
+                    </span>
+                  </TableCell>
                   <TableCell className="min-w-[260px] max-w-[420px] whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">
                     {l.reason}
                   </TableCell>

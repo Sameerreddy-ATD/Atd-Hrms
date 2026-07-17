@@ -321,11 +321,59 @@ async function main() {
     },
   });
 
-  for (const [name, paid] of [
-    ["Sick Leave", true],
-    ["Casual Leave", true],
-  ] as const) {
-    await prisma.leaveType.upsert({ where: { name }, update: {}, create: { name, paid } });
+  for (const policy of [
+    {
+      leaveTypeId: "leave-casual",
+      name: "Casual Leave",
+      code: "CASUAL",
+      paid: true,
+      annualAllowance: 12,
+      monthlyCredit: 1,
+      carryForward: true,
+      requiresMedicalDocument: false,
+      approvalRequired: true,
+    },
+    {
+      leaveTypeId: "leave-sick",
+      name: "Sick Leave",
+      code: "SICK",
+      paid: true,
+      annualAllowance: 6,
+      monthlyCredit: null,
+      maxPerMonth: 2,
+      carryForward: false,
+      requiresMedicalDocument: true,
+      approvalRequired: true,
+    },
+    {
+      leaveTypeId: "leave-lop",
+      name: "Unpaid Leave / LOP",
+      code: "LOP",
+      paid: false,
+      annualAllowance: null,
+      monthlyCredit: null,
+      carryForward: false,
+      requiresMedicalDocument: false,
+      approvalRequired: true,
+    },
+    {
+      leaveTypeId: "leave-comp-off",
+      name: "Comp Off",
+      code: "COMP_OFF",
+      paid: true,
+      annualAllowance: null,
+      monthlyCredit: null,
+      carryForward: false,
+      requiresMedicalDocument: false,
+      approvalRequired: false,
+    },
+  ]) {
+    const { leaveTypeId, ...data } = policy;
+    await prisma.leaveType.upsert({
+      where: { code: policy.code },
+      update: data,
+      create: { leaveTypeId, ...data },
+    });
   }
 
   for (const [unitName, headCode] of [
