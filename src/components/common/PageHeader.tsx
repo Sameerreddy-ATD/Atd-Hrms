@@ -16,7 +16,7 @@ export function PageHeader({
         {description && <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>}
       </div>
       {actions && (
-        <div className="flex w-full flex-wrap items-center gap-2 [&>*]:min-w-0 [&>*]:flex-1 sm:w-auto sm:[&>*]:flex-none">
+        <div className="grid w-full grid-cols-1 gap-2 min-[390px]:grid-cols-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:[&>*]:flex-none">
           {actions}
         </div>
       )}

@@ -148,6 +148,9 @@
     color: var(--color-foreground);
     font-size: 1rem;
     line-height: 1.5;
+    min-width: 20rem;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
   }
 }
 
@@ -166,6 +169,25 @@
   select,
   textarea {
     font-size: 1rem;
+  }
+
+  button,
+  [role="button"],
+  a {
+    touch-action: manipulation;
+  }
+
+  .responsive-table {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--primary) 35%, transparent) transparent;
+  }
+
+  .startup-proof {
+    scrollbar-width: none;
+  }
+
+  .startup-proof::-webkit-scrollbar {
+    display: none;
   }
 }
 
@@ -188,17 +210,5 @@
   }
   100% {
     transform: translateX(260%);
-  }
-}
-
-@keyframes atd-fuel-pulse {
-  0%,
-  100% {
-    opacity: 0.35;
-    transform: scaleY(0.55);
-  }
-  50% {
-    opacity: 1;
-    transform: scaleY(1);
   }
 }

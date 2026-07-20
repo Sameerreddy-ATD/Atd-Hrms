@@ -598,7 +598,63 @@ export function createApp() {
     return `EMP-${String(current + 1).padStart(4, "0")}`;
   }
 
+  const brandProofDefaults = {
+    litresDelivered: "10M+",
+    happyClients: "5,000+",
+    appRating: "4.8 / 5",
+    certification: "PESO & OMC",
+  };
+  const brandProofSettingKey = "startup_brand_proof";
+  const brandProofSchema = z.object({
+    litresDelivered: z.string().trim().min(1).max(30),
+    happyClients: z.string().trim().min(1).max(30),
+    appRating: z.string().trim().min(1).max(30),
+    certification: z.string().trim().min(1).max(50),
+  });
+
+  async function readBrandProof() {
+    const setting = await prisma.systemSetting.findUnique({ where: { key: brandProofSettingKey } });
+    if (!setting) return brandProofDefaults;
+    try {
+      return brandProofSchema.parse(JSON.parse(setting.value));
+    } catch {
+      return brandProofDefaults;
+    }
+  }
+
   app.get("/health", (_req, res) => res.json({ ok: true }));
+
+  app.get(
+    "/public/brand-proof",
+    asyncHandler(async (_req, res) => res.json(await readBrandProof())),
+  );
+
+  app.patch(
+    "/system/brand-proof",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const value = brandProofSchema.parse(req.body);
+      const previous = await readBrandProof();
+      await prisma.systemSetting.upsert({
+        where: { key: brandProofSettingKey },
+        create: {
+          key: brandProofSettingKey,
+          value: JSON.stringify(value),
+          updatedById: req.user!.id,
+        },
+        update: { value: JSON.stringify(value), updatedById: req.user!.id },
+      });
+      await audit({
+        action: "UPDATE_STARTUP_BRAND_PROOF",
+        performedByUserId: req.user!.id,
+        oldValue: previous,
+        newValue: value,
+        ipAddress: req.ip,
+      });
+      res.json(value);
+    }),
+  );
 
   app.get(
     "/system/health",

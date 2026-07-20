@@ -15,6 +15,8 @@ import {
   type SystemHealth,
 } from "@/services/api";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth";
 import {
   Activity,
@@ -52,6 +54,14 @@ function SettingsPage() {
   const [healthLoading, setHealthLoading] = useState(true);
   const [healthError, setHealthError] = useState("");
   const previousHealth = useRef<SystemHealth["status"] | null>(null);
+  const [brandProof, setBrandProof] = useState({
+    litresDelivered: "10M+",
+    happyClients: "5,000+",
+    appRating: "4.8 / 5",
+    certification: "PESO & OMC",
+  });
+  const [brandProofLoading, setBrandProofLoading] = useState(isDeveloperAdmin);
+  const [brandProofSaving, setBrandProofSaving] = useState(false);
 
   const refreshHealth = useCallback(async () => {
     setHealthError("");
@@ -102,6 +112,11 @@ function SettingsPage() {
   useEffect(() => {
     if (!isDeveloperAdmin) return;
     void refreshHealth();
+    void systemApi
+      .brandProof()
+      .then(setBrandProof)
+      .catch((err) => toast.error((err as Error).message))
+      .finally(() => setBrandProofLoading(false));
     const intervalId = window.setInterval(() => void refreshHealth(), 30_000);
     return () => window.clearInterval(intervalId);
   }, [isDeveloperAdmin, refreshHealth]);
@@ -114,6 +129,69 @@ function SettingsPage() {
       />
       {loading && <LoadingState label="Loading system settings" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
+
+      {isDeveloperAdmin && (
+        <Card className="mb-6">
+          <CardHeader className="border-b p-4 sm:p-5">
+            <CardTitle className="text-base">Startup Screen Details</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Update the company proof values shown while the application starts.
+            </p>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-5">
+            {brandProofLoading ? (
+              <LoadingState compact label="Loading startup details" />
+            ) : (
+              <form
+                className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  setBrandProofSaving(true);
+                  try {
+                    const saved = await systemApi.updateBrandProof(brandProof);
+                    setBrandProof(saved);
+                    toast.success("Startup details updated");
+                  } catch (err) {
+                    toast.error((err as Error).message);
+                  } finally {
+                    setBrandProofSaving(false);
+                  }
+                }}
+              >
+                <BrandProofInput
+                  label="Litres delivered"
+                  field="litresDelivered"
+                  value={brandProof}
+                  onChange={setBrandProof}
+                />
+                <BrandProofInput
+                  label="Happy clients"
+                  field="happyClients"
+                  value={brandProof}
+                  onChange={setBrandProof}
+                />
+                <BrandProofInput
+                  label="App rating"
+                  field="appRating"
+                  value={brandProof}
+                  onChange={setBrandProof}
+                />
+                <BrandProofInput
+                  label="Certification"
+                  field="certification"
+                  value={brandProof}
+                  onChange={setBrandProof}
+                />
+                <div className="sm:col-span-2 lg:col-span-4">
+                  <Button type="submit" disabled={brandProofSaving}>
+                    {brandProofSaving ? "Saving..." : "Save startup details"}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {isDeveloperAdmin && (
         <Card
@@ -223,6 +301,36 @@ function SettingsPage() {
           <SettingRow label="Attendance source" value="Thumb scanner and mobile GPS" />
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function BrandProofInput({
+  label,
+  field,
+  value,
+  onChange,
+}: {
+  label: string;
+  field: keyof typeof value;
+  value: {
+    litresDelivered: string;
+    happyClients: string;
+    appRating: string;
+    certification: string;
+  };
+  onChange: React.Dispatch<React.SetStateAction<typeof value>>;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={`brand-${field}`}>{label}</Label>
+      <Input
+        id={`brand-${field}`}
+        value={value[field]}
+        maxLength={field === "certification" ? 50 : 30}
+        required
+        onChange={(event) => onChange((current) => ({ ...current, [field]: event.target.value }))}
+      />
     </div>
   );
 }
