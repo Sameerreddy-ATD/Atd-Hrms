@@ -152,6 +152,7 @@ export const companyAssetSchema = z.object({
   purchaseValue: z.coerce.number().min(0).max(100_000_000),
   purchaseDate: z.coerce.date().nullable().optional(),
   assetType: z.enum(["PHYSICAL", "ONLINE"]).optional(),
+  assignmentScope: z.enum(["EMPLOYEE", "COMPANY"]).optional(),
   costFrequency: z.enum(["ONE_TIME", "MONTHLY", "YEARLY"]).optional(),
   renewalDate: z.coerce.date().nullable().optional(),
   status: z.enum(["AVAILABLE", "ASSIGNED", "UNDER_REPAIR", "RETIRED"]).optional(),

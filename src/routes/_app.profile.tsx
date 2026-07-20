@@ -178,7 +178,9 @@ function ProfilePage() {
                           <li
                             key={r.label}
                             className={
-                              r.ok ? "text-emerald-600 font-medium" : "text-muted-foreground"
+                              r.ok
+                                ? "text-emerald-600 dark:text-emerald-400 font-medium"
+                                : "text-muted-foreground"
                             }
                           >
                             {r.ok ? "✓" : "○"} {r.label}
@@ -188,7 +190,7 @@ function ProfilePage() {
                       <Button
                         type="submit"
                         disabled={pwSaving || !rules.every((r) => r.ok)}
-                        className="w-full text-xs py-1.5"
+                        className="w-full"
                       >
                         {pwSaving && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
                         Change Password

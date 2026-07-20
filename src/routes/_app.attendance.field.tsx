@@ -195,7 +195,7 @@ function FieldAttendancePage() {
                               href={`https://www.google.com/maps/dir/?api=1&origin=${r.fieldCheckInLatitude},${r.fieldCheckInLongitude}&destination=${r.fieldCheckOutLatitude},${r.fieldCheckOutLongitude}`}
                               target="_blank"
                               rel="noreferrer"
-                              className="text-xs text-emerald-600 font-semibold hover:underline"
+                              className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold hover:underline"
                               title="Click to view check-in to check-out route on Google Maps"
                             >
                               📏 {dist.toFixed(2)} km

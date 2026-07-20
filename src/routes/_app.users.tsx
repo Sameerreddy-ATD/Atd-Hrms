@@ -246,7 +246,7 @@ function UsersPage() {
       {loading && <LoadingState label="Loading user logins" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <TableToolbar>
-        <div className="relative min-w-0 flex-1">
+        <div className="relative min-w-52 flex-1">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="pl-8"
@@ -499,7 +499,7 @@ function UsersPage() {
               Deleting {deleteUser?.name}&apos;s account permanently removes all of their data from
               this website. This action cannot be undone.
             </AlertDialogDescription>
-            <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+            <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200">
               <p className="font-semibold">The following data will be deleted:</p>
               <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5 sm:text-sm">
                 <li>Login and employee profile</li>
@@ -605,14 +605,20 @@ function UsersPage() {
 function LoginStatus({ user }: { user: User }) {
   if (user.role === "developer_admin") {
     return (
-      <Badge variant="outline" className="shrink-0 border-red-200 bg-red-50 text-red-700">
+      <Badge
+        variant="outline"
+        className="shrink-0 border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400"
+      >
         Protected
       </Badge>
     );
   }
   if (user.status === "LOCKED") {
     return (
-      <Badge variant="outline" className="shrink-0 border-red-200 bg-red-50 text-red-700">
+      <Badge
+        variant="outline"
+        className="shrink-0 border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400"
+      >
         Blocked
       </Badge>
     );
@@ -623,7 +629,7 @@ function LoginStatus({ user }: { user: User }) {
     return (
       <Badge
         variant="outline"
-        className="max-w-44 shrink-0 whitespace-normal border-emerald-200 bg-emerald-50 text-center text-emerald-700"
+        className="max-w-44 shrink-0 whitespace-normal border-emerald-200 bg-emerald-50 text-center text-emerald-700 dark:text-emerald-400"
       >
         {scheduled
           ? `Suspends ${new Date(user.suspensionStartsAt!).toLocaleDateString("en-IN")}`
@@ -634,7 +640,7 @@ function LoginStatus({ user }: { user: User }) {
   return (
     <Badge
       variant="outline"
-      className="max-w-44 shrink-0 whitespace-normal border-slate-200 bg-slate-100 text-center text-slate-600"
+      className="max-w-44 shrink-0 whitespace-normal border-border bg-muted text-center text-muted-foreground"
     >
       {user.suspendedUntil && new Date(user.suspendedUntil).getTime() > Date.now()
         ? `Suspended until ${new Date(user.suspendedUntil).toLocaleDateString("en-IN")}`

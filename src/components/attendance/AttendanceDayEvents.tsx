@@ -143,7 +143,7 @@ export function AttendanceDayEvents({
             <div className="grid grid-cols-2 divide-x border-b bg-muted/25">
               <div className="min-w-0 px-3 py-3 sm:px-4">
                 <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                  <LogIn className="h-3.5 w-3.5 text-emerald-600" /> Punch in
+                  <LogIn className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> Punch in
                 </p>
                 <time className="mt-1 block text-sm font-semibold tabular-nums sm:text-base">
                   {formatTime(session.punchIn)}
@@ -151,7 +151,7 @@ export function AttendanceDayEvents({
               </div>
               <div className="min-w-0 px-3 py-3 sm:px-4">
                 <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                  <LogOut className="h-3.5 w-3.5 text-amber-600" /> Punch out
+                  <LogOut className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" /> Punch out
                 </p>
                 <time className="mt-1 block text-sm font-semibold tabular-nums sm:text-base">
                   {formatTime(session.punchOut)}

@@ -141,6 +141,7 @@ function SettingsPage() {
               size="icon"
               variant="outline"
               disabled={healthLoading}
+              aria-label="Refresh system health"
               onClick={() => {
                 setHealthLoading(true);
                 void refreshHealth();

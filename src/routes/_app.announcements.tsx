@@ -287,6 +287,13 @@ function AnnouncementsPage() {
               ? "There are no active company announcements."
               : `There are no ${filter} announcements.`
           }
+          action={
+            canManage && !showComposer ? (
+              <Button onClick={() => setShowComposer(true)}>
+                <Plus className="mr-2 h-4 w-4" /> New announcement
+              </Button>
+            ) : undefined
+          }
         />
       )}
 

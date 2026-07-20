@@ -30,6 +30,7 @@ import {
   Check,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { CommandPalette } from "@/components/layout/CommandPalette";
 import { ROLE_LABELS } from "@/mock/types";
 import { getTheme, setTheme, type Theme } from "@/lib/system-theme";
 import { notificationsApi } from "@/services/api";
@@ -50,6 +51,7 @@ export function AppHeader() {
   const { toggleSidebar } = useSidebar();
   const [activeTheme, setActiveTheme] = useState<Theme>("system");
   const [notificationCount, setNotificationCount] = useState(0);
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   useEffect(() => {
     setActiveTheme(getTheme());
@@ -118,6 +120,17 @@ export function AppHeader() {
 
       {/* Right: Quick Settings & User Menu */}
       <div className="flex items-center gap-1 shrink-0">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 rounded-full text-slate-600 dark:text-zinc-300 hover:bg-slate-200/50 dark:hover:bg-zinc-800/50"
+          aria-label="Search pages (Ctrl+K)"
+          title="Search pages (Ctrl+K)"
+          onClick={() => setPaletteOpen(true)}
+        >
+          <Search className="h-[20px] w-[20px]" />
+        </Button>
+
         <Button
           variant="ghost"
           size="icon"
@@ -245,6 +258,8 @@ export function AppHeader() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
     </header>
   );
 }

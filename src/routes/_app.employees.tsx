@@ -173,7 +173,7 @@ function EmployeesPage() {
       {loading && <LoadingState label="Loading employees" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <TableToolbar>
-        <div className="relative min-w-0 flex-1">
+        <div className="relative min-w-52 flex-1">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={q}
@@ -451,11 +451,11 @@ function EmployeesPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 sm:col-span-2">
-                  <p className="text-sm font-medium text-emerald-900">
+                <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900/50 dark:bg-emerald-950/30 sm:col-span-2">
+                  <p className="text-sm font-medium text-emerald-900 dark:text-emerald-200">
                     Flexible attendance enabled
                   </p>
-                  <p className="mt-1 text-xs leading-5 text-emerald-700">
+                  <p className="mt-1 text-xs leading-5 text-emerald-700 dark:text-emerald-400">
                     Every employee can use a biometric scanner or mobile location. A session started
                     on one method can be completed using the other.
                   </p>
@@ -482,7 +482,7 @@ function EmployeeAccountStatus({ employee }: { employee: User }) {
     return (
       <Badge
         variant="outline"
-        className="max-w-44 whitespace-normal border-amber-200 bg-amber-50 text-center text-amber-800"
+        className="max-w-44 whitespace-normal border-amber-200 bg-amber-50 text-center text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300"
       >
         Suspends {new Date(employee.suspensionStartsAt!).toLocaleDateString("en-IN")}
       </Badge>
@@ -490,7 +490,10 @@ function EmployeeAccountStatus({ employee }: { employee: User }) {
   }
   if (employee.accountStatus === "LOCKED") {
     return (
-      <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700">
+      <Badge
+        variant="outline"
+        className="border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400"
+      >
         Blocked
       </Badge>
     );
@@ -499,7 +502,7 @@ function EmployeeAccountStatus({ employee }: { employee: User }) {
     return (
       <Badge
         variant="outline"
-        className="max-w-44 whitespace-normal border-orange-200 bg-orange-50 text-center text-orange-800"
+        className="max-w-44 whitespace-normal border-orange-200 bg-orange-50 text-center text-orange-800 dark:border-orange-900/50 dark:bg-orange-950/40 dark:text-orange-300"
       >
         Suspended
         {employee.suspendedUntil
@@ -510,13 +513,16 @@ function EmployeeAccountStatus({ employee }: { employee: User }) {
   }
   if (employee.active) {
     return (
-      <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">
+      <Badge
+        variant="outline"
+        className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-400"
+      >
         Active
       </Badge>
     );
   }
   return (
-    <Badge variant="outline" className="border-slate-200 bg-slate-100 text-slate-600">
+    <Badge variant="outline" className="border-border bg-muted text-muted-foreground">
       Inactive
     </Badge>
   );

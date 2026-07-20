@@ -97,7 +97,8 @@ export function AttendanceTimelineSheet({
     if (source === "THUMB_SCANNER") {
       return {
         icon: Fingerprint,
-        bgClass: "bg-purple-100 border-purple-200 text-purple-700",
+        bgClass:
+          "bg-purple-100 border-purple-200 text-purple-700 dark:bg-purple-950/40 dark:border-purple-900/50 dark:text-purple-400",
         label: "Biometric Thumb Scanner",
       };
     }
@@ -105,7 +106,8 @@ export function AttendanceTimelineSheet({
     if (type.includes("CLIENT") || type.includes("FIELD")) {
       return {
         icon: MapPin,
-        bgClass: "bg-emerald-100 border-emerald-200 text-emerald-700",
+        bgClass:
+          "bg-emerald-100 border-emerald-200 text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-900/50 dark:text-emerald-400",
         label: event.branchName ? `Mobile - ${event.branchName}` : "Mobile",
       };
     }
@@ -113,14 +115,15 @@ export function AttendanceTimelineSheet({
     if (source === "MOBILE_GPS") {
       return {
         icon: MapPin,
-        bgClass: "bg-emerald-100 border-emerald-200 text-emerald-700",
+        bgClass:
+          "bg-emerald-100 border-emerald-200 text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-900/50 dark:text-emerald-400",
         label: "Mobile GPS check",
       };
     }
 
     return {
       icon: Clock,
-      bgClass: "bg-slate-100 border-slate-200 text-slate-700",
+      bgClass: "bg-muted border-border text-muted-foreground",
       label: "System trigger",
     };
   }
@@ -200,8 +203,8 @@ export function AttendanceTimelineSheet({
                                 variant="outline"
                                 className={
                                   movementDirectionLabel(event.type) === "In"
-                                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                    : "border-amber-200 bg-amber-50 text-amber-700"
+                                    ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-400"
+                                    : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-400"
                                 }
                               >
                                 {movementDirectionLabel(event.type)}

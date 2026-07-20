@@ -41,11 +41,11 @@ function IdCardPage() {
         description="Your official digital company identification."
       />
       <div className="mx-auto w-full max-w-lg print:max-w-md">
-        <Card className="overflow-hidden border-red-200 shadow-md print:shadow-none">
-          <div className="flex items-center justify-between border-b border-red-100 bg-red-50 px-5 py-3">
+        <Card className="overflow-hidden border-red-200 shadow-md dark:border-red-900/50 print:shadow-none">
+          <div className="flex items-center justify-between border-b border-red-100 bg-red-50 px-5 py-3 dark:border-red-900/40 dark:bg-red-950/30">
             <Logo className="h-8 w-auto" />
             <div className="text-right">
-              <span className="block text-xs font-semibold uppercase text-red-700">
+              <span className="block text-xs font-semibold uppercase text-red-700 dark:text-red-400">
                 Employee ID
               </span>
               <span className="text-[10px] text-muted-foreground">Employee Management System</span>
@@ -53,8 +53,8 @@ function IdCardPage() {
           </div>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <Avatar className="h-20 w-20 border-2 border-red-100">
-                <AvatarFallback className="bg-red-600 text-xl text-white">
+              <Avatar className="h-20 w-20 border-2 border-red-100 dark:border-red-900/40">
+                <AvatarFallback className="bg-red-600 text-xl text-white dark:bg-red-700">
                   {initials}
                 </AvatarFallback>
               </Avatar>
@@ -68,7 +68,7 @@ function IdCardPage() {
                 </p>
               </div>
             </div>
-            <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 border-y border-dashed py-4 text-sm sm:grid-cols-3">
+            <div className="mt-5 grid grid-cols-1 gap-x-4 gap-y-3 border-y border-dashed py-4 text-sm min-[400px]:grid-cols-2 sm:grid-cols-3">
               <Row label="Department" value={user.department ?? "-"} />
               <Row label="Role" value={ROLE_LABELS[user.role]} />
               <Row label="Organization level" value={formatLabel(user.organizationLevel)} />
@@ -77,7 +77,7 @@ function IdCardPage() {
               <Row label="Gender" value={formatLabel(user.gender)} />
               <Row label="Joining date" value={user.joiningDate ?? "-"} />
               <Row label="Phone" value={user.phone ?? "-"} />
-              <div className="col-span-2 sm:col-span-3">
+              <div className="min-[400px]:col-span-2 sm:col-span-3">
                 <Row label="Email" value={user.email} />
               </div>
             </div>
@@ -96,8 +96,8 @@ function IdCardPage() {
                 />
               </a>
               <span className="mt-2 flex items-center gap-1 text-[10px] font-semibold uppercase text-muted-foreground">
-                <ShieldCheck className="h-3 w-3 text-emerald-600" /> Scan to verify active
-                employment
+                <ShieldCheck className="h-3 w-3 text-emerald-600 dark:text-emerald-400" /> Scan to
+                verify active employment
               </span>
             </div>
           </CardContent>

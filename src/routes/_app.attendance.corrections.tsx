@@ -206,7 +206,76 @@ function AttendanceCorrectionsPage() {
         <TabsContent value="requests" className="mt-4">
           {loadingReqs && <LoadingState label="Loading pending requests" compact />}
 
-          <div className="overflow-hidden rounded-lg border border-border bg-card">
+          {/* Mobile: card list with inline approve/reject */}
+          <div className="space-y-3 md:hidden">
+            {pendingRequests.map((req) => (
+              <div key={req.id} className="rounded-lg border border-border bg-card p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{req.employeeName}</p>
+                    <p className="text-xs text-muted-foreground">{req.employeeId}</p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                    {punchTypeLabel(req.eventType)}
+                  </span>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Requested date</p>
+                    <p className="font-medium">{req.date}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Punch time</p>
+                    <p className="font-medium">
+                      {new Date(req.punchTime).toLocaleTimeString("en-IN", {
+                        timeZone: "Asia/Kolkata",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+                </div>
+                {req.remarks && (
+                  <p className="mt-2 break-words text-sm text-muted-foreground">{req.remarks}</p>
+                )}
+                <div className="mt-3 space-y-2">
+                  {req.canReview && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        className="bg-emerald-600 text-white hover:bg-emerald-700"
+                        disabled={actionId === req.id}
+                        onClick={() => handleApprove(req.id)}
+                      >
+                        <Check className="mr-1 h-4 w-4" /> Approve
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        disabled={actionId === req.id}
+                        onClick={() => handleReject(req.id)}
+                      >
+                        <X className="mr-1 h-4 w-4" /> Reject
+                      </Button>
+                    </div>
+                  )}
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => openDayLogs(req.employeeId, req.employeeName, req.date)}
+                  >
+                    Open Day Logs <ArrowRight className="ml-1.5 h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+            {!loadingReqs && pendingRequests.length === 0 && (
+              <EmptyState
+                title="No pending requests"
+                description="There are no punch requests waiting for your review."
+              />
+            )}
+          </div>
+
+          <div className="hidden overflow-hidden rounded-lg border border-border bg-card md:block">
             <div className="overflow-x-auto">
               <Table className="min-w-[800px]">
                 <TableHeader>

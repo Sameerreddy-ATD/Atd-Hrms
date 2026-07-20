@@ -42,6 +42,7 @@ import type {
 import { assetsApi, branchesApi, employeesApi } from "@/services/api";
 import {
   IndianRupee,
+  Building2,
   CalendarClock,
   Globe2,
   Package,
@@ -63,6 +64,7 @@ const EMPTY_ASSET_FORM = {
   purchaseValue: "",
   purchaseDate: "",
   assetType: "PHYSICAL" as CompanyAsset["assetType"],
+  assignmentScope: "EMPLOYEE" as CompanyAsset["assignmentScope"],
   costFrequency: "ONE_TIME" as CompanyAsset["costFrequency"],
   renewalDate: "",
   branchId: "",
@@ -137,7 +139,13 @@ function AssetsPage() {
   }, []);
 
   const availableAssets = useMemo(
-    () => assets.filter((asset) => asset.status === "AVAILABLE" && !asset.assignedEmployeeId),
+    () =>
+      assets.filter(
+        (asset) =>
+          asset.assignmentScope === "EMPLOYEE" &&
+          asset.status === "AVAILABLE" &&
+          !asset.assignedEmployeeId,
+      ),
     [assets],
   );
 
@@ -170,6 +178,7 @@ function AssetsPage() {
       value: assets.reduce((sum, asset) => sum + asset.purchaseValue, 0),
       physical: assets.filter((asset) => asset.assetType === "PHYSICAL").length,
       online: assets.filter((asset) => asset.assetType === "ONLINE").length,
+      companyUse: assets.filter((asset) => asset.assignmentScope === "COMPANY").length,
       monthlyRecurring: assets.reduce((sum, asset) => sum + asset.monthlyEquivalent, 0),
       annualRecurring: assets.reduce((sum, asset) => sum + asset.annualRecurring, 0),
     }),
@@ -192,6 +201,7 @@ function AssetsPage() {
       purchaseValue: String(asset.purchaseValue),
       purchaseDate: asset.purchaseDate ?? "",
       assetType: asset.assetType,
+      assignmentScope: asset.assignmentScope,
       costFrequency: asset.costFrequency,
       renewalDate: asset.renewalDate ?? "",
       branchId: asset.branchId ?? "",
@@ -224,6 +234,7 @@ function AssetsPage() {
         purchaseValue: Number(assetForm.purchaseValue),
         purchaseDate: assetForm.purchaseDate || null,
         assetType: assetForm.assetType,
+        assignmentScope: assetForm.assignmentScope,
         costFrequency: assetForm.costFrequency,
         renewalDate: assetForm.costFrequency === "ONE_TIME" ? null : assetForm.renewalDate || null,
         branchId: assetForm.assetType === "ONLINE" ? null : assetForm.branchId || null,
@@ -333,7 +344,7 @@ function AssetsPage() {
     <div>
       <PageHeader
         title="Asset Management"
-        description="Track physical and online assets, recurring costs, and investment by employee. Visible only to HR."
+        description="Track employee-assigned physical and online assets, plus shared company assets such as furniture and fixtures."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant="outline" onClick={openAddAsset}>
@@ -349,6 +360,7 @@ function AssetsPage() {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Physical assets" value={totals.physical} icon={Package} />
         <MetricCard label="Online assets" value={totals.online} icon={Globe2} />
+        <MetricCard label="Company-use assets" value={totals.companyUse} icon={Building2} />
         <MetricCard
           label="Monthly recurring"
           value={formatCurrency(totals.monthlyRecurring)}
@@ -453,8 +465,8 @@ function AssetsPage() {
       </section>
 
       <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+        <div className="relative min-w-52 flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="pl-9"
             placeholder="Search asset ID, name, serial number, or employee..."
@@ -504,6 +516,9 @@ function AssetsPage() {
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <AssetTypeBadge type={asset.assetType} />
+                    {asset.assignmentScope === "COMPANY" && (
+                      <Badge variant="outline">Company use</Badge>
+                    )}
                     {asset.assetType === "PHYSICAL" && <AssetStatus status={asset.status} />}
                   </div>
                 </div>
@@ -521,7 +536,9 @@ function AssetsPage() {
                   <div className="col-span-2">
                     <p className="text-muted-foreground">Assigned to</p>
                     <p className="mt-0.5 break-words">
-                      {asset.assignedEmployeeName ?? "Not assigned"}
+                      {asset.assignmentScope === "COMPANY"
+                        ? "Shared company asset"
+                        : (asset.assignedEmployeeName ?? "Not assigned")}
                     </p>
                   </div>
                   {asset.costFrequency !== "ONE_TIME" && (
@@ -595,7 +612,9 @@ function AssetsPage() {
                       {asset.assetType === "ONLINE" ? "Not applicable" : (asset.branchName ?? "-")}
                     </TableCell>
                     <TableCell>
-                      {asset.assignedEmployeeName ? (
+                      {asset.assignmentScope === "COMPANY" ? (
+                        <span className="text-muted-foreground">Company use</span>
+                      ) : asset.assignedEmployeeName ? (
                         <div>
                           <div className="font-medium">{asset.assignedEmployeeName}</div>
                           <div className="text-xs text-muted-foreground">
@@ -695,6 +714,26 @@ function AssetsPage() {
             <DialogTitle>{editingAsset ? "Edit Asset" : "Add Asset"}</DialogTitle>
           </DialogHeader>
           <form className="grid gap-4 sm:grid-cols-2" onSubmit={saveAsset}>
+            <FormField label="Asset use">
+              <Select
+                value={assetForm.assignmentScope}
+                onValueChange={(value) =>
+                  setAssetForm({
+                    ...assetForm,
+                    assignmentScope: value as CompanyAsset["assignmentScope"],
+                    status: value === "COMPANY" ? "AVAILABLE" : assetForm.status,
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="EMPLOYEE">Assigned to employee</SelectItem>
+                  <SelectItem value="COMPANY">Company use (not assignable)</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
             <FormField label="Asset type">
               <Select
                 value={assetForm.assetType}
@@ -1092,12 +1131,12 @@ function ChecklistItem({
 function AssetStatus({ status }: { status: CompanyAsset["status"] }) {
   const classes =
     status === "AVAILABLE"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-400"
       : status === "ASSIGNED"
-        ? "border-blue-200 bg-blue-50 text-blue-700"
+        ? "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/40 dark:text-blue-400"
         : status === "UNDER_REPAIR"
-          ? "border-amber-200 bg-amber-50 text-amber-700"
-          : "border-slate-200 bg-slate-100 text-slate-600";
+          ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-400"
+          : "border-border bg-muted text-muted-foreground";
   return (
     <Badge variant="outline" className={classes}>
       {status.replaceAll("_", " ")}

@@ -1571,10 +1571,14 @@ export function createApp() {
         throw new HttpError(400, "Select an active item from Asset Catalog");
       }
       const assetType = body.assetType ?? "PHYSICAL";
+      const assignmentScope = body.assignmentScope ?? "EMPLOYEE";
       const catalogType =
         catalogItem?.category === "Company Asset" ? "PHYSICAL" : catalogItem?.category;
       if (catalogType && catalogType !== assetType) {
         throw new HttpError(400, "Asset name does not match the selected asset type");
+      }
+      if (assignmentScope === "COMPANY" && body.assignedEmployeeId) {
+        throw new HttpError(400, "Company-use assets cannot be assigned to an employee");
       }
       if (body.assignedEmployeeId) {
         const employee = await prisma.employee.findFirst({
@@ -1588,9 +1592,11 @@ export function createApp() {
           assetCode: body.assetCode ?? `ATD-ONL-${randomUUID().slice(0, 8).toUpperCase()}`,
           name: catalogItem?.name ?? body.name,
           category: assetType,
+          assignmentScope,
           catalogId: body.catalogId || null,
           serialNumber: body.serialNumber || null,
-          assignedEmployeeId: body.assignedEmployeeId || null,
+          assignedEmployeeId:
+            assignmentScope === "COMPANY" ? null : body.assignedEmployeeId || null,
           branchId: body.assetType === "ONLINE" ? null : body.branchId || null,
           status:
             body.assetType === "ONLINE"
@@ -1640,6 +1646,10 @@ export function createApp() {
       const existing = await prisma.companyAsset.findUniqueOrThrow({
         where: { assetId: String(req.params.id) },
       });
+      const nextAssignmentScope = body.assignmentScope ?? existing.assignmentScope;
+      if (nextAssignmentScope === "COMPANY" && body.assignedEmployeeId) {
+        throw new HttpError(400, "Company-use assets cannot be assigned to an employee");
+      }
       const asset = await prisma.companyAsset.update({
         where: { assetId: existing.assetId },
         data: {
@@ -1648,7 +1658,11 @@ export function createApp() {
           category: catalogItem?.category,
           serialNumber: body.serialNumber === undefined ? undefined : body.serialNumber || null,
           assignedEmployeeId:
-            body.assignedEmployeeId === undefined ? undefined : body.assignedEmployeeId || null,
+            nextAssignmentScope === "COMPANY"
+              ? null
+              : body.assignedEmployeeId === undefined
+                ? undefined
+                : body.assignedEmployeeId || null,
           branchId:
             body.assetType === "ONLINE"
               ? null
@@ -1661,11 +1675,13 @@ export function createApp() {
                 ? "ASSIGNED"
                 : "AVAILABLE"
               : body.status) ??
-            (body.assignedEmployeeId === undefined
-              ? undefined
-              : body.assignedEmployeeId
-                ? "ASSIGNED"
-                : "AVAILABLE"),
+            (nextAssignmentScope === "COMPANY"
+              ? "AVAILABLE"
+              : body.assignedEmployeeId === undefined
+                ? undefined
+                : body.assignedEmployeeId
+                  ? "ASSIGNED"
+                  : "AVAILABLE"),
         },
         include: { assignedEmployee: true, branch: true },
       });
@@ -3216,17 +3232,56 @@ export function createApp() {
     "/weekly-offs",
     requireAuth,
     asyncHandler(async (req, res) => {
-      if (!req.user!.employeeId) return res.json([]);
       const assigned = req.query.assignedApprovals === "true";
+      const all = req.query.all === "true";
+      const canViewAll = ([Role.HR, Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN] as Role[]).includes(
+        req.user!.role,
+      );
+      if (all && !canViewAll) throw new HttpError(403, "HR or admin access is required");
+      if (!all && !req.user!.employeeId) return res.json([]);
+      const employeeId = req.user!.employeeId!;
       const rows = await prisma.weeklyOffRequest.findMany({
-        where: assigned
-          ? { approverId: req.user!.employeeId }
-          : { employeeId: req.user!.employeeId },
+        where: all ? {} : assigned ? { approverId: employeeId } : { employeeId },
         include: { employee: { select: { name: true, employeeCode: true } } },
         orderBy: { date: "desc" },
         take: 100,
       });
       res.json(rows.map(weeklyOffRequestDto));
+    }),
+  );
+
+  app.post(
+    "/weekly-offs/:id/cancel",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      if (!req.user!.employeeId) throw new HttpError(400, "No employee profile");
+      const existing = await prisma.weeklyOffRequest.findUniqueOrThrow({
+        where: { weeklyOffRequestId: String(req.params.id) },
+      });
+      if (existing.employeeId !== req.user!.employeeId) {
+        throw new HttpError(403, "You can cancel only your own weekly-off request");
+      }
+      if (!["PENDING", "APPROVED"].includes(existing.status)) {
+        throw new HttpError(400, "Only a pending or approved weekly off can be cancelled");
+      }
+      if (existing.date < todayIstDate()) {
+        throw new HttpError(400, "A past weekly off cannot be cancelled");
+      }
+      const row = await prisma.weeklyOffRequest.update({
+        where: { weeklyOffRequestId: existing.weeklyOffRequestId },
+        data: { status: "CANCELLED" },
+        include: { employee: { select: { name: true, employeeCode: true } } },
+      });
+      await recalculateDailySummary(row.employeeId, row.date);
+      await audit({
+        action: "weekly off cancelled",
+        performedByUserId: req.user!.id,
+        oldValue: { status: existing.status, date: existing.date },
+        newValue: { status: row.status },
+        ipAddress: req.ip,
+      });
+      publishNotificationChange("weekly-off-cancelled", row.weeklyOffRequestId);
+      res.json(weeklyOffRequestDto(row));
     }),
   );
 
@@ -3252,7 +3307,7 @@ export function createApp() {
           employeeId_weekStart: { employeeId: req.user!.employeeId, weekStart },
         },
       });
-      if (existingForWeek && existingForWeek.status !== "REJECTED") {
+      if (existingForWeek && !["REJECTED", "CANCELLED"].includes(existingForWeek.status)) {
         throw new HttpError(400, "Only one weekly-off request is allowed in a Monday-Sunday week");
       }
       const row = await prisma.weeklyOffRequest.upsert({

@@ -127,6 +127,19 @@ function ApplyLeavePage() {
     }
   }
 
+  async function cancelWeeklyOff(id: string) {
+    setWeeklyOffSaving(true);
+    try {
+      const updated = await leaveApi.cancelWeeklyOff(id);
+      setWeeklyOffs((current) => current.map((item) => (item.id === id ? updated : item)));
+      toast.success("Weekly off cancelled and attendance updated");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setWeeklyOffSaving(false);
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -303,12 +316,25 @@ function ApplyLeavePage() {
               {weeklyOffs.slice(0, 6).map((request) => (
                 <div
                   key={request.id}
-                  className="flex items-center justify-between rounded-md border p-3 text-sm"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm"
                 >
                   <span className="font-medium">{request.date}</span>
-                  <span className="text-xs font-semibold text-muted-foreground">
-                    {request.status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-muted-foreground">
+                      {request.status}
+                    </span>
+                    {(request.status === "PENDING" || request.status === "APPROVED") && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={weeklyOffSaving}
+                        onClick={() => void cancelWeeklyOff(request.id)}
+                      >
+                        Cancel
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

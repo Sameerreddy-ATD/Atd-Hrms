@@ -54,10 +54,12 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
 };
 
 const PRIORITY_STYLES: Record<TaskPriority, string> = {
-  LOW: "border-slate-200 bg-slate-50 text-slate-700",
-  MEDIUM: "border-blue-200 bg-blue-50 text-blue-700",
-  HIGH: "border-amber-200 bg-amber-50 text-amber-700",
-  URGENT: "border-red-200 bg-red-50 text-red-700",
+  LOW: "border-border bg-muted text-muted-foreground",
+  MEDIUM:
+    "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/40 dark:text-blue-400",
+  HIGH: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-400",
+  URGENT:
+    "border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400",
 };
 
 const EMPTY_FORM = {
@@ -221,10 +223,30 @@ function TasksPage() {
     icon: typeof ListTodo;
     color: string;
   }> = [
-    { label: "Active", value: counts.active, icon: ListTodo, color: "text-blue-600" },
-    { label: "Overdue", value: counts.overdue, icon: Clock3, color: "text-red-600" },
-    { label: "In review", value: counts.review, icon: MessageSquareText, color: "text-amber-600" },
-    { label: "Completed", value: counts.completed, icon: CheckCircle2, color: "text-emerald-600" },
+    {
+      label: "Active",
+      value: counts.active,
+      icon: ListTodo,
+      color: "text-blue-600 dark:text-blue-400",
+    },
+    {
+      label: "Overdue",
+      value: counts.overdue,
+      icon: Clock3,
+      color: "text-red-600 dark:text-red-400",
+    },
+    {
+      label: "In review",
+      value: counts.review,
+      icon: MessageSquareText,
+      color: "text-amber-600 dark:text-amber-400",
+    },
+    {
+      label: "Completed",
+      value: counts.completed,
+      icon: CheckCircle2,
+      color: "text-emerald-600 dark:text-emerald-400",
+    },
   ];
 
   return (
@@ -255,14 +277,14 @@ function TasksPage() {
         ))}
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <Tabs value={scope} onValueChange={(value) => setScope(value as "mine" | "team")}>
           <TabsList className="grid w-full grid-cols-2 sm:w-[260px]">
             <TabsTrigger value="mine">My tasks</TabsTrigger>
             <TabsTrigger value="team">Team tasks</TabsTrigger>
           </TabsList>
         </Tabs>
-        <div className="flex flex-col gap-2 min-[420px]:flex-row">
+        <div className="flex min-w-0 flex-col gap-2 min-[420px]:flex-row">
           <div className="relative min-w-0 flex-1 sm:w-64">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -291,7 +313,7 @@ function TasksPage() {
 
       {loading && <LoadingState label="Loading tasks" />}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400">
           {error}
         </div>
       )}
@@ -315,7 +337,7 @@ function TasksPage() {
             <button
               key={task.id}
               onClick={() => openTask(task)}
-              className="rounded-lg border bg-card p-4 text-left shadow-sm transition hover:border-blue-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="rounded-lg border bg-card p-4 text-left shadow-sm transition hover:border-blue-300 dark:hover:border-blue-800 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -353,7 +375,10 @@ function TasksPage() {
               </div>
               <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                 <span
-                  className={cn("flex items-center gap-1", overdue && "font-medium text-red-600")}
+                  className={cn(
+                    "flex items-center gap-1",
+                    overdue && "font-medium text-red-600 dark:text-red-400",
+                  )}
                 >
                   <CalendarDays className="h-3.5 w-3.5" />
                   {task.dueDate
@@ -601,7 +626,10 @@ function TasksPage() {
                   </p>
                 )}
                 {selected.updates.map((entry) => (
-                  <div key={entry.id} className="border-l-2 border-blue-200 pl-3">
+                  <div
+                    key={entry.id}
+                    className="border-l-2 border-blue-200 dark:border-blue-800 pl-3"
+                  >
                     <div className="flex flex-wrap items-center justify-between gap-1">
                       <p className="text-sm font-medium">{entry.authorName}</p>
                       <time className="text-xs text-muted-foreground">

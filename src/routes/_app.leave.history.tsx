@@ -225,7 +225,7 @@ function MedicalDocumentCard({
   }
 
   return (
-    <Card className="border-amber-200">
+    <Card className="border-amber-200 dark:border-amber-900/50">
       <CardContent className="p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -234,11 +234,11 @@ function MedicalDocumentCard({
               {leave.from} to {leave.to}
             </p>
           </div>
-          <div className="rounded-md bg-amber-50 px-3 py-2 text-right">
-            <p className="flex items-center gap-1 text-xs font-medium text-amber-800">
+          <div className="rounded-md bg-amber-50 px-3 py-2 dark:bg-amber-950/30 text-right">
+            <p className="flex items-center gap-1 text-xs font-medium text-amber-800 dark:text-amber-300">
               <Clock3 className="h-3.5 w-3.5" /> Time remaining
             </p>
-            <p className="mt-0.5 font-mono text-sm font-semibold tabular-nums text-amber-950">
+            <p className="mt-0.5 font-mono text-sm font-semibold tabular-nums text-amber-950 dark:text-amber-200">
               {remaining ? `${days}d ${hours}h ${minutes}m ${seconds}s` : "Deadline passed"}
             </p>
           </div>

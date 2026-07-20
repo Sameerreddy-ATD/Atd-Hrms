@@ -41,7 +41,7 @@ function ForgotPasswordPage() {
             Enter your work email. HR will receive a request notification if the account is locked.
           </p>
           {sent ? (
-            <div className="mt-6 rounded-md border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+            <div className="mt-6 break-words rounded-md border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
               A password reset link has been sent to <b>{email}</b> if that account exists. Please
               check your inbox.
             </div>

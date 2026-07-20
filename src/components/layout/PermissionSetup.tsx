@@ -85,7 +85,7 @@ export function PermissionSetup() {
         </DialogHeader>
 
         {insecure && (
-          <div className="flex gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <div className="flex gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
             <LockKeyhole className="mt-0.5 h-5 w-5 shrink-0" />
             <p>
               Open the installed app using your HTTPS domain. Mobile browsers block reliable
@@ -108,7 +108,7 @@ export function PermissionSetup() {
               </p>
             </div>
             {location === "granted" ? (
-              <Check className="h-5 w-5 text-emerald-600" />
+              <Check className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             ) : (
               <Button
                 size="sm"
@@ -144,7 +144,7 @@ export function PermissionSetup() {
               </p>
             </div>
             {notifications === "granted" ? (
-              <Check className="h-5 w-5 text-emerald-600" />
+              <Check className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             ) : (
               <Button
                 size="sm"
@@ -169,7 +169,7 @@ export function PermissionSetup() {
         </div>
 
         {blocked && (
-          <p className="text-sm text-amber-700">
+          <p className="text-sm text-amber-700 dark:text-amber-400">
             A blocked permission cannot show the Allow/Block popup again. Open this app's site
             settings on your phone, enable the permission, then return here.
           </p>

@@ -598,7 +598,9 @@ export function BulkEmployeeImport({
                 <span>{rows.length} employee rows found</span>
                 <span
                   className={
-                    invalidCount ? "font-medium text-destructive" : "font-medium text-emerald-700"
+                    invalidCount
+                      ? "font-medium text-destructive"
+                      : "font-medium text-emerald-700 dark:text-emerald-400"
                   }
                 >
                   {invalidCount ? `${invalidCount} rows need correction` : "Ready to import"}
@@ -634,7 +636,7 @@ export function BulkEmployeeImport({
                           {row.errors.length ? (
                             <span className="text-destructive">{row.errors.join("; ")}</span>
                           ) : (
-                            <span className="text-emerald-700">Valid</span>
+                            <span className="text-emerald-700 dark:text-emerald-400">Valid</span>
                           )}
                         </td>
                       </tr>

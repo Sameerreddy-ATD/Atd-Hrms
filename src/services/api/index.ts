@@ -290,9 +290,9 @@ export const leaveApi = {
       method: "PATCH",
       body: JSON.stringify({ adjustment, reason }),
     }),
-  weeklyOffs: (assignedApprovals = false) =>
+  weeklyOffs: (assignedApprovals = false, all = false) =>
     request<import("@/mock/types").WeeklyOffRequest[]>(
-      `/weekly-offs${assignedApprovals ? "?assignedApprovals=true" : ""}`,
+      `/weekly-offs${toQuery({ assignedApprovals: assignedApprovals ? "true" : undefined, all: all ? "true" : undefined })}`,
     ),
   requestWeeklyOff: (date: string, reason?: string) =>
     request<import("@/mock/types").WeeklyOffRequest>("/weekly-offs", {
@@ -305,6 +305,10 @@ export const leaveApi = {
     }),
   rejectWeeklyOff: (id: string) =>
     request<import("@/mock/types").WeeklyOffRequest>(`/weekly-offs/${id}/reject`, {
+      method: "POST",
+    }),
+  cancelWeeklyOff: (id: string) =>
+    request<import("@/mock/types").WeeklyOffRequest>(`/weekly-offs/${id}/cancel`, {
       method: "POST",
     }),
 };

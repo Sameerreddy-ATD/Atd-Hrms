@@ -48,22 +48,19 @@ export function AppSidebar() {
       collapsible="icon"
       className="border-r border-slate-200/20 dark:border-zinc-900/30 bg-[#F6F8FC]/40 dark:bg-zinc-950/40 backdrop-blur-md"
     >
-      {/* Header containing the Company Logo - Hidden on mobile screens */}
-      {!isMobile && (
-        <SidebarHeader className="bg-transparent border-b-0 pt-4 pb-2 px-3 flex justify-start items-center w-full min-h-[48px]">
-          {collapsed ? (
-            <img src="/atd-favicon.png" alt="ATD" className="h-8 w-8 object-contain mx-auto" />
-          ) : (
-            <Logo className="h-9 w-auto px-1" />
-          )}
-        </SidebarHeader>
-      )}
+      <SidebarHeader className="bg-transparent border-b-0 pt-4 pb-2 px-3 flex justify-start items-center w-full min-h-[48px]">
+        {collapsed && !isMobile ? (
+          <img src="/atd-favicon.png" alt="ATD" className="h-8 w-8 object-contain mx-auto" />
+        ) : (
+          <Logo className="h-9 w-auto px-1" />
+        )}
+      </SidebarHeader>
 
       <SidebarContent className="bg-transparent py-2">
         {groups.map((group) => (
           <SidebarGroup key={group.label} className="px-2 py-1">
             {!collapsed && (
-              <SidebarGroupLabel className="h-7 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+              <SidebarGroupLabel className="h-7 px-3 text-[11px] font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
                 {group.label}
               </SidebarGroupLabel>
             )}

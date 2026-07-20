@@ -352,6 +352,7 @@ export function companyAssetDto(
     purchaseValue: Number(asset.purchaseValue),
     purchaseDate: asset.purchaseDate?.toISOString().slice(0, 10),
     assetType: asset.assetType,
+    assignmentScope: asset.assignmentScope,
     costFrequency: asset.costFrequency,
     renewalDate: asset.renewalDate?.toISOString().slice(0, 10),
     monthlyEquivalent:

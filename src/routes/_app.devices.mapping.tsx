@@ -211,7 +211,7 @@ function DeviceMappingPage() {
                   </p>
                 </div>
                 <span
-                  className={`rounded-full px-2 py-1 text-xs font-medium ${mapping.status === "ACTIVE" ? "bg-emerald-50 text-emerald-700" : "bg-muted text-muted-foreground"}`}
+                  className={`rounded-full px-2 py-1 text-xs font-medium ${mapping.status === "ACTIVE" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}
                 >
                   {mapping.status}
                 </span>

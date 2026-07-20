@@ -45,6 +45,7 @@ function LeaveApprovalsPage() {
   const [error, setError] = useState("");
   const [accessChecked, setAccessChecked] = useState(false);
   const [canApprove, setCanApprove] = useState(false);
+  const canOversee = ["hr", "developer_admin", "main_admin"].includes(user?.role ?? "");
 
   useEffect(() => {
     if (!user) return;
@@ -53,23 +54,23 @@ function LeaveApprovalsPage() {
       .then((result) => {
         setCanApprove(result.isReportingManager);
         setAccessChecked(true);
-        if (!result.isReportingManager) {
+        if (!result.isReportingManager && !canOversee) {
           void navigate({ to: "/dashboard", replace: true });
         }
       })
       .catch(() => {
         setAccessChecked(true);
         setCanApprove(false);
-        void navigate({ to: "/dashboard", replace: true });
+        if (!canOversee) void navigate({ to: "/dashboard", replace: true });
       });
-  }, [navigate, user]);
+  }, [canOversee, navigate, user]);
 
   useEffect(() => {
-    if (!canApprove) return;
+    if (!canApprove && !canOversee) return;
     Promise.all([
-      leaveApi.assignedApprovals("PENDING"),
-      leaveApi.assignedApprovals(),
-      leaveApi.weeklyOffs(true),
+      canApprove ? leaveApi.assignedApprovals("PENDING") : Promise.resolve([]),
+      canApprove ? leaveApi.assignedApprovals() : Promise.resolve([]),
+      leaveApi.weeklyOffs(canApprove, canOversee),
     ])
       .then(([pending, all, weeklyRows]) => {
         setRows(pending);
@@ -78,7 +79,7 @@ function LeaveApprovalsPage() {
       })
       .catch((err) => setError((err as Error).message))
       .finally(() => setLoading(false));
-  }, [canApprove]);
+  }, [canApprove, canOversee]);
 
   async function apply() {
     if (!confirm) return;
@@ -102,7 +103,7 @@ function LeaveApprovalsPage() {
     }
   }
 
-  if (!accessChecked || !canApprove) {
+  if (!accessChecked || (!canApprove && !canOversee)) {
     return (
       <div className="text-sm text-muted-foreground">Checking organization approval access...</div>
     );
@@ -112,7 +113,11 @@ function LeaveApprovalsPage() {
     <div>
       <PageHeader
         title="Leave Approvals"
-        description="Approve or reject leave assigned directly to you as the employee's organization head."
+        description={
+          canApprove
+            ? "Approve or reject requests assigned directly to you as the employee's organization head."
+            : "Monitor weekly-off requests across the organization. Approval remains with each employee's direct head."
+        }
       />
       {loading && <LoadingState label="Loading leave approvals" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
@@ -135,12 +140,14 @@ function LeaveApprovalsPage() {
                   <p className="mt-3 text-xs text-muted-foreground">
                     One weekly off per Monday-Sunday week. Consecutive weekly-off dates are blocked.
                   </p>
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    <Button variant="outline" onClick={() => reviewWeeklyOff(request.id, false)}>
-                      Reject
-                    </Button>
-                    <Button onClick={() => reviewWeeklyOff(request.id, true)}>Approve</Button>
-                  </div>
+                  {request.approverId === user?.employeeId && (
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <Button variant="outline" onClick={() => reviewWeeklyOff(request.id, false)}>
+                        Reject
+                      </Button>
+                      <Button onClick={() => reviewWeeklyOff(request.id, true)}>Approve</Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
@@ -149,6 +156,29 @@ function LeaveApprovalsPage() {
           <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
             No weekly-off requests are waiting for approval.
           </p>
+        )}
+        {weeklyOffs.some((request) => request.status !== "PENDING") && (
+          <div className="mt-5">
+            <h3 className="mb-2 text-sm font-semibold">Weekly-off history</h3>
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {weeklyOffs
+                .filter((request) => request.status !== "PENDING")
+                .map((request) => (
+                  <div
+                    key={request.id}
+                    className="flex items-start justify-between gap-3 rounded-md border bg-background p-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{request.employeeName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {request.employeeCode} · {request.date}
+                      </p>
+                    </div>
+                    <StatusBadge status={request.status} />
+                  </div>
+                ))}
+            </div>
+          </div>
         )}
       </section>
       <h2 className="mb-3 text-base font-semibold">Pending approvals</h2>
@@ -208,7 +238,9 @@ function LeaveApprovalsPage() {
                       Open shared report
                     </a>
                   ) : (
-                    <p className="font-medium text-amber-700">Awaiting employee link</p>
+                    <p className="font-medium text-amber-700 dark:text-amber-400">
+                      Awaiting employee link
+                    </p>
                   )}
                 </div>
               )}

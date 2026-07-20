@@ -101,7 +101,12 @@ function FirstLoginPage() {
             </div>
             <ul className="space-y-1 text-xs">
               {rules.map((r) => (
-                <li key={r.label} className={r.ok ? "text-emerald-600" : "text-muted-foreground"}>
+                <li
+                  key={r.label}
+                  className={
+                    r.ok ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
+                  }
+                >
                   {r.ok ? "✓" : "○"} {r.label}
                 </li>
               ))}

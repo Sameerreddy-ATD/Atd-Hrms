@@ -95,7 +95,7 @@ function VerifyIdCardPage() {
           </span>
         </div>
 
-        <CardContent className="p-8">
+        <CardContent className="p-6 sm:p-8">
           <div className="flex flex-col items-center text-center">
             <div className="relative">
               <Avatar className="h-20 w-20 border-2 border-emerald-500/30">
@@ -113,10 +113,12 @@ function VerifyIdCardPage() {
             <p className="mt-1 font-mono text-xs text-slate-400">ID: {data.employeeCode}</p>
           </div>
 
-          <div className="mt-8 grid grid-cols-2 gap-4 border-t border-slate-800 pt-6 text-sm">
+          <div className="mt-8 grid grid-cols-1 gap-4 border-t border-slate-800 pt-6 text-sm min-[420px]:grid-cols-2">
             <Row label="Department" value={data.department} />
             <Row label="Branch" value={data.branch} />
-            <Row label="Email" value={data.email} />
+            <div className="min-[420px]:col-span-2">
+              <Row label="Email" value={data.email} />
+            </div>
             <Row label="Status" value={data.status === "ACTIVE" ? "Active" : data.status} />
           </div>
 
@@ -134,7 +136,7 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">{label}</p>
-      <p className="mt-0.5 text-slate-200 truncate font-medium">{value}</p>
+      <p className="mt-0.5 break-words text-slate-200 font-medium">{value}</p>
     </div>
   );
 }

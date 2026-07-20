@@ -16,18 +16,20 @@ export function StatCard({
 }) {
   const toneMap: Record<string, string> = {
     default: "text-foreground",
-    success: "text-emerald-600",
-    warning: "text-amber-600",
-    danger: "text-red-600",
-    info: "text-blue-600",
+    success: "text-emerald-600 dark:text-emerald-400",
+    warning: "text-amber-600 dark:text-amber-400",
+    danger: "text-red-600 dark:text-red-400",
+    info: "text-blue-600 dark:text-blue-400",
   };
   return (
     <Card className="border-border shadow-sm">
-      <CardContent className="p-4">
+      <CardContent className="p-3 sm:p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase text-muted-foreground">{label}</p>
-            <p className={`mt-1.5 text-2xl font-semibold ${toneMap[tone]}`}>{value}</p>
+            <p className="truncate text-[11px] font-semibold uppercase text-muted-foreground">
+              {label}
+            </p>
+            <p className={`mt-1.5 text-xl font-semibold sm:text-2xl ${toneMap[tone]}`}>{value}</p>
             {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
           </div>
           {Icon && (

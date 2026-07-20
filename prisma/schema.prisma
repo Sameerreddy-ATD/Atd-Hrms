@@ -89,6 +89,13 @@ enum ApprovalStatus {
   REJECTED
 }
 
+enum WeeklyOffStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 enum LeaveStatus {
   PENDING
   MANAGER_APPROVED
@@ -117,6 +124,11 @@ enum TaskPriority {
 enum AssetType {
   PHYSICAL
   ONLINE
+}
+
+enum AssetAssignmentScope {
+  EMPLOYEE
+  COMPANY
 }
 
 enum AssetCostFrequency {
@@ -275,28 +287,29 @@ model Branch {
 }
 
 model CompanyAsset {
-  assetId            String             @id @default(cuid()) @map("asset_id")
-  assetCode          String             @unique @map("asset_code")
+  assetId            String               @id @default(cuid()) @map("asset_id")
+  assetCode          String               @unique @map("asset_code")
   name               String
   category           String
-  catalogId          String?            @map("catalog_id")
-  catalog            AssetCatalogItem?  @relation(fields: [catalogId], references: [catalogId])
-  serialNumber       String?            @unique @map("serial_number")
-  purchaseValue      Decimal            @map("purchase_value") @db.Decimal(12, 2)
-  purchaseDate       DateTime?          @map("purchase_date") @db.Date
-  assetType          AssetType          @default(PHYSICAL) @map("asset_type")
-  costFrequency      AssetCostFrequency @default(ONE_TIME) @map("cost_frequency")
-  renewalDate        DateTime?          @map("renewal_date") @db.Date
-  status             String             @default("AVAILABLE")
-  assignedEmployeeId String?            @map("assigned_employee_id")
-  assignedEmployee   Employee?          @relation(fields: [assignedEmployeeId], references: [employeeId])
-  branchId           String?            @map("branch_id")
-  branch             Branch?            @relation(fields: [branchId], references: [branchId])
+  catalogId          String?              @map("catalog_id")
+  catalog            AssetCatalogItem?    @relation(fields: [catalogId], references: [catalogId])
+  serialNumber       String?              @unique @map("serial_number")
+  purchaseValue      Decimal              @map("purchase_value") @db.Decimal(12, 2)
+  purchaseDate       DateTime?            @map("purchase_date") @db.Date
+  assetType          AssetType            @default(PHYSICAL) @map("asset_type")
+  assignmentScope    AssetAssignmentScope @default(EMPLOYEE) @map("assignment_scope")
+  costFrequency      AssetCostFrequency   @default(ONE_TIME) @map("cost_frequency")
+  renewalDate        DateTime?            @map("renewal_date") @db.Date
+  status             String               @default("AVAILABLE")
+  assignedEmployeeId String?              @map("assigned_employee_id")
+  assignedEmployee   Employee?            @relation(fields: [assignedEmployeeId], references: [employeeId])
+  branchId           String?              @map("branch_id")
+  branch             Branch?              @relation(fields: [branchId], references: [branchId])
   location           String?
   notes              String?
   returns            AssetReturn[]
-  createdAt          DateTime           @default(now()) @map("created_at")
-  updatedAt          DateTime           @updatedAt @map("updated_at")
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
 
   @@index([assignedEmployeeId])
   @@index([catalogId])
@@ -609,17 +622,17 @@ model LeaveRequest {
 }
 
 model WeeklyOffRequest {
-  weeklyOffRequestId String         @id @default(cuid()) @map("weekly_off_request_id")
-  employeeId         String         @map("employee_id")
-  employee           Employee       @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
-  date               DateTime       @db.Date
-  weekStart          DateTime       @map("week_start") @db.Date
-  approverId         String         @map("approver_id")
-  status             ApprovalStatus @default(PENDING)
-  reason             String?        @db.Text
-  reviewedBy         String?        @map("reviewed_by")
-  createdAt          DateTime       @default(now()) @map("created_at")
-  updatedAt          DateTime       @updatedAt @map("updated_at")
+  weeklyOffRequestId String          @id @default(cuid()) @map("weekly_off_request_id")
+  employeeId         String          @map("employee_id")
+  employee           Employee        @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  date               DateTime        @db.Date
+  weekStart          DateTime        @map("week_start") @db.Date
+  approverId         String          @map("approver_id")
+  status             WeeklyOffStatus @default(PENDING)
+  reason             String?         @db.Text
+  reviewedBy         String?         @map("reviewed_by")
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
 
   @@unique([employeeId, weekStart])
   @@index([approverId, status, date])

@@ -333,7 +333,7 @@ function MyAttendancePage() {
                                       href={`https://www.google.com/maps/dir/?api=1&origin=${a.fieldCheckInLatitude},${a.fieldCheckInLongitude}&destination=${a.fieldCheckOutLatitude},${a.fieldCheckOutLongitude}`}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="text-[10px] text-emerald-600 font-bold hover:underline block mt-0.5"
+                                      className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold hover:underline block mt-0.5"
                                       title="View route mapping on Google Maps"
                                     >
                                       📏 {dist.toFixed(2)} km route

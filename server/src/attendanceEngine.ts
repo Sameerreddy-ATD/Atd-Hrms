@@ -181,11 +181,17 @@ export async function recalculateDailySummary(employeeId: string, date: string |
           ? "MOBILE_GPS"
           : "SYSTEM";
   const lastOut = [...events].reverse().find((e) => outTypes.has(e.eventType));
-  const hasMissingOutEvent =
-    events.length > 0 && (!lastOut || Boolean(inTypes.has(events[events.length - 1]!.eventType)));
-  const hasMissedCheckout =
-    events.some((e) => e.eventType === EventType.CLIENT_CHECK_IN) &&
-    !events.some((e) => e.eventType === EventType.CLIENT_CHECK_OUT);
+  const latestEvent = events.at(-1);
+  const hasOpenPunch = Boolean(latestEvent && inTypes.has(latestEvent.eventType));
+  const openPunchExpired = Boolean(
+    hasOpenPunch &&
+    latestEvent &&
+    Date.now() - latestEvent.eventTime.getTime() >= 9 * 60 * 60 * 1000,
+  );
+  // An active work session is valid for nine hours. It becomes a missed checkout only
+  // after that window, rather than appearing as an exception immediately after check-in.
+  const hasMissingOutEvent = openPunchExpired;
+  const hasMissedCheckout = openPunchExpired;
 
   let officeHours = 0;
   let fieldHours = 0;
@@ -239,7 +245,6 @@ export async function recalculateDailySummary(employeeId: string, date: string |
     else if (isBranchMismatch) status = "Present - Other Branch";
     else status = "Present";
     if (hasMissedCheckout) status = "Missed Checkout";
-    else if (hasMissingOutEvent) status = "Missed Punch";
   } else {
     status = await resolveNoEventStatus(employeeId, eventDate);
   }

@@ -300,6 +300,7 @@ function DashboardPage() {
           branches={branches}
           birthdays={birthdays}
           onAttendanceChanged={refreshDashboard}
+          attendanceReady={!summaryLoading}
         />
       ) : user.role === "manager" ? (
         <ManagerDashboard
@@ -315,6 +316,7 @@ function DashboardPage() {
           branches={branches}
           birthdays={birthdays}
           onAttendanceChanged={refreshDashboard}
+          attendanceReady={!summaryLoading}
         />
       ) : user.role === "hr" ? (
         <HRDashboard
@@ -325,6 +327,7 @@ function DashboardPage() {
           branches={branches}
           birthdays={birthdays}
           onAttendanceChanged={refreshDashboard}
+          attendanceReady={!summaryLoading}
         />
       ) : user.role === "ceo" ? (
         <CEODashboard
@@ -360,6 +363,7 @@ function DashboardPage() {
           branches={branches}
           birthdays={birthdays}
           onAttendanceChanged={refreshDashboard}
+          attendanceReady={!summaryLoading}
         />
       )}
     </div>
@@ -373,6 +377,7 @@ function EmployeeDashboard({
   branches,
   birthdays,
   onAttendanceChanged,
+  attendanceReady,
 }: {
   user: User;
   attendance: AttendanceRecord[];
@@ -380,6 +385,7 @@ function EmployeeDashboard({
   branches: Branch[];
   birthdays: BirthdayItem[];
   onAttendanceChanged: () => void;
+  attendanceReady: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -389,6 +395,7 @@ function EmployeeDashboard({
           timeline={timeline}
           branches={branches}
           onAttendanceChanged={onAttendanceChanged}
+          attendanceReady={attendanceReady}
           className="lg:col-span-2"
         />
         <AttendanceAnalyticsCard rows={attendance} />
@@ -404,12 +411,14 @@ function MarkAttendanceCard({
   branches,
   onAttendanceChanged,
   className,
+  attendanceReady,
 }: {
   user: User;
   timeline: AttendanceTimelineEvent[];
   branches: Branch[];
   onAttendanceChanged: () => void;
   className?: string;
+  attendanceReady: boolean;
 }) {
   const navigate = useNavigate();
   const [actionLoading, setActionLoading] = useState(false);
@@ -554,7 +563,7 @@ function MarkAttendanceCard({
         <div className="overflow-hidden rounded-md border border-border/70 bg-muted/15">
           <div className="flex items-center gap-3 border-b border-border/60 p-4">
             <span
-              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${isCheckedIn ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${isCheckedIn ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}
             >
               <Clock3 className="h-5 w-5" />
             </span>
@@ -590,10 +599,10 @@ function MarkAttendanceCard({
               Attendance status
             </div>
             <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${isCheckedIn ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${isCheckedIn ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}
             >
               <span
-                className={`h-1.5 w-1.5 rounded-full ${isCheckedIn ? "animate-pulse bg-emerald-600" : "bg-slate-400"}`}
+                className={`h-1.5 w-1.5 rounded-full ${isCheckedIn ? "animate-pulse bg-emerald-600 dark:bg-emerald-400" : "bg-muted-foreground/60"}`}
               />
               {isCheckedIn ? "Checked in" : "Checked out"}
             </span>
@@ -601,20 +610,28 @@ function MarkAttendanceCard({
           <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
             <Button
               onClick={checkIn}
-              disabled={actionLoading || isCheckedIn}
+              disabled={!attendanceReady || actionLoading || isCheckedIn}
               className="h-12 w-full"
             >
               <LogIn className="mr-2 h-4 w-4" />
-              {actionLoading ? "Getting location..." : "Check In"}
+              {!attendanceReady
+                ? "Checking status..."
+                : actionLoading
+                  ? "Getting location..."
+                  : "Check In"}
             </Button>
             <Button
               variant="outline"
               onClick={checkOut}
-              disabled={actionLoading || !isCheckedIn}
+              disabled={!attendanceReady || actionLoading || !isCheckedIn}
               className="h-12 w-full bg-background"
             >
-              <LogOut className="mr-2 h-4 w-4 text-red-500" />
-              {actionLoading ? "Getting location..." : "Check Out"}
+              <LogOut className="mr-2 h-4 w-4 text-destructive" />
+              {!attendanceReady
+                ? "Checking status..."
+                : actionLoading
+                  ? "Getting location..."
+                  : "Check Out"}
             </Button>
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">
@@ -651,6 +668,7 @@ function ManagerDashboard({
   branches,
   birthdays,
   onAttendanceChanged,
+  attendanceReady,
 }: {
   user: User;
   data: {
@@ -664,10 +682,11 @@ function ManagerDashboard({
   branches: Branch[];
   birthdays: BirthdayItem[];
   onAttendanceChanged: () => void;
+  attendanceReady: boolean;
 }) {
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Team present" value={data.present} icon={UserCheck} tone="success" />
         <StatCard label="On leave" value={data.onLeave} icon={PlaneTakeoff} tone="info" />
         <StatCard
@@ -690,6 +709,7 @@ function ManagerDashboard({
           timeline={timeline}
           branches={branches}
           onAttendanceChanged={onAttendanceChanged}
+          attendanceReady={attendanceReady}
           className="lg:col-span-2"
         />
         <div className="lg:col-span-2">
@@ -711,6 +731,7 @@ function HRDashboard({
   branches,
   birthdays,
   onAttendanceChanged,
+  attendanceReady,
 }: {
   user: User;
   data: {
@@ -725,10 +746,11 @@ function HRDashboard({
   branches: Branch[];
   birthdays: BirthdayItem[];
   onAttendanceChanged: () => void;
+  attendanceReady: boolean;
 }) {
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <StatCard label="Total employees" value={data.total} icon={Users} />
         <StatCard
           label="Present today"
@@ -753,6 +775,7 @@ function HRDashboard({
           timeline={timeline}
           branches={branches}
           onAttendanceChanged={onAttendanceChanged}
+          attendanceReady={attendanceReady}
           className="lg:col-span-2"
         />
         <BranchFieldAttendanceCard
@@ -795,7 +818,7 @@ function CEODashboard({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <StatCard label="Total employees" value={data.total} icon={Users} />
         <StatCard label="Present today" value={data.present} icon={UserCheck} tone="success" />
         <StatCard label="On leave today" value={data.onLeave} icon={PlaneTakeoff} />
@@ -885,7 +908,7 @@ function CEODashboard({
                   className="flex items-center justify-between gap-3 rounded-md border border-border p-3"
                 >
                   <span className="min-w-0 truncate text-sm font-medium">{branch.name}</span>
-                  <span className="shrink-0 text-sm font-semibold text-emerald-700">
+                  <span className="shrink-0 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
                     {present} present
                   </span>
                 </div>
@@ -918,6 +941,7 @@ function AdminDashboard({
   branches,
   birthdays,
   onAttendanceChanged,
+  attendanceReady,
 }: {
   user: User;
   data: {
@@ -933,10 +957,11 @@ function AdminDashboard({
   branches: Branch[];
   birthdays: BirthdayItem[];
   onAttendanceChanged: () => void;
+  attendanceReady: boolean;
 }) {
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Total users" value={data.users} icon={Users} />
         <StatCard label="Total employees" value={data.total} icon={UserCheck} />
         <StatCard label="Branches" value={data.branches} icon={Building2} />
@@ -954,6 +979,7 @@ function AdminDashboard({
             timeline={timeline}
             branches={branches}
             onAttendanceChanged={onAttendanceChanged}
+            attendanceReady={attendanceReady}
             className="lg:col-span-2"
           />
         )}
@@ -1232,9 +1258,11 @@ function UpcomingBirthdaysCard({
       </CardHeader>
       <CardContent className="space-y-4">
         {myBirthdayToday && (
-          <div className="flex items-center justify-between rounded-md border border-pink-200 bg-pink-50/50 p-3 text-sm shadow-sm dark:bg-pink-950/10">
+          <div className="flex items-center justify-between rounded-md border border-pink-200 bg-pink-50/50 p-3 text-sm shadow-sm dark:border-pink-900/40 dark:bg-pink-950/10">
             <div className="flex items-center gap-3">
-              <div className="rounded-full bg-pink-100 p-2 text-pink-600 animate-bounce">🎂</div>
+              <div className="rounded-full bg-pink-100 p-2 text-pink-600 animate-bounce dark:bg-pink-950/40 dark:text-pink-400">
+                🎂
+              </div>
               <div>
                 <p className="font-semibold text-foreground">Your birthday</p>
                 <p className="text-xs text-muted-foreground">
@@ -1246,7 +1274,7 @@ function UpcomingBirthdaysCard({
               <p className="font-semibold text-foreground">
                 {formatDob(myBirthdayToday.dateOfBirth)}
               </p>
-              <p className="text-[10px] font-medium text-pink-700">Today</p>
+              <p className="text-[10px] font-medium text-pink-700 dark:text-pink-400">Today</p>
             </div>
           </div>
         )}

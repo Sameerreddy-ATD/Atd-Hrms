@@ -187,9 +187,9 @@ function NotificationsPage() {
             variant="outline"
             className={
               alertStatus.effectivelyEnabled
-                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-400"
                 : alertStatus.permission === "denied"
-                  ? "border-rose-200 bg-rose-50 text-rose-700"
+                  ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-400"
                   : ""
             }
           >
@@ -204,7 +204,7 @@ function NotificationsPage() {
       </Card>
 
       {alertStatus.permission === "denied" && (
-        <p className="mb-4 text-sm text-amber-700">
+        <p className="mb-4 text-sm text-amber-700 dark:text-amber-400">
           Notification access is blocked in your browser or phone settings. Enable it there, then
           return here and tap Enable Alerts again.
         </p>

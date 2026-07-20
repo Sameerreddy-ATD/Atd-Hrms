@@ -114,6 +114,7 @@ export interface CompanyAsset {
   purchaseValue: number;
   purchaseDate?: string;
   assetType: "PHYSICAL" | "ONLINE";
+  assignmentScope: "EMPLOYEE" | "COMPANY";
   costFrequency: "ONE_TIME" | "MONTHLY" | "YEARLY";
   renewalDate?: string;
   monthlyEquivalent: number;
@@ -332,7 +333,7 @@ export interface WeeklyOffRequest {
   employeeName?: string;
   employeeCode?: string;
   date: string;
-  status: "PENDING" | "APPROVED" | "REJECTED";
+  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
   reason?: string;
   approverId: string;
   createdAt: string;

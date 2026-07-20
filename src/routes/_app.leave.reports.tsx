@@ -163,7 +163,7 @@ function LeaveReportsPage() {
                       Open report
                     </a>
                   ) : (
-                    <p className="font-medium text-amber-700">Not submitted</p>
+                    <p className="font-medium text-amber-700 dark:text-amber-400">Not submitted</p>
                   )}
                   <p className="mt-1 text-xs text-muted-foreground">
                     {row.medicalDocumentVerifiedAt
@@ -251,7 +251,9 @@ function LeaveReportsPage() {
                             Open report
                           </a>
                           {row.medicalDocumentVerifiedAt ? (
-                            <span className="text-xs text-emerald-700">Verified by HR</span>
+                            <span className="text-xs text-emerald-700 dark:text-emerald-400">
+                              Verified by HR
+                            </span>
                           ) : canVerifyMedicalReport ? (
                             <Button
                               size="sm"
@@ -263,7 +265,9 @@ function LeaveReportsPage() {
                               {verifyingId === row.id ? "Verifying..." : "Mark verified"}
                             </Button>
                           ) : (
-                            <span className="text-xs text-amber-700">Awaiting verification</span>
+                            <span className="text-xs text-amber-700 dark:text-amber-400">
+                              Awaiting verification
+                            </span>
                           )}
                         </div>
                       ) : (

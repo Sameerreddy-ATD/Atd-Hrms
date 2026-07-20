@@ -198,8 +198,8 @@ function DevicesPage() {
                   variant="outline"
                   className={
                     device.status === "online"
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                      : "border-red-200 bg-red-50 text-red-700"
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-400"
+                      : "border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400"
                   }
                 >
                   {device.status === "online" ? "Online" : "Offline"}
@@ -273,12 +273,15 @@ function DevicesPage() {
                     {d.status === "online" ? (
                       <Badge
                         variant="outline"
-                        className="border-emerald-200 bg-emerald-50 text-emerald-700"
+                        className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-400"
                       >
                         Online
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700">
+                      <Badge
+                        variant="outline"
+                        className="border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400"
+                      >
                         Offline
                       </Badge>
                     )}

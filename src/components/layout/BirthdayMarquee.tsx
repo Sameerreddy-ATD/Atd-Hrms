@@ -46,7 +46,9 @@ function BirthdayCard({
     >
       <div className="flex items-center justify-between border-b border-red-100 bg-red-50/60 px-4 py-2 dark:border-red-950 dark:bg-red-950/20">
         <Logo className="h-6 w-auto" />
-        <span className="text-xs font-semibold uppercase text-red-700">Birthday celebration</span>
+        <span className="text-xs font-semibold uppercase text-red-700 dark:text-red-400">
+          Birthday celebration
+        </span>
       </div>
       <div className="flex items-center gap-4 p-4 sm:p-5 lg:px-6">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-red-600 text-white sm:h-14 sm:w-14">
@@ -68,7 +70,7 @@ function BirthdayCard({
           )}
         </div>
 
-        <PartyPopper className="hidden h-6 w-6 shrink-0 text-red-600 lg:block" />
+        <PartyPopper className="hidden h-6 w-6 shrink-0 text-red-600 dark:text-red-400 lg:block" />
       </div>
     </div>
   );
