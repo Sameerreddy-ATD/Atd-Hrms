@@ -8,6 +8,7 @@ import {
   Clock3,
   ListTodo,
   MessageSquareText,
+  Network,
   Plus,
   Search,
   UserRound,
@@ -71,6 +72,8 @@ const EMPTY_FORM = {
   dueDate: "",
 };
 
+const PAGE_SIZE = 100;
+
 function TasksPage() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<WorkTask[]>([]);
@@ -79,6 +82,8 @@ function TasksPage() {
   const [status, setStatus] = useState("active");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -96,10 +101,11 @@ function TasksPage() {
       setError("");
       try {
         const [taskRows, employeeRows] = await Promise.all([
-          tasksApi.list(nextScope),
+          tasksApi.list(nextScope, { limit: PAGE_SIZE, offset: 0 }),
           tasksApi.assignees().catch(() => []),
         ]);
         setTasks(taskRows);
+        setHasMore(taskRows.length === PAGE_SIZE);
         setAssignees(employeeRows);
       } catch (err) {
         setError((err as Error).message);
@@ -109,6 +115,19 @@ function TasksPage() {
     },
     [scope],
   );
+
+  async function loadMore() {
+    setLoadingMore(true);
+    try {
+      const next = await tasksApi.list(scope, { limit: PAGE_SIZE, offset: tasks.length });
+      setTasks((current) => [...current, ...next]);
+      setHasMore(next.length === PAGE_SIZE);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   useEffect(() => {
     void load(scope);
@@ -144,6 +163,42 @@ function TasksPage() {
     }),
     [tasks],
   );
+
+  const teamProgress = useMemo(() => {
+    const people = new Map<
+      string,
+      TaskAssignee & {
+        taskCount: number;
+        completed: number;
+        progressTotal: number;
+        updates: number;
+      }
+    >();
+    for (const task of tasks) {
+      for (const assignee of task.assignees) {
+        const current = people.get(assignee.id) ?? {
+          ...assignee,
+          taskCount: 0,
+          completed: 0,
+          progressTotal: 0,
+          updates: 0,
+        };
+        current.taskCount += 1;
+        current.completed += task.status === "COMPLETED" ? 1 : 0;
+        current.progressTotal += task.progress;
+        current.updates += task.updates.filter(
+          (entry) => entry.authorName === assignee.name,
+        ).length;
+        people.set(assignee.id, current);
+      }
+    }
+    return [...people.values()]
+      .map((person) => ({
+        ...person,
+        averageProgress: Math.round(person.progressTotal / person.taskCount),
+      }))
+      .sort((a, b) => b.averageProgress - a.averageProgress || a.name.localeCompare(b.name));
+  }, [tasks]);
 
   function openTask(task: WorkTask) {
     setSelected(task);
@@ -311,6 +366,50 @@ function TasksPage() {
         </div>
       </div>
 
+      {scope === "team" && !loading && !error && teamProgress.length > 0 && (
+        <section className="overflow-hidden rounded-lg border bg-card" aria-label="Team progress">
+          <div className="flex items-center gap-3 border-b px-4 py-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+              <Network className="h-4 w-4" />
+            </span>
+            <div>
+              <h2 className="text-sm font-semibold">Team progress</h2>
+              <p className="text-xs text-muted-foreground">
+                Progress for employees visible in your organization hierarchy.
+              </p>
+            </div>
+          </div>
+          <div className="overflow-x-auto p-3 sm:p-4">
+            <div className="flex min-w-max items-stretch gap-3">
+              {teamProgress.map((person) => (
+                <article
+                  key={person.id}
+                  className="relative w-[240px] shrink-0 rounded-md border bg-background p-3 after:absolute after:-right-3 after:top-1/2 after:h-px after:w-3 after:bg-border last:after:hidden"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{person.name}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {person.designation ?? person.department ?? person.employeeCode}
+                      </p>
+                    </div>
+                    <strong className="text-sm tabular-nums text-primary">
+                      {person.averageProgress}%
+                    </strong>
+                  </div>
+                  <Progress className="mt-3 h-2" value={person.averageProgress} />
+                  <div className="mt-3 flex justify-between text-xs text-muted-foreground">
+                    <span>{person.taskCount} tasks</span>
+                    <span>{person.completed} completed</span>
+                    <span>{person.updates} logs</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {loading && <LoadingState label="Loading tasks" />}
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400">
@@ -337,7 +436,7 @@ function TasksPage() {
             <button
               key={task.id}
               onClick={() => openTask(task)}
-              className="rounded-lg border bg-card p-4 text-left shadow-sm transition hover:border-blue-300 dark:hover:border-blue-800 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="rounded-lg border bg-card p-4 text-left shadow-sm transition [content-visibility:auto] [contain-intrinsic-size:210px] hover:border-blue-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-blue-800"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -391,6 +490,14 @@ function TasksPage() {
           );
         })}
       </div>
+
+      {hasMore && !query && status === "active" && (
+        <div className="text-center">
+          <Button variant="outline" onClick={() => void loadMore()} disabled={loadingMore}>
+            {loadingMore ? "Loading tasks..." : "Load more tasks"}
+          </Button>
+        </div>
+      )}
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">

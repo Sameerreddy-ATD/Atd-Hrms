@@ -128,6 +128,17 @@ Use `npm run db:verify` when the configured MySQL database is available.
 - Developer Admin accounts cannot be suspended, deactivated, or deleted.
 - Employees can view only their own expense and certificate requests. HR and Developer Admin can review organization-wide requests.
 - Asset returns are completed through a recorded HR checklist before an assignment is released.
+- Assets use explicit `AVAILABLE`, `ASSIGNED`, `UNDER_REPAIR`, and `RETIRED` statuses. The return checklist records condition, accessories, charger, backup/wipe confirmation, damage, notes, receiver, and time.
+
+## Product Roadmap
+
+The following modules are planned for a future version and are not part of the current production workflow:
+
+- Payslips and employee payslip history
+- Promotion requests and approval tracking
+- Performance reviews, goals, ratings, and review cycles
+
+Database models, permissions, notification rules, retention requirements, and approval ownership must be designed before enabling these modules.
 
 ## Production Update
 

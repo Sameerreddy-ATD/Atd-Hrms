@@ -9,6 +9,7 @@ import { StatCard } from "@/components/common/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,6 +40,7 @@ import { attendanceApi, branchesApi, employeesApi, leaveApi, usersApi } from "@/
 import { downloadCsv } from "@/lib/csv";
 import { formatWorkedTime, workedTime } from "@/lib/worked-time";
 import { subscribeToAttendanceChanges } from "@/lib/attendance-live";
+import { getDeviceLocation } from "@/lib/geolocation";
 import {
   AlertTriangle,
   Building2,
@@ -72,9 +74,9 @@ async function getGeolocation(): Promise<GeolocationPosition> {
         new Error("Geolocation is not supported by your browser. Please use a modern browser."),
       );
     }
-    navigator.geolocation.getCurrentPosition(
-      (position) => resolve(position),
-      (err) => {
+    getDeviceLocation()
+      .then(resolve)
+      .catch((err: GeolocationPositionError) => {
         let message = "Failed to retrieve location. Please check your system settings.";
         if (err.code === err.PERMISSION_DENIED) {
           message =
@@ -85,12 +87,7 @@ async function getGeolocation(): Promise<GeolocationPosition> {
           message = "Location request timed out. Please try again.";
         }
         reject(new Error(message));
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-      },
-    );
+      });
   });
 }
 
@@ -207,7 +204,12 @@ function DashboardPage() {
     setError("");
 
     Promise.all([
-      ownAttendanceRoles ? attendanceApi.listMine(user.employeeId ?? "") : attendanceApi.list(),
+      ownAttendanceRoles
+        ? attendanceApi.listMine(user.employeeId ?? "", {
+            from: indiaDateKey(),
+            to: indiaDateKey(),
+          })
+        : attendanceApi.list({ from: indiaDateKey(), to: indiaDateKey() }),
       selfPunchRoles ? attendanceApi.myTimeline().catch(() => []) : Promise.resolve([]),
       branchesApi.list(),
       adminPeopleRoles.includes(user.role) ? usersApi.list() : employeesApi.list(),
@@ -246,6 +248,18 @@ function DashboardPage() {
 
   if (!user) return null;
 
+  if (summaryLoading) {
+    return (
+      <div>
+        <PageHeader
+          title={`Welcome, ${user.name.split(" ")[0]}`}
+          description={`${ROLE_LABELS[user.role]} · Loading today's workspace`}
+        />
+        <DashboardSkeleton />
+      </div>
+    );
+  }
+
   const todayAttendance = attendance.filter((row) => row.date === indiaDateKey());
   const total = people.filter((person) => person.employeeId && person.active !== false).length;
   const attendanceRequiredTotal = people.filter(
@@ -281,9 +295,9 @@ function DashboardPage() {
 
       <BirthdayMarquee />
 
-      {(summaryLoading || secondaryLoading) && (
+      {secondaryLoading && (
         <div className="mb-3 text-xs font-medium text-muted-foreground">
-          {summaryLoading ? "Loading dashboard summary..." : "Updating leave details..."}
+          Updating leave details...
         </div>
       )}
       {error && (
@@ -366,6 +380,39 @@ function DashboardPage() {
           attendanceReady={!summaryLoading}
         />
       )}
+    </div>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-4" aria-label="Loading dashboard data">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="rounded-md border bg-card p-4">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="mt-3 h-7 w-14" />
+          </div>
+        ))}
+      </div>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <div className="rounded-md border bg-card p-4">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="mt-4 h-24 w-full" />
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Skeleton className="h-11 w-full" />
+            <Skeleton className="h-11 w-full" />
+          </div>
+        </div>
+        <div className="rounded-md border bg-card p-4">
+          <Skeleton className="h-4 w-40" />
+          <div className="mt-4 space-y-2">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

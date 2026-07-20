@@ -61,26 +61,30 @@ Lockout or suspension does not delete or disable the employee record, allowing h
 
 ## Main API Groups
 
-| Prefix                  | Purpose                                                                    |
-| ----------------------- | -------------------------------------------------------------------------- |
-| `/auth`                 | Login, restore, logout, password change/reset                              |
-| `/users`                | Account creation, lifecycle, reset, and permanent deletion                 |
-| `/employees`            | Directory, details, organization placement, and birthdays                  |
-| `/departments`          | Organization hierarchy and unit heads                                      |
-| `/branches`             | Branches and server-side geofence configuration                            |
-| `/attendance`           | Mobile events, timelines, summaries, reports, corrections, and live stream |
-| `/leave`                | Leave types, requests, cancellation, approvals, and reports                |
-| `/weekly-offs`          | Date-specific weekly-off requests and direct-head approval                 |
-| `/holidays`             | Active holiday calendar and branch scope                                   |
-| `/tasks`                | Multi-assignee tasks and updates                                           |
-| `/assets`               | Physical/online assets, return checklists, and investment calculations     |
-| `/expense-claims`       | Employee-scoped claims and HR approval/payment workflow                    |
-| `/certificate-requests` | Employee-scoped certificate requests and HR fulfilment                     |
-| `/announcements`        | Publishing, activation, expiry, and permanent deletion                     |
-| `/notifications`        | User-scoped notification feed and live stream                              |
-| `/push`                 | VAPID key and browser subscription management                              |
-| `/audit-logs`           | Administrative audit history                                               |
-| `/system`               | Health and Developer Admin system information                              |
+| Prefix         | Purpose                                                                    |
+| -------------- | -------------------------------------------------------------------------- |
+| `/auth`        | Login, restore, logout, password change/reset                              |
+| `/users`       | Account creation, lifecycle, reset, and permanent deletion                 |
+| `/employees`   | Directory, details, organization placement, and birthdays                  |
+| `/departments` | Organization hierarchy and unit heads                                      |
+| `/branches`    | Branches and server-side geofence configuration                            |
+| `/attendance`  | Mobile events, timelines, summaries, reports, corrections, and live stream |
+| `/leave`       | Leave types, requests, cancellation, approvals, and reports                |
+| `/weekly-offs` | Date-specific weekly-off requests and direct-head approval                 |
+| `/holidays`    | Active holiday calendar and branch scope                                   |
+| `/tasks`       | Multi-assignee tasks and updates                                           |
+| `/assets`      | Physical/online assets, return checklists, and investment calculations     |
+
+Large collection endpoints support `limit` and `offset`. Operational screens load the first 100 records and fetch additional pages on demand. ExcelJS remains in a lazy route chunk so spreadsheet functionality is excluded from the initial application path.
+
+Browser role checks live in `tests/e2e/role-navigation.spec.ts`. Set `E2E_BASE_URL` and `E2E_USERS_JSON` to run the same navigation check against Developer Admin, CEO, HR, head, and employee accounts without storing credentials in source control.
+| `/expense-claims` | Employee-scoped claims and HR approval/payment workflow |
+| `/certificate-requests` | Employee-scoped certificate requests and HR fulfilment |
+| `/announcements` | Publishing, activation, expiry, and permanent deletion |
+| `/notifications` | User-scoped notification feed and live stream |
+| `/push` | VAPID key and browser subscription management |
+| `/audit-logs` | Administrative audit history |
+| `/system` | Health and Developer Admin system information |
 
 ## Attendance Model
 

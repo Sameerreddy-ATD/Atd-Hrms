@@ -3,6 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { BackButton } from "@/components/common/BackButton";
 import { PageHeader } from "@/components/common/PageHeader";
+import { InfoButton } from "@/components/common/InfoButton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CalendarClock, CheckCircle2, Clock3, FilePenLine } from "lucide-react";
 
 export const Route = createFileRoute("/_app/attendance/missed-punch")({
   component: MissedPunchPage,
@@ -97,86 +99,134 @@ function MissedPunchPage() {
     <div>
       <PageHeader
         title="Missed Punch Request"
-        description="Report a missed punch for a time that has already passed. Future times cannot be requested."
+        description="Add a missing check-in or check-out for review."
+        actions={
+          <InfoButton title="How missed punch requests work">
+            Select the actual date, time, and punch type. Your organization head reviews the
+            request. Approved requests update attendance automatically; future punch times cannot be
+            submitted.
+          </InfoButton>
+        }
       />
-      <Card className="max-w-xl mx-auto w-full">
-        <CardContent className="p-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+      <div className="mx-auto grid w-full max-w-4xl gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+        <Card>
+          <CardContent className="p-4 sm:p-6">
+            <div className="mb-5 flex items-center gap-3 border-b pb-4">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+                <FilePenLine className="h-5 w-5" />
+              </span>
+              <div>
+                <h2 className="font-semibold">Punch details</h2>
+                <p className="text-sm text-muted-foreground">
+                  Enter the time that should appear in attendance.
+                </p>
+              </div>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="missed-date">Date</Label>
+                  <Input
+                    id="missed-date"
+                    type="date"
+                    value={date}
+                    max={maxDate}
+                    onChange={(e) => {
+                      const nextDate = e.target.value;
+                      setDate(nextDate);
+                      if (nextDate === maxDate && time && time > currentTimeInputValue()) {
+                        setTime(currentTimeInputValue());
+                      }
+                    }}
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="missed-time">Time</Label>
+                  <Input
+                    id="missed-time"
+                    type="time"
+                    value={time}
+                    max={maxTime}
+                    onChange={(e) => setTime(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
               <div className="space-y-1.5">
-                <Label htmlFor="missed-date">Date</Label>
-                <Input
-                  id="missed-date"
-                  type="date"
-                  value={date}
-                  max={maxDate}
-                  onChange={(e) => {
-                    const nextDate = e.target.value;
-                    setDate(nextDate);
-                    if (nextDate === maxDate && time && time > currentTimeInputValue()) {
-                      setTime(currentTimeInputValue());
-                    }
-                  }}
+                <Label>Punch type</Label>
+                <Select value={eventType} onValueChange={setEventType}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select punch type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MISSED_PUNCH_TYPE_OPTIONS.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {punchTypeLabel(type)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="missed-reason">Reason</Label>
+                <Textarea
+                  id="missed-reason"
+                  rows={3}
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="Explain why the punch was missed..."
                   required
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="missed-time">Time</Label>
-                <Input
-                  id="missed-time"
-                  type="time"
-                  value={time}
-                  max={maxTime}
-                  onChange={(e) => setTime(e.target.value)}
-                  required
-                />
+
+              <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => navigate({ to: "/attendance/mine" })}
+                  disabled={submitting}
+                >
+                  Cancel
+                </Button>
+                <Button className="w-full sm:w-auto" type="submit" disabled={submitting}>
+                  {submitting ? "Submitting..." : "Submit request"}
+                </Button>
               </div>
-            </div>
+            </form>
+          </CardContent>
+        </Card>
+        <aside className="rounded-lg border bg-muted/20 p-4 lg:self-start">
+          <h2 className="text-sm font-semibold">Request summary</h2>
+          <div className="mt-4 space-y-4 text-sm">
+            <SummaryItem icon={CalendarClock} label="Date" value={date || "Not selected"} />
+            <SummaryItem icon={Clock3} label="Time" value={time || "Not selected"} />
+            <SummaryItem icon={CheckCircle2} label="Punch type" value={punchTypeLabel(eventType)} />
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}
 
-            <div className="space-y-1.5">
-              <Label>Punch type</Label>
-              <Select value={eventType} onValueChange={setEventType}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select punch type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {MISSED_PUNCH_TYPE_OPTIONS.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {punchTypeLabel(type)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="missed-reason">Reason</Label>
-              <Textarea
-                id="missed-reason"
-                rows={3}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="Explain why the punch was missed..."
-                required
-              />
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate({ to: "/attendance/mine" })}
-                disabled={submitting}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={submitting}>
-                {submitting ? "Submitting..." : "Submit request"}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+function SummaryItem({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Clock3;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex gap-3">
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+      <div className="min-w-0">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="break-words font-medium">{value}</p>
+      </div>
     </div>
   );
 }

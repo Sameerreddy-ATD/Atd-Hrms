@@ -46,7 +46,7 @@ export function AppSidebar() {
   return (
     <Sidebar
       collapsible="icon"
-      className="border-r border-slate-200/20 dark:border-zinc-900/30 bg-[#F6F8FC]/40 dark:bg-zinc-950/40 backdrop-blur-md"
+      className="border-r border-slate-200/20 bg-[#F6F8FC]/40 backdrop-blur-md dark:border-sidebar-border dark:bg-sidebar"
     >
       <SidebarHeader className="bg-transparent border-b-0 pt-4 pb-2 px-3 flex justify-start items-center w-full min-h-[48px]">
         {collapsed && !isMobile ? (
@@ -86,8 +86,8 @@ export function AppSidebar() {
                         className={cn(
                           "h-9 px-3 rounded-full text-slate-700 dark:text-zinc-300 transition-colors w-full justify-start",
                           active
-                            ? "bg-[#D3E3FD] hover:bg-[#D3E3FD] text-[#041E49] dark:bg-blue-950/40 dark:hover:bg-blue-950/40 dark:text-blue-200 font-semibold"
-                            : "hover:bg-slate-200/50 dark:hover:bg-zinc-800/50 bg-transparent",
+                            ? "bg-[#D3E3FD] font-semibold text-[#041E49] hover:bg-[#D3E3FD] dark:bg-primary/15 dark:text-primary dark:hover:bg-primary/20"
+                            : "bg-transparent hover:bg-slate-200/50 dark:hover:bg-sidebar-accent",
                         )}
                       >
                         <Link
@@ -101,8 +101,8 @@ export function AppSidebar() {
                             className={cn(
                               "h-[18px] w-[18px] shrink-0",
                               active
-                                ? "text-[#041E49] dark:text-blue-200"
-                                : "text-slate-500 dark:text-zinc-400",
+                                ? "text-[#041E49] dark:text-primary"
+                                : "text-slate-500 dark:text-muted-foreground",
                             )}
                           />
                           <span className="truncate text-sm">{item.label}</span>

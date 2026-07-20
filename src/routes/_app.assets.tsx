@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -40,6 +40,7 @@ import type {
   User,
 } from "@/mock/types";
 import { assetsApi, branchesApi, employeesApi } from "@/services/api";
+import { useAuth } from "@/lib/auth";
 import {
   IndianRupee,
   Building2,
@@ -71,7 +72,11 @@ const EMPTY_ASSET_FORM = {
   status: "AVAILABLE" as CompanyAsset["status"],
 };
 
+const PAGE_SIZE = 100;
+
 function AssetsPage() {
+  const { user } = useAuth();
+  const canManage = user?.role === "hr" || user?.role === "developer_admin";
   const [assets, setAssets] = useState<CompanyAsset[]>([]);
   const [investments, setInvestments] = useState<EmployeeAssetInvestment[]>([]);
   const [assetNames, setAssetNames] = useState<AssetCatalogItem[]>([]);
@@ -82,6 +87,8 @@ function AssetsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [assetTypeFilter, setAssetTypeFilter] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
 
   const [assetDialogOpen, setAssetDialogOpen] = useState(false);
@@ -108,35 +115,52 @@ function AssetsPage() {
   });
   const [returning, setReturning] = useState(false);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [assetRows, employeeRows, branchRows, assetNameRows, investmentRows, returnRows] =
-        await Promise.all([
-          assetsApi.list(),
+      const [assetRows, investmentRows] = await Promise.all([
+        assetsApi.list({ limit: PAGE_SIZE, offset: 0 }),
+        assetsApi.investmentSummary(),
+      ]);
+      setAssets(assetRows);
+      setHasMore(assetRows.length === PAGE_SIZE);
+      setInvestments(investmentRows);
+      if (canManage) {
+        const [employeeRows, branchRows, assetNameRows, returnRows] = await Promise.all([
           employeesApi.list(),
           branchesApi.list(),
           assetsApi.catalog(),
-          assetsApi.investmentSummary(),
           assetsApi.returnHistory(),
         ]);
-      setAssets(assetRows);
-      setEmployees(employeeRows.filter((employee) => employee.active && employee.employeeId));
-      setBranches(branchRows);
-      setAssetNames(assetNameRows);
-      setInvestments(investmentRows);
-      setReturnHistory(returnRows);
+        setEmployees(employeeRows.filter((employee) => employee.active && employee.employeeId));
+        setBranches(branchRows);
+        setAssetNames(assetNameRows);
+        setReturnHistory(returnRows);
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setLoading(false);
     }
+  }, [canManage]);
+
+  async function loadMore() {
+    setLoadingMore(true);
+    try {
+      const next = await assetsApi.list({ limit: PAGE_SIZE, offset: assets.length });
+      setAssets((current) => [...current, ...next]);
+      setHasMore(next.length === PAGE_SIZE);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setLoadingMore(false);
+    }
   }
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
 
   const availableAssets = useMemo(
     () =>
@@ -346,14 +370,16 @@ function AssetsPage() {
         title="Asset Management"
         description="Track employee-assigned physical and online assets, plus shared company assets such as furniture and fixtures."
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" variant="outline" onClick={openAddAsset}>
-              <Plus className="mr-2 h-4 w-4" /> Add Asset
-            </Button>
-            <Button size="sm" onClick={openAssignAsset} disabled={availableAssets.length === 0}>
-              <UserPlus className="mr-2 h-4 w-4" /> Assign Asset
-            </Button>
-          </div>
+          canManage ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="outline" onClick={openAddAsset}>
+                <Plus className="mr-2 h-4 w-4" /> Add Asset
+              </Button>
+              <Button size="sm" onClick={openAssignAsset} disabled={availableAssets.length === 0}>
+                <UserPlus className="mr-2 h-4 w-4" /> Assign Asset
+              </Button>
+            </div>
+          ) : undefined
         }
       />
 
@@ -504,7 +530,10 @@ function AssetsPage() {
         <div className="mt-5 overflow-hidden rounded-lg border border-border bg-card">
           <div className="space-y-2 p-3 md:hidden">
             {visibleAssets.map((asset) => (
-              <div key={asset.id} className="rounded-lg border bg-background p-3">
+              <div
+                key={asset.id}
+                className="rounded-lg border bg-background p-3 [content-visibility:auto] [contain-intrinsic-size:230px]"
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">{asset.name}</p>
@@ -551,26 +580,28 @@ function AssetsPage() {
                     </div>
                   )}
                 </div>
-                <div className="mt-3 flex gap-2">
-                  {asset.status === "ASSIGNED" && (
+                {canManage && (
+                  <div className="mt-3 flex gap-2">
+                    {asset.status === "ASSIGNED" && (
+                      <Button
+                        className="flex-1"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openReturnAsset(asset)}
+                      >
+                        <RotateCcw className="h-4 w-4" /> Return
+                      </Button>
+                    )}
                     <Button
                       className="flex-1"
                       size="sm"
                       variant="outline"
-                      onClick={() => openReturnAsset(asset)}
+                      onClick={() => openEditAsset(asset)}
                     >
-                      <RotateCcw className="h-4 w-4" /> Return
+                      <Pencil className="h-4 w-4" /> Edit
                     </Button>
-                  )}
-                  <Button
-                    className="flex-1"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => openEditAsset(asset)}
-                  >
-                    <Pencil className="h-4 w-4" /> Edit
-                  </Button>
-                </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -587,12 +618,15 @@ function AssetsPage() {
                   <TableHead>Branch</TableHead>
                   <TableHead>Assigned employee</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  {canManage && <TableHead className="text-right">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {visibleAssets.map((asset) => (
-                  <TableRow key={asset.id}>
+                  <TableRow
+                    key={asset.id}
+                    className="[content-visibility:auto] [contain-intrinsic-size:52px]"
+                  >
                     <TableCell className="font-mono text-xs font-semibold">
                       {asset.assetType === "PHYSICAL" ? asset.assetCode : "-"}
                     </TableCell>
@@ -632,27 +666,29 @@ function AssetsPage() {
                         <span className="text-muted-foreground">-</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        {asset.status === "ASSIGNED" && (
+                    {canManage && (
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          {asset.status === "ASSIGNED" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openReturnAsset(asset)}
+                            >
+                              <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Return
+                            </Button>
+                          )}
                           <Button
-                            size="sm"
+                            size="icon"
                             variant="outline"
-                            onClick={() => openReturnAsset(asset)}
+                            title="Edit asset"
+                            onClick={() => openEditAsset(asset)}
                           >
-                            <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Return
+                            <Pencil className="h-4 w-4" />
                           </Button>
-                        )}
-                        <Button
-                          size="icon"
-                          variant="outline"
-                          title="Edit asset"
-                          onClick={() => openEditAsset(asset)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -666,47 +702,58 @@ function AssetsPage() {
               </p>
             </div>
           )}
+          {hasMore && !query && statusFilter === "all" && assetTypeFilter === "all" && (
+            <div className="border-t p-3 text-center">
+              <Button variant="outline" onClick={() => void loadMore()} disabled={loadingMore}>
+                {loadingMore ? "Loading assets..." : "Load more assets"}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
-      <section className="mt-5 overflow-hidden rounded-lg border bg-card">
-        <div className="border-b px-4 py-3">
-          <h2 className="text-sm font-semibold">Return history</h2>
-          <p className="text-xs text-muted-foreground">
-            Completed HR checklists for returned company assets.
-          </p>
-        </div>
-        {returnHistory.length === 0 ? (
-          <p className="p-6 text-center text-sm text-muted-foreground">
-            No asset returns recorded.
-          </p>
-        ) : (
-          <div className="divide-y">
-            {returnHistory.slice(0, 20).map((row) => (
-              <div
-                key={row.id}
-                className="grid gap-2 p-4 text-sm sm:grid-cols-[1fr_auto] sm:items-center"
-              >
-                <div>
-                  <p className="font-medium">
-                    {row.assetName}{" "}
-                    <span className="font-mono text-xs text-muted-foreground">{row.assetCode}</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Returned by {row.employeeName} ·{" "}
-                    {new Date(row.returnedAt).toLocaleString("en-IN")}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  <Badge variant="outline">{row.condition.replaceAll("_", " ")}</Badge>
-                  {row.dataWiped && <Badge variant="outline">Data wiped</Badge>}
-                  {row.physicalDamage && <Badge variant="destructive">Damage recorded</Badge>}
-                </div>
-              </div>
-            ))}
+      {canManage && (
+        <section className="mt-5 overflow-hidden rounded-lg border bg-card">
+          <div className="border-b px-4 py-3">
+            <h2 className="text-sm font-semibold">Return history</h2>
+            <p className="text-xs text-muted-foreground">
+              Completed HR checklists for returned company assets.
+            </p>
           </div>
-        )}
-      </section>
+          {returnHistory.length === 0 ? (
+            <p className="p-6 text-center text-sm text-muted-foreground">
+              No asset returns recorded.
+            </p>
+          ) : (
+            <div className="divide-y">
+              {returnHistory.slice(0, 20).map((row) => (
+                <div
+                  key={row.id}
+                  className="grid gap-2 p-4 text-sm sm:grid-cols-[1fr_auto] sm:items-center"
+                >
+                  <div>
+                    <p className="font-medium">
+                      {row.assetName}{" "}
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {row.assetCode}
+                      </span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Returned by {row.employeeName} ·{" "}
+                      {new Date(row.returnedAt).toLocaleString("en-IN")}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge variant="outline">{row.condition.replaceAll("_", " ")}</Badge>
+                    {row.dataWiped && <Badge variant="outline">Data wiped</Badge>}
+                    {row.physicalDamage && <Badge variant="destructive">Damage recorded</Badge>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       <Dialog open={assetDialogOpen} onOpenChange={setAssetDialogOpen}>
         <DialogContent className="sm:max-w-xl">

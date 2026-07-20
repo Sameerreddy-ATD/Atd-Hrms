@@ -30,6 +30,7 @@ export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4
 const REQUEST_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS ?? 20000);
 let refreshRequest: Promise<boolean> | null = null;
 const responseCache = new Map<string, { expiresAt: number; value: unknown }>();
+const warmedResponses = new Map<string, { expiresAt: number; value: unknown }>();
 const pendingRequests = new Map<string, Promise<unknown>>();
 
 function cacheDuration(path: string) {
@@ -37,7 +38,8 @@ function cacheDuration(path: string) {
   if (["/branches", "/departments", "/leave/types", "/holidays"].includes(pathname)) {
     return 60_000;
   }
-  if (pathname === "/employees") return 15_000;
+  if (["/employees", "/users"].includes(pathname)) return 15_000;
+  if (pathname === "/employees/birthdays") return 60_000;
   if (pathname === "/assets/catalog") return 30_000;
   return 0;
 }
@@ -110,11 +112,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const method = (options.method ?? "GET").toUpperCase();
   if (method !== "GET") {
     responseCache.clear();
+    warmedResponses.clear();
     return requestNetwork<T>(path, options);
   }
 
+  const warmed = warmedResponses.get(path);
+  if (warmed && warmed.expiresAt > Date.now()) {
+    warmedResponses.delete(path);
+    return warmed.value as T;
+  }
+
   const duration = cacheDuration(path);
-  if (!duration) return requestNetwork<T>(path, options);
   const cached = responseCache.get(path);
   if (cached && cached.expiresAt > Date.now()) return cached.value as T;
 
@@ -122,12 +130,50 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (pending) return pending as Promise<T>;
   const next = requestNetwork<T>(path, options)
     .then((value) => {
-      responseCache.set(path, { value, expiresAt: Date.now() + duration });
+      if (duration) responseCache.set(path, { value, expiresAt: Date.now() + duration });
       return value;
     })
     .finally(() => pendingRequests.delete(path));
   pendingRequests.set(path, next);
   return next;
+}
+
+async function warmPath<T>(path: string) {
+  const value = await request<T>(path);
+  warmedResponses.set(path, { value, expiresAt: Date.now() + 10_000 });
+}
+
+export async function warmAuthenticatedWorkspace(user: User) {
+  if (user.mustChangePassword) return;
+  const ownAttendance = ["employee", "sales", "driver", "field_staff"].includes(user.role);
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const attendanceQuery = toQuery({ from: today, to: today });
+  const paths = [
+    ownAttendance
+      ? `/attendance/my/report${attendanceQuery}`
+      : `/attendance/hr/daily${attendanceQuery}`,
+    "/branches",
+    user.role === "developer_admin" ? "/users" : "/employees",
+    "/employees/birthdays",
+    "/leave/requests",
+  ];
+  if (user.employeeId && !["ceo", "developer_admin"].includes(user.role)) {
+    paths.push("/attendance/my/timeline");
+  }
+  const warmup = Promise.allSettled(paths.map((path) => warmPath(path)));
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([
+    warmup,
+    new Promise<void>((resolve) => {
+      timeoutId = setTimeout(resolve, 3_500);
+    }),
+  ]);
+  if (timeoutId) clearTimeout(timeoutId);
 }
 
 function toQuery(params: Record<string, string | number | undefined>) {
@@ -199,7 +245,8 @@ export const usersApi = {
 };
 
 export const employeesApi = {
-  list: () => request<User[]>("/employees"),
+  list: (filters: Record<string, string | number | undefined> = {}) =>
+    request<User[]>(`/employees${toQuery(filters)}`),
   isReportingManager: () =>
     request<{ isReportingManager: boolean; teamCount: number }>(
       "/employees/me/is-reporting-manager",
@@ -316,7 +363,8 @@ export const leaveApi = {
 export const attendanceApi = {
   list: (filters: Record<string, string | undefined> = {}) =>
     request<AttendanceRecord[]>(`/attendance/hr/daily${toQuery(filters)}`),
-  listMine: (_employeeId: string) => request<AttendanceRecord[]>("/attendance/my/report"),
+  listMine: (_employeeId: string, filters: Record<string, string | undefined> = {}) =>
+    request<AttendanceRecord[]>(`/attendance/my/report${toQuery(filters)}`),
   listField: (filters: Record<string, string | undefined> = {}) =>
     request<AttendanceRecord[]>(`/attendance/hr/field${toQuery(filters)}`),
   listBranch: (filters: Record<string, string | undefined> = {}) =>
@@ -465,7 +513,7 @@ type CompanyAssetPayload = Omit<
 };
 
 export const assetsApi = {
-  list: (filters: Record<string, string | undefined> = {}) =>
+  list: (filters: Record<string, string | number | undefined> = {}) =>
     request<CompanyAsset[]>(`/assets${toQuery(filters)}`),
   investmentSummary: () => request<EmployeeAssetInvestment[]>("/assets/investment-summary"),
   create: (asset: CompanyAssetPayload) =>
@@ -689,7 +737,8 @@ export const pushApi = {
 };
 
 export const tasksApi = {
-  list: (scope: "mine" | "team" = "team") => request<WorkTask[]>(`/tasks${toQuery({ scope })}`),
+  list: (scope: "mine" | "team" = "team", pagination: { limit?: number; offset?: number } = {}) =>
+    request<WorkTask[]>(`/tasks${toQuery({ scope, ...pagination })}`),
   assignees: () => request<TaskAssignee[]>("/tasks/assignees"),
   create: (payload: {
     title: string;

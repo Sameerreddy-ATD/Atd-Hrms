@@ -33,7 +33,7 @@ export function AttendanceDayList({
         <AccordionItem
           key={record.id}
           value={record.id}
-          className="overflow-hidden rounded-md border bg-background px-0"
+          className="overflow-hidden rounded-md border bg-background px-0 [content-visibility:auto] [contain-intrinsic-size:74px]"
         >
           <AccordionTrigger className="gap-2 px-3 py-2.5 text-left hover:no-underline sm:px-3.5">
             <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-4 lg:grid-cols-6">

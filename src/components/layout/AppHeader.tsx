@@ -93,7 +93,7 @@ export function AppHeader() {
     : "??";
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-1 border-b border-slate-200/20 bg-[#F6F8FC]/40 px-2 backdrop-blur-md dark:border-zinc-900/30 dark:bg-zinc-950/45 sm:h-16 sm:gap-3 sm:px-4 md:px-6">
+    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-1 border-b border-slate-200/20 bg-[#F6F8FC]/40 px-2 backdrop-blur-md dark:border-border dark:bg-background/95 sm:h-16 sm:gap-3 sm:px-4 md:px-6">
       {/* Left: Collapsible Toggle, Logo & Page Title */}
       <div className="flex items-center gap-2">
         <Button

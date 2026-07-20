@@ -16,6 +16,8 @@ dist-ssr
 .npm-cache
 .tanstack/**
 .nitro
+test-results/
+playwright-report/
 *.local
 .env
 .mysql-data/

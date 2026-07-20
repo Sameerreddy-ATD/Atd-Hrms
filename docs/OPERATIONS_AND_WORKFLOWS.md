@@ -150,6 +150,19 @@ Required behavior:
 - Employees do not receive company-wide asset visibility.
 - HR completes a return checklist before an assigned asset becomes available again. The checklist records condition, accessories, charger, backup/wipe confirmation, damage, notes, receiver, and time.
 - A non-working returned asset moves to `UNDER_REPAIR`; other completed returns move to `AVAILABLE`.
+- Asset status is visible on the Asset Management inventory. HR and Developer Admin can add, assign, edit, return, or retire assets; CEO access is read-only and includes investment summaries.
+
+## Future Employee Modules
+
+Payslips, promotion requests, and performance reviews are planned for a later version. They are not currently available and must not be represented to employees as active workflows. Future implementation must define exact approval ownership, document access, payroll privacy, review visibility, audit history, retention, and notifications before release.
+
+## Performance and Large Lists
+
+- Employee, asset, task, attendance, leave-report, and timeline APIs accept `limit` and `offset` for server-side paging.
+- Employee, asset, and task screens initially request 100 rows and provide incremental loading.
+- Long rendered lists use browser layout containment so off-screen records do not consume full layout and paint work.
+- Excel import/export is route-split into a separate chunk and does not load during sign-in or normal dashboard navigation.
+- Mobile attendance may reuse a device location fix for up to 15 seconds. Older coordinates are rejected by the client and a fresh high-accuracy location is requested; branch matching remains validated by the backend.
 - Return history is retained separately from the current asset assignment and written to the audit log.
 
 ## Employee Services

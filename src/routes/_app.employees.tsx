@@ -40,6 +40,8 @@ export const Route = createFileRoute("/_app/employees")({
   component: EmployeesPage,
 });
 
+const PAGE_SIZE = 100;
+
 function EmployeesPage() {
   const { user: currentUser } = useAuth();
   const [employees, setEmployees] = useState<User[]>([]);
@@ -47,6 +49,8 @@ function EmployeesPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [q, setQ] = useState("");
   const [branch, setBranch] = useState("all");
   const [dept, setDept] = useState("all");
@@ -72,9 +76,14 @@ function EmployeesPage() {
   );
 
   useEffect(() => {
-    Promise.all([employeesApi.list(), branchesApi.list(), branchesApi.departments()])
+    Promise.all([
+      employeesApi.list({ limit: PAGE_SIZE, offset: 0 }),
+      branchesApi.list(),
+      branchesApi.departments(),
+    ])
       .then(([employeeRows, branchRows, departmentRows]) => {
         setEmployees(employeeRows);
+        setHasMore(employeeRows.length === PAGE_SIZE);
         setBranches(branchRows);
         setDepartments(departmentRows);
       })
@@ -82,12 +91,25 @@ function EmployeesPage() {
       .finally(() => setLoading(false));
     const statusTimer = window.setInterval(() => {
       void employeesApi
-        .list()
-        .then(setEmployees)
+        .list({ limit: PAGE_SIZE, offset: 0 })
+        .then((rows) => setEmployees((current) => [...rows, ...current.slice(PAGE_SIZE)]))
         .catch(() => undefined);
     }, 15_000);
     return () => window.clearInterval(statusTimer);
   }, []);
+
+  async function loadMore() {
+    setLoadingMore(true);
+    try {
+      const next = await employeesApi.list({ limit: PAGE_SIZE, offset: employees.length });
+      setEmployees((current) => [...current, ...next]);
+      setHasMore(next.length === PAGE_SIZE);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   function openEditDialog(emp: User) {
     setEditingEmployee(emp);
@@ -213,7 +235,10 @@ function EmployeesPage() {
       <div className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="space-y-2 p-3 md:hidden">
           {rows.map((employee) => (
-            <div key={employee.id} className="rounded-lg border bg-background p-3">
+            <div
+              key={employee.id}
+              className="rounded-lg border bg-background p-3 [content-visibility:auto] [contain-intrinsic-size:170px]"
+            >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{employee.name}</p>
@@ -272,7 +297,10 @@ function EmployeesPage() {
             </TableHeader>
             <TableBody>
               {rows.map((u) => (
-                <TableRow key={u.id}>
+                <TableRow
+                  key={u.id}
+                  className="[content-visibility:auto] [contain-intrinsic-size:52px]"
+                >
                   <TableCell>
                     <div className="font-medium">{u.name}</div>
                     <div className="text-xs text-muted-foreground">{u.email}</div>
@@ -308,6 +336,13 @@ function EmployeesPage() {
         </div>
         {!loading && rows.length === 0 && (
           <div className="p-6 text-sm text-muted-foreground">No employees found.</div>
+        )}
+        {hasMore && !q && branch === "all" && dept === "all" && (
+          <div className="border-t p-3 text-center">
+            <Button variant="outline" onClick={() => void loadMore()} disabled={loadingMore}>
+              {loadingMore ? "Loading employees..." : "Load more employees"}
+            </Button>
+          </div>
         )}
       </div>
 

@@ -2,12 +2,20 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { InfoButton } from "@/components/common/InfoButton";
 import { LoadingState } from "@/components/common/LoadingState";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -107,7 +115,14 @@ function PolicyPage() {
     <div>
       <PageHeader
         title="Leave Policies & Credits"
-        description="Review company leave rules and manage audited credits employee by employee."
+        description="Review leave types and manage employee credits."
+        actions={
+          <InfoButton title="Managing leave credits">
+            Choose an employee and adjust only the required leave type. Positive adjustments add
+            credit and negative adjustments reduce it. Every change requires a reason and is saved
+            in Audit Logs.
+          </InfoButton>
+        }
       />
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Leave policies">
@@ -121,9 +136,14 @@ function PolicyPage() {
                     {type.paid ? "Credit based" : "Recorded separately"}
                   </p>
                 </div>
-                <CalendarCheck className="h-5 w-5 shrink-0 text-primary" />
+                <InfoButton title={type.name} className="-mr-1 -mt-1">
+                  {type.description || "This leave type follows the active company policy."}
+                </InfoButton>
               </div>
-              <p className="mt-3 text-sm leading-5 text-muted-foreground">{type.description}</p>
+              <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                <CalendarCheck className="h-4 w-4 text-primary" />
+                Select an employee below to review credits
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -143,6 +163,23 @@ function PolicyPage() {
           <div className="grid min-h-[420px] lg:grid-cols-[minmax(260px,0.34fr)_minmax(0,1fr)]">
             <aside className="border-b border-border lg:border-b-0 lg:border-r">
               <div className="border-b border-border p-3">
+                <div className="mb-2 lg:hidden">
+                  <Select value={selectedEmployeeId} onValueChange={selectEmployee}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Choose an employee" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredEmployees.map((employee) => {
+                        const employeeId = employee.employeeId ?? employee.id;
+                        return (
+                          <SelectItem key={employeeId} value={employeeId}>
+                            {employee.name} - {employee.employeeCode ?? employeeId}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
@@ -153,7 +190,7 @@ function PolicyPage() {
                   />
                 </div>
               </div>
-              <div className="max-h-72 overflow-y-auto p-2 lg:max-h-[520px]">
+              <div className="hidden max-h-72 overflow-y-auto p-2 lg:block lg:max-h-[520px]">
                 {filteredEmployees.map((employee) => {
                   const employeeId = employee.employeeId ?? employee.id;
                   const selected = employeeId === selectedEmployeeId;

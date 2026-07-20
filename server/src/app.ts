@@ -220,6 +220,11 @@ export function createApp() {
     return Math.min(Math.floor(requested), max);
   }
 
+  function listOffset(req: express.Request) {
+    const requested = Number(req.query.offset);
+    return Number.isFinite(requested) && requested > 0 ? Math.floor(requested) : 0;
+  }
+
   function dateFromQuery(value: unknown) {
     if (!value || Array.isArray(value)) return undefined;
     return new Date(`${String(value).slice(0, 10)}T00:00:00.000Z`);
@@ -1098,6 +1103,7 @@ export function createApp() {
       const users = await prisma.user.findMany({
         include: { employee: true },
         orderBy: { createdAt: "desc" },
+        skip: listOffset(req),
         take: listLimit(req, 750, 1000),
       });
       res.json(users.map(userDto));
@@ -1245,6 +1251,7 @@ export function createApp() {
         where,
         include: { user: true, department: true, homeBranch: true, manager: true },
         orderBy: { employeeCode: "asc" },
+        skip: listOffset(req),
         take: listLimit(req, 750, 1000),
       });
       res.json(employees.map((emp) => employeeDto(emp, req.user!)));
@@ -1388,7 +1395,7 @@ export function createApp() {
   app.get(
     "/assets",
     requireAuth,
-    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN, Role.CEO),
     asyncHandler(async (req, res) => {
       const query = String(req.query.q ?? "").trim();
       const status = typeof req.query.status === "string" ? req.query.status : undefined;
@@ -1409,6 +1416,7 @@ export function createApp() {
         },
         include: { assignedEmployee: true, branch: true },
         orderBy: [{ status: "asc" }, { name: "asc" }],
+        skip: listOffset(req),
         take: listLimit(req, 500, 1000),
       });
       res.json(assets.map(companyAssetDto));
@@ -1418,7 +1426,7 @@ export function createApp() {
   app.get(
     "/assets/investment-summary",
     requireAuth,
-    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN, Role.CEO),
     asyncHandler(async (_req, res) => {
       const assets = await prisma.companyAsset.findMany({
         where: { assignedEmployeeId: { not: null }, status: { not: "RETIRED" } },
@@ -2716,10 +2724,16 @@ export function createApp() {
     requireAuth,
     asyncHandler(async (req, res) => {
       if (!req.user!.employeeId) throw new HttpError(404, "No employee profile");
+      const from = dateFromQuery(req.query.from);
+      const to = dateFromQuery(req.query.to);
       const rows = await prisma.attendanceDailySummary.findMany({
-        where: { employeeId: req.user!.employeeId },
+        where: {
+          employeeId: req.user!.employeeId,
+          ...(from || to ? { date: { gte: from, lte: to } } : {}),
+        },
         include: { employee: true },
         orderBy: { date: "desc" },
+        skip: listOffset(req),
         take: listLimit(req, 120, 366),
       });
       res.json(await mapSummariesToDtos(rows));
@@ -2745,6 +2759,7 @@ export function createApp() {
         where,
         include: { employee: true },
         orderBy: { employeeId: "asc" },
+        skip: listOffset(req),
         take: listLimit(req, 750, 1000),
       });
       res.json(await mapSummariesToDtos(rows));
@@ -2794,6 +2809,7 @@ export function createApp() {
         where,
         include: { employee: true },
         orderBy: { date: "desc" },
+        skip: listOffset(req),
         take: req.query.limit === "none" ? undefined : listLimit(req, 500, 1000),
       });
       res.json(await mapSummariesToDtos(rows));
@@ -2872,6 +2888,7 @@ export function createApp() {
           where,
           include: { employee: true },
           orderBy: { date: "desc" },
+          skip: listOffset(req),
           take: listLimit(req, 500, 1000),
         });
         res.json(await mapSummariesToDtos(rows));
@@ -2902,6 +2919,7 @@ export function createApp() {
         where,
         include: { leaveType: true, employee: { include: { manager: true } } },
         orderBy: { createdAt: "desc" },
+        skip: listOffset(req),
         take: listLimit(req, 500, 1000),
       });
       res.json(await leaveRequestDtos(rows));
@@ -2926,6 +2944,7 @@ export function createApp() {
         where,
         include: { employee: true },
         orderBy: [{ date: "desc" }, { employeeId: "asc" }],
+        skip: listOffset(req),
         take: listLimit(req, 500, 1000),
       });
       res.json(await mapSummariesToDtos(rows));
@@ -2950,6 +2969,7 @@ export function createApp() {
         where,
         include: { branch: true, device: true, employee: true },
         orderBy: [{ eventTime: "desc" }],
+        skip: listOffset(req),
         take: listLimit(req, 1000, 2000),
       });
       res.json(events.map(eventDto));
@@ -3999,6 +4019,7 @@ export function createApp() {
         },
         include: taskInclude,
         orderBy: [{ dueDate: "asc" }, { updatedAt: "desc" }],
+        skip: listOffset(req),
         take: listLimit(req, 300, 1000),
       });
       res.json(tasks.map(taskDto));

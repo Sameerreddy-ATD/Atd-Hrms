@@ -482,7 +482,10 @@ function DayLogsPage() {
                   </TableHeader>
                   <TableBody>
                     {movementRows.map((row, index) => (
-                      <TableRow key={`${row.employeeId ?? "emp"}-${row.time}-${row.type}-${index}`}>
+                      <TableRow
+                        key={`${row.employeeId ?? "emp"}-${row.time}-${row.type}-${index}`}
+                        className="[content-visibility:auto] [contain-intrinsic-size:52px]"
+                      >
                         <TableCell className="font-medium">
                           <div>{row.employeeName ?? "-"}</div>
                           <div className="text-xs text-muted-foreground">
