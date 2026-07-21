@@ -64,18 +64,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const cachedUser = readSessionUser();
-    const cachedWarmup = cachedUser ? warmAuthenticatedWorkspace(cachedUser) : Promise.resolve();
     if (cachedUser) {
       setUser(cachedUser);
+      setLoading(false);
+      void warmAuthenticatedWorkspace(cachedUser);
     }
 
     authApi
       .restore()
-      .then(async ({ user }) => {
+      .then(({ user }) => {
         setUser(user);
         writeSessionUser(user);
-        if (cachedUser?.id === user.id) await cachedWarmup;
-        else await warmAuthenticatedWorkspace(user);
+        if (cachedUser?.id !== user.id) void warmAuthenticatedWorkspace(user);
       })
       .catch(() => {
         setUser(null);
@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { user } = await authApi.login(email, password);
     setUser(user);
     writeSessionUser(user);
-    await warmAuthenticatedWorkspace(user);
+    void warmAuthenticatedWorkspace(user);
     return user;
   }, []);
 
@@ -103,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { user } = await authApi.changePassword(oldPassword, nextPassword);
     setUser(user);
     writeSessionUser(user);
-    await warmAuthenticatedWorkspace(user);
+    void warmAuthenticatedWorkspace(user);
     return user;
   }, []);
 

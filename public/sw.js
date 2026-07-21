@@ -1,4 +1,4 @@
-self.ATD_STATIC_CACHE = "atd-static-v2";
+self.ATD_STATIC_CACHE = "atd-static-v3";
 self.ATD_SHELL_ASSETS = [
   "/atd-logo.png",
   "/atd-favicon.png",
@@ -67,7 +67,26 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  const cacheableDestination = ["script", "style", "font", "image"].includes(request.destination);
+  const networkFirstDestination = ["script", "style", "font"].includes(request.destination);
+  if (networkFirstDestination) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            void caches.open(self.ATD_STATIC_CACHE).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(request);
+          return cached ?? new Response("Asset unavailable while offline", { status: 503 });
+        }),
+    );
+    return;
+  }
+
+  const cacheableDestination = request.destination === "image";
   if (!cacheableDestination) return;
 
   event.respondWith(

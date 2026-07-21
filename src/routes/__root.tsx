@@ -146,7 +146,7 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   useEffect(() => {
-    void registerAppServiceWorker();
+    void registerAppServiceWorker().catch(() => undefined);
   }, []);
 
   return (

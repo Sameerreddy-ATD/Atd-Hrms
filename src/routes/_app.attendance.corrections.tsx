@@ -48,6 +48,7 @@ interface CorrectionRequestItem {
   status: string;
   createdAt: string;
   canReview: boolean;
+  approverName?: string | null;
 }
 
 function AttendanceCorrectionsPage() {
@@ -175,6 +176,7 @@ function AttendanceCorrectionsPage() {
   }
 
   const pendingRequests = requests.filter((r) => r.status === "PENDING");
+  const reviewableRequests = pendingRequests.filter((request) => request.canReview);
 
   function openDayLogs(employeeId: string, employeeName: string, date: string) {
     sessionStorage.setItem(
@@ -205,6 +207,21 @@ function AttendanceCorrectionsPage() {
 
         <TabsContent value="requests" className="mt-4">
           {loadingReqs && <LoadingState label="Loading pending requests" compact />}
+          {!loadingReqs && pendingRequests.length > 0 && (
+            <div className="mb-4 rounded-md border border-border bg-muted/30 px-4 py-3 text-sm">
+              {reviewableRequests.length > 0 ? (
+                <p>
+                  <span className="font-semibold">{reviewableRequests.length}</span> request
+                  {reviewableRequests.length === 1 ? " is" : "s are"} waiting for your decision.
+                </p>
+              ) : (
+                <p className="text-muted-foreground">
+                  These requests are visible for tracking. Only the assigned organization head can
+                  approve or reject each request.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Mobile: card list with inline approve/reject */}
           <div className="space-y-3 md:hidden">
@@ -257,6 +274,11 @@ function AttendanceCorrectionsPage() {
                       </Button>
                     </div>
                   )}
+                  {!req.canReview && (
+                    <p className="rounded-md bg-muted px-3 py-2 text-center text-xs text-muted-foreground">
+                      Awaiting {req.approverName || "assigned organization head"}
+                    </p>
+                  )}
                   <Button
                     variant="outline"
                     className="w-full"
@@ -286,6 +308,7 @@ function AttendanceCorrectionsPage() {
                     <TableHead>Type</TableHead>
                     <TableHead>Reason</TableHead>
                     <TableHead>Submitted On</TableHead>
+                    <TableHead>Approver</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -312,6 +335,9 @@ function AttendanceCorrectionsPage() {
                         {req.remarks}
                       </TableCell>
                       <TableCell>{new Date(req.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                        {req.canReview ? "Your decision" : (req.approverName ?? "Not assigned")}
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1.5">
                           <Button

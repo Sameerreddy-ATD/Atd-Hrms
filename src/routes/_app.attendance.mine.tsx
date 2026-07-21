@@ -99,7 +99,15 @@ function MyAttendancePage() {
   const [submitting, setSubmitting] = useState(false);
   const maxDate = todayDateInputValue();
   const maxTime = date === maxDate ? currentTimeInputValue() : undefined;
-  const detectedMissedPunches = records.filter((record) => record.status === "Missed Punch");
+  const requestedCorrectionDates = new Set(
+    myRequests
+      .filter((request) => request.status === "PENDING" || request.status === "APPROVED")
+      .map((request) => request.date.slice(0, 10)),
+  );
+  const detectedMissedPunches = records.filter(
+    (record) =>
+      record.status === "Missed Punch" && !requestedCorrectionDates.has(record.date.slice(0, 10)),
+  );
 
   function prepareMissedCheckout(record: AttendanceRecord) {
     setDate(record.date);

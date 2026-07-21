@@ -100,6 +100,21 @@ export function setSeenNotificationIds(ids: string[]) {
 
 export async function registerAppServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
+  if (import.meta.env.DEV) {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(
+      registrations
+        .filter((registration) => registration.active?.scriptURL.endsWith("/sw.js"))
+        .map((registration) => registration.unregister()),
+    );
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      await Promise.all(
+        keys.filter((key) => key.startsWith("atd-static-")).map((key) => caches.delete(key)),
+      );
+    }
+    return;
+  }
   await navigator.serviceWorker.register("/sw.js");
 }
 

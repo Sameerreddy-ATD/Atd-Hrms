@@ -3235,9 +3235,17 @@ export function createApp() {
       });
 
       const visibleRequests = [];
+      const approverNames = new Map<string, string | null>();
       for (const request of requests) {
         const resolvedApproverId =
           request.approverId ?? (await findLeaveApprover(request.employeeId))?.employeeId ?? null;
+        if (resolvedApproverId && !approverNames.has(resolvedApproverId)) {
+          const approver = await prisma.employee.findUnique({
+            where: { employeeId: resolvedApproverId },
+            select: { name: true },
+          });
+          approverNames.set(resolvedApproverId, approver?.name ?? null);
+        }
         if (!request.approverId && resolvedApproverId && request.status === "PENDING") {
           await prisma.attendanceCorrectionRequest.update({
             where: { requestId: request.requestId },
@@ -3263,6 +3271,7 @@ export function createApp() {
           status: request.status,
           createdAt: request.createdAt.toISOString(),
           canReview: resolvedApproverId === req.user!.employeeId,
+          approverName: resolvedApproverId ? (approverNames.get(resolvedApproverId) ?? null) : null,
         });
       }
       res.json(visibleRequests);
