@@ -69,6 +69,9 @@ export function CreateLoginForm({
   const [employmentType, setEmploymentType] = useState<"FULL_TIME" | "PART_TIME" | "INTERN">(
     "FULL_TIME",
   );
+  const [shiftType, setShiftType] = useState<"DAY" | "NIGHT">("DAY");
+  const [shiftStart, setShiftStart] = useState("09:00");
+  const [shiftEnd, setShiftEnd] = useState("18:00");
   const [temporaryPassword, setTemporaryPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -205,6 +208,10 @@ export function CreateLoginForm({
         payload.dateOfBirth = dateOfBirth || undefined;
         payload.gender = gender;
         payload.employmentType = employmentType;
+        payload.shiftType = shiftType;
+        payload.shiftStartMinutes =
+          Number(shiftStart.slice(0, 2)) * 60 + Number(shiftStart.slice(3));
+        payload.shiftEndMinutes = Number(shiftEnd.slice(0, 2)) * 60 + Number(shiftEnd.slice(3));
         payload.attendanceMode = "BOTH";
         payload.isFieldEmployee = ["sales", "driver", "field_staff"].includes(role);
       }
@@ -438,6 +445,41 @@ export function CreateLoginForm({
                   <SelectItem value="INTERN">Intern</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Shift</Label>
+              <Select
+                value={shiftType}
+                onValueChange={(value: "DAY" | "NIGHT") => {
+                  setShiftType(value);
+                  setShiftStart(value === "NIGHT" ? "21:00" : "09:00");
+                  setShiftEnd(value === "NIGHT" ? "06:00" : "18:00");
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DAY">Day shift</SelectItem>
+                  <SelectItem value="NIGHT">Night shift</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 sm:col-span-2">
+              <div className="space-y-1.5">
+                <Label>Shift starts</Label>
+                <Input
+                  type="time"
+                  value={shiftStart}
+                  onChange={(e) => setShiftStart(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Shift ends</Label>
+                <Input type="time" value={shiftEnd} onChange={(e) => setShiftEnd(e.target.value)} />
+              </div>
             </div>
           </>
         )}

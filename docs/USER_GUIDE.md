@@ -67,7 +67,22 @@ Use permanent deletion only when the employee and all related website data must 
 
 The current signed-in account and Developer Admin accounts cannot be deleted. Use suspension, deactivation, or blocked-account reactivation when history must be retained.
 
+## Developer Admin: Reset Testing Data Before Go-Live
+
+Use **System Settings > Production Data Reset** only once the testing period is complete and immediately before entering real employee data.
+
+1. Take and verify a MySQL backup.
+2. Sign in with the Developer Admin account that must be preserved.
+3. Open **System Settings** and select **Delete all testing data**.
+4. Type `DELETE ALL TEST DATA` exactly and enter the current Developer Admin password.
+5. Confirm the reset, then verify that User Logins contains only the preserved Developer Admin account.
+6. Create the real organization logins from Developer Admin.
+
+The reset preserves the signed-in Developer Admin account and password, branches, departments and their hierarchy, and system settings. It clears department-head assignments because the testing employees are removed. It permanently removes all other users, employees, attendance, leave types and requests, tasks, assets, holidays, biometric devices and mappings, announcements, subscriptions, service requests, notifications derived from those records, and audit history. The reset is transactional: a database failure rolls back the entire operation.
+
 ## Employee: Mark Attendance
+
+Developer Admin assigns each employee a day or night shift and its start/end times while creating the account or from **Employees > Edit Employee**. For night shifts, punches after midnight and before the configured shift end remain part of the date on which the shift started. Mobile and biometric punches can be mixed within the same session.
 
 Employees can use mobile attendance in the current version. Biometric/eSSL attendance is planned for the next version.
 
@@ -124,6 +139,8 @@ sequenceDiagram
 ```
 
 ## Employee: Request Missed Punch Correction
+
+An unmatched check-in remains active until the employee checks out. After nine hours, the employee receives one reminder that attendance is still running; the timer and session continue normally.
 
 1. Open **Missed Punch Request**.
 2. Select the date and punch time.

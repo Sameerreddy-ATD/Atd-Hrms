@@ -53,9 +53,6 @@ function LoginPage() {
     try {
       const signedIn = await login(email, password);
       toast.success("Signed in");
-      if (signedIn.mustChangePassword) {
-        sessionStorage.setItem("atd.temp.pw", password);
-      }
       navigate({ to: signedIn.mustChangePassword ? "/first-login" : "/dashboard" });
     } catch (err) {
       const message = (err as Error).message || "Login failed";

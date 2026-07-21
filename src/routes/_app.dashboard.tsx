@@ -205,10 +205,7 @@ function DashboardPage() {
 
     Promise.all([
       ownAttendanceRoles
-        ? attendanceApi.listMine(user.employeeId ?? "", {
-            from: indiaDateKey(),
-            to: indiaDateKey(),
-          })
+        ? attendanceApi.today().then((row) => (row ? [row] : []))
         : attendanceApi.list({ from: indiaDateKey(), to: indiaDateKey() }),
       selfPunchRoles ? attendanceApi.myTimeline().catch(() => []) : Promise.resolve([]),
       branchesApi.list(),
@@ -260,7 +257,9 @@ function DashboardPage() {
     );
   }
 
-  const todayAttendance = attendance.filter((row) => row.date === indiaDateKey());
+  const todayAttendance = ownAttendanceRoles
+    ? attendance
+    : attendance.filter((row) => row.date === indiaDateKey());
   const total = people.filter((person) => person.employeeId && person.active !== false).length;
   const attendanceRequiredTotal = people.filter(
     (person) =>
@@ -807,13 +806,7 @@ function HRDashboard({
           hint="Office and field"
         />
         <StatCard label="On leave today" value={data.onLeave} icon={PlaneTakeoff} tone="info" />
-        <StatCard
-          label="Missed punch"
-          value={data.missed}
-          icon={AlertTriangle}
-          tone="warning"
-          hint="Checked in without a matching check-out"
-        />
+        <StatCard label="Missed punch" value={data.missed} icon={AlertTriangle} tone="warning" />
         <StatCard label="Field present" value={data.fieldPresent} icon={MapPin} />
       </div>
       <div className="grid gap-3 lg:grid-cols-2">

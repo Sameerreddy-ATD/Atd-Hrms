@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,20 +16,9 @@ export const Route = createFileRoute("/first-login")({
 function FirstLoginPage() {
   const navigate = useNavigate();
   const { changePassword } = useAuth();
-  const [oldPw, setOldPw] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
-  const [hasCached, setHasCached] = useState(false);
-
-  useEffect(() => {
-    const cached = sessionStorage.getItem("atd.temp.pw");
-    if (cached) {
-      setOldPw(cached);
-      setHasCached(true);
-      sessionStorage.removeItem("atd.temp.pw");
-    }
-  }, []);
 
   const rules = [
     { label: "At least 8 characters", ok: next.length >= 8 },
@@ -40,17 +29,13 @@ function FirstLoginPage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!oldPw) {
-      toast.error("Temporary password is missing. Please log in again.");
-      return;
-    }
     if (rules.some((r) => !r.ok)) {
       toast.error("Please meet all password requirements");
       return;
     }
     setLoading(true);
     try {
-      await changePassword(oldPw, next);
+      await changePassword("", next);
       toast.success("Password updated. You are signed in.");
       navigate({ to: "/dashboard", replace: true });
     } catch (err) {
@@ -70,17 +55,6 @@ function FirstLoginPage() {
             For security, you must change the temporary password issued to you before continuing.
           </p>
           <form onSubmit={submit} className="mt-6 space-y-4">
-            {!hasCached && (
-              <div className="space-y-1.5">
-                <Label htmlFor="old">Temporary password</Label>
-                <PasswordInput
-                  id="old"
-                  autoComplete="current-password"
-                  value={oldPw}
-                  onChange={(e) => setOldPw(e.target.value)}
-                />
-              </div>
-            )}
             <div className="space-y-1.5">
               <Label htmlFor="new">New password</Label>
               <PasswordInput

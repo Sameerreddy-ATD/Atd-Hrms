@@ -28,8 +28,48 @@ function startOfDay(date: string | Date) {
   return startOfDayUtc(date);
 }
 
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+function indiaCalendarDate(date: Date) {
+  const india = new Date(date.getTime() + IST_OFFSET_MS);
+  return new Date(Date.UTC(india.getUTCFullYear(), india.getUTCMonth(), india.getUTCDate()));
+}
+
+export function attendanceDateForShift(
+  eventTime: Date,
+  shift: { shiftType: "DAY" | "NIGHT"; shiftEndMinutes: number },
+) {
+  const india = new Date(eventTime.getTime() + IST_OFFSET_MS);
+  const minutes = india.getUTCHours() * 60 + india.getUTCMinutes();
+  const date = indiaCalendarDate(eventTime);
+  if (shift.shiftType === "NIGHT" && minutes <= shift.shiftEndMinutes) {
+    date.setUTCDate(date.getUTCDate() - 1);
+  }
+  return date;
+}
+
+export async function attendanceDateForEmployee(employeeId: string, eventTime: Date) {
+  const employee = await prisma.employee.findUniqueOrThrow({
+    where: { employeeId },
+    select: { shiftType: true, shiftEndMinutes: true },
+  });
+  return attendanceDateForShift(eventTime, employee);
+}
+
 function hoursBetween(a: Date, b: Date) {
   return Math.max(0, (b.getTime() - a.getTime()) / 36e5);
+}
+
+export function openPunchState(
+  events: Array<{ eventType: EventType; eventTime: Date }>,
+  now = Date.now(),
+) {
+  const latestEvent = events.at(-1);
+  const hasOpenPunch = Boolean(latestEvent && inTypes.has(latestEvent.eventType));
+  const expired = Boolean(
+    hasOpenPunch && latestEvent && now - latestEvent.eventTime.getTime() >= 9 * 60 * 60 * 1000,
+  );
+  return { hasOpenPunch, expired };
 }
 
 const officeGeofences = [
@@ -70,13 +110,12 @@ async function branchForCoordinates(latitude?: number, longitude?: number) {
 }
 
 export async function inferThumbEventType(employeeId: string, branchId: string, eventTime: Date) {
-  const day = startOfDay(eventTime);
+  const day = await attendanceDateForEmployee(employeeId, eventTime);
   const previous = await prisma.attendanceEvent.findFirst({
-    where: { employeeId, eventDate: day, eventSource: EventSource.THUMB_SCANNER },
+    where: { employeeId, eventDate: day },
     orderBy: { eventTime: "desc" },
   });
   if (!previous) return EventType.OFFICE_IN;
-  if (previous.branchId !== branchId) return EventType.BRANCH_IN;
   return inTypes.has(previous.eventType) ? EventType.OFFICE_OUT : EventType.OFFICE_IN;
 }
 
@@ -100,7 +139,7 @@ export async function createAttendanceEvent(input: {
   createdByUserId?: string;
 }) {
   const eventTime = input.eventTime ?? new Date();
-  const eventDate = startOfDay(eventTime);
+  const eventDate = await attendanceDateForEmployee(input.employeeId, eventTime);
   let eventType =
     input.eventType ??
     (input.eventSource === EventSource.THUMB_SCANNER && input.branchId
@@ -181,17 +220,11 @@ export async function recalculateDailySummary(employeeId: string, date: string |
           ? "MOBILE_GPS"
           : "SYSTEM";
   const lastOut = [...events].reverse().find((e) => outTypes.has(e.eventType));
-  const latestEvent = events.at(-1);
-  const hasOpenPunch = Boolean(latestEvent && inTypes.has(latestEvent.eventType));
-  const openPunchExpired = Boolean(
-    hasOpenPunch &&
-    latestEvent &&
-    Date.now() - latestEvent.eventTime.getTime() >= 9 * 60 * 60 * 1000,
-  );
-  // An active work session is valid for nine hours. It becomes a missed checkout only
-  // after that window, rather than appearing as an exception immediately after check-in.
-  const hasMissingOutEvent = openPunchExpired;
-  const hasMissedCheckout = openPunchExpired;
+  const { hasOpenPunch } = openPunchState(events);
+  // Open sessions remain active until an explicit checkout. The scheduler sends
+  // a reminder after nine hours without changing attendance status or stopping time.
+  const hasMissingOutEvent = hasOpenPunch;
+  const hasMissedCheckout = false;
 
   let officeHours = 0;
   let fieldHours = 0;
@@ -244,7 +277,6 @@ export async function recalculateDailySummary(employeeId: string, date: string |
     else if (hasGps && !branches.length) status = "Present - Field";
     else if (isBranchMismatch) status = "Present - Other Branch";
     else status = "Present";
-    if (hasMissedCheckout) status = "Missed Checkout";
   } else {
     status = await resolveNoEventStatus(employeeId, eventDate);
   }
@@ -308,6 +340,12 @@ export async function recalculateDailySummary(employeeId: string, date: string |
       hasMissedCheckout,
     },
   });
+  if (!hasOpenPunch) {
+    await prisma.attendanceReminder.updateMany({
+      where: { employeeId, eventDate, resolvedAt: null },
+      data: { resolvedAt: new Date() },
+    });
+  }
   if (firstCheckIn && lastOut) {
     const holiday = await prisma.holiday.findFirst({
       where: {

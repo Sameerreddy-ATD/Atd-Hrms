@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { BackButton } from "@/components/common/BackButton";
 import { PageHeader } from "@/components/common/PageHeader";
 import { InfoButton } from "@/components/common/InfoButton";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,13 +11,6 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { attendanceApi } from "@/services/api";
 import { MISSED_PUNCH_TYPE_OPTIONS, punchTypeLabel } from "@/lib/attendance-labels";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { CalendarClock, CheckCircle2, Clock3, FilePenLine } from "lucide-react";
 
 export const Route = createFileRoute("/_app/attendance/missed-punch")({
@@ -71,6 +63,13 @@ function MissedPunchPage() {
     }
 
     const punchTime = new Date(`${date}T${time}:00+05:30`);
+    if (
+      user.shiftType === "NIGHT" &&
+      eventType.includes("OUT") &&
+      Number(time.slice(0, 2)) * 60 + Number(time.slice(3)) <= (user.shiftEndMinutes ?? 360)
+    ) {
+      punchTime.setDate(punchTime.getDate() + 1);
+    }
     if (punchTime.getTime() > Date.now()) {
       toast.error("Punch time must be in the past. You can only request already completed times.");
       return;
@@ -108,7 +107,7 @@ function MissedPunchPage() {
           </InfoButton>
         }
       />
-      <div className="mx-auto grid w-full max-w-4xl gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+      <div className="mx-auto grid w-full max-w-4xl gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
         <Card>
           <CardContent className="p-4 sm:p-6">
             <div className="mb-5 flex items-center gap-3 border-b pb-4">
@@ -122,7 +121,7 @@ function MissedPunchPage() {
                 </p>
               </div>
             </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="missed-date">Date</Label>
@@ -154,20 +153,22 @@ function MissedPunchPage() {
                 </div>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <Label>Punch type</Label>
-                <Select value={eventType} onValueChange={setEventType}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select punch type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MISSED_PUNCH_TYPE_OPTIONS.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {punchTypeLabel(type)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="grid grid-cols-2 gap-2" role="group" aria-label="Punch type">
+                  {MISSED_PUNCH_TYPE_OPTIONS.map((type) => (
+                    <Button
+                      key={type}
+                      type="button"
+                      variant={eventType === type ? "default" : "outline"}
+                      className="h-auto min-h-11 justify-start whitespace-normal px-3 py-2 text-left"
+                      onClick={() => setEventType(type)}
+                    >
+                      {eventType === type && <CheckCircle2 className="h-4 w-4" />}
+                      {punchTypeLabel(type)}
+                    </Button>
+                  ))}
+                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -178,8 +179,12 @@ function MissedPunchPage() {
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   placeholder="Explain why the punch was missed..."
+                  maxLength={1000}
                   required
                 />
+                <p className="text-right text-xs tabular-nums text-muted-foreground">
+                  {reason.length}/1,000
+                </p>
               </div>
 
               <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
@@ -198,8 +203,11 @@ function MissedPunchPage() {
             </form>
           </CardContent>
         </Card>
-        <aside className="rounded-lg border bg-muted/20 p-4 lg:self-start">
+        <aside className="rounded-lg border bg-muted/20 p-4 lg:sticky lg:top-4 lg:self-start">
           <h2 className="text-sm font-semibold">Request summary</h2>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Review these details before submitting to your organization head.
+          </p>
           <div className="mt-4 space-y-4 text-sm">
             <SummaryItem icon={CalendarClock} label="Date" value={date || "Not selected"} />
             <SummaryItem icon={Clock3} label="Time" value={time || "Not selected"} />

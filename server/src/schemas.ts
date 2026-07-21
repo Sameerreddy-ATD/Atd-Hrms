@@ -5,6 +5,7 @@ import {
   EventType,
   Gender,
   Role,
+  ShiftType,
   TaskPriority,
   TaskStatus,
   UserStatus,
@@ -41,6 +42,9 @@ export const createUserSchema = z.object({
   gender: z.nativeEnum(Gender).nullable().optional(),
   employmentType: z.nativeEnum(EmploymentType).nullable().optional(),
   organizationLevel: z.enum(["HEAD", "SENIOR", "JUNIOR", "MEMBER"]).optional(),
+  shiftType: z.nativeEnum(ShiftType).optional(),
+  shiftStartMinutes: z.number().int().min(0).max(1439).optional(),
+  shiftEndMinutes: z.number().int().min(0).max(1439).optional(),
 });
 
 export const updateUserSchema = z.object({
@@ -55,13 +59,18 @@ export const updateUserSchema = z.object({
 });
 
 export const changePasswordSchema = z.object({
-  oldPassword: z.string().min(1).max(200),
+  oldPassword: z.string().max(200).optional(),
   nextPassword: z
     .string()
     .min(8)
     .max(200)
     .regex(/[A-Z]/, "Password must contain an uppercase letter")
     .regex(/[0-9]/, "Password must contain a number"),
+});
+
+export const resetTestDataSchema = z.object({
+  confirmation: z.literal("DELETE ALL TEST DATA"),
+  password: z.string().min(1).max(200),
 });
 
 export const updateEmployeeSchema = z.object({
@@ -80,6 +89,9 @@ export const updateEmployeeSchema = z.object({
   attendanceMode: z.nativeEnum(AttendanceMode).optional(),
   isFieldEmployee: z.boolean().optional(),
   status: z.nativeEnum(EmployeeStatus).optional(),
+  shiftType: z.nativeEnum(ShiftType).optional(),
+  shiftStartMinutes: z.number().int().min(0).max(1439).optional(),
+  shiftEndMinutes: z.number().int().min(0).max(1439).optional(),
 });
 
 export const branchSchema = z.object({

@@ -83,21 +83,20 @@ function IdCardPage() {
             </div>
 
             <div className="mt-5 flex flex-col items-center justify-center">
-              <a
-                href={`/verify-id/${user.employeeId || user.id}`}
-                target="_blank"
-                rel="noreferrer"
-                className="block hover:opacity-90 transition-opacity"
+              <div
+                className="rounded-md border bg-white p-2"
+                aria-label="Employee verification QR code"
               >
                 <img
                   src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(verificationUrl)}`}
                   alt="Verification QR Code"
-                  className="h-28 w-28 border border-border p-1 bg-white"
+                  className="h-28 w-28"
+                  draggable={false}
                 />
-              </a>
+              </div>
               <span className="mt-2 flex items-center gap-1 text-[10px] font-semibold uppercase text-muted-foreground">
-                <ShieldCheck className="h-3 w-3 text-emerald-600 dark:text-emerald-400" /> Scan to
-                verify active employment
+                <ShieldCheck className="h-3 w-3 text-emerald-600 dark:text-emerald-400" /> Scan from
+                another device to verify this ID
               </span>
             </div>
           </CardContent>

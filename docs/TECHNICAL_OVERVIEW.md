@@ -84,11 +84,15 @@ Browser role checks live in `tests/e2e/role-navigation.spec.ts`. Set `E2E_BASE_U
 | `/notifications` | User-scoped notification feed and live stream |
 | `/push` | VAPID key and browser subscription management |
 | `/audit-logs` | Administrative audit history |
-| `/system` | Health and Developer Admin system information |
+| `/system` | Health, startup proof settings, and protected Developer Admin test-data reset |
 
 ## Attendance Model
 
 Every punch is an immutable `AttendanceEvent`. The engine sorts events, pairs compatible in/out sources, calculates worked duration, and maintains one `AttendanceDailySummary` per employee/date. A live event tells the employee’s other signed-in devices to reload the authoritative timeline.
+
+Attendance dates are employee-specific. Day shifts use the India calendar date. Night shifts map events between midnight and the configured shift end to the previous date, allowing biometric and mobile punches to pair across midnight. Shift configuration is stored as `shift_type`, `shift_start_minutes`, and `shift_end_minutes`.
+
+An open session is never closed automatically. After nine hours, the scheduler creates one deduplicated `AttendanceReminder`, sends a targeted push when configured, and keeps the attendance timer running until an explicit checkout resolves the reminder.
 
 ```mermaid
 flowchart LR
@@ -111,6 +115,8 @@ SSE is in-memory and appropriate for the current single backend process. Before 
 Permanent account deletion is Developer Admin-only and requires a typed server-validated confirmation. One Prisma transaction removes user-specific employee, attendance, leave, biometric mapping, asset, and task data. The acting admin and a non-identifying deletion summary remain in audit history. Developer Admin and the current signed-in account cannot be deleted.
 
 Announcement permanent deletion is available to HR and Developer Admin, requires typed confirmation, and removes the announcement while retaining an audit event.
+
+The production data reset is Developer Admin-only and requires both current-password verification and the exact phrase `DELETE ALL TEST DATA`. A single Prisma transaction preserves the acting Developer Admin, its optional employee record, branches, departments, hierarchy, and system settings while deleting all testing operational data. It intentionally leaves no reset audit event because audit history itself is part of the requested reset. Always create an external database backup before using it.
 
 ## Database and Migrations
 

@@ -1,7 +1,6 @@
 // ---------------------------------------------------------------------------
 // Cookie-backed authentication context.
 //
-// ⚠️ DEMO MODE ONLY
 // Browser storage contains display-only user data for a fast first paint.
 // Authentication remains in HTTP-only cookies and backend RBAC remains authoritative.
 // ---------------------------------------------------------------------------

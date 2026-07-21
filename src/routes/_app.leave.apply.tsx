@@ -1,10 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { BackButton } from "@/components/common/BackButton";
 import { PageHeader } from "@/components/common/PageHeader";
 import { InfoButton } from "@/components/common/InfoButton";
 import { Card, CardContent } from "@/components/ui/card";
+import { LoadingState } from "@/components/common/LoadingState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,6 +44,7 @@ function ApplyLeavePage() {
   const [loading, setLoading] = useState(false);
   const [typesLoading, setTypesLoading] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [requestKind, setRequestKind] = useState<"leave" | "weekly-off">("leave");
   const todayString = new Date().toISOString().split("T")[0];
 
   useEffect(() => {
@@ -159,258 +160,327 @@ function ApplyLeavePage() {
           </InfoButton>
         }
       />
-      <section
-        className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
-        aria-label="Leave policies"
-      >
-        {types.map((type) => {
-          const balance = balances.find((item) => item.code === type.code)?.balance ?? 0;
-          return (
-            <Card
-              key={type.id}
-              className={
-                type.id === typeId ? "border-primary/50 bg-primary/[0.03]" : "border-border/80"
-              }
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold">{type.name}</p>
-                    <p className="mt-1 text-2xl font-semibold tabular-nums">{balance}</p>
-                    <p className="text-xs text-muted-foreground">available credit</p>
-                  </div>
-                  <InfoButton title={type.name} className="-mr-1 -mt-1">
-                    {type.description || "This leave type follows the company leave policy."}
-                  </InfoButton>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="mt-3 h-8 px-2"
-                  onClick={() => setTypeId(type.id)}
+      <div className="mb-5 grid w-full grid-cols-2 rounded-lg border bg-muted/30 p-1 sm:w-[26rem]">
+        <Button
+          type="button"
+          variant={requestKind === "leave" ? "default" : "ghost"}
+          className="whitespace-normal"
+          onClick={() => setRequestKind("leave")}
+        >
+          <CalendarDays className="h-4 w-4" /> Leave request
+        </Button>
+        <Button
+          type="button"
+          variant={requestKind === "weekly-off" ? "default" : "ghost"}
+          className="whitespace-normal"
+          onClick={() => setRequestKind("weekly-off")}
+        >
+          <CalendarClock className="h-4 w-4" /> Weekly off
+        </Button>
+      </div>
+      {typesLoading && <LoadingState label="Loading leave options" />}
+      {!typesLoading && requestKind === "leave" && (
+        <>
+          <section
+            className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+            aria-label="Leave policies"
+          >
+            {types.map((type) => {
+              const balance = balances.find((item) => item.code === type.code)?.balance ?? 0;
+              return (
+                <Card
+                  key={type.id}
+                  className={
+                    type.id === typeId ? "border-primary/50 bg-primary/[0.03]" : "border-border/80"
+                  }
                 >
-                  {type.id === typeId ? (
-                    <>
-                      <ShieldCheck className="h-4 w-4" /> Selected
-                    </>
-                  ) : (
-                    "Select leave"
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold">{type.name}</p>
+                        <p className="mt-1 text-2xl font-semibold tabular-nums">{balance}</p>
+                        <p className="text-xs text-muted-foreground">available credit</p>
+                      </div>
+                      <InfoButton title={type.name} className="-mr-1 -mt-1">
+                        {type.description || "This leave type follows the company leave policy."}
+                      </InfoButton>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="mt-3 h-8 px-2"
+                      onClick={() => setTypeId(type.id)}
+                    >
+                      {type.id === typeId ? (
+                        <>
+                          <ShieldCheck className="h-4 w-4" /> Selected
+                        </>
+                      ) : (
+                        "Select leave"
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </section>
+          <div className="mx-auto grid w-full max-w-5xl gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+            <Card>
+              <CardContent className="p-4 sm:p-6">
+                {!approverLoading && !approverName && (
+                  <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                    No organization head is available for your unit. Contact HR to complete the
+                    organization chart before applying for leave.
+                  </p>
+                )}
+                {!approverLoading && approverName && (
+                  <p className="mb-4 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                    This request will be sent to your organization head:{" "}
+                    <span className="font-medium text-foreground">{approverName}</span>
+                  </p>
+                )}
+                <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2" noValidate>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label>Leave type</Label>
+                    <Select value={typeId} onValueChange={setTypeId} disabled={typesLoading}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select leave type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {types.map((t) => (
+                          <SelectItem key={t.id} value={t.id}>
+                            {t.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.type && <p className="text-xs text-destructive">{errors.type}</p>}
+                  </div>
+                  {selectedType?.requiresMedicalDocument && (
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label htmlFor="medical-document">
+                        Medical report Drive link (optional now)
+                      </Label>
+                      <Input
+                        id="medical-document"
+                        type="url"
+                        value={medicalDocumentUrl}
+                        placeholder="https://drive.google.com/..."
+                        onChange={(event) => setMedicalDocumentUrl(event.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Set sharing to anyone with the link. It must be submitted within 3 days
+                        after you return from Sick Leave.
+                      </p>
+                    </div>
                   )}
-                </Button>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="from">From</Label>
+                    <Input
+                      id="from"
+                      type="date"
+                      value={from}
+                      min={todayString}
+                      max={to || undefined}
+                      onChange={(e) => {
+                        const nextFrom = e.target.value;
+                        setFrom(nextFrom);
+                        if (to && nextFrom && to < nextFrom) setTo(nextFrom);
+                      }}
+                    />
+                    {errors.from && <p className="text-xs text-destructive">{errors.from}</p>}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="to">To</Label>
+                    <Input
+                      id="to"
+                      type="date"
+                      value={to}
+                      min={from || todayString}
+                      onChange={(e) => setTo(e.target.value)}
+                    />
+                    {errors.to && <p className="text-xs text-destructive">{errors.to}</p>}
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label htmlFor="reason">Reason</Label>
+                    <Textarea
+                      id="reason"
+                      rows={4}
+                      value={reason}
+                      maxLength={1000}
+                      onChange={(e) => setReason(e.target.value.slice(0, 1000))}
+                    />
+                    <div className="flex items-center justify-between gap-3">
+                      {errors.reason ? (
+                        <p className="text-xs text-destructive">{errors.reason}</p>
+                      ) : (
+                        <span />
+                      )}
+                      <p className="text-xs tabular-nums text-muted-foreground">
+                        {1000 - reason.length} characters left
+                      </p>
+                    </div>
+                  </div>
+                  <div className="sm:col-span-2 flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => navigate({ to: "/leave/history" })}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={loading || typesLoading || approverLoading || !approverName}
+                    >
+                      Submit request
+                    </Button>
+                  </div>
+                </form>
               </CardContent>
             </Card>
-          );
-        })}
-      </section>
-      <div className="mx-auto grid w-full max-w-5xl gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <Card>
-          <CardContent className="p-4 sm:p-6">
-            {!approverLoading && !approverName && (
-              <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                No organization head is available for your unit. Contact HR to complete the
-                organization chart before applying for leave.
-              </p>
-            )}
-            {!approverLoading && approverName && (
-              <p className="mb-4 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                This request will be sent to your organization head:{" "}
-                <span className="font-medium text-foreground">{approverName}</span>
-              </p>
-            )}
-            <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2" noValidate>
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>Leave type</Label>
-                <Select value={typeId} onValueChange={setTypeId} disabled={typesLoading}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select leave type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {types.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {t.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.type && <p className="text-xs text-destructive">{errors.type}</p>}
+            <aside className="rounded-lg border bg-muted/20 p-4 lg:sticky lg:top-4 lg:self-start">
+              <h2 className="text-sm font-semibold">Request summary</h2>
+              <div className="mt-4 space-y-4">
+                <LeaveSummary
+                  icon={ShieldCheck}
+                  label="Leave type"
+                  value={selectedType?.name ?? "Not selected"}
+                />
+                <LeaveSummary
+                  icon={CalendarDays}
+                  label="Requested"
+                  value={
+                    requestedDays
+                      ? `${requestedDays} day${requestedDays === 1 ? "" : "s"}`
+                      : "Select dates"
+                  }
+                />
+                <LeaveSummary
+                  icon={CheckCircle2}
+                  label="Available credit"
+                  value={String(selectedBalance)}
+                />
+                <LeaveSummary
+                  icon={UserRound}
+                  label="Approver"
+                  value={approverLoading ? "Checking..." : (approverName ?? "Not assigned")}
+                />
               </div>
-              {selectedType?.requiresMedicalDocument && (
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor="medical-document">Medical report Drive link (optional now)</Label>
-                  <Input
-                    id="medical-document"
-                    type="url"
-                    value={medicalDocumentUrl}
-                    placeholder="https://drive.google.com/..."
-                    onChange={(event) => setMedicalDocumentUrl(event.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Set sharing to anyone with the link. It must be submitted within 3 days after
-                    you return from Sick Leave.
+              {requestedDays > selectedBalance && selectedType?.paid && (
+                <p className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+                  This request exceeds the current credit by {requestedDays - selectedBalance}{" "}
+                  day(s).
+                </p>
+              )}
+            </aside>
+          </div>
+        </>
+      )}
+      {!typesLoading && requestKind === "weekly-off" && (
+        <div className="mx-auto grid w-full max-w-5xl gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <Card>
+            <CardContent className="p-4 sm:p-6">
+              <div className="mb-5 flex items-start gap-3">
+                <CalendarClock className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                <div>
+                  <h2 className="font-semibold">Request weekly off</h2>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                    Request at least one day earlier. One weekly off is allowed per Monday-Sunday
+                    week, unused weekly offs expire, and consecutive weekly-off dates are not
+                    allowed.
                   </p>
+                </div>
+              </div>
+              {!approverLoading && approverName && (
+                <p className="mb-4 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                  This request will be sent to your organization head:{" "}
+                  <span className="font-medium text-foreground">{approverName}</span>
+                </p>
+              )}
+              <form onSubmit={submitWeeklyOff} className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="weekly-off-date">Requested date</Label>
+                  <Input
+                    id="weekly-off-date"
+                    type="date"
+                    value={weeklyOffDate}
+                    min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                    onChange={(event) => setWeeklyOffDate(event.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="weekly-off-reason">Reason (optional)</Label>
+                  <Input
+                    id="weekly-off-reason"
+                    value={weeklyOffReason}
+                    maxLength={500}
+                    placeholder="Add a short note"
+                    onChange={(event) => setWeeklyOffReason(event.target.value)}
+                  />
+                </div>
+                <div className="flex justify-end gap-2 sm:col-span-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => navigate({ to: "/leave/history" })}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={weeklyOffSaving || !weeklyOffDate}>
+                    {weeklyOffSaving ? "Sending..." : "Submit request"}
+                  </Button>
+                </div>
+              </form>
+              {weeklyOffs.length > 0 && (
+                <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                  {weeklyOffs.slice(0, 6).map((request) => (
+                    <div
+                      key={request.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm"
+                    >
+                      <span className="font-medium">{request.date}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-muted-foreground">
+                          {request.status}
+                        </span>
+                        {(request.status === "PENDING" || request.status === "APPROVED") && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={weeklyOffSaving}
+                            onClick={() => void cancelWeeklyOff(request.id)}
+                          >
+                            Cancel
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
-              <div className="space-y-1.5">
-                <Label htmlFor="from">From</Label>
-                <Input
-                  id="from"
-                  type="date"
-                  value={from}
-                  min={todayString}
-                  max={to || undefined}
-                  onChange={(e) => {
-                    const nextFrom = e.target.value;
-                    setFrom(nextFrom);
-                    if (to && nextFrom && to < nextFrom) setTo(nextFrom);
-                  }}
-                />
-                {errors.from && <p className="text-xs text-destructive">{errors.from}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="to">To</Label>
-                <Input
-                  id="to"
-                  type="date"
-                  value={to}
-                  min={from || todayString}
-                  onChange={(e) => setTo(e.target.value)}
-                />
-                {errors.to && <p className="text-xs text-destructive">{errors.to}</p>}
-              </div>
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="reason">Reason</Label>
-                <Textarea
-                  id="reason"
-                  rows={4}
-                  value={reason}
-                  maxLength={1000}
-                  onChange={(e) => setReason(e.target.value.slice(0, 1000))}
-                />
-                <div className="flex items-center justify-between gap-3">
-                  {errors.reason ? (
-                    <p className="text-xs text-destructive">{errors.reason}</p>
-                  ) : (
-                    <span />
-                  )}
-                  <p className="text-xs tabular-nums text-muted-foreground">
-                    {1000 - reason.length} characters left
-                  </p>
-                </div>
-              </div>
-              <div className="sm:col-span-2 flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate({ to: "/leave/history" })}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={loading || typesLoading || approverLoading || !approverName}
-                >
-                  Submit request
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-        <aside className="rounded-lg border bg-muted/20 p-4 lg:self-start">
-          <h2 className="text-sm font-semibold">Request summary</h2>
-          <div className="mt-4 space-y-4">
-            <LeaveSummary
-              icon={ShieldCheck}
-              label="Leave type"
-              value={selectedType?.name ?? "Not selected"}
-            />
-            <LeaveSummary
-              icon={CalendarDays}
-              label="Requested"
-              value={
-                requestedDays
-                  ? `${requestedDays} day${requestedDays === 1 ? "" : "s"}`
-                  : "Select dates"
-              }
-            />
-            <LeaveSummary
-              icon={CheckCircle2}
-              label="Available credit"
-              value={String(selectedBalance)}
-            />
-            <LeaveSummary
-              icon={UserRound}
-              label="Approver"
-              value={approverLoading ? "Checking..." : (approverName ?? "Not assigned")}
-            />
-          </div>
-          {requestedDays > selectedBalance && selectedType?.paid && (
-            <p className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
-              This request exceeds the current credit by {requestedDays - selectedBalance} day(s).
-            </p>
-          )}
-        </aside>
-      </div>
-      <Card className="mx-auto mt-5 w-full max-w-2xl">
-        <CardContent className="p-4 sm:p-6">
-          <div className="mb-4 flex items-start gap-3">
-            <CalendarClock className="mt-0.5 h-5 w-5 text-primary" />
-            <div>
-              <h2 className="font-semibold">Request weekly off</h2>
-              <p className="text-sm text-muted-foreground">
-                Request at least one day earlier. One weekly off is allowed per Monday-Sunday week,
-                unused weekly offs expire, and two consecutive dates are not allowed.
-              </p>
+            </CardContent>
+          </Card>
+          <aside className="rounded-lg border bg-muted/20 p-4 lg:sticky lg:top-4 lg:self-start">
+            <h2 className="text-sm font-semibold">Request summary</h2>
+            <div className="mt-4 space-y-4">
+              <LeaveSummary icon={CalendarClock} label="Request type" value="Weekly off" />
+              <LeaveSummary
+                icon={CalendarDays}
+                label="Requested date"
+                value={weeklyOffDate || "Select a date"}
+              />
+              <LeaveSummary
+                icon={UserRound}
+                label="Approver"
+                value={approverLoading ? "Checking..." : (approverName ?? "Not assigned")}
+              />
             </div>
-          </div>
-          <form onSubmit={submitWeeklyOff} className="grid gap-3 sm:grid-cols-[180px_1fr_auto]">
-            <Input
-              type="date"
-              value={weeklyOffDate}
-              min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
-              onChange={(event) => setWeeklyOffDate(event.target.value)}
-              aria-label="Weekly-off date"
-            />
-            <Input
-              value={weeklyOffReason}
-              maxLength={500}
-              placeholder="Reason (optional)"
-              onChange={(event) => setWeeklyOffReason(event.target.value)}
-            />
-            <Button type="submit" disabled={weeklyOffSaving || !weeklyOffDate}>
-              {weeklyOffSaving ? "Sending..." : "Request"}
-            </Button>
-          </form>
-          {weeklyOffs.length > 0 && (
-            <div className="mt-4 grid gap-2 sm:grid-cols-2">
-              {weeklyOffs.slice(0, 6).map((request) => (
-                <div
-                  key={request.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm"
-                >
-                  <span className="font-medium">{request.date}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-muted-foreground">
-                      {request.status}
-                    </span>
-                    {(request.status === "PENDING" || request.status === "APPROVED") && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={weeklyOffSaving}
-                        onClick={() => void cancelWeeklyOff(request.id)}
-                      >
-                        Cancel
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          </aside>
+        </div>
+      )}
     </div>
   );
 }

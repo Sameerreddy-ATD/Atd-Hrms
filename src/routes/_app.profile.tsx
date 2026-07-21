@@ -115,10 +115,10 @@ function ProfilePage() {
             : "Your account and employment information."
         }
       />
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
         <div className="space-y-4">
           <Card>
-            <CardContent className="flex flex-col items-center gap-3 p-6 text-center">
+            <CardContent className="flex flex-col items-center gap-3 p-5 text-center sm:p-6">
               <Avatar className="h-20 w-20">
                 <AvatarFallback className="bg-primary text-primary-foreground text-lg">
                   {initials}
@@ -203,8 +203,14 @@ function ProfilePage() {
           </Card>
         </div>
 
-        <Card className="lg:col-span-2 h-fit">
-          <CardContent className="p-6">
+        <Card className="h-fit lg:col-span-2">
+          <CardContent className="p-4 sm:p-6">
+            <div className="mb-5 border-b pb-4">
+              <h2 className="font-semibold">Personal and employment details</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Information connected to your employee account.
+              </p>
+            </div>
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
@@ -236,7 +242,7 @@ function ProfilePage() {
                   setSaving(false);
                 }
               }}
-              className="grid gap-4 sm:grid-cols-2"
+              className="grid gap-3 sm:grid-cols-2"
             >
               <Field label="Full name" value={name} onChange={setName} editable={canSaveDirectly} />
               <Field label="Email" value={email} onChange={setEmail} editable={canSaveDirectly} />
@@ -314,16 +320,15 @@ function Field({
   editable?: boolean;
   type?: string;
 }) {
-  return (
+  return editable ? (
     <div className="space-y-1.5">
       <Label>{label}</Label>
-      <Input
-        type={type}
-        value={value}
-        onChange={(event) => onChange?.(event.target.value)}
-        readOnly={!editable}
-        className={editable ? "" : "bg-muted/50"}
-      />
+      <Input type={type} value={value} onChange={(event) => onChange?.(event.target.value)} />
+    </div>
+  ) : (
+    <div className="min-w-0 rounded-md border bg-muted/20 px-3 py-2.5">
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <p className="mt-0.5 break-words text-sm font-medium text-foreground">{value}</p>
     </div>
   );
 }

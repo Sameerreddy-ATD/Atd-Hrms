@@ -99,6 +99,15 @@ function MyAttendancePage() {
   const [submitting, setSubmitting] = useState(false);
   const maxDate = todayDateInputValue();
   const maxTime = date === maxDate ? currentTimeInputValue() : undefined;
+  const detectedMissedPunches = records.filter((record) => record.status === "Missed Punch");
+
+  function prepareMissedCheckout(record: AttendanceRecord) {
+    setDate(record.date);
+    setTime("");
+    setEventType("OFFICE_OUT");
+    setReason(`Forgot to check out on ${record.date}`);
+    window.setTimeout(() => document.getElementById("missed-time")?.focus(), 0);
+  }
 
   const load = useCallback(
     async (showLoading = true) => {
@@ -132,7 +141,15 @@ function MyAttendancePage() {
       toast.error("Enter a date, time, punch type, and a reason of at least 3 characters.");
       return;
     }
-    const punchTime = new Date(`${date}T${time}:00+05:30`);
+    const punchDate = new Date(`${date}T${time}:00+05:30`);
+    if (
+      user.shiftType === "NIGHT" &&
+      eventType.includes("OUT") &&
+      Number(time.slice(0, 2)) * 60 + Number(time.slice(3)) <= (user.shiftEndMinutes ?? 360)
+    ) {
+      punchDate.setDate(punchDate.getDate() + 1);
+    }
+    const punchTime = punchDate;
     if (date > maxDate || punchTime.getTime() > Date.now()) {
       toast.error("A missed punch must be for a past time.");
       return;
@@ -403,6 +420,43 @@ function MyAttendancePage() {
           </TabsContent>
 
           <TabsContent value="requests" className="space-y-4">
+            {detectedMissedPunches.length > 0 && (
+              <Card className="border-amber-300 bg-amber-50/60 shadow-sm dark:border-amber-900 dark:bg-amber-950/20">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Detected missed punches</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    These attendance days need a correction request.
+                  </p>
+                </CardHeader>
+                <CardContent className="grid gap-3">
+                  {detectedMissedPunches.map((record) => (
+                    <div
+                      key={record.id}
+                      className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-background p-3 sm:flex-row sm:items-center sm:justify-between dark:border-amber-900"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold">{record.date}</p>
+                          <StatusBadge status={record.status} />
+                        </div>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          First in: {record.punchIn ?? "Not recorded"} · Last out:{" "}
+                          {record.punchOut ?? "Not recorded"}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full border-amber-300 sm:w-auto"
+                        onClick={() => prepareMissedCheckout(record)}
+                      >
+                        Add missing checkout
+                      </Button>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
             <Card className="border-border shadow-sm">
               <CardContent className="p-4 sm:p-5">
                 <form onSubmit={submitMissedPunch} className="grid gap-4 sm:grid-cols-2">

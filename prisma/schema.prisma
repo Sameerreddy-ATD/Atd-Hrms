@@ -49,6 +49,11 @@ enum EmploymentType {
   INTERN
 }
 
+enum ShiftType {
+  DAY
+  NIGHT
+}
+
 enum WorkType {
   BRANCH
   FIELD
@@ -222,6 +227,9 @@ model Employee {
   organizationLevel   String                        @default("MEMBER") @map("organization_level")
   attendanceMode      AttendanceMode                @default(BOTH) @map("attendance_mode")
   attendanceRequired  Boolean                       @default(true) @map("attendance_required")
+  shiftType           ShiftType                     @default(DAY) @map("shift_type")
+  shiftStartMinutes   Int                           @default(540) @map("shift_start_minutes")
+  shiftEndMinutes     Int                           @default(1080) @map("shift_end_minutes")
   isFieldEmployee     Boolean                       @default(false) @map("is_field_employee")
   status              EmployeeStatus                @default(ACTIVE)
   createdAt           DateTime                      @default(now()) @map("created_at")
@@ -244,6 +252,7 @@ model Employee {
   assetReturns        AssetReturn[]
   expenseClaims       ExpenseClaim[]
   certificateRequests CertificateRequest[]
+  attendanceReminders AttendanceReminder[]
 
   @@map("employees")
 }
@@ -529,6 +538,20 @@ model AttendanceDailySummary {
   @@index([date, status])
   @@index([primaryAttendedBranchId, date])
   @@map("attendance_daily_summary")
+}
+
+model AttendanceReminder {
+  reminderId String   @id @default(cuid()) @map("reminder_id")
+  employeeId String   @map("employee_id")
+  employee   Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  eventId    String   @unique @map("event_id")
+  eventDate  DateTime @map("event_date") @db.Date
+  eventTime  DateTime @map("event_time")
+  resolvedAt DateTime? @map("resolved_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([employeeId, resolvedAt, createdAt])
+  @@map("attendance_reminders")
 }
 
 model FieldAttendance {

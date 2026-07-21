@@ -31,7 +31,12 @@ import {
   startOfDayUtc,
   todayIstDate,
 } from "./attendanceDayRules.js";
-import { createAttendanceEvent, recalculateDailySummary } from "./attendanceEngine.js";
+import {
+  attendanceDateForEmployee,
+  createAttendanceEvent,
+  recalculateDailySummary,
+} from "./attendanceEngine.js";
+import { settleExpiredOpenPunches } from "./attendanceSettlement.js";
 import { openAttendanceStream } from "./attendanceLive.js";
 import { config } from "./config.js";
 import { asyncHandler, errorHandler, HttpError } from "./errors.js";
@@ -101,6 +106,7 @@ import {
   profileEditSchema,
   pushSubscriptionSchema,
   resetPasswordSchema,
+  resetTestDataSchema,
   taskLogSchema,
   taskSchema,
   taskUpdateSchema,
@@ -656,6 +662,94 @@ export function createApp() {
     }),
   );
 
+  app.post(
+    "/system/reset-test-data",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const body = resetTestDataSchema.parse(req.body);
+      const developerAdmin = await prisma.user.findUniqueOrThrow({
+        where: { id: req.user!.id },
+        select: { id: true, employeeId: true, passwordHash: true, role: true },
+      });
+      if (developerAdmin.role !== Role.DEVELOPER_ADMIN) {
+        throw new HttpError(403, "Developer Admin access required");
+      }
+      if (!(await verifyPassword(body.password, developerAdmin.passwordHash))) {
+        throw new HttpError(401, "The Developer Admin password is incorrect");
+      }
+
+      const result = await prisma.$transaction(
+        async (tx) => {
+          const before = {
+            users: await tx.user.count(),
+            employees: await tx.employee.count(),
+            branches: await tx.branch.count(),
+            departments: await tx.department.count(),
+          };
+
+          await tx.department.updateMany({ data: { headEmployeeId: null } });
+          await tx.employee.updateMany({ data: { managerId: null } });
+          await tx.user.updateMany({ data: { createdByUserId: null } });
+          await tx.systemSetting.updateMany({ data: { updatedById: developerAdmin.id } });
+
+          await tx.assetReturn.deleteMany();
+          await tx.companyAsset.deleteMany();
+          await tx.assetCatalogItem.deleteMany();
+          await tx.taskUpdate.deleteMany();
+          await tx.taskAssignment.deleteMany();
+          await tx.workTask.updateMany({ data: { parentTaskId: null } });
+          await tx.workTask.deleteMany();
+          await tx.pushSubscription.deleteMany();
+          await tx.announcement.deleteMany();
+          await tx.expenseClaim.deleteMany();
+          await tx.certificateRequest.deleteMany();
+          await tx.attendanceCorrectionRequest.deleteMany();
+          await tx.attendanceReminder.deleteMany();
+          await tx.compOffCredit.deleteMany();
+          await tx.weeklyOffRequest.deleteMany();
+          await tx.leaveBalance.deleteMany();
+          await tx.leaveRequest.deleteMany();
+          await tx.leaveType.deleteMany();
+          await tx.profileEditRequest.deleteMany();
+          await tx.biometricEmployeeMapping.deleteMany();
+          await tx.fieldAttendance.deleteMany();
+          await tx.attendanceDailySummary.deleteMany();
+          await tx.attendanceEvent.deleteMany();
+          await tx.employeeBranchSchedule.deleteMany();
+          await tx.emergencyContact.deleteMany();
+          await tx.biometricDevice.deleteMany();
+          await tx.holiday.deleteMany();
+          await tx.auditLog.deleteMany();
+
+          const deletedUsers = await tx.user.deleteMany({
+            where: { id: { not: developerAdmin.id } },
+          });
+          const deletedEmployees = await tx.employee.deleteMany({
+            where: developerAdmin.employeeId
+              ? { employeeId: { not: developerAdmin.employeeId } }
+              : undefined,
+          });
+
+          return {
+            ok: true as const,
+            deletedUsers: deletedUsers.count,
+            deletedEmployees: deletedEmployees.count,
+            preserved: {
+              developerAdminUserId: developerAdmin.id,
+              branches: before.branches,
+              departments: before.departments,
+            },
+          };
+        },
+        { maxWait: 10_000, timeout: 60_000 },
+      );
+
+      publishNotificationChange("test-data-reset", developerAdmin.id);
+      res.json(result);
+    }),
+  );
+
   app.get(
     "/system/health",
     requireAuth,
@@ -1119,8 +1213,11 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       const body = changePasswordSchema.parse(req.body);
       const user = await prisma.user.findUniqueOrThrow({ where: { id: req.user!.id } });
-      const ok = await verifyPassword(body.oldPassword, user.passwordHash);
-      if (!ok) throw new HttpError(401, "Current password is incorrect");
+      if (!user.firstLoginPasswordChangeRequired) {
+        if (!body.oldPassword) throw new HttpError(400, "Current password is required");
+        const ok = await verifyPassword(body.oldPassword, user.passwordHash);
+        if (!ok) throw new HttpError(401, "Current password is incorrect");
+      }
       const updated = await prisma.user.update({
         where: { id: user.id },
         data: {
@@ -1139,16 +1236,6 @@ export function createApp() {
       });
       res.json({ ok: true, user: userDto(updated) });
     }),
-  );
-
-  app.post("/auth/forgot-password", authLimiter, (_req, res) =>
-    res.json({
-      ok: true,
-      message: "Password reset workflow is ready for mail/SMS provider integration.",
-    }),
-  );
-  app.post("/auth/reset-password", authLimiter, (_req, res) =>
-    res.json({ ok: true, message: "Reset token verification placeholder." }),
   );
 
   app.get(
@@ -1251,6 +1338,9 @@ export function createApp() {
                 gender: body.gender ?? undefined,
                 employmentType: body.employmentType ?? "FULL_TIME",
                 organizationLevel: body.organizationLevel ?? "MEMBER",
+                shiftType: body.shiftType ?? "DAY",
+                shiftStartMinutes: body.shiftStartMinutes ?? 540,
+                shiftEndMinutes: body.shiftEndMinutes ?? 1080,
               },
             })
           : null;
@@ -2577,7 +2667,7 @@ export function createApp() {
         }
       }
     }
-    const eventDate = startOfDayUtc(body.eventTime ?? new Date());
+    const eventDate = await attendanceDateForEmployee(employeeId, body.eventTime ?? new Date());
     const latestEvent = await prisma.attendanceEvent.findFirst({
       where: { employeeId, eventDate },
       orderBy: { eventTime: "desc" },
@@ -2745,8 +2835,9 @@ export function createApp() {
     requireAuth,
     asyncHandler(async (req, res) => {
       if (!req.user!.employeeId) throw new HttpError(404, "No employee profile");
-      const today = new Date().toISOString().slice(0, 10);
-      await recalculateDailySummary(req.user!.employeeId, today);
+      const attendanceDate = await attendanceDateForEmployee(req.user!.employeeId, new Date());
+      const today = attendanceDate.toISOString().slice(0, 10);
+      await recalculateDailySummary(req.user!.employeeId, attendanceDate);
       const summary = await prisma.attendanceDailySummary.findUnique({
         where: {
           employeeId_date: {
@@ -2765,7 +2856,11 @@ export function createApp() {
     requireAuth,
     asyncHandler(async (req, res) => {
       if (!req.user!.employeeId) throw new HttpError(404, "No employee profile");
-      const date = String(req.query.date ?? new Date().toISOString().slice(0, 10));
+      const currentAttendanceDate = await attendanceDateForEmployee(
+        req.user!.employeeId,
+        new Date(),
+      );
+      const date = String(req.query.date ?? currentAttendanceDate.toISOString().slice(0, 10));
       const events = await prisma.attendanceEvent.findMany({
         where: { employeeId: req.user!.employeeId, eventDate: new Date(`${date}T00:00:00.000Z`) },
         include: { branch: true, device: true },
@@ -2780,6 +2875,7 @@ export function createApp() {
     requireAuth,
     asyncHandler(async (req, res) => {
       if (!req.user!.employeeId) throw new HttpError(404, "No employee profile");
+      await settleExpiredOpenPunches(req.user!.employeeId);
       const from = dateFromQuery(req.query.from);
       const to = dateFromQuery(req.query.to);
       const rows = await prisma.attendanceDailySummary.findMany({
@@ -4463,6 +4559,13 @@ export function createApp() {
             take: 10,
           })
         : [];
+      const attendanceReminders = req.user!.employeeId
+        ? await prisma.attendanceReminder.findMany({
+            where: { employeeId: req.user!.employeeId, resolvedAt: null },
+            orderBy: { createdAt: "desc" },
+            take: 5,
+          })
+        : [];
 
       const suspensionWindowEnd = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
       const suspensionManagerRoles: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR];
@@ -4613,6 +4716,13 @@ export function createApp() {
           };
         }),
         ...birthdayItems,
+        ...attendanceReminders.map((reminder) => ({
+          id: `attendance-reminder-${reminder.reminderId}`,
+          title: "Attendance is still running",
+          desc: `You have been checked in for more than 9 hours since ${reminder.eventTime.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" })}. Check out when your work is complete.`,
+          time: reminder.createdAt.toISOString(),
+          type: "attendance" as const,
+        })),
         ...pendingLeaves.map((leave) => ({
           id: `leave-${leave.leaveRequestId}`,
           title:

@@ -68,6 +68,9 @@ function EmployeesPage() {
     employmentType: "FULL_TIME" as "FULL_TIME" | "PART_TIME" | "INTERN",
     organizationLevel: "MEMBER" as "HEAD" | "SENIOR" | "JUNIOR" | "MEMBER",
     attendanceMode: "BOTH" as "THUMB_ONLY" | "MOBILE_GPS_ONLY" | "BOTH",
+    shiftType: "DAY" as "DAY" | "NIGHT",
+    shiftStartMinutes: 540,
+    shiftEndMinutes: 1080,
   });
 
   const canEdit = currentUser?.role === "developer_admin";
@@ -125,6 +128,9 @@ function EmployeesPage() {
       employmentType: emp.employmentType || "FULL_TIME",
       organizationLevel: emp.organizationLevel || "MEMBER",
       attendanceMode: "BOTH",
+      shiftType: emp.shiftType || "DAY",
+      shiftStartMinutes: emp.shiftStartMinutes ?? 540,
+      shiftEndMinutes: emp.shiftEndMinutes ?? 1080,
     });
   }
 
@@ -144,6 +150,9 @@ function EmployeesPage() {
         employmentType: editForm.employmentType,
         organizationLevel: editForm.organizationLevel,
         attendanceMode: "BOTH" as const,
+        shiftType: editForm.shiftType,
+        shiftStartMinutes: editForm.shiftStartMinutes,
+        shiftEndMinutes: editForm.shiftEndMinutes,
       };
       const updated = await employeesApi.update(
         editingEmployee.employeeId ?? editingEmployee.id,
@@ -485,6 +494,58 @@ function EmployeesPage() {
                       <SelectItem value="INTERN">Intern</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Shift</Label>
+                  <Select
+                    value={editForm.shiftType}
+                    onValueChange={(value: "DAY" | "NIGHT") =>
+                      setEditForm((current) => ({
+                        ...current,
+                        shiftType: value,
+                        shiftStartMinutes: value === "NIGHT" ? 1260 : 540,
+                        shiftEndMinutes: value === "NIGHT" ? 360 : 1080,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DAY">Day shift</SelectItem>
+                      <SelectItem value="NIGHT">Night shift</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-3 sm:col-span-2">
+                  <div className="space-y-1.5">
+                    <Label>Shift starts</Label>
+                    <Input
+                      type="time"
+                      value={`${String(Math.floor(editForm.shiftStartMinutes / 60)).padStart(2, "0")}:${String(editForm.shiftStartMinutes % 60).padStart(2, "0")}`}
+                      onChange={(event) => {
+                        const [hours, minutes] = event.target.value.split(":").map(Number);
+                        setEditForm((current) => ({
+                          ...current,
+                          shiftStartMinutes: hours * 60 + minutes,
+                        }));
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Shift ends</Label>
+                    <Input
+                      type="time"
+                      value={`${String(Math.floor(editForm.shiftEndMinutes / 60)).padStart(2, "0")}:${String(editForm.shiftEndMinutes % 60).padStart(2, "0")}`}
+                      onChange={(event) => {
+                        const [hours, minutes] = event.target.value.split(":").map(Number);
+                        setEditForm((current) => ({
+                          ...current,
+                          shiftEndMinutes: hours * 60 + minutes,
+                        }));
+                      }}
+                    />
+                  </div>
                 </div>
                 <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900/50 dark:bg-emerald-950/30 sm:col-span-2">
                   <p className="text-sm font-medium text-emerald-900 dark:text-emerald-200">

@@ -36,6 +36,9 @@ export function userDto(
       | "employeeCode"
       | "dateOfBirth"
       | "gender"
+      | "shiftType"
+      | "shiftStartMinutes"
+      | "shiftEndMinutes"
     > | null;
   },
 ) {
@@ -65,6 +68,9 @@ export function userDto(
     employeeCode: user.employee?.employeeCode ?? undefined,
     dateOfBirth: user.employee?.dateOfBirth?.toISOString().slice(0, 10),
     gender: user.employee?.gender ?? undefined,
+    shiftType: user.employee?.shiftType ?? undefined,
+    shiftStartMinutes: user.employee?.shiftStartMinutes ?? undefined,
+    shiftEndMinutes: user.employee?.shiftEndMinutes ?? undefined,
   };
 }
 
@@ -131,6 +137,9 @@ export function employeeDto(
     gender: employee.gender ?? undefined,
     employmentType: employee.employmentType ?? undefined,
     organizationLevel: employee.organizationLevel,
+    shiftType: employee.shiftType,
+    shiftStartMinutes: employee.shiftStartMinutes,
+    shiftEndMinutes: employee.shiftEndMinutes,
   };
 }
 

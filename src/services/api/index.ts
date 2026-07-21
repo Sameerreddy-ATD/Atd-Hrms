@@ -194,15 +194,10 @@ export const authApi = {
     }),
   me: () => request<{ user: User }>("/auth/me"),
   loginAsRole: (_role: Role) => Promise.reject(new Error("Demo role login is disabled")),
-  forgotPassword: (email: string) =>
-    request<{ ok: boolean }>("/auth/forgot-password", {
-      method: "POST",
-      body: JSON.stringify({ email }),
-    }),
   changePassword: (oldPassword: string, nextPassword: string) =>
     request<{ ok: boolean; user: User }>("/auth/change-password", {
       method: "POST",
-      body: JSON.stringify({ oldPassword, nextPassword }),
+      body: JSON.stringify({ oldPassword: oldPassword || undefined, nextPassword }),
     }),
   logout: () => request<{ ok: boolean }>("/auth/logout", { method: "POST" }),
 };
@@ -361,6 +356,7 @@ export const leaveApi = {
 };
 
 export const attendanceApi = {
+  today: () => request<AttendanceRecord | null>("/attendance/my/today"),
   list: (filters: Record<string, string | undefined> = {}) =>
     request<AttendanceRecord[]>(`/attendance/hr/daily${toQuery(filters)}`),
   listMine: (_employeeId: string, filters: Record<string, string | undefined> = {}) =>
@@ -699,6 +695,16 @@ export const systemApi = {
     request<BrandProofSettings>("/system/brand-proof", {
       method: "PATCH",
       body: JSON.stringify(value),
+    }),
+  resetTestData: (payload: { confirmation: string; password: string }) =>
+    request<{
+      ok: true;
+      deletedUsers: number;
+      deletedEmployees: number;
+      preserved: { developerAdminUserId: string; branches: number; departments: number };
+    }>("/system/reset-test-data", {
+      method: "POST",
+      body: JSON.stringify(payload),
     }),
 };
 

@@ -17,6 +17,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/common/PasswordInput";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth";
 import {
   Activity,
@@ -30,6 +42,7 @@ import {
   MemoryStick,
   RefreshCw,
   Shield,
+  Trash2,
   Users,
 } from "lucide-react";
 
@@ -62,6 +75,10 @@ function SettingsPage() {
   });
   const [brandProofLoading, setBrandProofLoading] = useState(isDeveloperAdmin);
   const [brandProofSaving, setBrandProofSaving] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetConfirmation, setResetConfirmation] = useState("");
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetting, setResetting] = useState(false);
 
   const refreshHealth = useCallback(async () => {
     setHealthError("");
@@ -125,7 +142,7 @@ function SettingsPage() {
     <div>
       <PageHeader
         title="System Settings"
-        description="Read-only operational configuration currently active in the backend."
+        description="Monitor the system and manage protected Developer Admin configuration."
       />
       {loading && <LoadingState label="Loading system settings" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
@@ -301,6 +318,118 @@ function SettingsPage() {
           <SettingRow label="Attendance source" value="Thumb scanner and mobile GPS" />
         </CardContent>
       </Card>
+
+      {isDeveloperAdmin && (
+        <Card className="mt-6 border-destructive/40">
+          <CardHeader className="border-b border-destructive/20 p-4 sm:p-5">
+            <div className="flex items-start gap-3">
+              <div className="rounded-md bg-destructive/10 p-2 text-destructive">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-base text-destructive">Production Data Reset</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Permanently remove testing data before creating the real company accounts.
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-5">
+            <div className="grid gap-3 text-sm sm:grid-cols-2">
+              <div className="rounded-md border bg-muted/20 p-3">
+                <p className="font-semibold">Preserved</p>
+                <p className="mt-1 text-muted-foreground">
+                  Your current Developer Admin login and password, branches, departments,
+                  organization hierarchy, and system settings.
+                </p>
+              </div>
+              <div className="rounded-md border border-destructive/25 bg-destructive/5 p-3">
+                <p className="font-semibold text-destructive">Permanently deleted</p>
+                <p className="mt-1 text-muted-foreground">
+                  Other logins, employees, attendance, leave, tasks, assets, announcements,
+                  notifications, devices, holidays, requests, subscriptions, and audit history.
+                </p>
+              </div>
+            </div>
+            <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" className="mt-4 w-full sm:w-auto">
+                  <Trash2 className="h-4 w-4" />
+                  Delete all testing data
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete all testing data?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This cannot be undone. Take a database backup first. Your current Developer
+                    Admin account, branches, departments, and system settings will remain.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="space-y-4 text-left">
+                  <div className="space-y-2">
+                    <Label htmlFor="reset-confirmation">
+                      Type <span className="font-mono font-semibold">DELETE ALL TEST DATA</span>
+                    </Label>
+                    <Input
+                      id="reset-confirmation"
+                      autoComplete="off"
+                      value={resetConfirmation}
+                      onChange={(event) => setResetConfirmation(event.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="reset-password">Developer Admin password</Label>
+                    <PasswordInput
+                      id="reset-password"
+                      autoComplete="current-password"
+                      value={resetPassword}
+                      onChange={(event) => setResetPassword(event.target.value)}
+                    />
+                  </div>
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={resetting}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    disabled={
+                      resetting || resetConfirmation !== "DELETE ALL TEST DATA" || !resetPassword
+                    }
+                    onClick={(event) => {
+                      event.preventDefault();
+                      setResetting(true);
+                      void systemApi
+                        .resetTestData({
+                          confirmation: resetConfirmation,
+                          password: resetPassword,
+                        })
+                        .then((result) => {
+                          setCounts((current) => ({
+                            ...current,
+                            users: 1,
+                            devices: 0,
+                            holidays: 0,
+                            auditLogs: 0,
+                          }));
+                          setResetOpen(false);
+                          setResetConfirmation("");
+                          setResetPassword("");
+                          toast.success(
+                            `Testing data removed: ${result.deletedUsers} logins and ${result.deletedEmployees} employees`,
+                          );
+                        })
+                        .catch((err) => toast.error((err as Error).message))
+                        .finally(() => setResetting(false));
+                    }}
+                  >
+                    {resetting ? "Deleting..." : "Permanently delete testing data"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

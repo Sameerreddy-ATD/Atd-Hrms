@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EventSource, EventType } from "@prisma/client";
+import { attendanceDateForShift, openPunchState } from "../server/src/attendanceEngine.js";
 
 const outTypes = new Set<EventType>([
   EventType.OFFICE_OUT,
@@ -31,6 +32,37 @@ function summarize(
 }
 
 describe("attendance movement summary rules", () => {
+  it("keeps a night-shift checkout after midnight on the shift start date", () => {
+    const checkout = new Date("2026-07-20T19:30:00.000Z"); // 01:00 IST on July 21
+    expect(
+      attendanceDateForShift(checkout, { shiftType: "NIGHT", shiftEndMinutes: 360 })
+        .toISOString()
+        .slice(0, 10),
+    ).toBe("2026-07-20");
+    expect(
+      attendanceDateForShift(checkout, { shiftType: "DAY", shiftEndMinutes: 1080 })
+        .toISOString()
+        .slice(0, 10),
+    ).toBe("2026-07-21");
+  });
+  it("expires a second unmatched check-in after nine hours", () => {
+    const finalCheckIn = new Date("2026-07-20T11:12:57.000Z");
+    const events = [
+      { eventType: EventType.OFFICE_IN, eventTime: new Date("2026-07-20T04:39:54.000Z") },
+      { eventType: EventType.OFFICE_OUT, eventTime: new Date("2026-07-20T11:12:55.000Z") },
+      { eventType: EventType.OFFICE_IN, eventTime: finalCheckIn },
+    ];
+
+    expect(openPunchState(events, finalCheckIn.getTime() + 8 * 60 * 60 * 1000)).toEqual({
+      hasOpenPunch: true,
+      expired: false,
+    });
+    expect(openPunchState(events, finalCheckIn.getTime() + 9 * 60 * 60 * 1000)).toEqual({
+      hasOpenPunch: true,
+      expired: true,
+    });
+  });
+
   it("supports branch one to branch two plus client GPS in one day", () => {
     const result = summarize(
       [

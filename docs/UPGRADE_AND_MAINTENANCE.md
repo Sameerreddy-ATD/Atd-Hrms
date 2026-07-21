@@ -50,6 +50,8 @@ mysqldump --single-transaction --routines --triggers -u atd_hrms -p anytimediese
 
 ## Standard Production Update
 
+Run `npx prisma migrate deploy` before restarting the backend. Migration `20260721103000_add_employee_shifts` adds day/night shift configuration with day-shift defaults for existing employees.
+
 ### Leave-policy migration warning
 
 Release migration `20260716190000_leave_policy_and_weekly_off` removes legacy leave requests, leave balances, and configurable leave types before installing Casual Leave, Sick Leave, Unpaid Leave / LOP, and Comp Off. Create and verify the MySQL dump above before deploying this release. Keep that dump when historical legacy leave records may be needed for payroll or compliance.
@@ -70,6 +72,10 @@ pm2 save
 ```
 
 Do not use `git reset --hard`, `prisma migrate dev`, or `npm audit fix --force` in production.
+
+## Moving From Testing To Real Data
+
+Before using **System Settings > Production Data Reset**, create a non-empty MySQL backup and confirm that it contains table definitions. The reset is irreversible from the application. It preserves the signed-in Developer Admin credentials, branches, departments, hierarchy, and system settings; all other testing data is permanently removed. After the reset, keep the existing Developer Admin session open, verify the preserved setup, and create real logins from **User Logins**.
 
 ## Post-Update Verification
 

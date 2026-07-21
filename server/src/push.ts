@@ -12,15 +12,20 @@ function configureWebPush() {
   return true;
 }
 
-export async function sendPushToAll(payload: {
-  title: string;
-  body: string;
-  href?: string;
-  tag?: string;
-  priority?: string;
-}) {
+async function sendPush(
+  payload: {
+    title: string;
+    body: string;
+    href?: string;
+    tag?: string;
+    priority?: string;
+  },
+  userIds?: string[],
+) {
   if (!configureWebPush()) return { sent: 0, removed: 0 };
-  const subscriptions = await prisma.pushSubscription.findMany();
+  const subscriptions = await prisma.pushSubscription.findMany({
+    where: userIds ? { userId: { in: userIds } } : undefined,
+  });
   let sent = 0;
   let removed = 0;
 
@@ -57,4 +62,13 @@ export async function sendPushToAll(payload: {
   );
 
   return { sent, removed };
+}
+
+export function sendPushToAll(payload: Parameters<typeof sendPush>[0]) {
+  return sendPush(payload);
+}
+
+export function sendPushToUsers(userIds: string[], payload: Parameters<typeof sendPush>[0]) {
+  if (userIds.length === 0) return Promise.resolve({ sent: 0, removed: 0 });
+  return sendPush(payload, userIds);
 }
