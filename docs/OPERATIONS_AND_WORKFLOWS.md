@@ -159,7 +159,7 @@ Required behavior:
 - HR and Developer Admin can access Asset Management.
 - Physical assets can store asset ID, serial number, value, purchase date, branch, status, and assignee.
 - Online assets use their own catalog names and recurring monthly/yearly or one-time cost model.
-- Investment summaries calculate physical count, online count, one-time investment, monthly recurring cost, annual recurring cost, and first-year investment by employee.
+- **Company investment per employee** shows how much Anytime Diesel invests in each employee through currently assigned physical assets and online services. It calculates physical count, online count, one-time investment, normalized monthly recurring cost, annual recurring cost, and first-year investment. First-year investment equals one-time investment plus annual recurring cost.
 - Employees do not receive company-wide asset visibility.
 - HR completes a return checklist before an assigned asset becomes available again. The checklist records condition, accessories, charger, backup/wipe confirmation, damage, notes, receiver, and time.
 - A non-working returned asset moves to `UNDER_REPAIR`; other completed returns move to `AVAILABLE`.

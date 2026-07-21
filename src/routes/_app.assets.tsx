@@ -401,16 +401,19 @@ function AssetsPage() {
 
       <section className="mt-5 overflow-hidden rounded-lg border border-border bg-card">
         <div className="border-b px-4 py-3">
-          <h2 className="text-sm font-semibold">Investment by employee</h2>
+          <h2 className="text-sm font-semibold">Company investment per employee</h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            One-time purchases and normalized recurring costs for currently assigned assets.
+            How much Anytime Diesel invests in each employee through assigned assets and online
+            services.
           </p>
         </div>
         {loading ? (
-          <p className="p-4 text-sm text-muted-foreground">Calculating employee investment...</p>
+          <p className="p-4 text-sm text-muted-foreground">
+            Calculating company investment per employee...
+          </p>
         ) : investments.length === 0 ? (
           <p className="p-6 text-center text-sm text-muted-foreground">
-            Assign assets to employees to see investment totals.
+            Assign assets to employees to see how much the company invests in each person.
           </p>
         ) : (
           <>
@@ -430,11 +433,11 @@ function AssetsPage() {
                     </Badge>
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
-                    <InvestmentValue label="One-time" value={item.oneTimeInvestment} />
-                    <InvestmentValue label="Monthly" value={item.monthlyRecurring} />
+                    <InvestmentValue label="One-time invested" value={item.oneTimeInvestment} />
+                    <InvestmentValue label="Monthly recurring" value={item.monthlyRecurring} />
                     <InvestmentValue label="Annual recurring" value={item.annualRecurring} />
                     <InvestmentValue
-                      label="First-year total"
+                      label="First-year investment"
                       value={item.firstYearInvestment}
                       emphasized
                     />
@@ -448,10 +451,10 @@ function AssetsPage() {
                   <TableRow>
                     <TableHead>Employee</TableHead>
                     <TableHead>Asset mix</TableHead>
-                    <TableHead className="text-right">One-time</TableHead>
-                    <TableHead className="text-right">Monthly</TableHead>
+                    <TableHead className="text-right">One-time invested</TableHead>
+                    <TableHead className="text-right">Monthly recurring</TableHead>
                     <TableHead className="text-right">Annual recurring</TableHead>
-                    <TableHead className="text-right">First-year total</TableHead>
+                    <TableHead className="text-right">First-year investment</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

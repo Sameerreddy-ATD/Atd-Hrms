@@ -290,6 +290,21 @@ Common report pages:
 - Leave report
 - Payroll attendance summary
 
+## HR And CEO: Review Company Investment Per Employee
+
+Open **Asset Management** and review **Company investment per employee**. This section shows how
+much Anytime Diesel currently invests in each employee through physical assets and online services
+assigned to that person.
+
+- **One-time invested:** purchase values recorded as one-time costs.
+- **Monthly recurring:** monthly subscriptions plus yearly subscriptions normalized to a monthly amount.
+- **Annual recurring:** monthly subscriptions multiplied by 12 plus yearly subscriptions.
+- **First-year investment:** one-time invested plus annual recurring.
+
+HR and Developer Admin can add, assign, edit, and return assets. CEO access is read-only. Shared
+company-use assets such as tables and fans remain in company totals but are not attributed to an
+individual employee.
+
 ## Mobile Use
 
 The app is designed for phones, tablets, and laptops. See [DEVICE_COMPATIBILITY.md](DEVICE_COMPATIBILITY.md) for the iPhone, Pixel, Samsung, Vivo, Oppo, tablet, and desktop release checklist.

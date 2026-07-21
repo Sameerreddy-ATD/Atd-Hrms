@@ -61,19 +61,19 @@ Lockout or suspension does not delete or disable the employee record, allowing h
 
 ## Main API Groups
 
-| Prefix         | Purpose                                                                    |
-| -------------- | -------------------------------------------------------------------------- |
-| `/auth`        | Login, restore, logout, password change/reset                              |
-| `/users`       | Account creation, lifecycle, reset, and permanent deletion                 |
-| `/employees`   | Directory, details, organization placement, and birthdays                  |
-| `/departments` | Organization hierarchy and unit heads                                      |
-| `/branches`    | Branches and server-side geofence configuration                            |
-| `/attendance`  | Mobile events, timelines, summaries, reports, corrections, and live stream |
-| `/leave`       | Leave types, requests, cancellation, approvals, and reports                |
-| `/weekly-offs` | Date-specific weekly-off requests and direct-head approval                 |
-| `/holidays`    | Active holiday calendar and branch scope                                   |
-| `/tasks`       | Multi-assignee tasks and updates                                           |
-| `/assets`      | Physical/online assets, return checklists, and investment calculations     |
+| Prefix         | Purpose                                                                                     |
+| -------------- | ------------------------------------------------------------------------------------------- |
+| `/auth`        | Login, restore, logout, password change/reset                                               |
+| `/users`       | Account creation, lifecycle, reset, and permanent deletion                                  |
+| `/employees`   | Directory, details, organization placement, and birthdays                                   |
+| `/departments` | Organization hierarchy and unit heads                                                       |
+| `/branches`    | Branches and server-side geofence configuration                                             |
+| `/attendance`  | Mobile events, timelines, summaries, reports, corrections, and live stream                  |
+| `/leave`       | Leave types, requests, cancellation, approvals, and reports                                 |
+| `/weekly-offs` | Date-specific weekly-off requests and direct-head approval                                  |
+| `/holidays`    | Active holiday calendar and branch scope                                                    |
+| `/tasks`       | Multi-assignee tasks and updates                                                            |
+| `/assets`      | Physical/online assets, return checklists, and company investment per employee calculations |
 
 Large collection endpoints support `limit` and `offset`. Operational screens load the first 100 records and fetch additional pages on demand. ExcelJS remains in a lazy route chunk so spreadsheet functionality is excluded from the initial application path.
 
