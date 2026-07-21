@@ -2,6 +2,10 @@
 
 Internal employee operations platform for Anytime Diesel. It manages accounts, organization units, attendance, leave, tasks, assets and returns, expense claims, certificate requests, announcements, notifications, reports, and audit history through role-based web and installed PWA experiences.
 
+The role-aware workspace keeps operational actions with Developer Admin, HR, and organization
+heads while giving the CEO a read-only executive view of workforce health, attendance coverage,
+leave decisions, work delivery, and company investment in employees.
+
 ## Current Release
 
 - Repository: `Sameerreddy-ATD/Employee-Management-System` (private)
@@ -31,6 +35,7 @@ Start with the [documentation index](docs/README.md).
 - HTTP-only cookie authentication with backend RBAC
 - Server-Sent Events for live attendance and notification refresh
 - Web Push and service worker support for installed applications
+- Responsive role-specific navigation for mobile, tablet, laptop, and installed PWA use
 - Vitest, ESLint, Prettier, and TypeScript verification
 
 ## Repository Layout

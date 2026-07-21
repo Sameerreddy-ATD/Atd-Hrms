@@ -16,11 +16,45 @@ This guide explains how Developer Admin, HR, organization heads, employees, fiel
 | Leave policy and types         | Add, edit, delete                                              | Add, edit, delete       | Add, edit, delete       | View reports          | Approve assigned team leave | Apply and track own leave               |
 | Holidays                       | Add, edit, delete                                              | Add, edit, delete       | Add, edit, delete       | View                  | View                        | View                                    |
 | Audit logs                     | View                                                           | View                    | No                      | No                    | No                          | No                                      |
-| Asset management               | Full access                                                    | No                      | Full access             | No                    | No                          | No                                      |
+| Asset management               | Full access                                                    | No                      | Full access             | Read-only investment  | No                          | No                                      |
 | Expenses and certificates      | Review all                                                     | Own requests            | Review all              | Own requests          | Own requests                | Own requests                            |
 | System settings                | Full access                                                    | As configured           | No                      | No                    | No                          | No                                      |
 
-The CEO dashboard is a read-only company overview with workforce attendance coverage, branch presence, leave approvals, attendance exceptions, employee detail, and report export. CEO accounts do not mark attendance and are excluded from automatic absence settlement.
+## CEO Workspace
+
+The CEO workspace is a read-only company overview. CEO accounts do not mark attendance and are
+excluded from automatic absence settlement.
+
+The dashboard shows:
+
+- total workforce, employees present, employees on leave, pending leave decisions, attendance
+  exceptions, and employees whose attendance is not settled;
+- organization-wide task delivery totals for active, overdue, review, and completed work;
+- the number of employees with assigned assets, monthly recurring investment, and estimated
+  first-year investment;
+- branch attendance coverage, detailed employee attendance, and upcoming birthdays; and
+- a downloadable attendance summary.
+
+Use the executive navigation shortcuts or sidebar:
+
+- **Workforce** opens organization-wide employee information.
+- **Attendance Overview** opens date, employee, branch, source, and movement details.
+- **Work Progress** opens organization-wide tasks and daily progress.
+- **Leave Overview** opens leave status and approval progress.
+- **Company Investment** opens read-only physical and online asset investment by employee.
+
+Employee Services, attendance marking, user provisioning, company setup, and system controls are
+not shown in the CEO login.
+
+## Responsive Navigation
+
+- On phones, use the menu icon in the top-left corner. Selecting a page closes the menu.
+- The mobile header shows the current page name and keeps search, notifications, and profile
+  controls available.
+- Page actions stack on narrow screens and move into a compact row when space is available.
+- Wide operational tables scroll horizontally inside their own section instead of widening the
+  complete page.
+- The same permissions apply on mobile, tablet, laptop, and installed PWA displays.
 
 ## Login And First Password Change
 

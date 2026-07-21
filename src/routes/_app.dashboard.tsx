@@ -33,10 +33,20 @@ import {
   type AttendanceRecord,
   type AttendanceTimelineEvent,
   type Branch,
+  type EmployeeAssetInvestment,
   type LeaveRequest,
   type User,
+  type WorkTask,
 } from "@/mock/types";
-import { attendanceApi, branchesApi, employeesApi, leaveApi, usersApi } from "@/services/api";
+import {
+  assetsApi,
+  attendanceApi,
+  branchesApi,
+  employeesApi,
+  leaveApi,
+  tasksApi,
+  usersApi,
+} from "@/services/api";
 import { downloadCsv } from "@/lib/csv";
 import { formatWorkedTime, workedTime } from "@/lib/worked-time";
 import { subscribeToAttendanceChanges } from "@/lib/attendance-live";
@@ -55,6 +65,11 @@ import {
   Users,
   Cake,
   Clock3,
+  ArrowRight,
+  BriefcaseBusiness,
+  IndianRupee,
+  ListTodo,
+  Package,
 } from "lucide-react";
 
 interface BirthdayItem {
@@ -172,6 +187,8 @@ function DashboardPage() {
   const [secondaryLoading, setSecondaryLoading] = useState(false);
   const [error, setError] = useState("");
   const [birthdays, setBirthdays] = useState<BirthdayItem[]>([]);
+  const [executiveTasks, setExecutiveTasks] = useState<WorkTask[]>([]);
+  const [employeeInvestments, setEmployeeInvestments] = useState<EmployeeAssetInvestment[]>([]);
 
   const ownAttendanceRoles = useMemo(
     () => ["employee", "sales", "driver", "field_staff"].includes(user?.role ?? ""),
@@ -227,12 +244,16 @@ function DashboardPage() {
         if (active) setSummaryLoading(false);
       });
 
-    leaveApi
-      .list()
-      .catch(() => [])
-      .then((leaveRows) => {
+    Promise.all([
+      leaveApi.list().catch(() => []),
+      user.role === "ceo" ? tasksApi.list("team", { limit: 1000, offset: 0 }).catch(() => []) : [],
+      user.role === "ceo" ? assetsApi.investmentSummary().catch(() => []) : [],
+    ])
+      .then(([leaveRows, taskRows, investmentRows]) => {
         if (!active) return;
         setLeaves(leaveRows);
+        setExecutiveTasks(taskRows);
+        setEmployeeInvestments(investmentRows);
       })
       .finally(() => {
         if (active) setSecondaryLoading(false);
@@ -296,7 +317,7 @@ function DashboardPage() {
 
       {secondaryLoading && (
         <div className="mb-3 text-xs font-medium text-muted-foreground">
-          Updating leave details...
+          Updating operational details...
         </div>
       )}
       {error && (
@@ -359,6 +380,8 @@ function DashboardPage() {
           attendance={todayAttendance}
           branches={branches}
           birthdays={birthdays}
+          tasks={executiveTasks}
+          investments={employeeInvestments}
         />
       ) : (
         <AdminDashboard
@@ -833,6 +856,8 @@ function CEODashboard({
   attendance,
   branches,
   birthdays,
+  tasks,
+  investments,
 }: {
   data: {
     total: number;
@@ -849,39 +874,156 @@ function CEODashboard({
   attendance: AttendanceRecord[];
   branches: Branch[];
   birthdays: BirthdayItem[];
+  tasks: WorkTask[];
+  investments: EmployeeAssetInvestment[];
 }) {
+  const navigate = useNavigate();
   const accountedFor = Math.min(
     data.attendanceRequiredTotal,
     data.present + data.onLeave + data.absent,
   );
   const awaitingAttendance = Math.max(0, data.attendanceRequiredTotal - accountedFor);
+  const attendanceCoverage = data.attendanceRequiredTotal
+    ? Math.round((accountedFor / data.attendanceRequiredTotal) * 100)
+    : 100;
+  const taskSummary = {
+    active: tasks.filter((task) => !["COMPLETED", "CANCELLED"].includes(task.status)).length,
+    overdue: tasks.filter(
+      (task) =>
+        task.dueDate &&
+        !["COMPLETED", "CANCELLED"].includes(task.status) &&
+        new Date(`${task.dueDate}T23:59:59`).getTime() < Date.now(),
+    ).length,
+    review: tasks.filter((task) => task.status === "REVIEW").length,
+    completed: tasks.filter((task) => task.status === "COMPLETED").length,
+  };
+  const investmentSummary = investments.reduce(
+    (summary, employee) => ({
+      monthly: summary.monthly + employee.monthlyRecurring,
+      firstYear: summary.firstYear + employee.firstYearInvestment,
+    }),
+    { monthly: 0, firstYear: 0 },
+  );
+  const executiveLinks = [
+    { label: "Workforce", detail: "People and organization", to: "/employees", icon: Users },
+    {
+      label: "Attendance",
+      detail: "Daily attendance detail",
+      to: "/attendance/locations",
+      icon: UserCheck,
+    },
+    { label: "Work progress", detail: "Tasks and daily logs", to: "/tasks", icon: ListTodo },
+    {
+      label: "Leave overview",
+      detail: "Requests and status",
+      to: "/leave/reports",
+      icon: CalendarClock,
+    },
+    { label: "Investment", detail: "Assets by employee", to: "/assets", icon: Package },
+  ] as const;
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        <StatCard label="Total employees" value={data.total} icon={Users} />
-        <StatCard label="Present today" value={data.present} icon={UserCheck} tone="success" />
-        <StatCard label="On leave today" value={data.onLeave} icon={PlaneTakeoff} />
-        <StatCard
-          label="Leave approvals pending"
-          value={data.pendingLeaves}
-          icon={CalendarClock}
-          tone="warning"
-        />
-        <StatCard
-          label="Attendance exceptions"
-          value={data.missed + data.mismatch}
-          icon={AlertTriangle}
-          tone="warning"
-          hint={`${data.missed} missed punch, ${data.mismatch} branch mismatch`}
-        />
-        <StatCard
-          label="Awaiting attendance"
-          value={awaitingAttendance}
-          icon={Clock3}
-          hint="Active employees without a settled attendance status"
-        />
+    <div className="space-y-5">
+      <section aria-labelledby="executive-summary-title">
+        <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 id="executive-summary-title" className="text-base font-semibold">
+              Executive summary
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Workforce health and decisions requiring attention today.
+            </p>
+          </div>
+          <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+            {attendanceCoverage}% attendance accounted for
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+          <StatCard label="Total workforce" value={data.total} icon={Users} />
+          <StatCard label="Present today" value={data.present} icon={UserCheck} tone="success" />
+          <StatCard label="On leave today" value={data.onLeave} icon={PlaneTakeoff} tone="info" />
+          <StatCard
+            label="Pending leave decisions"
+            value={data.pendingLeaves}
+            icon={CalendarClock}
+            tone="warning"
+          />
+          <StatCard
+            label="Attendance exceptions"
+            value={data.missed + data.mismatch}
+            icon={AlertTriangle}
+            tone="warning"
+            hint={`${data.missed} missed punch, ${data.mismatch} branch mismatch`}
+          />
+          <StatCard
+            label="Awaiting attendance"
+            value={awaitingAttendance}
+            icon={Clock3}
+            hint="Active employees without a settled attendance status"
+          />
+        </div>
+      </section>
+
+      <section aria-label="Executive navigation">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          {executiveLinks.map(({ label, detail, to, icon: Icon }) => (
+            <button
+              key={to}
+              type="button"
+              onClick={() => navigate({ to })}
+              className="group flex min-h-16 items-center gap-3 rounded-md border bg-card p-3 text-left shadow-sm transition-colors hover:border-primary/40 hover:bg-muted/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+                <Icon className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold">{label}</span>
+                <span className="block truncate text-xs text-muted-foreground">{detail}</span>
+              </span>
+              <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <BriefcaseBusiness className="h-4 w-4 text-primary" /> Work delivery
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">Organization-wide task status.</p>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <ExecutiveMetric label="Active" value={taskSummary.active} />
+            <ExecutiveMetric label="Overdue" value={taskSummary.overdue} tone="danger" />
+            <ExecutiveMetric label="In review" value={taskSummary.review} tone="warning" />
+            <ExecutiveMetric label="Completed" value={taskSummary.completed} tone="success" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <IndianRupee className="h-4 w-4 text-primary" /> Investment in employees
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Current assigned physical and online assets.
+            </p>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <ExecutiveMetric label="Employees equipped" value={investments.length} />
+            <ExecutiveMetric
+              label="Monthly recurring"
+              value={formatCompactInr(investmentSummary.monthly)}
+            />
+            <ExecutiveMetric
+              label="First-year value"
+              value={formatCompactInr(investmentSummary.firstYear)}
+            />
+          </CardContent>
+        </Card>
       </div>
+
       <Card>
         <CardHeader className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -964,13 +1106,45 @@ function CEODashboard({
         rows={attendance}
         branches={branches}
         title="Company attendance detail"
-        viewAllHref="/attendance"
+        viewAllHref="/attendance/locations"
       />
       <div className="mt-4">
         <UpcomingBirthdaysCard birthdays={birthdays} />
       </div>
     </div>
   );
+}
+
+function ExecutiveMetric({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: string | number;
+  tone?: "default" | "success" | "warning" | "danger";
+}) {
+  const tones = {
+    default: "text-foreground",
+    success: "text-emerald-700 dark:text-emerald-400",
+    warning: "text-amber-700 dark:text-amber-400",
+    danger: "text-red-700 dark:text-red-400",
+  };
+  return (
+    <div className="rounded-md bg-muted/55 p-3">
+      <p className="text-xs leading-4 text-muted-foreground">{label}</p>
+      <p className={`mt-1 text-lg font-semibold tabular-nums ${tones[tone]}`}>{value}</p>
+    </div>
+  );
+}
+
+function formatCompactInr(value: number) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
 }
 
 function AdminDashboard({

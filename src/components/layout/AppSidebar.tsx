@@ -17,7 +17,6 @@ import { useAuth } from "@/lib/auth";
 import { menuForRole } from "@/lib/menu";
 import { ROLE_LABELS } from "@/mock/types";
 import { employeesApi } from "@/services/api";
-import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/common/Logo";
 
@@ -60,7 +59,7 @@ export function AppSidebar() {
         {groups.map((group) => (
           <SidebarGroup key={group.label} className="px-2 py-1">
             {!collapsed && (
-              <SidebarGroupLabel className="h-7 px-3 text-[11px] font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
+              <SidebarGroupLabel className="h-7 px-3 text-xs font-semibold text-slate-500 dark:text-zinc-400">
                 {group.label}
               </SidebarGroupLabel>
             )}
@@ -84,7 +83,7 @@ export function AppSidebar() {
                         size="default"
                         tooltip={item.label}
                         className={cn(
-                          "h-9 px-3 rounded-full text-slate-700 dark:text-zinc-300 transition-colors w-full justify-start",
+                          "h-10 w-full justify-start rounded-md px-3 text-slate-700 transition-colors dark:text-zinc-300",
                           active
                             ? "bg-[#D3E3FD] font-semibold text-[#041E49] hover:bg-[#D3E3FD] dark:bg-primary/15 dark:text-primary dark:hover:bg-primary/20"
                             : "bg-transparent hover:bg-slate-200/50 dark:hover:bg-sidebar-accent",

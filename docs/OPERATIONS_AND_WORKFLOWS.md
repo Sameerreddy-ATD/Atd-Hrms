@@ -7,12 +7,30 @@ This manual describes the behavior implemented in the current version. Permissio
 | User              | Main responsibility                                                                                                  |
 | ----------------- | -------------------------------------------------------------------------------------------------------------------- |
 | Developer Admin   | Creates and manages logins, organization setup, branches, holidays, assets, devices, audit logs, and system controls |
-| CEO               | Views organization-wide people, attendance, leave progress, and reports                                              |
+| CEO               | Reviews workforce, attendance, leave progress, work delivery, and employee investment                                |
 | HR                | Maintains employee operations, leave types, holidays, branches, assets, and authorized reports                       |
 | Organization head | Views the employees below their unit and acts only on leave assigned directly to them                                |
 | Employee          | Uses their own profile, attendance, leave, tasks, notifications, and ID card                                         |
 
 Developer Admin is a protected system account. It cannot be suspended, deactivated, deleted, or locked by failed passwords.
+
+## Role-Aware Workspace
+
+The sidebar and dashboard expose only the areas relevant to the signed-in role. Hiding an action is
+for usability; the backend remains the authority for every permission.
+
+The CEO workspace is decision-focused and read-only for operational data:
+
+1. **Workforce** provides organization-wide employee visibility.
+2. **Attendance Overview** provides daily status, branch, source, punch, and movement detail.
+3. **Work Progress** summarizes task delivery and daily updates.
+4. **Leave Overview** shows pending decisions and request progress.
+5. **Company Investment** shows physical and online assets assigned to employees, including
+   recurring and first-year values.
+
+Company configuration, login administration, attendance marking, and employee self-service are not
+part of the CEO workspace. HR, heads, employees, and Developer Admin retain their existing scoped
+workspaces.
 
 ## Account Lifecycle
 

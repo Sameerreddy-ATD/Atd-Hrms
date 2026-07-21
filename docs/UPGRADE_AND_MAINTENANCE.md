@@ -88,6 +88,14 @@ curl -I https://hrms.sameerreddy.in
 
 Then test login, dashboard restore, mobile attendance, cross-device timer refresh, leave submit/approval, announcement delivery, notification scope, user status, and logout.
 
+For releases that change shared navigation or dashboards, also verify:
+
+- CEO sidebar labels and read-only access to Workforce, Attendance Overview, Work Progress, Leave
+  Overview, and Company Investment;
+- Developer Admin, HR, head, and employee menus do not gain unauthorized entries;
+- page headers and actions at 390 px, tablet width, and laptop width; and
+- the document width does not overflow on mobile; wide tables must scroll inside their section.
+
 ## Rollback
 
 Application-only rollback:

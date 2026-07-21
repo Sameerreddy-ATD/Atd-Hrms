@@ -22,15 +22,19 @@ export function StatCard({
     info: "text-blue-600 dark:text-blue-400",
   };
   return (
-    <Card className="border-border shadow-sm">
-      <CardContent className="p-3 sm:p-4">
+    <Card className="h-full border-border shadow-sm">
+      <CardContent className="h-full p-3 sm:p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="truncate text-[11px] font-semibold uppercase text-muted-foreground">
+            <p className="min-h-8 text-xs font-semibold leading-4 text-muted-foreground sm:min-h-0">
               {label}
             </p>
-            <p className={`mt-1.5 text-xl font-semibold sm:text-2xl ${toneMap[tone]}`}>{value}</p>
-            {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+            <p
+              className={`mt-1 text-xl font-semibold tabular-nums sm:mt-1.5 sm:text-2xl ${toneMap[tone]}`}
+            >
+              {value}
+            </p>
+            {hint && <p className="mt-1 text-xs leading-4 text-muted-foreground">{hint}</p>}
           </div>
           {Icon && (
             <div className="shrink-0 rounded-md bg-muted p-2 text-muted-foreground">

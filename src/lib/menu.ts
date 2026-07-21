@@ -216,12 +216,24 @@ export function menuForRole(role: Role, options?: { isReportingManager?: boolean
   return menuGroups
     .map((g) => ({
       ...g,
-      items: g.items.filter((i) => {
-        if (i.requiresReportingManager) {
-          return options?.isReportingManager === true;
-        }
-        return i.roles.includes(role) || (i.allowReportingManager && options?.isReportingManager);
-      }),
+      items: g.items
+        .filter((i) => {
+          if (i.requiresReportingManager) {
+            return options?.isReportingManager === true;
+          }
+          return i.roles.includes(role) || (i.allowReportingManager && options?.isReportingManager);
+        })
+        .map((item) => {
+          if (role !== "ceo") return item;
+          const executiveLabels: Record<string, string> = {
+            "/employees": "Workforce",
+            "/attendance/locations": "Attendance Overview",
+            "/tasks": "Work Progress",
+            "/leave/reports": "Leave Overview",
+            "/assets": "Company Investment",
+          };
+          return { ...item, label: executiveLabels[item.to] ?? item.label };
+        }),
     }))
     .filter((g) => g.items.length > 0);
 }
