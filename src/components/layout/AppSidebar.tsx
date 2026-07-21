@@ -45,9 +45,9 @@ export function AppSidebar() {
   return (
     <Sidebar
       collapsible="icon"
-      className="border-r border-slate-200/20 bg-[#F6F8FC]/40 backdrop-blur-md dark:border-sidebar-border dark:bg-sidebar"
+      className="border-r border-slate-200/70 bg-[#F6F8FC]/85 backdrop-blur-md dark:border-sidebar-border dark:bg-sidebar dark:shadow-[8px_0_24px_rgba(0,0,0,0.12)]"
     >
-      <SidebarHeader className="bg-transparent border-b-0 pt-4 pb-2 px-3 flex justify-start items-center w-full min-h-[48px]">
+      <SidebarHeader className="flex min-h-16 w-full items-center justify-start border-b border-sidebar-border/70 bg-transparent px-3 py-3">
         {collapsed && !isMobile ? (
           <img src="/atd-favicon.png" alt="ATD" className="h-8 w-8 object-contain mx-auto" />
         ) : (
@@ -55,11 +55,11 @@ export function AppSidebar() {
         )}
       </SidebarHeader>
 
-      <SidebarContent className="bg-transparent py-2">
+      <SidebarContent className="bg-transparent px-1 py-3">
         {groups.map((group) => (
-          <SidebarGroup key={group.label} className="px-2 py-1">
+          <SidebarGroup key={group.label} className="px-1 py-1.5">
             {!collapsed && (
-              <SidebarGroupLabel className="h-7 px-3 text-xs font-semibold text-slate-500 dark:text-zinc-400">
+              <SidebarGroupLabel className="h-7 px-3 text-xs font-semibold text-slate-500 dark:text-sidebar-foreground/55">
                 {group.label}
               </SidebarGroupLabel>
             )}
@@ -83,10 +83,10 @@ export function AppSidebar() {
                         size="default"
                         tooltip={item.label}
                         className={cn(
-                          "h-10 w-full justify-start rounded-md px-3 text-slate-700 transition-colors dark:text-zinc-300",
+                          "h-10 w-full justify-start rounded-md border border-transparent px-3 text-slate-700 transition-colors dark:text-sidebar-foreground/85",
                           active
-                            ? "bg-[#D3E3FD] font-semibold text-[#041E49] hover:bg-[#D3E3FD] dark:bg-primary/15 dark:text-primary dark:hover:bg-primary/20"
-                            : "bg-transparent hover:bg-slate-200/50 dark:hover:bg-sidebar-accent",
+                            ? "border-blue-200/80 bg-[#D3E3FD] font-semibold text-[#041E49] hover:bg-[#D3E3FD] dark:border-primary/35 dark:bg-primary/15 dark:text-red-100 dark:hover:bg-primary/20"
+                            : "bg-transparent hover:bg-slate-200/60 dark:hover:border-sidebar-border dark:hover:bg-sidebar-accent dark:hover:text-sidebar-accent-foreground",
                         )}
                       >
                         <Link
@@ -101,7 +101,7 @@ export function AppSidebar() {
                               "h-[18px] w-[18px] shrink-0",
                               active
                                 ? "text-[#041E49] dark:text-primary"
-                                : "text-slate-500 dark:text-muted-foreground",
+                                : "text-slate-500 dark:text-sidebar-foreground/60",
                             )}
                           />
                           <span className="truncate text-sm">{item.label}</span>
@@ -116,16 +116,26 @@ export function AppSidebar() {
         ))}
       </SidebarContent>
 
-      <SidebarFooter className="bg-transparent border-t-0 pb-4 flex flex-col gap-1.5">
+      <SidebarFooter className="flex flex-col gap-2 border-t border-sidebar-border/70 bg-transparent px-2 pb-3 pt-3">
         {!collapsed ? (
           <>
-            <div className="px-4 py-2 bg-slate-200/30 dark:bg-zinc-900/30 rounded-xl mx-2 border border-slate-200/20">
-              <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-200">
-                {user.name}
-              </p>
-              <p className="truncate text-[10px] text-muted-foreground mt-0.5">
-                {ROLE_LABELS[user.role]}
-              </p>
+            <div className="flex items-center gap-3 rounded-md border border-slate-200/70 bg-white/60 p-2.5 dark:border-sidebar-border dark:bg-sidebar-accent/65">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
+                {user.name
+                  .split(" ")
+                  .map((part) => part[0])
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase()}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-xs font-semibold text-slate-800 dark:text-sidebar-foreground">
+                  {user.name}
+                </p>
+                <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                  {ROLE_LABELS[user.role]}
+                </p>
+              </div>
             </div>
             <div className="text-[10px] text-muted-foreground/60 text-center font-medium">
               Version 1.0

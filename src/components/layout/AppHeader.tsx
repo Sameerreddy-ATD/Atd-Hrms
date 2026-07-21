@@ -93,17 +93,17 @@ export function AppHeader() {
     : "??";
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-1 border-b border-slate-200/20 bg-[#F6F8FC]/40 px-2 backdrop-blur-md dark:border-border dark:bg-background/95 sm:h-16 sm:gap-3 sm:px-4 md:px-6">
+    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-1 border-b border-slate-200/70 bg-[#F6F8FC]/85 px-2 backdrop-blur-md dark:border-border dark:bg-card/95 dark:shadow-sm sm:h-16 sm:gap-3 sm:px-4 md:px-6">
       {/* Left: Collapsible Toggle, Logo & Page Title */}
       <div className="flex items-center gap-2">
         <Button
           variant="ghost"
           size="icon"
-          className="md:hidden h-10 w-10 rounded-full hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 transition-colors shrink-0"
+          className="h-10 w-10 shrink-0 rounded-md transition-colors hover:bg-slate-200/60 dark:hover:bg-muted md:hidden"
           onClick={toggleSidebar}
           aria-label="Open menu"
         >
-          <Menu className="h-5 w-5 text-slate-700 dark:text-zinc-300" />
+          <Menu className="h-5 w-5 text-slate-700 dark:text-foreground" />
         </Button>
         <div className="flex min-w-0 items-center gap-2 pl-0.5 sm:pl-1">
           <img src="/atd-favicon.png" alt="ATD" className="h-6 w-6 rounded-sm object-contain" />
@@ -123,7 +123,7 @@ export function AppHeader() {
         <Button
           variant="ghost"
           size="icon"
-          className="h-10 w-10 rounded-full text-slate-600 dark:text-zinc-300 hover:bg-slate-200/50 dark:hover:bg-zinc-800/50"
+          className="h-10 w-10 rounded-md text-slate-600 hover:bg-slate-200/50 dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground"
           aria-label="Search pages (Ctrl+K)"
           title="Search pages (Ctrl+K)"
           onClick={() => setPaletteOpen(true)}
@@ -134,7 +134,7 @@ export function AppHeader() {
         <Button
           variant="ghost"
           size="icon"
-          className="hidden sm:inline-flex h-10 w-10 rounded-full text-slate-600 dark:text-zinc-300 hover:bg-slate-200/50 dark:hover:bg-zinc-800/50"
+          className="hidden h-10 w-10 rounded-md text-slate-600 hover:bg-slate-200/50 dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground sm:inline-flex"
           aria-label="Go to dashboard"
           onClick={() => navigate({ to: "/dashboard" })}
         >
@@ -145,7 +145,7 @@ export function AppHeader() {
           <Button
             variant="ghost"
             size="icon"
-            className="hidden sm:inline-flex h-10 w-10 rounded-full text-slate-600 dark:text-zinc-300 hover:bg-slate-200/50 dark:hover:bg-zinc-800/50"
+            className="hidden h-10 w-10 rounded-md text-slate-600 hover:bg-slate-200/50 dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground sm:inline-flex"
             aria-label="System Settings"
             onClick={() => navigate({ to: "/settings" })}
           >
@@ -156,7 +156,7 @@ export function AppHeader() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative h-10 w-10 rounded-full text-slate-600 dark:text-zinc-300 hover:bg-slate-200/50 dark:hover:bg-zinc-800/50"
+          className="relative h-10 w-10 rounded-md text-slate-600 hover:bg-slate-200/50 dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground"
           aria-label={`Notifications${notificationCount ? ` (${notificationCount})` : ""}`}
           onClick={() => navigate({ to: "/notifications" })}
         >
@@ -172,7 +172,7 @@ export function AppHeader() {
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="h-10 w-10 rounded-full p-0 border-0 hover:bg-slate-200/50 dark:hover:bg-zinc-800/50"
+              className="h-10 w-10 rounded-md border-0 p-0 hover:bg-slate-200/50 dark:hover:bg-muted"
             >
               <Avatar className="h-8 w-8">
                 <AvatarFallback className="bg-primary text-primary-foreground text-[13px] font-bold">
@@ -183,7 +183,7 @@ export function AppHeader() {
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
-            className="w-56 mt-1 rounded-xl shadow-md border border-border/40 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md"
+            className="mt-1 w-56 rounded-lg border border-border bg-popover/95 shadow-lg backdrop-blur-md"
           >
             <DropdownMenuLabel className="font-semibold text-sm px-3 py-2">
               <div className="font-medium text-slate-800 dark:text-slate-200">{user?.name}</div>
@@ -207,7 +207,7 @@ export function AppHeader() {
                 <span>Theme</span>
               </DropdownMenuSubTrigger>
               <DropdownMenuPortal>
-                <DropdownMenuSubContent className="w-36 rounded-xl shadow-md border border-border/40 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md p-1">
+                <DropdownMenuSubContent className="w-36 rounded-lg border border-border bg-popover/95 p-1 shadow-lg backdrop-blur-md">
                   <DropdownMenuItem
                     onClick={() => handleThemeChange("light")}
                     className="cursor-pointer flex items-center justify-between"
