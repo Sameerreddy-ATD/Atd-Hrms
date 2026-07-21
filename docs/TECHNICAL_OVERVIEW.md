@@ -104,6 +104,14 @@ flowchart LR
 
 The live timer is calculated in the browser from the ordered timeline. Completed pairs are fixed; an unmatched final check-in adds elapsed time until a checkout arrives. After a successful punch response, a temporary optimistic session state updates the buttons and timer immediately. It is removed as soon as the authoritative SSE-refreshed timeline confirms the event.
 
+The Day Logs screen requests `limit=none` only for its explicitly selected attendance range and
+groups returned summaries as date -> employee -> timeline in the all-employee view. A selected
+employee uses date -> timeline and does not apply a branch filter. The Excel overview derives
+`Average Working Time Per Day (HH:MM:SS)` from total worked seconds divided by the employee's
+Days Present in the exported records; a zero-day denominator produces `00:00:00`. Export presence
+classification requires a status beginning with `Present` or positive worked seconds, preventing
+Holiday, Week Off, and Pending Attendance summaries from diluting the average.
+
 ## Notifications
 
 Announcement creation writes MySQL first, writes an audit event, broadcasts an authenticated SSE change to open app sessions, and sends Web Push in parallel to registered installed/background devices. Notification queries still apply role and employee scope on the backend.

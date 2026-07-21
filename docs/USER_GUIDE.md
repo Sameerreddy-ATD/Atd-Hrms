@@ -269,6 +269,17 @@ Open app sessions receive new announcement updates immediately. Installed/backgr
 
 Reports include filters for date range, employee, branch, department, source, status, client name, and field work type where supported.
 
+In **Day Logs**, selecting **All Employees** shows a date-first hierarchy. Expand a date to
+see its employees, then expand an employee to see every punch for that date. Selecting one
+employee shows all available dates directly and removes the unnecessary branch filter.
+
+The Day Logs Excel export applies the selected employee, date, and branch filters. Its first
+sheet contains one summary row per employee. **Average Working Time Per Day** is calculated as
+the employee's total worked time in the exported records divided by **Days Present**. Employees
+with no present days show `00:00:00`. Each employee sheet retains the actual worked time for every
+individual date. Holiday, Week Off, and Pending Attendance rows do not count as present unless
+worked time was actually recorded.
+
 Common report pages:
 
 - Employee attendance report

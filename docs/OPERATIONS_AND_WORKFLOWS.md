@@ -53,6 +53,19 @@ flowchart LR
 
 An attendance day can combine sources. For example, biometric check-in followed by mobile check-out is one daily timeline, as is mobile check-in followed by biometric check-out.
 
+Day Logs use a two-level drill-down for a selected employee and a three-level drill-down for the
+company view:
+
+- Single employee: date -> complete punch timeline.
+- All employees: date -> employee -> complete punch timeline.
+
+The All Employees query returns the complete selected date range instead of stopping at the
+standard list-page limit. The Excel overview reports average working time per day as total worked
+seconds divided by Days Present for each employee in the exported filter range. Daily employee
+worksheets continue to report the exact duration for each date. Present days require a Present
+status or recorded worked seconds; Holiday, Week Off, and Pending Attendance alone do not increase
+the denominator.
+
 ```mermaid
 flowchart LR
   A["Biometric or mobile check-in"] --> B["Attendance event stored"]

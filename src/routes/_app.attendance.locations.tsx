@@ -125,7 +125,8 @@ function DayLogsPage() {
         employeeId: selectedEmployeeId !== "all" ? selectedEmployeeId : undefined,
         from: selectedEmployeeId === "all" ? from : undefined,
         to: selectedEmployeeId === "all" ? to : undefined,
-        branchId: branchId !== "all" ? branchId : undefined,
+        branchId: selectedEmployeeId === "all" && branchId !== "all" ? branchId : undefined,
+        limit: "none",
       })
       .then((rows) => {
         const filtered = rows.filter((row) => {
@@ -169,6 +170,11 @@ function DayLogsPage() {
     return employees.filter((emp) => emp.role !== "developer_admin" && emp.role !== "main_admin");
   }, [employees]);
 
+  function changeEmployee(employeeId: string) {
+    setSelectedEmployeeId(employeeId);
+    if (employeeId !== "all") setBranchId("all");
+  }
+
   function setToday() {
     const today = new Date().toISOString().slice(0, 10);
     setFrom(today);
@@ -202,10 +208,14 @@ function DayLogsPage() {
           <CardTitle className="text-sm">Filters</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <div className="space-y-1.5 xl:col-span-2">
+          <div
+            className={`grid gap-4 md:grid-cols-2 ${selectedEmployeeId === "all" ? "xl:grid-cols-5" : ""}`}
+          >
+            <div
+              className={`space-y-1.5 ${selectedEmployeeId === "all" ? "xl:col-span-2" : "md:col-span-2"}`}
+            >
               <Label>Employee</Label>
-              <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
+              <Select value={selectedEmployeeId} onValueChange={changeEmployee}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select employee" />
                 </SelectTrigger>
@@ -245,22 +255,24 @@ function DayLogsPage() {
                 onChange={(event) => setTo(event.target.value)}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label>Branch</Label>
-              <Select value={branchId} onValueChange={setBranchId}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All branches</SelectItem>
-                  {branches.map((branch) => (
-                    <SelectItem key={branch.id} value={branch.id}>
-                      {branch.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {selectedEmployeeId === "all" && (
+              <div className="space-y-1.5">
+                <Label>Branch</Label>
+                <Select value={branchId} onValueChange={setBranchId}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All branches</SelectItem>
+                    {branches.map((branch) => (
+                      <SelectItem key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -338,7 +350,6 @@ function DayLogsPage() {
             <>
               <AttendanceDayList
                 records={employeeRows}
-                branches={branches}
                 showEmployee={selectedEmployeeId === "all"}
                 emptyText="No day-wise attendance records found."
               />

@@ -59,6 +59,7 @@ function ApplyLeavePage() {
       .finally(() => setTypesLoading(false));
   }, []);
   const selectedType = types.find((type) => type.id === typeId);
+  const requiresApprover = selectedType?.approvalRequired !== false;
   const selectedBalance = balances.find((item) => item.code === selectedType?.code)?.balance ?? 0;
   const requestedDays =
     from && to && from <= to
@@ -105,7 +106,11 @@ function ApplyLeavePage() {
         reason: reason.trim(),
         medicalDocumentUrl: medicalDocumentUrl.trim() || undefined,
       });
-      toast.success("Leave request submitted");
+      toast.success(
+        selectedType?.code === "COMP_OFF"
+          ? "Comp Off booked successfully"
+          : "Leave request submitted",
+      );
       navigate({ to: "/leave/history" });
     } catch (err) {
       toast.error((err as Error).message);
@@ -151,12 +156,12 @@ function ApplyLeavePage() {
     <div>
       <PageHeader
         title="Apply for Leave"
-        description="Choose the leave type and dates, then send the request to your head."
+        description="Choose the leave type and dates. Approval follows the policy for that leave type."
         actions={
           <InfoButton title="Leave request process">
-            Requests go only to your responsible organization head. You can track the decision in
-            Leave History and cancel an approved leave when required. Sick Leave may require a
-            shareable medical-document link.
+            Leave requests go only to your responsible organization head. Comp Off uses an earned
+            holiday-work credit and does not require approval. You can track the result in Leave
+            History and cancel an approved leave when required.
           </InfoButton>
         }
       />
@@ -228,16 +233,23 @@ function ApplyLeavePage() {
           <div className="mx-auto grid w-full max-w-5xl gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
             <Card>
               <CardContent className="p-4 sm:p-6">
-                {!approverLoading && !approverName && (
+                {!approverLoading && requiresApprover && !approverName && (
                   <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
                     No organization head is available for your unit. Contact HR to complete the
                     organization chart before applying for leave.
                   </p>
                 )}
-                {!approverLoading && approverName && (
+                {!approverLoading && requiresApprover && approverName && (
                   <p className="mb-4 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
                     This request will be sent to your organization head:{" "}
                     <span className="font-medium text-foreground">{approverName}</span>
+                  </p>
+                )}
+                {selectedType && !requiresApprover && (
+                  <p className="mb-4 flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/25 dark:text-emerald-300">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                    Comp Off uses an earned holiday-work credit and is confirmed immediately. No
+                    organization-head approval is required.
                   </p>
                 )}
                 <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2" noValidate>
@@ -332,7 +344,11 @@ function ApplyLeavePage() {
                     </Button>
                     <Button
                       type="submit"
-                      disabled={loading || typesLoading || approverLoading || !approverName}
+                      disabled={
+                        loading ||
+                        typesLoading ||
+                        (requiresApprover && (approverLoading || !approverName))
+                      }
                     >
                       Submit request
                     </Button>
@@ -365,7 +381,13 @@ function ApplyLeavePage() {
                 <LeaveSummary
                   icon={UserRound}
                   label="Approver"
-                  value={approverLoading ? "Checking..." : (approverName ?? "Not assigned")}
+                  value={
+                    requiresApprover
+                      ? approverLoading
+                        ? "Checking..."
+                        : (approverName ?? "Not assigned")
+                      : "No approval required"
+                  }
                 />
               </div>
               {requestedDays > selectedBalance && selectedType?.paid && (

@@ -245,7 +245,6 @@ function MyAttendancePage() {
               <CardContent className="p-3 sm:p-4">
                 <AttendanceDayList
                   records={records}
-                  branches={branches}
                   mine
                   emptyText="No attendance history records logged yet."
                 />

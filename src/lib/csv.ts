@@ -72,6 +72,15 @@ function formatDurationSeconds(value: number) {
   return [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
 }
 
+export function averageWorkedSeconds(totalWorkedSeconds: number, presentDays: number) {
+  if (!Number.isFinite(totalWorkedSeconds) || presentDays <= 0) return 0;
+  return Math.max(0, totalWorkedSeconds) / presentDays;
+}
+
+export function isPresentAttendanceDay(status: string, workedSeconds: number) {
+  return status.trim().toLowerCase().startsWith("present") || workedSeconds > 0;
+}
+
 export function downloadAttendanceExcel(
   filename: string,
   rows: Array<{
@@ -133,14 +142,14 @@ export function downloadAttendanceExcel(
     stats.total++;
     stats.workedSeconds += row.workedSeconds;
     const statusLower = row.status.toLowerCase();
-    if (
+    if (isPresentAttendanceDay(row.status, row.workedSeconds)) {
+      stats.present++;
+    } else if (
       statusLower.includes("absent") ||
       statusLower.includes("leave") ||
       statusLower.includes("lop")
     ) {
       stats.absent++;
-    } else {
-      stats.present++;
     }
   }
 
@@ -153,7 +162,7 @@ export function downloadAttendanceExcel(
       <Cell ss:StyleID="Header"><Data ss:Type="String">Days Present</Data></Cell>
       <Cell ss:StyleID="Header"><Data ss:Type="String">Days Absent/Leave</Data></Cell>
       <Cell ss:StyleID="Header"><Data ss:Type="String">Total Days</Data></Cell>
-      <Cell ss:StyleID="Header"><Data ss:Type="String">Worked Time (HH:MM:SS)</Data></Cell>
+      <Cell ss:StyleID="Header"><Data ss:Type="String">Average Working Time Per Day (HH:MM:SS)</Data></Cell>
       <Cell ss:StyleID="Header"><Data ss:Type="String">Attendance Rate</Data></Cell>
     </Row>
   `;
@@ -168,7 +177,7 @@ export function downloadAttendanceExcel(
         <Cell ss:StyleID="PresentCell"><Data ss:Type="Number">${s.present}</Data></Cell>
         <Cell ss:StyleID="AbsentCell"><Data ss:Type="Number">${s.absent}</Data></Cell>
         <Cell><Data ss:Type="Number">${s.total}</Data></Cell>
-        <Cell><Data ss:Type="String">${formatDurationSeconds(s.workedSeconds)}</Data></Cell>
+        <Cell><Data ss:Type="String">${formatDurationSeconds(averageWorkedSeconds(s.workedSeconds, s.present))}</Data></Cell>
         <Cell ss:StyleID="${rateStyle}"><Data ss:Type="String">${rate}%</Data></Cell>
       </Row>
     `;
@@ -182,7 +191,7 @@ export function downloadAttendanceExcel(
         <Column ss:Width="90"/>
         <Column ss:Width="120"/>
         <Column ss:Width="80"/>
-        <Column ss:Width="110"/>
+        <Column ss:Width="210"/>
         <Column ss:Width="110"/>
         ${overviewRowsXml}
       </Table>
