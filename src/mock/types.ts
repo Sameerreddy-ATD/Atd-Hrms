@@ -12,6 +12,32 @@ export type Role =
   | "driver"
   | "field_staff";
 
+export type ModuleKey =
+  | "DASHBOARD"
+  | "PEOPLE"
+  | "ATTENDANCE"
+  | "TASKS"
+  | "EMPLOYEE_REQUESTS"
+  | "LEAVE"
+  | "COMPANY"
+  | "PROFILE"
+  | "COMMUNICATIONS"
+  | "SYSTEM";
+
+export type IntegrationScope = "employees:read" | "employees:write" | "employee-events:read";
+
+export interface IntegrationClient {
+  clientId: string;
+  name: string;
+  keyPrefix: string;
+  scopes: IntegrationScope[];
+  status: "ACTIVE" | "REVOKED";
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+}
+
 export const ROLE_LABELS: Record<Role, string> = {
   developer_admin: "Developer Admin",
   main_admin: "Admin",
@@ -26,11 +52,14 @@ export const ROLE_LABELS: Record<Role, string> = {
 
 export interface User {
   id: string;
+  userId?: string | null;
   name: string;
   email: string;
   role: Role;
   employeeId?: string;
   employeeCode?: string;
+  externalReference?: string | null;
+  version?: number;
   homeBranchId?: string;
   homeBranchName?: string;
   department?: string;
@@ -56,6 +85,15 @@ export interface User {
   shiftStartMinutes?: number;
   shiftEndMinutes?: number;
   mustChangePassword?: boolean;
+  terminatedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Employee directory/profile response. Its id is always the employeeId. */
+export interface EmployeeProfile extends Omit<User, "id"> {
+  id: string;
+  employeeId: string;
 }
 
 export interface Branch {
@@ -177,12 +215,15 @@ export interface ExpenseClaim {
   employeeId: string;
   employeeName: string;
   employeeCode: string;
-  category: string;
+  claimType: "ADVANCE" | "EXPENSE";
+  title?: string;
   amount: number;
-  expenseDate: string;
-  description: string;
+  expenseDate?: string;
+  description?: string;
+  remark?: string;
   receiptUrl?: string;
-  status: "PENDING" | "APPROVED" | "REJECTED" | "PAID";
+  receiptAccessConfirmed?: boolean;
+  status: "PENDING" | "UNPAID" | "REJECTED" | "PAID";
   reviewNotes?: string;
   paidAt?: string;
   createdAt: string;
@@ -426,6 +467,10 @@ export interface WorkTask {
   createdByUserId: string;
   createdByName: string;
   parentTaskId?: string;
+  boardId?: string;
+  boardName?: string;
+  stageId?: string;
+  stage?: TaskStage;
   status: TaskStatus;
   priority: TaskPriority;
   progress: number;
@@ -437,6 +482,30 @@ export interface WorkTask {
   subtaskCount: number;
   updateCount: number;
   updates: TaskUpdate[];
+}
+
+export interface TaskStage {
+  id: string;
+  name: string;
+  color: "SLATE" | "BLUE" | "AMBER" | "VIOLET" | "EMERALD" | "RED";
+  sortOrder: number;
+  isCompleted: boolean;
+}
+
+export interface TaskBoard {
+  id: string;
+  createdByUserId: string;
+  name: string;
+  description?: string;
+  accessType: "OPEN" | "ROLE_GATED" | "MEMBER_GATED";
+  archived: boolean;
+  allowedRoles: string[];
+  memberEmployeeIds: string[];
+  stages: TaskStage[];
+  taskCount: number;
+  openTaskCount: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface TaskAssignee {

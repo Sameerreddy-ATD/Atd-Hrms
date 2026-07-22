@@ -2,16 +2,20 @@ $ErrorActionPreference = "Stop"
 
 $mysqld = "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqld.exe"
 $mysqladmin = "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqladmin.exe"
+$mysql = "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe"
 
 # Use drive-root mysql-data directory to prevent Windows/InnoDB path comparison bugs
 $workspaceDrive = $PSScriptRoot.Substring(0, 1).ToUpper() + ":"
 $datadir = Join-Path $workspaceDrive "mysql-data"
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $projectRoot = $projectRoot.Substring(0, 1).ToUpper() + $projectRoot.Substring(1)
-$password = if ($env:MYSQL_ROOT_PASSWORD) { $env:MYSQL_ROOT_PASSWORD } else { "5566" }
+$password = $env:MYSQL_ROOT_PASSWORD
 
 if (-not (Test-Path -LiteralPath $mysqld)) {
   throw "MySQL Server 8.0 was not found at $mysqld"
+}
+if (-not (Test-Path -LiteralPath $mysqladmin) -or -not (Test-Path -LiteralPath $mysql)) {
+  throw "The MySQL 8.0 command-line tools were not found."
 }
 
 function Test-MySqlPort {
@@ -26,6 +30,12 @@ if (Test-MySqlPort) {
 # Auto-initialize if database files are not present
 $needInit = -not (Test-Path (Join-Path $datadir "ibdata1"))
 if ($needInit) {
+  if (-not $password) {
+    throw "MYSQL_ROOT_PASSWORD is required when initializing a new local database."
+  }
+  if (-not $env:SEED_PASSWORD) {
+    throw "SEED_PASSWORD is required when initializing and seeding a new local database."
+  }
   Write-Host "Initializing clean MySQL database at $datadir..."
   if (-not (Test-Path -Path $datadir)) {
     New-Item -Path $datadir -ItemType Directory -Force | Out-Null
@@ -60,6 +70,13 @@ $process.StartInfo.Arguments = @(
 $process.StartInfo.WorkingDirectory = $datadir
 [void]$process.Start()
 
+function Stop-StartedMySqlAndThrow([string]$message) {
+  if (-not $process.HasExited) {
+    Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+  }
+  throw $message
+}
+
 Start-Sleep -Seconds 2
 if ($process.HasExited) {
   $err = $process.StandardError.ReadToEnd()
@@ -77,14 +94,26 @@ while ((Get-Date) -lt $deadline) {
       Start-Sleep -Seconds 2
       & $mysqladmin --protocol=tcp -h 127.0.0.1 -P 3306 -u root password $password
       if ($LASTEXITCODE -ne 0) {
-        throw "Failed to set root password."
+        Stop-StartedMySqlAndThrow "Failed to set root password."
       }
-      
-      $env:SEED_PASSWORD = "5566"
+
+      & $mysql --protocol=tcp -h 127.0.0.1 -P 3306 -u root "--password=$password" --execute="CREATE DATABASE IF NOT EXISTS anytimediesel_hrms CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+      if ($LASTEXITCODE -ne 0) {
+        Stop-StartedMySqlAndThrow "Failed to create the anytimediesel_hrms database."
+      }
+
+      $encodedPassword = [uri]::EscapeDataString($password)
+      $env:DATABASE_URL = "mysql://root:$encodedPassword@127.0.0.1:3306/anytimediesel_hrms"
       Write-Host "Deploying migrations..."
-      Start-Process -FilePath "npm.cmd" -ArgumentList "run db:deploy" -WorkingDirectory $projectRoot -NoNewWindow -Wait
+      $migrationProcess = Start-Process -FilePath "npm.cmd" -ArgumentList "run db:deploy" -WorkingDirectory $projectRoot -NoNewWindow -Wait -PassThru
+      if ($migrationProcess.ExitCode -ne 0) {
+        Stop-StartedMySqlAndThrow "Migration deployment failed with exit code $($migrationProcess.ExitCode)."
+      }
       Write-Host "Seeding database..."
-      Start-Process -FilePath "npm.cmd" -ArgumentList "run db:seed" -WorkingDirectory $projectRoot -NoNewWindow -Wait
+      $seedProcess = Start-Process -FilePath "npm.cmd" -ArgumentList "run db:seed" -WorkingDirectory $projectRoot -NoNewWindow -Wait -PassThru
+      if ($seedProcess.ExitCode -ne 0) {
+        Stop-StartedMySqlAndThrow "Database seeding failed with exit code $($seedProcess.ExitCode)."
+      }
     }
     
     Write-Host "MySQL is ready."

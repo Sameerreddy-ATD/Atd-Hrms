@@ -18,6 +18,8 @@
     "typecheck": "tsc --noEmit && tsc -p server/tsconfig.json --noEmit",
     "test": "vitest run --config vitest.config.ts",
     "test:e2e": "playwright test",
+    "test:employee-api": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-employee-api.ps1",
+    "test:local-ui:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-local-ui-test.ps1",
     "format": "prettier --write .",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",

@@ -147,14 +147,18 @@ function UsersPage() {
   }
 
   async function performDeleteUser(user: User) {
-    if (deleteConfirmation !== "DELETE") return;
+    if (deleteConfirmation !== "DEACTIVATE") return;
     setDeleting(true);
     try {
       await usersApi.delete(user.id, deleteConfirmation);
-      setUsers((prev) => prev.filter((row) => row.id !== user.id));
+      setUsers((prev) =>
+        prev.map((row) =>
+          row.id === user.id ? { ...row, active: false, status: "INACTIVE" } : row,
+        ),
+      );
       setDeleteUser(null);
       setDeleteConfirmation("");
-      toast.success("Account and related employee data permanently deleted");
+      toast.success("Account deactivated; employee history was retained");
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -228,7 +232,7 @@ function UsersPage() {
     <div>
       <PageHeader
         title="User Logins"
-        description="Create, delete, deactivate, and reset passwords for employee accounts."
+        description="Create, deactivate, reactivate, suspend, and reset employee accounts."
         actions={
           <>
             <BulkEmployeeImport
@@ -343,7 +347,7 @@ function UsersPage() {
                     disabled={user.id === currentUser?.id}
                     onClick={() => setDeleteUser(user)}
                   >
-                    <Trash2 className="h-4 w-4" /> Delete account
+                    <Trash2 className="h-4 w-4" /> Deactivate account
                   </Button>
                 )}
               </div>
@@ -407,7 +411,7 @@ function UsersPage() {
                         variant="destructive"
                         disabled={u.id === currentUser?.id || u.role === "developer_admin"}
                         onClick={() => setDeleteUser(u)}
-                        title="Delete User"
+                        title="Deactivate user"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -494,35 +498,35 @@ function UsersPage() {
       >
         <AlertDialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto sm:max-w-lg">
           <AlertDialogHeader>
-            <AlertDialogTitle>Permanently delete this account?</AlertDialogTitle>
+            <AlertDialogTitle>Deactivate this account?</AlertDialogTitle>
             <AlertDialogDescription>
-              Deleting {deleteUser?.name}&apos;s account permanently removes all of their data from
-              this website. This action cannot be undone.
+              This prevents {deleteUser?.name} from signing in while preserving their employee
+              record and operational history.
             </AlertDialogDescription>
-            <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200">
-              <p className="font-semibold">The following data will be deleted:</p>
+            <div className="rounded-md border bg-muted/30 p-3 text-sm">
+              <p className="font-semibold">The following data will be retained:</p>
               <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5 sm:text-sm">
-                <li>Login and employee profile</li>
+                <li>Employee profile and account audit record</li>
                 <li>Attendance punches, daily summaries, schedules, and correction requests</li>
                 <li>Leave requests, emergency contact, and biometric mappings</li>
                 <li>Assets assigned to this employee</li>
                 <li>Task assignments, task updates, and tasks created by this account</li>
               </ul>
               <p className="mt-2 text-xs leading-5">
-                Suspension or blocking does not delete any employee data and biometric attendance
-                can continue to be recorded.
+                The account and employee are marked inactive. A Developer Admin can reactivate them
+                later.
               </p>
             </div>
             <div className="space-y-2 pt-2 text-left">
               <Label htmlFor="delete-confirmation">
-                Type <span className="font-mono font-semibold">DELETE</span> to approve
+                Type <span className="font-mono font-semibold">DEACTIVATE</span> to approve
               </Label>
               <Input
                 id="delete-confirmation"
                 autoComplete="off"
                 value={deleteConfirmation}
                 onChange={(event) => setDeleteConfirmation(event.target.value)}
-                placeholder="DELETE"
+                placeholder="DEACTIVATE"
               />
             </div>
           </AlertDialogHeader>
@@ -530,14 +534,14 @@ function UsersPage() {
             <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 text-white hover:bg-red-700"
-              disabled={deleteConfirmation !== "DELETE" || deleting}
+              disabled={deleteConfirmation !== "DEACTIVATE" || deleting}
               onClick={() => {
                 if (!deleteUser) return;
                 void performDeleteUser(deleteUser);
               }}
             >
               {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Permanently delete account
+              Deactivate account
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -12,6 +12,7 @@ import type {
   Branch,
   Department,
   EmployeeAssetInvestment,
+  EmployeeProfile,
   Holiday,
   LeaveBalance,
   LeaveRequest,
@@ -20,10 +21,15 @@ import type {
   Announcement,
   Role,
   TaskAssignee,
+  TaskBoard,
   TaskPriority,
   TaskStatus,
+  TaskStage,
   User,
   WorkTask,
+  ModuleKey,
+  IntegrationClient,
+  IntegrationScope,
 } from "@/mock/types";
 
 export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
@@ -228,7 +234,7 @@ export const usersApi = {
       body: JSON.stringify({ suspensionStartsAt, suspendedUntil }),
     }),
   delete: (id: string, confirmation: string) =>
-    request<{ ok: boolean }>(`/users/${id}`, {
+    request<{ ok: boolean; user: User; dataRetained: boolean }>(`/users/${id}`, {
       method: "DELETE",
       body: JSON.stringify({ confirmation }),
     }),
@@ -241,14 +247,14 @@ export const usersApi = {
 
 export const employeesApi = {
   list: (filters: Record<string, string | number | undefined> = {}) =>
-    request<User[]>(`/employees${toQuery(filters)}`),
+    request<EmployeeProfile[]>(`/employees${toQuery(filters)}`),
   isReportingManager: () =>
     request<{ isReportingManager: boolean; teamCount: number }>(
       "/employees/me/is-reporting-manager",
     ),
-  get: (id: string) => request<User | null>(`/employees/${id}`),
-  update: (id: string, patch: Partial<User>) =>
-    request<User>(`/employees/${id}`, {
+  get: (id: string) => request<EmployeeProfile | null>(`/employees/${id}`),
+  update: (id: string, patch: Partial<EmployeeProfile>) =>
+    request<EmployeeProfile>(`/employees/${id}`, {
       method: "PATCH",
       body: JSON.stringify({
         ...patch,
@@ -553,17 +559,21 @@ export const assetsApi = {
 export const employeeServicesApi = {
   expenseClaims: () => request<ExpenseClaim[]>("/expense-claims"),
   submitExpense: (claim: {
-    category: string;
+    claimType: "ADVANCE" | "EXPENSE";
+    employeeId?: string;
+    title?: string | null;
     amount: number;
-    expenseDate: string;
-    description: string;
+    expenseDate?: string | null;
+    description?: string | null;
+    remark?: string | null;
     receiptUrl?: string | null;
+    receiptAccessConfirmed?: boolean;
   }) =>
     request<{ id: string; status: string }>("/expense-claims", {
       method: "POST",
       body: JSON.stringify(claim),
     }),
-  reviewExpense: (id: string, status: "APPROVED" | "REJECTED" | "PAID", reviewNotes?: string) =>
+  reviewExpense: (id: string, status: "UNPAID" | "REJECTED" | "PAID", reviewNotes?: string) =>
     request<{ id: string; status: string }>(`/expense-claims/${id}/review`, {
       method: "PATCH",
       body: JSON.stringify({ status, reviewNotes }),
@@ -756,14 +766,18 @@ export const pushApi = {
 };
 
 export const tasksApi = {
-  list: (scope: "mine" | "team" = "team", pagination: { limit?: number; offset?: number } = {}) =>
-    request<WorkTask[]>(`/tasks${toQuery({ scope, ...pagination })}`),
+  list: (
+    scope: "mine" | "team" = "team",
+    pagination: { limit?: number; offset?: number; boardId?: string } = {},
+  ) => request<WorkTask[]>(`/tasks${toQuery({ scope, ...pagination })}`),
   assignees: () => request<TaskAssignee[]>("/tasks/assignees"),
   create: (payload: {
     title: string;
     description?: string | null;
     assigneeEmployeeIds: string[];
     parentTaskId?: string | null;
+    boardId?: string | null;
+    stageId?: string | null;
     priority: TaskPriority;
     startDate?: string | null;
     dueDate?: string | null;
@@ -779,6 +793,7 @@ export const tasksApi = {
       progress: number;
       startDate: string | null;
       dueDate: string | null;
+      stageId: string | null;
     }>,
   ) => request<WorkTask>(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
   addLog: (
@@ -790,4 +805,45 @@ export const tasksApi = {
       minutesWorked?: number;
     },
   ) => request<WorkTask>(`/tasks/${id}/logs`, { method: "POST", body: JSON.stringify(payload) }),
+  boards: (archived = false) =>
+    request<TaskBoard[]>(`/task-boards${archived ? "?archived=true" : ""}`),
+  createBoard: (payload: {
+    name: string;
+    description?: string | null;
+    accessType: TaskBoard["accessType"];
+    allowedRoles: string[];
+    memberEmployeeIds: string[];
+    stages: Array<{ name: string; color: TaskStage["color"]; isCompleted: boolean }>;
+  }) => request<TaskBoard>("/task-boards", { method: "POST", body: JSON.stringify(payload) }),
+  archiveBoard: (id: string, archived: boolean) =>
+    request<TaskBoard>(`/task-boards/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ archived }),
+    }),
+};
+
+export const moduleAccessApi = {
+  mine: () => request<{ modules: ModuleKey[] }>("/module-access/me"),
+  matrix: () =>
+    request<{ modules: ModuleKey[]; matrix: Record<string, ModuleKey[]> }>("/module-access/matrix"),
+  update: (matrix: Record<string, ModuleKey[]>) =>
+    request<{ modules: ModuleKey[]; matrix: Record<string, ModuleKey[]> }>(
+      "/module-access/matrix",
+      { method: "PUT", body: JSON.stringify({ matrix }) },
+    ),
+};
+
+export const integrationClientsApi = {
+  list: () => request<IntegrationClient[]>("/integration-clients"),
+  create: (payload: { name: string; scopes: IntegrationScope[]; expiresAt?: string | null }) =>
+    request<
+      Pick<IntegrationClient, "clientId" | "name" | "keyPrefix" | "scopes" | "expiresAt"> & {
+        apiKey: string;
+      }
+    >("/integration-clients", { method: "POST", body: JSON.stringify(payload) }),
+  revoke: (clientId: string) =>
+    request<{ clientId: string; status: "REVOKED"; revokedAt: string }>(
+      `/integration-clients/${clientId}`,
+      { method: "DELETE" },
+    ),
 };

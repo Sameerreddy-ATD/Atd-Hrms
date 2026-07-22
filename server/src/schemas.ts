@@ -7,6 +7,7 @@ import {
   Role,
   ShiftType,
   TaskPriority,
+  TaskBoardAccessType,
   TaskStatus,
   UserStatus,
   WorkType,
@@ -73,26 +74,28 @@ export const resetTestDataSchema = z.object({
   password: z.string().min(1).max(200),
 });
 
-export const updateEmployeeSchema = z.object({
-  name: z.string().min(2).max(120).optional(),
-  email: z.string().email().max(255).nullable().optional(),
-  phone: z.string().max(30).nullable().optional(),
-  departmentId: z.string().nullable().optional(),
-  designation: z.string().max(120).nullable().optional(),
-  homeBranchId: z.string().nullable().optional(),
-  managerId: z.string().nullable().optional(),
-  joiningDate: z.coerce.date().nullable().optional(),
-  dateOfBirth: z.coerce.date().nullable().optional(),
-  gender: z.nativeEnum(Gender).nullable().optional(),
-  employmentType: z.nativeEnum(EmploymentType).nullable().optional(),
-  organizationLevel: z.enum(["HEAD", "SENIOR", "JUNIOR", "MEMBER"]).optional(),
-  attendanceMode: z.nativeEnum(AttendanceMode).optional(),
-  isFieldEmployee: z.boolean().optional(),
-  status: z.nativeEnum(EmployeeStatus).optional(),
-  shiftType: z.nativeEnum(ShiftType).optional(),
-  shiftStartMinutes: z.number().int().min(0).max(1439).optional(),
-  shiftEndMinutes: z.number().int().min(0).max(1439).optional(),
-});
+export const updateEmployeeSchema = z
+  .object({
+    name: z.string().min(2).max(120).optional(),
+    email: z.string().email().max(255).nullable().optional(),
+    phone: z.string().max(30).nullable().optional(),
+    departmentId: z.string().nullable().optional(),
+    designation: z.string().max(120).nullable().optional(),
+    homeBranchId: z.string().nullable().optional(),
+    managerId: z.string().nullable().optional(),
+    joiningDate: z.coerce.date().nullable().optional(),
+    dateOfBirth: z.coerce.date().nullable().optional(),
+    gender: z.nativeEnum(Gender).nullable().optional(),
+    employmentType: z.nativeEnum(EmploymentType).nullable().optional(),
+    organizationLevel: z.enum(["HEAD", "SENIOR", "JUNIOR", "MEMBER"]).optional(),
+    attendanceMode: z.nativeEnum(AttendanceMode).optional(),
+    isFieldEmployee: z.boolean().optional(),
+    status: z.nativeEnum(EmployeeStatus).optional(),
+    shiftType: z.nativeEnum(ShiftType).optional(),
+    shiftStartMinutes: z.number().int().min(0).max(1439).optional(),
+    shiftEndMinutes: z.number().int().min(0).max(1439).optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, "At least one field is required");
 
 export const branchSchema = z.object({
   name: z.string().min(2).max(160),
@@ -122,6 +125,8 @@ export const taskSchema = z.object({
   description: z.string().trim().max(5000).nullable().optional(),
   assigneeEmployeeIds: z.array(z.string().min(1)).min(1).max(100),
   parentTaskId: z.string().nullable().optional(),
+  boardId: z.string().nullable().optional(),
+  stageId: z.string().nullable().optional(),
   priority: z.nativeEnum(TaskPriority).optional(),
   startDate: z.coerce.date().nullable().optional(),
   dueDate: z.coerce.date().nullable().optional(),
@@ -136,7 +141,62 @@ export const taskUpdateSchema = z.object({
   progress: z.coerce.number().int().min(0).max(100).optional(),
   startDate: z.coerce.date().nullable().optional(),
   dueDate: z.coerce.date().nullable().optional(),
+  stageId: z.string().nullable().optional(),
 });
+
+export const taskBoardSchema = z
+  .object({
+    name: z.string().trim().min(2).max(120),
+    description: z.string().trim().max(1000).nullable().optional(),
+    accessType: z.nativeEnum(TaskBoardAccessType).default(TaskBoardAccessType.OPEN),
+    allowedRoles: z.array(z.nativeEnum(Role)).max(20).default([]),
+    memberEmployeeIds: z.array(z.string().min(1)).max(500).default([]),
+    stages: z
+      .array(
+        z.object({
+          name: z.string().trim().min(2).max(80),
+          color: z.enum(["SLATE", "BLUE", "AMBER", "VIOLET", "EMERALD", "RED"]),
+          isCompleted: z.boolean().default(false),
+        }),
+      )
+      .min(2)
+      .max(12),
+  })
+  .superRefine((value, context) => {
+    if (!value.stages.some((stage) => stage.isCompleted)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["stages"],
+        message: "Add a completed stage",
+      });
+    }
+    if (
+      new Set(value.stages.map((stage) => stage.name.toLowerCase())).size !== value.stages.length
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["stages"],
+        message: "Stage names must be unique",
+      });
+    }
+    if (value.accessType === TaskBoardAccessType.ROLE_GATED && value.allowedRoles.length === 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["allowedRoles"],
+        message: "Select at least one role",
+      });
+    }
+    if (
+      value.accessType === TaskBoardAccessType.MEMBER_GATED &&
+      value.memberEmployeeIds.length === 0
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["memberEmployeeIds"],
+        message: "Select at least one member",
+      });
+    }
+  });
 
 export const taskLogSchema = z.object({
   message: z.string().trim().min(2).max(5000),
@@ -197,16 +257,69 @@ export const assetReturnSchema = z
     }
   });
 
-export const expenseClaimSchema = z.object({
-  category: z.enum(["TRAVEL", "FUEL", "MEALS", "LODGING", "MOBILE_INTERNET", "OFFICE", "OTHER"]),
-  amount: z.coerce.number().positive().max(10_000_000),
-  expenseDate: z.coerce.date(),
-  description: z.string().trim().min(5).max(3000),
-  receiptUrl: z.string().url().max(2000).nullable().optional(),
-});
+export const expenseClaimSchema = z
+  .object({
+    claimType: z.enum(["ADVANCE", "EXPENSE"]).default("EXPENSE"),
+    employeeId: z.string().min(1).optional(),
+    title: z.string().trim().min(2).max(160).nullable().optional(),
+    category: z
+      .enum(["TRAVEL", "FUEL", "MEALS", "LODGING", "MOBILE_INTERNET", "OFFICE", "OTHER"])
+      .nullable()
+      .optional(),
+    amount: z.coerce.number().positive().max(10_000_000),
+    expenseDate: z.coerce.date().nullable().optional(),
+    description: z.string().trim().min(5).max(3000).nullable().optional(),
+    remark: z.string().trim().min(2).max(2000).nullable().optional(),
+    receiptUrl: z.string().url().max(2000).nullable().optional(),
+    receiptAccessConfirmed: z.boolean().default(false),
+  })
+  .superRefine((value, context) => {
+    if (value.claimType === "ADVANCE" && !value.remark) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["remark"],
+        message: "Remark is required",
+      });
+    }
+    if (value.claimType === "EXPENSE") {
+      for (const field of ["title", "expenseDate", "description"] as const) {
+        if (!value[field] && !(field === "title" && value.category)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [field],
+            message: `${field} is required`,
+          });
+        }
+      }
+      if (!value.receiptUrl) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["receiptUrl"],
+          message: "Google Drive attachment is required",
+        });
+      }
+    }
+    if (value.receiptUrl) {
+      const host = new URL(value.receiptUrl).hostname.toLowerCase();
+      if (host !== "drive.google.com" && host !== "docs.google.com") {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["receiptUrl"],
+          message: "Attachment must be a Google Drive link",
+        });
+      }
+      if (!value.receiptAccessConfirmed) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["receiptAccessConfirmed"],
+          message: "Confirm that anyone with the link can view the attachment",
+        });
+      }
+    }
+  });
 
 export const expenseClaimReviewSchema = z.object({
-  status: z.enum(["APPROVED", "REJECTED", "PAID"]),
+  status: z.enum(["UNPAID", "REJECTED", "PAID"]),
   reviewNotes: z.string().trim().max(2000).nullable().optional(),
 });
 

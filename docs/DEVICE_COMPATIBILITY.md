@@ -51,7 +51,7 @@ Test at minimum:
 - 1366 x 768 laptop
 - 1920 x 1080 desktop
 
-For every size verify no overlapping text, horizontal page overflow, clipped dialogs, inaccessible actions, undersized touch targets, or tables without horizontal scrolling. Test login, navigation, attendance permission, live timer/cross-device checkout, leave submission, task details, employee/user lists, holidays, assets, announcements, notification permission, and permanent-deletion confirmation dialogs.
+For every size verify no overlapping text, horizontal page overflow, clipped dialogs, inaccessible actions, undersized touch targets, or tables without horizontal scrolling. Test login, navigation, attendance permission, live timer/cross-device checkout, leave submission, task details, employee/user lists, holidays, assets, announcements, notification permission, account-deactivation confirmation, expense attachment acknowledgement, and the Developer Admin integration credential panel.
 
 ## Important Limitation
 

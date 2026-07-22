@@ -13,6 +13,7 @@ import {
   EventType,
   Prisma,
   Role,
+  TaskBoardAccessType,
   TaskStatus,
   UserStatus,
   WorkType,
@@ -41,6 +42,7 @@ import { openAttendanceStream } from "./attendanceLive.js";
 import { config } from "./config.js";
 import { asyncHandler, errorHandler, HttpError } from "./errors.js";
 import { nearestBranch } from "./geofence.js";
+import { registerIntegrationRoutes } from "./integration-api.js";
 import {
   assetCatalogItemDto,
   attendanceRecordDto,
@@ -54,6 +56,7 @@ import {
   userDto,
 } from "./mapper.js";
 import { prisma } from "./prisma.js";
+import { getModuleAccessMatrix, MODULE_KEYS, saveModuleAccessMatrix } from "./module-access.js";
 import { isWebPushConfigured, sendPushToAll } from "./push.js";
 import { openNotificationStream, publishNotificationChange } from "./notificationLive.js";
 import {
@@ -108,6 +111,7 @@ import {
   resetPasswordSchema,
   resetTestDataSchema,
   taskLogSchema,
+  taskBoardSchema,
   taskSchema,
   taskUpdateSchema,
   thumbEventSchema,
@@ -169,7 +173,11 @@ export function createApp() {
   app.use(cors({ origin: config.frontendOrigin, credentials: true }));
   app.use((req, res, next) => {
     const stateChangingMethods = ["POST", "PUT", "DELETE", "PATCH"];
-    if (stateChangingMethods.includes(req.method)) {
+    const usesIntegrationAuthentication =
+      req.path.startsWith("/api/v1/") &&
+      (req.headers.authorization?.startsWith("Bearer atd_live_") ||
+        typeof req.headers["x-api-key"] === "string");
+    if (stateChangingMethods.includes(req.method) && !usesIntegrationAuthentication) {
       const allowedOrigin = config.frontendOrigin;
       if (allowedOrigin && allowedOrigin !== "*") {
         try {
@@ -693,6 +701,9 @@ export function createApp() {
           await tx.user.updateMany({ data: { createdByUserId: null } });
           await tx.systemSetting.updateMany({ data: { updatedById: developerAdmin.id } });
 
+          await tx.integrationIdempotency.deleteMany();
+          await tx.integrationClient.deleteMany();
+          await tx.employeeChangeEvent.deleteMany();
           await tx.assetReturn.deleteMany();
           await tx.companyAsset.deleteMany();
           await tx.assetCatalogItem.deleteMany();
@@ -700,6 +711,7 @@ export function createApp() {
           await tx.taskAssignment.deleteMany();
           await tx.workTask.updateMany({ data: { parentTaskId: null } });
           await tx.workTask.deleteMany();
+          await tx.taskBoard.deleteMany();
           await tx.pushSubscription.deleteMany();
           await tx.announcement.deleteMany();
           await tx.expenseClaim.deleteMany();
@@ -796,6 +808,8 @@ export function createApp() {
       res.json({ ok: true, provider: "mysql", database: "reachable" });
     }),
   );
+
+  registerIntegrationRoutes(app);
 
   app.post(
     "/auth/login",
@@ -914,20 +928,74 @@ export function createApp() {
           "Developer Admin accounts cannot be deactivated, suspended, or demoted",
         );
       }
-      const updated = await prisma.user.update({
-        where: { id },
-        data: {
-          name: body.name,
-          email: body.email?.toLowerCase(),
-          phone: body.phone,
-          role: body.role,
-          status: body.status,
-          firstLoginPasswordChangeRequired: body.firstLoginPasswordChangeRequired,
-          suspendedUntil: body.suspendedUntil,
-          suspensionStartsAt: body.suspensionStartsAt,
-          failedLoginAttempts: body.status === UserStatus.ACTIVE ? 0 : undefined,
-        },
-        include: { employee: true },
+      const updated = await prisma.$transaction(async (tx) => {
+        const sharedProfileChanged =
+          body.name !== undefined ||
+          body.email !== undefined ||
+          body.phone !== undefined ||
+          body.status === UserStatus.ACTIVE ||
+          body.status === UserStatus.INACTIVE;
+        if (existing.employeeId && sharedProfileChanged) {
+          const employee = await tx.employee.update({
+            where: { employeeId: existing.employeeId },
+            data: {
+              name: body.name,
+              email: body.email?.toLowerCase(),
+              phone: body.phone,
+              status:
+                body.status === UserStatus.INACTIVE
+                  ? "INACTIVE"
+                  : body.status === UserStatus.ACTIVE
+                    ? "ACTIVE"
+                    : undefined,
+              terminatedAt:
+                body.status === UserStatus.INACTIVE
+                  ? new Date()
+                  : body.status === UserStatus.ACTIVE
+                    ? null
+                    : undefined,
+              version: { increment: 1 },
+            },
+          });
+          await tx.employeeChangeEvent.create({
+            data: {
+              employeeId: employee.employeeId,
+              eventType:
+                body.status === UserStatus.INACTIVE
+                  ? "DEACTIVATED"
+                  : body.status === UserStatus.ACTIVE && existing.status !== UserStatus.ACTIVE
+                    ? "REACTIVATED"
+                    : "UPDATED",
+              version: employee.version,
+              payload: {
+                employeeId: employee.employeeId,
+                employeeCode: employee.employeeCode,
+                version: employee.version,
+              },
+            },
+          });
+        }
+        return tx.user.update({
+          where: { id },
+          data: {
+            name: body.name,
+            email: body.email?.toLowerCase(),
+            phone: body.phone,
+            role: body.role,
+            status: body.status,
+            firstLoginPasswordChangeRequired: body.firstLoginPasswordChangeRequired,
+            suspendedUntil: body.suspendedUntil,
+            suspensionStartsAt: body.suspensionStartsAt,
+            deactivatedAt:
+              body.status === UserStatus.INACTIVE
+                ? new Date()
+                : body.status === UserStatus.ACTIVE
+                  ? null
+                  : undefined,
+            failedLoginAttempts: body.status === UserStatus.ACTIVE ? 0 : undefined,
+          },
+          include: { employee: true },
+        });
       });
       await audit({
         action: "user updated",
@@ -993,10 +1061,30 @@ export function createApp() {
       if (existing.role === Role.DEVELOPER_ADMIN) {
         throw new HttpError(403, "Developer Admin accounts cannot be deactivated");
       }
-      const updated = await prisma.user.update({
-        where: { id },
-        data: { status: UserStatus.INACTIVE },
-        include: { employee: true },
+      const updated = await prisma.$transaction(async (tx) => {
+        if (existing.employeeId) {
+          const employee = await tx.employee.update({
+            where: { employeeId: existing.employeeId },
+            data: { status: "INACTIVE", terminatedAt: new Date(), version: { increment: 1 } },
+          });
+          await tx.employeeChangeEvent.create({
+            data: {
+              employeeId: employee.employeeId,
+              eventType: "DEACTIVATED",
+              version: employee.version,
+              payload: {
+                employeeId: employee.employeeId,
+                employeeCode: employee.employeeCode,
+                version: employee.version,
+              },
+            },
+          });
+        }
+        return tx.user.update({
+          where: { id },
+          data: { status: UserStatus.INACTIVE, deactivatedAt: new Date() },
+          include: { employee: true },
+        });
       });
       await audit({
         action: "user deactivated",
@@ -1021,83 +1109,62 @@ export function createApp() {
         include: { employee: true },
       });
       if (existing.id === req.user!.id) {
-        throw new HttpError(400, "You cannot delete your own account");
+        throw new HttpError(400, "You cannot deactivate your own account");
       }
       if (existing.role === Role.DEVELOPER_ADMIN) {
-        throw new HttpError(403, "Developer Admin accounts cannot be deleted");
+        throw new HttpError(403, "Developer Admin accounts cannot be deactivated");
       }
-      if (req.body?.confirmation !== "DELETE") {
-        throw new HttpError(400, "Type DELETE to approve permanent account deletion");
+      if (req.body?.confirmation !== "DEACTIVATE") {
+        throw new HttpError(400, "Type DEACTIVATE to preserve history and deactivate the account");
       }
 
       const employeeId = existing.employeeId;
-      await prisma.$transaction(async (tx) => {
-        await tx.user.updateMany({
-          where: { createdByUserId: id },
-          data: { createdByUserId: null },
-        });
-        await tx.auditLog.updateMany({
-          where: { performedByUserId: id },
-          data: { performedByUserId: null },
-        });
-        await tx.auditLog.updateMany({
-          where: { affectedUserId: id },
-          data: { affectedUserId: null },
-        });
-        await tx.workTask.updateMany({
-          where: { parentTask: { createdByUserId: id } },
-          data: { parentTaskId: null },
-        });
-        await tx.taskUpdate.deleteMany({ where: { authorUserId: id } });
-        await tx.workTask.deleteMany({ where: { createdByUserId: id } });
-        await tx.announcement.deleteMany({ where: { createdById: id } });
+      const updated = await prisma.$transaction(async (tx) => {
         if (employeeId) {
-          await tx.department.updateMany({
-            where: { headEmployeeId: employeeId },
-            data: { headEmployeeId: null },
+          const employee = await tx.employee.update({
+            where: { employeeId },
+            data: { status: "INACTIVE", terminatedAt: new Date(), version: { increment: 1 } },
           });
-          await tx.employee.updateMany({
-            where: { managerId: employeeId },
-            data: { managerId: null },
-          });
-          await tx.assetReturn.deleteMany({
-            where: {
-              OR: [{ employeeId }, { asset: { assignedEmployeeId: employeeId } }],
+          await tx.employeeChangeEvent.create({
+            data: {
+              employeeId,
+              eventType: "DEACTIVATED",
+              version: employee.version,
+              payload: {
+                employeeId,
+                employeeCode: employee.employeeCode,
+                version: employee.version,
+              },
             },
           });
-          await tx.expenseClaim.deleteMany({ where: { employeeId } });
-          await tx.certificateRequest.deleteMany({ where: { employeeId } });
-          await tx.companyAsset.deleteMany({ where: { assignedEmployeeId: employeeId } });
-          await tx.taskAssignment.deleteMany({ where: { employeeId } });
-          await tx.profileEditRequest.deleteMany({ where: { employeeId } });
-          await tx.attendanceCorrectionRequest.deleteMany({ where: { employeeId } });
-          await tx.leaveBalance.deleteMany({ where: { employeeId } });
-          await tx.leaveRequest.deleteMany({ where: { employeeId } });
-          await tx.biometricEmployeeMapping.deleteMany({ where: { employeeId } });
-          await tx.fieldAttendance.deleteMany({ where: { employeeId } });
-          await tx.attendanceDailySummary.deleteMany({ where: { employeeId } });
-          await tx.attendanceEvent.deleteMany({ where: { employeeId } });
-          await tx.employeeBranchSchedule.deleteMany({ where: { employeeId } });
-          await tx.emergencyContact.deleteMany({ where: { employeeId } });
         }
-        await tx.user.delete({ where: { id } });
-        if (employeeId) await tx.employee.delete({ where: { employeeId } });
+        return tx.user.update({
+          where: { id },
+          data: {
+            status: UserStatus.INACTIVE,
+            deactivatedAt: new Date(),
+            suspendedUntil: null,
+            suspensionStartsAt: null,
+          },
+          include: { employee: true },
+        });
       });
 
       await audit({
-        action: "user deleted",
+        action: "user deactivated with history retained",
         performedByUserId: req.user!.id,
+        affectedUserId: id,
         ipAddress: req.ip,
         newValue: {
-          deletedUserId: id,
-          deletedEmployeeId: employeeId,
+          userId: id,
+          employeeId,
           name: existing.name,
           email: existing.email,
-          employeeDataPermanentlyDeleted: Boolean(employeeId),
+          employeeDataRetained: Boolean(employeeId),
         },
       });
 
-      res.json({ ok: true });
+      res.json({ ok: true, user: userDto(updated), dataRetained: true });
     }),
   );
 
@@ -1259,8 +1326,17 @@ export function createApp() {
     requireRoles(Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const body = createUserSchema.parse(req.body);
-      const organizationUnit = body.departmentId
-        ? await prisma.department.findUnique({ where: { departmentId: body.departmentId } })
+      const linkedEmployee = body.employeeId
+        ? await prisma.employee.findUnique({
+            where: { employeeId: body.employeeId },
+            include: { user: true },
+          })
+        : null;
+      if (body.employeeId && !linkedEmployee) throw new HttpError(404, "Employee not found");
+      if (linkedEmployee?.user) throw new HttpError(409, "Employee already has a login account");
+      const organizationUnitId = body.departmentId ?? linkedEmployee?.departmentId;
+      const organizationUnit = organizationUnitId
+        ? await prisma.department.findUnique({ where: { departmentId: organizationUnitId } })
         : null;
       if (!organizationUnit) throw new HttpError(400, "Select an organization unit");
       const unitName = organizationUnit.name.toLowerCase();
@@ -1315,6 +1391,9 @@ export function createApp() {
         }
       }
       if (shouldCreateEmployee) await assertValidManager("new-employee", reportingManagerId);
+      if (linkedEmployee && !linkedEmployee.email) {
+        throw new HttpError(409, "Add an email to the employee profile before creating a login");
+      }
       const passwordHash = await hashPassword(body.password);
       const user = await prisma.$transaction(async (tx) => {
         const employee = shouldCreateEmployee
@@ -1328,7 +1407,7 @@ export function createApp() {
                 designation: body.designation ?? undefined,
                 homeBranchId: body.homeBranchId ?? undefined,
                 managerId: reportingManagerId ?? undefined,
-                attendanceMode: "BOTH",
+                attendanceMode: body.attendanceMode ?? "BOTH",
                 attendanceRequired: targetRole !== Role.CEO,
                 isFieldEmployee:
                   body.isFieldEmployee ??
@@ -1343,15 +1422,29 @@ export function createApp() {
                 shiftEndMinutes: body.shiftEndMinutes ?? 1080,
               },
             })
-          : null;
+          : linkedEmployee;
+        if (shouldCreateEmployee && employee) {
+          await tx.employeeChangeEvent.create({
+            data: {
+              employeeId: employee.employeeId,
+              eventType: "CREATED",
+              version: employee.version,
+              payload: {
+                employeeId: employee.employeeId,
+                employeeCode: employee.employeeCode,
+                version: employee.version,
+              },
+            },
+          });
+        }
         return tx.user.create({
           data: {
-            name: body.name,
-            email: body.email.toLowerCase(),
-            phone: body.phone,
+            name: employee?.name ?? body.name,
+            email: (employee?.email ?? body.email).toLowerCase(),
+            phone: employee?.phone ?? body.phone,
             passwordHash,
             role: targetRole,
-            employeeId: body.employeeId ?? employee?.employeeId,
+            employeeId: employee?.employeeId,
             createdByUserId: req.user!.id,
           },
           include: { employee: true },
@@ -1497,12 +1590,73 @@ export function createApp() {
       ) {
         throw new HttpError(403, "HR can update only the reporting manager");
       }
-      const existing = await prisma.employee.findUniqueOrThrow({ where: { employeeId } });
-      await assertValidManager(employeeId, body.managerId);
-      const employee = await prisma.employee.update({
+      const existing = await prisma.employee.findUniqueOrThrow({
         where: { employeeId },
-        data: body,
-        include: { user: true, department: true, homeBranch: true, manager: true },
+        include: { user: true },
+      });
+      await assertValidManager(employeeId, body.managerId);
+      if (existing.user && body.email === null) {
+        throw new HttpError(409, "Email cannot be removed while the employee has a login account");
+      }
+      const employee = await prisma.$transaction(async (tx) => {
+        const updatedEmployee = await tx.employee.update({
+          where: { employeeId },
+          data: {
+            ...body,
+            email: body.email === undefined ? undefined : body.email?.toLowerCase(),
+            terminatedAt:
+              body.status && body.status !== "ACTIVE"
+                ? (existing.terminatedAt ?? new Date())
+                : body.status === "ACTIVE"
+                  ? null
+                  : undefined,
+            version: { increment: 1 },
+          },
+          include: { user: true, department: true, homeBranch: true, manager: true },
+        });
+        if (existing.user) {
+          await tx.user.update({
+            where: { id: existing.user.id },
+            data: {
+              name: body.name,
+              email: body.email === undefined ? undefined : body.email!.toLowerCase(),
+              phone: body.phone,
+              status:
+                body.status && body.status !== "ACTIVE"
+                  ? UserStatus.INACTIVE
+                  : body.status === "ACTIVE"
+                    ? UserStatus.ACTIVE
+                    : undefined,
+              deactivatedAt:
+                body.status && body.status !== "ACTIVE"
+                  ? new Date()
+                  : body.status === "ACTIVE"
+                    ? null
+                    : undefined,
+            },
+          });
+        }
+        await tx.employeeChangeEvent.create({
+          data: {
+            employeeId,
+            eventType:
+              body.status && body.status !== "ACTIVE" && existing.status === "ACTIVE"
+                ? "DEACTIVATED"
+                : body.status === "ACTIVE" && existing.status !== "ACTIVE"
+                  ? "REACTIVATED"
+                  : "UPDATED",
+            version: updatedEmployee.version,
+            payload: {
+              employeeId,
+              employeeCode: updatedEmployee.employeeCode,
+              version: updatedEmployee.version,
+            },
+          },
+        });
+        return tx.employee.findUniqueOrThrow({
+          where: { employeeId },
+          include: { user: true, department: true, homeBranch: true, manager: true },
+        });
       });
       if (body.managerId !== undefined && body.managerId !== existing.managerId) {
         await audit({
@@ -1939,10 +2093,13 @@ export function createApp() {
     "/expense-claims",
     requireAuth,
     asyncHandler(async (req, res) => {
-      const isHr = req.user!.role === Role.HR || req.user!.role === Role.DEVELOPER_ADMIN;
-      if (!isHr && !req.user!.employeeId) throw new HttpError(403, "Employee profile required");
+      const canViewAll = ([Role.HR, Role.CEO, Role.DEVELOPER_ADMIN] as Role[]).includes(
+        req.user!.role,
+      );
+      if (!canViewAll && !req.user!.employeeId)
+        throw new HttpError(403, "Employee profile required");
       const rows = await prisma.expenseClaim.findMany({
-        where: isHr ? {} : { employeeId: req.user!.employeeId! },
+        where: canViewAll ? {} : { employeeId: req.user!.employeeId! },
         include: { employee: true },
         orderBy: { createdAt: "desc" },
         take: 500,
@@ -1953,11 +2110,14 @@ export function createApp() {
           employeeId: row.employeeId,
           employeeName: row.employee.name,
           employeeCode: row.employee.employeeCode,
-          category: row.category,
+          claimType: row.claimType,
+          title: row.title,
           amount: Number(row.amount),
-          expenseDate: row.expenseDate.toISOString().slice(0, 10),
+          expenseDate: row.expenseDate?.toISOString().slice(0, 10) ?? null,
           description: row.description,
+          remark: row.remark,
           receiptUrl: row.receiptUrl,
+          receiptAccessConfirmed: row.receiptAccessConfirmed,
           status: row.status,
           reviewNotes: row.reviewNotes,
           paidAt: row.paidAt?.toISOString() ?? null,
@@ -1972,19 +2132,51 @@ export function createApp() {
     "/expense-claims",
     requireAuth,
     asyncHandler(async (req, res) => {
-      if (!req.user!.employeeId) throw new HttpError(403, "Employee profile required");
       const body = expenseClaimSchema.parse(req.body);
-      if (body.expenseDate.getTime() > Date.now()) {
+      const canSubmitForEmployee = ([Role.HR, Role.DEVELOPER_ADMIN] as Role[]).includes(
+        req.user!.role,
+      );
+      if (canSubmitForEmployee && !body.employeeId) {
+        throw new HttpError(400, "Select the employee who should receive this request");
+      }
+      const employeeId =
+        canSubmitForEmployee && body.employeeId ? body.employeeId : req.user!.employeeId;
+      if (!employeeId) throw new HttpError(403, "Employee profile required");
+      if (body.employeeId && !canSubmitForEmployee) {
+        throw new HttpError(403, "Only HR can submit a request for another employee");
+      }
+      if (body.expenseDate && body.expenseDate.getTime() > Date.now()) {
         throw new HttpError(400, "Expense date cannot be in the future");
       }
+      const { employeeId: _requestedEmployeeId, ...claim } = body;
       const row = await prisma.expenseClaim.create({
-        data: { employeeId: req.user!.employeeId, ...body, receiptUrl: body.receiptUrl || null },
+        data: {
+          employeeId,
+          ...claim,
+          title:
+            claim.title ||
+            (claim.category
+              ? claim.category
+                  .toLowerCase()
+                  .replaceAll("_", " ")
+                  .replace(/\b\w/g, (letter) => letter.toUpperCase())
+              : null),
+          expenseDate: claim.expenseDate || null,
+          description: claim.description || null,
+          remark: claim.remark || null,
+          receiptUrl: claim.receiptUrl || null,
+        },
         include: { employee: true },
       });
       await audit({
         action: "expense claim submitted",
         performedByUserId: req.user!.id,
-        newValue: { claimId: row.claimId, amount: Number(row.amount), category: row.category },
+        newValue: {
+          claimId: row.claimId,
+          amount: Number(row.amount),
+          claimType: row.claimType,
+          employeeId,
+        },
         ipAddress: req.ip,
       });
       publishNotificationChange("expense-claim-submitted", row.claimId);
@@ -2002,8 +2194,8 @@ export function createApp() {
         where: { claimId: String(req.params.id) },
       });
       const allowedExpenseTransitions: Record<string, string[]> = {
-        PENDING: ["APPROVED", "REJECTED"],
-        APPROVED: ["PAID"],
+        PENDING: ["UNPAID", "REJECTED"],
+        UNPAID: ["PAID"],
         REJECTED: [],
         PAID: [],
       };
@@ -2039,10 +2231,13 @@ export function createApp() {
     "/certificate-requests",
     requireAuth,
     asyncHandler(async (req, res) => {
-      const isHr = req.user!.role === Role.HR || req.user!.role === Role.DEVELOPER_ADMIN;
-      if (!isHr && !req.user!.employeeId) throw new HttpError(403, "Employee profile required");
+      const canViewAll = ([Role.HR, Role.CEO, Role.DEVELOPER_ADMIN] as Role[]).includes(
+        req.user!.role,
+      );
+      if (!canViewAll && !req.user!.employeeId)
+        throw new HttpError(403, "Employee profile required");
       const rows = await prisma.certificateRequest.findMany({
-        where: isHr ? {} : { employeeId: req.user!.employeeId! },
+        where: canViewAll ? {} : { employeeId: req.user!.employeeId! },
         include: { employee: true },
         orderBy: { createdAt: "desc" },
         take: 500,
@@ -4064,6 +4259,50 @@ export function createApp() {
     }),
   );
 
+  app.get(
+    "/module-access/me",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const matrix = await getModuleAccessMatrix();
+      res.json({ modules: matrix[req.user!.role] });
+    }),
+  );
+
+  app.get(
+    "/module-access/matrix",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (_req, res) => {
+      res.json({ modules: MODULE_KEYS, matrix: await getModuleAccessMatrix() });
+    }),
+  );
+
+  app.put(
+    "/module-access/matrix",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const body = z
+        .object({
+          matrix: z
+            .record(z.string(), z.array(z.enum(MODULE_KEYS)))
+            .refine(
+              (value) => Object.values(Role).every((role) => Array.isArray(value[role])),
+              "Every role must be configured",
+            ),
+        })
+        .parse(req.body);
+      const matrix = await saveModuleAccessMatrix(body.matrix, req.user!.id);
+      await audit({
+        action: "module access updated",
+        performedByUserId: req.user!.id,
+        newValue: matrix,
+        ipAddress: req.ip,
+      });
+      res.json({ modules: MODULE_KEYS, matrix });
+    }),
+  );
+
   const taskInclude = {
     assignments: {
       include: {
@@ -4080,6 +4319,10 @@ export function createApp() {
       orderBy: { assignedAt: "asc" as const },
     },
     createdBy: { select: { id: true, name: true } },
+    board: { select: { boardId: true, name: true } },
+    stage: {
+      select: { stageId: true, name: true, color: true, sortOrder: true, isCompleted: true },
+    },
     updates: {
       include: { author: { select: { id: true, name: true } } },
       orderBy: { createdAt: "desc" as const },
@@ -4105,6 +4348,18 @@ export function createApp() {
       createdByUserId: task.createdByUserId,
       createdByName: task.createdBy.name,
       parentTaskId: task.parentTaskId ?? undefined,
+      boardId: task.boardId ?? undefined,
+      boardName: task.board?.name,
+      stageId: task.stageId ?? undefined,
+      stage: task.stage
+        ? {
+            id: task.stage.stageId,
+            name: task.stage.name,
+            color: task.stage.color,
+            sortOrder: task.stage.sortOrder,
+            isCompleted: task.stage.isCompleted,
+          }
+        : undefined,
       status: task.status,
       priority: task.priority,
       progress: task.progress,
@@ -4138,6 +4393,163 @@ export function createApp() {
     const assignableIds = assignmentAdminRoles.includes(user.role) ? undefined : teamIds;
     return { visibleIds, assignableIds };
   }
+
+  const boardInclude = {
+    stages: { orderBy: { sortOrder: "asc" as const } },
+    roleAccess: { select: { role: true } },
+    members: { select: { employeeId: true } },
+    tasks: {
+      where: { status: { notIn: [TaskStatus.COMPLETED, TaskStatus.CANCELLED] } },
+      select: { taskId: true },
+    },
+    _count: { select: { tasks: true } },
+  } satisfies Prisma.TaskBoardInclude;
+
+  type BoardWithDetails = Prisma.TaskBoardGetPayload<{ include: typeof boardInclude }>;
+
+  function boardDto(board: BoardWithDetails) {
+    return {
+      id: board.boardId,
+      name: board.name,
+      createdByUserId: board.createdByUserId,
+      description: board.description ?? undefined,
+      accessType: board.accessType,
+      archived: board.archived,
+      allowedRoles: board.roleAccess.map((entry) => entry.role),
+      memberEmployeeIds: board.members.map((entry) => entry.employeeId),
+      stages: board.stages.map((stage) => ({
+        id: stage.stageId,
+        name: stage.name,
+        color: stage.color,
+        sortOrder: stage.sortOrder,
+        isCompleted: stage.isCompleted,
+      })),
+      taskCount: board._count.tasks,
+      openTaskCount: board.tasks.length,
+      createdAt: board.createdAt.toISOString(),
+      updatedAt: board.updatedAt.toISOString(),
+    };
+  }
+
+  function taskStatusForStage(stage: { name: string; sortOrder: number; isCompleted: boolean }) {
+    if (stage.isCompleted) return TaskStatus.COMPLETED;
+    const name = stage.name.toLowerCase();
+    if (name.includes("review")) return TaskStatus.REVIEW;
+    if (name.includes("block")) return TaskStatus.BLOCKED;
+    return stage.sortOrder === 0 ? TaskStatus.TODO : TaskStatus.IN_PROGRESS;
+  }
+
+  function boardAccessWhere(user: NonNullable<express.Request["user"]>) {
+    if (user.role === Role.DEVELOPER_ADMIN) return {};
+    return {
+      OR: [
+        { createdByUserId: user.id },
+        { accessType: TaskBoardAccessType.OPEN },
+        { accessType: TaskBoardAccessType.ROLE_GATED, roleAccess: { some: { role: user.role } } },
+        ...(user.employeeId
+          ? [
+              {
+                accessType: TaskBoardAccessType.MEMBER_GATED,
+                members: { some: { employeeId: user.employeeId } },
+              },
+            ]
+          : []),
+      ],
+    } satisfies Prisma.TaskBoardWhereInput;
+  }
+
+  async function assertBoardAccess(user: NonNullable<express.Request["user"]>, boardId: string) {
+    const board = await prisma.taskBoard.findFirst({
+      where: { boardId, ...boardAccessWhere(user) },
+      include: boardInclude,
+    });
+    if (!board) throw new HttpError(403, "This board is not available to your account");
+    return board;
+  }
+
+  app.get(
+    "/task-boards",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const archived = req.query.archived === "true";
+      const boards = await prisma.taskBoard.findMany({
+        where: { archived, ...boardAccessWhere(req.user!) },
+        include: boardInclude,
+        orderBy: [{ updatedAt: "desc" }, { name: "asc" }],
+        take: 250,
+      });
+      res.json(boards.map(boardDto));
+    }),
+  );
+
+  app.post(
+    "/task-boards",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const body = taskBoardSchema.parse(req.body);
+      const { assignableIds } = await taskScope(req.user!);
+      if (assignableIds?.length === 0)
+        throw new HttpError(403, "Only team leads can create boards");
+      if (
+        assignableIds &&
+        body.memberEmployeeIds.some((employeeId) => !assignableIds.includes(employeeId))
+      ) {
+        throw new HttpError(403, "Boards can include only members of your organization team");
+      }
+      if (body.memberEmployeeIds.length > 0) {
+        const uniqueMemberIds = [...new Set(body.memberEmployeeIds)];
+        const activeMembers = await prisma.employee.count({
+          where: { employeeId: { in: uniqueMemberIds }, status: "ACTIVE" },
+        });
+        if (activeMembers !== uniqueMemberIds.length) {
+          throw new HttpError(400, "Select active employees for board access");
+        }
+      }
+      const board = await prisma.taskBoard.create({
+        data: {
+          name: body.name,
+          description: body.description || null,
+          accessType: body.accessType,
+          createdByUserId: req.user!.id,
+          stages: {
+            create: body.stages.map((stage, sortOrder) => ({ ...stage, sortOrder })),
+          },
+          roleAccess: {
+            create: [...new Set(body.allowedRoles)].map((role) => ({ role })),
+          },
+          members: {
+            create: [...new Set(body.memberEmployeeIds)].map((employeeId) => ({ employeeId })),
+          },
+        },
+        include: boardInclude,
+      });
+      await audit({
+        action: "task board created",
+        performedByUserId: req.user!.id,
+        newValue: { boardId: board.boardId, name: board.name, accessType: board.accessType },
+        ipAddress: req.ip,
+      });
+      res.status(201).json(boardDto(board));
+    }),
+  );
+
+  app.patch(
+    "/task-boards/:id",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const body = z.object({ archived: z.boolean() }).parse(req.body);
+      const existing = await assertBoardAccess(req.user!, String(req.params.id));
+      if (req.user!.role !== Role.DEVELOPER_ADMIN && existing.createdByUserId !== req.user!.id) {
+        throw new HttpError(403, "Only the board owner can archive this board");
+      }
+      const board = await prisma.taskBoard.update({
+        where: { boardId: existing.boardId },
+        data: { archived: body.archived },
+        include: boardInclude,
+      });
+      res.json(boardDto(board));
+    }),
+  );
 
   app.get(
     "/tasks/assignees",
@@ -4173,10 +4585,14 @@ export function createApp() {
       const scope =
         req.query.scope === "mine" && req.user!.employeeId ? [req.user!.employeeId] : visibleIds;
       const requestedStatus = z.nativeEnum(TaskStatus).safeParse(req.query.status);
+      const boardId = typeof req.query.boardId === "string" ? req.query.boardId : undefined;
+      if (boardId) await assertBoardAccess(req.user!, boardId);
       const tasks = await prisma.workTask.findMany({
         where: {
           ...(scope ? { assignments: { some: { employeeId: { in: scope } } } } : {}),
           ...(requestedStatus.success ? { status: requestedStatus.data } : {}),
+          ...(boardId ? { boardId } : {}),
+          OR: [{ boardId: null }, { board: { is: boardAccessWhere(req.user!) } }],
         },
         include: taskInclude,
         orderBy: [{ dueDate: "asc" }, { updatedAt: "desc" }],
@@ -4202,10 +4618,51 @@ export function createApp() {
       });
       if (activeAssigneeCount !== employeeIds.length)
         throw new HttpError(400, "Select active employees");
+      const boardId = body.boardId || null;
+      let stageId = body.stageId || null;
+      let selectedStage:
+        { stageId: string; name: string; sortOrder: number; isCompleted: boolean } | undefined;
+      if (boardId) {
+        const board = await assertBoardAccess(req.user!, boardId);
+        if (
+          board.accessType === TaskBoardAccessType.MEMBER_GATED &&
+          employeeIds.some(
+            (employeeId) => !board.members.some((member) => member.employeeId === employeeId),
+          )
+        ) {
+          throw new HttpError(400, "Every assignee must be a member of this board");
+        }
+        if (board.accessType === TaskBoardAccessType.ROLE_GATED) {
+          const allowedRoles = new Set(board.roleAccess.map((entry) => entry.role));
+          const employeeUsers = await prisma.employee.findMany({
+            where: { employeeId: { in: employeeIds } },
+            select: { employeeId: true, user: { select: { role: true } } },
+          });
+          if (
+            employeeUsers.some(
+              (employee) => !employee.user || !allowedRoles.has(employee.user.role),
+            )
+          ) {
+            throw new HttpError(400, "Every assignee must have a role allowed by this board");
+          }
+        }
+        const stage = stageId
+          ? board.stages.find((entry) => entry.stageId === stageId)
+          : board.stages[0];
+        if (!stage) throw new HttpError(400, "Select a stage from this board");
+        stageId = stage.stageId;
+        selectedStage = stage;
+      } else if (stageId) {
+        throw new HttpError(400, "A stage requires a board");
+      }
       const { assigneeEmployeeIds: _assigneeEmployeeIds, ...taskData } = body;
       const task = await prisma.workTask.create({
         data: {
           ...taskData,
+          boardId,
+          stageId,
+          status: selectedStage ? taskStatusForStage(selectedStage) : undefined,
+          progress: selectedStage?.isCompleted ? 100 : undefined,
           description: body.description || null,
           parentTaskId: body.parentTaskId || null,
           createdByUserId: req.user!.id,
@@ -4249,7 +4706,7 @@ export function createApp() {
       if (
         isOwn &&
         !canManage &&
-        Object.keys(body).some((key) => !["status", "progress"].includes(key))
+        Object.keys(body).some((key) => !["status", "progress", "stageId"].includes(key))
       )
         throw new HttpError(403, "Employees can update only task status and progress");
       if (
@@ -4258,8 +4715,55 @@ export function createApp() {
         body.assigneeEmployeeIds.some((id) => !assignableIds.includes(id))
       )
         throw new HttpError(403, "Tasks can only be reassigned within your organization team");
+      if (body.assigneeEmployeeIds && existing.boardId) {
+        const board = await assertBoardAccess(req.user!, existing.boardId);
+        if (
+          board.accessType === TaskBoardAccessType.MEMBER_GATED &&
+          body.assigneeEmployeeIds.some(
+            (employeeId) => !board.members.some((member) => member.employeeId === employeeId),
+          )
+        ) {
+          throw new HttpError(400, "Every assignee must be a member of this board");
+        }
+        if (board.accessType === TaskBoardAccessType.ROLE_GATED) {
+          const allowedRoles = new Set(board.roleAccess.map((entry) => entry.role));
+          const employeeUsers = await prisma.employee.findMany({
+            where: { employeeId: { in: body.assigneeEmployeeIds } },
+            select: { user: { select: { role: true } } },
+          });
+          if (
+            employeeUsers.length !== new Set(body.assigneeEmployeeIds).size ||
+            employeeUsers.some(
+              (employee) => !employee.user || !allowedRoles.has(employee.user.role),
+            )
+          ) {
+            throw new HttpError(400, "Every assignee must have a role allowed by this board");
+          }
+        }
+      }
       const progress = body.status === "COMPLETED" ? 100 : body.progress;
       const { assigneeEmployeeIds, ...taskPatch } = body;
+      let stagePatch: {
+        stageId?: string | null;
+        boardId?: string | null;
+        status?: TaskStatus;
+        progress?: number;
+      } = {};
+      if (body.stageId) {
+        const stage = await prisma.taskStage.findUniqueOrThrow({
+          where: { stageId: body.stageId },
+        });
+        await assertBoardAccess(req.user!, stage.boardId);
+        if (!existing.boardId || stage.boardId !== existing.boardId) {
+          throw new HttpError(400, "Select a stage from the task's current board");
+        }
+        stagePatch = {
+          stageId: stage.stageId,
+          boardId: stage.boardId,
+          status: taskStatusForStage(stage),
+          progress: stage.isCompleted ? 100 : progress,
+        };
+      }
       if (assigneeEmployeeIds) {
         const replacementIds = [...new Set(assigneeEmployeeIds)];
         await prisma.$transaction([
@@ -4273,8 +4777,14 @@ export function createApp() {
         where: { taskId: existing.taskId },
         data: {
           ...taskPatch,
-          progress,
-          completedAt: body.status === "COMPLETED" ? new Date() : body.status ? null : undefined,
+          ...stagePatch,
+          progress: stagePatch.progress ?? progress,
+          completedAt:
+            stagePatch.status === TaskStatus.COMPLETED || body.status === "COMPLETED"
+              ? new Date()
+              : stagePatch.status || body.status
+                ? null
+                : undefined,
         },
         include: taskInclude,
       });
@@ -4780,7 +5290,7 @@ export function createApp() {
               : claim.status === "PENDING"
                 ? "New expense claim"
                 : "Expense claim updated",
-          desc: `${claim.employee.name} - ${claim.category.replaceAll("_", " ").toLowerCase()} - INR ${Number(claim.amount).toLocaleString("en-IN")}`,
+          desc: `${claim.employee.name} - ${claim.claimType === "ADVANCE" ? "advance expense" : (claim.title ?? "expense")} - INR ${Number(claim.amount).toLocaleString("en-IN")}`,
           time: claim.updatedAt.toISOString(),
           type: "system" as const,
         })),
@@ -4788,10 +5298,10 @@ export function createApp() {
           id: `certificate-${request.certificateRequestId}-${request.updatedAt.toISOString()}`,
           title:
             request.employeeId === req.user!.employeeId
-              ? `Certificate request ${request.status.replaceAll("_", " ").toLowerCase()}`
+              ? `HR document request ${request.status.replaceAll("_", " ").toLowerCase()}`
               : request.status === "PENDING"
-                ? "New certificate request"
-                : "Certificate request updated",
+                ? "New HR document request"
+                : "HR document request updated",
           desc: `${request.employee.name} - ${request.certificateType.replaceAll("_", " ").toLowerCase()}`,
           time: request.updatedAt.toISOString(),
           type: "system" as const,

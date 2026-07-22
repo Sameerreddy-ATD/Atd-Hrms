@@ -1,12 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { BadgeIndianRupee, CheckCircle2, ExternalLink, FileBadge, Plus } from "lucide-react";
+import {
+  BadgeIndianRupee,
+  CheckCircle2,
+  ChevronDown,
+  ExternalLink,
+  FileBadge,
+  Plus,
+  WalletCards,
+} from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState } from "@/components/common/EmptyState";
 import { LoadingState } from "@/components/common/LoadingState";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { InfoButton } from "@/components/common/InfoButton";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
@@ -26,20 +36,33 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
-import type { CertificateRequest, ExpenseClaim } from "@/mock/types";
-import { employeeServicesApi } from "@/services/api";
+import type { CertificateRequest, ExpenseClaim, User } from "@/mock/types";
+import { employeeServicesApi, employeesApi } from "@/services/api";
 
 export const Route = createFileRoute("/_app/employee-services")({
   component: EmployeeServicesPage,
 });
 
 const expenseInitial = {
-  category: "TRAVEL",
+  title: "",
   amount: "",
   expenseDate: "",
   description: "",
   receiptUrl: "",
+  receiptAccessConfirmed: false,
+  employeeId: "",
+};
+const advanceInitial = {
+  amount: "",
+  remark: "",
+  employeeId: "",
 };
 const certificateInitial = {
   certificateType: "EMPLOYMENT",
@@ -51,14 +74,19 @@ const certificateInitial = {
 function EmployeeServicesPage() {
   const { user } = useAuth();
   const isHr = user?.role === "hr" || user?.role === "developer_admin";
-  const canSubmit = Boolean(user?.employeeId);
+  const canViewAll = isHr || user?.role === "ceo";
+  const canSubmit = Boolean(user?.employeeId) || isHr;
+  const [employees, setEmployees] = useState<User[]>([]);
   const [expenses, setExpenses] = useState<ExpenseClaim[]>([]);
   const [certificates, setCertificates] = useState<CertificateRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [expenseOpen, setExpenseOpen] = useState(false);
+  const [advanceOpen, setAdvanceOpen] = useState(false);
   const [certificateOpen, setCertificateOpen] = useState(false);
   const [expenseForm, setExpenseForm] = useState(expenseInitial);
+  const [advanceForm, setAdvanceForm] = useState(advanceInitial);
+  const [expenseStatus, setExpenseStatus] = useState("ALL");
   const [certificateForm, setCertificateForm] = useState(certificateInitial);
   const [review, setReview] = useState<{
     kind: "expense" | "certificate";
@@ -90,19 +118,57 @@ function EmployeeServicesPage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (!isHr) return;
+    employeesApi
+      .list({ status: "ACTIVE", limit: 1000 })
+      .then((rows) => setEmployees(rows.filter((row) => row.employeeId)))
+      .catch(() => setEmployees([]));
+  }, [isHr]);
+
   async function submitExpense(event: React.FormEvent) {
     event.preventDefault();
+    const intent = ((event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null)
+      ?.value;
     setSaving(true);
     try {
       await employeeServicesApi.submitExpense({
-        ...expenseForm,
+        claimType: "EXPENSE",
+        employeeId: expenseForm.employeeId || undefined,
+        title: expenseForm.title,
         amount: Number(expenseForm.amount),
+        expenseDate: expenseForm.expenseDate,
+        description: expenseForm.description,
         receiptUrl: expenseForm.receiptUrl || null,
+        receiptAccessConfirmed: expenseForm.receiptAccessConfirmed,
       });
-      setExpenseOpen(false);
       setExpenseForm(expenseInitial);
+      if (intent !== "add-more") setExpenseOpen(false);
       await load();
-      toast.success("Expense claim sent to HR");
+      toast.success("Expense submitted successfully");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function submitAdvance(event: React.FormEvent) {
+    event.preventDefault();
+    const intent = ((event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null)
+      ?.value;
+    setSaving(true);
+    try {
+      await employeeServicesApi.submitExpense({
+        claimType: "ADVANCE",
+        employeeId: advanceForm.employeeId || undefined,
+        amount: Number(advanceForm.amount),
+        remark: advanceForm.remark,
+      });
+      setAdvanceForm(advanceInitial);
+      if (intent !== "add-more") setAdvanceOpen(false);
+      await load();
+      toast.success("Advance expense request submitted");
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -121,7 +187,7 @@ function EmployeeServicesPage() {
       setCertificateOpen(false);
       setCertificateForm(certificateInitial);
       await load();
-      toast.success("Certificate request sent to HR");
+      toast.success("HR document request sent successfully");
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -136,7 +202,7 @@ function EmployeeServicesPage() {
       if (review.kind === "expense")
         await employeeServicesApi.reviewExpense(
           review.id,
-          review.status as "APPROVED" | "REJECTED" | "PAID",
+          review.status as "UNPAID" | "REJECTED" | "PAID",
           review.notes,
         );
       else
@@ -156,14 +222,18 @@ function EmployeeServicesPage() {
     }
   }
 
+  const filteredExpenses = expenses.filter(
+    (row) => expenseStatus === "ALL" || row.status === expenseStatus,
+  );
+
   return (
     <div>
       <PageHeader
-        title="Employee Services"
+        title="Expenses & HR Documents"
         description={
-          isHr
-            ? "Review expense claims and certificate requests from employees."
-            : "Submit expenses and request employment documents from HR."
+          canViewAll
+            ? "View employee requests across the organization."
+            : "Submit expenses and request official documents from HR."
         }
       />
       {error && (
@@ -182,39 +252,67 @@ function EmployeeServicesPage() {
             </TabsTrigger>
             <TabsTrigger value="certificates" className="min-h-11">
               <FileBadge className="mr-2 h-4 w-4" />
-              Certificates
+              HR Documents
             </TabsTrigger>
           </TabsList>
           <TabsContent value="expenses" className="space-y-3">
             <SectionHeading
-              title={isHr ? "Expense claims" : "My expense claims"}
+              title={canViewAll ? "Employee expenses" : "My expenses"}
               action={
                 canSubmit ? (
-                  <Button size="sm" onClick={() => setExpenseOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    New claim
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Apply
+                        <ChevronDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuItem onSelect={() => setAdvanceOpen(true)}>
+                        <WalletCards className="mr-2 h-4 w-4" />
+                        Add advance expense
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => setExpenseOpen(true)}>
+                        <BadgeIndianRupee className="mr-2 h-4 w-4" />
+                        Add expense
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 ) : undefined
               }
             />
-            {expenses.length === 0 ? (
+            <Tabs value={expenseStatus} onValueChange={setExpenseStatus}>
+              <TabsList className="h-auto flex-wrap justify-start">
+                {["ALL", "PENDING", "UNPAID", "PAID", "REJECTED"].map((status) => (
+                  <TabsTrigger key={status} value={status}>
+                    {label(status)}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+            {filteredExpenses.length === 0 ? (
               <EmptyPanel
-                title="No expense claims"
+                title={
+                  expenseStatus === "ALL"
+                    ? "No expenses"
+                    : `No ${label(expenseStatus).toLowerCase()} expenses`
+                }
                 description={
-                  isHr
+                  canViewAll
                     ? "Employee claims will appear here."
                     : "You have not submitted an expense claim."
                 }
               />
             ) : (
-              expenses.map((row) => (
+              filteredExpenses.map((row) => (
                 <RequestCard
                   key={row.id}
-                  title={`${formatCurrency(row.amount)} · ${label(row.category)}`}
-                  employee={isHr ? `${row.employeeName} · ${row.employeeCode}` : undefined}
-                  date={row.expenseDate}
+                  title={`${formatCurrency(row.amount)} · ${row.claimType === "ADVANCE" ? "Advance expense" : (row.title ?? "Expense")}`}
+                  employee={canViewAll ? `${row.employeeName} · ${row.employeeCode}` : undefined}
+                  date={row.expenseDate ?? new Date(row.createdAt).toLocaleDateString("en-IN")}
                   status={row.status}
-                  description={row.description}
+                  description={row.description ?? row.remark ?? ""}
                   link={row.receiptUrl}
                   notes={row.reviewNotes}
                   action={isHr ? <ExpenseActions row={row} onReview={setReview} /> : undefined}
@@ -224,23 +322,23 @@ function EmployeeServicesPage() {
           </TabsContent>
           <TabsContent value="certificates" className="space-y-3">
             <SectionHeading
-              title={isHr ? "Certificate requests" : "My certificate requests"}
+              title={canViewAll ? "HR document requests" : "My HR document requests"}
               action={
                 canSubmit ? (
                   <Button size="sm" onClick={() => setCertificateOpen(true)}>
                     <Plus className="mr-2 h-4 w-4" />
-                    New request
+                    Request document
                   </Button>
                 ) : undefined
               }
             />
             {certificates.length === 0 ? (
               <EmptyPanel
-                title="No certificate requests"
+                title="No HR document requests"
                 description={
-                  isHr
+                  canViewAll
                     ? "Employee requests will appear here."
-                    : "You have not requested a certificate."
+                    : "You have not requested an HR document."
                 }
               />
             ) : (
@@ -248,7 +346,7 @@ function EmployeeServicesPage() {
                 <RequestCard
                   key={row.id}
                   title={label(row.certificateType)}
-                  employee={isHr ? `${row.employeeName} · ${row.employeeCode}` : undefined}
+                  employee={canViewAll ? `${row.employeeName} · ${row.employeeCode}` : undefined}
                   date={
                     row.requiredBy
                       ? `Required by ${row.requiredBy}`
@@ -266,37 +364,81 @@ function EmployeeServicesPage() {
         </Tabs>
       )}
 
+      <Dialog open={advanceOpen} onOpenChange={setAdvanceOpen}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
+          <form onSubmit={submitAdvance}>
+            <DialogHeader>
+              <DialogTitle>Add advance expense</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              {isHr && (
+                <EmployeeSelect
+                  employees={employees}
+                  value={advanceForm.employeeId}
+                  onChange={(employeeId) => setAdvanceForm((v) => ({ ...v, employeeId }))}
+                />
+              )}
+              <Field label="Amount (INR)">
+                <Input
+                  type="number"
+                  min="1"
+                  step="0.01"
+                  value={advanceForm.amount}
+                  onChange={(e) => setAdvanceForm((v) => ({ ...v, amount: e.target.value }))}
+                  required
+                />
+              </Field>
+              <Field label="Remark">
+                <Textarea
+                  rows={4}
+                  maxLength={2000}
+                  value={advanceForm.remark}
+                  onChange={(e) => setAdvanceForm((v) => ({ ...v, remark: e.target.value }))}
+                  required
+                />
+              </Field>
+            </div>
+            <DialogFooter>
+              <Button type="submit" name="intent" value="exit" disabled={saving}>
+                {saving ? "Submitting..." : "Submit and exit"}
+              </Button>
+              <Button
+                type="submit"
+                name="intent"
+                value="add-more"
+                variant="outline"
+                disabled={saving}
+              >
+                Submit and add more
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={expenseOpen} onOpenChange={setExpenseOpen}>
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
           <form onSubmit={submitExpense}>
             <DialogHeader>
-              <DialogTitle>New expense claim</DialogTitle>
+              <DialogTitle>Add expense</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4 sm:grid-cols-2">
-              <Field label="Category">
-                <Select
-                  value={expenseForm.category}
-                  onValueChange={(category) => setExpenseForm((v) => ({ ...v, category }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[
-                      "TRAVEL",
-                      "FUEL",
-                      "MEALS",
-                      "LODGING",
-                      "MOBILE_INTERNET",
-                      "OFFICE",
-                      "OTHER",
-                    ].map((v) => (
-                      <SelectItem key={v} value={v}>
-                        {label(v)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {isHr && (
+                <div className="sm:col-span-2">
+                  <EmployeeSelect
+                    employees={employees}
+                    value={expenseForm.employeeId}
+                    onChange={(employeeId) => setExpenseForm((v) => ({ ...v, employeeId }))}
+                  />
+                </div>
+              )}
+              <Field label="Title">
+                <Input
+                  maxLength={160}
+                  value={expenseForm.title}
+                  onChange={(e) => setExpenseForm((v) => ({ ...v, title: e.target.value }))}
+                  required
+                />
               </Field>
               <Field label="Amount (INR)">
                 <Input
@@ -317,14 +459,6 @@ function EmployeeServicesPage() {
                   required
                 />
               </Field>
-              <Field label="Receipt link (optional)">
-                <Input
-                  type="url"
-                  placeholder="https://drive.google.com/..."
-                  value={expenseForm.receiptUrl}
-                  onChange={(e) => setExpenseForm((v) => ({ ...v, receiptUrl: e.target.value }))}
-                />
-              </Field>
               <div className="sm:col-span-2">
                 <Field label="Description">
                   <Textarea
@@ -336,10 +470,54 @@ function EmployeeServicesPage() {
                   />
                 </Field>
               </div>
+              <div className="sm:col-span-2">
+                <div className="flex items-center gap-1">
+                  <Label>Attachment (Google Drive link)</Label>
+                  <InfoButton title="Google Drive sharing">
+                    <p>
+                      Before submitting, open the file's sharing settings and change General access
+                      to <strong>Anyone with the link</strong> can view.
+                    </p>
+                  </InfoButton>
+                </div>
+                <Input
+                  type="url"
+                  placeholder="https://drive.google.com/..."
+                  value={expenseForm.receiptUrl}
+                  onChange={(e) => setExpenseForm((v) => ({ ...v, receiptUrl: e.target.value }))}
+                  required
+                />
+                <label className="mt-3 flex items-start gap-2 rounded-md border bg-muted/20 p-3 text-sm">
+                  <Checkbox
+                    className="mt-0.5"
+                    checked={expenseForm.receiptAccessConfirmed}
+                    onCheckedChange={(checked) =>
+                      setExpenseForm((value) => ({
+                        ...value,
+                        receiptAccessConfirmed: checked === true,
+                      }))
+                    }
+                    required
+                  />
+                  <span>
+                    I confirmed that Google Drive General access is set to
+                    <strong> Anyone with the link</strong> and the Viewer role.
+                  </span>
+                </label>
+              </div>
             </div>
             <DialogFooter>
-              <Button type="submit" disabled={saving}>
-                {saving ? "Submitting..." : "Submit claim"}
+              <Button type="submit" name="intent" value="exit" disabled={saving}>
+                {saving ? "Submitting..." : "Submit and exit"}
+              </Button>
+              <Button
+                type="submit"
+                name="intent"
+                value="add-more"
+                variant="outline"
+                disabled={saving}
+              >
+                Submit and add more
               </Button>
             </DialogFooter>
           </form>
@@ -350,10 +528,10 @@ function EmployeeServicesPage() {
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
           <form onSubmit={submitCertificate}>
             <DialogHeader>
-              <DialogTitle>Request certificate</DialogTitle>
+              <DialogTitle>Request HR document</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4 sm:grid-cols-2">
-              <Field label="Certificate">
+              <Field label="Document type">
                 <Select
                   value={certificateForm.certificateType}
                   onValueChange={(certificateType) =>
@@ -506,6 +684,32 @@ function Field({ label: text, children }: { label: string; children: React.React
     </div>
   );
 }
+function EmployeeSelect({
+  employees,
+  value,
+  onChange,
+}: {
+  employees: User[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <Field label="Employee">
+      <Select value={value} onValueChange={onChange} required>
+        <SelectTrigger>
+          <SelectValue placeholder="Select an employee" />
+        </SelectTrigger>
+        <SelectContent>
+          {employees.map((employee) => (
+            <SelectItem key={employee.employeeId} value={employee.employeeId!}>
+              {employee.name} · {employee.employeeCode}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </Field>
+  );
+}
 function RequestCard({
   title,
   employee,
@@ -579,7 +783,7 @@ function ExpenseActions({
         onReview({
           kind: "expense",
           id: row.id,
-          status: row.status === "PENDING" ? "APPROVED" : "PAID",
+          status: row.status === "PENDING" ? "UNPAID" : "PAID",
           notes: row.reviewNotes ?? "",
           documentUrl: "",
         })
@@ -624,7 +828,7 @@ function CertificateActions({
 }
 function reviewOptions(review: { kind: "expense" | "certificate"; status: string }) {
   if (review.kind === "expense")
-    return review.status === "PAID" ? ["PAID"] : [review.status, "REJECTED"];
+    return review.status === "UNPAID" ? ["UNPAID", "PAID", "REJECTED"] : ["UNPAID", "REJECTED"];
   return review.status === "IN_PROGRESS"
     ? ["IN_PROGRESS", "REJECTED"]
     : review.status === "READY"
@@ -632,6 +836,14 @@ function reviewOptions(review: { kind: "expense" | "certificate"; status: string
       : ["COLLECTED"];
 }
 function label(value: string) {
+  const professionalLabels: Record<string, string> = {
+    EMPLOYMENT: "Employment verification letter",
+    EXPERIENCE: "Experience letter",
+    SALARY: "Salary certificate",
+    ADDRESS_PROOF: "Address verification letter",
+    RELIEVING: "Relieving letter",
+  };
+  if (professionalLabels[value]) return professionalLabels[value];
   return value
     .toLowerCase()
     .replaceAll("_", " ")

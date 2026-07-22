@@ -14,6 +14,11 @@ This manual describes the behavior implemented in the current version. Permissio
 
 Developer Admin is a protected system account. It cannot be suspended, deactivated, deleted, or locked by failed passwords.
 
+Developer Admin also owns external Employee API credentials under **System Settings > Employee API
+Access**. Each application receives a separate, least-privilege, expiring credential. The full key is
+shown once; revocation is immediate. See the dedicated data and integration guide for operating and
+recovery procedures.
+
 ## Role-Aware Workspace
 
 The sidebar and dashboard expose only the areas relevant to the signed-in role. Hiding an action is
@@ -44,8 +49,8 @@ flowchart LR
   F --> G["Scheduled suspension, deactivation, or lockout"]
   G --> H["Developer Admin reactivates"]
   H --> F
-  F --> I["Typed permanent deletion confirmation"]
-  I --> J["Transactional data removal and anonymized audit event"]
+  F --> I["Typed deactivation confirmation"]
+  I --> J["Employee and account inactive; history retained"]
 ```
 
 - Public signup is disabled.
@@ -56,8 +61,8 @@ flowchart LR
 - Blocking or suspending login retains the employee, attendance, biometric mapping, leave, asset, and task data.
 - Biometric imports and task assignment use the employee record and continue to work while only the login is blocked.
 - User Logins and Employees display active, scheduled suspension, suspended, blocked, and inactive states from the same backend account status.
-- Developer Admin is the only role allowed to permanently delete an account. The current account and all Developer Admin accounts are protected.
-- Permanent deletion requires typing `DELETE` and removes the login, employee profile, attendance, leave, biometric mappings, assigned assets, and employee task data in one transaction. An anonymized audit event remains.
+- Developer Admin can deactivate an account by typing `DEACTIVATE`. The current account and all Developer Admin accounts are protected.
+- Deactivation synchronizes employee/account status and retains the profile, attendance, leave, biometric mappings, assigned assets, expenses, tasks, and audit history.
 
 ## Organization And Employee Visibility
 
@@ -202,24 +207,25 @@ Payslips, promotion requests, and performance reviews are planned for a later ve
 
 ```mermaid
 flowchart LR
-  A["Employee submits expense"] --> B["HR reviews receipt and details"]
-  B -->|Approve| C["Approved"]
+  A["Employee submits expense"] --> B["HR reviews Drive receipt and details"]
+  B -->|Accept for payment| C["Unpaid"]
   B -->|Reject| D["Rejected with HR note"]
   C --> E["HR marks Paid"]
 ```
 
-- Employees submit category, amount, expense date, description, and an optional HTTPS receipt link.
+- Employees submit title, amount, expense date, description, and a required Google Drive receipt link.
+- The submitter must attest that General access is **Anyone with the link** and the role is **Viewer**; the attestation is stored with the claim.
 - An employee can list only their own claims. HR and Developer Admin can list all claims.
-- Allowed transitions are Pending to Approved or Rejected, followed by Approved to Paid.
+- Allowed transitions are Pending to Unpaid or Rejected, followed by Unpaid to Paid.
 - Marking a claim Paid records the payment time. Salary or accounting-system transfer is not performed automatically.
 - Submission and every HR decision are audited.
 
-### Certificate requests
+### HR document requests
 
-- Employees request Employment, Experience, Salary, Address Proof, Relieving, or Other certificates.
+- Employees request Employment, Experience, Salary, Address Proof, Relieving, or Other HR documents.
 - The request records its purpose, digital/printed delivery, and optional required-by date.
 - HR moves a request through Pending, In Progress, Ready, Rejected, and Collected.
-- A digital document link can be attached when ready. Printed certificates can be marked ready without a link.
+- A digital document link can be attached when ready. Printed HR documents can be marked ready without a link.
 - Employees see only their own request status and HR notes. HR and Developer Admin see the complete queue.
 
 ## Notifications
@@ -243,8 +249,8 @@ flowchart LR
 - Security and operational changes write audit records with actor, action, affected object, time, and protected values.
 - Passwords, tokens, hashes, and secrets are never written as readable audit values.
 - Suspension, deactivation, or login blocking does not remove historical employee records.
-- Permanent deletion is intentionally destructive and must be used only after confirming retention and legal requirements.
+- Employee and account history is retained through deactivation. Only the explicitly labelled test-data reset and announcement deletion are destructive; use them only after confirming backup, retention, and legal requirements.
 
 ## Operational Verification Checklist
 
-After every deployment verify login, first-password change, blocked-account recovery, mobile attendance, slow-network punch state, mixed-source check-out, leave submission, exact-head approval, leave cancellation, holiday recalculation, task assignment, asset return checklist, expense approval/payment, certificate readiness, notifications, and organization visibility with separate test users.
+After every deployment verify login, first-password change, blocked-account recovery, account deactivation/reactivation with retained history, mobile attendance, slow-network punch state, mixed-source check-out, leave submission, exact-head approval, leave cancellation, holiday recalculation, task assignment, asset return checklist, expense Drive acknowledgement and payment flow, HR document readiness, integration key scope/revocation, employee event ordering, notifications, and organization visibility with separate test users.

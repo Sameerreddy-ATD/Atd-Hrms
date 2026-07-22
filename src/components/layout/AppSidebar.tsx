@@ -15,8 +15,8 @@ import {
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/lib/auth";
 import { menuForRole } from "@/lib/menu";
-import { ROLE_LABELS } from "@/mock/types";
-import { employeesApi } from "@/services/api";
+import { ROLE_LABELS, type ModuleKey } from "@/mock/types";
+import { employeesApi, moduleAccessApi } from "@/services/api";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/common/Logo";
 
@@ -26,6 +26,7 @@ export function AppSidebar() {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const collapsed = state === "collapsed";
   const [isReportingManager, setIsReportingManager] = useState(false);
+  const [allowedModules, setAllowedModules] = useState<ModuleKey[] | undefined>();
 
   useEffect(() => {
     if (!user?.employeeId) {
@@ -38,9 +39,17 @@ export function AppSidebar() {
       .catch(() => setIsReportingManager(false));
   }, [user?.employeeId]);
 
+  useEffect(() => {
+    if (!user) return;
+    moduleAccessApi
+      .mine()
+      .then((result) => setAllowedModules(result.modules))
+      .catch(() => setAllowedModules(undefined));
+  }, [user]);
+
   if (!user) return null;
 
-  const groups = menuForRole(user.role, { isReportingManager });
+  const groups = menuForRole(user.role, { isReportingManager, allowedModules });
 
   return (
     <Sidebar

@@ -17,7 +17,7 @@ This guide explains how Developer Admin, HR, organization heads, employees, fiel
 | Holidays                       | Add, edit, delete                                              | Add, edit, delete       | Add, edit, delete       | View                  | View                        | View                                    |
 | Audit logs                     | View                                                           | View                    | No                      | No                    | No                          | No                                      |
 | Asset management               | Full access                                                    | No                      | Full access             | Read-only investment  | No                          | No                                      |
-| Expenses and certificates      | Review all                                                     | Own requests            | Review all              | Own requests          | Own requests                | Own requests                            |
+| Expenses and HR documents      | Review all                                                     | Own requests            | Review all              | Own requests          | Own requests                | Own requests                            |
 | System settings                | Full access                                                    | As configured           | No                      | No                    | No                          | No                                      |
 
 ## CEO Workspace
@@ -89,17 +89,17 @@ Use **User Logins** for account lifecycle actions.
 
 Employees receive account suspension notifications before the suspension date where the scheduled suspension notification feature is active.
 
-## Developer Admin: Permanently Delete An Account
+## Developer Admin: Deactivate An Account And Retain History
 
-Use permanent deletion only when the employee and all related website data must be removed.
+Use deactivation when an employee should no longer sign in or appear as active.
 
 1. Open **User Logins**.
-2. Select **Delete account** for the intended user.
-3. Review the displayed list of profile, attendance, leave, biometric, asset, and task data that will be removed.
-4. Type `DELETE` exactly.
-5. Confirm permanent deletion.
+2. Select **Deactivate account** for the intended user.
+3. Review the displayed list of profile, attendance, leave, biometric, asset, expense, task, and audit data that will be retained.
+4. Type `DEACTIVATE` exactly.
+5. Confirm deactivation.
 
-The current signed-in account and Developer Admin accounts cannot be deleted. Use suspension, deactivation, or blocked-account reactivation when history must be retained.
+The employee and login are marked inactive together. The current signed-in account and Developer Admin accounts cannot be deactivated. Developer Admin can reactivate the account later.
 
 ## Developer Admin: Reset Testing Data Before Go-Live
 
@@ -113,6 +113,18 @@ Use **System Settings > Production Data Reset** only once the testing period is 
 6. Create the real organization logins from Developer Admin.
 
 The reset preserves the signed-in Developer Admin account and password, branches, departments and their hierarchy, and system settings. It clears department-head assignments because the testing employees are removed. It permanently removes all other users, employees, attendance, leave types and requests, tasks, assets, holidays, biometric devices and mappings, announcements, subscriptions, service requests, notifications derived from those records, and audit history. The reset is transactional: a database failure rolls back the entire operation.
+
+## Developer Admin: Create Or Revoke Employee API Access
+
+1. Open **System Settings > Employee API Access**.
+2. Enter the trusted application's name and optional expiry date.
+3. Select only the required read, write, or event-feed scopes.
+4. Select **Create API key** and copy the key immediately; it is shown only once.
+5. Store it in the consuming server's secret manager, never in frontend code or source control.
+6. Use **Revoke** when the application is retired or the key may have been exposed.
+
+The list shows key prefix, scopes, status, expiry, and last use without exposing the secret. Detailed
+integration examples and recovery procedures are in **Employee Data Model and Integration API**.
 
 ## Employee: Mark Attendance
 
@@ -131,19 +143,20 @@ After a successful mobile punch, the status and timer update immediately while t
 
 1. Open **Employee Services** and select **Expenses**.
 2. Select **New claim**.
-3. Enter category, amount, expense date, description, and an optional shareable receipt link.
-4. Submit. The request goes directly to HR.
-5. Track Pending, Approved, Rejected, or Paid status and read the HR note on the same page.
+3. Enter title, amount, expense date, description, and a Google Drive attachment link.
+4. In Google Drive, set General access to **Anyone with the link** and role to **Viewer**, then select the confirmation checkbox.
+5. Submit. The request goes directly to HR.
+6. Track Pending, Unpaid, Rejected, or Paid status and read the HR note on the same page.
 
-HR reviews a pending claim first. A claim must be Approved before HR can mark it Paid. Payment processing itself remains an HR/accounting action outside the portal.
+HR reviews a pending claim first. A claim must be Unpaid before HR can mark it Paid. Payment processing itself remains an HR/accounting action outside the portal.
 
-## Employee: Request A Certificate
+## Employee: Request An HR Document
 
-1. Open **Employee Services** and select **Certificates**.
+1. Open **Employee Services** and select **HR Documents**.
 2. Select **New request**.
-3. Choose certificate type, digital or printed delivery, optional required-by date, and explain the purpose.
+3. Choose document type, digital or printed delivery, optional required-by date, and explain the purpose.
 4. Track Pending, In Progress, Ready, Rejected, or Collected status.
-5. Open the document link when HR attaches a completed digital certificate.
+5. Open the document link when HR attaches a completed digital document.
 
 Employees see only their own requests. HR and Developer Admin see the complete request queues.
 

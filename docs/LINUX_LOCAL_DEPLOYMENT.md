@@ -168,6 +168,25 @@ server {
     server_name hrms.sameerreddy.in;
     client_max_body_size 20m;
 
+    # Preserve the versioned integration path when proxying to Express. This
+    # more-specific block must appear before the general /api/ block.
+    location /api/v1/ {
+        proxy_pass http://127.0.0.1:4000/api/v1/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /api/v1 {
+        proxy_pass http://127.0.0.1:4000/api/v1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     location /api/ {
         proxy_pass http://127.0.0.1:4000/;
         proxy_http_version 1.1;
@@ -215,10 +234,15 @@ Rebuild the frontend whenever `VITE_API_BASE_URL` changes.
 pm2 status
 curl -fsS http://127.0.0.1:4000/health
 curl -fsS http://127.0.0.1:4000/health/db
+curl -fsS http://127.0.0.1:4000/api/v1
+curl -fsS https://hrms.sameerreddy.in/api/v1
 curl -I https://hrms.sameerreddy.in
 ```
 
-Test browser login, session restore, mobile location permission, attendance, live cross-device refresh, leave, announcements, Web Push, and logout.
+Test browser login, session restore, mobile location permission, attendance, live cross-device refresh, leave, announcements, Web Push, logout, account deactivation/reactivation, expense Drive acknowledgement, integration credential creation/revocation, and one authenticated Employee API request.
+
+The `/api/v1` metadata and OpenAPI endpoints do not expose secrets. Employee data endpoints still
+require a scoped API key. See [Employee Data Model and Integration API](EMPLOYEE_DATA_AND_INTEGRATION_API.md).
 
 ## 11. Existing Deployment Repository Switch
 

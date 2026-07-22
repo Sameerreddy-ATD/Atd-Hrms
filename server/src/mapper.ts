@@ -110,9 +110,14 @@ export function employeeDto(
   );
 
   return {
-    id: employee.user?.id ?? employee.employeeId,
+    // Employee API identifiers are always employee identifiers. Consumers that
+    // need the optional authentication account can use userId explicitly.
+    id: employee.employeeId,
+    userId: employee.user?.id ?? null,
     employeeId: employee.employeeId,
     employeeCode: employee.employeeCode,
+    externalReference: employee.externalReference ?? null,
+    version: employee.version,
     name: employee.name,
     email: employee.email ?? "",
     phone: employee.phone ?? undefined,
@@ -140,6 +145,9 @@ export function employeeDto(
     shiftType: employee.shiftType,
     shiftStartMinutes: employee.shiftStartMinutes,
     shiftEndMinutes: employee.shiftEndMinutes,
+    terminatedAt: employee.terminatedAt?.toISOString() ?? null,
+    createdAt: employee.createdAt.toISOString(),
+    updatedAt: employee.updatedAt.toISOString(),
   };
 }
 

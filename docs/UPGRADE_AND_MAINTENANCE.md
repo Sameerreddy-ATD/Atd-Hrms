@@ -77,6 +77,19 @@ Do not use `git reset --hard`, `prisma migrate dev`, or `npm audit fix --force` 
 
 Before using **System Settings > Production Data Reset**, create a non-empty MySQL backup and confirm that it contains table definitions. The reset is irreversible from the application. It preserves the signed-in Developer Admin credentials, branches, departments, hierarchy, and system settings; all other testing data is permanently removed. After the reset, keep the existing Developer Admin session open, verify the preserved setup, and create real logins from **User Logins**.
 
+## Employee Integration Releases
+
+When a release changes employee master data or `/api/v1`:
+
+1. Back up MySQL before `npm run db:deploy`.
+2. Review `docs/openapi.employee-v1.yaml` for contract changes.
+3. Run the employee/account mismatch SQL in `EMPLOYEE_DATA_AND_INTEGRATION_API.md`.
+4. Verify `/api/v1`, `/api/v1/openapi.yaml`, scoped read/write access, idempotent replay,
+   stale-version conflict, change-feed ordering, credential revocation, and retained history after
+   deactivation.
+5. Inform consuming application owners before any backward-incompatible new API version. Existing
+   v1 fields must not be silently removed or repurposed.
+
 ## Post-Update Verification
 
 ```bash

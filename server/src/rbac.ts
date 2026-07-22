@@ -4,6 +4,7 @@ import { HttpError } from "./errors.js";
 import { prisma } from "./prisma.js";
 import { verifyAccessToken } from "./security.js";
 import { config } from "./config.js";
+import { moduleForApiPath, roleHasModuleAccess } from "./module-access.js";
 
 declare global {
   namespace Express {
@@ -29,28 +30,40 @@ export function canCreateRole(actor: Role, target: Role) {
   return creationRules[actor]?.includes(target) ?? false;
 }
 
-export function requireAuth(req: Request, _res: Response, next: NextFunction) {
+export async function requireAuth(req: Request, _res: Response, next: NextFunction) {
   const token = req.cookies?.[config.sessionCookie];
   if (!token) return next(new HttpError(401, "Authentication required"));
+  let user: ReturnType<typeof verifyAccessToken>;
   try {
-    const user = verifyAccessToken(token);
-    req.user = user;
-
-    if (
-      user.mustChangePassword &&
-      req.path !== "/auth/change-password" &&
-      req.path !== "/auth/logout" &&
-      req.path !== "/auth/me" &&
-      req.path !== "/health" &&
-      req.path !== "/health/db"
-    ) {
-      return next(new HttpError(403, "Password change required on first login"));
-    }
-
-    return next();
+    user = verifyAccessToken(token);
   } catch {
     return next(new HttpError(401, "Session expired"));
   }
+  req.user = user;
+  if (
+    user.mustChangePassword &&
+    req.path !== "/auth/change-password" &&
+    req.path !== "/auth/logout" &&
+    req.path !== "/auth/me" &&
+    req.path !== "/health" &&
+    req.path !== "/health/db"
+  ) {
+    return next(new HttpError(403, "Password change required on first login"));
+  }
+  const module = moduleForApiPath(req.path);
+  try {
+    if (module && !(await roleHasModuleAccess(user.role, module))) {
+      return next(
+        new HttpError(
+          403,
+          `Access to the ${module.toLowerCase().replaceAll("_", " ")} module is disabled`,
+        ),
+      );
+    }
+  } catch (error) {
+    return next(error);
+  }
+  return next();
 }
 
 export function requireRoles(...roles: Role[]) {

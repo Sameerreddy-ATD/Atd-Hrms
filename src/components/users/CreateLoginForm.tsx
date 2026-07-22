@@ -54,6 +54,7 @@ export function CreateLoginForm({
   const [employeeCode, setEmployeeCode] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [branch, setBranch] = useState("");
   const [dept, setDept] = useState("");
   const [organizationUnitId, setOrganizationUnitId] = useState("");
@@ -63,6 +64,7 @@ export function CreateLoginForm({
     "HEAD" | "SENIOR" | "JUNIOR" | "MEMBER"
   >("MEMBER");
   const [dateOfBirth, setDateOfBirth] = useState("");
+  const [joiningDate, setJoiningDate] = useState("");
   const [gender, setGender] = useState<"FEMALE" | "MALE" | "PREFER_NOT_TO_SAY">(
     "PREFER_NOT_TO_SAY",
   );
@@ -158,9 +160,11 @@ export function CreateLoginForm({
       if (emp) {
         setName(emp.name);
         setEmail(emp.email || "");
+        setPhone(emp.phone || "");
         setBranch(emp.homeBranchId || branches[0]?.id || "");
         setDept(emp.departmentId || departments[0]?.id || "");
         setDesignation(emp.designation || "");
+        setJoiningDate(emp.joiningDate || "");
         setGender(emp.gender || "PREFER_NOT_TO_SAY");
         setEmploymentType(emp.employmentType || "FULL_TIME");
       }
@@ -191,7 +195,7 @@ export function CreateLoginForm({
       const payload: any = {
         name: creationMode === "link" ? name : name,
         email,
-        phone: undefined,
+        phone: phone.trim() || undefined,
         active: true,
         mustChangePassword: true,
         password: temporaryPassword,
@@ -206,6 +210,7 @@ export function CreateLoginForm({
         payload.designation = designation.trim() || positionTitle;
         payload.organizationLevel = organizationLevel;
         payload.dateOfBirth = dateOfBirth || undefined;
+        payload.joiningDate = joiningDate || undefined;
         payload.gender = gender;
         payload.employmentType = employmentType;
         payload.shiftType = shiftType;
@@ -276,6 +281,16 @@ export function CreateLoginForm({
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             disabled={creationMode === "link"}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Phone number</Label>
+          <Input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="Employee contact number"
           />
         </div>
 
@@ -406,6 +421,15 @@ export function CreateLoginForm({
                 type="date"
                 value={dateOfBirth}
                 onChange={(e) => setDateOfBirth(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Joining date</Label>
+              <Input
+                type="date"
+                value={joiningDate}
+                onChange={(e) => setJoiningDate(e.target.value)}
               />
             </div>
 

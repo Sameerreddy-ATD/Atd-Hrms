@@ -1,6 +1,6 @@
 # Anytime Diesel Employee Management System
 
-Internal employee operations platform for Anytime Diesel. It manages accounts, organization units, attendance, leave, tasks, assets and returns, expense claims, certificate requests, announcements, notifications, reports, and audit history through role-based web and installed PWA experiences.
+Internal employee operations platform for Anytime Diesel. It manages accounts, organization units, attendance, leave, tasks, assets and returns, expense claims, HR documents, announcements, notifications, reports, audit history, and a scoped Employee Integration API through role-based web and installed PWA experiences.
 
 The role-aware workspace keeps operational actions with Developer Admin, HR, and organization
 heads while giving the CEO a read-only executive view of workforce health, attendance coverage,
@@ -18,14 +18,15 @@ leave decisions, work delivery, and company investment in employees.
 
 Start with the [documentation index](docs/README.md).
 
-| Guide                                                        | Audience                                                                     |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| [User Guide](docs/USER_GUIDE.md)                             | Employees, heads, HR, leadership, and Developer Admin                        |
-| [Operations and Workflows](docs/OPERATIONS_AND_WORKFLOWS.md) | Business rules, permissions, attendance, leave, accounts, and data retention |
-| [Technical Overview](docs/TECHNICAL_OVERVIEW.md)             | Developers and maintainers                                                   |
-| [Linux and AWS Deployment](docs/LINUX_LOCAL_DEPLOYMENT.md)   | Server administrators                                                        |
-| [Upgrade and Maintenance](docs/UPGRADE_AND_MAINTENANCE.md)   | Production releases, backups, rollback, and monitoring                       |
-| [Device Compatibility](docs/DEVICE_COMPATIBILITY.md)         | Mobile/PWA testing and support                                               |
+| Guide                                                                          | Audience                                                                     |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| [User Guide](docs/USER_GUIDE.md)                                               | Employees, heads, HR, leadership, and Developer Admin                        |
+| [Operations and Workflows](docs/OPERATIONS_AND_WORKFLOWS.md)                   | Business rules, permissions, attendance, leave, accounts, and data retention |
+| [Technical Overview](docs/TECHNICAL_OVERVIEW.md)                               | Developers and maintainers                                                   |
+| [Employee Data and Integration API](docs/EMPLOYEE_DATA_AND_INTEGRATION_API.md) | Database owners and external application developers                          |
+| [Linux and AWS Deployment](docs/LINUX_LOCAL_DEPLOYMENT.md)                     | Server administrators                                                        |
+| [Upgrade and Maintenance](docs/UPGRADE_AND_MAINTENANCE.md)                     | Production releases, backups, rollback, and monitoring                       |
+| [Device Compatibility](docs/DEVICE_COMPATIBILITY.md)                           | Mobile/PWA testing and support                                               |
 
 ## Technology
 
@@ -59,19 +60,26 @@ Generated folders, logs, local databases, `.env`, build output, and dependencies
 
 Prerequisites: Node.js 22+, npm, and MySQL 8.
 
-```bat
-D:
-cd D:\anytime-crew-hub
+```powershell
+Set-Location D:\Employee-Management-System
 npm install
-copy .env.example .env
+Copy-Item .env.example .env
 ```
 
-Edit `.env` and set a valid MySQL `DATABASE_URL` and strong JWT secrets. Then run:
+Edit `.env` and set a valid MySQL `DATABASE_URL` and strong JWT secrets. For first-time
+project-local MySQL initialization, provide the two credentials to the bootstrap process:
 
-```bat
+```powershell
+$env:MYSQL_ROOT_PASSWORD = "use-a-strong-local-password"
+$env:SEED_PASSWORD = "use-a-strong-initial-admin-password"
 npm run db:start-mysql
+```
+
+The first run creates the database, deploys migrations, and seeds baseline data. For an
+existing database, deploy any newly pulled migrations separately:
+
+```powershell
 npm run db:deploy
-npm run db:seed
 ```
 
 Start the backend:
@@ -89,6 +97,9 @@ npm run dev
 Open `http://localhost:5173`. Backend health is available at `http://localhost:4000/health` and `/health/db`.
 
 Seed only a new development/demo database. Do not seed an existing production database.
+
+Product naming recommendations and the professional terminology used in this version are
+documented in [Product Naming](docs/PRODUCT_NAMING.md).
 
 ## Environment
 
@@ -128,10 +139,11 @@ Use `npm run db:verify` when the configured MySQL database is available.
 - Authentication uses secure HTTP-only cookies, not production localStorage tokens.
 - Five consecutive wrong passwords lock normal accounts. Developer Admin is protected from lockout.
 - Suspension, deactivation, and lockout retain attendance, assets, tasks, leave, and biometric mappings.
-- Permanent account deletion is Developer Admin-only, requires typed confirmation, and removes related employee data transactionally while retaining an anonymized audit event.
+- Account removal is implemented as deactivation: employee, login, and related operational history are retained and can be reactivated.
 - Notifications are generated using the signed-in user’s role and employee scope.
 - Developer Admin accounts cannot be suspended, deactivated, or deleted.
-- Employees can view only their own expense and certificate requests. HR and Developer Admin can review organization-wide requests.
+- Employees can view only their own expense and HR document requests. HR and Developer Admin can review organization-wide requests.
+- External applications use `/api/v1` with scoped, revocable service credentials; browser cookies are not an integration authentication mechanism.
 - Asset returns are completed through a recorded HR checklist before an assignment is released.
 - Assets use explicit `AVAILABLE`, `ASSIGNED`, `UNDER_REPAIR`, and `RETIRED` statuses. The return checklist records condition, accessories, charger, backup/wipe confirmation, damage, notes, receiver, and time.
 

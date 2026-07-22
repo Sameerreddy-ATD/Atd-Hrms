@@ -11,12 +11,16 @@ import {
   branchesApi,
   reportsApi,
   systemApi,
+  moduleAccessApi,
+  integrationClientsApi,
   usersApi,
   type SystemHealth,
 } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PasswordInput } from "@/components/common/PasswordInput";
 import {
   AlertDialog,
@@ -31,6 +35,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth";
 import {
+  ROLE_LABELS,
+  type IntegrationClient,
+  type IntegrationScope,
+  type ModuleKey,
+  type Role,
+} from "@/mock/types";
+import {
   Activity,
   AlertTriangle,
   BellRing,
@@ -44,11 +55,46 @@ import {
   Shield,
   Trash2,
   Users,
+  Blocks,
+  Copy,
+  KeyRound,
+  Unplug,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/settings")({
   component: SettingsPage,
 });
+
+const MODULE_LABELS: Record<ModuleKey, string> = {
+  DASHBOARD: "Dashboard",
+  PEOPLE: "People",
+  ATTENDANCE: "Attendance",
+  TASKS: "Tasks",
+  EMPLOYEE_REQUESTS: "Requests",
+  LEAVE: "Leave",
+  COMPANY: "Company",
+  PROFILE: "Profile",
+  COMMUNICATIONS: "Updates",
+  SYSTEM: "System",
+};
+
+const BACKEND_ROLE_TO_UI: Record<string, Role> = {
+  DEVELOPER_ADMIN: "developer_admin",
+  MAIN_ADMIN: "main_admin",
+  CEO: "ceo",
+  HR: "hr",
+  MANAGER: "manager",
+  EMPLOYEE: "employee",
+  SALES: "sales",
+  DRIVER: "driver",
+  FIELD_STAFF: "field_staff",
+};
+
+const INTEGRATION_SCOPE_LABELS: Record<IntegrationScope, string> = {
+  "employees:read": "Read employee profiles",
+  "employees:write": "Create and update employees",
+  "employee-events:read": "Read employee change events",
+};
 
 function SettingsPage() {
   const { user } = useAuth();
@@ -79,6 +125,17 @@ function SettingsPage() {
   const [resetConfirmation, setResetConfirmation] = useState("");
   const [resetPassword, setResetPassword] = useState("");
   const [resetting, setResetting] = useState(false);
+  const [moduleKeys, setModuleKeys] = useState<ModuleKey[]>([]);
+  const [moduleMatrix, setModuleMatrix] = useState<Record<string, ModuleKey[]>>({});
+  const [moduleAccessSaving, setModuleAccessSaving] = useState(false);
+  const [integrationClients, setIntegrationClients] = useState<IntegrationClient[]>([]);
+  const [integrationName, setIntegrationName] = useState("");
+  const [integrationExpiry, setIntegrationExpiry] = useState("");
+  const [integrationScopes, setIntegrationScopes] = useState<IntegrationScope[]>([
+    "employees:read",
+  ]);
+  const [integrationSaving, setIntegrationSaving] = useState(false);
+  const [generatedApiKey, setGeneratedApiKey] = useState("");
 
   const refreshHealth = useCallback(async () => {
     setHealthError("");
@@ -138,6 +195,25 @@ function SettingsPage() {
     return () => window.clearInterval(intervalId);
   }, [isDeveloperAdmin, refreshHealth]);
 
+  useEffect(() => {
+    if (!isDeveloperAdmin) return;
+    void moduleAccessApi
+      .matrix()
+      .then(({ modules, matrix }) => {
+        setModuleKeys(modules);
+        setModuleMatrix(matrix);
+      })
+      .catch((err) => toast.error((err as Error).message));
+  }, [isDeveloperAdmin]);
+
+  useEffect(() => {
+    if (!isDeveloperAdmin) return;
+    void integrationClientsApi
+      .list()
+      .then(setIntegrationClients)
+      .catch((err) => toast.error((err as Error).message));
+  }, [isDeveloperAdmin]);
+
   return (
     <div>
       <PageHeader
@@ -146,6 +222,272 @@ function SettingsPage() {
       />
       {loading && <LoadingState label="Loading system settings" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
+
+      {isDeveloperAdmin && (
+        <Card className="mb-6">
+          <CardHeader className="border-b p-4 sm:p-5">
+            <div className="flex items-start gap-3">
+              <span className="rounded-md bg-primary/10 p-2 text-primary">
+                <Blocks className="h-5 w-5" />
+              </span>
+              <div>
+                <CardTitle className="text-base">Module Access</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Control which application modules each role can open. These rules are enforced in
+                  both navigation and protected APIs.
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-5">
+            <div className="overflow-x-auto rounded-md border">
+              <table className="w-full min-w-[760px] text-sm">
+                <thead className="bg-muted/50 text-left">
+                  <tr>
+                    <th className="px-3 py-3 font-semibold">Role</th>
+                    {moduleKeys.map((module) => (
+                      <th key={module} className="px-2 py-3 text-center text-xs font-semibold">
+                        {MODULE_LABELS[module]}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(BACKEND_ROLE_TO_UI).map(([backendRole, uiRole]) => (
+                    <tr key={backendRole} className="border-t">
+                      <td className="whitespace-nowrap px-3 py-3 font-medium">
+                        {ROLE_LABELS[uiRole]}
+                      </td>
+                      {moduleKeys.map((module) => {
+                        const immutable = backendRole === "DEVELOPER_ADMIN";
+                        const enabled =
+                          immutable || (moduleMatrix[backendRole] ?? []).includes(module);
+                        return (
+                          <td key={module} className="px-2 py-3 text-center">
+                            <Switch
+                              checked={enabled}
+                              disabled={immutable || moduleAccessSaving}
+                              aria-label={`${ROLE_LABELS[uiRole]} ${MODULE_LABELS[module]}`}
+                              onCheckedChange={(checked) =>
+                                setModuleMatrix((current) => ({
+                                  ...current,
+                                  [backendRole]: checked
+                                    ? [...new Set([...(current[backendRole] ?? []), module])]
+                                    : (current[backendRole] ?? []).filter(
+                                        (item) => item !== module,
+                                      ),
+                                }))
+                              }
+                            />
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <Button
+                disabled={moduleAccessSaving || moduleKeys.length === 0}
+                onClick={() => {
+                  setModuleAccessSaving(true);
+                  void moduleAccessApi
+                    .update(moduleMatrix)
+                    .then(({ matrix }) => {
+                      setModuleMatrix(matrix);
+                      toast.success("Module access updated");
+                    })
+                    .catch((err) => toast.error((err as Error).message))
+                    .finally(() => setModuleAccessSaving(false));
+                }}
+              >
+                {moduleAccessSaving ? "Saving..." : "Save module access"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {isDeveloperAdmin && (
+        <Card className="mb-6">
+          <CardHeader className="border-b p-4 sm:p-5">
+            <div className="flex items-start gap-3">
+              <span className="rounded-md bg-primary/10 p-2 text-primary">
+                <KeyRound className="h-5 w-5" />
+              </span>
+              <div>
+                <CardTitle className="text-base">Employee API Access</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Create scoped service credentials for trusted applications. The full key is shown
+                  only once and is stored in the database as a SHA-256 hash.
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5 p-4 sm:p-5">
+            {generatedApiKey && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+                <p className="font-semibold">Copy this API key now</p>
+                <p className="mt-1 text-xs">
+                  It cannot be displayed again after this page reloads.
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <Input readOnly value={generatedApiKey} className="font-mono text-xs" />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label="Copy API key"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(generatedApiKey);
+                      toast.success("API key copied");
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="grid gap-4 lg:grid-cols-[1fr_220px_auto] lg:items-end">
+              <div className="space-y-2">
+                <Label htmlFor="integration-name">Application name</Label>
+                <Input
+                  id="integration-name"
+                  value={integrationName}
+                  maxLength={120}
+                  placeholder="Payroll production"
+                  onChange={(event) => setIntegrationName(event.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="integration-expiry">Expiry date (optional)</Label>
+                <Input
+                  id="integration-expiry"
+                  type="date"
+                  min={new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)}
+                  value={integrationExpiry}
+                  onChange={(event) => setIntegrationExpiry(event.target.value)}
+                />
+              </div>
+              <Button
+                disabled={
+                  integrationSaving || !integrationName.trim() || integrationScopes.length === 0
+                }
+                onClick={() => {
+                  setIntegrationSaving(true);
+                  void integrationClientsApi
+                    .create({
+                      name: integrationName.trim(),
+                      scopes: integrationScopes,
+                      expiresAt: integrationExpiry ? `${integrationExpiry}T23:59:59.999Z` : null,
+                    })
+                    .then(async (created) => {
+                      setGeneratedApiKey(created.apiKey);
+                      setIntegrationName("");
+                      setIntegrationExpiry("");
+                      setIntegrationClients(await integrationClientsApi.list());
+                      toast.success("Integration credential created");
+                    })
+                    .catch((err) => toast.error((err as Error).message))
+                    .finally(() => setIntegrationSaving(false));
+                }}
+              >
+                {integrationSaving ? "Creating..." : "Create API key"}
+              </Button>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-3">
+              {(Object.entries(INTEGRATION_SCOPE_LABELS) as [IntegrationScope, string][]).map(
+                ([scope, label]) => (
+                  <label
+                    key={scope}
+                    className="flex items-start gap-2 rounded-md border p-3 text-sm"
+                  >
+                    <Checkbox
+                      checked={integrationScopes.includes(scope)}
+                      onCheckedChange={(checked) =>
+                        setIntegrationScopes((current) =>
+                          checked === true
+                            ? [...new Set([...current, scope])]
+                            : current.filter((item) => item !== scope),
+                        )
+                      }
+                    />
+                    <span>
+                      <span className="block font-medium">{label}</span>
+                      <span className="font-mono text-xs text-muted-foreground">{scope}</span>
+                    </span>
+                  </label>
+                ),
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">Issued credentials</p>
+              {integrationClients.length === 0 ? (
+                <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                  No integration credentials have been created.
+                </p>
+              ) : (
+                integrationClients.map((client) => (
+                  <div
+                    key={client.clientId}
+                    className="flex flex-col gap-3 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium">{client.name}</span>
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs">
+                          {client.status}
+                        </span>
+                      </div>
+                      <p className="mt-1 font-mono text-xs text-muted-foreground">
+                        {client.keyPrefix}… · {client.scopes.join(", ")}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Last used:{" "}
+                        {client.lastUsedAt ? new Date(client.lastUsedAt).toLocaleString() : "Never"}
+                        {client.expiresAt
+                          ? ` · Expires ${new Date(client.expiresAt).toLocaleString()}`
+                          : " · No expiry"}
+                      </p>
+                    </div>
+                    {client.status === "ACTIVE" && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          void integrationClientsApi
+                            .revoke(client.clientId)
+                            .then(() => {
+                              setIntegrationClients((current) =>
+                                current.map((item) =>
+                                  item.clientId === client.clientId
+                                    ? {
+                                        ...item,
+                                        status: "REVOKED",
+                                        revokedAt: new Date().toISOString(),
+                                      }
+                                    : item,
+                                ),
+                              );
+                              toast.success("Integration credential revoked");
+                            })
+                            .catch((err) => toast.error((err as Error).message));
+                        }}
+                      >
+                        <Unplug className="h-4 w-4" /> Revoke
+                      </Button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {isDeveloperAdmin && (
         <Card className="mb-6">

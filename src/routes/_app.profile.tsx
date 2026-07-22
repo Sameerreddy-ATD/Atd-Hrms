@@ -259,11 +259,16 @@ function ProfilePage() {
               <Field label="Role" value={ROLE_LABELS[user.role]} />
               <Field label="Gender" value={formatGender(profile.gender)} />
               <Field label="Employment type" value={formatEmployment(profile.employmentType)} />
+              <Field
+                label="Organization level"
+                value={formatOrganizationLevel(profile.organizationLevel)}
+              />
               <Field label="Designation" value={profile.designation ?? "-"} />
               <Field label="Reporting manager" value={profile.managerName ?? "Not assigned"} />
               <Field label="Joining date" value={profile.joiningDate ?? "-"} />
               <Field label="Home Branch" value={branchName} />
               <Field label="Attendance access" value="Biometric scanner and mobile location" />
+              <Field label="Assigned shift" value={formatShift(profile)} />
               <Field
                 label="Work assignment"
                 value={profile.isFieldEmployee ? "Field and branch work" : "Branch-based work"}
@@ -305,6 +310,23 @@ function formatEmployment(type?: User["employmentType"]) {
   if (type === "PART_TIME") return "Part-time";
   if (type === "INTERN") return "Intern";
   return "Not provided";
+}
+
+function formatOrganizationLevel(level?: User["organizationLevel"]) {
+  if (!level) return "Not assigned";
+  return level.charAt(0) + level.slice(1).toLowerCase();
+}
+
+function formatShift(profile: User) {
+  const minutes = (value?: number) => {
+    if (value === undefined) return "--:--";
+    const hours = Math.floor(value / 60)
+      .toString()
+      .padStart(2, "0");
+    const mins = (value % 60).toString().padStart(2, "0");
+    return `${hours}:${mins}`;
+  };
+  return `${profile.shiftType === "NIGHT" ? "Night" : "Day"} · ${minutes(profile.shiftStartMinutes)}–${minutes(profile.shiftEndMinutes)}`;
 }
 
 function Field({

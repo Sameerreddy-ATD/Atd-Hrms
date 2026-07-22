@@ -1,4 +1,4 @@
-import type { Role } from "@/mock/types";
+import type { ModuleKey, Role } from "@/mock/types";
 import {
   LayoutDashboard,
   Users,
@@ -107,10 +107,19 @@ export const menuGroups: MenuGroup[] = [
     items: [
       { label: "Tasks & Daily Logs", to: "/tasks", icon: ListTodo, roles: ALL },
       {
-        label: "Employee Services",
+        label: "Employee Requests",
         to: "/employee-services",
         icon: HandCoins,
-        roles: ["developer_admin", "hr", "manager", "employee", "sales", "driver", "field_staff"],
+        roles: [
+          "developer_admin",
+          "ceo",
+          "hr",
+          "manager",
+          "employee",
+          "sales",
+          "driver",
+          "field_staff",
+        ],
       },
     ],
   },
@@ -212,16 +221,21 @@ export const menuGroups: MenuGroup[] = [
   },
 ];
 
-export function menuForRole(role: Role, options?: { isReportingManager?: boolean }): MenuGroup[] {
+export function menuForRole(
+  role: Role,
+  options?: { isReportingManager?: boolean; allowedModules?: ModuleKey[] },
+): MenuGroup[] {
   return menuGroups
     .map((g) => ({
       ...g,
       items: g.items
         .filter((i) => {
-          if (i.requiresReportingManager) {
-            return options?.isReportingManager === true;
-          }
-          return i.roles.includes(role) || (i.allowReportingManager && options?.isReportingManager);
+          const roleAllowed = i.requiresReportingManager
+            ? options?.isReportingManager === true
+            : i.roles.includes(role) || (i.allowReportingManager && options?.isReportingManager);
+          const module = moduleForRoute(i.to);
+          const moduleAllowed = !options?.allowedModules || options.allowedModules.includes(module);
+          return roleAllowed && moduleAllowed;
         })
         .map((item) => {
           if (role !== "ceo") return item;
@@ -236,4 +250,17 @@ export function menuForRole(role: Role, options?: { isReportingManager?: boolean
         }),
     }))
     .filter((g) => g.items.length > 0);
+}
+
+export function moduleForRoute(path: string): ModuleKey {
+  if (path === "/dashboard") return "DASHBOARD";
+  if (["/employees", "/users", "/departments"].includes(path)) return "PEOPLE";
+  if (path.startsWith("/attendance") || path === "/devices") return "ATTENDANCE";
+  if (path === "/tasks") return "TASKS";
+  if (path === "/employee-services") return "EMPLOYEE_REQUESTS";
+  if (path.startsWith("/leave")) return "LEAVE";
+  if (["/branches", "/holidays", "/assets"].includes(path)) return "COMPANY";
+  if (["/profile", "/id-card"].includes(path)) return "PROFILE";
+  if (["/notifications", "/announcements"].includes(path)) return "COMMUNICATIONS";
+  return "SYSTEM";
 }

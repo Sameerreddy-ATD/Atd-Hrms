@@ -126,6 +126,12 @@ enum TaskPriority {
   URGENT
 }
 
+enum TaskBoardAccessType {
+  OPEN
+  ROLE_GATED
+  MEMBER_GATED
+}
+
 enum AssetType {
   PHYSICAL
   ONLINE
@@ -142,32 +148,49 @@ enum AssetCostFrequency {
   YEARLY
 }
 
+enum IntegrationClientStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum EmployeeChangeType {
+  CREATED
+  UPDATED
+  DEACTIVATED
+  REACTIVATED
+}
+
 model User {
-  id                               String             @id @default(cuid())
-  employeeId                       String?            @unique @map("employee_id")
-  employee                         Employee?          @relation(fields: [employeeId], references: [employeeId])
+  id                               String               @id @default(cuid())
+  employeeId                       String?              @unique @map("employee_id")
+  employee                         Employee?            @relation(fields: [employeeId], references: [employeeId])
   name                             String
-  email                            String             @unique
+  email                            String               @unique
   phone                            String?
-  passwordHash                     String             @map("password_hash")
+  passwordHash                     String               @map("password_hash")
   role                             Role
-  status                           UserStatus         @default(ACTIVE)
-  firstLoginPasswordChangeRequired Boolean            @default(true) @map("first_login_password_change_required")
-  failedLoginAttempts              Int                @default(0) @map("failed_login_attempts")
-  lastLoginAt                      DateTime?          @map("last_login_at")
-  createdByUserId                  String?            @map("created_by_user_id")
-  createdAt                        DateTime           @default(now()) @map("created_at")
-  updatedAt                        DateTime           @updatedAt @map("updated_at")
-  suspendedUntil                   DateTime?          @map("suspended_until")
-  suspensionStartsAt               DateTime?          @map("suspension_starts_at")
-  createdUsers                     User[]             @relation("CreatedUsers")
-  creator                          User?              @relation("CreatedUsers", fields: [createdByUserId], references: [id])
-  performedAuditLogs               AuditLog[]         @relation("AuditPerformedBy")
-  affectedAuditLogs                AuditLog[]         @relation("AuditAffectedUser")
-  createdTasks                     WorkTask[]         @relation("TaskCreator")
+  status                           UserStatus           @default(ACTIVE)
+  firstLoginPasswordChangeRequired Boolean              @default(true) @map("first_login_password_change_required")
+  failedLoginAttempts              Int                  @default(0) @map("failed_login_attempts")
+  lastLoginAt                      DateTime?            @map("last_login_at")
+  createdByUserId                  String?              @map("created_by_user_id")
+  createdAt                        DateTime             @default(now()) @map("created_at")
+  updatedAt                        DateTime             @updatedAt @map("updated_at")
+  suspendedUntil                   DateTime?            @map("suspended_until")
+  suspensionStartsAt               DateTime?            @map("suspension_starts_at")
+  deactivatedAt                    DateTime?            @map("deactivated_at")
+  createdUsers                     User[]               @relation("CreatedUsers")
+  creator                          User?                @relation("CreatedUsers", fields: [createdByUserId], references: [id])
+  performedAuditLogs               AuditLog[]           @relation("AuditPerformedBy")
+  affectedAuditLogs                AuditLog[]           @relation("AuditAffectedUser")
+  createdTasks                     WorkTask[]           @relation("TaskCreator")
+  createdTaskBoards                TaskBoard[]          @relation("TaskBoardCreator")
   taskUpdates                      TaskUpdate[]
-  announcements                    Announcement[]     @relation("AnnouncementAuthor")
+  announcements                    Announcement[]       @relation("AnnouncementAuthor")
   pushSubscriptions                PushSubscription[]
+  reviewedExpenseClaims            ExpenseClaim[]       @relation("ExpenseReviewer")
+  reviewedDocumentRequests         CertificateRequest[] @relation("DocumentReviewer")
+  createdIntegrationClients        IntegrationClient[]  @relation("IntegrationClientCreator")
 
   @@index([status, role])
   @@map("users")
@@ -207,52 +230,57 @@ model PushSubscription {
 }
 
 model Employee {
-  employeeId          String                        @id @default(cuid()) @map("employee_id")
-  employeeCode        String                        @unique @map("employee_code")
-  name                String
-  email               String?                       @unique
-  phone               String?
-  departmentId        String?                       @map("department_id")
-  department          Department?                   @relation(fields: [departmentId], references: [departmentId])
-  designation         String?
-  homeBranchId        String?                       @map("home_branch_id")
-  homeBranch          Branch?                       @relation(fields: [homeBranchId], references: [branchId])
-  managerId           String?                       @map("manager_id")
-  manager             Employee?                     @relation("ManagerTeam", fields: [managerId], references: [employeeId])
-  teamMembers         Employee[]                    @relation("ManagerTeam")
-  joiningDate         DateTime?                     @map("joining_date") @db.Date
-  dateOfBirth         DateTime?                     @map("date_of_birth") @db.Date
-  gender              Gender?
-  employmentType      EmploymentType?               @map("employment_type")
-  organizationLevel   String                        @default("MEMBER") @map("organization_level")
-  attendanceMode      AttendanceMode                @default(BOTH) @map("attendance_mode")
-  attendanceRequired  Boolean                       @default(true) @map("attendance_required")
-  shiftType           ShiftType                     @default(DAY) @map("shift_type")
-  shiftStartMinutes   Int                           @default(540) @map("shift_start_minutes")
-  shiftEndMinutes     Int                           @default(1080) @map("shift_end_minutes")
-  isFieldEmployee     Boolean                       @default(false) @map("is_field_employee")
-  status              EmployeeStatus                @default(ACTIVE)
-  createdAt           DateTime                      @default(now()) @map("created_at")
-  updatedAt           DateTime                      @updatedAt @map("updated_at")
-  user                User?
-  schedules           EmployeeBranchSchedule[]
-  attendanceEvents    AttendanceEvent[]
-  summaries           AttendanceDailySummary[]
-  fieldAttendances    FieldAttendance[]
-  biometricMappings   BiometricEmployeeMapping[]
-  leaveRequests       LeaveRequest[]
-  leaveBalances       LeaveBalance[]
-  weeklyOffRequests   WeeklyOffRequest[]
-  compOffCredits      CompOffCredit[]
-  correctionRequests  AttendanceCorrectionRequest[]
-  emergencyContact    EmergencyContact?
-  headedDepartments   Department[]                  @relation("DepartmentHead")
-  assignedAssets      CompanyAsset[]
-  taskAssignments     TaskAssignment[]
-  assetReturns        AssetReturn[]
-  expenseClaims       ExpenseClaim[]
-  certificateRequests CertificateRequest[]
-  attendanceReminders AttendanceReminder[]
+  employeeId           String                        @id @default(cuid()) @map("employee_id")
+  employeeCode         String                        @unique @map("employee_code")
+  externalReference    String?                       @unique @map("external_reference")
+  name                 String
+  email                String?                       @unique
+  phone                String?
+  departmentId         String?                       @map("department_id")
+  department           Department?                   @relation(fields: [departmentId], references: [departmentId])
+  designation          String?
+  homeBranchId         String?                       @map("home_branch_id")
+  homeBranch           Branch?                       @relation(fields: [homeBranchId], references: [branchId])
+  managerId            String?                       @map("manager_id")
+  manager              Employee?                     @relation("ManagerTeam", fields: [managerId], references: [employeeId])
+  teamMembers          Employee[]                    @relation("ManagerTeam")
+  joiningDate          DateTime?                     @map("joining_date") @db.Date
+  dateOfBirth          DateTime?                     @map("date_of_birth") @db.Date
+  gender               Gender?
+  employmentType       EmploymentType?               @map("employment_type")
+  organizationLevel    String                        @default("MEMBER") @map("organization_level")
+  attendanceMode       AttendanceMode                @default(BOTH) @map("attendance_mode")
+  attendanceRequired   Boolean                       @default(true) @map("attendance_required")
+  shiftType            ShiftType                     @default(DAY) @map("shift_type")
+  shiftStartMinutes    Int                           @default(540) @map("shift_start_minutes")
+  shiftEndMinutes      Int                           @default(1080) @map("shift_end_minutes")
+  isFieldEmployee      Boolean                       @default(false) @map("is_field_employee")
+  status               EmployeeStatus                @default(ACTIVE)
+  version              Int                           @default(1)
+  terminatedAt         DateTime?                     @map("terminated_at")
+  createdAt            DateTime                      @default(now()) @map("created_at")
+  updatedAt            DateTime                      @updatedAt @map("updated_at")
+  user                 User?
+  schedules            EmployeeBranchSchedule[]
+  attendanceEvents     AttendanceEvent[]
+  summaries            AttendanceDailySummary[]
+  fieldAttendances     FieldAttendance[]
+  biometricMappings    BiometricEmployeeMapping[]
+  leaveRequests        LeaveRequest[]
+  leaveBalances        LeaveBalance[]
+  weeklyOffRequests    WeeklyOffRequest[]
+  compOffCredits       CompOffCredit[]
+  correctionRequests   AttendanceCorrectionRequest[]
+  emergencyContact     EmergencyContact?
+  headedDepartments    Department[]                  @relation("DepartmentHead")
+  assignedAssets       CompanyAsset[]
+  taskAssignments      TaskAssignment[]
+  taskBoardMemberships TaskBoardMember[]
+  assetReturns         AssetReturn[]
+  expenseClaims        ExpenseClaim[]
+  certificateRequests  CertificateRequest[]
+  attendanceReminders  AttendanceReminder[]
+  changeEvents         EmployeeChangeEvent[]
 
   @@map("employees")
 }
@@ -350,24 +378,30 @@ model AssetReturn {
 }
 
 model ExpenseClaim {
-  claimId          String    @id @default(cuid()) @map("claim_id")
-  employeeId       String    @map("employee_id")
-  employee         Employee  @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
-  category         String
-  amount           Decimal   @db.Decimal(12, 2)
-  expenseDate      DateTime  @map("expense_date") @db.Date
-  description      String    @db.Text
-  receiptUrl       String?   @map("receipt_url") @db.Text
-  status           String    @default("PENDING")
-  reviewedByUserId String?   @map("reviewed_by_user_id")
-  reviewNotes      String?   @map("review_notes") @db.Text
-  reviewedAt       DateTime? @map("reviewed_at")
-  paidAt           DateTime? @map("paid_at")
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
+  claimId                String    @id @default(cuid()) @map("claim_id")
+  employeeId             String    @map("employee_id")
+  employee               Employee  @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  claimType              String    @default("EXPENSE") @map("claim_type")
+  title                  String?
+  category               String?
+  amount                 Decimal   @db.Decimal(12, 2)
+  expenseDate            DateTime? @map("expense_date") @db.Date
+  description            String?   @db.Text
+  remark                 String?   @db.Text
+  receiptUrl             String?   @map("receipt_url") @db.Text
+  receiptAccessConfirmed Boolean   @default(false) @map("receipt_access_confirmed")
+  status                 String    @default("PENDING")
+  reviewedByUserId       String?   @map("reviewed_by_user_id")
+  reviewedBy             User?     @relation("ExpenseReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reviewNotes            String?   @map("review_notes") @db.Text
+  reviewedAt             DateTime? @map("reviewed_at")
+  paidAt                 DateTime? @map("paid_at")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
 
   @@index([employeeId, createdAt])
   @@index([status, createdAt])
+  @@index([reviewedByUserId])
   @@map("expense_claims")
 }
 
@@ -381,6 +415,7 @@ model CertificateRequest {
   requiredBy           DateTime? @map("required_by") @db.Date
   status               String    @default("PENDING")
   reviewedByUserId     String?   @map("reviewed_by_user_id")
+  reviewedBy           User?     @relation("DocumentReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
   hrNotes              String?   @map("hr_notes") @db.Text
   documentUrl          String?   @map("document_url") @db.Text
   completedAt          DateTime? @map("completed_at")
@@ -389,6 +424,7 @@ model CertificateRequest {
 
   @@index([employeeId, createdAt])
   @@index([status, createdAt])
+  @@index([reviewedByUserId])
   @@map("certificate_requests")
 }
 
@@ -541,14 +577,14 @@ model AttendanceDailySummary {
 }
 
 model AttendanceReminder {
-  reminderId String   @id @default(cuid()) @map("reminder_id")
-  employeeId String   @map("employee_id")
-  employee   Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
-  eventId    String   @unique @map("event_id")
-  eventDate  DateTime @map("event_date") @db.Date
-  eventTime  DateTime @map("event_time")
+  reminderId String    @id @default(cuid()) @map("reminder_id")
+  employeeId String    @map("employee_id")
+  employee   Employee  @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  eventId    String    @unique @map("event_id")
+  eventDate  DateTime  @map("event_date") @db.Date
+  eventTime  DateTime  @map("event_time")
   resolvedAt DateTime? @map("resolved_at")
-  createdAt  DateTime @default(now()) @map("created_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
 
   @@index([employeeId, resolvedAt, createdAt])
   @@map("attendance_reminders")
@@ -728,6 +764,10 @@ model WorkTask {
   parentTaskId    String?          @map("parent_task_id")
   parentTask      WorkTask?        @relation("TaskHierarchy", fields: [parentTaskId], references: [taskId])
   subtasks        WorkTask[]       @relation("TaskHierarchy")
+  boardId         String?          @map("board_id")
+  board           TaskBoard?       @relation(fields: [boardId], references: [boardId], onDelete: SetNull)
+  stageId         String?          @map("stage_id")
+  stage           TaskStage?       @relation(fields: [stageId], references: [stageId], onDelete: SetNull)
   status          TaskStatus       @default(TODO)
   priority        TaskPriority     @default(MEDIUM)
   progress        Int              @default(0)
@@ -742,7 +782,62 @@ model WorkTask {
   @@index([status])
   @@index([createdByUserId])
   @@index([dueDate])
+  @@index([boardId, stageId])
   @@map("work_tasks")
+}
+
+model TaskBoard {
+  boardId         String              @id @default(cuid()) @map("board_id")
+  name            String
+  description     String?             @db.Text
+  accessType      TaskBoardAccessType @default(OPEN) @map("access_type")
+  archived        Boolean             @default(false)
+  createdByUserId String              @map("created_by_user_id")
+  createdBy       User                @relation("TaskBoardCreator", fields: [createdByUserId], references: [id])
+  stages          TaskStage[]
+  roleAccess      TaskBoardRole[]
+  members         TaskBoardMember[]
+  tasks           WorkTask[]
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+
+  @@index([archived, updatedAt])
+  @@map("task_boards")
+}
+
+model TaskStage {
+  stageId     String     @id @default(cuid()) @map("stage_id")
+  boardId     String     @map("board_id")
+  board       TaskBoard  @relation(fields: [boardId], references: [boardId], onDelete: Cascade)
+  name        String
+  color       String     @default("SLATE")
+  sortOrder   Int        @default(0) @map("sort_order")
+  isCompleted Boolean    @default(false) @map("is_completed")
+  tasks       WorkTask[]
+
+  @@unique([boardId, name])
+  @@index([boardId, sortOrder])
+  @@map("task_stages")
+}
+
+model TaskBoardRole {
+  boardId String    @map("board_id")
+  board   TaskBoard @relation(fields: [boardId], references: [boardId], onDelete: Cascade)
+  role    Role
+
+  @@id([boardId, role])
+  @@map("task_board_roles")
+}
+
+model TaskBoardMember {
+  boardId    String    @map("board_id")
+  board      TaskBoard @relation(fields: [boardId], references: [boardId], onDelete: Cascade)
+  employeeId String    @map("employee_id")
+  employee   Employee  @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+
+  @@id([boardId, employeeId])
+  @@index([employeeId])
+  @@map("task_board_members")
 }
 
 model TaskAssignment {
@@ -803,4 +898,55 @@ model SystemSetting {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("system_settings")
+}
+
+model IntegrationClient {
+  clientId        String                   @id @default(cuid()) @map("client_id")
+  name            String
+  keyPrefix       String                   @unique @map("key_prefix") @db.VarChar(24)
+  secretHash      String                   @unique @map("secret_hash") @db.VarChar(64)
+  scopes          Json
+  status          IntegrationClientStatus  @default(ACTIVE)
+  expiresAt       DateTime?                @map("expires_at")
+  lastUsedAt      DateTime?                @map("last_used_at")
+  revokedAt       DateTime?                @map("revoked_at")
+  createdByUserId String                   @map("created_by_user_id")
+  createdBy       User                     @relation("IntegrationClientCreator", fields: [createdByUserId], references: [id])
+  idempotencyKeys IntegrationIdempotency[]
+  createdAt       DateTime                 @default(now()) @map("created_at")
+  updatedAt       DateTime                 @updatedAt @map("updated_at")
+
+  @@index([status, expiresAt])
+  @@map("integration_clients")
+}
+
+model IntegrationIdempotency {
+  idempotencyId String            @id @default(cuid()) @map("idempotency_id")
+  clientId      String            @map("client_id")
+  client        IntegrationClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  key           String            @db.VarChar(200)
+  requestHash   String            @map("request_hash") @db.VarChar(64)
+  responseCode  Int               @map("response_code")
+  responseBody  Json              @map("response_body")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  expiresAt     DateTime          @map("expires_at")
+
+  @@unique([clientId, key])
+  @@index([expiresAt])
+  @@map("integration_idempotency")
+}
+
+model EmployeeChangeEvent {
+  sequence   BigInt             @id @default(autoincrement())
+  eventId    String             @unique @default(cuid()) @map("event_id")
+  employeeId String?            @map("employee_id")
+  employee   Employee?          @relation(fields: [employeeId], references: [employeeId], onDelete: SetNull)
+  eventType  EmployeeChangeType @map("event_type")
+  version    Int
+  payload    Json
+  occurredAt DateTime           @default(now()) @map("occurred_at")
+
+  @@index([employeeId, sequence])
+  @@index([occurredAt])
+  @@map("employee_change_events")
 }
