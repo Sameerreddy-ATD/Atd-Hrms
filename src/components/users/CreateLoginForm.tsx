@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
-import { type Branch, type Department, type Role, type User } from "@/mock/types";
+import { type Branch, type Department, type Role, type User } from "@/types/domain";
 import { branchesApi, employeesApi, usersApi } from "@/services/api";
 
 const CAN_CREATE: Record<Role, Role[]> = {

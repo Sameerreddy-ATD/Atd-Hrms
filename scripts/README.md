@@ -2,6 +2,20 @@
 
 This project runs on **MySQL 8.0**. The Express backend and Prisma client both read `DATABASE_URL` from `.env`.
 
+## `start-all.ps1`
+
+Starts the project-managed MySQL instance, backend watcher, and frontend development server for a
+complete Windows development session.
+
+```powershell
+$env:MYSQL_ROOT_PASSWORD = "use-a-strong-local-password"
+$env:SEED_PASSWORD = "required only when initializing a fresh database"
+npm run dev:with-db
+```
+
+If the database is already initialized, the script starts it without reseeding. Use `npm run
+dev:all` when MySQL is managed separately or already running as a Windows service.
+
 ## `start-mysql.ps1`
 
 Starts the project-local MySQL server on `127.0.0.1:3306` using the drive-root
@@ -42,6 +56,18 @@ npm run db:audit
 
 Use this after migrations and before enabling an integration. A non-zero exit code means a blocking
 integrity issue was found. See `docs/DATABASE_INTEGRITY_AUDIT.md`.
+
+## `audit-repository.mjs`
+
+Performs a read-only repository check. It verifies required files, prevents generated or sensitive
+paths from being tracked, rejects retired mock paths, validates local Markdown links, confirms every
+guide is listed in the documentation index, and checks required npm scripts.
+
+```bash
+npm run repo:audit
+```
+
+Run it before every commit and after adding, moving, or deleting documentation.
 
 ## `smoke-tasks.ps1`
 

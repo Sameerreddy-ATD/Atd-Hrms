@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { LeaveRequest } from "@/mock/types";
+import type { LeaveRequest } from "@/types/domain";
 import { leaveApi } from "@/services/api";
 import { CalendarDays, Clock3, ExternalLink } from "lucide-react";
 

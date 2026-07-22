@@ -18,11 +18,13 @@ The production server uses a read-only GitHub deploy key. Do not copy a personal
 ```bash
 npm ci
 npx prisma validate
+npm run repo:audit
 npm run typecheck
 npm run lint
 npm test
 npm run build
 npm run build:backend
+npm run audit:deps
 ```
 
 4. Commit with the configured organization identity and push `version-1`.
@@ -74,7 +76,7 @@ npx prisma generate
 npm run db:deploy
 npm run build
 npm run build:backend
-node scripts/audit-database.mjs
+npm run db:audit
 pm2 restart atd-backend --update-env
 pm2 restart atd-frontend --update-env
 pm2 save
@@ -115,7 +117,7 @@ the stage/status/activity remain synchronized. Run `npm run db:audit` again afte
 
 For releases that change shared navigation or dashboards, also verify:
 
-- CEO sidebar labels and read-only access to Workforce, Attendance Overview, Work Progress, Leave
+- CEO sidebar labels and read-only access to Workforce, Attendance Overview, Work Planner, Leave
   Overview, and Company Investment;
 - Developer Admin, HR, head, and employee menus do not gain unauthorized entries;
 - page headers and actions at 390 px, tablet width, and laptop width; and

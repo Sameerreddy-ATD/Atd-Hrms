@@ -27,7 +27,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { attendanceApi } from "@/services/api";
-import type { AttendanceRecord } from "@/mock/types";
+import type { AttendanceRecord } from "@/types/domain";
 import { useAuth } from "@/lib/auth";
 import { punchTypeLabel } from "@/lib/attendance-labels";
 import { ArrowRight, Check, X, FileClock, AlertTriangle } from "lucide-react";

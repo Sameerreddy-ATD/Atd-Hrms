@@ -39,7 +39,7 @@ Use the executive navigation shortcuts or sidebar:
 
 - **Workforce** opens organization-wide employee information.
 - **Attendance Overview** opens date, employee, branch, source, and movement details.
-- **Work Progress** opens organization-wide tasks and daily progress.
+- **Work Planner** opens organization-wide tasks, owners, due dates, and activity.
 - **Leave Overview** opens leave status and approval progress.
 - **Company Investment** opens read-only physical and online asset investment by employee.
 

@@ -7,6 +7,7 @@ These documents describe the `version-1` application and production deployment. 
 - Employees and managers: [User Guide](USER_GUIDE.md)
 - HR and Developer Admin: [User Guide](USER_GUIDE.md) and [Operations and Workflows](OPERATIONS_AND_WORKFLOWS.md)
 - Developers: [Technical Overview](TECHNICAL_OVERVIEW.md)
+- New contributors: [Repository Structure](REPOSITORY_STRUCTURE.md) and [Development and Testing](DEVELOPMENT_AND_TESTING.md)
 - Database owners and integration developers: [Database Integrity Audit](DATABASE_INTEGRITY_AUDIT.md), [Employee Data and Integration API](EMPLOYEE_DATA_AND_INTEGRATION_API.md), and [OpenAPI](openapi.employee-v1.yaml)
 - Product owners and UI writers: [Product Naming](PRODUCT_NAMING.md)
 - Go-live owners: [Reset and Go-Live](RESET_AND_GO_LIVE.md)
@@ -22,6 +23,8 @@ These documents describe the `version-1` application and production deployment. 
 | `USER_GUIDE.md`                        | Screen-level instructions for each user type                                                     |
 | `OPERATIONS_AND_WORKFLOWS.md`          | Business rules, permissions, status transitions, and retention                                   |
 | `TECHNICAL_OVERVIEW.md`                | Architecture, modules, API groups, data model, and engineering rules                             |
+| `REPOSITORY_STRUCTURE.md`              | Authoritative folder map, file ownership, placement rules, and documentation responsibilities    |
+| `DEVELOPMENT_AND_TESTING.md`           | Local setup, database changes, test matrix, browser QA, and commit checks                        |
 | `EMPLOYEE_DATA_AND_INTEGRATION_API.md` | Complete table catalog, canonical employee rules, API security, synchronization and verification |
 | `DATABASE_INTEGRITY_AUDIT.md`          | Full storage assurance, automated integrity checks, Task v2 rules, and repair policy             |
 | `openapi.employee-v1.yaml`             | Machine-readable Employee API v1 contract                                                        |
@@ -30,6 +33,9 @@ These documents describe the `version-1` application and production deployment. 
 | `LINUX_LOCAL_DEPLOYMENT.md`            | Fresh Linux/AWS installation, private Git access, domain, TLS, Nginx, and PM2                    |
 | `UPGRADE_AND_MAINTENANCE.md`           | Production updates, backups, verification, rollback, and long-term operations                    |
 | `DEVICE_COMPATIBILITY.md`              | Supported browsers, PWA permissions, low-network behavior, and QA matrix                         |
+
+The repository-level [`SECURITY.md`](../SECURITY.md) defines private vulnerability reporting and
+mandatory handling of credentials and employee data.
 
 ## Current Production Facts
 

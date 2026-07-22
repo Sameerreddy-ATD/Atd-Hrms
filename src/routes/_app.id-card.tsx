@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Logo } from "@/components/common/Logo";
 import { useAuth } from "@/lib/auth";
-import { ROLE_LABELS, type Branch } from "@/mock/types";
+import { ROLE_LABELS, type Branch } from "@/types/domain";
 import { branchesApi } from "@/services/api";
 import { ShieldCheck } from "lucide-react";
 

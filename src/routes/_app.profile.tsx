@@ -14,7 +14,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { useAuth } from "@/lib/auth";
-import { ROLE_LABELS, type Branch, type User } from "@/mock/types";
+import { ROLE_LABELS, type Branch, type User } from "@/types/domain";
 import { branchesApi, employeesApi, usersApi } from "@/services/api";
 import { Key, Loader2 } from "lucide-react";
 import { PasswordInput } from "@/components/common/PasswordInput";

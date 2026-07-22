@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { CommandPalette } from "@/components/layout/CommandPalette";
-import { ROLE_LABELS } from "@/mock/types";
+import { ROLE_LABELS } from "@/types/domain";
 import { getTheme, setTheme, type Theme } from "@/lib/system-theme";
 import { notificationsApi } from "@/services/api";
 import {

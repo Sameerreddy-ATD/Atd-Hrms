@@ -14,7 +14,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { Role, User } from "@/mock/types";
+import type { Role, User } from "@/types/domain";
 import { authApi, warmAuthenticatedWorkspace } from "@/services/api";
 
 const SESSION_USER_KEY = "atd.session.user";

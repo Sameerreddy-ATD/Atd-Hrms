@@ -25,7 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { Branch } from "@/mock/types";
+import type { Branch } from "@/types/domain";
 import { branchesApi } from "@/services/api";
 import { Building2, MapPin, Pencil, Plus, Trash2 } from "lucide-react";
 

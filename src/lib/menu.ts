@@ -1,4 +1,4 @@
-import type { ModuleKey, Role } from "@/mock/types";
+import type { ModuleKey, Role } from "@/types/domain";
 import {
   LayoutDashboard,
   Users,
@@ -105,7 +105,7 @@ export const menuGroups: MenuGroup[] = [
   {
     label: "Work",
     items: [
-      { label: "Tasks & Daily Logs", to: "/tasks", icon: ListTodo, roles: ALL },
+      { label: "Work Planner", to: "/tasks", icon: ListTodo, roles: ALL },
       {
         label: "Employee Requests",
         to: "/employee-services",
@@ -242,7 +242,7 @@ export function menuForRole(
           const executiveLabels: Record<string, string> = {
             "/employees": "Workforce",
             "/attendance/locations": "Attendance Overview",
-            "/tasks": "Work Progress",
+            "/tasks": "Work Planner",
             "/leave/reports": "Leave Overview",
             "/assets": "Company Investment",
           };

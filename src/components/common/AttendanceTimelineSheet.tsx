@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { attendanceApi } from "@/services/api";
-import type { AttendanceTimelineEvent } from "@/mock/types";
+import type { AttendanceTimelineEvent } from "@/types/domain";
 import {
   movementDirectionLabel,
   movementEventLabel,

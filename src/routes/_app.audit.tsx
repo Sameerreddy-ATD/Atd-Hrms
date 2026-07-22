@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ROLE_LABELS, type AuditLog } from "@/mock/types";
+import { ROLE_LABELS, type AuditLog } from "@/types/domain";
 import { auditApi } from "@/services/api";
 import { Database, Search } from "lucide-react";
 

@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Logo } from "@/components/common/Logo";
 import { useAuth } from "@/lib/auth";
-import { ROLE_LABELS, type Role } from "@/mock/types";
+import { ROLE_LABELS, type Role } from "@/types/domain";
 import { Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 

@@ -31,16 +31,17 @@ recommended name without changing database or API identifiers.
 
 ## Professional Interface Terms Applied
 
-| Previous or ambiguous term | Professional term                                                   | Reason                                                              |
-| -------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Certificates               | **HR Documents**                                                    | Covers certificates, letters, and other employee documents          |
-| My Expenses                | **Expenses & HR Documents**                                         | Describes both workflows available on the page                      |
-| Users                      | **User Logins**                                                     | Distinguishes authentication accounts from employee records         |
-| Apply                      | **Apply**, with **Add advance expense** and **Add expense** actions | Keeps the primary action concise while making each request explicit |
-| Certificate type           | **Document type**                                                   | Matches the broader HR Documents category                           |
-| Delete user                | **Deactivate login**                                                | Reflects the history-preserving lifecycle behavior                  |
-| Module access              | **Module Access**                                                   | Clear administrative language for role-based feature permissions    |
-| API token                  | **Employee API credential**                                         | Makes the credential purpose and audience explicit                  |
+| Previous or ambiguous term         | Professional term                                                   | Reason                                                               |
+| ---------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Certificates                       | **HR Documents**                                                    | Covers certificates, letters, and other employee documents           |
+| My Expenses                        | **Expenses & HR Documents**                                         | Describes both workflows available on the page                       |
+| Users                              | **User Logins**                                                     | Distinguishes authentication accounts from employee records          |
+| Apply                              | **Apply**, with **Add advance expense** and **Add expense** actions | Keeps the primary action concise while making each request explicit  |
+| Certificate type                   | **Document type**                                                   | Matches the broader HR Documents category                            |
+| Delete user                        | **Deactivate login**                                                | Reflects the history-preserving lifecycle behavior                   |
+| Module access                      | **Module Access**                                                   | Clear administrative language for role-based feature permissions     |
+| API token                          | **Employee API credential**                                         | Makes the credential purpose and audience explicit                   |
+| Tasks & Daily Logs / Work Progress | **Work Planner**                                                    | One consistent name for planning, ownership, due dates, and activity |
 
 ## Naming Rules for Future Features
 

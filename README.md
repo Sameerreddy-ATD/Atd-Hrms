@@ -23,10 +23,17 @@ Start with the [documentation index](docs/README.md).
 | [User Guide](docs/USER_GUIDE.md)                                               | Employees, heads, HR, leadership, and Developer Admin                        |
 | [Operations and Workflows](docs/OPERATIONS_AND_WORKFLOWS.md)                   | Business rules, permissions, attendance, leave, accounts, and data retention |
 | [Technical Overview](docs/TECHNICAL_OVERVIEW.md)                               | Developers and maintainers                                                   |
+| [Repository Structure](docs/REPOSITORY_STRUCTURE.md)                           | File ownership, placement rules, and repository organization                 |
+| [Development and Testing](docs/DEVELOPMENT_AND_TESTING.md)                     | Local development, migrations, test matrix, and release checks               |
 | [Employee Data and Integration API](docs/EMPLOYEE_DATA_AND_INTEGRATION_API.md) | Database owners and external application developers                          |
+| [Database Integrity Audit](docs/DATABASE_INTEGRITY_AUDIT.md)                   | Database owners, maintainers, and release reviewers                          |
 | [Linux and AWS Deployment](docs/LINUX_LOCAL_DEPLOYMENT.md)                     | Server administrators                                                        |
 | [Upgrade and Maintenance](docs/UPGRADE_AND_MAINTENANCE.md)                     | Production releases, backups, rollback, and monitoring                       |
+| [Reset and Go-Live](docs/RESET_AND_GO_LIVE.md)                                 | Developer Admin and go-live owners                                           |
 | [Device Compatibility](docs/DEVICE_COMPATIBILITY.md)                           | Mobile/PWA testing and support                                               |
+| [Product Naming](docs/PRODUCT_NAMING.md)                                       | Product owners and interface writers                                         |
+
+Security reporting and credential-handling rules are in [SECURITY.md](SECURITY.md).
 
 ## Technology
 
@@ -42,19 +49,23 @@ Start with the [documentation index](docs/README.md).
 ## Repository Layout
 
 ```text
-docs/                 Product, workflow, deployment, and maintenance manuals
-prisma/               MySQL schema, active migrations, seed, and archived PostgreSQL migrations
+docs/                 Product, workflow, data, API, deployment, and maintenance manuals
+prisma/               MySQL schema, active migrations, seed, and archived PostgreSQL history
 public/               PWA manifest, service worker, logos, favicons, and install icons
-scripts/              Local MySQL and migration utilities
-server/src/           Express API, security, attendance, push, live events, and mapping
-src/components/       Shared feature, layout, and UI components
+scripts/              Setup, database audit, migration, reset, and smoke-test utilities
+server/src/           Express API, security, business rules, integrations, and persistence
+src/components/       Shared feature, layout, and design-system components
+src/hooks/            Reusable React hooks
 src/lib/              Frontend auth, notifications, attendance, formatting, and utilities
 src/routes/           TanStack file-based application pages
 src/services/api/     Typed frontend API client
-tests/                Unit tests for security and attendance rules
+src/types/            Shared frontend domain contracts
+tests/                Unit, workflow, security, integration, and browser tests
 ```
 
-Generated folders, logs, local databases, `.env`, build output, and dependencies are excluded by `.gitignore` and must not be committed.
+The complete ownership and placement policy is in
+[Repository Structure](docs/REPOSITORY_STRUCTURE.md). Generated folders, logs, local databases,
+`.env`, build output, and dependencies are excluded by `.gitignore` and must not be committed.
 
 ## Local Windows Setup
 
@@ -62,7 +73,7 @@ Prerequisites: Node.js 22+, npm, and MySQL 8.
 
 ```powershell
 Set-Location D:\Employee-Management-System
-npm install
+npm ci
 Copy-Item .env.example .env
 ```
 
@@ -75,7 +86,8 @@ $env:SEED_PASSWORD = "use-a-strong-initial-admin-password"
 npm run db:start-mysql
 ```
 
-The first run creates the database, deploys migrations, and seeds baseline data. For an
+The first run creates the database, deploys all migrations, and seeds baseline development
+accounts. For an
 existing database, deploy any newly pulled migrations separately:
 
 ```powershell
@@ -98,6 +110,9 @@ Open `http://localhost:5173`. Backend health is available at `http://localhost:4
 
 Seed only a new development/demo database. Do not seed an existing production database.
 
+For separately managed MySQL, database changes, browser testing, and the complete command matrix,
+follow [Development and Testing](docs/DEVELOPMENT_AND_TESTING.md).
+
 Product naming recommendations and the professional terminology used in this version are
 documented in [Product Naming](docs/PRODUCT_NAMING.md).
 
@@ -105,18 +120,31 @@ documented in [Product Naming](docs/PRODUCT_NAMING.md).
 
 Create `.env` from `.env.example`. Never commit `.env`, passwords, JWT secrets, database dumps, VAPID private keys, or SSH keys.
 
-| Variable             | Purpose                                                                  |
-| -------------------- | ------------------------------------------------------------------------ |
-| `DATABASE_URL`       | MySQL connection used by Prisma and Express                              |
-| `BACKEND_PORT`       | Express port, normally `4000`                                            |
-| `FRONTEND_ORIGIN`    | Exact browser origin allowed by CORS                                     |
-| `VITE_API_BASE_URL`  | API URL compiled into the frontend; production uses `/api` through Nginx |
-| `JWT_ACCESS_SECRET`  | Strong access-token signing secret                                       |
-| `JWT_REFRESH_SECRET` | Separate strong refresh-token signing secret                             |
-| `COOKIE_SECURE`      | `true` in HTTPS production                                               |
-| `VAPID_PUBLIC_KEY`   | Browser push public key                                                  |
-| `VAPID_PRIVATE_KEY`  | Browser push private key                                                 |
-| `VAPID_SUBJECT`      | Responsible contact URI, normally `mailto:operations@company-domain`     |
+| Variable                       | Purpose                                                                  |
+| ------------------------------ | ------------------------------------------------------------------------ |
+| `DATABASE_URL`                 | MySQL connection used by Prisma and Express                              |
+| `MYSQL_ROOT_PASSWORD`          | Local bootstrap only; not used by the running application                |
+| `SEED_PASSWORD`                | Initial password when seeding a new development database                 |
+| `BACKEND_PORT`                 | Express port, normally `4000`                                            |
+| `FRONTEND_ORIGIN`              | Exact browser origin allowed by CORS                                     |
+| `VITE_API_BASE_URL`            | API URL compiled into the frontend; production uses `/api` through Nginx |
+| `JWT_ACCESS_SECRET`            | Strong access-token signing secret                                       |
+| `JWT_REFRESH_SECRET`           | Separate strong refresh-token signing secret                             |
+| `SESSION_COOKIE_NAME`          | Access-session cookie name                                               |
+| `REFRESH_COOKIE_NAME`          | Refresh-session cookie name                                              |
+| `COOKIE_SECURE`                | `true` in HTTPS production                                               |
+| `NODE_ENV`                     | `development`, `test`, or `production` runtime behavior                  |
+| `GENERAL_RATE_LIMIT_MAX`       | General request allowance per rate-limit window                          |
+| `GENERAL_RATE_LIMIT_WINDOW_MS` | General rate-limit window in milliseconds                                |
+| `AUTH_RATE_LIMIT_MAX`          | Authentication request allowance per authentication window               |
+| `AUTH_RATE_LIMIT_WINDOW_MS`    | Authentication rate-limit window in milliseconds                         |
+| `REQUEST_TIMEOUT_MS`           | Backend request timeout in milliseconds                                  |
+| `VAPID_PUBLIC_KEY`             | Browser push public key                                                  |
+| `VAPID_PRIVATE_KEY`            | Browser push private key                                                 |
+| `VAPID_SUBJECT`                | Responsible contact URI, normally `mailto:operations@company-domain`     |
+
+Smoke-test-only variables are documented in [scripts/README.md](scripts/README.md); they do not
+belong in a production `.env`.
 
 ## Required Verification
 
@@ -124,12 +152,14 @@ Run before every commit or deployment:
 
 ```bash
 npx prisma validate
+npm run repo:audit
 npm run typecheck
 npm run lint
 npm test
 npm run build
 npm run build:backend
 npm run db:audit
+npm run audit:deps
 ```
 
 Use `npm run db:verify` and `npm run db:audit` when the configured MySQL database is available.
@@ -148,6 +178,7 @@ The audit is read-only and verifies every foreign key plus cross-table business 
 - External applications use `/api/v1` with scoped, revocable service credentials; browser cookies are not an integration authentication mechanism.
 - Asset returns are completed through a recorded HR checklist before an assignment is released.
 - Assets use explicit `AVAILABLE`, `ASSIGNED`, `UNDER_REPAIR`, and `RETIRED` statuses. The return checklist records condition, accessories, charger, backup/wipe confirmation, damage, notes, receiver, and time.
+- Vulnerabilities and suspected secret exposure are reported privately according to [SECURITY.md](SECURITY.md), never through a public issue.
 
 ## Product Roadmap
 
@@ -176,3 +207,7 @@ pm2 save
 ```
 
 Always take a MySQL backup first when a release contains migrations. See the [Upgrade and Maintenance Guide](docs/UPGRADE_AND_MAINTENANCE.md) for the complete procedure.
+
+Migration `20260722213000_task_workspace_v2` intentionally clears legacy Task-only records while
+installing the new Work Planner model. Review the migration warning and retain a verified backup
+before deploying this release.

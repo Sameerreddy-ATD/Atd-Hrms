@@ -38,7 +38,7 @@ import type {
   CompanyAsset,
   EmployeeAssetInvestment,
   User,
-} from "@/mock/types";
+} from "@/types/domain";
 import { assetsApi, branchesApi, employeesApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
 import {

@@ -133,8 +133,10 @@ Generate JWT secrets with a secure password generator or `openssl rand -base64 4
 ```bash
 cd /opt/anytime-crew-hub
 npm ci
+npm run repo:audit
 npx prisma generate
 npm run db:deploy
+npm run db:audit
 npm run build
 npm run build:backend
 ```
@@ -142,10 +144,12 @@ npm run build:backend
 For a brand-new installation only:
 
 ```bash
-npm run db:seed
+SEED_PASSWORD='temporary-strong-initial-password' npm run db:seed
 ```
 
-Do not seed an existing production database.
+Do not seed an existing production database. Give the initial Developer Admin password through a
+secure channel, require an immediate password change, and do not save `SEED_PASSWORD` in the
+production `.env` after initialization.
 
 ## 7. Start PM2
 

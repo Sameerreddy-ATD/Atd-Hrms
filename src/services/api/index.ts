@@ -30,7 +30,7 @@ import type {
   ModuleKey,
   IntegrationClient,
   IntegrationScope,
-} from "@/mock/types";
+} from "@/types/domain";
 
 export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
 const REQUEST_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS ?? 20000);
@@ -339,24 +339,24 @@ export const leaveApi = {
       body: JSON.stringify({ adjustment, reason }),
     }),
   weeklyOffs: (assignedApprovals = false, all = false) =>
-    request<import("@/mock/types").WeeklyOffRequest[]>(
+    request<import("@/types/domain").WeeklyOffRequest[]>(
       `/weekly-offs${toQuery({ assignedApprovals: assignedApprovals ? "true" : undefined, all: all ? "true" : undefined })}`,
     ),
   requestWeeklyOff: (date: string, reason?: string) =>
-    request<import("@/mock/types").WeeklyOffRequest>("/weekly-offs", {
+    request<import("@/types/domain").WeeklyOffRequest>("/weekly-offs", {
       method: "POST",
       body: JSON.stringify({ date, reason }),
     }),
   approveWeeklyOff: (id: string) =>
-    request<import("@/mock/types").WeeklyOffRequest>(`/weekly-offs/${id}/approve`, {
+    request<import("@/types/domain").WeeklyOffRequest>(`/weekly-offs/${id}/approve`, {
       method: "POST",
     }),
   rejectWeeklyOff: (id: string) =>
-    request<import("@/mock/types").WeeklyOffRequest>(`/weekly-offs/${id}/reject`, {
+    request<import("@/types/domain").WeeklyOffRequest>(`/weekly-offs/${id}/reject`, {
       method: "POST",
     }),
   cancelWeeklyOff: (id: string) =>
-    request<import("@/mock/types").WeeklyOffRequest>(`/weekly-offs/${id}/cancel`, {
+    request<import("@/types/domain").WeeklyOffRequest>(`/weekly-offs/${id}/cancel`, {
       method: "POST",
     }),
 };

@@ -43,7 +43,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
-import type { CertificateRequest, ExpenseClaim, User } from "@/mock/types";
+import type { CertificateRequest, ExpenseClaim, User } from "@/types/domain";
 import { employeeServicesApi, employeesApi } from "@/services/api";
 
 export const Route = createFileRoute("/_app/employee-services")({

@@ -22,8 +22,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { Branch, Department, User } from "@/mock/types";
-import { ROLE_LABELS } from "@/mock/types";
+import type { Branch, Department, User } from "@/types/domain";
+import { ROLE_LABELS } from "@/types/domain";
 import { branchesApi, employeesApi } from "@/services/api";
 import { Search, Pencil } from "lucide-react";
 import { useAuth } from "@/lib/auth";

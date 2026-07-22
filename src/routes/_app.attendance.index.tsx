@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
-import type { Branch, Department, User } from "@/mock/types";
+import type { Branch, Department, User } from "@/types/domain";
 import { attendanceApi, branchesApi, employeesApi } from "@/services/api";
 import { downloadCsv } from "@/lib/csv";
 import { attendanceSourceLabel } from "@/lib/attendance-labels";

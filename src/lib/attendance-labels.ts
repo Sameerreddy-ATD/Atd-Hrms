@@ -1,4 +1,4 @@
-import type { AttendanceRecord, AttendanceTimelineEvent } from "@/mock/types";
+import type { AttendanceRecord, AttendanceTimelineEvent } from "@/types/domain";
 
 const PUNCH_TYPE_META: Record<
   string,

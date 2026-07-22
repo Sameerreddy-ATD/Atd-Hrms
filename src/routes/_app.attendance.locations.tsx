@@ -25,7 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { AttendanceRecord, AttendanceTimelineEvent, Branch, User } from "@/mock/types";
+import type { AttendanceRecord, AttendanceTimelineEvent, Branch, User } from "@/types/domain";
 import { attendanceApi, branchesApi, employeesApi, reportsApi } from "@/services/api";
 import { downloadCsv, downloadAttendanceExcel } from "@/lib/csv";
 import {

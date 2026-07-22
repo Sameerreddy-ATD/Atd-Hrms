@@ -7,7 +7,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import type { AttendanceRecord } from "@/mock/types";
+import type { AttendanceRecord } from "@/types/domain";
 import { formatStoredWorkedTime } from "@/lib/worked-time";
 
 function DayRecordSummary({

@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { leaveApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
-import type { LeaveBalance, LeaveTypeOption, WeeklyOffRequest } from "@/mock/types";
+import type { LeaveBalance, LeaveTypeOption, WeeklyOffRequest } from "@/types/domain";
 import { CalendarClock, CalendarDays, CheckCircle2, ShieldCheck, UserRound } from "lucide-react";
 
 export const Route = createFileRoute("/_app/leave/apply")({

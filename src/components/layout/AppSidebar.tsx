@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/lib/auth";
 import { menuForRole } from "@/lib/menu";
-import { ROLE_LABELS, type ModuleKey } from "@/mock/types";
+import { ROLE_LABELS, type ModuleKey } from "@/types/domain";
 import { employeesApi, moduleAccessApi } from "@/services/api";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/common/Logo";

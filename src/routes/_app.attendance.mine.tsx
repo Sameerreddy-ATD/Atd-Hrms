@@ -20,7 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { attendanceApi, branchesApi } from "@/services/api";
-import type { AttendanceRecord, Branch } from "@/mock/types";
+import type { AttendanceRecord, Branch } from "@/types/domain";
 import { useAuth } from "@/lib/auth";
 import { subscribeToAttendanceChanges } from "@/lib/attendance-live";
 import {

@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { Branch, Department, User } from "@/mock/types";
+import type { Branch, Department, User } from "@/types/domain";
 import { usersApi } from "@/services/api";
 
 interface ImportRow {

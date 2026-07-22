@@ -40,7 +40,7 @@ import {
   type IntegrationScope,
   type ModuleKey,
   type Role,
-} from "@/mock/types";
+} from "@/types/domain";
 import {
   Activity,
   AlertTriangle,
@@ -69,7 +69,7 @@ const MODULE_LABELS: Record<ModuleKey, string> = {
   DASHBOARD: "Dashboard",
   PEOPLE: "People",
   ATTENDANCE: "Attendance",
-  TASKS: "Tasks",
+  TASKS: "Work Planner",
   EMPLOYEE_REQUESTS: "Requests",
   LEAVE: "Leave",
   COMPANY: "Company",

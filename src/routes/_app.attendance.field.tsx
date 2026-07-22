@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { AttendanceRecord } from "@/mock/types";
+import type { AttendanceRecord } from "@/types/domain";
 import { attendanceApi } from "@/services/api";
 import { punchSourceLabel } from "@/lib/attendance-labels";
 import { formatStoredWorkedTime } from "@/lib/worked-time";

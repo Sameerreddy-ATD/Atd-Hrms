@@ -46,10 +46,10 @@ import type {
   TaskStage,
   TaskStatus,
   WorkTask,
-} from "@/mock/types";
+} from "@/types/domain";
 import { tasksApi } from "@/services/api";
 
-export const Route = createFileRoute("/_app/tasks")({ component: TasksPage });
+export const Route = createFileRoute("/_app/tasks")({ component: WorkPlannerPage });
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   TODO: "To do",
@@ -155,7 +155,7 @@ function initials(name: string) {
     .toUpperCase();
 }
 
-function TasksPage() {
+function WorkPlannerPage() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<WorkTask[]>([]);
   const [assignees, setAssignees] = useState<TaskAssignee[]>([]);
@@ -981,7 +981,7 @@ function TasksPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="OPEN">Everyone with Tasks access</SelectItem>
+                  <SelectItem value="OPEN">Everyone with Work Planner access</SelectItem>
                   <SelectItem value="ROLE_GATED">Selected roles</SelectItem>
                   <SelectItem value="MEMBER_GATED">Selected people</SelectItem>
                 </SelectContent>

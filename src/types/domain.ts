@@ -1,5 +1,5 @@
-// Shared types used across mock data and UI. Backend team can align real
-// models to these interfaces or replace as needed.
+// Shared frontend domain contracts returned by the application API.
+// Keep these aligned with server mappers, validators, and the versioned integration contract.
 
 export type Role =
   | "developer_admin"

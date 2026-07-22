@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { biometricApi, branchesApi } from "@/services/api";
-import type { BiometricDevice, Branch } from "@/mock/types";
+import type { BiometricDevice, Branch } from "@/types/domain";
 
 export const Route = createFileRoute("/_app/settings/devices")({
   component: DeviceSettingsPage,

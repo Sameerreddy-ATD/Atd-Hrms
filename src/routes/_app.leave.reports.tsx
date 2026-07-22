@@ -22,7 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { leaveApi } from "@/services/api";
-import type { LeaveRequest } from "@/mock/types";
+import type { LeaveRequest } from "@/types/domain";
 import { downloadCsv } from "@/lib/csv";
 import { useAuth } from "@/lib/auth";
 import { CalendarDays, CheckCircle2, Download } from "lucide-react";

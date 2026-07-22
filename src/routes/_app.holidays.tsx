@@ -41,7 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Branch, Holiday } from "@/mock/types";
+import type { Branch, Holiday } from "@/types/domain";
 import { branchesApi, reportsApi } from "@/services/api";
 import { CalendarDays, Pencil, Plus, Trash2 } from "lucide-react";
 

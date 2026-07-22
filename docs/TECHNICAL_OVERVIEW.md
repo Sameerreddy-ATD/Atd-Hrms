@@ -145,6 +145,10 @@ Migration `20260716190000_leave_policy_and_weekly_off` intentionally clears lega
 
 ## Engineering Rules
 
+The authoritative placement and file-ownership rules are documented in
+[Repository Structure](REPOSITORY_STRUCTURE.md). Local development, migration creation, and the
+complete test matrix are documented in [Development and Testing](DEVELOPMENT_AND_TESTING.md).
+
 - Validate requests with Zod and enforce RBAC in backend routes.
 - Keep tokens out of localStorage.
 - Add a migration for schema changes; never edit a deployed migration.

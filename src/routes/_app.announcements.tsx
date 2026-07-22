@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
-import type { Announcement } from "@/mock/types";
+import type { Announcement } from "@/types/domain";
 import { announcementsApi } from "@/services/api";
 import {
   AlertDialog,

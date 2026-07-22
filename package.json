@@ -29,6 +29,7 @@
     "db:start-mysql": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-mysql.ps1",
     "db:verify": "node scripts/verify-mysql.mjs",
     "db:audit": "node scripts/audit-database.mjs",
+    "repo:audit": "node scripts/audit-repository.mjs",
     "audit:deps": "npm audit --omit=dev"
   },
   "dependencies": {
@@ -95,7 +96,6 @@
     "tailwindcss": "^4.2.1",
     "tw-animate-css": "^1.3.4",
     "vaul": "^1.1.2",
-    "vite-tsconfig-paths": "^6.0.2",
     "web-push": "^3.6.7",
     "zod": "^3.24.2"
   },

@@ -28,7 +28,7 @@ The CEO workspace is decision-focused and read-only for operational data:
 
 1. **Workforce** provides organization-wide employee visibility.
 2. **Attendance Overview** provides daily status, branch, source, punch, and movement detail.
-3. **Work Progress** summarizes task delivery and daily updates.
+3. **Work Planner** summarizes task ownership, due dates, delivery, and activity.
 4. **Leave Overview** shows pending decisions and request progress.
 5. **Company Investment** shows physical and online assets assigned to employees, including
    recurring and first-year values.
@@ -169,7 +169,7 @@ Required behavior:
 - Every active holiday-list entry is counted as a holiday for attendance.
 - Deactivation preserves audit history and removes its attendance effect during recalculation.
 
-## Task Management
+## Work Planner
 
 - The screen is named **Work Planner**. Workspaces organize workflows but do not block the daily
   list experience.

@@ -24,7 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { biometricApi, branchesApi, employeesApi } from "@/services/api";
-import type { BiometricDevice, BiometricMapping, Branch, User } from "@/mock/types";
+import type { BiometricDevice, BiometricMapping, Branch, User } from "@/types/domain";
 import { Pencil } from "lucide-react";
 
 export const Route = createFileRoute("/_app/devices/mapping")({

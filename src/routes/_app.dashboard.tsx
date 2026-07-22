@@ -37,7 +37,7 @@ import {
   type LeaveRequest,
   type User,
   type WorkTask,
-} from "@/mock/types";
+} from "@/types/domain";
 import {
   assetsApi,
   attendanceApi,
@@ -912,7 +912,7 @@ function CEODashboard({
       to: "/attendance/locations",
       icon: UserCheck,
     },
-    { label: "Work progress", detail: "Tasks and daily logs", to: "/tasks", icon: ListTodo },
+    { label: "Work Planner", detail: "Tasks, owners, and due dates", to: "/tasks", icon: ListTodo },
     {
       label: "Leave overview",
       detail: "Requests and status",

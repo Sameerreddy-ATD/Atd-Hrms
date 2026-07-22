@@ -41,7 +41,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { BiometricDevice, Branch } from "@/mock/types";
+import type { BiometricDevice, Branch } from "@/types/domain";
 import { biometricApi, branchesApi } from "@/services/api";
 import { Fingerprint, Pencil, Plus, Trash2 } from "lucide-react";
 

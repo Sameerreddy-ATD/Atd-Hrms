@@ -1,4 +1,4 @@
-import type { NotificationItem } from "@/mock/types";
+import type { NotificationItem } from "@/types/domain";
 import { pushApi } from "@/services/api";
 
 const CLEARED_AT_KEY = "adh_notifications_cleared_at";

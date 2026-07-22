@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Clock3, Fingerprint, LogIn, LogOut, MapPin, Smartphone } from "lucide-react";
 import { LoadingState } from "@/components/common/LoadingState";
 import { attendanceApi } from "@/services/api";
-import type { AttendanceTimelineEvent } from "@/mock/types";
+import type { AttendanceTimelineEvent } from "@/types/domain";
 import { captureSourceLabel, movementDirectionLabel } from "@/lib/attendance-labels";
 import { subscribeToAttendanceChanges } from "@/lib/attendance-live";
 

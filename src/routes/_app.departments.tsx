@@ -39,7 +39,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { Department, User } from "@/mock/types";
+import type { Department, User } from "@/types/domain";
 import { useAuth } from "@/lib/auth";
 import { branchesApi, employeesApi } from "@/services/api";
 import {

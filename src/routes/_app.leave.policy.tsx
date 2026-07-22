@@ -23,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { LeaveTypeOption, User } from "@/mock/types";
+import type { LeaveTypeOption, User } from "@/types/domain";
 import { employeesApi, leaveApi } from "@/services/api";
 import { CalendarCheck, ChevronRight, Pencil, Search, UserRound } from "lucide-react";
 

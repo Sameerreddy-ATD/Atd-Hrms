@@ -24,7 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type { LeaveRequest, WeeklyOffRequest } from "@/mock/types";
+import type { LeaveRequest, WeeklyOffRequest } from "@/types/domain";
 import { employeesApi, leaveApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
 

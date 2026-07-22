@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { AttendanceRecord, Branch } from "@/mock/types";
+import type { AttendanceRecord, Branch } from "@/types/domain";
 import { attendanceApi, branchesApi } from "@/services/api";
 import { punchSourceLabel } from "@/lib/attendance-labels";
 import { formatStoredWorkedTime } from "@/lib/worked-time";
