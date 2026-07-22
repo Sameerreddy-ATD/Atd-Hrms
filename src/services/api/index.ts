@@ -711,7 +711,12 @@ export const systemApi = {
       ok: true;
       deletedUsers: number;
       deletedEmployees: number;
-      preserved: { developerAdminUserId: string; branches: number; departments: number };
+      preserved: {
+        developerAdminUserId: string;
+        branches: number;
+        departments: number;
+        leaveTypes: number;
+      };
     }>("/system/reset-test-data", {
       method: "POST",
       body: JSON.stringify(payload),
@@ -768,8 +773,16 @@ export const pushApi = {
 export const tasksApi = {
   list: (
     scope: "mine" | "team" = "team",
-    pagination: { limit?: number; offset?: number; boardId?: string } = {},
-  ) => request<WorkTask[]>(`/tasks${toQuery({ scope, ...pagination })}`),
+    filters: {
+      limit?: number;
+      offset?: number;
+      boardId?: string;
+      status?: TaskStatus;
+      priority?: TaskPriority;
+      q?: string;
+      due?: "today" | "overdue" | "none";
+    } = {},
+  ) => request<WorkTask[]>(`/tasks${toQuery({ scope, ...filters })}`),
   assignees: () => request<TaskAssignee[]>("/tasks/assignees"),
   create: (payload: {
     title: string;
@@ -784,7 +797,7 @@ export const tasksApi = {
   }) => request<WorkTask>("/tasks", { method: "POST", body: JSON.stringify(payload) }),
   update: (
     id: string,
-    payload: Partial<{
+    payload: { version: number } & Partial<{
       title: string;
       description: string | null;
       assigneeEmployeeIds: string[];
@@ -799,6 +812,7 @@ export const tasksApi = {
   addLog: (
     id: string,
     payload: {
+      version: number;
       message: string;
       progress?: number;
       status?: TaskStatus;
@@ -813,7 +827,7 @@ export const tasksApi = {
     accessType: TaskBoard["accessType"];
     allowedRoles: string[];
     memberEmployeeIds: string[];
-    stages: Array<{ name: string; color: TaskStage["color"]; isCompleted: boolean }>;
+    stages: Array<{ name: string; color: TaskStage["color"]; status: TaskStatus }>;
   }) => request<TaskBoard>("/task-boards", { method: "POST", body: JSON.stringify(payload) }),
   archiveBoard: (id: string, archived: boolean) =>
     request<TaskBoard>(`/task-boards/${id}`, {

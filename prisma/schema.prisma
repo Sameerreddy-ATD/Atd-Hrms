@@ -126,6 +126,15 @@ enum TaskPriority {
   URGENT
 }
 
+enum TaskActivityType {
+  CREATED
+  COMMENT
+  STATUS_CHANGED
+  PROGRESS_UPDATED
+  ASSIGNEES_CHANGED
+  DETAILS_UPDATED
+}
+
 enum TaskBoardAccessType {
   OPEN
   ROLE_GATED
@@ -186,6 +195,7 @@ model User {
   createdTasks                     WorkTask[]           @relation("TaskCreator")
   createdTaskBoards                TaskBoard[]          @relation("TaskBoardCreator")
   taskUpdates                      TaskUpdate[]
+  taskAssignmentsMade              TaskAssignment[]     @relation("TaskAssignedBy")
   announcements                    Announcement[]       @relation("AnnouncementAuthor")
   pushSubscriptions                PushSubscription[]
   reviewedExpenseClaims            ExpenseClaim[]       @relation("ExpenseReviewer")
@@ -771,9 +781,12 @@ model WorkTask {
   status          TaskStatus       @default(TODO)
   priority        TaskPriority     @default(MEDIUM)
   progress        Int              @default(0)
+  version         Int              @default(1)
   startDate       DateTime?        @map("start_date") @db.Date
   dueDate         DateTime?        @map("due_date") @db.Date
   completedAt     DateTime?        @map("completed_at")
+  archivedAt      DateTime?        @map("archived_at")
+  lastActivityAt  DateTime         @default(now()) @map("last_activity_at")
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
   updates         TaskUpdate[]
@@ -783,6 +796,9 @@ model WorkTask {
   @@index([createdByUserId])
   @@index([dueDate])
   @@index([boardId, stageId])
+  @@index([boardId, status, dueDate])
+  @@index([archivedAt, status])
+  @@index([lastActivityAt])
   @@map("work_tasks")
 }
 
@@ -813,6 +829,7 @@ model TaskStage {
   color       String     @default("SLATE")
   sortOrder   Int        @default(0) @map("sort_order")
   isCompleted Boolean    @default(false) @map("is_completed")
+  status      TaskStatus @default(TODO)
   tasks       WorkTask[]
 
   @@unique([boardId, name])
@@ -841,29 +858,34 @@ model TaskBoardMember {
 }
 
 model TaskAssignment {
-  assignmentId String   @id @default(cuid()) @map("assignment_id")
-  taskId       String   @map("task_id")
-  task         WorkTask @relation(fields: [taskId], references: [taskId], onDelete: Cascade)
-  employeeId   String   @map("employee_id")
-  employee     Employee @relation(fields: [employeeId], references: [employeeId])
-  assignedAt   DateTime @default(now()) @map("assigned_at")
+  assignmentId     String   @id @default(cuid()) @map("assignment_id")
+  taskId           String   @map("task_id")
+  task             WorkTask @relation(fields: [taskId], references: [taskId], onDelete: Cascade)
+  employeeId       String   @map("employee_id")
+  employee         Employee @relation(fields: [employeeId], references: [employeeId])
+  assignedByUserId String?  @map("assigned_by_user_id")
+  assignedBy       User?    @relation("TaskAssignedBy", fields: [assignedByUserId], references: [id], onDelete: SetNull)
+  assignedAt       DateTime @default(now()) @map("assigned_at")
 
   @@unique([taskId, employeeId])
   @@index([employeeId, taskId])
+  @@index([assignedByUserId, assignedAt])
   @@map("task_assignments")
 }
 
 model TaskUpdate {
-  updateId      String      @id @default(cuid()) @map("update_id")
-  taskId        String      @map("task_id")
-  task          WorkTask    @relation(fields: [taskId], references: [taskId], onDelete: Cascade)
-  authorUserId  String      @map("author_user_id")
-  author        User        @relation(fields: [authorUserId], references: [id])
-  message       String      @db.Text
+  updateId      String           @id @default(cuid()) @map("update_id")
+  taskId        String           @map("task_id")
+  task          WorkTask         @relation(fields: [taskId], references: [taskId], onDelete: Cascade)
+  authorUserId  String           @map("author_user_id")
+  author        User             @relation(fields: [authorUserId], references: [id])
+  activityType  TaskActivityType @default(COMMENT) @map("activity_type")
+  message       String           @db.Text
+  metadata      Json?
   progress      Int?
   status        TaskStatus?
-  minutesWorked Int?        @map("minutes_worked")
-  createdAt     DateTime    @default(now()) @map("created_at")
+  minutesWorked Int?             @map("minutes_worked")
+  createdAt     DateTime         @default(now()) @map("created_at")
 
   @@index([taskId, createdAt])
   @@index([authorUserId, createdAt])

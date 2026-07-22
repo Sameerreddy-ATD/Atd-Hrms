@@ -60,7 +60,7 @@ returned separately as `userId`.
 
 ## 3. Table Catalog
 
-The schema contains 39 application tables after the integration-hardening migration.
+The schema contains 40 application tables after the Task Workspace v2 migration.
 
 ### Identity, security, and configuration
 
@@ -145,15 +145,18 @@ Google permissions.
 
 ### Tasks
 
-| Table                | Purpose                                                          |
-| -------------------- | ---------------------------------------------------------------- |
-| `task_boards`        | Board metadata, archive state and open/role/member access policy |
-| `task_stages`        | Ordered custom workflow stages and completion marker             |
-| `task_board_roles`   | Roles allowed on a role-gated board                              |
-| `task_board_members` | Employees allowed on a member-gated board                        |
-| `work_tasks`         | Task, board/stage, dates, priority, progress and parent task     |
-| `task_assignments`   | Many-to-many task assignees                                      |
-| `task_updates`       | Work log, progress/status change and minutes worked              |
+| Table                | Purpose                                                                               |
+| -------------------- | ------------------------------------------------------------------------------------- |
+| `task_boards`        | Workspace metadata, archive state and open/role/member access policy                  |
+| `task_stages`        | Ordered workflow stages with canonical task status                                    |
+| `task_board_roles`   | Roles allowed on a role-gated board                                                   |
+| `task_board_members` | Employees allowed on a member-gated board                                             |
+| `work_tasks`         | Versioned task, workspace/stage, dates, priority, progress, archive and activity time |
+| `task_assignments`   | Many-to-many task assignees plus assigning user                                       |
+| `task_updates`       | Typed activity log, structured metadata, progress/status and minutes worked           |
+
+Task stage status is canonical. Edits use `work_tasks.version` and commit the task, assignments, and
+activity row atomically. See [Database Integrity Audit](DATABASE_INTEGRITY_AUDIT.md).
 
 ## 4. Browser Employee Endpoints
 

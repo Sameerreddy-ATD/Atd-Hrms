@@ -129,9 +129,11 @@ npm run lint
 npm test
 npm run build
 npm run build:backend
+npm run db:audit
 ```
 
-Use `npm run db:verify` when the configured MySQL database is available.
+Use `npm run db:verify` and `npm run db:audit` when the configured MySQL database is available.
+The audit is read-only and verifies every foreign key plus cross-table business invariants.
 
 ## Security and Data Rules
 

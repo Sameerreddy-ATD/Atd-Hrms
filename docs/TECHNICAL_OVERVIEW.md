@@ -74,7 +74,7 @@ Lockout or suspension does not delete or disable the employee record, allowing h
 | `/leave`                | Leave types, requests, cancellation, approvals, and reports                                 |
 | `/weekly-offs`          | Date-specific weekly-off requests and direct-head approval                                  |
 | `/holidays`             | Active holiday calendar and branch scope                                                    |
-| `/tasks`                | Multi-assignee tasks and updates                                                            |
+| `/tasks`                | Versioned multi-assignee Work Planner tasks, filters, and typed activity                    |
 | `/assets`               | Physical/online assets, return checklists, and company investment per employee calculations |
 | `/api/v1`               | Scoped server-to-server employee master data and ordered employee change feed               |
 | `/integration-clients`  | Developer Admin credential creation, listing, expiry and revocation                         |
@@ -128,7 +128,7 @@ Employee/account removal is a typed, server-validated `DEACTIVATE` operation. On
 
 Announcement permanent deletion is available to HR and Developer Admin, requires typed confirmation, and removes the announcement while retaining an audit event.
 
-The production data reset is Developer Admin-only and requires both current-password verification and the exact phrase `DELETE ALL TEST DATA`. A single Prisma transaction preserves the acting Developer Admin, its optional employee record, branches, departments, hierarchy, and system settings while deleting all testing operational data. It intentionally leaves no reset audit event because audit history itself is part of the requested reset. Always create an external database backup before using it.
+The production data reset is Developer Admin-only and requires both current-password verification and the exact phrase `DELETE ALL TEST DATA`. A single Prisma transaction preserves the acting Developer Admin, its optional employee record, branches, departments, hierarchy, predefined leave policies, and system settings while deleting all testing operational data. It intentionally leaves no reset audit event because audit history itself is part of the requested reset. Always create an external database backup before using it.
 
 ## Database and Migrations
 
@@ -139,7 +139,7 @@ The production data reset is Developer Admin-only and requires both current-pass
 
 Use `npm run db:migrate` only during development. Use `npm run db:deploy` in production.
 
-The complete 39-table catalog, canonical employee/account synchronization rules, Employee API v1, idempotency, optimistic concurrency, event consumption and integrity SQL are documented in [Employee Data Model and Integration API](EMPLOYEE_DATA_AND_INTEGRATION_API.md).
+The complete 40-table catalog, canonical employee/account synchronization rules, Employee API v1, idempotency, optimistic concurrency, event consumption and integrity SQL are documented in [Employee Data Model and Integration API](EMPLOYEE_DATA_AND_INTEGRATION_API.md). The read-only 90-check database audit and repair policy are documented in [Database Integrity Audit](DATABASE_INTEGRITY_AUDIT.md).
 
 Migration `20260716190000_leave_policy_and_weekly_off` intentionally clears legacy leave requests, balances, and configurable leave types before installing the four protected system policies. Back up production before applying it when historical legacy leave data must be retained externally.
 

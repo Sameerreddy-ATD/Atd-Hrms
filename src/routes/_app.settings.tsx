@@ -682,7 +682,7 @@ function SettingsPage() {
                 <p className="font-semibold">Preserved</p>
                 <p className="mt-1 text-muted-foreground">
                   Your current Developer Admin login and password, branches, departments,
-                  organization hierarchy, and system settings.
+                  organization hierarchy, leave policies, and system settings.
                 </p>
               </div>
               <div className="rounded-md border border-destructive/25 bg-destructive/5 p-3">
@@ -705,7 +705,8 @@ function SettingsPage() {
                   <AlertDialogTitle>Delete all testing data?</AlertDialogTitle>
                   <AlertDialogDescription>
                     This cannot be undone. Take a database backup first. Your current Developer
-                    Admin account, branches, departments, and system settings will remain.
+                    Admin account, branches, departments, leave policies, and system settings will
+                    remain.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="space-y-4 text-left">

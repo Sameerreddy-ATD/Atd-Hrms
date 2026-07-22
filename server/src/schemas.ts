@@ -120,19 +120,30 @@ export const departmentSchema = z.object({
 
 export const departmentUpdateSchema = departmentSchema.partial();
 
-export const taskSchema = z.object({
-  title: z.string().trim().min(2).max(200),
-  description: z.string().trim().max(5000).nullable().optional(),
-  assigneeEmployeeIds: z.array(z.string().min(1)).min(1).max(100),
-  parentTaskId: z.string().nullable().optional(),
-  boardId: z.string().nullable().optional(),
-  stageId: z.string().nullable().optional(),
-  priority: z.nativeEnum(TaskPriority).optional(),
-  startDate: z.coerce.date().nullable().optional(),
-  dueDate: z.coerce.date().nullable().optional(),
-});
+export const taskSchema = z
+  .object({
+    title: z.string().trim().min(2).max(200),
+    description: z.string().trim().max(5000).nullable().optional(),
+    assigneeEmployeeIds: z.array(z.string().min(1)).min(1).max(100),
+    parentTaskId: z.string().nullable().optional(),
+    boardId: z.string().nullable().optional(),
+    stageId: z.string().nullable().optional(),
+    priority: z.nativeEnum(TaskPriority).optional(),
+    startDate: z.coerce.date().nullable().optional(),
+    dueDate: z.coerce.date().nullable().optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.startDate && value.dueDate && value.dueDate < value.startDate) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["dueDate"],
+        message: "Due date cannot be before the start date",
+      });
+    }
+  });
 
 export const taskUpdateSchema = z.object({
+  version: z.coerce.number().int().positive(),
   title: z.string().trim().min(2).max(200).optional(),
   description: z.string().trim().max(5000).nullable().optional(),
   assigneeEmployeeIds: z.array(z.string().min(1)).min(1).max(100).optional(),
@@ -156,18 +167,25 @@ export const taskBoardSchema = z
         z.object({
           name: z.string().trim().min(2).max(80),
           color: z.enum(["SLATE", "BLUE", "AMBER", "VIOLET", "EMERALD", "RED"]),
-          isCompleted: z.boolean().default(false),
+          status: z.nativeEnum(TaskStatus),
         }),
       )
       .min(2)
       .max(12),
   })
   .superRefine((value, context) => {
-    if (!value.stages.some((stage) => stage.isCompleted)) {
+    if (!value.stages.some((stage) => stage.status === TaskStatus.COMPLETED)) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["stages"],
         message: "Add a completed stage",
+      });
+    }
+    if (!value.stages.some((stage) => stage.status === TaskStatus.TODO)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["stages"],
+        message: "Add a to-do stage",
       });
     }
     if (
@@ -199,6 +217,7 @@ export const taskBoardSchema = z
   });
 
 export const taskLogSchema = z.object({
+  version: z.coerce.number().int().positive(),
   message: z.string().trim().min(2).max(5000),
   progress: z.coerce.number().int().min(0).max(100).optional(),
   status: z.nativeEnum(TaskStatus).optional(),

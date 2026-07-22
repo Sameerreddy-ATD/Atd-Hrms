@@ -7,8 +7,9 @@ These documents describe the `version-1` application and production deployment. 
 - Employees and managers: [User Guide](USER_GUIDE.md)
 - HR and Developer Admin: [User Guide](USER_GUIDE.md) and [Operations and Workflows](OPERATIONS_AND_WORKFLOWS.md)
 - Developers: [Technical Overview](TECHNICAL_OVERVIEW.md)
-- Database owners and integration developers: [Employee Data and Integration API](EMPLOYEE_DATA_AND_INTEGRATION_API.md) and [OpenAPI](openapi.employee-v1.yaml)
+- Database owners and integration developers: [Database Integrity Audit](DATABASE_INTEGRITY_AUDIT.md), [Employee Data and Integration API](EMPLOYEE_DATA_AND_INTEGRATION_API.md), and [OpenAPI](openapi.employee-v1.yaml)
 - Product owners and UI writers: [Product Naming](PRODUCT_NAMING.md)
+- Go-live owners: [Reset and Go-Live](RESET_AND_GO_LIVE.md)
 - Server administrators: [Linux and AWS Deployment](LINUX_LOCAL_DEPLOYMENT.md)
 - Release owners: [Upgrade and Maintenance](UPGRADE_AND_MAINTENANCE.md)
 - Mobile QA/support: [Device Compatibility](DEVICE_COMPATIBILITY.md)
@@ -22,8 +23,10 @@ These documents describe the `version-1` application and production deployment. 
 | `OPERATIONS_AND_WORKFLOWS.md`          | Business rules, permissions, status transitions, and retention                                   |
 | `TECHNICAL_OVERVIEW.md`                | Architecture, modules, API groups, data model, and engineering rules                             |
 | `EMPLOYEE_DATA_AND_INTEGRATION_API.md` | Complete table catalog, canonical employee rules, API security, synchronization and verification |
+| `DATABASE_INTEGRITY_AUDIT.md`          | Full storage assurance, automated integrity checks, Task v2 rules, and repair policy             |
 | `openapi.employee-v1.yaml`             | Machine-readable Employee API v1 contract                                                        |
 | `PRODUCT_NAMING.md`                    | Recommended product name and professional interface terminology                                  |
+| `RESET_AND_GO_LIVE.md`                 | Safe test-data reset, verification, and step-by-step real-company setup                          |
 | `LINUX_LOCAL_DEPLOYMENT.md`            | Fresh Linux/AWS installation, private Git access, domain, TLS, Nginx, and PM2                    |
 | `UPGRADE_AND_MAINTENANCE.md`           | Production updates, backups, verification, rollback, and long-term operations                    |
 | `DEVICE_COMPATIBILITY.md`              | Supported browsers, PWA permissions, low-network behavior, and QA matrix                         |

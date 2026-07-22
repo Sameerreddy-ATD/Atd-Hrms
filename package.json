@@ -19,6 +19,8 @@
     "test": "vitest run --config vitest.config.ts",
     "test:e2e": "playwright test",
     "test:employee-api": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-employee-api.ps1",
+    "test:data-reset": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-reset-test-data.ps1",
+    "test:tasks": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-tasks.ps1",
     "test:local-ui:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-local-ui-test.ps1",
     "format": "prettier --write .",
     "db:migrate": "prisma migrate dev",
@@ -26,6 +28,7 @@
     "db:seed": "prisma db seed",
     "db:start-mysql": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-mysql.ps1",
     "db:verify": "node scripts/verify-mysql.mjs",
+    "db:audit": "node scripts/audit-database.mjs",
     "audit:deps": "npm audit --omit=dev"
   },
   "dependencies": {

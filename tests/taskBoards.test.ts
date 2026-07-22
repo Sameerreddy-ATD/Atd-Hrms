@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { taskBoardSchema, taskSchema } from "../server/src/schemas.js";
+import {
+  taskBoardSchema,
+  taskLogSchema,
+  taskSchema,
+  taskUpdateSchema,
+} from "../server/src/schemas.js";
 import { DEFAULT_MODULE_ACCESS, moduleForApiPath } from "../server/src/module-access.js";
 
 describe("task boards and module access", () => {
@@ -9,9 +14,9 @@ describe("task boards and module access", () => {
       accessType: "ROLE_GATED",
       allowedRoles: ["MANAGER", "HR"],
       stages: [
-        { name: "Queued", color: "SLATE", isCompleted: false },
-        { name: "Working", color: "AMBER", isCompleted: false },
-        { name: "Finished", color: "EMERALD", isCompleted: true },
+        { name: "Queued", color: "SLATE", status: "TODO" },
+        { name: "Working", color: "AMBER", status: "IN_PROGRESS" },
+        { name: "Finished", color: "EMERALD", status: "COMPLETED" },
       ],
     });
     expect(board.stages).toHaveLength(3);
@@ -24,11 +29,29 @@ describe("task boards and module access", () => {
         name: "Incomplete board",
         accessType: "OPEN",
         stages: [
-          { name: "To do", color: "SLATE", isCompleted: false },
-          { name: "Working", color: "BLUE", isCompleted: false },
+          { name: "To do", color: "SLATE", status: "TODO" },
+          { name: "Working", color: "BLUE", status: "IN_PROGRESS" },
         ],
       }),
     ).toThrow("Add a completed stage");
+  });
+
+  it("rejects a task whose due date is before its start date", () => {
+    expect(() =>
+      taskSchema.parse({
+        title: "Impossible schedule",
+        assigneeEmployeeIds: ["employee-1"],
+        startDate: "2026-07-23",
+        dueDate: "2026-07-22",
+      }),
+    ).toThrow("Due date cannot be before the start date");
+  });
+
+  it("requires optimistic versions for edits and activity", () => {
+    expect(() => taskUpdateSchema.parse({ progress: 50 })).toThrow();
+    expect(() => taskLogSchema.parse({ message: "Halfway done" })).toThrow();
+    expect(taskUpdateSchema.parse({ version: 2, progress: 50 }).version).toBe(2);
+    expect(taskLogSchema.parse({ version: 2, message: "Halfway done" }).version).toBe(2);
   });
 
   it("connects new tasks to a board and stage", () => {

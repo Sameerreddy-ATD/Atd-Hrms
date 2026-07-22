@@ -171,11 +171,23 @@ Required behavior:
 
 ## Task Management
 
-- Authorized heads assign a task to one or multiple employees within permitted organization visibility.
-- Every assignee sees the task and the complete assignee list.
-- Employees update progress, status, work notes, and minutes worked.
-- Task history keeps each update with author and time.
-- Account blocking does not remove assignments or task history.
+- The screen is named **Work Planner**. Workspaces organize workflows but do not block the daily
+  list experience.
+- Developer Admin, Main Admin, CEO, and HR can assign any active employee. Organization heads can
+  assign employees within their permitted team. Employees see assigned work within their permitted
+  scope.
+- Every task has one or more active assignees. Every assignee sees the complete assignee list.
+- A workspace defines ordered stages. Each stage has an explicit canonical status; moving a task to
+  a stage updates both values together.
+- Employees may update status, progress, stage, and work notes on their assigned work. Broader edits
+  and reassignment require task-management permission.
+- Task edits use a version number. If two sessions edit the same task, the stale session receives a
+  conflict and must refresh instead of overwriting newer data.
+- Task details, assignment replacement, version increment, and typed activity history are committed
+  in one transaction.
+- Account blocking or employee deactivation does not delete assignments or task history.
+- Migration `20260722213000_task_workspace_v2` removes only legacy Task/board records as an explicit
+  redesign reset. Back up any legacy Task history before deployment if it must be retained externally.
 
 ## Asset Management
 

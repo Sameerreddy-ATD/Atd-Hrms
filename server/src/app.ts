@@ -13,7 +13,9 @@ import {
   EventType,
   Prisma,
   Role,
+  TaskActivityType,
   TaskBoardAccessType,
+  TaskPriority,
   TaskStatus,
   UserStatus,
   WorkType,
@@ -694,6 +696,7 @@ export function createApp() {
             employees: await tx.employee.count(),
             branches: await tx.branch.count(),
             departments: await tx.department.count(),
+            leaveTypes: await tx.leaveType.count(),
           };
 
           await tx.department.updateMany({ data: { headEmployeeId: null } });
@@ -722,7 +725,6 @@ export function createApp() {
           await tx.weeklyOffRequest.deleteMany();
           await tx.leaveBalance.deleteMany();
           await tx.leaveRequest.deleteMany();
-          await tx.leaveType.deleteMany();
           await tx.profileEditRequest.deleteMany();
           await tx.biometricEmployeeMapping.deleteMany();
           await tx.fieldAttendance.deleteMany();
@@ -751,6 +753,7 @@ export function createApp() {
               developerAdminUserId: developerAdmin.id,
               branches: before.branches,
               departments: before.departments,
+              leaveTypes: before.leaveTypes,
             },
           };
         },
@@ -4321,7 +4324,14 @@ export function createApp() {
     createdBy: { select: { id: true, name: true } },
     board: { select: { boardId: true, name: true } },
     stage: {
-      select: { stageId: true, name: true, color: true, sortOrder: true, isCompleted: true },
+      select: {
+        stageId: true,
+        name: true,
+        color: true,
+        sortOrder: true,
+        isCompleted: true,
+        status: true,
+      },
     },
     updates: {
       include: { author: { select: { id: true, name: true } } },
@@ -4358,14 +4368,18 @@ export function createApp() {
             color: task.stage.color,
             sortOrder: task.stage.sortOrder,
             isCompleted: task.stage.isCompleted,
+            status: task.stage.status,
           }
         : undefined,
       status: task.status,
       priority: task.priority,
       progress: task.progress,
+      version: task.version,
       startDate: task.startDate?.toISOString().slice(0, 10),
       dueDate: task.dueDate?.toISOString().slice(0, 10),
       completedAt: task.completedAt?.toISOString(),
+      archivedAt: task.archivedAt?.toISOString(),
+      lastActivityAt: task.lastActivityAt.toISOString(),
       createdAt: task.createdAt.toISOString(),
       updatedAt: task.updatedAt.toISOString(),
       subtaskCount: task._count?.subtasks ?? 0,
@@ -4373,7 +4387,9 @@ export function createApp() {
       updates: task.updates.map((entry) => ({
         id: entry.updateId,
         authorName: entry.author.name,
+        activityType: entry.activityType,
         message: entry.message,
+        metadata: entry.metadata ?? undefined,
         progress: entry.progress ?? undefined,
         status: entry.status ?? undefined,
         minutesWorked: entry.minutesWorked ?? undefined,
@@ -4384,7 +4400,7 @@ export function createApp() {
 
   async function taskScope(user: NonNullable<express.Request["user"]>) {
     const unrestrictedRoles: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.CEO, Role.HR];
-    const assignmentAdminRoles: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.CEO];
+    const assignmentAdminRoles: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.CEO, Role.HR];
     const unrestricted = unrestrictedRoles.includes(user.role);
     const teamIds = user.employeeId ? await getOrganizationTeamEmployeeIds(user.employeeId) : [];
     const visibleIds = unrestricted
@@ -4423,6 +4439,7 @@ export function createApp() {
         color: stage.color,
         sortOrder: stage.sortOrder,
         isCompleted: stage.isCompleted,
+        status: stage.status,
       })),
       taskCount: board._count.tasks,
       openTaskCount: board.tasks.length,
@@ -4431,12 +4448,8 @@ export function createApp() {
     };
   }
 
-  function taskStatusForStage(stage: { name: string; sortOrder: number; isCompleted: boolean }) {
-    if (stage.isCompleted) return TaskStatus.COMPLETED;
-    const name = stage.name.toLowerCase();
-    if (name.includes("review")) return TaskStatus.REVIEW;
-    if (name.includes("block")) return TaskStatus.BLOCKED;
-    return stage.sortOrder === 0 ? TaskStatus.TODO : TaskStatus.IN_PROGRESS;
+  function taskStatusForStage(stage: { status: TaskStatus }) {
+    return stage.status;
   }
 
   function boardAccessWhere(user: NonNullable<express.Request["user"]>) {
@@ -4512,7 +4525,11 @@ export function createApp() {
           accessType: body.accessType,
           createdByUserId: req.user!.id,
           stages: {
-            create: body.stages.map((stage, sortOrder) => ({ ...stage, sortOrder })),
+            create: body.stages.map((stage, sortOrder) => ({
+              ...stage,
+              sortOrder,
+              isCompleted: stage.status === TaskStatus.COMPLETED,
+            })),
           },
           roleAccess: {
             create: [...new Set(body.allowedRoles)].map((role) => ({ role })),
@@ -4585,14 +4602,43 @@ export function createApp() {
       const scope =
         req.query.scope === "mine" && req.user!.employeeId ? [req.user!.employeeId] : visibleIds;
       const requestedStatus = z.nativeEnum(TaskStatus).safeParse(req.query.status);
+      const requestedPriority = z.nativeEnum(TaskPriority).safeParse(req.query.priority);
       const boardId = typeof req.query.boardId === "string" ? req.query.boardId : undefined;
+      const query = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 120) : "";
+      const due = typeof req.query.due === "string" ? req.query.due : undefined;
+      const today = todayIstDate();
+      const tomorrow = new Date(today);
+      tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
       if (boardId) await assertBoardAccess(req.user!, boardId);
       const tasks = await prisma.workTask.findMany({
         where: {
+          archivedAt: null,
           ...(scope ? { assignments: { some: { employeeId: { in: scope } } } } : {}),
           ...(requestedStatus.success ? { status: requestedStatus.data } : {}),
+          ...(requestedPriority.success ? { priority: requestedPriority.data } : {}),
           ...(boardId ? { boardId } : {}),
-          OR: [{ boardId: null }, { board: { is: boardAccessWhere(req.user!) } }],
+          ...(due === "today" ? { dueDate: { gte: today, lt: tomorrow } } : {}),
+          ...(due === "overdue"
+            ? {
+                dueDate: { lt: today },
+                status: { notIn: [TaskStatus.COMPLETED, TaskStatus.CANCELLED] },
+              }
+            : {}),
+          ...(due === "none" ? { dueDate: null } : {}),
+          AND: [
+            { OR: [{ boardId: null }, { board: { is: boardAccessWhere(req.user!) } }] },
+            ...(query
+              ? [
+                  {
+                    OR: [
+                      { title: { contains: query } },
+                      { description: { contains: query } },
+                      { assignments: { some: { employee: { name: { contains: query } } } } },
+                    ],
+                  },
+                ]
+              : []),
+          ],
         },
         include: taskInclude,
         orderBy: [{ dueDate: "asc" }, { updatedAt: "desc" }],
@@ -4620,8 +4666,7 @@ export function createApp() {
         throw new HttpError(400, "Select active employees");
       const boardId = body.boardId || null;
       let stageId = body.stageId || null;
-      let selectedStage:
-        { stageId: string; name: string; sortOrder: number; isCompleted: boolean } | undefined;
+      let selectedStage: { stageId: string; status: TaskStatus; isCompleted: boolean } | undefined;
       if (boardId) {
         const board = await assertBoardAccess(req.user!, boardId);
         if (
@@ -4663,10 +4708,26 @@ export function createApp() {
           stageId,
           status: selectedStage ? taskStatusForStage(selectedStage) : undefined,
           progress: selectedStage?.isCompleted ? 100 : undefined,
+          completedAt: selectedStage?.isCompleted ? new Date() : undefined,
           description: body.description || null,
           parentTaskId: body.parentTaskId || null,
           createdByUserId: req.user!.id,
-          assignments: { create: employeeIds.map((employeeId) => ({ employeeId })) },
+          assignments: {
+            create: employeeIds.map((employeeId) => ({
+              employeeId,
+              assignedByUserId: req.user!.id,
+            })),
+          },
+          updates: {
+            create: {
+              authorUserId: req.user!.id,
+              activityType: "CREATED",
+              message: "Task created",
+              status: selectedStage?.status ?? TaskStatus.TODO,
+              progress: selectedStage?.isCompleted ? 100 : 0,
+              metadata: { assigneeEmployeeIds: employeeIds },
+            },
+          },
         },
         include: taskInclude,
       });
@@ -4703,10 +4764,10 @@ export function createApp() {
       const isOwn = !!req.user!.employeeId && existingEmployeeIds.includes(req.user!.employeeId);
       const canManage =
         assignableIds === undefined || existingEmployeeIds.some((id) => assignableIds.includes(id));
+      if (!canManage && !isOwn) throw new HttpError(403, "You cannot update this task");
       if (
-        isOwn &&
         !canManage &&
-        Object.keys(body).some((key) => !["status", "progress", "stageId"].includes(key))
+        Object.keys(body).some((key) => !["version", "status", "progress", "stageId"].includes(key))
       )
         throw new HttpError(403, "Employees can update only task status and progress");
       if (
@@ -4715,11 +4776,25 @@ export function createApp() {
         body.assigneeEmployeeIds.some((id) => !assignableIds.includes(id))
       )
         throw new HttpError(403, "Tasks can only be reassigned within your organization team");
-      if (body.assigneeEmployeeIds && existing.boardId) {
-        const board = await assertBoardAccess(req.user!, existing.boardId);
+      const replacementIds = body.assigneeEmployeeIds
+        ? [...new Set(body.assigneeEmployeeIds)]
+        : undefined;
+      if (replacementIds) {
+        const activeAssigneeCount = await prisma.employee.count({
+          where: { employeeId: { in: replacementIds }, status: "ACTIVE" },
+        });
+        if (activeAssigneeCount !== replacementIds.length) {
+          throw new HttpError(400, "Select active employees");
+        }
+      }
+
+      const board = existing.boardId
+        ? await assertBoardAccess(req.user!, existing.boardId)
+        : undefined;
+      if (replacementIds && board) {
         if (
           board.accessType === TaskBoardAccessType.MEMBER_GATED &&
-          body.assigneeEmployeeIds.some(
+          replacementIds.some(
             (employeeId) => !board.members.some((member) => member.employeeId === employeeId),
           )
         ) {
@@ -4728,11 +4803,11 @@ export function createApp() {
         if (board.accessType === TaskBoardAccessType.ROLE_GATED) {
           const allowedRoles = new Set(board.roleAccess.map((entry) => entry.role));
           const employeeUsers = await prisma.employee.findMany({
-            where: { employeeId: { in: body.assigneeEmployeeIds } },
+            where: { employeeId: { in: replacementIds } },
             select: { user: { select: { role: true } } },
           });
           if (
-            employeeUsers.length !== new Set(body.assigneeEmployeeIds).size ||
+            employeeUsers.length !== replacementIds.length ||
             employeeUsers.some(
               (employee) => !employee.user || !allowedRoles.has(employee.user.role),
             )
@@ -4741,57 +4816,129 @@ export function createApp() {
           }
         }
       }
-      const progress = body.status === "COMPLETED" ? 100 : body.progress;
-      const { assigneeEmployeeIds, ...taskPatch } = body;
-      let stagePatch: {
-        stageId?: string | null;
-        boardId?: string | null;
-        status?: TaskStatus;
-        progress?: number;
-      } = {};
+
+      let nextStageId: string | null | undefined;
+      let nextStatus = body.status;
       if (body.stageId) {
         const stage = await prisma.taskStage.findUniqueOrThrow({
           where: { stageId: body.stageId },
         });
-        await assertBoardAccess(req.user!, stage.boardId);
         if (!existing.boardId || stage.boardId !== existing.boardId) {
-          throw new HttpError(400, "Select a stage from the task's current board");
+          throw new HttpError(400, "Select a stage from the task's current workspace");
         }
-        stagePatch = {
-          stageId: stage.stageId,
-          boardId: stage.boardId,
-          status: taskStatusForStage(stage),
-          progress: stage.isCompleted ? 100 : progress,
-        };
+        if (body.status && body.status !== stage.status) {
+          throw new HttpError(400, "The selected stage and status do not match");
+        }
+        nextStageId = stage.stageId;
+        nextStatus = stage.status;
+      } else if (body.status && board) {
+        if (body.status === TaskStatus.CANCELLED) {
+          nextStageId = null;
+        } else {
+          const matchingStage = board.stages.find((stage) => stage.status === body.status);
+          if (!matchingStage) {
+            throw new HttpError(400, "This workspace has no stage for the selected status");
+          }
+          nextStageId = matchingStage.stageId;
+        }
+      } else if (body.stageId === null && existing.boardId) {
+        throw new HttpError(400, "Workspace tasks must remain in a stage");
       }
-      if (assigneeEmployeeIds) {
-        const replacementIds = [...new Set(assigneeEmployeeIds)];
-        await prisma.$transaction([
-          prisma.taskAssignment.deleteMany({ where: { taskId: existing.taskId } }),
-          prisma.taskAssignment.createMany({
-            data: replacementIds.map((employeeId) => ({ taskId: existing.taskId, employeeId })),
-          }),
-        ]);
+
+      const nextStartDate = body.startDate === undefined ? existing.startDate : body.startDate;
+      const nextDueDate = body.dueDate === undefined ? existing.dueDate : body.dueDate;
+      if (nextStartDate && nextDueDate && nextDueDate < nextStartDate) {
+        throw new HttpError(400, "Due date cannot be before the start date");
       }
-      const task = await prisma.workTask.update({
-        where: { taskId: existing.taskId },
-        data: {
-          ...taskPatch,
-          ...stagePatch,
-          progress: stagePatch.progress ?? progress,
-          completedAt:
-            stagePatch.status === TaskStatus.COMPLETED || body.status === "COMPLETED"
-              ? new Date()
-              : stagePatch.status || body.status
-                ? null
-                : undefined,
-        },
-        include: taskInclude,
+
+      const effectiveStatus = nextStatus ?? existing.status;
+      const nextProgress =
+        effectiveStatus === TaskStatus.COMPLETED ? 100 : (body.progress ?? existing.progress);
+      const activityType = replacementIds
+        ? TaskActivityType.ASSIGNEES_CHANGED
+        : nextStatus !== undefined || nextStageId !== undefined
+          ? TaskActivityType.STATUS_CHANGED
+          : body.progress !== undefined
+            ? TaskActivityType.PROGRESS_UPDATED
+            : TaskActivityType.DETAILS_UPDATED;
+      const activityMessage =
+        activityType === TaskActivityType.ASSIGNEES_CHANGED
+          ? "Assignees updated"
+          : activityType === TaskActivityType.STATUS_CHANGED
+            ? "Workflow status updated"
+            : activityType === TaskActivityType.PROGRESS_UPDATED
+              ? "Progress updated"
+              : "Task details updated";
+      const metadata = JSON.parse(
+        JSON.stringify({
+          previousStatus: existing.status,
+          status: effectiveStatus,
+          previousProgress: existing.progress,
+          progress: nextProgress,
+          assigneeEmployeeIds: replacementIds,
+        }),
+      ) as Prisma.InputJsonObject;
+
+      const task = await prisma.$transaction(async (transaction) => {
+        const updated = await transaction.workTask.updateMany({
+          where: { taskId: existing.taskId, version: body.version },
+          data: {
+            title: body.title,
+            description: body.description,
+            priority: body.priority,
+            status: nextStatus,
+            progress: body.progress !== undefined || nextStatus ? nextProgress : undefined,
+            startDate: body.startDate,
+            dueDate: body.dueDate,
+            stageId: nextStageId,
+            completedAt:
+              nextStatus === TaskStatus.COMPLETED
+                ? (existing.completedAt ?? new Date())
+                : nextStatus
+                  ? null
+                  : undefined,
+            version: { increment: 1 },
+            lastActivityAt: new Date(),
+          },
+        });
+        if (updated.count !== 1) {
+          throw new HttpError(409, "This task changed in another session. Refresh and try again");
+        }
+        if (replacementIds) {
+          await transaction.taskAssignment.deleteMany({ where: { taskId: existing.taskId } });
+          await transaction.taskAssignment.createMany({
+            data: replacementIds.map((employeeId) => ({
+              taskId: existing.taskId,
+              employeeId,
+              assignedByUserId: req.user!.id,
+            })),
+          });
+        }
+        await transaction.taskUpdate.create({
+          data: {
+            taskId: existing.taskId,
+            authorUserId: req.user!.id,
+            activityType,
+            message: activityMessage,
+            status: nextStatus,
+            progress: body.progress !== undefined || nextStatus ? nextProgress : undefined,
+            metadata,
+          },
+        });
+        return transaction.workTask.findUniqueOrThrow({
+          where: { taskId: existing.taskId },
+          include: taskInclude,
+        });
       });
       await audit({
         action: "task updated",
         performedByUserId: req.user!.id,
-        newValue: { taskId: task.taskId, status: task.status, progress: task.progress },
+        newValue: {
+          taskId: task.taskId,
+          version: task.version,
+          status: task.status,
+          progress: task.progress,
+        },
         ipAddress: req.ip,
       });
       res.json(taskDto(task));
@@ -4807,29 +4954,68 @@ export function createApp() {
         where: { taskId: String(req.params.id) },
       });
       const { visibleIds } = await taskScope(req.user!);
-      const visibleAssignment = visibleIds
-        ? await prisma.taskAssignment.findFirst({
-            where: { taskId: existing.taskId, employeeId: { in: visibleIds } },
-          })
-        : true;
-      if (!visibleAssignment) throw new HttpError(403, "Task is outside your organization team");
-      const progress = body.status === "COMPLETED" ? 100 : body.progress;
-      await prisma.$transaction([
-        prisma.taskUpdate.create({
-          data: { taskId: existing.taskId, authorUserId: req.user!.id, ...body, progress },
-        }),
-        prisma.workTask.update({
-          where: { taskId: existing.taskId },
+      const assignments = await prisma.taskAssignment.findMany({
+        where: { taskId: existing.taskId },
+        select: { employeeId: true },
+      });
+      if (visibleIds && !assignments.some(({ employeeId }) => visibleIds.includes(employeeId))) {
+        throw new HttpError(403, "Task is outside your organization team");
+      }
+
+      let nextStageId: string | null | undefined;
+      if (body.status && existing.boardId) {
+        const board = await assertBoardAccess(req.user!, existing.boardId);
+        if (body.status === TaskStatus.CANCELLED) {
+          nextStageId = null;
+        } else {
+          const matchingStage = board.stages.find((stage) => stage.status === body.status);
+          if (!matchingStage) {
+            throw new HttpError(400, "This workspace has no stage for the selected status");
+          }
+          nextStageId = matchingStage.stageId;
+        }
+      }
+      const effectiveStatus = body.status ?? existing.status;
+      const progress = effectiveStatus === TaskStatus.COMPLETED ? 100 : body.progress;
+      const activityType = body.status
+        ? TaskActivityType.STATUS_CHANGED
+        : body.progress !== undefined
+          ? TaskActivityType.PROGRESS_UPDATED
+          : TaskActivityType.COMMENT;
+      const { version: _version, ...logData } = body;
+      const task = await prisma.$transaction(async (transaction) => {
+        const updated = await transaction.workTask.updateMany({
+          where: { taskId: existing.taskId, version: body.version },
           data: {
             progress,
             status: body.status,
-            completedAt: body.status === "COMPLETED" ? new Date() : body.status ? null : undefined,
+            stageId: nextStageId,
+            completedAt:
+              body.status === TaskStatus.COMPLETED
+                ? (existing.completedAt ?? new Date())
+                : body.status
+                  ? null
+                  : undefined,
+            version: { increment: 1 },
+            lastActivityAt: new Date(),
           },
-        }),
-      ]);
-      const task = await prisma.workTask.findUniqueOrThrow({
-        where: { taskId: existing.taskId },
-        include: taskInclude,
+        });
+        if (updated.count !== 1) {
+          throw new HttpError(409, "This task changed in another session. Refresh and try again");
+        }
+        await transaction.taskUpdate.create({
+          data: {
+            taskId: existing.taskId,
+            authorUserId: req.user!.id,
+            ...logData,
+            progress,
+            activityType,
+          },
+        });
+        return transaction.workTask.findUniqueOrThrow({
+          where: { taskId: existing.taskId },
+          include: taskInclude,
+        });
       });
       res.status(201).json(taskDto(task));
     }),

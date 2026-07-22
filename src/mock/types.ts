@@ -448,11 +448,20 @@ export interface Announcement {
 
 export type TaskStatus = "TODO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "COMPLETED" | "CANCELLED";
 export type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+export type TaskActivityType =
+  | "CREATED"
+  | "COMMENT"
+  | "STATUS_CHANGED"
+  | "PROGRESS_UPDATED"
+  | "ASSIGNEES_CHANGED"
+  | "DETAILS_UPDATED";
 
 export interface TaskUpdate {
   id: string;
   authorName: string;
+  activityType: TaskActivityType;
   message: string;
+  metadata?: Record<string, unknown>;
   progress?: number;
   status?: TaskStatus;
   minutesWorked?: number;
@@ -474,9 +483,12 @@ export interface WorkTask {
   status: TaskStatus;
   priority: TaskPriority;
   progress: number;
+  version: number;
   startDate?: string;
   dueDate?: string;
   completedAt?: string;
+  archivedAt?: string;
+  lastActivityAt: string;
   createdAt: string;
   updatedAt: string;
   subtaskCount: number;
@@ -490,6 +502,7 @@ export interface TaskStage {
   color: "SLATE" | "BLUE" | "AMBER" | "VIOLET" | "EMERALD" | "RED";
   sortOrder: number;
   isCompleted: boolean;
+  status: TaskStatus;
 }
 
 export interface TaskBoard {

@@ -52,6 +52,14 @@ mysqldump --single-transaction --routines --triggers -u atd_hrms -p anytimediese
 
 Run `npx prisma migrate deploy` before restarting the backend. Migration `20260721103000_add_employee_shifts` adds day/night shift configuration with day-shift defaults for existing employees.
 
+### Task Workspace v2 migration warning
+
+Migration `20260722213000_task_workspace_v2` intentionally clears all legacy Task boards, stages,
+assignments, updates, and tasks before installing the new versioned Work Planner storage model. It
+does not remove any employee, user, attendance, leave, expense, HR-document, asset, department,
+branch, integration, setting, or audit row. Create and retain a backup before deployment if legacy
+Task history must be exported or restored later.
+
 ### Leave-policy migration warning
 
 Release migration `20260716190000_leave_policy_and_weekly_off` removes legacy leave requests, leave balances, and configurable leave types before installing Casual Leave, Sick Leave, Unpaid Leave / LOP, and Comp Off. Create and verify the MySQL dump above before deploying this release. Keep that dump when historical legacy leave records may be needed for payroll or compliance.
@@ -66,6 +74,7 @@ npx prisma generate
 npm run db:deploy
 npm run build
 npm run build:backend
+node scripts/audit-database.mjs
 pm2 restart atd-backend --update-env
 pm2 restart atd-frontend --update-env
 pm2 save
@@ -75,7 +84,7 @@ Do not use `git reset --hard`, `prisma migrate dev`, or `npm audit fix --force` 
 
 ## Moving From Testing To Real Data
 
-Before using **System Settings > Production Data Reset**, create a non-empty MySQL backup and confirm that it contains table definitions. The reset is irreversible from the application. It preserves the signed-in Developer Admin credentials, branches, departments, hierarchy, and system settings; all other testing data is permanently removed. After the reset, keep the existing Developer Admin session open, verify the preserved setup, and create real logins from **User Logins**.
+Before using **System Settings > Production Data Reset**, create a non-empty MySQL backup and confirm that it contains table definitions. The reset is irreversible from the application. It preserves the signed-in Developer Admin credentials, branches, departments, hierarchy, predefined leave policies, and system settings; all other testing data is permanently removed. After the reset, keep the existing Developer Admin session open, verify the preserved setup, and create real logins from **User Logins**. Follow [Reset and Go-Live](RESET_AND_GO_LIVE.md) for the complete sequence.
 
 ## Employee Integration Releases
 
@@ -100,6 +109,9 @@ curl -I https://hrms.sameerreddy.in
 ```
 
 Then test login, dashboard restore, mobile attendance, cross-device timer refresh, leave submit/approval, announcement delivery, notification scope, user status, and logout.
+
+For a Work Planner release, create a workspace and task, change its stage, post an update, and confirm
+the stage/status/activity remain synchronized. Run `npm run db:audit` again after the test.
 
 For releases that change shared navigation or dashboards, also verify:
 

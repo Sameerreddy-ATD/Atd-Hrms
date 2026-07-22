@@ -112,7 +112,9 @@ Use **System Settings > Production Data Reset** only once the testing period is 
 5. Confirm the reset, then verify that User Logins contains only the preserved Developer Admin account.
 6. Create the real organization logins from Developer Admin.
 
-The reset preserves the signed-in Developer Admin account and password, branches, departments and their hierarchy, and system settings. It clears department-head assignments because the testing employees are removed. It permanently removes all other users, employees, attendance, leave types and requests, tasks, assets, holidays, biometric devices and mappings, announcements, subscriptions, service requests, notifications derived from those records, and audit history. The reset is transactional: a database failure rolls back the entire operation.
+The reset preserves the signed-in Developer Admin account and password, branches, departments and their hierarchy, predefined leave policies, and system settings. It clears department-head assignments because the testing employees are removed. It permanently removes all other users, employees, attendance, leave balances and requests, tasks, assets, holidays, biometric devices and mappings, announcements, subscriptions, service requests, notifications derived from those records, and audit history. The reset is transactional: a database failure rolls back the entire operation.
+
+Follow the complete verification and real-data setup sequence in [Reset and Go-Live](RESET_AND_GO_LIVE.md).
 
 ## Developer Admin: Create Or Revoke Employee API Access
 
@@ -229,6 +231,42 @@ flowchart LR
   C --> D["Employee may cancel current or future dates"]
   C --> E["Attendance cancels leave for that date"]
 ```
+
+## Work Planner
+
+Open **Work Planner** to see daily work without first opening a board. The four summary cards show
+work due today, overdue, active, and completed. Use **My work** for assignments that include you and
+**Team work** for work available within your role and organization scope.
+
+### Find and update work
+
+1. Search by task title, details, workspace, or assignee.
+2. Filter by status or priority, or select a workspace chip.
+3. Review **Needs attention**, **Today**, **Upcoming**, and **No due date** groups.
+4. Select a task to open its focused detail view. On a phone, one task occupies the available screen
+   so actions remain easy to reach.
+5. Enter a clear update, select the resulting status and progress, then choose **Post update**.
+6. Use the circular check action only when the task is genuinely complete.
+
+If another session saved the task first, the app shows a refresh message and does not overwrite the
+newer change.
+
+### Create a task
+
+Developer Admin, Main Admin, CEO, HR, and authorized heads can select **New task**.
+
+1. Add a short outcome-focused title.
+2. Select one or more active assignees.
+3. Add details, priority, start date, and due date as needed. The due date cannot be earlier than the
+   start date.
+4. Optionally select a workspace and starting stage.
+5. Select **Create task**. The initial assignment and creation activity are stored with the task.
+
+### Create a workspace
+
+Select **New workspace**, add its name and access policy, and review the workflow. Every workspace
+must contain at least one **To do** stage and one **Completed** stage. Access can be open to everyone
+with module access, limited to selected roles, or limited to selected employees.
 
 ## Manager: Review Team Leave And Attendance
 
