@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import type { Express, NextFunction, Request, Response } from "express";
 import {
   AttendanceMode,
+  CompanyEntity,
   EmployeeChangeType,
   EmployeeStatus,
   EmploymentType,
@@ -50,6 +51,8 @@ const employeeCreateSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.string().email().max(255).nullable().optional(),
   phone: z.string().trim().max(30).nullable().optional(),
+  companyPhone: z.string().trim().max(30).nullable().optional(),
+  companyEntity: z.nativeEnum(CompanyEntity).optional(),
   departmentId: z.string().nullable().optional(),
   designation: z.string().trim().max(120).nullable().optional(),
   homeBranchId: z.string().nullable().optional(),
@@ -91,10 +94,13 @@ export function externalEmployeeDto(employee: ExternalEmployee) {
     name: employee.name,
     email: employee.email,
     phone: employee.phone,
+    companyPhone: employee.companyPhone,
     status: employee.status,
     account: employee.user ? { userId: employee.user.id, status: employee.user.status } : null,
     organization: {
       departmentId: employee.departmentId,
+      companyEntity: employee.companyEntity,
+      parentCompanyName: "Royal Petro Park Private Limited",
       departmentName: employee.department?.name ?? null,
       designation: employee.designation,
       organizationLevel: employee.organizationLevel,

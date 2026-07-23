@@ -42,6 +42,7 @@ import {
 import { settleExpiredOpenPunches } from "./attendanceSettlement.js";
 import { openAttendanceStream } from "./attendanceLive.js";
 import { config } from "./config.js";
+import { encryptEmployeeField, lastFour } from "./employeePrivateData.js";
 import { asyncHandler, errorHandler, HttpError } from "./errors.js";
 import { nearestBranch } from "./geofence.js";
 import { registerIntegrationRoutes } from "./integration-api.js";
@@ -1408,6 +1409,8 @@ export function createApp() {
                 name: body.name,
                 email: body.email.toLowerCase(),
                 phone: body.phone,
+                companyPhone: body.companyPhone,
+                companyEntity: body.companyEntity,
                 departmentId: body.departmentId ?? undefined,
                 designation: body.designation ?? undefined,
                 homeBranchId: body.homeBranchId ?? undefined,
@@ -1420,8 +1423,20 @@ export function createApp() {
                 joiningDate: body.joiningDate ?? undefined,
                 dateOfBirth: body.dateOfBirth ?? undefined,
                 gender: body.gender ?? undefined,
+                bloodGroup: body.bloodGroup ?? undefined,
                 employmentType: body.employmentType ?? "FULL_TIME",
                 organizationLevel: body.organizationLevel ?? "MEMBER",
+                bankAccountType: body.bankAccountType ?? undefined,
+                bankAccountHolderName: body.bankAccountHolderName ?? undefined,
+                bankIfscCode: body.bankIfscCode ?? undefined,
+                bankAccountNumberEncrypted: encryptEmployeeField(body.bankAccountNumber),
+                bankAccountNumberLast4: lastFour(body.bankAccountNumber),
+                panNumberEncrypted: encryptEmployeeField(body.panNumber),
+                panNumberLast4: lastFour(body.panNumber),
+                aadhaarNumberEncrypted: encryptEmployeeField(body.aadhaarNumber),
+                aadhaarNumberLast4: lastFour(body.aadhaarNumber),
+                uanNumberEncrypted: encryptEmployeeField(body.uanNumber),
+                uanNumberLast4: lastFour(body.uanNumber),
                 shiftType: body.shiftType ?? "DAY",
                 shiftStartMinutes: body.shiftStartMinutes ?? 540,
                 shiftEndMinutes: body.shiftEndMinutes ?? 1080,
@@ -1578,7 +1593,7 @@ export function createApp() {
         where: { employeeId },
         include: { user: true, department: true, homeBranch: true, manager: true },
       });
-      res.json(employeeDto(employee, req.user!));
+      res.json(employeeDto(employee, req.user!, true));
     }),
   );
 
@@ -1589,6 +1604,7 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       const employeeId = String(req.params.id);
       const body = updateEmployeeSchema.parse(req.body);
+      const { bankAccountNumber, panNumber, aadhaarNumber, uanNumber, ...employeeUpdate } = body;
       if (
         req.user!.role === Role.HR &&
         (body.managerId === undefined || Object.keys(body).some((key) => key !== "managerId"))
@@ -1607,8 +1623,21 @@ export function createApp() {
         const updatedEmployee = await tx.employee.update({
           where: { employeeId },
           data: {
-            ...body,
+            ...employeeUpdate,
             email: body.email === undefined ? undefined : body.email?.toLowerCase(),
+            bankAccountNumberEncrypted:
+              bankAccountNumber === undefined ? undefined : encryptEmployeeField(bankAccountNumber),
+            bankAccountNumberLast4:
+              bankAccountNumber === undefined ? undefined : lastFour(bankAccountNumber),
+            panNumberEncrypted:
+              panNumber === undefined ? undefined : encryptEmployeeField(panNumber),
+            panNumberLast4: panNumber === undefined ? undefined : lastFour(panNumber),
+            aadhaarNumberEncrypted:
+              aadhaarNumber === undefined ? undefined : encryptEmployeeField(aadhaarNumber),
+            aadhaarNumberLast4: aadhaarNumber === undefined ? undefined : lastFour(aadhaarNumber),
+            uanNumberEncrypted:
+              uanNumber === undefined ? undefined : encryptEmployeeField(uanNumber),
+            uanNumberLast4: uanNumber === undefined ? undefined : lastFour(uanNumber),
             terminatedAt:
               body.status && body.status !== "ACTIVE"
                 ? (existing.terminatedAt ?? new Date())
@@ -1681,7 +1710,7 @@ export function createApp() {
           ipAddress: req.ip,
         });
       }
-      res.json(employeeDto(employee, req.user!));
+      res.json(employeeDto(employee, req.user!, true));
     }),
   );
 
@@ -3602,8 +3631,8 @@ export function createApp() {
         employeeCode: employee.employeeCode,
         designation: employee.designation,
         department: employee.department?.name ?? "-",
-        branch: employee.homeBranch?.branchName ?? "-",
-        email: employee.email,
+        companyEntity: employee.companyEntity,
+        companyPhone: employee.companyPhone,
         status: employee.status,
       });
     }),
@@ -4207,13 +4236,17 @@ export function createApp() {
         include: { homeBranch: true, emergencyContact: true, department: true },
       });
       res.json({
-        companyName: "Anytime Diesel",
+        companyEntity: employee.companyEntity,
+        parentCompanyName: "Royal Petro Park Private Limited",
         employeeName: employee.name,
         employeeCode: employee.employeeCode,
         department: employee.department?.name,
         designation: employee.designation,
-        branch: employee.homeBranch?.branchName,
-        bloodGroup: employee.emergencyContact?.bloodGroup,
+        companyPhone: employee.companyPhone,
+        personalPhone: employee.phone,
+        email: employee.email,
+        joiningDate: employee.joiningDate?.toISOString().slice(0, 10),
+        bloodGroup: employee.bloodGroup ?? employee.emergencyContact?.bloodGroup,
         emergencyContact: employee.emergencyContact,
         status: employee.status,
       });

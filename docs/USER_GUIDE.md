@@ -69,15 +69,30 @@ Public signup is disabled. All accounts are created by the Developer Admin.
 
 1. Open **User Logins**.
 2. Select **Create Login**.
-3. Choose the employee details, organization unit, branch, gender, and employment type.
-4. Enter a temporary password for this account.
-5. Save the login.
-6. Share the login email and temporary password with the employee.
+3. Select the employer company: Anytime Diesel, Fuelistic Innovations Private Limited, or Royal
+   Petro Park Private Limited.
+4. Enter identity, personal/company phone, organization, reporting manager, joining, banking,
+   statutory, and optional attendance-location details.
+5. Enter a temporary password for this account.
+6. Save the login and share the email and temporary password with the employee.
 
 Notes:
 
 - Leave and team workflows follow the organization-unit head hierarchy.
 - Account creation and organization changes are recorded in audit logs.
+- Bank account number, PAN, Aadhaar, and UAN are encrypted. They are not exported through the
+  general Employee API.
+
+## Employee: Review My Profile And ID Card
+
+**My Profile** displays identity/contact information first, employment and company information
+second, followed by banking and statutory details. Sensitive identifiers are masked until the
+employee selects the show icon. Attendance access, shift, work assignment, account status, and
+attendance location are intentionally kept out of this personal profile.
+
+**Employee ID Card** displays the selected employer and Royal Petro Park Private Limited group,
+employee code, designation, department, role, joining date, blood group, and company contact
+number. The QR verification page exposes only the minimum active-employment details.
 
 ## Developer Admin: Suspend, Deactivate, Or Reactivate A Login
 

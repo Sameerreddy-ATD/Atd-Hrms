@@ -5,8 +5,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Logo } from "@/components/common/Logo";
 import { useAuth } from "@/lib/auth";
-import { ROLE_LABELS, type Branch } from "@/types/domain";
-import { branchesApi } from "@/services/api";
+import {
+  COMPANY_LABELS,
+  PARENT_COMPANY_NAME,
+  ROLE_LABELS,
+  type CompanyEntity,
+} from "@/types/domain";
+import { employeesApi } from "@/services/api";
 import { ShieldCheck } from "lucide-react";
 
 export const Route = createFileRoute("/_app/id-card")({
@@ -15,20 +20,31 @@ export const Route = createFileRoute("/_app/id-card")({
 
 function IdCardPage() {
   const { user } = useAuth();
-  const [branches, setBranches] = useState<Branch[]>([]);
+  const [employee, setEmployee] = useState<{
+    companyEntity: CompanyEntity;
+    employeeName: string;
+    employeeCode: string;
+    department?: string;
+    designation?: string;
+    companyPhone?: string;
+    personalPhone?: string;
+    email?: string;
+    joiningDate?: string;
+    bloodGroup?: string;
+  } | null>(null);
   useEffect(() => {
-    branchesApi
-      .list()
-      .then(setBranches)
-      .catch(() => setBranches([]));
-  }, []);
+    if (!user?.employeeId) return;
+    employeesApi
+      .idCard(user.employeeId)
+      .then(setEmployee)
+      .catch(() => setEmployee(null));
+  }, [user?.employeeId]);
   if (!user) return null;
   const initials = user.name
     .split(" ")
     .map((s) => s[0])
     .slice(0, 2)
     .join("");
-  const branch = branches.find((b) => b.id === user.homeBranchId)?.name ?? "-";
   const verificationUrl =
     typeof window !== "undefined"
       ? `${window.location.origin}/verify-id/${user.employeeId || user.id}`
@@ -61,24 +77,41 @@ function IdCardPage() {
               <div className="min-w-0">
                 <p className="truncate text-xl font-semibold">{user.name}</p>
                 <p className="text-sm text-muted-foreground">
-                  {user.designation ?? ROLE_LABELS[user.role]}
+                  {employee?.designation ?? user.designation ?? ROLE_LABELS[user.role]}
                 </p>
                 <p className="mt-1 font-mono text-xs text-muted-foreground">
-                  {user.employeeCode ?? user.employeeId ?? "-"}
+                  {employee?.employeeCode ?? user.employeeCode ?? user.employeeId ?? "-"}
                 </p>
               </div>
             </div>
             <div className="mt-5 grid grid-cols-1 gap-x-4 gap-y-3 border-y border-dashed py-4 text-sm min-[400px]:grid-cols-2 sm:grid-cols-3">
-              <Row label="Department" value={user.department ?? "-"} />
+              <Row
+                label="Company"
+                value={
+                  employee?.companyEntity
+                    ? COMPANY_LABELS[employee.companyEntity]
+                    : user.companyEntity
+                      ? COMPANY_LABELS[user.companyEntity]
+                      : "-"
+                }
+              />
+              <Row label="Group" value={PARENT_COMPANY_NAME} />
+              <Row label="Department" value={employee?.department ?? user.department ?? "-"} />
               <Row label="Role" value={ROLE_LABELS[user.role]} />
-              <Row label="Organization level" value={formatLabel(user.organizationLevel)} />
-              <Row label="Branch" value={branch} />
-              <Row label="Employment" value={formatLabel(user.employmentType)} />
-              <Row label="Gender" value={formatLabel(user.gender)} />
-              <Row label="Joining date" value={user.joiningDate ?? "-"} />
-              <Row label="Phone" value={user.phone ?? "-"} />
+              <Row label="Joining date" value={employee?.joiningDate ?? user.joiningDate ?? "-"} />
+              <Row label="Blood group" value={employee?.bloodGroup ?? user.bloodGroup ?? "-"} />
+              <Row
+                label="Phone"
+                value={
+                  employee?.companyPhone ??
+                  employee?.personalPhone ??
+                  user.companyPhone ??
+                  user.phone ??
+                  "-"
+                }
+              />
               <div className="min-[400px]:col-span-2 sm:col-span-3">
-                <Row label="Email" value={user.email} />
+                <Row label="Email" value={employee?.email ?? user.email} />
               </div>
             </div>
 
@@ -110,16 +143,7 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="truncate">{value}</p>
+      <p className="break-words">{value}</p>
     </div>
   );
-}
-
-function formatLabel(value?: string) {
-  return value
-    ? value
-        .replaceAll("_", " ")
-        .toLowerCase()
-        .replace(/\b\w/g, (letter) => letter.toUpperCase())
-    : "-";
 }

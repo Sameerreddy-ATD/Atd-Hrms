@@ -103,7 +103,8 @@ Complete these steps in order so references and permissions are correct:
 5. Open **User Logins** and create leadership/HR accounts first, then managers and employees. Each
    login creates or links the canonical employee record.
 6. Return to **Departments** and assign real department heads.
-7. Edit employee profiles to set manager, department, branch, designation, joining date, employment
+7. Edit employee profiles to set employer company, personal/company contact, manager, department,
+   attendance location, designation, joining date, banking/statutory fields, and employment
    type, attendance mode, and employee code.
 8. Add biometric devices, then map device user IDs to the correct employee records.
 9. Configure holidays, announcements, asset catalog/assignments, and task boards.

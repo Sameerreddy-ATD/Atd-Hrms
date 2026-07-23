@@ -22,8 +22,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { Branch, Department, User } from "@/types/domain";
-import { ROLE_LABELS } from "@/types/domain";
+import type { BankAccountType, Branch, CompanyEntity, Department, User } from "@/types/domain";
+import { COMPANY_LABELS, ROLE_LABELS } from "@/types/domain";
 import { branchesApi, employeesApi } from "@/services/api";
 import { Search, Pencil } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -60,9 +60,19 @@ function EmployeesPage() {
     name: "",
     email: "",
     phone: "",
+    companyPhone: "",
+    companyEntity: "ANYTIME_DIESEL" as CompanyEntity,
     homeBranchId: "",
     departmentId: "",
     designation: "",
+    bloodGroup: "" as NonNullable<User["bloodGroup"]> | "",
+    bankAccountType: "" as BankAccountType | "",
+    bankAccountHolderName: "",
+    bankAccountNumber: "",
+    bankIfscCode: "",
+    panNumber: "",
+    aadhaarNumber: "",
+    uanNumber: "",
     dateOfBirth: "",
     gender: "PREFER_NOT_TO_SAY" as "FEMALE" | "MALE" | "PREFER_NOT_TO_SAY",
     employmentType: "FULL_TIME" as "FULL_TIME" | "PART_TIME" | "INTERN",
@@ -114,23 +124,40 @@ function EmployeesPage() {
     }
   }
 
-  function openEditDialog(emp: User) {
-    setEditingEmployee(emp);
+  async function openEditDialog(emp: User) {
+    let fullEmployee = emp;
+    try {
+      fullEmployee = (await employeesApi.get(emp.employeeId ?? emp.id)) ?? emp;
+    } catch (error) {
+      toast.error((error as Error).message);
+      return;
+    }
+    setEditingEmployee(fullEmployee);
     setEditForm({
-      name: emp.name || "",
-      email: emp.email || "",
-      phone: emp.phone || "",
-      homeBranchId: emp.homeBranchId || "",
-      departmentId: emp.departmentId || "",
-      designation: emp.designation || "",
-      dateOfBirth: emp.dateOfBirth || "",
-      gender: emp.gender || "PREFER_NOT_TO_SAY",
-      employmentType: emp.employmentType || "FULL_TIME",
-      organizationLevel: emp.organizationLevel || "MEMBER",
+      name: fullEmployee.name || "",
+      email: fullEmployee.email || "",
+      phone: fullEmployee.phone || "",
+      companyPhone: fullEmployee.companyPhone || "",
+      companyEntity: fullEmployee.companyEntity || "ANYTIME_DIESEL",
+      homeBranchId: fullEmployee.homeBranchId || "",
+      departmentId: fullEmployee.departmentId || "",
+      designation: fullEmployee.designation || "",
+      bloodGroup: fullEmployee.bloodGroup || "",
+      bankAccountType: fullEmployee.bankAccountType || "",
+      bankAccountHolderName: fullEmployee.bankAccountHolderName || "",
+      bankAccountNumber: fullEmployee.bankAccountNumber || "",
+      bankIfscCode: fullEmployee.bankIfscCode || "",
+      panNumber: fullEmployee.panNumber || "",
+      aadhaarNumber: fullEmployee.aadhaarNumber || "",
+      uanNumber: fullEmployee.uanNumber || "",
+      dateOfBirth: fullEmployee.dateOfBirth || "",
+      gender: fullEmployee.gender || "PREFER_NOT_TO_SAY",
+      employmentType: fullEmployee.employmentType || "FULL_TIME",
+      organizationLevel: fullEmployee.organizationLevel || "MEMBER",
       attendanceMode: "BOTH",
-      shiftType: emp.shiftType || "DAY",
-      shiftStartMinutes: emp.shiftStartMinutes ?? 540,
-      shiftEndMinutes: emp.shiftEndMinutes ?? 1080,
+      shiftType: fullEmployee.shiftType || "DAY",
+      shiftStartMinutes: fullEmployee.shiftStartMinutes ?? 540,
+      shiftEndMinutes: fullEmployee.shiftEndMinutes ?? 1080,
     });
   }
 
@@ -142,9 +169,19 @@ function EmployeesPage() {
         name: editForm.name,
         email: editForm.email || undefined,
         phone: editForm.phone || undefined,
+        companyPhone: editForm.companyPhone || undefined,
+        companyEntity: editForm.companyEntity,
         homeBranchId: editForm.homeBranchId || undefined,
         departmentId: editForm.departmentId || undefined,
         designation: editForm.designation || undefined,
+        bloodGroup: editForm.bloodGroup || undefined,
+        bankAccountType: editForm.bankAccountType || undefined,
+        bankAccountHolderName: editForm.bankAccountHolderName || undefined,
+        bankAccountNumber: editForm.bankAccountNumber || undefined,
+        bankIfscCode: editForm.bankIfscCode || undefined,
+        panNumber: editForm.panNumber || undefined,
+        aadhaarNumber: editForm.aadhaarNumber || undefined,
+        uanNumber: editForm.uanNumber || undefined,
         dateOfBirth: editForm.dateOfBirth || undefined,
         gender: editForm.gender,
         employmentType: editForm.employmentType,
@@ -380,14 +417,46 @@ function EmployeesPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Phone</Label>
+                  <Label>Personal phone</Label>
                   <Input
                     value={editForm.phone}
                     onChange={(e) => setEditForm((c) => ({ ...c, phone: e.target.value }))}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Home Branch</Label>
+                  <Label>Company phone</Label>
+                  <Input
+                    value={editForm.companyPhone}
+                    onChange={(e) =>
+                      setEditForm((current) => ({ ...current, companyPhone: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Employer company</Label>
+                  <Select
+                    value={editForm.companyEntity}
+                    onValueChange={(value) =>
+                      setEditForm((current) => ({
+                        ...current,
+                        companyEntity: value as CompanyEntity,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(COMPANY_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Attendance location</Label>
                   <Select
                     value={editForm.homeBranchId}
                     onValueChange={(val) => setEditForm((c) => ({ ...c, homeBranchId: val }))}
@@ -478,6 +547,33 @@ function EmployeesPage() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
+                  <Label>Blood group</Label>
+                  <Select
+                    value={editForm.bloodGroup || "not_provided"}
+                    onValueChange={(value) =>
+                      setEditForm((current) => ({
+                        ...current,
+                        bloodGroup:
+                          value === "not_provided"
+                            ? ""
+                            : (value as NonNullable<User["bloodGroup"]>),
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="not_provided">Not provided</SelectItem>
+                      {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {value}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
                   <Label>Employment type</Label>
                   <Select
                     value={editForm.employmentType}
@@ -494,6 +590,72 @@ function EmployeesPage() {
                       <SelectItem value="INTERN">Intern</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="border-t border-border pt-4 sm:col-span-2">
+                  <h3 className="text-sm font-semibold">Banking and statutory details</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Sensitive identifiers are encrypted before storage.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Account holder name</Label>
+                  <Input
+                    value={editForm.bankAccountHolderName}
+                    onChange={(event) =>
+                      setEditForm((current) => ({
+                        ...current,
+                        bankAccountHolderName: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Account type</Label>
+                  <Select
+                    value={editForm.bankAccountType || "not_provided"}
+                    onValueChange={(value) =>
+                      setEditForm((current) => ({
+                        ...current,
+                        bankAccountType: value === "not_provided" ? "" : (value as BankAccountType),
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="not_provided">Not provided</SelectItem>
+                      {["SAVINGS", "CURRENT", "SALARY", "NRE", "NRO", "OTHER"].map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {value.charAt(0) + value.slice(1).toLowerCase()}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {[
+                  ["Account number", "bankAccountNumber"],
+                  ["IFSC code", "bankIfscCode"],
+                  ["PAN number", "panNumber"],
+                  ["Aadhaar number", "aadhaarNumber"],
+                  ["UAN number", "uanNumber"],
+                ].map(([label, key]) => (
+                  <div className="space-y-1.5" key={key}>
+                    <Label>{label}</Label>
+                    <Input
+                      autoComplete="off"
+                      value={editForm[key as keyof typeof editForm] as string}
+                      onChange={(event) =>
+                        setEditForm((current) => ({
+                          ...current,
+                          [key]: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                ))}
+                <div className="border-t border-border pt-4 sm:col-span-2">
+                  <h3 className="text-sm font-semibold">Attendance configuration</h3>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Shift</Label>

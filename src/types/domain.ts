@@ -50,6 +50,19 @@ export const ROLE_LABELS: Record<Role, string> = {
   field_staff: "Field Staff",
 };
 
+export type CompanyEntity =
+  "ROYAL_PETRO_PARK_PRIVATE_LIMITED" | "ANYTIME_DIESEL" | "FUELISTIC_INNOVATIONS_PRIVATE_LIMITED";
+
+export type BankAccountType = "SAVINGS" | "CURRENT" | "SALARY" | "NRE" | "NRO" | "OTHER";
+
+export const COMPANY_LABELS: Record<CompanyEntity, string> = {
+  ROYAL_PETRO_PARK_PRIVATE_LIMITED: "Royal Petro Park Private Limited",
+  ANYTIME_DIESEL: "Anytime Diesel",
+  FUELISTIC_INNOVATIONS_PRIVATE_LIMITED: "Fuelistic Innovations Private Limited",
+};
+
+export const PARENT_COMPANY_NAME = "Royal Petro Park Private Limited";
+
 export interface User {
   id: string;
   userId?: string | null;
@@ -66,6 +79,8 @@ export interface User {
   departmentId?: string;
   designation?: string;
   phone?: string;
+  companyPhone?: string;
+  companyEntity?: CompanyEntity;
   active: boolean;
   status?: string;
   accountStatus?: "ACTIVE" | "INACTIVE" | "LOCKED" | "SUSPENDED";
@@ -79,8 +94,20 @@ export interface User {
   joiningDate?: string;
   dateOfBirth?: string;
   gender?: "FEMALE" | "MALE" | "PREFER_NOT_TO_SAY";
+  bloodGroup?: "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-";
   employmentType?: "FULL_TIME" | "PART_TIME" | "INTERN";
   organizationLevel?: "HEAD" | "SENIOR" | "JUNIOR" | "MEMBER";
+  bankAccountType?: BankAccountType;
+  bankAccountHolderName?: string;
+  bankIfscCode?: string;
+  bankAccountNumber?: string;
+  bankAccountNumberLast4?: string;
+  panNumber?: string;
+  panNumberLast4?: string;
+  aadhaarNumber?: string;
+  aadhaarNumberLast4?: string;
+  uanNumber?: string;
+  uanNumberLast4?: string;
   shiftType?: "DAY" | "NIGHT";
   shiftStartMinutes?: number;
   shiftEndMinutes?: number;

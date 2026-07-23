@@ -49,6 +49,21 @@ enum EmploymentType {
   INTERN
 }
 
+enum CompanyEntity {
+  ROYAL_PETRO_PARK_PRIVATE_LIMITED
+  ANYTIME_DIESEL
+  FUELISTIC_INNOVATIONS_PRIVATE_LIMITED
+}
+
+enum BankAccountType {
+  SAVINGS
+  CURRENT
+  SALARY
+  NRE
+  NRO
+  OTHER
+}
+
 enum ShiftType {
   DAY
   NIGHT
@@ -240,57 +255,71 @@ model PushSubscription {
 }
 
 model Employee {
-  employeeId           String                        @id @default(cuid()) @map("employee_id")
-  employeeCode         String                        @unique @map("employee_code")
-  externalReference    String?                       @unique @map("external_reference")
-  name                 String
-  email                String?                       @unique
-  phone                String?
-  departmentId         String?                       @map("department_id")
-  department           Department?                   @relation(fields: [departmentId], references: [departmentId])
-  designation          String?
-  homeBranchId         String?                       @map("home_branch_id")
-  homeBranch           Branch?                       @relation(fields: [homeBranchId], references: [branchId])
-  managerId            String?                       @map("manager_id")
-  manager              Employee?                     @relation("ManagerTeam", fields: [managerId], references: [employeeId])
-  teamMembers          Employee[]                    @relation("ManagerTeam")
-  joiningDate          DateTime?                     @map("joining_date") @db.Date
-  dateOfBirth          DateTime?                     @map("date_of_birth") @db.Date
-  gender               Gender?
-  employmentType       EmploymentType?               @map("employment_type")
-  organizationLevel    String                        @default("MEMBER") @map("organization_level")
-  attendanceMode       AttendanceMode                @default(BOTH) @map("attendance_mode")
-  attendanceRequired   Boolean                       @default(true) @map("attendance_required")
-  shiftType            ShiftType                     @default(DAY) @map("shift_type")
-  shiftStartMinutes    Int                           @default(540) @map("shift_start_minutes")
-  shiftEndMinutes      Int                           @default(1080) @map("shift_end_minutes")
-  isFieldEmployee      Boolean                       @default(false) @map("is_field_employee")
-  status               EmployeeStatus                @default(ACTIVE)
-  version              Int                           @default(1)
-  terminatedAt         DateTime?                     @map("terminated_at")
-  createdAt            DateTime                      @default(now()) @map("created_at")
-  updatedAt            DateTime                      @updatedAt @map("updated_at")
-  user                 User?
-  schedules            EmployeeBranchSchedule[]
-  attendanceEvents     AttendanceEvent[]
-  summaries            AttendanceDailySummary[]
-  fieldAttendances     FieldAttendance[]
-  biometricMappings    BiometricEmployeeMapping[]
-  leaveRequests        LeaveRequest[]
-  leaveBalances        LeaveBalance[]
-  weeklyOffRequests    WeeklyOffRequest[]
-  compOffCredits       CompOffCredit[]
-  correctionRequests   AttendanceCorrectionRequest[]
-  emergencyContact     EmergencyContact?
-  headedDepartments    Department[]                  @relation("DepartmentHead")
-  assignedAssets       CompanyAsset[]
-  taskAssignments      TaskAssignment[]
-  taskBoardMemberships TaskBoardMember[]
-  assetReturns         AssetReturn[]
-  expenseClaims        ExpenseClaim[]
-  certificateRequests  CertificateRequest[]
-  attendanceReminders  AttendanceReminder[]
-  changeEvents         EmployeeChangeEvent[]
+  employeeId                 String                        @id @default(cuid()) @map("employee_id")
+  employeeCode               String                        @unique @map("employee_code")
+  externalReference          String?                       @unique @map("external_reference")
+  name                       String
+  email                      String?                       @unique
+  phone                      String?
+  companyPhone               String?                       @map("company_phone")
+  companyEntity              CompanyEntity                 @default(ANYTIME_DIESEL) @map("company_entity")
+  departmentId               String?                       @map("department_id")
+  department                 Department?                   @relation(fields: [departmentId], references: [departmentId])
+  designation                String?
+  homeBranchId               String?                       @map("home_branch_id")
+  homeBranch                 Branch?                       @relation(fields: [homeBranchId], references: [branchId])
+  managerId                  String?                       @map("manager_id")
+  manager                    Employee?                     @relation("ManagerTeam", fields: [managerId], references: [employeeId])
+  teamMembers                Employee[]                    @relation("ManagerTeam")
+  joiningDate                DateTime?                     @map("joining_date") @db.Date
+  dateOfBirth                DateTime?                     @map("date_of_birth") @db.Date
+  gender                     Gender?
+  bloodGroup                 String?                       @map("blood_group")
+  employmentType             EmploymentType?               @map("employment_type")
+  organizationLevel          String                        @default("MEMBER") @map("organization_level")
+  bankAccountType            BankAccountType?              @map("bank_account_type")
+  bankAccountHolderName      String?                       @map("bank_account_holder_name")
+  bankIfscCode               String?                       @map("bank_ifsc_code")
+  bankAccountNumberEncrypted String?                       @map("bank_account_number_encrypted") @db.Text
+  bankAccountNumberLast4     String?                       @map("bank_account_number_last4") @db.VarChar(4)
+  panNumberEncrypted         String?                       @map("pan_number_encrypted") @db.Text
+  panNumberLast4             String?                       @map("pan_number_last4") @db.VarChar(4)
+  aadhaarNumberEncrypted     String?                       @map("aadhaar_number_encrypted") @db.Text
+  aadhaarNumberLast4         String?                       @map("aadhaar_number_last4") @db.VarChar(4)
+  uanNumberEncrypted         String?                       @map("uan_number_encrypted") @db.Text
+  uanNumberLast4             String?                       @map("uan_number_last4") @db.VarChar(4)
+  attendanceMode             AttendanceMode                @default(BOTH) @map("attendance_mode")
+  attendanceRequired         Boolean                       @default(true) @map("attendance_required")
+  shiftType                  ShiftType                     @default(DAY) @map("shift_type")
+  shiftStartMinutes          Int                           @default(540) @map("shift_start_minutes")
+  shiftEndMinutes            Int                           @default(1080) @map("shift_end_minutes")
+  isFieldEmployee            Boolean                       @default(false) @map("is_field_employee")
+  status                     EmployeeStatus                @default(ACTIVE)
+  version                    Int                           @default(1)
+  terminatedAt               DateTime?                     @map("terminated_at")
+  createdAt                  DateTime                      @default(now()) @map("created_at")
+  updatedAt                  DateTime                      @updatedAt @map("updated_at")
+  user                       User?
+  schedules                  EmployeeBranchSchedule[]
+  attendanceEvents           AttendanceEvent[]
+  summaries                  AttendanceDailySummary[]
+  fieldAttendances           FieldAttendance[]
+  biometricMappings          BiometricEmployeeMapping[]
+  leaveRequests              LeaveRequest[]
+  leaveBalances              LeaveBalance[]
+  weeklyOffRequests          WeeklyOffRequest[]
+  compOffCredits             CompOffCredit[]
+  correctionRequests         AttendanceCorrectionRequest[]
+  emergencyContact           EmergencyContact?
+  headedDepartments          Department[]                  @relation("DepartmentHead")
+  assignedAssets             CompanyAsset[]
+  taskAssignments            TaskAssignment[]
+  taskBoardMemberships       TaskBoardMember[]
+  assetReturns               AssetReturn[]
+  expenseClaims              ExpenseClaim[]
+  certificateRequests        CertificateRequest[]
+  attendanceReminders        AttendanceReminder[]
+  changeEvents               EmployeeChangeEvent[]
 
   @@map("employees")
 }

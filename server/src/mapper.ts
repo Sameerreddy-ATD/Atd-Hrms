@@ -10,6 +10,7 @@ import type {
   User,
 } from "@prisma/client";
 import { roleToUi } from "./rbac.js";
+import { decryptEmployeeField } from "./employeePrivateData.js";
 
 export function userDto(
   user: Pick<
@@ -29,6 +30,8 @@ export function userDto(
     employee?: Pick<
       Employee,
       | "homeBranchId"
+      | "companyEntity"
+      | "companyPhone"
       | "departmentId"
       | "designation"
       | "attendanceMode"
@@ -36,6 +39,10 @@ export function userDto(
       | "employeeCode"
       | "dateOfBirth"
       | "gender"
+      | "bloodGroup"
+      | "employmentType"
+      | "organizationLevel"
+      | "joiningDate"
       | "shiftType"
       | "shiftStartMinutes"
       | "shiftEndMinutes"
@@ -60,6 +67,8 @@ export function userDto(
     suspendedUntil: user.suspendedUntil ? user.suspendedUntil.toISOString() : null,
     suspensionStartsAt: user.suspensionStartsAt ? user.suspensionStartsAt.toISOString() : null,
     homeBranchId: user.employee?.homeBranchId ?? undefined,
+    companyEntity: user.employee?.companyEntity,
+    companyPhone: user.employee?.companyPhone ?? undefined,
     department: user.employee?.departmentId ?? undefined,
     designation: user.employee?.designation ?? undefined,
     mustChangePassword: user.firstLoginPasswordChangeRequired,
@@ -68,6 +77,10 @@ export function userDto(
     employeeCode: user.employee?.employeeCode ?? undefined,
     dateOfBirth: user.employee?.dateOfBirth?.toISOString().slice(0, 10),
     gender: user.employee?.gender ?? undefined,
+    bloodGroup: user.employee?.bloodGroup ?? undefined,
+    employmentType: user.employee?.employmentType ?? undefined,
+    organizationLevel: user.employee?.organizationLevel ?? undefined,
+    joiningDate: user.employee?.joiningDate?.toISOString().slice(0, 10),
     shiftType: user.employee?.shiftType ?? undefined,
     shiftStartMinutes: user.employee?.shiftStartMinutes ?? undefined,
     shiftEndMinutes: user.employee?.shiftEndMinutes ?? undefined,
@@ -85,6 +98,7 @@ export function employeeDto(
     manager?: Pick<Employee, "employeeId" | "name"> | null;
   },
   reqUser?: { id: string; role: string; employeeId?: string | null },
+  includePrivateDetails = false,
 ) {
   const showFullDOB =
     !reqUser ||
@@ -92,6 +106,14 @@ export function employeeDto(
     reqUser.role === "MAIN_ADMIN" ||
     reqUser.role === "HR" ||
     reqUser.employeeId === employee.employeeId;
+  const privateViewer =
+    !reqUser ||
+    reqUser.role === "DEVELOPER_ADMIN" ||
+    reqUser.role === "MAIN_ADMIN" ||
+    reqUser.role === "CEO" ||
+    reqUser.role === "HR" ||
+    reqUser.employeeId === employee.employeeId;
+  const showPrivateDetails = includePrivateDetails && privateViewer;
 
   let dobString: string | undefined = undefined;
   if (employee.dateOfBirth) {
@@ -121,6 +143,8 @@ export function employeeDto(
     name: employee.name,
     email: employee.email ?? "",
     phone: employee.phone ?? undefined,
+    companyPhone: employee.companyPhone ?? undefined,
+    companyEntity: employee.companyEntity,
     role: employee.user ? roleToUi(employee.user.role) : "employee",
     active: employee.status === "ACTIVE" && employee.user?.status === "ACTIVE" && !accountSuspended,
     status: employee.status,
@@ -140,8 +164,28 @@ export function employeeDto(
     joiningDate: employee.joiningDate?.toISOString().slice(0, 10),
     dateOfBirth: dobString,
     gender: employee.gender ?? undefined,
+    bloodGroup: employee.bloodGroup ?? undefined,
     employmentType: employee.employmentType ?? undefined,
     organizationLevel: employee.organizationLevel,
+    bankAccountType: showPrivateDetails ? (employee.bankAccountType ?? undefined) : undefined,
+    bankAccountHolderName: showPrivateDetails
+      ? (employee.bankAccountHolderName ?? undefined)
+      : undefined,
+    bankIfscCode: showPrivateDetails ? (employee.bankIfscCode ?? undefined) : undefined,
+    bankAccountNumber: showPrivateDetails
+      ? decryptEmployeeField(employee.bankAccountNumberEncrypted)
+      : undefined,
+    bankAccountNumberLast4: showPrivateDetails
+      ? (employee.bankAccountNumberLast4 ?? undefined)
+      : undefined,
+    panNumber: showPrivateDetails ? decryptEmployeeField(employee.panNumberEncrypted) : undefined,
+    panNumberLast4: showPrivateDetails ? (employee.panNumberLast4 ?? undefined) : undefined,
+    aadhaarNumber: showPrivateDetails
+      ? decryptEmployeeField(employee.aadhaarNumberEncrypted)
+      : undefined,
+    aadhaarNumberLast4: showPrivateDetails ? (employee.aadhaarNumberLast4 ?? undefined) : undefined,
+    uanNumber: showPrivateDetails ? decryptEmployeeField(employee.uanNumberEncrypted) : undefined,
+    uanNumberLast4: showPrivateDetails ? (employee.uanNumberLast4 ?? undefined) : undefined,
     shiftType: employee.shiftType,
     shiftStartMinutes: employee.shiftStartMinutes,
     shiftEndMinutes: employee.shiftEndMinutes,

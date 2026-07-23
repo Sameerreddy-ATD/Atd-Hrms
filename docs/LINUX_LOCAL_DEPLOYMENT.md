@@ -115,6 +115,7 @@ FRONTEND_ORIGIN="https://hrms.sameerreddy.in"
 VITE_API_BASE_URL="https://hrms.sameerreddy.in/api"
 JWT_ACCESS_SECRET="LONG_RANDOM_SECRET"
 JWT_REFRESH_SECRET="DIFFERENT_LONG_RANDOM_SECRET"
+EMPLOYEE_DATA_ENCRYPTION_KEY="STABLE_32_PLUS_CHARACTER_EMPLOYEE_DATA_SECRET"
 SESSION_COOKIE_NAME="adh_session"
 REFRESH_COOKIE_NAME="adh_refresh"
 COOKIE_SECURE=true
@@ -127,6 +128,9 @@ VAPID_SUBJECT="mailto:responsible-company-email@anytimediesel.com"
 Generate VAPID keys once with `npx web-push generate-vapid-keys`. Keep the private key secret. `VAPID_SUBJECT` is a responsible contact URI, not a generated email.
 
 Generate JWT secrets with a secure password generator or `openssl rand -base64 48`.
+Generate `EMPLOYEE_DATA_ENCRYPTION_KEY` once with `openssl rand -base64 48`, store it in a secret
+manager, and keep it stable across deployments. Do not rotate it without re-encrypting existing
+employee private fields.
 
 ## 6. Install, Migrate, and Build
 

@@ -164,6 +164,40 @@ try {
     "SELECT COUNT(*) AS count FROM employees WHERE shift_start_minutes NOT BETWEEN 0 AND 1439 OR shift_end_minutes NOT BETWEEN 0 AND 1439",
     "Shift minutes must be valid minutes within a day",
   );
+  await countCheck(
+    "employee company assignments",
+    `SELECT COUNT(*) AS count FROM employees
+     WHERE company_entity NOT IN (
+       'ROYAL_PETRO_PARK_PRIVATE_LIMITED',
+       'ANYTIME_DIESEL',
+       'FUELISTIC_INNOVATIONS_PRIVATE_LIMITED'
+     )`,
+    "Every employee must reference a supported legal company entity",
+  );
+  await countCheck(
+    "employee blood groups",
+    `SELECT COUNT(*) AS count FROM employees
+     WHERE blood_group IS NOT NULL AND blood_group NOT IN ('A+','A-','B+','B-','AB+','AB-','O+','O-')`,
+    "Blood group values must use the supported medical notation",
+  );
+  await countCheck(
+    "employee private field encryption",
+    `SELECT COUNT(*) AS count FROM employees
+     WHERE (bank_account_number_encrypted IS NOT NULL AND bank_account_number_encrypted NOT LIKE 'v1.%')
+        OR (pan_number_encrypted IS NOT NULL AND pan_number_encrypted NOT LIKE 'v1.%')
+        OR (aadhaar_number_encrypted IS NOT NULL AND aadhaar_number_encrypted NOT LIKE 'v1.%')
+        OR (uan_number_encrypted IS NOT NULL AND uan_number_encrypted NOT LIKE 'v1.%')`,
+    "Bank account, PAN, Aadhaar, and UAN values must use the versioned encrypted envelope",
+  );
+  await countCheck(
+    "employee private field masks",
+    `SELECT COUNT(*) AS count FROM employees
+     WHERE (bank_account_number_encrypted IS NULL) <> (bank_account_number_last4 IS NULL)
+        OR (pan_number_encrypted IS NULL) <> (pan_number_last4 IS NULL)
+        OR (aadhaar_number_encrypted IS NULL) <> (aadhaar_number_last4 IS NULL)
+        OR (uan_number_encrypted IS NULL) <> (uan_number_last4 IS NULL)`,
+    "Every encrypted employee identifier must have a matching last-four display value",
+  );
 
   const managerRows = await prisma.employee.findMany({
     select: { employeeId: true, managerId: true },

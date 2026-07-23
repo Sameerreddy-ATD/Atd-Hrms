@@ -8,7 +8,7 @@ These documents describe the `version-1` application and production deployment. 
 - HR and Developer Admin: [User Guide](USER_GUIDE.md) and [Operations and Workflows](OPERATIONS_AND_WORKFLOWS.md)
 - Developers: [Technical Overview](TECHNICAL_OVERVIEW.md)
 - New contributors: [Repository Structure](REPOSITORY_STRUCTURE.md) and [Development and Testing](DEVELOPMENT_AND_TESTING.md)
-- Database owners and integration developers: [Database Integrity Audit](DATABASE_INTEGRITY_AUDIT.md), [Employee Data and Integration API](EMPLOYEE_DATA_AND_INTEGRATION_API.md), and [OpenAPI](openapi.employee-v1.yaml)
+- Database owners and integration developers: [Database Integrity Audit](DATABASE_INTEGRITY_AUDIT.md), [Employee Data and Integration API](EMPLOYEE_DATA_AND_INTEGRATION_API.md), [Employee Profile and ID Card](EMPLOYEE_PROFILE_AND_ID_CARD.md), and [OpenAPI](openapi.employee-v1.yaml)
 - Product owners and UI writers: [Product Naming](PRODUCT_NAMING.md)
 - Go-live owners: [Reset and Go-Live](RESET_AND_GO_LIVE.md)
 - Server administrators: [Linux and AWS Deployment](LINUX_LOCAL_DEPLOYMENT.md)
@@ -26,6 +26,7 @@ These documents describe the `version-1` application and production deployment. 
 | `REPOSITORY_STRUCTURE.md`              | Authoritative folder map, file ownership, placement rules, and documentation responsibilities    |
 | `DEVELOPMENT_AND_TESTING.md`           | Local setup, database changes, test matrix, browser QA, and commit checks                        |
 | `EMPLOYEE_DATA_AND_INTEGRATION_API.md` | Complete table catalog, canonical employee rules, API security, synchronization and verification |
+| `EMPLOYEE_PROFILE_AND_ID_CARD.md`      | Profile field order, company hierarchy, encrypted identifiers, permissions, and ID-card contract |
 | `DATABASE_INTEGRITY_AUDIT.md`          | Full storage assurance, automated integrity checks, Task v2 rules, and repair policy             |
 | `openapi.employee-v1.yaml`             | Machine-readable Employee API v1 contract                                                        |
 | `PRODUCT_NAMING.md`                    | Recommended product name and professional interface terminology                                  |

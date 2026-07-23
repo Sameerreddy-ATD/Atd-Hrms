@@ -228,6 +228,15 @@ components:
         name: { type: string, minLength: 2, maxLength: 120 }
         email: { type: [string, "null"], format: email }
         phone: { type: [string, "null"], maxLength: 30 }
+        companyPhone: { type: [string, "null"], maxLength: 30 }
+        companyEntity:
+          type: string
+          enum:
+            [
+              ROYAL_PETRO_PARK_PRIVATE_LIMITED,
+              ANYTIME_DIESEL,
+              FUELISTIC_INNOVATIONS_PRIVATE_LIMITED,
+            ]
         departmentId: { type: [string, "null"] }
         designation: { type: [string, "null"], maxLength: 120 }
         homeBranchId: { type: [string, "null"] }
@@ -271,6 +280,7 @@ components:
         name: { type: string }
         email: { type: [string, "null"], format: email }
         phone: { type: [string, "null"] }
+        companyPhone: { type: [string, "null"] }
         status: { $ref: "#/components/schemas/EmployeeStatus" }
         account:
           oneOf:

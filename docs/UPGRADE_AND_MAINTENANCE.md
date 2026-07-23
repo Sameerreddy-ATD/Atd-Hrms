@@ -52,6 +52,10 @@ mysqldump --single-transaction --routines --triggers -u atd_hrms -p anytimediese
 
 ## Standard Production Update
 
+Before the first update containing employee private-data encryption, add a stable
+`EMPLOYEE_DATA_ENCRYPTION_KEY` (32+ characters) to `/opt/anytime-crew-hub/.env` and include that
+file in the encrypted configuration backup. Do this before any bank/PAN/Aadhaar/UAN value is saved.
+
 Run `npx prisma migrate deploy` before restarting the backend. Migration `20260721103000_add_employee_shifts` adds day/night shift configuration with day-shift defaults for existing employees.
 
 ### Task Workspace v2 migration warning

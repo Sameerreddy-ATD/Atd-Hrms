@@ -6,6 +6,7 @@ import type {
   AssetReturnRecord,
   BiometricMapping,
   CompanyAsset,
+  CompanyEntity,
   CertificateRequest,
   ExpenseClaim,
   BiometricDevice,
@@ -253,13 +254,28 @@ export const employeesApi = {
       "/employees/me/is-reporting-manager",
     ),
   get: (id: string) => request<EmployeeProfile | null>(`/employees/${id}`),
+  idCard: (id: string) =>
+    request<{
+      companyEntity: CompanyEntity;
+      parentCompanyName: string;
+      employeeName: string;
+      employeeCode: string;
+      department?: string;
+      designation?: string;
+      companyPhone?: string;
+      personalPhone?: string;
+      email?: string;
+      joiningDate?: string;
+      bloodGroup?: string;
+      status: string;
+    }>(`/id-card/${id}`),
   update: (id: string, patch: Partial<EmployeeProfile>) =>
     request<EmployeeProfile>(`/employees/${id}`, {
       method: "PATCH",
       body: JSON.stringify({
         ...patch,
         attendanceMode: patch.attendanceMode,
-        managerId: patch.managerId || null,
+        ...(patch.managerId !== undefined ? { managerId: patch.managerId || null } : {}),
       }),
     }),
   birthdays: () =>
@@ -453,8 +469,8 @@ export const attendanceApi = {
       employeeCode: string;
       designation: string;
       department: string;
-      branch: string;
-      email: string;
+      companyEntity: CompanyEntity;
+      companyPhone?: string;
       status: string;
     }>(`/verify-id-card/${employeeId}`),
 };

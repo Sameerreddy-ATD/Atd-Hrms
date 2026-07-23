@@ -74,7 +74,7 @@ Run from the repository root with the target `DATABASE_URL` already loaded:
 npm run db:audit
 ```
 
-The command reports per-table row counts and runs 93 checks, including:
+The command reports per-table row counts and runs 97 checks, including:
 
 - all foreign keys and orphan counts;
 - unfinished Prisma migrations, storage engine, and Unicode collation;
@@ -111,8 +111,8 @@ numbers, remarks, or document links.
 ## Clean-database Validation
 
 This release was validated against a newly initialized disposable MySQL 8 database by applying all
-30 migrations in order, seeding baseline accounts, and running the audit. Result: 40 tables, 57
-foreign keys, 93 checks, zero failures, and zero warnings.
+31 migrations in order, seeding baseline accounts, and running the audit. Result: 40 tables, 57
+foreign keys, 97 checks, zero failures, and zero warnings.
 
 The Task smoke test creates and edits a board, adds a custom stage, creates a task, changes its
 stage/status, posts an activity, verifies task and board version increments, confirms stale task and

@@ -140,7 +140,12 @@ The production data reset is Developer Admin-only and requires both current-pass
 
 Use `npm run db:migrate` only during development. Use `npm run db:deploy` in production.
 
-The complete 40-table catalog, canonical employee/account synchronization rules, Employee API v1, idempotency, optimistic concurrency, event consumption and integrity SQL are documented in [Employee Data Model and Integration API](EMPLOYEE_DATA_AND_INTEGRATION_API.md). The read-only 93-check database audit and repair policy are documented in [Database Integrity Audit](DATABASE_INTEGRITY_AUDIT.md).
+The complete 40-table catalog, canonical employee/account synchronization rules, Employee API v1,
+idempotency, optimistic concurrency, event consumption and integrity SQL are documented in
+[Employee Data Model and Integration API](EMPLOYEE_DATA_AND_INTEGRATION_API.md). Profile fields,
+company hierarchy, encrypted identifiers, and the ID-card contract are documented in
+[Employee Profile and ID Card](EMPLOYEE_PROFILE_AND_ID_CARD.md). The read-only database audit and
+repair policy are documented in [Database Integrity Audit](DATABASE_INTEGRITY_AUDIT.md).
 
 Migration `20260716190000_leave_policy_and_weekly_off` intentionally clears legacy leave requests, balances, and configurable leave types before installing the four protected system policies. Back up production before applying it when historical legacy leave data must be retained externally.
 

@@ -12,7 +12,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
-import { type Branch, type Department, type Role, type User } from "@/types/domain";
+import {
+  COMPANY_LABELS,
+  PARENT_COMPANY_NAME,
+  type BankAccountType,
+  type Branch,
+  type CompanyEntity,
+  type Department,
+  type Role,
+  type User,
+} from "@/types/domain";
 import { branchesApi, employeesApi, usersApi } from "@/services/api";
 
 const CAN_CREATE: Record<Role, Role[]> = {
@@ -48,6 +57,7 @@ export function CreateLoginForm({
   const allowed = user ? CAN_CREATE[user.role] : [];
   const [branches, setBranches] = useState<Branch[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [employees, setEmployees] = useState<User[]>([]);
   const [unlinkedEmployees, setUnlinkedEmployees] = useState<User[]>([]);
   const [creationMode] = useState<"new" | "link">("new");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
@@ -55,11 +65,14 @@ export function CreateLoginForm({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [companyPhone, setCompanyPhone] = useState("");
+  const [companyEntity, setCompanyEntity] = useState<CompanyEntity>("ANYTIME_DIESEL");
   const [branch, setBranch] = useState("");
   const [dept, setDept] = useState("");
   const [organizationUnitId, setOrganizationUnitId] = useState("");
   const [childOrganizationUnitId, setChildOrganizationUnitId] = useState("none");
   const [designation, setDesignation] = useState("");
+  const [managerId, setManagerId] = useState("automatic");
   const [organizationLevel, setOrganizationLevel] = useState<
     "HEAD" | "SENIOR" | "JUNIOR" | "MEMBER"
   >("MEMBER");
@@ -68,12 +81,20 @@ export function CreateLoginForm({
   const [gender, setGender] = useState<"FEMALE" | "MALE" | "PREFER_NOT_TO_SAY">(
     "PREFER_NOT_TO_SAY",
   );
+  const [bloodGroup, setBloodGroup] = useState("");
   const [employmentType, setEmploymentType] = useState<"FULL_TIME" | "PART_TIME" | "INTERN">(
     "FULL_TIME",
   );
   const [shiftType, setShiftType] = useState<"DAY" | "NIGHT">("DAY");
   const [shiftStart, setShiftStart] = useState("09:00");
   const [shiftEnd, setShiftEnd] = useState("18:00");
+  const [bankAccountHolderName, setBankAccountHolderName] = useState("");
+  const [bankAccountType, setBankAccountType] = useState<BankAccountType | "">("");
+  const [bankAccountNumber, setBankAccountNumber] = useState("");
+  const [bankIfscCode, setBankIfscCode] = useState("");
+  const [panNumber, setPanNumber] = useState("");
+  const [aadhaarNumber, setAadhaarNumber] = useState("");
+  const [uanNumber, setUanNumber] = useState("");
   const [temporaryPassword, setTemporaryPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -119,6 +140,7 @@ export function CreateLoginForm({
       .then(([branchRows, departmentRows, employees, usersList]) => {
         setBranches(branchRows);
         setDepartments(departmentRows);
+        setEmployees(employees);
         // Filter out employees that already have user login accounts
         const userEmpIds = new Set(usersList.map((u) => u.employeeId).filter(Boolean));
         const unlinked = employees.filter((e) => !userEmpIds.has(e.employeeId));
@@ -135,6 +157,7 @@ export function CreateLoginForm({
       .catch(() => {
         setBranches([]);
         setDepartments([]);
+        setEmployees([]);
         setUnlinkedEmployees([]);
       });
   }, []);
@@ -161,11 +184,15 @@ export function CreateLoginForm({
         setName(emp.name);
         setEmail(emp.email || "");
         setPhone(emp.phone || "");
+        setCompanyPhone(emp.companyPhone || "");
+        setCompanyEntity(emp.companyEntity || "ANYTIME_DIESEL");
         setBranch(emp.homeBranchId || branches[0]?.id || "");
         setDept(emp.departmentId || departments[0]?.id || "");
         setDesignation(emp.designation || "");
+        setManagerId(emp.managerId || "automatic");
         setJoiningDate(emp.joiningDate || "");
         setGender(emp.gender || "PREFER_NOT_TO_SAY");
+        setBloodGroup(emp.bloodGroup || "");
         setEmploymentType(emp.employmentType || "FULL_TIME");
       }
     }
@@ -196,6 +223,8 @@ export function CreateLoginForm({
         name: creationMode === "link" ? name : name,
         email,
         phone: phone.trim() || undefined,
+        companyPhone: companyPhone.trim() || undefined,
+        companyEntity,
         active: true,
         mustChangePassword: true,
         password: temporaryPassword,
@@ -208,11 +237,20 @@ export function CreateLoginForm({
         payload.homeBranchId = branch || undefined;
         payload.departmentId = dept || undefined;
         payload.designation = designation.trim() || positionTitle;
+        payload.managerId = managerId === "automatic" ? undefined : managerId;
         payload.organizationLevel = organizationLevel;
         payload.dateOfBirth = dateOfBirth || undefined;
         payload.joiningDate = joiningDate || undefined;
         payload.gender = gender;
+        payload.bloodGroup = bloodGroup || undefined;
         payload.employmentType = employmentType;
+        payload.bankAccountHolderName = bankAccountHolderName.trim() || undefined;
+        payload.bankAccountType = bankAccountType || undefined;
+        payload.bankAccountNumber = bankAccountNumber.trim() || undefined;
+        payload.bankIfscCode = bankIfscCode.trim().toUpperCase() || undefined;
+        payload.panNumber = panNumber.trim().toUpperCase() || undefined;
+        payload.aadhaarNumber = aadhaarNumber.replace(/\s+/g, "") || undefined;
+        payload.uanNumber = uanNumber.replace(/\s+/g, "") || undefined;
         payload.shiftType = shiftType;
         payload.shiftStartMinutes =
           Number(shiftStart.slice(0, 2)) * 60 + Number(shiftStart.slice(3));
@@ -285,12 +323,22 @@ export function CreateLoginForm({
         </div>
 
         <div className="space-y-1.5">
-          <Label>Phone number</Label>
+          <Label>Personal phone number</Label>
           <Input
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="Employee contact number"
+            placeholder="Employee's personal contact number"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Company phone number (optional)</Label>
+          <Input
+            type="tel"
+            value={companyPhone}
+            onChange={(e) => setCompanyPhone(e.target.value)}
+            placeholder="Company-provided number"
           />
         </div>
 
@@ -319,7 +367,27 @@ export function CreateLoginForm({
             </div>
 
             <div className="space-y-1.5">
-              <Label>Home branch</Label>
+              <Label>Employer company</Label>
+              <Select
+                value={companyEntity}
+                onValueChange={(value) => setCompanyEntity(value as CompanyEntity)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(COMPANY_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Group: {PARENT_COMPANY_NAME}</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Attendance location</Label>
               <Select value={branch} onValueChange={setBranch}>
                 <SelectTrigger>
                   <SelectValue />
@@ -332,6 +400,9 @@ export function CreateLoginForm({
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                Used only for attendance and geofence rules.
+              </p>
             </div>
 
             <div className="space-y-1.5">
@@ -398,6 +469,25 @@ export function CreateLoginForm({
               </Select>
             </div>
 
+            <div className="space-y-1.5">
+              <Label>Reporting manager</Label>
+              <Select value={managerId} onValueChange={setManagerId}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="automatic">Assign from organization structure</SelectItem>
+                  {employees
+                    .filter((employee) => employee.employeeId)
+                    .map((employee) => (
+                      <SelectItem key={employee.employeeId} value={employee.employeeId!}>
+                        {employee.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="rounded-md border border-border bg-muted/40 px-4 py-3 sm:col-span-2">
               <p className="text-xs font-medium text-muted-foreground">Position preview</p>
               <p className="mt-1 text-base font-semibold text-foreground">{positionTitle}</p>
@@ -448,6 +538,26 @@ export function CreateLoginForm({
                   <SelectItem value="FEMALE">Female</SelectItem>
                   <SelectItem value="MALE">Male</SelectItem>
                   <SelectItem value="PREFER_NOT_TO_SAY">Prefer not to say</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Blood group</Label>
+              <Select
+                value={bloodGroup || "not_provided"}
+                onValueChange={(value) => setBloodGroup(value === "not_provided" ? "" : value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="not_provided">Not provided</SelectItem>
+                  {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {value}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -504,6 +614,96 @@ export function CreateLoginForm({
                 <Label>Shift ends</Label>
                 <Input type="time" value={shiftEnd} onChange={(e) => setShiftEnd(e.target.value)} />
               </div>
+            </div>
+
+            <div className="border-t border-border pt-4 sm:col-span-2">
+              <h3 className="text-sm font-semibold text-foreground">Banking details</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Account numbers are encrypted before they are stored.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Account holder name</Label>
+              <Input
+                value={bankAccountHolderName}
+                onChange={(event) => setBankAccountHolderName(event.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Account type</Label>
+              <Select
+                value={bankAccountType || "not_provided"}
+                onValueChange={(value) =>
+                  setBankAccountType(value === "not_provided" ? "" : (value as BankAccountType))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="not_provided">Not provided</SelectItem>
+                  {["SAVINGS", "CURRENT", "SALARY", "NRE", "NRO", "OTHER"].map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {value.charAt(0) + value.slice(1).toLowerCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Account number</Label>
+              <Input
+                autoComplete="off"
+                value={bankAccountNumber}
+                onChange={(event) => setBankAccountNumber(event.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>IFSC code</Label>
+              <Input
+                autoCapitalize="characters"
+                value={bankIfscCode}
+                onChange={(event) => setBankIfscCode(event.target.value.toUpperCase())}
+                maxLength={11}
+              />
+            </div>
+
+            <div className="border-t border-border pt-4 sm:col-span-2">
+              <h3 className="text-sm font-semibold text-foreground">Statutory identifiers</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                PAN, Aadhaar, and UAN are encrypted and access-restricted.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>PAN number</Label>
+              <Input
+                autoComplete="off"
+                autoCapitalize="characters"
+                value={panNumber}
+                onChange={(event) => setPanNumber(event.target.value.toUpperCase())}
+                maxLength={10}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Aadhaar number</Label>
+              <Input
+                autoComplete="off"
+                inputMode="numeric"
+                value={aadhaarNumber}
+                onChange={(event) => setAadhaarNumber(event.target.value)}
+                maxLength={14}
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>UAN number (optional)</Label>
+              <Input
+                autoComplete="off"
+                inputMode="numeric"
+                value={uanNumber}
+                onChange={(event) => setUanNumber(event.target.value)}
+                maxLength={12}
+              />
             </div>
           </>
         )}

@@ -25,4 +25,23 @@ describe("account creation validation", () => {
     expect(result.success).toBe(true);
     if (result.success) expect(result.data.password).toBe("Welcome123");
   });
+
+  it("defaults legacy account creation to Anytime Diesel", () => {
+    expect(createUserSchema.parse(validAccount).companyEntity).toBe("ANYTIME_DIESEL");
+  });
+
+  it("validates statutory identifiers before persistence", () => {
+    expect(
+      createUserSchema.safeParse({
+        ...validAccount,
+        companyEntity: "FUELISTIC_INNOVATIONS_PRIVATE_LIMITED",
+        panNumber: "ABCDE1234F",
+        aadhaarNumber: "2345 6789 0123",
+        uanNumber: "100200300400",
+      }).success,
+    ).toBe(true);
+    expect(createUserSchema.safeParse({ ...validAccount, panNumber: "invalid" }).success).toBe(
+      false,
+    );
+  });
 });

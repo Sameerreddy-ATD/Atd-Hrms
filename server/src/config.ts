@@ -12,6 +12,10 @@ export const config = {
   authRateLimitMax: Number(process.env.AUTH_RATE_LIMIT_MAX ?? 50),
   accessSecret: process.env.JWT_ACCESS_SECRET ?? "dev-access-secret-change-me",
   refreshSecret: process.env.JWT_REFRESH_SECRET ?? "dev-refresh-secret-change-me",
+  employeeDataEncryptionKey:
+    process.env.EMPLOYEE_DATA_ENCRYPTION_KEY ??
+    process.env.JWT_REFRESH_SECRET ??
+    "dev-employee-data-encryption-key-change-me",
   sessionCookie: process.env.SESSION_COOKIE_NAME ?? "adh_session",
   refreshCookie: process.env.REFRESH_COOKIE_NAME ?? "adh_refresh",
   secureCookies: process.env.COOKIE_SECURE === "true" || process.env.NODE_ENV === "production",
@@ -28,5 +32,8 @@ export function assertSecureConfig() {
   }
   if (config.accessSecret.length < 32 || config.refreshSecret.length < 32) {
     throw new Error("JWT secrets must be at least 32 characters in production");
+  }
+  if (config.employeeDataEncryptionKey.length < 32) {
+    throw new Error("EMPLOYEE_DATA_ENCRYPTION_KEY must be at least 32 characters in production");
   }
 }

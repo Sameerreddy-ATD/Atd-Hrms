@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Logo } from "@/components/common/Logo";
 import { attendanceApi } from "@/services/api";
 import { ShieldCheck, XCircle, Loader2 } from "lucide-react";
+import { COMPANY_LABELS, PARENT_COMPANY_NAME, type CompanyEntity } from "@/types/domain";
 
 export const Route = createFileRoute("/verify-id/$employeeId")({
   component: VerifyIdCardPage,
@@ -16,8 +17,8 @@ interface VerificationData {
   employeeCode: string;
   designation?: string;
   department: string;
-  branch: string;
-  email: string;
+  companyEntity: CompanyEntity;
+  companyPhone?: string;
   status: string;
 }
 
@@ -68,7 +69,7 @@ function VerifyIdCardPage() {
               </div>
             )}
             <div className="mt-6 border-t border-slate-800 pt-4 w-full text-[10px] text-slate-500 uppercase tracking-widest">
-              Anytime Diesel Secure Verification
+              {PARENT_COMPANY_NAME} Secure Verification
             </div>
           </CardContent>
         </Card>
@@ -115,16 +116,17 @@ function VerifyIdCardPage() {
 
           <div className="mt-8 grid grid-cols-1 gap-4 border-t border-slate-800 pt-6 text-sm min-[420px]:grid-cols-2">
             <Row label="Department" value={data.department} />
-            <Row label="Branch" value={data.branch} />
+            <Row label="Company" value={COMPANY_LABELS[data.companyEntity]} />
             <div className="min-[420px]:col-span-2">
-              <Row label="Email" value={data.email} />
+              <Row label="Group" value={PARENT_COMPANY_NAME} />
             </div>
+            {data.companyPhone && <Row label="Company phone" value={data.companyPhone} />}
             <Row label="Status" value={data.status === "ACTIVE" ? "Active" : data.status} />
           </div>
 
           <div className="mt-8 border-t border-slate-800 pt-5 flex items-center justify-center gap-2 text-[10px] text-slate-500 uppercase tracking-widest">
             <ShieldCheck className="h-3 w-3 text-emerald-500" />
-            Anytime Diesel HR Verification System
+            {PARENT_COMPANY_NAME} Employee Verification
           </div>
         </CardContent>
       </Card>

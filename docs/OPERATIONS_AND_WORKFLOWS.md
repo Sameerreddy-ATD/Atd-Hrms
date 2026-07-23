@@ -19,6 +19,11 @@ Access**. Each application receives a separate, least-privilege, expiring creden
 shown once; revocation is immediate. See the dedicated data and integration guide for operating and
 recovery procedures.
 
+Employee legal employer is stored separately from the attendance location. Available entities are
+Anytime Diesel, Fuelistic Innovations Private Limited, and Royal Petro Park Private Limited; the
+first two are presented under the Royal Petro Park Private Limited group. Payroll/statutory
+identifiers are encrypted and are never included in Employee API v1.
+
 ## Role-Aware Workspace
 
 The sidebar and dashboard expose only the areas relevant to the signed-in role. Hiding an action is

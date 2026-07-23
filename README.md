@@ -134,6 +134,7 @@ Create `.env` from `.env.example`. Never commit `.env`, passwords, JWT secrets, 
 | `VITE_API_BASE_URL`            | API URL compiled into the frontend; production uses `/api` through Nginx |
 | `JWT_ACCESS_SECRET`            | Strong access-token signing secret                                       |
 | `JWT_REFRESH_SECRET`           | Separate strong refresh-token signing secret                             |
+| `EMPLOYEE_DATA_ENCRYPTION_KEY` | Stable 32+ character key for encrypted bank/statutory employee fields    |
 | `SESSION_COOKIE_NAME`          | Access-session cookie name                                               |
 | `REFRESH_COOKIE_NAME`          | Refresh-session cookie name                                              |
 | `COOKIE_SECURE`                | `true` in HTTPS production                                               |
@@ -180,6 +181,7 @@ The audit is read-only and verifies every foreign key plus cross-table business 
 - Developer Admin accounts cannot be suspended, deactivated, or deleted.
 - Employees can view only their own expense and HR document requests. HR and Developer Admin can review organization-wide requests.
 - External applications use `/api/v1` with scoped, revocable service credentials; browser cookies are not an integration authentication mechanism.
+- Bank account numbers, PAN, Aadhaar, and UAN are encrypted at rest and omitted from Employee API v1.
 - Asset returns are completed through a recorded HR checklist before an assignment is released.
 - Assets use explicit `AVAILABLE`, `ASSIGNED`, `UNDER_REPAIR`, and `RETIRED` statuses. The return checklist records condition, accessories, charger, backup/wipe confirmation, damage, notes, receiver, and time.
 - Vulnerabilities and suspected secret exposure are reported privately according to [SECURITY.md](SECURITY.md), never through a public issue.

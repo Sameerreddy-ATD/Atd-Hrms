@@ -1,5 +1,7 @@
 import {
   AttendanceMode,
+  BankAccountType,
+  CompanyEntity,
   EmployeeStatus,
   EmploymentType,
   EventType,
@@ -14,6 +16,30 @@ import {
 } from "@prisma/client";
 import { z } from "zod";
 
+const bloodGroupSchema = z.enum(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]);
+const bankAccountNumberSchema = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z0-9-]{6,34}$/, "Enter a valid bank account number");
+const ifscCodeSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Enter a valid 11-character IFSC code");
+const panNumberSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/, "Enter a valid PAN");
+const aadhaarNumberSchema = z
+  .string()
+  .transform((value) => value.replace(/\s+/g, ""))
+  .refine((value) => /^[2-9][0-9]{11}$/.test(value), "Enter a valid 12-digit Aadhaar number");
+const uanNumberSchema = z
+  .string()
+  .transform((value) => value.replace(/\s+/g, ""))
+  .refine((value) => /^[0-9]{12}$/.test(value), "Enter a valid 12-digit UAN");
+
 export const loginSchema = z.object({
   email: z.string().email().max(255),
   password: z.string().min(1).max(200),
@@ -23,6 +49,8 @@ export const createUserSchema = z.object({
   name: z.string().min(2).max(120),
   email: z.string().email().max(255),
   phone: z.string().max(30).optional(),
+  companyPhone: z.string().max(30).optional(),
+  companyEntity: z.nativeEnum(CompanyEntity).default(CompanyEntity.ANYTIME_DIESEL),
   password: z
     .string()
     .min(10)
@@ -41,8 +69,16 @@ export const createUserSchema = z.object({
   joiningDate: z.coerce.date().nullable().optional(),
   dateOfBirth: z.coerce.date().nullable().optional(),
   gender: z.nativeEnum(Gender).nullable().optional(),
+  bloodGroup: bloodGroupSchema.nullable().optional(),
   employmentType: z.nativeEnum(EmploymentType).nullable().optional(),
   organizationLevel: z.enum(["HEAD", "SENIOR", "JUNIOR", "MEMBER"]).optional(),
+  bankAccountType: z.nativeEnum(BankAccountType).nullable().optional(),
+  bankAccountHolderName: z.string().trim().max(160).nullable().optional(),
+  bankIfscCode: ifscCodeSchema.nullable().optional(),
+  bankAccountNumber: bankAccountNumberSchema.nullable().optional(),
+  panNumber: panNumberSchema.nullable().optional(),
+  aadhaarNumber: aadhaarNumberSchema.nullable().optional(),
+  uanNumber: uanNumberSchema.nullable().optional(),
   shiftType: z.nativeEnum(ShiftType).optional(),
   shiftStartMinutes: z.number().int().min(0).max(1439).optional(),
   shiftEndMinutes: z.number().int().min(0).max(1439).optional(),
@@ -79,6 +115,8 @@ export const updateEmployeeSchema = z
     name: z.string().min(2).max(120).optional(),
     email: z.string().email().max(255).nullable().optional(),
     phone: z.string().max(30).nullable().optional(),
+    companyPhone: z.string().max(30).nullable().optional(),
+    companyEntity: z.nativeEnum(CompanyEntity).optional(),
     departmentId: z.string().nullable().optional(),
     designation: z.string().max(120).nullable().optional(),
     homeBranchId: z.string().nullable().optional(),
@@ -86,8 +124,16 @@ export const updateEmployeeSchema = z
     joiningDate: z.coerce.date().nullable().optional(),
     dateOfBirth: z.coerce.date().nullable().optional(),
     gender: z.nativeEnum(Gender).nullable().optional(),
+    bloodGroup: bloodGroupSchema.nullable().optional(),
     employmentType: z.nativeEnum(EmploymentType).nullable().optional(),
     organizationLevel: z.enum(["HEAD", "SENIOR", "JUNIOR", "MEMBER"]).optional(),
+    bankAccountType: z.nativeEnum(BankAccountType).nullable().optional(),
+    bankAccountHolderName: z.string().trim().max(160).nullable().optional(),
+    bankIfscCode: ifscCodeSchema.nullable().optional(),
+    bankAccountNumber: bankAccountNumberSchema.nullable().optional(),
+    panNumber: panNumberSchema.nullable().optional(),
+    aadhaarNumber: aadhaarNumberSchema.nullable().optional(),
+    uanNumber: uanNumberSchema.nullable().optional(),
     attendanceMode: z.nativeEnum(AttendanceMode).optional(),
     isFieldEmployee: z.boolean().optional(),
     status: z.nativeEnum(EmployeeStatus).optional(),

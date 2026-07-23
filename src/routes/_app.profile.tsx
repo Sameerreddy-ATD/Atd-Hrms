@@ -14,9 +14,9 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { useAuth } from "@/lib/auth";
-import { ROLE_LABELS, type Branch, type User } from "@/types/domain";
-import { branchesApi, employeesApi, usersApi } from "@/services/api";
-import { Key, Loader2 } from "lucide-react";
+import { COMPANY_LABELS, PARENT_COMPANY_NAME, ROLE_LABELS, type User } from "@/types/domain";
+import { employeesApi, usersApi } from "@/services/api";
+import { Eye, EyeOff, Key, Loader2 } from "lucide-react";
 import { PasswordInput } from "@/components/common/PasswordInput";
 import { PasswordMatchHint } from "@/components/common/PasswordMatchHint";
 
@@ -26,11 +26,17 @@ export const Route = createFileRoute("/_app/profile")({
 
 function ProfilePage() {
   const { user, updateCurrentUser, changePassword } = useAuth();
-  const [branches, setBranches] = useState<Branch[]>([]);
   const [name, setName] = useState(user?.name ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
+  const [companyPhone, setCompanyPhone] = useState(user?.companyPhone ?? "");
   const [dob, setDob] = useState(user?.dateOfBirth ?? "");
+  const [bankAccountHolderName, setBankAccountHolderName] = useState("");
+  const [bankAccountNumber, setBankAccountNumber] = useState("");
+  const [bankIfscCode, setBankIfscCode] = useState("");
+  const [panNumber, setPanNumber] = useState("");
+  const [aadhaarNumber, setAadhaarNumber] = useState("");
+  const [uanNumber, setUanNumber] = useState("");
   const [employee, setEmployee] = useState<User | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -41,16 +47,20 @@ function ProfilePage() {
   const [pwSaving, setPwSaving] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      branchesApi.list(),
-      user?.employeeId ? employeesApi.get(user.employeeId) : Promise.resolve(null),
-    ])
-      .then(([branchRows, employeeDetails]) => {
-        setBranches(branchRows);
+    (user?.employeeId ? employeesApi.get(user.employeeId) : Promise.resolve(null))
+      .then((employeeDetails) => {
         setEmployee(employeeDetails);
+        if (employeeDetails) {
+          setCompanyPhone(employeeDetails.companyPhone ?? "");
+          setBankAccountHolderName(employeeDetails.bankAccountHolderName ?? "");
+          setBankAccountNumber(employeeDetails.bankAccountNumber ?? "");
+          setBankIfscCode(employeeDetails.bankIfscCode ?? "");
+          setPanNumber(employeeDetails.panNumber ?? "");
+          setAadhaarNumber(employeeDetails.aadhaarNumber ?? "");
+          setUanNumber(employeeDetails.uanNumber ?? "");
+        }
       })
       .catch(() => {
-        setBranches([]);
         setEmployee(null);
       });
   }, [user?.employeeId]);
@@ -60,14 +70,13 @@ function ProfilePage() {
     setName(user.name);
     setEmail(user.email);
     setPhone(user.phone ?? "");
+    setCompanyPhone(user.companyPhone ?? "");
     setDob(user.dateOfBirth ?? "");
   }, [user]);
 
   if (!user) return null;
   const canSaveDirectly = user.role === "developer_admin";
   const profile = employee ?? user;
-  const branchName =
-    branches.find((b) => b.id === profile.homeBranchId)?.name ?? profile.homeBranchName ?? "-";
   const initials = user.name
     .split(" ")
     .map((s) => s[0])
@@ -128,7 +137,7 @@ function ProfilePage() {
                 <p className="text-lg font-semibold">{user.name}</p>
                 <p className="text-sm text-muted-foreground">{ROLE_LABELS[user.role]}</p>
                 <p className="mt-1 font-mono text-xs text-muted-foreground">
-                  {user.employeeId ?? "-"}
+                  {profile.employeeCode ?? user.employeeId ?? "-"}
                 </p>
               </div>
             </CardContent>
@@ -217,24 +226,32 @@ function ProfilePage() {
                 if (!canSaveDirectly) return;
                 setSaving(true);
                 try {
-                  const updatedAccount = await usersApi.update(user.id, {
-                    name,
-                    email,
-                    phone: phone || undefined,
-                  });
                   let updatedEmployee = employee;
+                  let updatedProfile: User;
                   if (user.employeeId) {
                     updatedEmployee = await employeesApi.update(user.employeeId, {
                       name,
                       email,
                       phone: phone || undefined,
+                      companyPhone: companyPhone || undefined,
                       dateOfBirth: dob || undefined,
+                      bankAccountHolderName: bankAccountHolderName || undefined,
+                      bankAccountNumber: bankAccountNumber || undefined,
+                      bankIfscCode: bankIfscCode || undefined,
+                      panNumber: panNumber || undefined,
+                      aadhaarNumber: aadhaarNumber || undefined,
+                      uanNumber: uanNumber || undefined,
                     });
                     setEmployee(updatedEmployee);
+                    updatedProfile = { ...user, ...updatedEmployee };
+                  } else {
+                    updatedProfile = await usersApi.update(user.id, {
+                      name,
+                      email,
+                      phone: phone || undefined,
+                    });
                   }
-                  updateCurrentUser(
-                    updatedEmployee ? { ...updatedAccount, ...updatedEmployee } : updatedAccount,
-                  );
+                  updateCurrentUser(updatedProfile);
                   toast.success("Profile updated");
                 } catch (err) {
                   toast.error((err as Error).message);
@@ -244,9 +261,22 @@ function ProfilePage() {
               }}
               className="grid gap-3 sm:grid-cols-2"
             >
+              <SectionTitle title="Identity and contact" />
               <Field label="Full name" value={name} onChange={setName} editable={canSaveDirectly} />
+              <Field label="Employee code" value={profile.employeeCode ?? "-"} />
               <Field label="Email" value={email} onChange={setEmail} editable={canSaveDirectly} />
-              <Field label="Phone" value={phone} onChange={setPhone} editable={canSaveDirectly} />
+              <Field
+                label="Personal phone number"
+                value={phone}
+                onChange={setPhone}
+                editable={canSaveDirectly}
+              />
+              <Field
+                label="Company phone number"
+                value={canSaveDirectly ? companyPhone : companyPhone || "Not provided"}
+                onChange={setCompanyPhone}
+                editable={canSaveDirectly}
+              />
               <Field
                 label="Date of Birth"
                 value={dob}
@@ -254,35 +284,74 @@ function ProfilePage() {
                 editable={canSaveDirectly}
                 type="date"
               />
-              <Field label="Department" value={profile.department ?? "-"} />
-              <Field label="Employee code" value={profile.employeeCode ?? "-"} />
-              <Field label="Role" value={ROLE_LABELS[user.role]} />
               <Field label="Gender" value={formatGender(profile.gender)} />
+              <Field label="Blood group" value={profile.bloodGroup ?? "Not provided"} />
+
+              <SectionTitle title="Employment" />
+              <Field
+                label="Employer company"
+                value={
+                  profile.companyEntity ? COMPANY_LABELS[profile.companyEntity] : "Not assigned"
+                }
+              />
+              <Field label="Parent group" value={PARENT_COMPANY_NAME} />
+              <Field label="Role" value={ROLE_LABELS[user.role]} />
               <Field label="Employment type" value={formatEmployment(profile.employmentType)} />
               <Field
                 label="Organization level"
                 value={formatOrganizationLevel(profile.organizationLevel)}
               />
+              <Field label="Department" value={profile.department ?? "-"} />
               <Field label="Designation" value={profile.designation ?? "-"} />
               <Field label="Reporting manager" value={profile.managerName ?? "Not assigned"} />
               <Field label="Joining date" value={profile.joiningDate ?? "-"} />
-              <Field label="Home Branch" value={branchName} />
-              <Field label="Attendance access" value="Biometric scanner and mobile location" />
-              <Field label="Assigned shift" value={formatShift(profile)} />
+
+              <SectionTitle title="Banking details" />
               <Field
-                label="Work assignment"
-                value={profile.isFieldEmployee ? "Field and branch work" : "Branch-based work"}
-              />
-              <Field
-                label="Account status"
+                label="Account holder name"
                 value={
-                  user.suspensionStartsAt
-                    ? `Suspension scheduled from ${new Date(user.suspensionStartsAt).toLocaleDateString("en-IN")}`
-                    : user.active
-                      ? "Active"
-                      : "Inactive"
+                  canSaveDirectly ? bankAccountHolderName : bankAccountHolderName || "Not provided"
                 }
+                onChange={setBankAccountHolderName}
+                editable={canSaveDirectly}
               />
+              <Field label="Account type" value={formatLabel(profile.bankAccountType)} />
+              {canSaveDirectly ? (
+                <Field
+                  label="Account number"
+                  value={bankAccountNumber}
+                  onChange={setBankAccountNumber}
+                  editable
+                />
+              ) : (
+                <SensitiveField label="Account number" value={bankAccountNumber} />
+              )}
+              <Field
+                label="IFSC code"
+                value={canSaveDirectly ? bankIfscCode : bankIfscCode || "Not provided"}
+                onChange={setBankIfscCode}
+                editable={canSaveDirectly}
+              />
+
+              <SectionTitle title="Statutory details" />
+              {canSaveDirectly ? (
+                <>
+                  <Field label="PAN" value={panNumber} onChange={setPanNumber} editable />
+                  <Field
+                    label="Aadhaar number"
+                    value={aadhaarNumber}
+                    onChange={setAadhaarNumber}
+                    editable
+                  />
+                  <Field label="UAN number" value={uanNumber} onChange={setUanNumber} editable />
+                </>
+              ) : (
+                <>
+                  <SensitiveField label="PAN" value={panNumber} />
+                  <SensitiveField label="Aadhaar number" value={aadhaarNumber} />
+                  <SensitiveField label="UAN number" value={uanNumber} />
+                </>
+              )}
               {canSaveDirectly && (
                 <div className="flex justify-end border-t border-border pt-4 sm:col-span-2">
                   <Button type="submit" disabled={saving}>
@@ -317,16 +386,47 @@ function formatOrganizationLevel(level?: User["organizationLevel"]) {
   return level.charAt(0) + level.slice(1).toLowerCase();
 }
 
-function formatShift(profile: User) {
-  const minutes = (value?: number) => {
-    if (value === undefined) return "--:--";
-    const hours = Math.floor(value / 60)
-      .toString()
-      .padStart(2, "0");
-    const mins = (value % 60).toString().padStart(2, "0");
-    return `${hours}:${mins}`;
-  };
-  return `${profile.shiftType === "NIGHT" ? "Night" : "Day"} · ${minutes(profile.shiftStartMinutes)}–${minutes(profile.shiftEndMinutes)}`;
+function formatLabel(value?: string) {
+  if (!value) return "Not provided";
+  return value
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function SectionTitle({ title }: { title: string }) {
+  return (
+    <div className="border-b pb-2 pt-3 sm:col-span-2">
+      <h3 className="text-sm font-semibold">{title}</h3>
+    </div>
+  );
+}
+
+function SensitiveField({ label, value }: { label: string; value: string }) {
+  const [revealed, setRevealed] = useState(false);
+  const displayValue = !value
+    ? "Not provided"
+    : revealed
+      ? value
+      : `${"•".repeat(Math.max(4, value.length - 4))}${value.slice(-4)}`;
+  return (
+    <div className="min-w-0 rounded-md border bg-muted/20 px-3 py-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        {value && (
+          <button
+            type="button"
+            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            onClick={() => setRevealed((current) => !current)}
+            aria-label={`${revealed ? "Hide" : "Show"} ${label}`}
+          >
+            {revealed ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          </button>
+        )}
+      </div>
+      <p className="mt-0.5 break-all text-sm font-medium text-foreground">{displayValue}</p>
+    </div>
+  );
 }
 
 function Field({

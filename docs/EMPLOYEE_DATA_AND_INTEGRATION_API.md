@@ -60,7 +60,8 @@ returned separately as `userId`.
 
 ## 3. Table Catalog
 
-The schema contains 40 application tables after the Task Workspace v2 migration.
+The schema contains 40 application tables and 31 ordered migrations after the employee
+profile/company migration.
 
 ### Identity, security, and configuration
 
@@ -79,17 +80,21 @@ The raw integration key is returned once at creation.
 
 ### Employee and organization
 
-| Table                    | Primary key     | Purpose and important relationships                                                                                                                      |
-| ------------------------ | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `employees`              | `employee_id`   | Canonical employee master record, unique code/external reference/email, organization, attendance configuration, status, version and lifecycle timestamps |
-| `departments`            | `department_id` | Hierarchical organization unit, parent unit and optional employee head                                                                                   |
-| `branches`               | `branch_id`     | Work location, address, geofence and attendance radius                                                                                                   |
-| `emergency_contacts`     | `employee_id`   | One-to-one employee emergency and medical-contact information                                                                                            |
-| `profile_edit_requests`  | `request_id`    | Employee-requested profile changes and review status                                                                                                     |
-| `employee_change_events` | `sequence`      | Durable ordered employee create/update/deactivate/reactivate feed                                                                                        |
+| Table                    | Primary key     | Purpose and important relationships                                                                                                                                                    |
+| ------------------------ | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `employees`              | `employee_id`   | Canonical employee master record, employer company, contact/employment details, encrypted payroll/statutory fields, attendance configuration, status, version and lifecycle timestamps |
+| `departments`            | `department_id` | Hierarchical organization unit, parent unit and optional employee head                                                                                                                 |
+| `branches`               | `branch_id`     | Work location, address, geofence and attendance radius                                                                                                                                 |
+| `emergency_contacts`     | `employee_id`   | One-to-one employee emergency and medical-contact information                                                                                                                          |
+| `profile_edit_requests`  | `request_id`    | Employee-requested profile changes and review status                                                                                                                                   |
+| `employee_change_events` | `sequence`      | Durable ordered employee create/update/deactivate/reactivate feed                                                                                                                      |
 
 `employees.manager_id` is a self-reference to another employee. Department, branch, manager,
 employee code, employee email and external reference are protected by database constraints.
+`company_entity` is separate from `home_branch_id`: company is the legal employer while home branch
+is an attendance location. Bank account number, PAN, Aadhaar, and UAN use AES-256-GCM encrypted
+columns with separate last-four display values. See
+[Employee Profile and ID Card](EMPLOYEE_PROFILE_AND_ID_CARD.md).
 
 ### Attendance
 
@@ -176,6 +181,9 @@ These endpoints use HTTP-only browser session cookies and role/module permission
 These endpoints are for the first-party application. External systems must use `/api/v1` and must not
 automate browser login/cookies.
 
+Private banking/statutory fields are available only to the employee and authorized leadership/HR
+roles through the browser employee mapper. They are deliberately excluded from Employee API v1.
+
 ## 5. Integration Credential Administration
 
 Only Developer Admin can manage credentials.
@@ -250,6 +258,8 @@ curl -X POST "https://hrms.sameerreddy.in/api/v1/employees" \
     "employeeCode": "EMP-0184",
     "name": "Example Employee",
     "email": "employee@example.com",
+    "companyEntity": "FUELISTIC_INNOVATIONS_PRIVATE_LIMITED",
+    "companyPhone": "+91 90000 00000",
     "employmentType": "FULL_TIME",
     "status": "ACTIVE"
   }'
@@ -327,8 +337,9 @@ The integration DTO excludes password hashes, failed-login counts, session infor
 details, audit internals, and module access. It includes the employee profile, organization,
 employment, attendance configuration, timestamps, version, and only the linked account ID/status.
 
-Date-of-birth is personal data. Grant Employee API credentials only to systems approved to process
-employee personal information. Transport must use HTTPS in production.
+Date-of-birth is personal data. Bank account number, IFSC, account holder/type, PAN, Aadhaar, UAN,
+and blood group are intentionally excluded from v1. Grant Employee API credentials only to systems
+approved to process employee personal information. Transport must use HTTPS in production.
 
 ## 11. Error Handling
 

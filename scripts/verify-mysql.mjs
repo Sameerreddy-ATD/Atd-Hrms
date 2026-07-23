@@ -16,6 +16,7 @@ try {
     profileMismatches,
     statusMismatches,
     unconfirmedAttachments,
+    invalidPrivateFieldEnvelopes,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.employee.count(),
@@ -46,6 +47,15 @@ try {
     prisma.expenseClaim.count({
       where: { receiptUrl: { not: null }, receiptAccessConfirmed: false },
     }),
+    prisma.$queryRaw`
+      SELECT employee_id AS employeeId
+      FROM employees
+      WHERE (bank_account_number_encrypted IS NOT NULL AND bank_account_number_encrypted NOT LIKE 'v1.%')
+         OR (pan_number_encrypted IS NOT NULL AND pan_number_encrypted NOT LIKE 'v1.%')
+         OR (aadhaar_number_encrypted IS NOT NULL AND aadhaar_number_encrypted NOT LIKE 'v1.%')
+         OR (uan_number_encrypted IS NOT NULL AND uan_number_encrypted NOT LIKE 'v1.%')
+      LIMIT 20
+    `,
   ]);
 
   const result = {
@@ -65,6 +75,7 @@ try {
       employeeAccountProfileMismatches: profileMismatches.length,
       employeeAccountStatusMismatches: statusMismatches.length,
       unconfirmedLegacyAttachments: unconfirmedAttachments,
+      invalidEmployeePrivateFieldEnvelopes: invalidPrivateFieldEnvelopes.length,
       sampleMismatchedEmployeeIds: [
         ...new Set([...profileMismatches, ...statusMismatches].map((row) => row.employeeId)),
       ],
@@ -73,7 +84,8 @@ try {
   };
 
   console.log(JSON.stringify(result, null, 2));
-  if (profileMismatches.length || statusMismatches.length) process.exitCode = 1;
+  if (profileMismatches.length || statusMismatches.length || invalidPrivateFieldEnvelopes.length)
+    process.exitCode = 1;
 } finally {
   await prisma.$disconnect();
 }
