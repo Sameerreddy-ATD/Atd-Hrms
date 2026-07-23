@@ -36,6 +36,10 @@ npm run db:seed
 
 Run `db:seed` only for a new development or demo database.
 
+Prisma loads `prisma.config.ts` for every CLI command. Even commands such as
+`npx prisma validate` that do not connect to MySQL require a syntactically valid
+`DATABASE_URL` in the environment.
+
 ## Daily Development
 
 With MySQL already running:
@@ -100,6 +104,24 @@ UI/auth modules; lint errors are blocking.
 | `npm run audit:deps`        | Known production dependency vulnerabilities                                 | Read-only network request                                 |
 
 Smoke scripts intentionally reject production/remote databases. Follow `scripts/README.md` exactly.
+
+## Optional Container Handoff Validation
+
+When Docker is installed, validate the portable handoff stack before transferring the repository:
+
+```bash
+cp deploy/handoff.env.example .env.handoff
+# Replace every placeholder in .env.handoff.
+docker compose --env-file .env.handoff -f deploy/docker-compose.handoff.yml config
+docker compose --env-file .env.handoff -f deploy/docker-compose.handoff.yml build
+docker compose --env-file .env.handoff -f deploy/docker-compose.handoff.yml up -d
+curl http://127.0.0.1:8080/health
+curl http://127.0.0.1:8080/health/db
+docker compose --env-file .env.handoff -f deploy/docker-compose.handoff.yml down
+```
+
+Do not add `-v` to the final command unless you intentionally want to delete the local Compose
+MySQL volume.
 
 ## Browser and Mobile Acceptance
 

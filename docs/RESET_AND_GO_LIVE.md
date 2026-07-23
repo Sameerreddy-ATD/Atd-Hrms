@@ -86,7 +86,7 @@ cd /opt/anytime-crew-hub
 npm run db:verify
 curl -fsS http://127.0.0.1:4000/health
 curl -fsS http://127.0.0.1:4000/health/db
-curl -fsS https://hrms.sameerreddy.in/api/health
+curl -fsS https://hrms.example.com/api/health
 pm2 status
 ```
 

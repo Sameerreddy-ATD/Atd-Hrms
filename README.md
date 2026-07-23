@@ -13,7 +13,8 @@ leave decisions, work delivery, and company investment in employees.
 ## Current Release
 
 - Repository: `Sameerreddy-ATD/Employee-Management-System` (private)
-- Stable deployment branch: `version-1`
+- Canonical release branch: `main`
+- Existing Ubuntu deployment branch: `version-1` (kept release-compatible with `main`)
 - Production URL: `https://hrms.sameerreddy.in`
 - Database: MySQL 8 with Prisma
 - Biometric/eSSL integration: data model and administration screens exist; live device synchronization is planned for a later version
@@ -31,6 +32,9 @@ Start with the [documentation index](docs/README.md).
 | [Development and Testing](docs/DEVELOPMENT_AND_TESTING.md)                     | Local development, migrations, test matrix, and release checks               |
 | [Employee Data and Integration API](docs/EMPLOYEE_DATA_AND_INTEGRATION_API.md) | Database owners and external application developers                          |
 | [Database Integrity Audit](docs/DATABASE_INTEGRITY_AUDIT.md)                   | Database owners, maintainers, and release reviewers                          |
+| [Third-Party Technical Handover](docs/THIRD_PARTY_HANDOVER.md)                 | Receiving companies, technical owners, and transition managers               |
+| [Cloud Deployment Options and Costs](docs/CLOUD_DEPLOYMENT_OPTIONS.md)         | Owners choosing providers, capacity, budget, and hosting architecture        |
+| [AWS Deployment Patterns](docs/AWS_DEPLOYMENT_PATTERNS.md)                     | AWS architects, DevOps engineers, and infrastructure reviewers               |
 | [Linux and AWS Deployment](docs/LINUX_LOCAL_DEPLOYMENT.md)                     | Server administrators                                                        |
 | [Upgrade and Maintenance](docs/UPGRADE_AND_MAINTENANCE.md)                     | Production releases, backups, rollback, and monitoring                       |
 | [Reset and Go-Live](docs/RESET_AND_GO_LIVE.md)                                 | Developer Admin and go-live owners                                           |
@@ -54,6 +58,7 @@ Security reporting and credential-handling rules are in [SECURITY.md](SECURITY.m
 
 ```text
 docs/                 Product, workflow, data, API, deployment, and maintenance manuals
+deploy/               Container handoff and reverse-proxy reference configuration
 prisma/               MySQL schema, active migrations, seed, and archived PostgreSQL history
 public/               PWA manifest, service worker, logos, favicons, and install icons
 scripts/              Setup, database audit, migration, reset, and smoke-test utilities
@@ -65,6 +70,7 @@ src/routes/           TanStack file-based application pages
 src/services/api/     Typed frontend API client
 src/types/            Shared frontend domain contracts
 tests/                Unit, workflow, security, integration, and browser tests
+Dockerfile            Separate frontend and backend production container targets
 ```
 
 The complete ownership and placement policy is in
@@ -198,7 +204,9 @@ Database models, permissions, notification rules, retention requirements, and ap
 
 ## Production Update
 
-Production already uses a read-only deploy key for the private repository.
+Production already uses a read-only deploy key for the private repository. The current server
+tracks `version-1`; keep using that branch until the planned switch procedure in
+[Linux and AWS Deployment](docs/LINUX_LOCAL_DEPLOYMENT.md) is completed.
 
 ```bash
 cd /opt/anytime-crew-hub

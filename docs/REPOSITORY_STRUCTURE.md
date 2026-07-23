@@ -1,7 +1,8 @@
 # Repository Structure and File Ownership
 
-This document is the authoritative map of the `version-1` repository. It explains where each kind
-of code belongs, which files are generated, and which areas must be updated together.
+This document is the authoritative map of the repository's canonical `main` release. The existing
+production server may track the release-compatible `version-1` branch. This guide explains where
+each kind of code belongs, which files are generated, and which areas must be updated together.
 
 ## Top-Level Layout
 
@@ -28,6 +29,7 @@ logs, and local databases are ignored and must never be committed.
 | File                                | Purpose                                                                 |
 | ----------------------------------- | ----------------------------------------------------------------------- |
 | `.env.example`                      | Safe environment-variable template without real secrets                 |
+| `.dockerignore`, `Dockerfile`       | Portable frontend/backend container build contract                      |
 | `.editorconfig`                     | Cross-editor whitespace and line-ending defaults                        |
 | `.gitignore`                        | Excludes secrets, dependencies, builds, reports, logs, and local data   |
 | `.prettierignore`, `.prettierrc`    | Repository formatting policy                                            |
@@ -37,9 +39,22 @@ logs, and local databases are ignored and must never be committed.
 | `eslint.config.js`                  | Static analysis configuration                                           |
 | `package.json`, `package-lock.json` | Scripts and reproducible Node dependency graph                          |
 | `playwright.config.ts`              | Desktop and mobile browser-test configuration                           |
+| `prisma.config.ts`                  | Prisma CLI schema, migration, datasource, and seed configuration        |
 | `tsconfig.json`                     | Shared strict TypeScript and `@/` path-alias configuration              |
 | `vite.config.ts`                    | TanStack Start, React, Tailwind, development, and preview configuration |
 | `vitest.config.ts`                  | Node-based unit-test discovery and execution                            |
+
+## Deployment Templates
+
+| Path                                | Purpose                                                                |
+| ----------------------------------- | ---------------------------------------------------------------------- |
+| `deploy/docker-compose.handoff.yml` | Local/integration handoff stack with MySQL, migration, apps, and proxy |
+| `deploy/handoff.env.example`        | Non-secret variable template for the disposable handoff stack          |
+| `deploy/nginx/container.conf`       | Container proxy reference with API routing and SSE-safe settings       |
+
+These templates demonstrate the runtime contract. They are not a substitute for AWS IAM, managed
+secrets, HTTPS, private networking, independent backups, image scanning, monitoring, or the
+receiving company's infrastructure-as-code standards.
 
 ## Backend Ownership
 
@@ -109,6 +124,8 @@ board dialog, board workspace, task creation dialog, focused task detail, and sh
 | Backend module or architecture                  | `TECHNICAL_OVERVIEW.md` and this file                                         |
 | Table, constraint, migration, or data retention | `DATABASE_INTEGRITY_AUDIT.md` and `EMPLOYEE_DATA_AND_INTEGRATION_API.md`      |
 | `/api/v1` contract                              | `openapi.employee-v1.yaml` and `EMPLOYEE_DATA_AND_INTEGRATION_API.md`         |
+| Hosting provider, capacity, or deployment model | `CLOUD_DEPLOYMENT_OPTIONS.md`                                                 |
+| AWS topology or third-party ownership transfer  | `AWS_DEPLOYMENT_PATTERNS.md` and `THIRD_PARTY_HANDOVER.md`                    |
 | Environment or deployment process               | `.env.example`, `LINUX_LOCAL_DEPLOYMENT.md`, and `UPGRADE_AND_MAINTENANCE.md` |
 | Test or maintenance script                      | `scripts/README.md` and `DEVELOPMENT_AND_TESTING.md`                          |
 

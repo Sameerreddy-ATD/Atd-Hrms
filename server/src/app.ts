@@ -155,7 +155,7 @@ export function createApp() {
   const backendStartedAt = new Date();
   const app = express();
   app.disable("x-powered-by");
-  app.set("trust proxy", "loopback");
+  app.set("trust proxy", config.trustProxy);
   app.use(helmet());
   app.use(compression());
   app.use((req, res, next) => {

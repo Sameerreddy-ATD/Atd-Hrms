@@ -1,5 +1,14 @@
 import "dotenv/config";
 
+export function parseTrustProxy(value?: string): string | number | boolean {
+  const normalized = value?.trim();
+  if (!normalized) return "loopback";
+  if (normalized === "false") return false;
+  if (normalized === "true") return true;
+  if (/^\d+$/.test(normalized)) return Number(normalized);
+  return normalized;
+}
+
 export const config = {
   port: Number(process.env.BACKEND_PORT ?? 4000),
   frontendOrigin: process.env.FRONTEND_ORIGIN ?? "http://localhost:5173",
@@ -10,6 +19,7 @@ export const config = {
   generalRateLimitMax: Number(process.env.GENERAL_RATE_LIMIT_MAX ?? 12000),
   authRateLimitWindowMs: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS ?? 15 * 60 * 1000),
   authRateLimitMax: Number(process.env.AUTH_RATE_LIMIT_MAX ?? 50),
+  trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
   accessSecret: process.env.JWT_ACCESS_SECRET ?? "dev-access-secret-change-me",
   refreshSecret: process.env.JWT_REFRESH_SECRET ?? "dev-refresh-secret-change-me",
   employeeDataEncryptionKey:
@@ -35,5 +45,10 @@ export function assertSecureConfig() {
   }
   if (config.employeeDataEncryptionKey.length < 32) {
     throw new Error("EMPLOYEE_DATA_ENCRYPTION_KEY must be at least 32 characters in production");
+  }
+  if (config.trustProxy === true) {
+    throw new Error(
+      "TRUST_PROXY=true is unsafe in production; use an exact proxy hop count or trusted subnet",
+    );
   }
 }

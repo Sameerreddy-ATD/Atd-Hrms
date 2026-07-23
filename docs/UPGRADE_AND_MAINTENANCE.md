@@ -3,7 +3,8 @@
 ## Source of Truth
 
 - Repository: `Sameerreddy-ATD/Employee-Management-System` (private)
-- Production branch: `version-1`
+- Canonical release branch: `main`
+- Existing production checkout branch: `version-1`
 - Server checkout: `/opt/anytime-crew-hub`
 - Server remote: `git@github-atd-ems:Sameerreddy-ATD/Employee-Management-System.git`
 
@@ -27,7 +28,8 @@ npm run build:backend
 npm run audit:deps
 ```
 
-4. Commit with the configured organization identity and push `version-1`.
+4. Commit with the configured organization identity and push the canonical `main` release. Keep
+   `version-1` release-compatible while the existing server still tracks it.
 5. Record the previous production commit: `git rev-parse HEAD`.
 
 ## Production Backup
@@ -79,6 +81,7 @@ Release migration `20260716190000_leave_policy_and_weekly_off` removes legacy le
 cd /opt/anytime-crew-hub
 git status
 git fetch origin
+# Existing production currently tracks version-1. Use main only after a planned branch switch.
 git pull --ff-only origin version-1
 npm ci
 npx prisma generate
@@ -116,7 +119,7 @@ When a release changes employee master data or `/api/v1`:
 pm2 status
 curl -fsS http://127.0.0.1:4000/health
 curl -fsS http://127.0.0.1:4000/health/db
-curl -I https://hrms.sameerreddy.in
+curl -I https://hrms.example.com
 ```
 
 Then test login, dashboard restore, mobile attendance, cross-device timer refresh, leave submit/approval, announcement delivery, notification scope, user status, and logout.
@@ -150,6 +153,7 @@ pm2 restart atd-frontend --update-env
 Return to the branch after investigation:
 
 ```bash
+# Use the branch assigned to this server. Existing production currently uses version-1.
 git checkout version-1
 git pull --ff-only origin version-1
 ```

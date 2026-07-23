@@ -1,6 +1,9 @@
 # Documentation Index
 
-These documents describe the `version-1` application and production deployment. When code changes a workflow, permission, API contract, environment variable, migration, or operational command, update the relevant document in the same commit.
+These documents describe the canonical `main` release and the release-compatible `version-1`
+checkout used by the existing production server. When code changes a workflow, permission, API
+contract, environment variable, migration, or operational command, update the relevant document
+in the same commit.
 
 ## Read By Role
 
@@ -11,6 +14,9 @@ These documents describe the `version-1` application and production deployment. 
 - Database owners and integration developers: [Database Integrity Audit](DATABASE_INTEGRITY_AUDIT.md), [Employee Data and Integration API](EMPLOYEE_DATA_AND_INTEGRATION_API.md), [Employee Profile and ID Card](EMPLOYEE_PROFILE_AND_ID_CARD.md), and [OpenAPI](openapi.employee-v1.yaml)
 - Product owners and UI writers: [Product Naming](PRODUCT_NAMING.md)
 - Go-live owners: [Reset and Go-Live](RESET_AND_GO_LIVE.md)
+- Receiving companies: [Third-Party Technical Handover](THIRD_PARTY_HANDOVER.md)
+- Infrastructure owners: [Cloud Deployment Options and Costs](CLOUD_DEPLOYMENT_OPTIONS.md)
+- AWS/DevOps teams: [AWS Deployment Patterns](AWS_DEPLOYMENT_PATTERNS.md)
 - Server administrators: [Linux and AWS Deployment](LINUX_LOCAL_DEPLOYMENT.md)
 - Release owners: [Upgrade and Maintenance](UPGRADE_AND_MAINTENANCE.md)
 - Mobile QA/support: [Device Compatibility](DEVICE_COMPATIBILITY.md)
@@ -31,6 +37,9 @@ These documents describe the `version-1` application and production deployment. 
 | `openapi.employee-v1.yaml`             | Machine-readable Employee API v1 contract                                                        |
 | `PRODUCT_NAMING.md`                    | Recommended product name and professional interface terminology                                  |
 | `RESET_AND_GO_LIVE.md`                 | Safe test-data reset, verification, and step-by-step real-company setup                          |
+| `THIRD_PARTY_HANDOVER.md`              | Transfer inventory, environment contract, acceptance, ownership, and handover definition         |
+| `CLOUD_DEPLOYMENT_OPTIONS.md`          | Hosting methods, current INR cost comparison, capacity, security, and provider selection         |
+| `AWS_DEPLOYMENT_PATTERNS.md`           | EC2, Lightsail, RDS, ECS, App Runner, Beanstalk, EKS, IAM, secrets, and AWS go-live choices      |
 | `LINUX_LOCAL_DEPLOYMENT.md`            | Fresh Linux/AWS installation, private Git access, domain, TLS, Nginx, and PM2                    |
 | `UPGRADE_AND_MAINTENANCE.md`           | Production updates, backups, verification, rollback, and long-term operations                    |
 | `DEVICE_COMPATIBILITY.md`              | Supported browsers, PWA permissions, low-network behavior, and QA matrix                         |
@@ -41,7 +50,8 @@ mandatory handling of credentials and employee data.
 ## Current Production Facts
 
 - Private repository: `git@github-atd-ems:Sameerreddy-ATD/Employee-Management-System.git`
-- Branch: `version-1`
+- Canonical release branch: `main`
+- Existing production checkout branch: `version-1`
 - Installation: `/opt/anytime-crew-hub`
 - PM2 processes: `atd-backend` and `atd-frontend`
 - Backend: `127.0.0.1:4000`

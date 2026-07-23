@@ -231,7 +231,7 @@ The machine-readable contract is `docs/openapi.employee-v1.yaml` and is served a
 
 ```bash
 curl -H "Authorization: Bearer $ATD_EMPLOYEE_API_KEY" \
-  "https://hrms.sameerreddy.in/api/v1/employees?limit=100"
+  "https://hrms.example.com/api/v1/employees?limit=100"
 ```
 
 The response contains `data` and `page`. Continue with `page.nextCursor` while `page.hasMore` is
@@ -241,7 +241,7 @@ true. The maximum page size is 250. `status` and `updatedSince` are optional sna
 
 ```bash
 curl -i -H "Authorization: Bearer $ATD_EMPLOYEE_API_KEY" \
-  "https://hrms.sameerreddy.in/api/v1/employees/EMPLOYEE_CUID"
+  "https://hrms.example.com/api/v1/employees/EMPLOYEE_CUID"
 ```
 
 The response includes `version`; the same value is returned as `ETag`.
@@ -249,7 +249,7 @@ The response includes `version`; the same value is returned as `ETag`.
 ### Create an employee without a login
 
 ```bash
-curl -X POST "https://hrms.sameerreddy.in/api/v1/employees" \
+curl -X POST "https://hrms.example.com/api/v1/employees" \
   -H "Authorization: Bearer $ATD_EMPLOYEE_API_KEY" \
   -H "Idempotency-Key: payroll-import-000184" \
   -H "Content-Type: application/json" \
@@ -273,7 +273,7 @@ email must be unique when supplied. No login/password is created.
 First retrieve the current version. Then:
 
 ```bash
-curl -X PATCH "https://hrms.sameerreddy.in/api/v1/employees/EMPLOYEE_CUID" \
+curl -X PATCH "https://hrms.example.com/api/v1/employees/EMPLOYEE_CUID" \
   -H "Authorization: Bearer $ATD_EMPLOYEE_API_KEY" \
   -H "Idempotency-Key: payroll-update-000184-v3" \
   -H 'If-Match: "3"' \
@@ -288,7 +288,7 @@ merge intentionally, and retry with a new idempotency key and current version. M
 ### Deactivate without deleting history
 
 ```bash
-curl -X DELETE "https://hrms.sameerreddy.in/api/v1/employees/EMPLOYEE_CUID" \
+curl -X DELETE "https://hrms.example.com/api/v1/employees/EMPLOYEE_CUID" \
   -H "Authorization: Bearer $ATD_EMPLOYEE_API_KEY" \
   -H "Idempotency-Key: termination-EMP-0184" \
   -H 'If-Match: "4"'

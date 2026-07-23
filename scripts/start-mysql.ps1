@@ -47,7 +47,7 @@ if ($needInit) {
 }
 
 # Clean stale pid file if exists
-$pidFile = Join-Path $datadir "sameerreddy.pid"
+$pidFile = Join-Path $datadir "employee-management-mysql.pid"
 if (Test-Path -LiteralPath $pidFile) {
   Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
 }

@@ -1,0 +1,119 @@
+name: employee-management-handoff
+
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-anytimediesel_hrms}
+      MYSQL_USER: ${MYSQL_USER:-atd_hrms}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks:
+      - private
+
+  migrate:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: backend
+      args:
+        VITE_API_BASE_URL: /api
+        VITE_ALLOWED_HOSTS: ${VITE_ALLOWED_HOSTS:-localhost,127.0.0.1}
+    command: ["npm", "run", "db:deploy"]
+    env_file:
+      - ../${HANDOFF_ENV_FILE:-.env}
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL with mysql as the hostname}
+      NODE_ENV: production
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - private
+
+  backend:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: backend
+      args:
+        VITE_API_BASE_URL: /api
+        VITE_ALLOWED_HOSTS: ${VITE_ALLOWED_HOSTS:-localhost,127.0.0.1}
+    restart: unless-stopped
+    env_file:
+      - ../${HANDOFF_ENV_FILE:-.env}
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL with mysql as the hostname}
+      BACKEND_PORT: 4000
+      # The handoff stack is HTTP-only on localhost. Production must use HTTPS
+      # and NODE_ENV=production behind its real ingress/load balancer.
+      NODE_ENV: development
+      TRUST_PROXY: "1"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks:
+      - private
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: frontend
+      args:
+        VITE_API_BASE_URL: /api
+        VITE_API_TIMEOUT_MS: ${VITE_API_TIMEOUT_MS:-20000}
+        VITE_ALLOWED_HOSTS: ${VITE_ALLOWED_HOSTS:-localhost,127.0.0.1}
+    restart: unless-stopped
+    environment:
+      VITE_ALLOWED_HOSTS: ${VITE_ALLOWED_HOSTS:-localhost,127.0.0.1}
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - private
+
+  proxy:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    volumes:
+      - ./nginx/container.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    networks:
+      - private
+
+volumes:
+  mysql-data:
+
+networks:
+  private:
+    driver: bridge

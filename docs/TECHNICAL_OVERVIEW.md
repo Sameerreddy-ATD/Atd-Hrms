@@ -18,6 +18,12 @@ flowchart LR
 
 The frontend never connects directly to MySQL. Authorization and object-level access are enforced by Express before Prisma queries run.
 
+The same runtime can be hosted on one Ubuntu VM or split into frontend, backend, and managed MySQL
+services. The container contract, secrets inventory, proxy settings, and receiving-company
+acceptance process are documented in [Third-Party Technical Handover](THIRD_PARTY_HANDOVER.md).
+Supported AWS patterns and their scaling constraints are documented in
+[AWS Deployment Patterns](AWS_DEPLOYMENT_PATTERNS.md).
+
 ## Runtime Modules
 
 | Path                               | Responsibility                                                           |
@@ -122,6 +128,11 @@ Holiday, Week Off, and Pending Attendance summaries from diluting the average.
 Announcement creation writes MySQL first, writes an audit event, broadcasts an authenticated SSE change to open app sessions, and sends Web Push in parallel to registered installed/background devices. Notification queries still apply role and employee scope on the backend.
 
 SSE is in-memory and appropriate for the current single backend process. Before running multiple backend instances, replace the in-memory broadcaster with Redis or another shared pub/sub service.
+
+Express proxy trust is configured with `TRUST_PROXY`. Same-server Nginx uses `loopback`; a direct
+single AWS load-balancer hop uses `1`. Production rejects the unrestricted `true` setting. The Vite
+preview host allow-list is configured with `VITE_ALLOWED_HOSTS`, allowing a receiving company to
+use its own domain without editing source.
 
 ## Employee Data Retention
 

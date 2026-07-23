@@ -6,7 +6,8 @@ info:
     Versioned server-to-server API for employee master-data synchronization.
     Obtain a scoped API key from Developer Admin > System Settings > Employee API Access.
 servers:
-  - url: https://hrms.sameerreddy.in/api/v1
+  - url: https://hrms.example.com/api/v1
+    description: Replace with the receiving company's production hostname
     description: Production
   - url: http://localhost:4000/api/v1
     description: Local development

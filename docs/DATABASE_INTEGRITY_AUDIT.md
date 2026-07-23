@@ -11,6 +11,29 @@ The database audit is read-only. It does not repair, delete, or normalize produc
 check must be investigated, backed up, and corrected through a reviewed migration or application
 workflow.
 
+## Latest Release Audit
+
+The 23 July 2026 handover audit was run against fresh, disposable MySQL 8 databases:
+
+- all 31 ordered migrations applied successfully to an empty database;
+- the repository audit found 25 required handover files, with zero failures or warnings;
+- Prisma validation, frontend/backend type checks, production builds, and 53 unit/workflow/security
+  tests passed;
+- the database audit inspected all 40 application tables and passed every foreign-key,
+  cross-table, encryption-envelope, workflow, and migration check;
+- the Work Planner smoke test passed creation, assignment, workflow changes, activity, archive and
+  restore, optimistic conflicts, and stale-write protection;
+- the Employee Integration API smoke test passed authentication, create/read/update/deactivate,
+  idempotency, conflict protection, change feeds, account mirroring, history retention, and
+  credential revocation;
+- the guarded reset test deleted all demonstration employees/accounts, retained reference data and
+  the Developer Admin, and successfully created the first real CEO account; and
+- `npm audit --omit=dev` reported zero known production dependency vulnerabilities.
+
+Docker is not installed in the audit workstation, so the receiving team must still run the
+container validation commands in [Development and Testing](DEVELOPMENT_AND_TESTING.md) if it selects
+the container handoff. The application and backend production builds themselves were validated.
+
 ## Storage Layout
 
 MySQL 8.0 contains 40 application tables grouped as follows:

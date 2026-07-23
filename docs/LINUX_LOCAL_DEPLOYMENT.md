@@ -2,6 +2,14 @@
 
 This guide covers a fresh Ubuntu 24.04 deployment for approximately 200-300 employees. The current AWS installation uses one EC2 instance, local MySQL, Nginx, and two PM2 processes.
 
+For provider selection, deployment-model trade-offs, current INR estimates, and the recommended
+low-cost architecture, read [Cloud Deployment Options and Costs](CLOUD_DEPLOYMENT_OPTIONS.md)
+before purchasing infrastructure. New installations should use `main`. The existing production
+server can continue tracking `version-1` until a deliberate branch switch is scheduled.
+
+Commands use `hrms.example.com` as a placeholder. Replace it with the receiving company's approved
+hostname everywhere, including DNS, `.env`, the frontend build, Nginx, TLS, and acceptance tests.
+
 ## Recommended Starting Capacity
 
 | Resource | Minimum starting point                                          |
@@ -89,10 +97,10 @@ ssh-keyscan -H github.com >> ~/.ssh/known_hosts
 chmod 600 ~/.ssh/known_hosts
 ```
 
-Clone `version-1`:
+Clone the canonical `main` branch for a new installation:
 
 ```bash
-git clone --branch version-1 \
+git clone --branch main \
   git@github-atd-ems:Sameerreddy-ATD/Employee-Management-System.git \
   /opt/anytime-crew-hub
 cd /opt/anytime-crew-hub
@@ -111,8 +119,11 @@ Required shape:
 ```text
 DATABASE_URL="mysql://atd_hrms:URL_ENCODED_PASSWORD@127.0.0.1:3306/anytimediesel_hrms"
 BACKEND_PORT=4000
-FRONTEND_ORIGIN="https://hrms.sameerreddy.in"
-VITE_API_BASE_URL="https://hrms.sameerreddy.in/api"
+FRONTEND_ORIGIN="https://hrms.example.com"
+VITE_API_BASE_URL="https://hrms.example.com/api"
+VITE_ALLOWED_HOSTS="hrms.example.com"
+VITE_API_TIMEOUT_MS=20000
+TRUST_PROXY="loopback"
 JWT_ACCESS_SECRET="LONG_RANDOM_SECRET"
 JWT_REFRESH_SECRET="DIFFERENT_LONG_RANDOM_SECRET"
 EMPLOYEE_DATA_ENCRYPTION_KEY="STABLE_32_PLUS_CHARACTER_EMPLOYEE_DATA_SECRET"
@@ -173,7 +184,7 @@ Create `/etc/nginx/sites-available/anytime-ems`:
 ```nginx
 server {
     listen 80;
-    server_name hrms.sameerreddy.in;
+    server_name hrms.example.com;
     client_max_body_size 20m;
 
     # Preserve the versioned integration path when proxying to Express. This
@@ -227,10 +238,10 @@ sudo systemctl reload nginx
 
 ## 9. DNS and HTTPS
 
-Create an `A` record for `hrms` pointing to the instance Elastic IP. An Elastic IP is recommended because an EC2 auto-assigned public IP changes after stop/start.
+Create an `A` record for the approved hostname pointing to the instance Elastic IP. An Elastic IP is recommended because an EC2 auto-assigned public IP changes after stop/start.
 
 ```bash
-sudo certbot --nginx -d hrms.sameerreddy.in
+sudo certbot --nginx -d hrms.example.com
 sudo certbot renew --dry-run
 ```
 
@@ -243,8 +254,8 @@ pm2 status
 curl -fsS http://127.0.0.1:4000/health
 curl -fsS http://127.0.0.1:4000/health/db
 curl -fsS http://127.0.0.1:4000/api/v1
-curl -fsS https://hrms.sameerreddy.in/api/v1
-curl -I https://hrms.sameerreddy.in
+curl -fsS https://hrms.example.com/api/v1
+curl -I https://hrms.example.com
 ```
 
 Test browser login, session restore, mobile location permission, attendance, live cross-device refresh, leave, announcements, Web Push, logout, account deactivation/reactivation, expense Drive acknowledgement, integration credential creation/revocation, and one authenticated Employee API request.
@@ -266,7 +277,16 @@ git checkout version-1
 git pull --ff-only origin version-1
 ```
 
-The current production server has already completed this switch.
+The current production server has already completed this switch and may remain on `version-1`.
+Because routine updates must use one consistent branch, do not change it to `main` during an
+ordinary release. A planned switch requires a verified database backup, a clean worktree, and:
+
+```bash
+cd /opt/anytime-crew-hub
+git fetch origin
+git checkout main
+git pull --ff-only origin main
+```
 
 ## 12. Routine Update
 
