@@ -1,0 +1,4 @@
+ALTER TABLE `employees`
+  ADD COLUMN `shift_type` ENUM('DAY', 'NIGHT') NOT NULL DEFAULT 'DAY',
+  ADD COLUMN `shift_start_minutes` INTEGER NOT NULL DEFAULT 540,
+  ADD COLUMN `shift_end_minutes` INTEGER NOT NULL DEFAULT 1080;

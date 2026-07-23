@@ -1,0 +1,900 @@
+import type {
+  AttendanceRecord,
+  AttendanceTimelineEvent,
+  AuditLog,
+  AssetCatalogItem,
+  AssetReturnRecord,
+  BiometricMapping,
+  CompanyAsset,
+  CompanyEntity,
+  CertificateRequest,
+  ExpenseClaim,
+  BiometricDevice,
+  Branch,
+  Department,
+  EmployeeAssetInvestment,
+  EmployeeProfile,
+  Holiday,
+  LeaveBalance,
+  LeaveRequest,
+  LeaveTypeOption,
+  NotificationItem,
+  Announcement,
+  Role,
+  TaskAssignee,
+  TaskBoard,
+  TaskPriority,
+  TaskStatus,
+  TaskStage,
+  User,
+  WorkTask,
+  ModuleKey,
+  IntegrationClient,
+  IntegrationScope,
+} from "@/types/domain";
+
+export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
+const REQUEST_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS ?? 20000);
+let refreshRequest: Promise<boolean> | null = null;
+const responseCache = new Map<string, { expiresAt: number; value: unknown }>();
+const warmedResponses = new Map<string, { expiresAt: number; value: unknown }>();
+const pendingRequests = new Map<string, Promise<unknown>>();
+
+function cacheDuration(path: string) {
+  const pathname = path.split("?")[0];
+  if (["/branches", "/departments", "/leave/types", "/holidays"].includes(pathname)) {
+    return 60_000;
+  }
+  if (["/employees", "/users"].includes(pathname)) return 15_000;
+  if (pathname === "/employees/birthdays") return 60_000;
+  if (pathname === "/assets/catalog") return 30_000;
+  return 0;
+}
+
+async function refreshSession() {
+  if (!refreshRequest) {
+    refreshRequest = fetch(`${API_BASE}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    })
+      .then((response) => response.ok)
+      .catch(() => false)
+      .finally(() => {
+        refreshRequest = null;
+      });
+  }
+  return refreshRequest;
+}
+
+async function requestNetwork<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const headers = new Headers(options.headers);
+  if (options.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let res: Response;
+  try {
+    const fetchOptions: RequestInit = {
+      ...options,
+      credentials: "include",
+      headers,
+      signal: controller.signal,
+    };
+    res = await fetch(`${API_BASE}${path}`, fetchOptions);
+    if (
+      res.status === 401 &&
+      path !== "/auth/login" &&
+      path !== "/auth/refresh" &&
+      path !== "/auth/restore"
+    ) {
+      const refreshed = await refreshSession();
+      if (refreshed) res = await fetch(`${API_BASE}${path}`, fetchOptions);
+    }
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error("Request timed out. Please try again.");
+    }
+    throw new Error("Unable to reach the server. Please check your connection.");
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
+  if (
+    res.status === 401 &&
+    typeof window !== "undefined" &&
+    !window.location.pathname.includes("/login")
+  ) {
+    window.location.assign("/login");
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: "Request failed" }));
+    throw new Error(body.error ?? "Request failed");
+  }
+  return res.json() as Promise<T>;
+}
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const method = (options.method ?? "GET").toUpperCase();
+  if (method !== "GET") {
+    responseCache.clear();
+    warmedResponses.clear();
+    return requestNetwork<T>(path, options);
+  }
+
+  const warmed = warmedResponses.get(path);
+  if (warmed && warmed.expiresAt > Date.now()) {
+    warmedResponses.delete(path);
+    return warmed.value as T;
+  }
+
+  const duration = cacheDuration(path);
+  const cached = responseCache.get(path);
+  if (cached && cached.expiresAt > Date.now()) return cached.value as T;
+
+  const pending = pendingRequests.get(path);
+  if (pending) return pending as Promise<T>;
+  const next = requestNetwork<T>(path, options)
+    .then((value) => {
+      if (duration) responseCache.set(path, { value, expiresAt: Date.now() + duration });
+      return value;
+    })
+    .finally(() => pendingRequests.delete(path));
+  pendingRequests.set(path, next);
+  return next;
+}
+
+async function warmPath<T>(path: string) {
+  const value = await request<T>(path);
+  warmedResponses.set(path, { value, expiresAt: Date.now() + 10_000 });
+}
+
+export async function warmAuthenticatedWorkspace(user: User) {
+  if (user.mustChangePassword) return;
+  const ownAttendance = ["employee", "sales", "driver", "field_staff"].includes(user.role);
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const attendanceQuery = toQuery({ from: today, to: today });
+  const paths = [
+    ownAttendance
+      ? `/attendance/my/report${attendanceQuery}`
+      : `/attendance/hr/daily${attendanceQuery}`,
+    "/branches",
+    user.role === "developer_admin" ? "/users" : "/employees",
+    "/employees/birthdays",
+    "/leave/requests",
+  ];
+  if (user.employeeId && !["ceo", "developer_admin"].includes(user.role)) {
+    paths.push("/attendance/my/timeline");
+  }
+  const warmup = Promise.allSettled(paths.map((path) => warmPath(path)));
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([
+    warmup,
+    new Promise<void>((resolve) => {
+      timeoutId = setTimeout(resolve, 3_500);
+    }),
+  ]);
+  if (timeoutId) clearTimeout(timeoutId);
+}
+
+function toQuery(params: Record<string, string | number | undefined>) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "" && value !== "all") query.set(key, String(value));
+  }
+  const text = query.toString();
+  return text ? `?${text}` : "";
+}
+
+export const authApi = {
+  restore: () => request<{ user: User }>("/auth/restore", { method: "POST" }),
+  login: (email: string, password: string) =>
+    request<{ user: User }>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    }),
+  me: () => request<{ user: User }>("/auth/me"),
+  loginAsRole: (_role: Role) => Promise.reject(new Error("Demo role login is disabled")),
+  changePassword: (oldPassword: string, nextPassword: string) =>
+    request<{ ok: boolean; user: User }>("/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ oldPassword: oldPassword || undefined, nextPassword }),
+    }),
+  logout: () => request<{ ok: boolean }>("/auth/logout", { method: "POST" }),
+};
+
+export const usersApi = {
+  list: () => request<User[]>("/users"),
+  create: (u: Omit<User, "id"> & { password?: string }) =>
+    request<User>("/users", {
+      method: "POST",
+      body: JSON.stringify({
+        ...u,
+        role: u.role ? u.role.toUpperCase() : undefined,
+        password: u.password,
+      }),
+    }),
+  update: (
+    id: string,
+    patch: Omit<Partial<User>, "phone" | "suspendedUntil" | "suspensionStartsAt"> & {
+      phone?: string | null;
+      suspendedUntil?: string | null;
+      suspensionStartsAt?: string | null;
+    },
+  ) => request<User>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deactivate: (id: string) => request<User>(`/users/${id}/deactivate`, { method: "POST" }),
+  suspend: (id: string, suspensionStartsAt: string, suspendedUntil: string) =>
+    request<User>(`/users/${id}/suspend`, {
+      method: "POST",
+      body: JSON.stringify({ suspensionStartsAt, suspendedUntil }),
+    }),
+  delete: (id: string, confirmation: string) =>
+    request<{ ok: boolean; user: User; dataRetained: boolean }>(`/users/${id}`, {
+      method: "DELETE",
+      body: JSON.stringify({ confirmation }),
+    }),
+  resetPassword: (id: string, password: string) =>
+    request<User>(`/users/${id}/reset-password`, {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    }),
+};
+
+export const employeesApi = {
+  list: (filters: Record<string, string | number | undefined> = {}) =>
+    request<EmployeeProfile[]>(`/employees${toQuery(filters)}`),
+  isReportingManager: () =>
+    request<{ isReportingManager: boolean; teamCount: number }>(
+      "/employees/me/is-reporting-manager",
+    ),
+  get: (id: string) => request<EmployeeProfile | null>(`/employees/${id}`),
+  idCard: (id: string) =>
+    request<{
+      companyEntity: CompanyEntity;
+      parentCompanyName: string;
+      employeeName: string;
+      employeeCode: string;
+      department?: string;
+      designation?: string;
+      companyPhone?: string;
+      personalPhone?: string;
+      email?: string;
+      joiningDate?: string;
+      bloodGroup?: string;
+      status: string;
+    }>(`/id-card/${id}`),
+  update: (id: string, patch: Partial<EmployeeProfile>) =>
+    request<EmployeeProfile>(`/employees/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        ...patch,
+        attendanceMode: patch.attendanceMode,
+        ...(patch.managerId !== undefined ? { managerId: patch.managerId || null } : {}),
+      }),
+    }),
+  birthdays: () =>
+    request<
+      Array<{
+        employeeId: string;
+        name: string;
+        designation?: string;
+        department?: string;
+        dateOfBirth: string;
+        isToday: boolean;
+        daysUntil: number;
+        age: number;
+        message: string;
+      }>
+    >("/employees/birthdays"),
+};
+
+export const leaveApi = {
+  list: (filters: { status?: string } = {}) =>
+    request<LeaveRequest[]>(`/leave/requests${toQuery(filters)}`),
+  mine: () => request<LeaveRequest[]>("/leave/requests?mine=true"),
+  assignedApprovals: (status?: string) =>
+    request<LeaveRequest[]>(`/leave/requests${toQuery({ assignedApprovals: "true", status })}`),
+  approver: () => request<{ approverName: string | null; canApply: boolean }>("/leave/approver"),
+  types: () => request<LeaveTypeOption[]>("/leave/types"),
+  createType: (payload: { name: string; paid: boolean }) =>
+    request<LeaveTypeOption>("/leave/types", { method: "POST", body: JSON.stringify(payload) }),
+  updateType: (id: string, payload: Partial<{ name: string; paid: boolean }>) =>
+    request<LeaveTypeOption>(`/leave/types/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  deleteType: (id: string) => request<LeaveTypeOption>(`/leave/types/${id}`, { method: "DELETE" }),
+  myBalance: () => request<LeaveBalance[]>("/leave/balances/me"),
+  listAllBalances: (employeeId?: string) =>
+    request<
+      Array<{
+        id: string;
+        employeeId: string;
+        employeeCode: string;
+        employeeName: string;
+        department: string;
+        leaveType: string;
+        leaveTypeId: string;
+        entitled: number;
+        used: number;
+        balance: number;
+        code: string;
+        manualAdjustment: number;
+      }>
+    >(`/leave/balances${toQuery({ employeeId })}`),
+  apply: (req: {
+    leaveTypeId: string;
+    fromDate: string;
+    toDate: string;
+    days: number;
+    reason: string;
+    medicalDocumentUrl?: string;
+  }) => request<LeaveRequest>("/leave/requests", { method: "POST", body: JSON.stringify(req) }),
+  approve: (id: string) =>
+    request<LeaveRequest>(`/leave/requests/${id}/approve`, { method: "POST" }),
+  reject: (id: string) => request<LeaveRequest>(`/leave/requests/${id}/reject`, { method: "POST" }),
+  cancel: (id: string) => request<LeaveRequest>(`/leave/requests/${id}/cancel`, { method: "POST" }),
+  updateMedicalDocument: (id: string, url: string) =>
+    request<LeaveRequest>(`/leave/requests/${id}/medical-document`, {
+      method: "PATCH",
+      body: JSON.stringify({ url }),
+    }),
+  verifyMedicalDocument: (id: string) =>
+    request<LeaveRequest>(`/leave/requests/${id}/medical-document/verify`, {
+      method: "POST",
+    }),
+  adjustBalance: (employeeId: string, leaveTypeId: string, adjustment: number, reason: string) =>
+    request(`/leave/balances/${employeeId}/${leaveTypeId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ adjustment, reason }),
+    }),
+  weeklyOffs: (assignedApprovals = false, all = false) =>
+    request<import("@/types/domain").WeeklyOffRequest[]>(
+      `/weekly-offs${toQuery({ assignedApprovals: assignedApprovals ? "true" : undefined, all: all ? "true" : undefined })}`,
+    ),
+  requestWeeklyOff: (date: string, reason?: string) =>
+    request<import("@/types/domain").WeeklyOffRequest>("/weekly-offs", {
+      method: "POST",
+      body: JSON.stringify({ date, reason }),
+    }),
+  approveWeeklyOff: (id: string) =>
+    request<import("@/types/domain").WeeklyOffRequest>(`/weekly-offs/${id}/approve`, {
+      method: "POST",
+    }),
+  rejectWeeklyOff: (id: string) =>
+    request<import("@/types/domain").WeeklyOffRequest>(`/weekly-offs/${id}/reject`, {
+      method: "POST",
+    }),
+  cancelWeeklyOff: (id: string) =>
+    request<import("@/types/domain").WeeklyOffRequest>(`/weekly-offs/${id}/cancel`, {
+      method: "POST",
+    }),
+};
+
+export const attendanceApi = {
+  today: () => request<AttendanceRecord | null>("/attendance/my/today"),
+  list: (filters: Record<string, string | undefined> = {}) =>
+    request<AttendanceRecord[]>(`/attendance/hr/daily${toQuery(filters)}`),
+  listMine: (_employeeId: string, filters: Record<string, string | undefined> = {}) =>
+    request<AttendanceRecord[]>(`/attendance/my/report${toQuery(filters)}`),
+  listField: (filters: Record<string, string | undefined> = {}) =>
+    request<AttendanceRecord[]>(`/attendance/hr/field${toQuery(filters)}`),
+  listBranch: (filters: Record<string, string | undefined> = {}) =>
+    request<AttendanceRecord[]>(`/attendance/hr/branch-wise${toQuery(filters)}`),
+  myTimeline: (date?: string) =>
+    request<AttendanceTimelineEvent[]>(`/attendance/my/timeline${date ? `?date=${date}` : ""}`),
+  teamTimeline: (employeeId: string, date?: string) =>
+    request<AttendanceTimelineEvent[]>(`/attendance/team/timeline${toQuery({ employeeId, date })}`),
+  checkIn: (payload: {
+    employeeId: string;
+    latitude?: number;
+    longitude?: number;
+    mobileDeviceId?: string;
+    confirmLeaveCancellation?: boolean;
+  }) =>
+    request<{ eventId: string }>("/attendance/mobile/check-in", {
+      method: "POST",
+      body: JSON.stringify({
+        ...payload,
+        mobileDeviceId: payload.mobileDeviceId ?? navigator.userAgent.slice(0, 120),
+      }),
+    }),
+  checkOut: (payload: { latitude?: number; longitude?: number }) =>
+    request<{ eventId: string }>("/attendance/mobile/check-out", {
+      method: "POST",
+      body: JSON.stringify({
+        latitude: payload.latitude ?? 0,
+        longitude: payload.longitude ?? 0,
+        mobileDeviceId: navigator.userAgent.slice(0, 120),
+      }),
+    }),
+  requestCorrection: (payload: {
+    employeeId: string;
+    date: Date;
+    punchTime: Date;
+    eventType: string;
+    remarks: string;
+  }) =>
+    request<{ ok: boolean; requestId: string; status: string }>("/attendance/correction-request", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  hrPunchCorrection: (payload: {
+    employeeId: string;
+    date: Date;
+    punchTime: Date;
+    eventType: string;
+    remarks: string;
+  }) =>
+    request<{ ok: boolean }>("/attendance/hr-punch-correction", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  listCorrectionRequests: () =>
+    request<
+      Array<{
+        id: string;
+        employeeId: string;
+        employeeName: string;
+        employeeCode?: string;
+        date: string;
+        punchTime: string;
+        eventType: string;
+        remarks: string;
+        status: string;
+        createdAt: string;
+        canReview: boolean;
+      }>
+    >("/attendance/correction-requests"),
+  approveCorrectionRequest: (id: string) =>
+    request<{ ok: boolean; status: string }>(`/attendance/correction-requests/${id}/approve`, {
+      method: "POST",
+    }),
+  rejectCorrectionRequest: (id: string) =>
+    request<{ ok: boolean; status: string }>(`/attendance/correction-requests/${id}/reject`, {
+      method: "POST",
+    }),
+  recalculate: (employeeId: string, date: string) =>
+    request<AttendanceRecord>(`/attendance/recalculate/${employeeId}/${date}`, { method: "POST" }),
+  verifyIdCard: (employeeId: string) =>
+    request<{
+      verified: boolean;
+      name: string;
+      employeeCode: string;
+      designation: string;
+      department: string;
+      companyEntity: CompanyEntity;
+      companyPhone?: string;
+      status: string;
+    }>(`/verify-id-card/${employeeId}`),
+};
+
+export const branchesApi = {
+  list: () => request<Branch[]>("/branches"),
+  create: (branch: Omit<Branch, "id">) =>
+    request<Branch>("/branches", { method: "POST", body: JSON.stringify(branch) }),
+  update: (id: string, patch: Partial<Branch>) =>
+    request<Branch>(`/branches/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  delete: (id: string) => request<Branch>(`/branches/${id}`, { method: "DELETE" }),
+  departments: () => request<Department[]>("/departments"),
+  createDepartment: (
+    department: Omit<Department, "id" | "headEmployeeId" | "head" | "parentDepartmentId"> & {
+      headEmployeeId?: string | null;
+      parentDepartmentId?: string | null;
+    },
+  ) => request<Department>("/departments", { method: "POST", body: JSON.stringify(department) }),
+  updateDepartment: (
+    id: string,
+    patch: Omit<Partial<Department>, "headEmployeeId" | "parentDepartmentId"> & {
+      headEmployeeId?: string | null;
+      parentDepartmentId?: string | null;
+    },
+  ) => request<Department>(`/departments/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deleteDepartment: (id: string) => request<Department>(`/departments/${id}`, { method: "DELETE" }),
+};
+
+type CompanyAssetPayload = Omit<
+  CompanyAsset,
+  | "id"
+  | "assignedEmployeeName"
+  | "assignedEmployeeCode"
+  | "branchName"
+  | "serialNumber"
+  | "purchaseDate"
+  | "renewalDate"
+  | "monthlyEquivalent"
+  | "annualRecurring"
+  | "assignedEmployeeId"
+  | "branchId"
+  | "location"
+  | "notes"
+  | "catalogId"
+  | "assetCode"
+  | "status"
+> & {
+  assetCode?: string;
+  status?: CompanyAsset["status"];
+  catalogId?: string | null;
+  serialNumber?: string | null;
+  purchaseDate?: string | null;
+  renewalDate?: string | null;
+  assignedEmployeeId?: string | null;
+  branchId?: string | null;
+  location?: string | null;
+  notes?: string | null;
+};
+
+export const assetsApi = {
+  list: (filters: Record<string, string | number | undefined> = {}) =>
+    request<CompanyAsset[]>(`/assets${toQuery(filters)}`),
+  investmentSummary: () => request<EmployeeAssetInvestment[]>("/assets/investment-summary"),
+  create: (asset: CompanyAssetPayload) =>
+    request<CompanyAsset>("/assets", { method: "POST", body: JSON.stringify(asset) }),
+  update: (id: string, asset: Partial<CompanyAssetPayload>) =>
+    request<CompanyAsset>(`/assets/${id}`, { method: "PATCH", body: JSON.stringify(asset) }),
+  returnHistory: () => request<AssetReturnRecord[]>("/assets/returns/history"),
+  returnAsset: (
+    id: string,
+    checklist: {
+      condition: AssetReturnRecord["condition"];
+      accessoriesReturned: boolean;
+      chargerReturned: boolean;
+      dataBackedUp: boolean;
+      dataWiped: boolean;
+      physicalDamage: boolean;
+      damageNotes?: string | null;
+      remarks?: string | null;
+    },
+  ) =>
+    request<{ asset: CompanyAsset; returnId: string }>(`/assets/${id}/return`, {
+      method: "POST",
+      body: JSON.stringify(checklist),
+    }),
+  catalog: (includeInactive = false) =>
+    request<AssetCatalogItem[]>(`/assets/catalog${includeInactive ? "?includeInactive=true" : ""}`),
+  createCatalogItem: (item: Omit<AssetCatalogItem, "id" | "status">) =>
+    request<AssetCatalogItem>("/assets/catalog", {
+      method: "POST",
+      body: JSON.stringify(item),
+    }),
+  updateCatalogItem: (id: string, item: Partial<Omit<AssetCatalogItem, "id" | "status">>) =>
+    request<AssetCatalogItem>(`/assets/catalog/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(item),
+    }),
+  deactivateCatalogItem: (id: string) =>
+    request<AssetCatalogItem>(`/assets/catalog/${id}`, { method: "DELETE" }),
+};
+
+export const employeeServicesApi = {
+  expenseClaims: () => request<ExpenseClaim[]>("/expense-claims"),
+  submitExpense: (claim: {
+    claimType: "ADVANCE" | "EXPENSE";
+    employeeId?: string;
+    title?: string | null;
+    amount: number;
+    expenseDate?: string | null;
+    description?: string | null;
+    remark?: string | null;
+    receiptUrl?: string | null;
+    receiptAccessConfirmed?: boolean;
+  }) =>
+    request<{ id: string; status: string }>("/expense-claims", {
+      method: "POST",
+      body: JSON.stringify(claim),
+    }),
+  reviewExpense: (id: string, status: "UNPAID" | "REJECTED" | "PAID", reviewNotes?: string) =>
+    request<{ id: string; status: string }>(`/expense-claims/${id}/review`, {
+      method: "PATCH",
+      body: JSON.stringify({ status, reviewNotes }),
+    }),
+  certificateRequests: () => request<CertificateRequest[]>("/certificate-requests"),
+  submitCertificate: (requestBody: {
+    certificateType: string;
+    purpose: string;
+    deliveryMode: "DIGITAL" | "PRINTED";
+    requiredBy?: string | null;
+  }) =>
+    request<{ id: string; status: string }>("/certificate-requests", {
+      method: "POST",
+      body: JSON.stringify(requestBody),
+    }),
+  reviewCertificate: (
+    id: string,
+    status: "IN_PROGRESS" | "READY" | "REJECTED" | "COLLECTED",
+    hrNotes?: string,
+    documentUrl?: string,
+  ) =>
+    request<{ id: string; status: string }>(`/certificate-requests/${id}/review`, {
+      method: "PATCH",
+      body: JSON.stringify({ status, hrNotes, documentUrl }),
+    }),
+};
+
+export const biometricApi = {
+  list: () => request<BiometricDevice[]>("/biometric/devices"),
+  createDevice: (device: {
+    name: string;
+    code: string;
+    branchId: string;
+    deviceIp?: string;
+    port?: number;
+    location?: string;
+    status?: string;
+  }) =>
+    request<BiometricDevice>("/biometric/devices", {
+      method: "POST",
+      body: JSON.stringify(device),
+    }),
+  updateDevice: (
+    id: string,
+    patch: Omit<Partial<BiometricDevice>, "status"> & { code?: string; status?: string },
+  ) =>
+    request<BiometricDevice>(`/biometric/devices/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+  deactivateDevice: (id: string) =>
+    request<BiometricDevice>(`/biometric/devices/${id}`, { method: "DELETE" }),
+  mappings: () => request<BiometricMapping[]>("/biometric/mappings"),
+  saveMapping: (mapping: {
+    employeeId: string;
+    biometricUserId: string;
+    deviceId?: string;
+    status?: string;
+  }) =>
+    request<BiometricMapping>("/biometric/mappings", {
+      method: "POST",
+      body: JSON.stringify(mapping),
+    }),
+  updateMapping: (id: string, patch: Partial<BiometricMapping>) =>
+    request<BiometricMapping>(`/biometric/mappings/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+  deactivateMapping: (id: string) =>
+    request<BiometricMapping>(`/biometric/mappings/${id}`, { method: "DELETE" }),
+};
+
+export const reportsApi = {
+  attendanceSummary: () =>
+    request<{ totalEmployees: number; present: number; absent: number; onLeave: number }>(
+      "/reports/attendance",
+    ),
+  holidays: () => request<Holiday[]>("/holidays"),
+  createHoliday: (holiday: Omit<Holiday, "id">) =>
+    request<Holiday>("/holidays", { method: "POST", body: JSON.stringify(holiday) }),
+  updateHoliday: (id: string, patch: Partial<Holiday>) =>
+    request<Holiday>(`/holidays/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deleteHoliday: (id: string) => request<Holiday>(`/holidays/${id}`, { method: "DELETE" }),
+  leaveBalances: () => request<LeaveBalance[]>("/leave/balances/me"),
+  employeeAttendance: (filters: Record<string, string | undefined> = {}) =>
+    request<AttendanceRecord[]>(`/reports/employee-attendance${toQuery(filters)}`),
+  multiBranch: (filters: Record<string, string | undefined> = {}) =>
+    request<AttendanceRecord[]>(`/reports/multi-branch${toQuery(filters)}`),
+  field: (filters: Record<string, string | undefined> = {}) =>
+    request<AttendanceRecord[]>(`/reports/field${toQuery(filters)}`),
+  clientVisits: (filters: Record<string, string | undefined> = {}) =>
+    request<AttendanceRecord[]>(`/reports/client-visits${toQuery(filters)}`),
+  leave: (filters: Record<string, string | undefined> = {}) =>
+    request<LeaveRequest[]>(`/reports/leave${toQuery(filters)}`),
+  payroll: (filters: Record<string, string | undefined> = {}) =>
+    request<AttendanceRecord[]>(`/reports/payroll${toQuery(filters)}`),
+  timeline: (filters: Record<string, string | undefined> = {}) =>
+    request<AttendanceTimelineEvent[]>(`/reports/timeline${toQuery(filters)}`),
+};
+
+export const auditApi = {
+  list: () => request<AuditLog[]>("/audit-logs"),
+  summary: () =>
+    request<{ count: number; oldest?: string; latest?: string }>("/audit-logs/summary"),
+};
+
+export interface SystemHealth {
+  status: "HEALTHY" | "DEGRADED";
+  checkedAt: string;
+  backendStartedAt: string;
+  uptimeSeconds: number;
+  database: { reachable: boolean; latencyMs: number; error?: string };
+  memory: { usedPercent: number; processRssMb: number };
+  loadAverage: number;
+  nodeVersion: string;
+}
+
+export interface BrandProofSettings {
+  litresDelivered: string;
+  happyClients: string;
+  appRating: string;
+  certification: string;
+}
+
+export const systemApi = {
+  health: () => request<SystemHealth>("/system/health"),
+  brandProof: () => request<BrandProofSettings>("/public/brand-proof"),
+  updateBrandProof: (value: BrandProofSettings) =>
+    request<BrandProofSettings>("/system/brand-proof", {
+      method: "PATCH",
+      body: JSON.stringify(value),
+    }),
+  resetTestData: (payload: { confirmation: string; password: string }) =>
+    request<{
+      ok: true;
+      deletedUsers: number;
+      deletedEmployees: number;
+      preserved: {
+        developerAdminUserId: string;
+        branches: number;
+        departments: number;
+        leaveTypes: number;
+      };
+    }>("/system/reset-test-data", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+};
+
+export const notificationsApi = {
+  list: () => request<NotificationItem[]>("/notifications"),
+};
+
+export const announcementsApi = {
+  list: (includeInactive = false) =>
+    request<Announcement[]>(
+      `/announcements${toQuery({ includeInactive: String(includeInactive) })}`,
+    ),
+  create: (payload: {
+    title: string;
+    message: string;
+    priority: Announcement["priority"];
+    publishAt?: string;
+    expiresAt?: string | null;
+  }) =>
+    request<Announcement>("/announcements", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  update: (id: string, payload: Partial<Announcement>) =>
+    request<Announcement>(`/announcements/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  deactivate: (id: string) => request<Announcement>(`/announcements/${id}`, { method: "DELETE" }),
+  deletePermanently: (id: string, confirmation: string) =>
+    request<{ ok: true }>(`/announcements/${id}/permanent`, {
+      method: "DELETE",
+      body: JSON.stringify({ confirmation }),
+    }),
+};
+
+export const pushApi = {
+  publicKey: () => request<{ publicKey: string | null }>("/push/public-key"),
+  subscribe: (subscription: PushSubscriptionJSON) =>
+    request<{ ok: true }>("/push/subscriptions", {
+      method: "POST",
+      body: JSON.stringify(subscription),
+    }),
+  unsubscribe: (endpoint: string) =>
+    request<{ ok: true }>("/push/subscriptions", {
+      method: "DELETE",
+      body: JSON.stringify({ endpoint }),
+    }),
+};
+
+export const tasksApi = {
+  list: (
+    scope: "mine" | "team" = "team",
+    filters: {
+      limit?: number;
+      offset?: number;
+      boardId?: string;
+      status?: TaskStatus;
+      priority?: TaskPriority;
+      q?: string;
+      due?: "today" | "overdue" | "none";
+    } = {},
+  ) => request<WorkTask[]>(`/tasks${toQuery({ scope, ...filters })}`),
+  assignees: () => request<TaskAssignee[]>("/tasks/assignees"),
+  create: (payload: {
+    title: string;
+    description?: string | null;
+    assigneeEmployeeIds: string[];
+    parentTaskId?: string | null;
+    boardId?: string | null;
+    stageId?: string | null;
+    priority: TaskPriority;
+    startDate?: string | null;
+    dueDate?: string | null;
+  }) => request<WorkTask>("/tasks", { method: "POST", body: JSON.stringify(payload) }),
+  update: (
+    id: string,
+    payload: { version: number } & Partial<{
+      title: string;
+      description: string | null;
+      assigneeEmployeeIds: string[];
+      priority: TaskPriority;
+      status: TaskStatus;
+      progress: number;
+      startDate: string | null;
+      dueDate: string | null;
+      stageId: string | null;
+    }>,
+  ) => request<WorkTask>(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  addLog: (
+    id: string,
+    payload: {
+      version: number;
+      message: string;
+      progress?: number;
+      status?: TaskStatus;
+      minutesWorked?: number;
+    },
+  ) => request<WorkTask>(`/tasks/${id}/logs`, { method: "POST", body: JSON.stringify(payload) }),
+  boards: (archived = false) =>
+    request<TaskBoard[]>(`/task-boards${archived ? "?archived=true" : ""}`),
+  createBoard: (payload: {
+    name: string;
+    description?: string | null;
+    accessType: TaskBoard["accessType"];
+    allowedRoles: string[];
+    memberEmployeeIds: string[];
+    stages: Array<{ id?: string; name: string; color: TaskStage["color"]; status: TaskStatus }>;
+  }) => request<TaskBoard>("/task-boards", { method: "POST", body: JSON.stringify(payload) }),
+  updateBoard: (
+    id: string,
+    payload: {
+      version: number;
+      name: string;
+      description?: string | null;
+      accessType: TaskBoard["accessType"];
+      allowedRoles: string[];
+      memberEmployeeIds: string[];
+      stages: Array<{
+        id?: string;
+        name: string;
+        color: TaskStage["color"];
+        status: TaskStatus;
+      }>;
+    },
+  ) =>
+    request<TaskBoard>(`/task-boards/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  archiveBoard: (id: string, version: number, archived: boolean) =>
+    request<TaskBoard>(`/task-boards/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ version, archived }),
+    }),
+};
+
+export const moduleAccessApi = {
+  mine: () => request<{ modules: ModuleKey[] }>("/module-access/me"),
+  matrix: () =>
+    request<{ modules: ModuleKey[]; matrix: Record<string, ModuleKey[]> }>("/module-access/matrix"),
+  update: (matrix: Record<string, ModuleKey[]>) =>
+    request<{ modules: ModuleKey[]; matrix: Record<string, ModuleKey[]> }>(
+      "/module-access/matrix",
+      { method: "PUT", body: JSON.stringify({ matrix }) },
+    ),
+};
+
+export const integrationClientsApi = {
+  list: () => request<IntegrationClient[]>("/integration-clients"),
+  create: (payload: { name: string; scopes: IntegrationScope[]; expiresAt?: string | null }) =>
+    request<
+      Pick<IntegrationClient, "clientId" | "name" | "keyPrefix" | "scopes" | "expiresAt"> & {
+        apiKey: string;
+      }
+    >("/integration-clients", { method: "POST", body: JSON.stringify(payload) }),
+  revoke: (clientId: string) =>
+    request<{ clientId: string; status: "REVOKED"; revokedAt: string }>(
+      `/integration-clients/${clientId}`,
+      { method: "DELETE" },
+    ),
+};

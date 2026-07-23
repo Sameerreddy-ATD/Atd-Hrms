@@ -1,0 +1,344 @@
+openapi: 3.1.0
+info:
+  title: Anytime Diesel Employee Integration API
+  version: 1.0.0
+  description: |
+    Versioned server-to-server API for employee master-data synchronization.
+    Obtain a scoped API key from Developer Admin > System Settings > Employee API Access.
+servers:
+  - url: https://hrms.example.com/api/v1
+    description: Replace with the receiving company's production hostname
+    description: Production
+  - url: http://localhost:4000/api/v1
+    description: Local development
+security:
+  - bearerApiKey: []
+paths:
+  /employees:
+    get:
+      summary: List employees
+      operationId: listEmployees
+      description: Returns a cursor-paginated employee snapshot. Use the event feed for reliable incremental synchronization.
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: updatedSince
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/EmployeeStatus"
+      responses:
+        "200":
+          description: Employee page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeePage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      summary: Create an employee without creating a login
+      operationId: createEmployee
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmployeeCreate"
+      responses:
+        "201":
+          description: Employee created
+          headers:
+            ETag:
+              description: Employee version for a later conditional update.
+              schema: { type: string, example: '"1"' }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /employees/{employeeId}:
+    parameters:
+      - $ref: "#/components/parameters/EmployeeId"
+    get:
+      summary: Get one employee
+      operationId: getEmployee
+      responses:
+        "200":
+          description: Employee found
+          headers:
+            ETag:
+              schema: { type: string, example: '"3"' }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      summary: Update an employee
+      operationId: updateEmployee
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmployeeUpdate"
+      responses:
+        "200":
+          description: Employee updated
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeResponse"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "428":
+          description: If-Match is missing or invalid
+    delete:
+      summary: Deactivate an employee while retaining history
+      operationId: deactivateEmployee
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          description: Employee and linked account deactivated; related records retained
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeResponse"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "428":
+          description: If-Match is missing or invalid
+  /employee-events:
+    get:
+      summary: Read the durable employee change feed
+      operationId: listEmployeeEvents
+      parameters:
+        - name: after
+          in: query
+          description: Last successfully processed event sequence. Use 0 for the beginning.
+          schema: { type: string, pattern: "^[0-9]+$", default: "0" }
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Ordered event page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventPage"
+components:
+  securitySchemes:
+    bearerApiKey:
+      type: http
+      scheme: bearer
+      bearerFormat: atd_live API key
+  parameters:
+    EmployeeId:
+      name: employeeId
+      in: path
+      required: true
+      schema: { type: string }
+    Cursor:
+      name: cursor
+      in: query
+      description: employeeId returned as nextCursor by the previous page.
+      schema: { type: string }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 250, default: 100 }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Unique key retained for 24 hours. Reusing it with a different request returns 409.
+      schema: { type: string, maxLength: 200 }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: Current integer employee version from the ETag or response body.
+      schema: { type: string, example: '"3"' }
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Missing, invalid, expired, or revoked API key
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: API key does not have the required scope
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Employee not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: Unique-data, idempotency, or employee-version conflict
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+        details: { type: object, additionalProperties: true }
+    EmployeeStatus:
+      type: string
+      enum: [ACTIVE, INACTIVE, TERMINATED]
+    EmployeeCreate:
+      allOf:
+        - $ref: "#/components/schemas/EmployeeWriteFields"
+      type: object
+      required: [name]
+      properties:
+        employeeCode: { type: string, maxLength: 40 }
+    EmployeeWriteFields:
+      type: object
+      properties:
+        externalReference: { type: [string, "null"], maxLength: 191 }
+        name: { type: string, minLength: 2, maxLength: 120 }
+        email: { type: [string, "null"], format: email }
+        phone: { type: [string, "null"], maxLength: 30 }
+        companyPhone: { type: [string, "null"], maxLength: 30 }
+        companyEntity:
+          type: string
+          enum:
+            [
+              ROYAL_PETRO_PARK_PRIVATE_LIMITED,
+              ANYTIME_DIESEL,
+              FUELISTIC_INNOVATIONS_PRIVATE_LIMITED,
+            ]
+        departmentId: { type: [string, "null"] }
+        designation: { type: [string, "null"], maxLength: 120 }
+        homeBranchId: { type: [string, "null"] }
+        managerId: { type: [string, "null"] }
+        joiningDate: { type: [string, "null"], format: date }
+        dateOfBirth: { type: [string, "null"], format: date }
+        gender: { type: [string, "null"], enum: [FEMALE, MALE, PREFER_NOT_TO_SAY, null] }
+        employmentType: { type: [string, "null"], enum: [FULL_TIME, PART_TIME, INTERN, null] }
+        organizationLevel: { type: string, enum: [HEAD, SENIOR, JUNIOR, MEMBER] }
+        attendanceMode: { type: string, enum: [THUMB_ONLY, MOBILE_GPS_ONLY, BOTH] }
+        attendanceRequired: { type: boolean }
+        isFieldEmployee: { type: boolean }
+        status: { $ref: "#/components/schemas/EmployeeStatus" }
+        shiftType: { type: string, enum: [DAY, NIGHT] }
+        shiftStartMinutes: { type: integer, minimum: 0, maximum: 1439 }
+        shiftEndMinutes: { type: integer, minimum: 0, maximum: 1439 }
+    EmployeeUpdate:
+      allOf:
+        - $ref: "#/components/schemas/EmployeeWriteFields"
+      description: Any non-empty subset of EmployeeCreate fields except employeeCode.
+    Employee:
+      type: object
+      required:
+        [
+          employeeId,
+          employeeCode,
+          version,
+          name,
+          status,
+          organization,
+          employment,
+          attendance,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        employeeId: { type: string }
+        employeeCode: { type: string }
+        externalReference: { type: [string, "null"] }
+        version: { type: integer, minimum: 1 }
+        name: { type: string }
+        email: { type: [string, "null"], format: email }
+        phone: { type: [string, "null"] }
+        companyPhone: { type: [string, "null"] }
+        status: { $ref: "#/components/schemas/EmployeeStatus" }
+        account:
+          oneOf:
+            - type: object
+              required: [userId, status]
+              properties:
+                userId: { type: string }
+                status: { type: string, enum: [ACTIVE, INACTIVE, LOCKED] }
+            - type: "null"
+        organization: { type: object, additionalProperties: true }
+        employment: { type: object, additionalProperties: true }
+        attendance: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    EmployeeResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: "#/components/schemas/Employee" }
+    EmployeePage:
+      type: object
+      required: [data, page]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/Employee" }
+        page: { $ref: "#/components/schemas/Page" }
+    EmployeeEvent:
+      type: object
+      required: [sequence, eventId, type, version, occurredAt]
+      properties:
+        sequence: { type: string }
+        eventId: { type: string }
+        employeeId: { type: [string, "null"] }
+        type: { type: string, enum: [CREATED, UPDATED, DEACTIVATED, REACTIVATED] }
+        version: { type: integer }
+        employee: { type: object, additionalProperties: true }
+        occurredAt: { type: string, format: date-time }
+    EventPage:
+      type: object
+      required: [data, page]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/EmployeeEvent" }
+        page: { $ref: "#/components/schemas/EventPageMetadata" }
+    Page:
+      type: object
+      required: [limit, hasMore, nextCursor]
+      properties:
+        limit: { type: integer }
+        hasMore: { type: boolean }
+        nextCursor: { type: [string, "null"] }
+    EventPageMetadata:
+      type: object
+      required: [limit, hasMore, nextAfter]
+      properties:
+        limit: { type: integer }
+        hasMore: { type: boolean }
+        nextAfter: { type: string }
