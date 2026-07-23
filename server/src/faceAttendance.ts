@@ -373,6 +373,9 @@ export async function submitFaceEnrollment(input: {
   role: Role;
   capture: FaceCaptureInput;
 }) {
+  if (input.role === Role.DEVELOPER_ADMIN) {
+    throw new HttpError(403, "Developer Admin accounts do not use face authentication");
+  }
   const existingProfile = await prisma.faceProfile.findUnique({
     where: { userId: input.userId },
     select: { status: true },
@@ -386,28 +389,27 @@ export async function submitFaceEnrollment(input: {
     expectedPurpose: FaceVerificationPurpose.ENROLLMENT,
     capture: input.capture,
   });
-  const isBootstrapAdmin = input.role === Role.DEVELOPER_ADMIN;
   const now = new Date();
   const profile = await prisma.faceProfile.upsert({
     where: { userId: input.userId },
     create: {
       userId: input.userId,
       descriptorEncrypted: encryptEmployeeField(JSON.stringify(input.capture.descriptor))!,
-      status: isBootstrapAdmin ? FaceEnrollmentStatus.APPROVED : FaceEnrollmentStatus.PENDING,
+      status: FaceEnrollmentStatus.PENDING,
       consentVersion: FACE_CONSENT_VERSION,
       consentedAt: now,
       submittedAt: now,
-      approvedByUserId: isBootstrapAdmin ? input.userId : null,
-      approvedAt: isBootstrapAdmin ? now : null,
+      approvedByUserId: null,
+      approvedAt: null,
     },
     update: {
       descriptorEncrypted: encryptEmployeeField(JSON.stringify(input.capture.descriptor))!,
-      status: isBootstrapAdmin ? FaceEnrollmentStatus.APPROVED : FaceEnrollmentStatus.PENDING,
+      status: FaceEnrollmentStatus.PENDING,
       consentVersion: FACE_CONSENT_VERSION,
       consentedAt: now,
       submittedAt: now,
-      approvedByUserId: isBootstrapAdmin ? input.userId : null,
-      approvedAt: isBootstrapAdmin ? now : null,
+      approvedByUserId: null,
+      approvedAt: null,
       rejectedAt: null,
       rejectionReason: null,
       disabledAt: null,
@@ -416,7 +418,7 @@ export async function submitFaceEnrollment(input: {
   invalidateFaceStatusCache(input.userId);
   return {
     status: profile.status,
-    autoApproved: isBootstrapAdmin,
+    autoApproved: false,
     consentVersion: FACE_CONSENT_VERSION,
   };
 }

@@ -11,8 +11,8 @@ real company use. The reset is intentionally destructive and cannot be reversed 
 - Departments, unit types, sort order, and parent/child hierarchy.
 - Predefined leave-policy types and their configured rules.
 - System settings, startup-screen values, and role/module-access configuration.
-- The acting Developer Admin face profile and its retained evidence, preventing an approval
-  authority lockout after reset.
+- Developer Admin remains exempt from face authentication, preventing an approval-authority
+  lockout after reset.
 
 Department-head and employee-manager assignments are cleared because their testing employees may
 be removed.
@@ -120,8 +120,8 @@ Complete these steps in order so references and permissions are correct:
 
 Use one non-privileged test account representing a real employee and verify:
 
-1. First-login password change, mandatory face registration, Developer Admin approval, and
-   subsequent sign-in.
+1. First-login password change, mandatory normal-account face registration, Developer Admin
+   exemption and approval, and subsequent sign-in.
 2. Mobile sidebar, profile, and module visibility match the assigned role.
 3. Camera/precise-location denial, live movement challenge, face-matched check-in/out, and
    branch-radius behavior.

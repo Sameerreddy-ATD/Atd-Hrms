@@ -73,7 +73,9 @@ function FaceSecurityPage() {
     () => ({
       approved: profiles.filter((profile) => profile.status === "APPROVED").length,
       pending: profiles.filter((profile) => profile.status === "PENDING").length,
-      required: profiles.filter((profile) => profile.status !== "APPROVED").length,
+      required: profiles.filter(
+        (profile) => profile.status !== "APPROVED" && profile.status !== "DISABLED",
+      ).length,
     }),
     [profiles],
   );

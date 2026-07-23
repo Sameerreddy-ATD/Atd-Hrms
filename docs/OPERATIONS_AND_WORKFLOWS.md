@@ -49,7 +49,7 @@ flowchart LR
   A["Developer Admin creates login"] --> B["Employee receives temporary password"]
   B --> C["First sign-in"]
   C --> D["Employee changes password"]
-  D --> E["Mandatory live face registration"]
+  D --> E["Mandatory live face registration (normal accounts)"]
   E --> K["Developer Admin approval"]
   K --> F["Active account"]
   F --> G["Scheduled suspension, deactivation, or lockout"]
@@ -60,8 +60,8 @@ flowchart LR
 ```
 
 - Public signup is disabled.
-- Frontend and backend access remain blocked until face registration is approved. The first
-  Developer Admin enrollment auto-approves to establish the review authority.
+- Frontend and backend access remain blocked until face registration is approved for normal
+  accounts. Developer Admin is exempt and remains the review and recovery authority.
 - Five consecutive wrong passwords block a normal login.
 - The login page shows the remaining attempts after each failure.
 - A correct password cannot bypass a blocked status.

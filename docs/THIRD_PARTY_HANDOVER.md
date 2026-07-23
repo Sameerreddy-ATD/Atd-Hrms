@@ -281,8 +281,7 @@ secrets, HTTPS, independent backups, monitoring, restricted networking, and imag
 - [ ] HTTPS, secure cookies, login, refresh, and logout work.
 - [ ] Developer Admin can manage module access and create a login.
 - [ ] Employee profile, encrypted private fields, and ID card work.
-- [ ] Existing accounts receive the mandatory face gate and the bootstrap Developer Admin can
-      enroll without an approval deadlock.
+- [ ] Existing normal accounts receive the mandatory face gate and Developer Admin remains exempt.
 - [ ] Normal enrollment, approval/rejection/reset, evidence viewing, and retention cleanup work.
 - [ ] Mobile attendance rejects missing/failed face or imprecise GPS and links passed evidence to
       the saved attendance event.

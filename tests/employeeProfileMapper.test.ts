@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { encryptEmployeeField } from "../server/src/employeePrivateData.js";
-import { employeeDto } from "../server/src/mapper.js";
+import { employeeDto, userDto } from "../server/src/mapper.js";
 
 const employee = {
   employeeId: "employee-1",
@@ -77,5 +77,28 @@ describe("employee profile response privacy", () => {
     expect(dto.bankAccountNumber).toBe("123456789012");
     expect(dto.panNumber).toBe("ABCDE1234F");
     expect(dto.aadhaarNumber).toBe("234567890123");
+  });
+});
+
+describe("Developer Admin face exemption", () => {
+  it("does not require face enrollment for Developer Admin", () => {
+    const dto = userDto({
+      id: "developer-admin",
+      employeeId: null,
+      name: "Developer Admin",
+      email: "developer@example.com",
+      phone: null,
+      role: "DEVELOPER_ADMIN",
+      status: "ACTIVE",
+      firstLoginPasswordChangeRequired: false,
+      failedLoginAttempts: 0,
+      suspendedUntil: null,
+      suspensionStartsAt: null,
+      employee: null,
+      faceProfile: null,
+    });
+
+    expect(dto.faceEnrollmentStatus).toBe("DISABLED");
+    expect(dto.faceEnrollmentRequired).toBe(false);
   });
 });

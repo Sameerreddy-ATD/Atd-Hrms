@@ -93,11 +93,11 @@ retained outside the redesigned application.
 
 Migration `20260723180000_face_attendance` is additive and does not rewrite existing employee or
 attendance rows. It creates `face_profiles`, `face_verification_sessions`, and `face_evidence`.
-Existing accounts intentionally have no profile and therefore enter the mandatory registration
-gate after deployment.
+Existing normal accounts intentionally have no profile and therefore enter the mandatory
+registration gate after deployment. Developer Admin is exempt from face authentication.
 
 - `face_profiles.user_id` is unique, so one login has one current encrypted template.
-- Approved profiles require approval actor/time; the bootstrap Developer Admin records self-approval.
+- Approved normal profiles require approval actor/time from Developer Admin.
 - Session nonces are stored only as SHA-256 hashes and can be consumed once.
 - `face_evidence.session_id` and `attendance_event_id` are unique.
 - Passed attendance evidence requires coordinates, accuracy, and an attendance-event link.

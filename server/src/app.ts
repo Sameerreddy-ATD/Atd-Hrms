@@ -853,8 +853,13 @@ export function createApp() {
         },
       });
       res.json({
-        status: profile?.status ?? "NOT_REGISTERED",
-        required: profile?.status !== FaceEnrollmentStatus.APPROVED,
+        status:
+          req.user!.role === Role.DEVELOPER_ADMIN
+            ? "DISABLED"
+            : (profile?.status ?? "NOT_REGISTERED"),
+        required:
+          req.user!.role !== Role.DEVELOPER_ADMIN &&
+          profile?.status !== FaceEnrollmentStatus.APPROVED,
         rejectionReason: profile?.rejectionReason ?? null,
         submittedAt: profile?.submittedAt?.toISOString() ?? null,
         approvedAt: profile?.approvedAt?.toISOString() ?? null,
@@ -906,7 +911,7 @@ export function createApp() {
     requireRoles(Role.DEVELOPER_ADMIN),
     asyncHandler(async (_req, res) => {
       const users = await prisma.user.findMany({
-        where: { status: UserStatus.ACTIVE },
+        where: { status: UserStatus.ACTIVE, role: { not: Role.DEVELOPER_ADMIN } },
         orderBy: { name: "asc" },
         select: {
           id: true,

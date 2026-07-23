@@ -6,10 +6,10 @@ Work Planner includes configurable open/role/member-gated boards, ordered custom
 assigned-work shortcuts, list/Kanban/timeline views, mobile-focused task details, optimistic
 concurrency, and recoverable board archival.
 
-Every account now completes mandatory face registration before workspace access. Mobile check-in
-and check-out require a randomized liveness movement, an approved encrypted face-template match,
-and precise GPS. Captures are encrypted, retained for five days by default, and controlled from the
-responsive Developer Admin **Face Security** screen.
+Every normal account now completes mandatory face registration before workspace access; Developer
+Admin is exempt. Mobile check-in and check-out require a randomized liveness movement, an approved
+encrypted face-template match, and precise GPS. Captures are encrypted, retained for five days by
+default, and controlled from the responsive Developer Admin **Face Security** screen.
 
 The role-aware workspace keeps operational actions with Developer Admin, HR, and organization
 heads while giving the CEO a read-only executive view of workforce health, attendance coverage,
@@ -235,9 +235,9 @@ pm2 save
 Always take a MySQL backup first when a release contains migrations. See the [Upgrade and Maintenance Guide](docs/UPGRADE_AND_MAINTENANCE.md) for the complete procedure.
 
 Before deploying migration `20260723180000_face_attendance`, create the private
-`FACE_EVIDENCE_DIR`, keep `EMPLOYEE_DATA_ENCRYPTION_KEY` stable, and expect every existing account
-to see the mandatory registration gate. The first Developer Admin valid enrollment auto-approves so
-it can review other users.
+`FACE_EVIDENCE_DIR`, keep `EMPLOYEE_DATA_ENCRYPTION_KEY` stable, and expect every existing normal
+account to see the mandatory registration gate. Developer Admin is exempt from face authentication
+and can review other users immediately.
 
 Migration `20260722213000_task_workspace_v2` intentionally clears legacy Task-only records while
 installing the new Work Planner model. Review the migration warning and retain a verified backup

@@ -135,8 +135,9 @@ For screens changed in a release, verify:
 
 - desktop Chromium and a narrow mobile viewport;
 - loading, error, empty, populated, and permission-denied states;
-- mandatory face gate, consent, camera denial, one-face rule, randomized movement, pending
-  approval, rejection/retry, Developer Admin evidence history, and retention policy;
+- mandatory normal-account face gate, Developer Admin exemption, consent, camera denial,
+  one-face rule, randomized movement, pending approval, rejection/retry, Developer Admin evidence
+  history, and retention policy;
 - face-verified check-in/check-out with precise GPS, leave confirmation, session reuse prevention,
   and no attendance row after failed verification;
 - keyboard focus, accessible names, and dialog close/cancel behavior;

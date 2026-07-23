@@ -55,7 +55,8 @@ export function userDto(
     } | null;
   },
 ) {
-  const faceEnrollmentStatus = user.faceProfile?.status ?? "NOT_REGISTERED";
+  const faceEnrollmentStatus =
+    user.role === "DEVELOPER_ADMIN" ? "DISABLED" : (user.faceProfile?.status ?? "NOT_REGISTERED");
   return {
     id: user.id,
     employeeId: user.employeeId ?? undefined,
@@ -80,7 +81,7 @@ export function userDto(
     designation: user.employee?.designation ?? undefined,
     mustChangePassword: user.firstLoginPasswordChangeRequired,
     faceEnrollmentStatus,
-    faceEnrollmentRequired: faceEnrollmentStatus !== "APPROVED",
+    faceEnrollmentRequired: user.role !== "DEVELOPER_ADMIN" && faceEnrollmentStatus !== "APPROVED",
     faceEnrollmentReason: user.faceProfile?.rejectionReason ?? undefined,
     faceEnrollmentSubmittedAt: user.faceProfile?.submittedAt?.toISOString(),
     faceEnrollmentApprovedAt: user.faceProfile?.approvedAt?.toISOString(),

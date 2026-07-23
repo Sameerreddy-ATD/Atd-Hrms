@@ -61,7 +61,12 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
     req.path === "/health" ||
     req.path === "/health/db";
   try {
-    if (!user.mustChangePassword && !faceEnrollmentPath && !(await userHasApprovedFace(user.id))) {
+    if (
+      user.role !== Role.DEVELOPER_ADMIN &&
+      !user.mustChangePassword &&
+      !faceEnrollmentPath &&
+      !(await userHasApprovedFace(user.id))
+    ) {
       return next(
         new HttpError(
           403,

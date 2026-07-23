@@ -68,8 +68,8 @@ printf '%s\n' 'FACE_EVIDENCE_DIR="/var/lib/anytime-crew-hub/face-evidence"' >> .
 
 Do not add the variable twice. Review `.env` privately and correct duplicates before restarting.
 The migration is additive, but the security behavior is intentionally disruptive: every existing
-account is blocked until face registration is complete. Enroll the Developer Admin first; its first
-valid capture auto-approves, allowing it to review all other registrations.
+normal account is blocked until face registration is complete. Developer Admin is exempt from face
+authentication and can immediately review all other registrations.
 
 Run `npx prisma migrate deploy` before restarting the backend. Migration `20260721103000_add_employee_shifts` adds day/night shift configuration with day-shift defaults for existing employees.
 

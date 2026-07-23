@@ -35,7 +35,7 @@ function AppLayout() {
     );
   }
 
-  if (user.faceEnrollmentStatus !== "APPROVED") {
+  if (user.role !== "developer_admin" && user.faceEnrollmentStatus !== "APPROVED") {
     return <FaceEnrollmentGate />;
   }
 

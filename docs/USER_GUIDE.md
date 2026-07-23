@@ -61,11 +61,11 @@ not shown in the CEO login.
 1. Open the application URL.
 2. Enter the email and temporary password issued by the Developer Admin.
 3. If the account requires a first password change, enter a new password.
-4. After changing the password, the mandatory face-registration screen opens.
+4. After changing the password, the mandatory face-registration screen opens for normal accounts.
 5. Accept the biometric-consent statement, allow the camera, centre one uncovered face, and complete
    the blink or head-turn prompt.
-6. Developer Admin is approved automatically for its first valid capture. Every other account waits
-   on the blocking approval screen until Developer Admin approves it in **Face Security**.
+6. Developer Admin is exempt from face authentication. Normal accounts wait on the blocking
+   approval screen until Developer Admin approves them in **Face Security**.
 7. A rejected registration displays the reason and allows a new capture.
 
 Public signup is disabled. All accounts are created by the Developer Admin.
@@ -132,14 +132,14 @@ Use **System Settings > Production Data Reset** only once the testing period is 
 5. Confirm the reset, then verify that User Logins contains only the preserved Developer Admin account.
 6. Create the real organization logins from Developer Admin.
 
-The reset preserves the signed-in Developer Admin account, password, approved face registration,
-retained Developer Admin evidence, branches, departments and their hierarchy, predefined leave
-policies, and system settings. It clears department-head assignments because the testing employees
-are removed. It permanently removes all other users, employees, face registrations/evidence,
-attendance, leave balances and requests, tasks, assets, holidays, biometric devices and mappings,
-announcements, subscriptions, service requests, notifications derived from those records, and audit
-history. The database deletion is transactional; encrypted files belonging to removed users are
-purged immediately afterward.
+The reset preserves the signed-in Developer Admin account, password, branches, departments and
+their hierarchy, predefined leave policies, and system settings. Developer Admin remains exempt
+from face authentication. The reset clears department-head assignments because the testing
+employees are removed. It permanently removes all other users, employees, face
+registrations/evidence, attendance, leave balances and requests, tasks, assets, holidays, biometric
+devices and mappings, announcements, subscriptions, service requests, notifications derived from
+those records, and audit history. The database deletion is transactional; encrypted files belonging
+to removed users are purged immediately afterward.
 
 Follow the complete verification and real-data setup sequence in [Reset and Go-Live](RESET_AND_GO_LIVE.md).
 

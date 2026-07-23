@@ -273,7 +273,7 @@ Test browser login, session restore, mobile location permission, attendance, liv
 For the face-attendance release also verify:
 
 1. an existing account is blocked by the registration gate;
-2. the bootstrap Developer Admin completes a valid capture and is auto-approved;
+2. Developer Admin opens the workspace without face authentication;
 3. a normal employee submits and remains pending;
 4. Developer Admin reviews retained evidence and approves the employee;
 5. check-in and checkout require camera, movement challenge, face match, and precise GPS;

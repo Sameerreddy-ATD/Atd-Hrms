@@ -2,7 +2,8 @@
 
 ## Purpose
 
-Face registration is a mandatory account-activation step after the first password change. Mobile
+Face registration is a mandatory account-activation step after the first password change for every
+normal application account. Developer Admin is explicitly exempt from face authentication. Mobile
 attendance is accepted only when the signed-in employee completes a randomized live-face challenge,
 matches the approved encrypted face template, and supplies precise device location.
 
@@ -12,7 +13,7 @@ Face Liveness is not used.
 
 ## Account Activation Flow
 
-1. A user signs in with the login created by Developer Admin.
+1. A normal user signs in with the login created by Developer Admin.
 2. A first-time user changes the temporary password.
 3. The frontend displays a full-screen, non-dismissible face-registration gate.
 4. The backend blocks every protected API except password, logout, session status, and face
@@ -31,9 +32,9 @@ Face Liveness is not used.
 12. Approval changes the profile to `APPROVED`; the waiting screen refreshes automatically and opens
     the workspace.
 
-The first Developer Admin is the recovery authority and cannot wait for another account to approve
-it. Its first valid enrollment is automatically approved and is recorded in the audit log. A
-Developer Admin cannot reset its own approved registration from the interface.
+Developer Admin accounts bypass the face-registration gate at both frontend and backend layers.
+They do not enroll a face and are omitted from the registration review list. This preserves a
+password-protected recovery authority while normal employee attendance remains face verified.
 
 ## Enrollment States
 
@@ -43,7 +44,7 @@ Developer Admin cannot reset its own approved registration from the interface.
 | `PENDING`        | A valid capture is awaiting Developer Admin review         | Waiting screen, session status, and logout |
 | `APPROVED`       | The encrypted template can be used for attendance matching | Normal role/module access                  |
 | `REJECTED`       | Developer Admin supplied a correction reason               | Registration can be repeated               |
-| `DISABLED`       | Reserved for controlled administrative/security operations | No normal access                           |
+| `DISABLED`       | Face authentication is exempt for Developer Admin          | Normal Developer Admin access              |
 
 ## Attendance Flow
 
