@@ -1,0 +1,466 @@
+import { ChevronDown, ChevronUp, GripVertical, Plus, Search, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+import type { TaskAssignee, TaskBoard, TaskStage } from "@/types/domain";
+import {
+  BOARD_ROLES,
+  BOARD_ROLE_LABELS,
+  boardToForm,
+  DEFAULT_BOARD_FORM,
+  STAGE_COLORS,
+  type BoardForm,
+} from "./task-utils";
+
+type BoardFormDialogProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  board?: TaskBoard | null;
+  assignees: TaskAssignee[];
+  saving: boolean;
+  onSave: (form: BoardForm) => Promise<void>;
+};
+
+const COLOR_OPTIONS = Object.keys(STAGE_COLORS) as TaskStage["color"][];
+
+function emptyBoardForm(): BoardForm {
+  return {
+    ...DEFAULT_BOARD_FORM,
+    stages: DEFAULT_BOARD_FORM.stages.map((stage) => ({ ...stage })),
+  };
+}
+
+export function BoardFormDialog({
+  open,
+  onOpenChange,
+  board,
+  assignees,
+  saving,
+  onSave,
+}: BoardFormDialogProps) {
+  const [form, setForm] = useState<BoardForm>(emptyBoardForm);
+  const [memberQuery, setMemberQuery] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    setForm(board ? boardToForm(board) : emptyBoardForm());
+    setMemberQuery("");
+    setError("");
+  }, [board, open]);
+
+  const filteredMembers = useMemo(() => {
+    const query = memberQuery.trim().toLowerCase();
+    if (!query) return assignees;
+    return assignees.filter((person) =>
+      [person.name, person.employeeCode, person.designation, person.department]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query)),
+    );
+  }, [assignees, memberQuery]);
+
+  function updateStage(index: number, patch: Partial<BoardForm["stages"][number]>) {
+    setForm((current) => ({
+      ...current,
+      stages: current.stages.map((stage, position) =>
+        position === index ? { ...stage, ...patch } : stage,
+      ),
+    }));
+  }
+
+  function moveStage(index: number, direction: -1 | 1) {
+    setForm((current) => {
+      const target = index + direction;
+      if (target < 0 || target >= current.stages.length) return current;
+      const stages = [...current.stages];
+      [stages[index], stages[target]] = [stages[target], stages[index]];
+      return { ...current, stages };
+    });
+  }
+
+  function setCompletedStage(index: number, completed: boolean) {
+    setForm((current) => ({
+      ...current,
+      stages: current.stages.map((stage, position) => {
+        if (position === index) {
+          return { ...stage, status: completed ? "COMPLETED" : "IN_PROGRESS" };
+        }
+        if (completed && stage.status === "COMPLETED") {
+          return { ...stage, status: "IN_PROGRESS" };
+        }
+        return stage;
+      }),
+    }));
+  }
+
+  function validate() {
+    if (form.name.trim().length < 2) return "Enter a board name.";
+    if (form.stages.length < 2) return "Add at least two stages.";
+    if (form.stages.some((stage) => stage.name.trim().length < 2)) {
+      return "Every stage needs a clear name.";
+    }
+    if (
+      new Set(form.stages.map((stage) => stage.name.trim().toLowerCase())).size !==
+      form.stages.length
+    ) {
+      return "Stage names must be unique.";
+    }
+    if (!form.stages.some((stage) => stage.status === "TODO")) {
+      return "Keep one stage as the starting To do stage.";
+    }
+    if (!form.stages.some((stage) => stage.status === "COMPLETED")) {
+      return "Mark one stage as Done.";
+    }
+    if (form.accessType === "ROLE_GATED" && form.allowedRoles.length === 0) {
+      return "Select at least one role.";
+    }
+    if (form.accessType === "MEMBER_GATED" && form.memberEmployeeIds.length === 0) {
+      return "Select at least one member.";
+    }
+    return "";
+  }
+
+  async function submit() {
+    const message = validate();
+    if (message) {
+      setError(message);
+      return;
+    }
+    setError("");
+    await onSave({
+      ...form,
+      name: form.name.trim(),
+      description: form.description.trim(),
+      stages: form.stages.map((stage) => ({ ...stage, name: stage.name.trim() })),
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="grid max-h-[calc(100dvh-1rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-[720px]">
+        <DialogHeader className="border-b px-5 py-5 sm:px-7">
+          <DialogTitle>{board ? "Board settings" : "New board"}</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Define the workflow and exactly who can access it.
+          </p>
+        </DialogHeader>
+
+        <div className="space-y-7 overflow-y-auto px-5 py-5 sm:px-7">
+          <div className="space-y-2">
+            <Label htmlFor="board-name">
+              Board name <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="board-name"
+              autoFocus
+              value={form.name}
+              onChange={(event) => setForm({ ...form, name: event.target.value })}
+              placeholder="e.g. Engineering sprint"
+              maxLength={120}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="board-description">Description</Label>
+            <Textarea
+              id="board-description"
+              value={form.description}
+              onChange={(event) => setForm({ ...form, description: event.target.value })}
+              placeholder="What does this board coordinate?"
+              rows={2}
+              maxLength={1000}
+            />
+          </div>
+
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label>Stages</Label>
+              <span className="text-xs text-muted-foreground">{form.stages.length} stages</span>
+            </div>
+            <div className="space-y-2">
+              {form.stages.map((stage, index) => {
+                const color = STAGE_COLORS[stage.color];
+                return (
+                  <div
+                    key={stage.id ?? `new-${index}`}
+                    className="grid grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-2 rounded-xl border bg-muted/25 p-2 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto_auto]"
+                  >
+                    <GripVertical className="hidden h-4 w-4 text-muted-foreground sm:block" />
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+                      {index + 1}
+                    </span>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Select
+                        value={stage.color}
+                        onValueChange={(value) =>
+                          updateStage(index, { color: value as TaskStage["color"] })
+                        }
+                      >
+                        <SelectTrigger
+                          aria-label={`Color for ${stage.name}`}
+                          className="h-9 w-10 shrink-0 border-0 px-2 shadow-none"
+                        >
+                          <span className={cn("h-5 w-5 rounded-full", color.soft)}>
+                            <span className={cn("m-1.5 block h-2 w-2 rounded-full", color.dot)} />
+                          </span>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {COLOR_OPTIONS.map((option) => (
+                            <SelectItem key={option} value={option}>
+                              <span className="flex items-center gap-2">
+                                <span
+                                  className={cn("h-3 w-3 rounded-full", STAGE_COLORS[option].dot)}
+                                />
+                                {option[0] + option.slice(1).toLowerCase()}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        aria-label={`Stage ${index + 1} name`}
+                        value={stage.name}
+                        onChange={(event) => updateStage(index, { name: event.target.value })}
+                        maxLength={80}
+                        className="h-9 min-w-0 border-0 bg-transparent px-1 shadow-none focus-visible:ring-0"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Switch
+                        checked={stage.status === "COMPLETED"}
+                        onCheckedChange={(checked) => setCompletedStage(index, checked)}
+                        aria-label={`${stage.name} is done stage`}
+                      />
+                      <span className={cn(stage.status === "COMPLETED" && "text-emerald-700")}>
+                        Done
+                      </span>
+                    </div>
+                    <div className="col-span-4 flex justify-end sm:col-span-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Move ${stage.name} up`}
+                        disabled={index === 0}
+                        onClick={() => moveStage(index, -1)}
+                      >
+                        <ChevronUp className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Move ${stage.name} down`}
+                        disabled={index === form.stages.length - 1}
+                        onClick={() => moveStage(index, 1)}
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Remove ${stage.name}`}
+                        disabled={form.stages.length <= 2}
+                        onClick={() =>
+                          setForm((current) => ({
+                            ...current,
+                            stages: current.stages.filter((_, position) => position !== index),
+                          }))
+                        }
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full border-dashed"
+              disabled={form.stages.length >= 12}
+              onClick={() =>
+                setForm((current) => ({
+                  ...current,
+                  stages: [
+                    ...current.stages,
+                    { name: "New stage", color: "VIOLET", status: "IN_PROGRESS" },
+                  ],
+                }))
+              }
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add custom stage
+            </Button>
+          </section>
+
+          <section className="space-y-3">
+            <Label>Access</Label>
+            <div className="grid grid-cols-3 rounded-xl border bg-muted/30 p-1">
+              {[
+                ["OPEN", "Open"],
+                ["ROLE_GATED", "Role-gated"],
+                ["MEMBER_GATED", "Member-gated"],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() =>
+                    setForm({
+                      ...form,
+                      accessType: value as TaskBoard["accessType"],
+                      allowedRoles: value === "ROLE_GATED" ? form.allowedRoles : [],
+                      memberEmployeeIds: value === "MEMBER_GATED" ? form.memberEmployeeIds : [],
+                    })
+                  }
+                  className={cn(
+                    "rounded-lg px-2 py-2 text-xs font-medium transition sm:text-sm",
+                    form.accessType === value
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {form.accessType === "OPEN" && (
+              <p className="text-sm text-muted-foreground">
+                Everyone with Work Planner access can view and contribute to this board.
+              </p>
+            )}
+
+            {form.accessType === "ROLE_GATED" && (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Only users holding one of the selected roles can access this board.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {BOARD_ROLES.map((role) => {
+                    const selected = form.allowedRoles.includes(role);
+                    return (
+                      <Button
+                        key={role}
+                        type="button"
+                        size="sm"
+                        variant={selected ? "secondary" : "outline"}
+                        className="rounded-full"
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            allowedRoles: selected
+                              ? form.allowedRoles.filter((entry) => entry !== role)
+                              : [...form.allowedRoles, role],
+                          })
+                        }
+                      >
+                        {BOARD_ROLE_LABELS[role]}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {form.accessType === "MEMBER_GATED" && (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Only selected employees can access this board.
+                </p>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={memberQuery}
+                    onChange={(event) => setMemberQuery(event.target.value)}
+                    placeholder="Search and add members"
+                    className="pl-9"
+                  />
+                </div>
+                <div className="max-h-52 space-y-1 overflow-y-auto rounded-xl border p-2">
+                  {filteredMembers.length === 0 ? (
+                    <p className="p-3 text-sm text-muted-foreground">No employees found.</p>
+                  ) : (
+                    filteredMembers.map((person) => {
+                      const selected = form.memberEmployeeIds.includes(person.id);
+                      return (
+                        <button
+                          key={person.id}
+                          type="button"
+                          className={cn(
+                            "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm",
+                            selected ? "bg-red-50 text-red-900" : "hover:bg-muted",
+                          )}
+                          onClick={() =>
+                            setForm({
+                              ...form,
+                              memberEmployeeIds: selected
+                                ? form.memberEmployeeIds.filter((id) => id !== person.id)
+                                : [...form.memberEmployeeIds, person.id],
+                            })
+                          }
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium">{person.name}</span>
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {person.designation || person.employeeCode}
+                            </span>
+                          </span>
+                          <span
+                            className={cn(
+                              "h-4 w-4 rounded-full border",
+                              selected && "border-red-600 bg-red-600 ring-2 ring-red-100",
+                            )}
+                          />
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+                {form.memberEmployeeIds.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {form.memberEmployeeIds.length} members selected
+                  </p>
+                )}
+              </div>
+            )}
+          </section>
+
+          {error && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="border-t bg-background px-5 py-4 sm:px-7">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            disabled={saving}
+            onClick={() => void submit()}
+            className="bg-red-600 hover:bg-red-700"
+          >
+            {saving ? "Saving..." : board ? "Save changes" : "Create board"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

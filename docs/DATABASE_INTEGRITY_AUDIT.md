@@ -15,15 +15,15 @@ workflow.
 
 MySQL 8.0 contains 40 application tables grouped as follows:
 
-| Domain                | Tables                                                                                                                                                                                                                   | Source-of-truth rule                                                                           |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| Identity and security | `users`, `audit_logs`, `system_settings`, `integration_clients`, `integration_idempotency`, `push_subscriptions`, `announcements`                                                                                        | `users` owns authentication; passwords and API secrets are stored only as hashes               |
-| Workforce             | `employees`, `employee_change_events`, `departments`, `branches`, `emergency_contacts`, `profile_edit_requests`                                                                                                          | `employees` is the canonical workforce record; `version` enables safe integration updates      |
-| Attendance            | `attendance_events`, `attendance_daily_summary`, `attendance_reminders`, `field_attendance`, `attendance_correction_requests`, `employee_branch_schedule`, `biometric_devices`, `biometric_employee_mapping`, `holidays` | Events are immutable inputs; daily summaries are derived and may be recalculated               |
-| Leave                 | `leave_types`, `leave_balances`, `leave_requests`, `weekly_off_requests`, `comp_off_credits`                                                                                                                             | Policy, balance, request, and earned-credit records remain separate                            |
-| Employee services     | `expense_claims`, `certificate_requests`                                                                                                                                                                                 | Expense and HR-document workflow state is retained with reviewer and completion timestamps     |
-| Assets                | `asset_catalog_items`, `company_assets`, `asset_returns`                                                                                                                                                                 | Current assignment is on the asset; every completed return is a separate historical row        |
-| Work Planner          | `task_boards`, `task_stages`, `task_board_roles`, `task_board_members`, `work_tasks`, `task_assignments`, `task_updates`                                                                                                 | Stage status is canonical for workspace tasks; assignments and activity are relational history |
+| Domain                | Tables                                                                                                                                                                                                                   | Source-of-truth rule                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| Identity and security | `users`, `audit_logs`, `system_settings`, `integration_clients`, `integration_idempotency`, `push_subscriptions`, `announcements`                                                                                        | `users` owns authentication; passwords and API secrets are stored only as hashes           |
+| Workforce             | `employees`, `employee_change_events`, `departments`, `branches`, `emergency_contacts`, `profile_edit_requests`                                                                                                          | `employees` is the canonical workforce record; `version` enables safe integration updates  |
+| Attendance            | `attendance_events`, `attendance_daily_summary`, `attendance_reminders`, `field_attendance`, `attendance_correction_requests`, `employee_branch_schedule`, `biometric_devices`, `biometric_employee_mapping`, `holidays` | Events are immutable inputs; daily summaries are derived and may be recalculated           |
+| Leave                 | `leave_types`, `leave_balances`, `leave_requests`, `weekly_off_requests`, `comp_off_credits`                                                                                                                             | Policy, balance, request, and earned-credit records remain separate                        |
+| Employee services     | `expense_claims`, `certificate_requests`                                                                                                                                                                                 | Expense and HR-document workflow state is retained with reviewer and completion timestamps |
+| Assets                | `asset_catalog_items`, `company_assets`, `asset_returns`                                                                                                                                                                 | Current assignment is on the asset; every completed return is a separate historical row    |
+| Work Planner          | `task_boards`, `task_stages`, `task_board_roles`, `task_board_members`, `work_tasks`, `task_assignments`, `task_updates`                                                                                                 | Stage status is canonical for board tasks; assignments and activity are relational history |
 
 The physical table `certificate_requests` keeps its historical name for migration safety. The UI and
 documentation call this feature **HR Documents**.
@@ -52,6 +52,9 @@ New guarantees:
   store another status.
 - `work_tasks.version` provides optimistic concurrency. Stale edits return HTTP 409 instead of
   overwriting a newer update.
+- `task_boards.version` provides the same optimistic-concurrency protection for names, access
+  policies, stages, archival, and restore. Migration `20260723100000_task_board_versioning` adds the
+  non-null counter with a safe default of `1` for existing boards.
 - `last_activity_at` supports reliable activity ordering; `archived_at` supports non-destructive
   future archival.
 - `task_assignments.assigned_by_user_id` records who assigned the person.
@@ -71,7 +74,7 @@ Run from the repository root with the target `DATABASE_URL` already loaded:
 npm run db:audit
 ```
 
-The command reports per-table row counts and runs 90 checks, including:
+The command reports per-table row counts and runs 93 checks, including:
 
 - all foreign keys and orphan counts;
 - unfinished Prisma migrations, storage engine, and Unicode collation;
@@ -83,7 +86,8 @@ The command reports per-table row counts and runs 90 checks, including:
 - expense type/status/required fields, Drive confirmation, and payment timestamp consistency;
 - HR-document workflow/link consistency;
 - asset assignment, scope, state, and value consistency;
-- task assignment, workspace/stage/status, progress, completion, date, version, and activity ranges;
+- task assignment eligibility, board access-policy rows, board/stage/status, task and board
+  versions, progress, completion, date, and activity ranges;
 - credential-related column names to detect accidental plaintext-style storage.
 
 Exit code `0` means no blocking integrity failure. Exit code `1` means at least one blocking check
@@ -106,13 +110,15 @@ numbers, remarks, or document links.
 
 ## Clean-database Validation
 
-The release was validated against a newly initialized disposable MySQL database by applying all 29
-migrations in order, seeding baseline accounts, and running the audit. Result: 40 tables, 57 foreign
-keys, 90 checks, zero failures, and zero warnings.
+This release was validated against a newly initialized disposable MySQL 8 database by applying all
+30 migrations in order, seeding baseline accounts, and running the audit. Result: 40 tables, 57
+foreign keys, 93 checks, zero failures, and zero warnings.
 
-The Task smoke test then created a workspace and task, changed stage/status, posted an activity,
-verified version increments, and confirmed that a stale update returns HTTP 409. A second audit with
-the new Task records also completed with zero failures and zero warnings.
+The Task smoke test creates and edits a board, adds a custom stage, creates a task, changes its
+stage/status, posts an activity, verifies task and board version increments, confirms stale task and
+board writes return HTTP 409, verifies stage-configuration task version/activity propagation,
+confirms archived boards reject task writes, and verifies archive/restore. The second audit with
+those rows also completed with zero failures and zero warnings.
 
 Repeat these steps for a disposable local database:
 

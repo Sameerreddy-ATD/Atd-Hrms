@@ -808,6 +808,7 @@ model TaskBoard {
   description     String?             @db.Text
   accessType      TaskBoardAccessType @default(OPEN) @map("access_type")
   archived        Boolean             @default(false)
+  version         Int                 @default(1)
   createdByUserId String              @map("created_by_user_id")
   createdBy       User                @relation("TaskBoardCreator", fields: [createdByUserId], references: [id])
   stages          TaskStage[]

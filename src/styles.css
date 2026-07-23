@@ -189,6 +189,14 @@
   .startup-proof::-webkit-scrollbar {
     display: none;
   }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @keyframes atd-sweep {

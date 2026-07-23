@@ -171,14 +171,26 @@ Required behavior:
 
 ## Work Planner
 
-- The screen is named **Work Planner**. Workspaces organize workflows but do not block the daily
-  list experience.
+- The screen is named **Work Planner**. Its landing page lists accessible active boards, recoverable
+  archived boards, and active tasks assigned to the signed-in employee.
+- Boards support open, role-gated, and member-gated access. The backend applies board visibility to
+  both board and task queries; frontend filtering is not treated as authorization.
+- Each board provides list, Kanban, and timeline projections of the same stored tasks. Dragging,
+  inline stage selection, and detail-panel stage changes call the same versioned task update API.
 - Developer Admin, Main Admin, CEO, and HR can assign any active employee. Organization heads can
   assign employees within their permitted team. Employees see assigned work within their permitted
   scope.
 - Every task has one or more active assignees. Every assignee sees the complete assignee list.
-- A workspace defines ordered stages. Each stage has an explicit canonical status; moving a task to
+- A board defines ordered, colored stages. Each stage has an explicit canonical status; moving a task to
   a stage updates both values together.
+- Board configuration is versioned. Only its creator or Developer Admin may edit, archive, or restore
+  it. Stale board writes receive HTTP 409.
+- Archived boards are read-only through the API until restored; new tasks, task changes, activity,
+  and configuration changes are rejected.
+- Populated stages cannot be removed. When an existing stage's canonical status changes, its tasks
+  receive a version increment and typed activity while being synchronized in the same database
+  transaction. A board cannot be changed to role/member gating unless every current assignee
+  remains eligible.
 - Employees may update status, progress, stage, and work notes on their assigned work. Broader edits
   and reassignment require task-management permission.
 - Task edits use a version number. If two sessions edit the same task, the stale session receives a

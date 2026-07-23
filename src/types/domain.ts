@@ -512,6 +512,7 @@ export interface TaskBoard {
   description?: string;
   accessType: "OPEN" | "ROLE_GATED" | "MEMBER_GATED";
   archived: boolean;
+  version: number;
   allowedRoles: string[];
   memberEmployeeIds: string[];
   stages: TaskStage[];
@@ -527,6 +528,7 @@ export interface TaskAssignee {
   employeeCode: string;
   designation?: string;
   department?: string;
+  role?: string;
 }
 
 export interface EmergencyContact {

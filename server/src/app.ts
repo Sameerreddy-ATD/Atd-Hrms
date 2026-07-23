@@ -112,8 +112,10 @@ import {
   pushSubscriptionSchema,
   resetPasswordSchema,
   resetTestDataSchema,
+  taskBoardArchiveSchema,
   taskLogSchema,
   taskBoardSchema,
+  taskBoardUpdateSchema,
   taskSchema,
   taskUpdateSchema,
   thumbEventSchema,
@@ -4431,6 +4433,7 @@ export function createApp() {
       description: board.description ?? undefined,
       accessType: board.accessType,
       archived: board.archived,
+      version: board.version,
       allowedRoles: board.roleAccess.map((entry) => entry.role),
       memberEmployeeIds: board.members.map((entry) => entry.employeeId),
       stages: board.stages.map((stage) => ({
@@ -4526,16 +4529,24 @@ export function createApp() {
           createdByUserId: req.user!.id,
           stages: {
             create: body.stages.map((stage, sortOrder) => ({
-              ...stage,
+              name: stage.name,
+              color: stage.color,
+              status: stage.status,
               sortOrder,
               isCompleted: stage.status === TaskStatus.COMPLETED,
             })),
           },
           roleAccess: {
-            create: [...new Set(body.allowedRoles)].map((role) => ({ role })),
+            create:
+              body.accessType === TaskBoardAccessType.ROLE_GATED
+                ? [...new Set(body.allowedRoles)].map((role) => ({ role }))
+                : [],
           },
           members: {
-            create: [...new Set(body.memberEmployeeIds)].map((employeeId) => ({ employeeId })),
+            create:
+              body.accessType === TaskBoardAccessType.MEMBER_GATED
+                ? [...new Set(body.memberEmployeeIds)].map((employeeId) => ({ employeeId }))
+                : [],
           },
         },
         include: boardInclude,
@@ -4554,15 +4565,234 @@ export function createApp() {
     "/task-boards/:id",
     requireAuth,
     asyncHandler(async (req, res) => {
-      const body = z.object({ archived: z.boolean() }).parse(req.body);
       const existing = await assertBoardAccess(req.user!, String(req.params.id));
       if (req.user!.role !== Role.DEVELOPER_ADMIN && existing.createdByUserId !== req.user!.id) {
-        throw new HttpError(403, "Only the board owner can archive this board");
+        throw new HttpError(403, "Only the board owner can change this board");
       }
-      const board = await prisma.taskBoard.update({
-        where: { boardId: existing.boardId },
-        data: { archived: body.archived },
-        include: boardInclude,
+
+      const archiveResult = taskBoardArchiveSchema.safeParse(req.body);
+      if (archiveResult.success) {
+        const changed = await prisma.taskBoard.updateMany({
+          where: { boardId: existing.boardId, version: archiveResult.data.version },
+          data: { archived: archiveResult.data.archived, version: { increment: 1 } },
+        });
+        if (changed.count !== 1) {
+          throw new HttpError(409, "This board changed in another session. Refresh and try again");
+        }
+        const board = await prisma.taskBoard.findUniqueOrThrow({
+          where: { boardId: existing.boardId },
+          include: boardInclude,
+        });
+        await audit({
+          action: archiveResult.data.archived ? "task board archived" : "task board restored",
+          performedByUserId: req.user!.id,
+          newValue: { boardId: board.boardId, archived: board.archived, version: board.version },
+          ipAddress: req.ip,
+        });
+        res.json(boardDto(board));
+        return;
+      }
+
+      const body = taskBoardUpdateSchema.parse(req.body);
+      if (existing.archived) {
+        throw new HttpError(409, "Restore this board before changing its configuration");
+      }
+      const { assignableIds } = await taskScope(req.user!);
+      if (
+        assignableIds &&
+        body.memberEmployeeIds.some((employeeId) => !assignableIds.includes(employeeId))
+      ) {
+        throw new HttpError(403, "Boards can include only members of your organization team");
+      }
+      const uniqueMemberIds = [...new Set(body.memberEmployeeIds)];
+      if (uniqueMemberIds.length > 0) {
+        const activeMembers = await prisma.employee.count({
+          where: { employeeId: { in: uniqueMemberIds }, status: "ACTIVE" },
+        });
+        if (activeMembers !== uniqueMemberIds.length) {
+          throw new HttpError(400, "Select active employees for board access");
+        }
+      }
+
+      const board = await prisma.$transaction(async (transaction) => {
+        const currentStages = await transaction.taskStage.findMany({
+          where: { boardId: existing.boardId },
+          include: { _count: { select: { tasks: true } } },
+        });
+        const currentById = new Map(currentStages.map((stage) => [stage.stageId, stage]));
+        const requestedIds = body.stages.flatMap((stage) => (stage.id ? [stage.id] : []));
+        if (
+          new Set(requestedIds).size !== requestedIds.length ||
+          requestedIds.some((stageId) => !currentById.has(stageId))
+        ) {
+          throw new HttpError(400, "Select stages from this board");
+        }
+        const requestedIdSet = new Set(requestedIds);
+        const removedStages = currentStages.filter((stage) => !requestedIdSet.has(stage.stageId));
+        const populatedRemovedStage = removedStages.find((stage) => stage._count.tasks > 0);
+        if (populatedRemovedStage) {
+          throw new HttpError(
+            409,
+            `Move tasks out of "${populatedRemovedStage.name}" before removing that stage`,
+          );
+        }
+
+        const changed = await transaction.taskBoard.updateMany({
+          where: { boardId: existing.boardId, version: body.version },
+          data: {
+            name: body.name,
+            description: body.description || null,
+            accessType: body.accessType,
+            version: { increment: 1 },
+          },
+        });
+        if (changed.count !== 1) {
+          throw new HttpError(409, "This board changed in another session. Refresh and try again");
+        }
+
+        const boardAssignments = await transaction.taskAssignment.findMany({
+          where: { task: { boardId: existing.boardId } },
+          select: {
+            employeeId: true,
+            employee: { select: { user: { select: { role: true } } } },
+          },
+          distinct: ["employeeId"],
+        });
+        if (
+          body.accessType === TaskBoardAccessType.MEMBER_GATED &&
+          boardAssignments.some((assignment) => !uniqueMemberIds.includes(assignment.employeeId))
+        ) {
+          throw new HttpError(
+            409,
+            "Add every current task assignee as a board member before restricting member access",
+          );
+        }
+        if (body.accessType === TaskBoardAccessType.ROLE_GATED) {
+          const allowedRoles = new Set(body.allowedRoles);
+          if (
+            boardAssignments.some(
+              (assignment) =>
+                !assignment.employee.user || !allowedRoles.has(assignment.employee.user.role),
+            )
+          ) {
+            throw new HttpError(
+              409,
+              "Add the roles of every current task assignee before restricting role access",
+            );
+          }
+        }
+
+        await transaction.taskBoardRole.deleteMany({ where: { boardId: existing.boardId } });
+        await transaction.taskBoardMember.deleteMany({ where: { boardId: existing.boardId } });
+        if (body.accessType === TaskBoardAccessType.ROLE_GATED) {
+          await transaction.taskBoardRole.createMany({
+            data: [...new Set(body.allowedRoles)].map((role) => ({
+              boardId: existing.boardId,
+              role,
+            })),
+          });
+        }
+        if (body.accessType === TaskBoardAccessType.MEMBER_GATED) {
+          await transaction.taskBoardMember.createMany({
+            data: uniqueMemberIds.map((employeeId) => ({
+              boardId: existing.boardId,
+              employeeId,
+            })),
+          });
+        }
+
+        if (removedStages.length > 0) {
+          await transaction.taskStage.deleteMany({
+            where: { stageId: { in: removedStages.map((stage) => stage.stageId) } },
+          });
+        }
+        for (const stage of currentStages.filter((entry) => requestedIdSet.has(entry.stageId))) {
+          await transaction.taskStage.update({
+            where: { stageId: stage.stageId },
+            data: { name: `__updating__${stage.stageId}` },
+          });
+        }
+        for (const [sortOrder, stage] of body.stages.entries()) {
+          if (stage.id) {
+            const previous = currentById.get(stage.id)!;
+            if (previous.status !== stage.status && previous._count.tasks > 0) {
+              const affectedTasks = await transaction.workTask.findMany({
+                where: { stageId: stage.id },
+                select: { taskId: true, status: true, progress: true },
+              });
+              await transaction.workTask.updateMany({
+                where: { stageId: stage.id },
+                data:
+                  stage.status === TaskStatus.COMPLETED
+                    ? {
+                        status: stage.status,
+                        progress: 100,
+                        completedAt: new Date(),
+                        version: { increment: 1 },
+                        lastActivityAt: new Date(),
+                      }
+                    : {
+                        status: stage.status,
+                        completedAt: null,
+                        version: { increment: 1 },
+                        lastActivityAt: new Date(),
+                      },
+              });
+              await transaction.taskUpdate.createMany({
+                data: affectedTasks.map((task) => ({
+                  taskId: task.taskId,
+                  authorUserId: req.user!.id,
+                  activityType: TaskActivityType.STATUS_CHANGED,
+                  message: "Workflow stage configuration updated",
+                  status: stage.status,
+                  progress: stage.status === TaskStatus.COMPLETED ? 100 : task.progress,
+                  metadata: {
+                    previousStatus: task.status,
+                    status: stage.status,
+                    source: "BOARD_CONFIGURATION",
+                  },
+                })),
+              });
+            }
+            await transaction.taskStage.update({
+              where: { stageId: stage.id },
+              data: {
+                name: stage.name,
+                color: stage.color,
+                status: stage.status,
+                sortOrder,
+                isCompleted: stage.status === TaskStatus.COMPLETED,
+              },
+            });
+          } else {
+            await transaction.taskStage.create({
+              data: {
+                boardId: existing.boardId,
+                name: stage.name,
+                color: stage.color,
+                status: stage.status,
+                sortOrder,
+                isCompleted: stage.status === TaskStatus.COMPLETED,
+              },
+            });
+          }
+        }
+
+        return transaction.taskBoard.findUniqueOrThrow({
+          where: { boardId: existing.boardId },
+          include: boardInclude,
+        });
+      });
+      await audit({
+        action: "task board updated",
+        performedByUserId: req.user!.id,
+        newValue: {
+          boardId: board.boardId,
+          name: board.name,
+          accessType: board.accessType,
+          version: board.version,
+        },
+        ipAddress: req.ip,
       });
       res.json(boardDto(board));
     }),
@@ -4579,7 +4809,7 @@ export function createApp() {
           ...(assignableIds ? { employeeId: { in: assignableIds } } : {}),
           OR: [{ user: null }, { user: { role: { not: Role.DEVELOPER_ADMIN } } }],
         },
-        include: { department: true },
+        include: { department: true, user: { select: { role: true } } },
         orderBy: { name: "asc" },
       });
       res.json(
@@ -4589,6 +4819,7 @@ export function createApp() {
           employeeCode: employee.employeeCode,
           designation: employee.designation ?? undefined,
           department: employee.department?.name,
+          role: employee.user?.role,
         })),
       );
     }),
@@ -4669,6 +4900,9 @@ export function createApp() {
       let selectedStage: { stageId: string; status: TaskStatus; isCompleted: boolean } | undefined;
       if (boardId) {
         const board = await assertBoardAccess(req.user!, boardId);
+        if (board.archived) {
+          throw new HttpError(409, "Restore this board before adding tasks");
+        }
         if (
           board.accessType === TaskBoardAccessType.MEMBER_GATED &&
           employeeIds.some(
@@ -4791,6 +5025,9 @@ export function createApp() {
       const board = existing.boardId
         ? await assertBoardAccess(req.user!, existing.boardId)
         : undefined;
+      if (board?.archived) {
+        throw new HttpError(409, "Restore this board before changing its tasks");
+      }
       if (replacementIds && board) {
         if (
           board.accessType === TaskBoardAccessType.MEMBER_GATED &&
@@ -4962,9 +5199,14 @@ export function createApp() {
         throw new HttpError(403, "Task is outside your organization team");
       }
 
+      const board = existing.boardId
+        ? await assertBoardAccess(req.user!, existing.boardId)
+        : undefined;
+      if (board?.archived) {
+        throw new HttpError(409, "Restore this board before changing its tasks");
+      }
       let nextStageId: string | null | undefined;
-      if (body.status && existing.boardId) {
-        const board = await assertBoardAccess(req.user!, existing.boardId);
+      if (body.status && board) {
         if (body.status === TaskStatus.CANCELLED) {
           nextStageId = null;
         } else {

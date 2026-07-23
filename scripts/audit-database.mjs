@@ -282,10 +282,10 @@ try {
     "Every active task must have at least one assignee",
   );
   await countCheck(
-    "task stage workspace match",
+    "task stage board match",
     `SELECT COUNT(*) AS count FROM work_tasks t JOIN task_stages s ON s.stage_id = t.stage_id
      WHERE t.board_id IS NULL OR t.board_id <> s.board_id`,
-    "A task stage must belong to the task workspace",
+    "A task stage must belong to the task board",
   );
   await countCheck(
     "task stage and status sync",
@@ -314,11 +314,53 @@ try {
     "Task activity progress and time values must be valid",
   );
   await countCheck(
-    "workspace workflow endpoints",
+    "board workflow endpoints",
     `SELECT COUNT(*) AS count FROM task_boards b
      WHERE NOT EXISTS (SELECT 1 FROM task_stages s WHERE s.board_id = b.board_id AND s.status = 'TODO')
-        OR NOT EXISTS (SELECT 1 FROM task_stages s WHERE s.board_id = b.board_id AND s.status = 'COMPLETED')`,
-    "Every task workspace requires both a to-do and completed stage",
+        OR (SELECT COUNT(*) FROM task_stages s WHERE s.board_id = b.board_id AND s.status = 'COMPLETED') <> 1`,
+    "Every task board requires a to-do stage and exactly one completed stage",
+  );
+  await countCheck(
+    "board versions",
+    "SELECT COUNT(*) AS count FROM task_boards WHERE version < 1",
+    "Task board versions must be positive for safe concurrent administration",
+  );
+  await countCheck(
+    "board access policy rows",
+    `SELECT COUNT(*) AS count FROM task_boards b
+     WHERE (b.access_type = 'OPEN' AND (
+              EXISTS (SELECT 1 FROM task_board_roles r WHERE r.board_id = b.board_id)
+              OR EXISTS (SELECT 1 FROM task_board_members m WHERE m.board_id = b.board_id)
+            ))
+        OR (b.access_type = 'ROLE_GATED' AND (
+              NOT EXISTS (SELECT 1 FROM task_board_roles r WHERE r.board_id = b.board_id)
+              OR EXISTS (SELECT 1 FROM task_board_members m WHERE m.board_id = b.board_id)
+            ))
+        OR (b.access_type = 'MEMBER_GATED' AND (
+              NOT EXISTS (SELECT 1 FROM task_board_members m WHERE m.board_id = b.board_id)
+              OR EXISTS (SELECT 1 FROM task_board_roles r WHERE r.board_id = b.board_id)
+            ))`,
+    "Board role/member rows must match the selected access policy",
+  );
+  await countCheck(
+    "board assignment access",
+    `SELECT COUNT(*) AS count
+     FROM task_assignments a
+     JOIN work_tasks t ON t.task_id = a.task_id
+     JOIN task_boards b ON b.board_id = t.board_id
+     JOIN employees e ON e.employee_id = a.employee_id
+     LEFT JOIN users u ON u.employee_id = e.employee_id
+     WHERE (b.access_type = 'MEMBER_GATED' AND NOT EXISTS (
+              SELECT 1 FROM task_board_members m
+              WHERE m.board_id = b.board_id AND m.employee_id = a.employee_id
+            ))
+        OR (b.access_type = 'ROLE_GATED' AND (
+              u.id IS NULL OR NOT EXISTS (
+                SELECT 1 FROM task_board_roles r
+                WHERE r.board_id = b.board_id AND r.role = u.role
+              )
+            ))`,
+    "Every task assignee must remain eligible under the board access policy",
   );
   await countCheck(
     "completed stage flags",

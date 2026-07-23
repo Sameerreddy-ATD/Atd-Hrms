@@ -155,66 +155,83 @@ export const taskUpdateSchema = z.object({
   stageId: z.string().nullable().optional(),
 });
 
-export const taskBoardSchema = z
-  .object({
-    name: z.string().trim().min(2).max(120),
-    description: z.string().trim().max(1000).nullable().optional(),
-    accessType: z.nativeEnum(TaskBoardAccessType).default(TaskBoardAccessType.OPEN),
-    allowedRoles: z.array(z.nativeEnum(Role)).max(20).default([]),
-    memberEmployeeIds: z.array(z.string().min(1)).max(500).default([]),
-    stages: z
-      .array(
-        z.object({
-          name: z.string().trim().min(2).max(80),
-          color: z.enum(["SLATE", "BLUE", "AMBER", "VIOLET", "EMERALD", "RED"]),
-          status: z.nativeEnum(TaskStatus),
-        }),
-      )
-      .min(2)
-      .max(12),
-  })
-  .superRefine((value, context) => {
-    if (!value.stages.some((stage) => stage.status === TaskStatus.COMPLETED)) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["stages"],
-        message: "Add a completed stage",
-      });
-    }
-    if (!value.stages.some((stage) => stage.status === TaskStatus.TODO)) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["stages"],
-        message: "Add a to-do stage",
-      });
-    }
-    if (
-      new Set(value.stages.map((stage) => stage.name.toLowerCase())).size !== value.stages.length
-    ) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["stages"],
-        message: "Stage names must be unique",
-      });
-    }
-    if (value.accessType === TaskBoardAccessType.ROLE_GATED && value.allowedRoles.length === 0) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["allowedRoles"],
-        message: "Select at least one role",
-      });
-    }
-    if (
-      value.accessType === TaskBoardAccessType.MEMBER_GATED &&
-      value.memberEmployeeIds.length === 0
-    ) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["memberEmployeeIds"],
-        message: "Select at least one member",
-      });
-    }
-  });
+const taskBoardStageSchema = z.object({
+  id: z.string().min(1).optional(),
+  name: z.string().trim().min(2).max(80),
+  color: z.enum(["SLATE", "BLUE", "AMBER", "VIOLET", "EMERALD", "RED"]),
+  status: z.nativeEnum(TaskStatus),
+});
+
+function validateTaskBoardConfiguration(
+  value: {
+    accessType: TaskBoardAccessType;
+    allowedRoles: Role[];
+    memberEmployeeIds: string[];
+    stages: Array<z.infer<typeof taskBoardStageSchema>>;
+  },
+  context: z.RefinementCtx,
+) {
+  if (value.stages.filter((stage) => stage.status === TaskStatus.COMPLETED).length !== 1) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["stages"],
+      message: "Select exactly one completed stage",
+    });
+  }
+  if (!value.stages.some((stage) => stage.status === TaskStatus.TODO)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["stages"],
+      message: "Add a to-do stage",
+    });
+  }
+  if (new Set(value.stages.map((stage) => stage.name.toLowerCase())).size !== value.stages.length) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["stages"],
+      message: "Stage names must be unique",
+    });
+  }
+  if (value.accessType === TaskBoardAccessType.ROLE_GATED && value.allowedRoles.length === 0) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["allowedRoles"],
+      message: "Select at least one role",
+    });
+  }
+  if (
+    value.accessType === TaskBoardAccessType.MEMBER_GATED &&
+    value.memberEmployeeIds.length === 0
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["memberEmployeeIds"],
+      message: "Select at least one member",
+    });
+  }
+}
+
+const taskBoardConfigurationSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  description: z.string().trim().max(1000).nullable().optional(),
+  accessType: z.nativeEnum(TaskBoardAccessType).default(TaskBoardAccessType.OPEN),
+  allowedRoles: z.array(z.nativeEnum(Role)).max(20).default([]),
+  memberEmployeeIds: z.array(z.string().min(1)).max(500).default([]),
+  stages: z.array(taskBoardStageSchema).min(2).max(12),
+});
+
+export const taskBoardSchema = taskBoardConfigurationSchema.superRefine(
+  validateTaskBoardConfiguration,
+);
+
+export const taskBoardUpdateSchema = taskBoardConfigurationSchema
+  .extend({ version: z.coerce.number().int().positive() })
+  .superRefine(validateTaskBoardConfiguration);
+
+export const taskBoardArchiveSchema = z.object({
+  version: z.coerce.number().int().positive(),
+  archived: z.boolean(),
+});
 
 export const taskLogSchema = z.object({
   version: z.coerce.number().int().positive(),

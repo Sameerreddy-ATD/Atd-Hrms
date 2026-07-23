@@ -68,7 +68,7 @@ try {
     -WebSession $session `
     -ContentType "application/json" `
     -Body (@{
-      name = "Validation Workspace"
+      name = "Validation Board"
       description = "Atomic workflow test"
       accessType = "OPEN"
       allowedRoles = @()
@@ -138,14 +138,103 @@ try {
   }
   if ($logged.version -ne 3) { throw "Task optimistic version did not increment correctly." }
 
+  $updatedBoard = Invoke-RestMethod "$baseUrl/task-boards/$($board.id)" `
+    -Method Patch `
+    -WebSession $session `
+    -ContentType "application/json" `
+    -Body (@{
+      version = $board.version
+      name = "Validation Board"
+      description = "Configurable workflow test"
+      accessType = "OPEN"
+      allowedRoles = @()
+      memberEmployeeIds = @()
+      stages = @(
+        @{ id = $board.stages[0].id; name = "Backlog"; color = "SLATE"; status = "TODO" }
+        @{ id = $board.stages[1].id; name = "In progress"; color = "BLUE"; status = "IN_PROGRESS" }
+        @{ id = $board.stages[2].id; name = "Blocked"; color = "RED"; status = "BLOCKED" }
+        @{ id = $board.stages[3].id; name = "Completed"; color = "EMERALD"; status = "COMPLETED" }
+        @{ name = "In review"; color = "VIOLET"; status = "REVIEW" }
+      )
+    } | ConvertTo-Json -Depth 6)
+
+  if ($updatedBoard.version -ne 2 -or @($updatedBoard.stages).Count -ne 5) {
+    throw "Board configuration or optimistic version did not persist."
+  }
+
+  $synchronizedTasks = @(
+    Invoke-RestMethod "$baseUrl/tasks?scope=team&boardId=$($board.id)" -WebSession $session
+  )
+  $synchronizedTask = $synchronizedTasks | Where-Object { $_.id -eq $task.id } | Select-Object -First 1
+  if (
+    -not $synchronizedTask -or
+    $synchronizedTask.status -ne "BLOCKED" -or
+    $synchronizedTask.version -ne 4 -or
+    $synchronizedTask.updateCount -ne 4
+  ) {
+    throw "Stage configuration did not version and record activity for the affected task."
+  }
+
+  $boardConflictStatus = 0
+  try {
+    Invoke-RestMethod "$baseUrl/task-boards/$($board.id)" `
+      -Method Patch `
+      -WebSession $session `
+      -ContentType "application/json" `
+      -Body (@{ version = $board.version; archived = $true } | ConvertTo-Json) | Out-Null
+  } catch {
+    $boardConflictStatus = [int]$_.Exception.Response.StatusCode
+  }
+  if ($boardConflictStatus -ne 409) { throw "A stale board update did not return HTTP 409." }
+
+  $archivedBoard = Invoke-RestMethod "$baseUrl/task-boards/$($board.id)" `
+    -Method Patch `
+    -WebSession $session `
+    -ContentType "application/json" `
+    -Body (@{ version = $updatedBoard.version; archived = $true } | ConvertTo-Json)
+
+  $archivedWriteStatus = 0
+  try {
+    Invoke-RestMethod "$baseUrl/tasks/$($task.id)/logs" `
+      -Method Post `
+      -WebSession $session `
+      -ContentType "application/json" `
+      -Body (@{
+        version = $synchronizedTask.version
+        message = "This update must be rejected while archived"
+        progress = 90
+      } | ConvertTo-Json) | Out-Null
+  } catch {
+    $archivedWriteStatus = [int]$_.Exception.Response.StatusCode
+  }
+  if ($archivedWriteStatus -ne 409) {
+    throw "An archived board accepted a task activity write."
+  }
+
+  $restoredBoard = Invoke-RestMethod "$baseUrl/task-boards/$($board.id)" `
+    -Method Patch `
+    -WebSession $session `
+    -ContentType "application/json" `
+    -Body (@{ version = $archivedBoard.version; archived = $false } | ConvertTo-Json)
+
+  if (-not $archivedBoard.archived -or $restoredBoard.archived -or $restoredBoard.version -ne 4) {
+    throw "Board archive and restore did not persist correctly."
+  }
+
   [pscustomobject]@{
-    workspace = $board.name
+    board = $restoredBoard.name
     createdStatus = $task.status
     updatedStatus = $updated.status
     loggedStatus = $logged.status
-    finalVersion = $logged.version
-    activityCount = $logged.updateCount
+    synchronizedTaskStatus = $synchronizedTask.status
+    finalTaskVersion = $synchronizedTask.version
+    finalBoardVersion = $restoredBoard.version
+    stageCount = @($restoredBoard.stages).Count
+    activityCount = $synchronizedTask.updateCount
     staleWriteHttpStatus = $conflictStatus
+    staleBoardWriteHttpStatus = $boardConflictStatus
+    archivedTaskWriteHttpStatus = $archivedWriteStatus
+    archiveRestoreVerified = $true
   } | ConvertTo-Json
 } finally {
   if ($backend -and -not $backend.HasExited) {

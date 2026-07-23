@@ -88,16 +88,16 @@ UI/auth modules; lint errors are blocking.
 
 ## Test Matrix
 
-| Command                     | Scope                                                                    | Data impact                                               |
-| --------------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------- |
-| `npm test`                  | Unit, business-rule, schema, RBAC, and security tests                    | None                                                      |
-| `npm run test:e2e`          | Desktop Chromium and Pixel 7 role/navigation flows                       | Uses configured browser environment                       |
-| `npm run test:tasks`        | Workspace, assignment, activity, status, and conflict persistence        | Writes only to guarded disposable local database          |
-| `npm run test:employee-api` | Credential, CRUD, synchronization, idempotency, and retention            | Writes local test records; explicit confirmation required |
-| `npm run test:data-reset`   | Destructive reset and first-real-login flow                              | Deletes data only in guarded disposable local database    |
-| `npm run repo:audit`        | Required files, forbidden tracked content, and local documentation links | Read-only                                                 |
-| `npm run db:audit`          | Tables, foreign keys, migrations, and cross-table invariants             | Read-only                                                 |
-| `npm run audit:deps`        | Known production dependency vulnerabilities                              | Read-only network request                                 |
+| Command                     | Scope                                                                       | Data impact                                               |
+| --------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `npm test`                  | Unit, business-rule, schema, RBAC, and security tests                       | None                                                      |
+| `npm run test:e2e`          | Desktop Chromium and Pixel 7 role/navigation flows                          | Uses configured browser environment                       |
+| `npm run test:tasks`        | Board config/archive, assignment, activity, stage, and conflict persistence | Writes only to guarded disposable local database          |
+| `npm run test:employee-api` | Credential, CRUD, synchronization, idempotency, and retention               | Writes local test records; explicit confirmation required |
+| `npm run test:data-reset`   | Destructive reset and first-real-login flow                                 | Deletes data only in guarded disposable local database    |
+| `npm run repo:audit`        | Required files, forbidden tracked content, and local documentation links    | Read-only                                                 |
+| `npm run db:audit`          | Tables, foreign keys, migrations, and cross-table invariants                | Read-only                                                 |
+| `npm run audit:deps`        | Known production dependency vulnerabilities                                 | Read-only network request                                 |
 
 Smoke scripts intentionally reject production/remote databases. Follow `scripts/README.md` exactly.
 

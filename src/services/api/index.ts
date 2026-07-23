@@ -827,12 +827,33 @@ export const tasksApi = {
     accessType: TaskBoard["accessType"];
     allowedRoles: string[];
     memberEmployeeIds: string[];
-    stages: Array<{ name: string; color: TaskStage["color"]; status: TaskStatus }>;
+    stages: Array<{ id?: string; name: string; color: TaskStage["color"]; status: TaskStatus }>;
   }) => request<TaskBoard>("/task-boards", { method: "POST", body: JSON.stringify(payload) }),
-  archiveBoard: (id: string, archived: boolean) =>
+  updateBoard: (
+    id: string,
+    payload: {
+      version: number;
+      name: string;
+      description?: string | null;
+      accessType: TaskBoard["accessType"];
+      allowedRoles: string[];
+      memberEmployeeIds: string[];
+      stages: Array<{
+        id?: string;
+        name: string;
+        color: TaskStage["color"];
+        status: TaskStatus;
+      }>;
+    },
+  ) =>
     request<TaskBoard>(`/task-boards/${id}`, {
       method: "PATCH",
-      body: JSON.stringify({ archived }),
+      body: JSON.stringify(payload),
+    }),
+  archiveBoard: (id: string, version: number, archived: boolean) =>
+    request<TaskBoard>(`/task-boards/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ version, archived }),
     }),
 };
 

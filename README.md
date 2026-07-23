@@ -2,6 +2,10 @@
 
 Internal employee operations platform for Anytime Diesel. It manages accounts, organization units, attendance, leave, tasks, assets and returns, expense claims, HR documents, announcements, notifications, reports, audit history, and a scoped Employee Integration API through role-based web and installed PWA experiences.
 
+Work Planner includes configurable open/role/member-gated boards, ordered custom stages,
+assigned-work shortcuts, list/Kanban/timeline views, mobile-focused task details, optimistic
+concurrency, and recoverable board archival.
+
 The role-aware workspace keeps operational actions with Developer Admin, HR, and organization
 heads while giving the CEO a read-only executive view of workforce health, attendance coverage,
 leave decisions, work delivery, and company investment in employees.

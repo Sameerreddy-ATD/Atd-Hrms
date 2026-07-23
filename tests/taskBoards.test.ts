@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  taskBoardArchiveSchema,
   taskBoardSchema,
+  taskBoardUpdateSchema,
   taskLogSchema,
   taskSchema,
   taskUpdateSchema,
@@ -33,7 +35,23 @@ describe("task boards and module access", () => {
           { name: "Working", color: "BLUE", status: "IN_PROGRESS" },
         ],
       }),
-    ).toThrow("Add a completed stage");
+    ).toThrow("Select exactly one completed stage");
+  });
+
+  it("rejects multiple completed stages", () => {
+    expect(() =>
+      taskBoardSchema.parse({
+        name: "Delivery",
+        accessType: "OPEN",
+        allowedRoles: [],
+        memberEmployeeIds: [],
+        stages: [
+          { name: "To do", color: "SLATE", status: "TODO" },
+          { name: "Done", color: "EMERALD", status: "COMPLETED" },
+          { name: "Released", color: "BLUE", status: "COMPLETED" },
+        ],
+      }),
+    ).toThrow("Select exactly one completed stage");
   });
 
   it("rejects a task whose due date is before its start date", () => {
@@ -63,6 +81,34 @@ describe("task boards and module access", () => {
     });
     expect(task.boardId).toBe("board-1");
     expect(task.stageId).toBe("stage-1");
+  });
+
+  it("requires optimistic versions for board configuration and archive changes", () => {
+    expect(() =>
+      taskBoardUpdateSchema.parse({
+        name: "Operations board",
+        accessType: "OPEN",
+        stages: [
+          { id: "stage-1", name: "To do", color: "SLATE", status: "TODO" },
+          { id: "stage-2", name: "Done", color: "EMERALD", status: "COMPLETED" },
+        ],
+      }),
+    ).toThrow();
+    expect(
+      taskBoardUpdateSchema.parse({
+        version: 3,
+        name: "Operations board",
+        accessType: "OPEN",
+        stages: [
+          { id: "stage-1", name: "To do", color: "SLATE", status: "TODO" },
+          { id: "stage-2", name: "Done", color: "EMERALD", status: "COMPLETED" },
+        ],
+      }).version,
+    ).toBe(3);
+    expect(taskBoardArchiveSchema.parse({ version: 2, archived: true })).toEqual({
+      version: 2,
+      archived: true,
+    });
   });
 
   it("maps protected APIs to modules and preserves developer access", () => {

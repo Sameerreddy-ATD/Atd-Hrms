@@ -234,39 +234,70 @@ flowchart LR
 
 ## Work Planner
 
-Open **Work Planner** to see daily work without first opening a board. The four summary cards show
-work due today, overdue, active, and completed. Use **My work** for assignments that include you and
-**Team work** for work available within your role and organization scope.
+Open **Work Planner** to see every task board available to your account. **Assigned to me** keeps
+your active work at the top so you can open a task without first finding its board. Active boards
+show their access policy and open-task count. Archived boards remain recoverable and do not accept
+new work until their owner restores them.
+
+### Open and navigate a board
+
+1. Select an active board card. The header shows total and active work.
+2. Search by title, description, or assignee.
+3. Use **Mine**, assignee, priority, stage, and due-date filters together.
+4. Select a stage total to focus the board on that stage; select it again to clear the filter.
+5. Switch among:
+   - **List** for compact, collapsible stage groups and inline stage changes.
+   - **Kanban** for visual workflow columns and drag-and-drop stage movement.
+   - **Timeline** for start/due-date planning grouped by primary assignee.
+6. Use the board selector to move directly to another accessible board.
+
+All wide controls and Kanban/timeline content scroll horizontally on narrow screens. Selecting a
+task opens one focused, full-height mobile dialog containing its description, assignees, dates,
+progress, and complete activity history.
 
 ### Find and update work
 
-1. Search by task title, details, workspace, or assignee.
-2. Filter by status or priority, or select a workspace chip.
-3. Review **Needs attention**, **Today**, **Upcoming**, and **No due date** groups.
-4. Select a task to open its focused detail view. On a phone, one task occupies the available screen
-   so actions remain easy to reach.
-5. Enter a clear update, select the resulting status and progress, then choose **Post update**.
-6. Use the circular check action only when the task is genuinely complete.
+1. Select a task row, card, timeline bar, or **Assigned to me** entry.
+2. Review the current stage, priority, owners, schedule, and prior updates.
+3. Change the stage from the detail panel, or from the list stage selector. In Kanban, drag the card
+   to another column.
+4. Enter a decision, progress note, or blocker; set the resulting progress; then select
+   **Post update**.
 
 If another session saved the task first, the app shows a refresh message and does not overwrite the
 newer change.
 
 ### Create a task
 
-Developer Admin, Main Admin, CEO, HR, and authorized heads can select **New task**.
+Open a board and select **New task**, or use **Add task** within a specific stage.
 
 1. Add a short outcome-focused title.
-2. Select one or more active assignees.
-3. Add details, priority, start date, and due date as needed. The due date cannot be earlier than the
+2. Select a starting stage and priority.
+3. Add details, start date, and due date as needed. The due date cannot be earlier than the
    start date.
-4. Optionally select a workspace and starting stage.
-5. Select **Create task**. The initial assignment and creation activity are stored with the task.
+4. Select one or more active assignees. The selection is automatically restricted to employees
+   allowed by the board and your organization scope.
+5. Select **Create task**. The assignment, stage, canonical status, and creation activity are stored
+   together.
 
-### Create a workspace
+### Create or configure a board
 
-Select **New workspace**, add its name and access policy, and review the workflow. Every workspace
-must contain at least one **To do** stage and one **Completed** stage. Access can be open to everyone
-with module access, limited to selected roles, or limited to selected employees.
+Authorized leaders select **New board**. Add a professional name and optional purpose, then configure
+the workflow:
+
+1. Rename stages and choose their colors.
+2. Move stages up or down to set the display order.
+3. Add custom stages or remove empty stages.
+4. Keep at least one **To do** stage and mark exactly one stage as **Done**.
+5. Choose the access policy:
+   - **Open**: every account with Work Planner module access.
+   - **Role-gated**: only selected application roles.
+   - **Member-gated**: only selected active employees.
+6. Select **Create board** or **Save changes**.
+
+Only the board owner or Developer Admin can change, archive, or restore it. A stage containing tasks
+cannot be removed until the tasks are moved. Access cannot be narrowed in a way that would hide a
+current task from one of its assignees.
 
 ## Manager: Review Team Leave And Attendance
 

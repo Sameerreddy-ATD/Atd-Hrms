@@ -71,9 +71,10 @@ Run it before every commit and after adding, moving, or deleting documentation.
 
 ## `smoke-tasks.ps1`
 
-Runs the complete Work Planner flow against a disposable local database: workspace creation, task
-assignment, stage/status synchronization, activity history, version increments, and stale-write
-conflict protection.
+Runs the complete Work Planner flow against a disposable local database: board creation/configuration,
+task creation and stage movement, activity logging, stale task/board write rejection, and board
+archive/restore. It verifies assignment, stage/status synchronization, activity history, and
+optimistic version increments.
 
 ```powershell
 $env:DATABASE_URL = "mysql://root:password@127.0.0.1:3306/anytimediesel_task_validation"

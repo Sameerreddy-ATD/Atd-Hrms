@@ -62,6 +62,11 @@ does not remove any employee, user, attendance, leave, expense, HR-document, ass
 branch, integration, setting, or audit row. Create and retain a backup before deployment if legacy
 Task history must be exported or restored later.
 
+Migration `20260723100000_task_board_versioning` is non-destructive. It adds
+`task_boards.version INT NOT NULL DEFAULT 1` and a positive-value check so concurrent board settings,
+archive, and restore actions cannot silently overwrite one another. Deploy it before starting the
+new backend.
+
 ### Leave-policy migration warning
 
 Release migration `20260716190000_leave_policy_and_weekly_off` removes legacy leave requests, leave balances, and configurable leave types before installing Casual Leave, Sick Leave, Unpaid Leave / LOP, and Comp Off. Create and verify the MySQL dump above before deploying this release. Keep that dump when historical legacy leave records may be needed for payroll or compliance.
@@ -112,8 +117,9 @@ curl -I https://hrms.sameerreddy.in
 
 Then test login, dashboard restore, mobile attendance, cross-device timer refresh, leave submit/approval, announcement delivery, notification scope, user status, and logout.
 
-For a Work Planner release, create a workspace and task, change its stage, post an update, and confirm
-the stage/status/activity remain synchronized. Run `npm run db:audit` again after the test.
+For a Work Planner release, create a board and task, add/reorder a custom stage, change the task
+stage, post an update, archive and restore the board, and confirm the stage/status/activity remain
+synchronized. Run `npm run db:audit` again after the test.
 
 For releases that change shared navigation or dashboards, also verify:
 

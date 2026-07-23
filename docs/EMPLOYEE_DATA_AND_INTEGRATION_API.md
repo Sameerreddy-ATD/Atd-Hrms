@@ -145,18 +145,20 @@ Google permissions.
 
 ### Tasks
 
-| Table                | Purpose                                                                               |
-| -------------------- | ------------------------------------------------------------------------------------- |
-| `task_boards`        | Workspace metadata, archive state and open/role/member access policy                  |
-| `task_stages`        | Ordered workflow stages with canonical task status                                    |
-| `task_board_roles`   | Roles allowed on a role-gated board                                                   |
-| `task_board_members` | Employees allowed on a member-gated board                                             |
-| `work_tasks`         | Versioned task, workspace/stage, dates, priority, progress, archive and activity time |
-| `task_assignments`   | Many-to-many task assignees plus assigning user                                       |
-| `task_updates`       | Typed activity log, structured metadata, progress/status and minutes worked           |
+| Table                | Purpose                                                                           |
+| -------------------- | --------------------------------------------------------------------------------- |
+| `task_boards`        | Versioned board metadata, archive state and open/role/member access policy        |
+| `task_stages`        | Ordered workflow stages with canonical task status                                |
+| `task_board_roles`   | Roles allowed on a role-gated board                                               |
+| `task_board_members` | Employees allowed on a member-gated board                                         |
+| `work_tasks`         | Versioned task, board/stage, dates, priority, progress, archive and activity time |
+| `task_assignments`   | Many-to-many task assignees plus assigning user                                   |
+| `task_updates`       | Typed activity log, structured metadata, progress/status and minutes worked       |
 
-Task stage status is canonical. Edits use `work_tasks.version` and commit the task, assignments, and
-activity row atomically. See [Database Integrity Audit](DATABASE_INTEGRITY_AUDIT.md).
+Task stage status is canonical. Task edits use `work_tasks.version`; board configuration and archive
+edits use `task_boards.version`. Both reject stale writes with HTTP 409. Task writes commit
+assignments and activity rows atomically. See
+[Database Integrity Audit](DATABASE_INTEGRITY_AUDIT.md).
 
 ## 4. Browser Employee Endpoints
 
