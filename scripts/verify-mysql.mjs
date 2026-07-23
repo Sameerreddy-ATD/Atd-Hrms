@@ -23,6 +23,7 @@ try {
     faceEvidence,
     activeFaceEvidence,
     faceVerificationSessions,
+    excessiveRetainedFaceImages,
     invalidFaceTemplates,
     invalidApprovedFaces,
     invalidFaceEvidence,
@@ -71,6 +72,13 @@ try {
     prisma.faceEvidence.count(),
     prisma.faceEvidence.count({ where: { deletedAt: null } }),
     prisma.faceVerificationSession.count(),
+    prisma.$queryRaw`
+      SELECT user_id AS userId, COUNT(*) AS retainedImages
+      FROM face_evidence
+      WHERE image_key IS NOT NULL AND deleted_at IS NULL
+      GROUP BY user_id
+      HAVING COUNT(*) > 5
+    `,
     prisma.faceProfile.count({
       where: { NOT: { descriptorEncrypted: { startsWith: "v1." } } },
     }),
@@ -121,6 +129,7 @@ try {
       invalidEncryptedFaceTemplates: invalidFaceTemplates,
       invalidApprovedFaceProfiles: invalidApprovedFaces,
       invalidFaceEvidence,
+      usersExceedingFiveRetainedFaceImages: excessiveRetainedFaceImages.length,
       sampleMismatchedEmployeeIds: [
         ...new Set([...profileMismatches, ...statusMismatches].map((row) => row.employeeId)),
       ],
@@ -135,7 +144,8 @@ try {
     invalidPrivateFieldEnvelopes.length ||
     invalidFaceTemplates ||
     invalidApprovedFaces ||
-    invalidFaceEvidence
+    invalidFaceEvidence ||
+    excessiveRetainedFaceImages.length
   )
     process.exitCode = 1;
 } finally {

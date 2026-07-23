@@ -4,8 +4,9 @@
 
 Face registration is a mandatory account-activation step after the first password change for every
 normal application account. Developer Admin is explicitly exempt from face authentication. Mobile
-attendance is accepted only when the signed-in employee completes a randomized live-face challenge,
-matches the approved encrypted face template, and supplies precise device location.
+check-in is accepted only when the signed-in employee completes a randomized live-face challenge,
+matches the approved encrypted face template, and supplies precise device location. Check-out uses
+the authenticated employee's active check-in and fresh precise location without opening the camera.
 
 This implementation is self-hosted and has no per-check cloud charge. It uses the MIT-licensed
 `@vladmandic/human` browser library and models bundled during the frontend build. AWS Rekognition
@@ -20,7 +21,8 @@ Face Liveness is not used.
    enrollment endpoints until the profile is approved.
 5. The user accepts the versioned biometric-consent statement.
 6. The server creates a two-minute, single-use session with a cryptographically random nonce and a
-   randomized `BLINK`, `TURN_LEFT`, or `TURN_RIGHT` challenge.
+   randomized `TURN_LEFT` or `TURN_RIGHT` challenge. Head turns are reliable when clear spectacles
+   make blink detection difficult.
 7. The camera verifies that exactly one face is present, the face is large and clear enough, the
    anti-spoof and liveness scores pass, and the requested movement is completed.
 8. The browser submits the descriptor, encrypted-evidence candidate, scores, session ID, and nonce.
@@ -48,20 +50,23 @@ password-protected recovery authority while normal employee attendance remains f
 
 ## Attendance Flow
 
-1. The employee selects **Check In** or **Check Out**.
-2. The browser requests the front-facing camera and fresh, high-accuracy GPS location.
-3. GPS accuracy must be within the Developer Admin policy. The default maximum error is 200 metres.
-4. The server issues a one-time challenge for the correct attendance purpose.
-5. The browser requires one real face, adequate confidence, liveness, anti-spoofing, the challenge
-   movement, and a final centred pose.
-6. The server verifies session ownership, nonce, expiry, one-time use, thresholds, approved profile,
-   descriptor dimensions, similarity, coordinates, and accuracy.
-7. Only after verification passes does the backend create the `attendance_events` row and link the
-   corresponding `face_evidence` row.
+1. For **Check In**, the browser requests the front-facing camera and fresh, high-accuracy GPS.
+2. The face models are preloaded after the dashboard opens. Three stable centred descriptors are
+   averaged before matching to reduce single-frame noise and improve recognition with spectacles.
+3. The server issues a single-use head-turn challenge and verifies session ownership, liveness,
+   anti-spoofing, the approved encrypted template, similarity, GPS coordinates, and accuracy.
+4. A matching face creates the `attendance_events` row and links the `face_evidence` row.
+5. A mismatch displays **Another face detected**, stores a short-lived blocked security event for
+   Developer Admin, and never creates attendance.
+6. For **Check Out**, the browser does not request or open the camera. It obtains fresh precise GPS,
+   and the backend validates the authenticated employee, active check-in, and configured GPS
+   accuracy before saving check-out.
+7. GPS accuracy must be within the Developer Admin policy. The default maximum error is 200 metres.
 8. If the employee has approved leave, the leave-confirmation response is returned before the
    one-time face session is consumed. Confirmation can safely reuse the same capture while it is
    still valid.
-9. A failed verification stores a short-lived failure record but never creates attendance.
+9. Other failed check-in verifications store a short-lived failure record but never create
+   attendance.
 
 Mobile face attendance is always self-service. A privileged user cannot use their own face to create
 a mobile punch for another employee. Biometric-device imports and approved HR correction workflows
@@ -101,7 +106,8 @@ One row per submitted registration or attendance verification:
   failure reason, capture time, expiry, and deletion time;
 - `image_key` references a private encrypted binary file; image bytes are not stored in MySQL and
   are never served from the public frontend directory;
-- attendance evidence has a unique one-to-one relationship with `attendance_events`.
+- passed check-in evidence has a unique one-to-one relationship with `attendance_events`;
+- no more than the five newest encrypted pictures are retained for one user.
 
 The Employee Integration API intentionally excludes face templates, evidence, consent, and
 verification sessions. A future application must integrate employee master data through `/api/v1`,
@@ -125,10 +131,12 @@ not read biometric tables or MySQL directly.
 ## Retention
 
 The default capture retention is five days. Developer Admin can select 1–30 days in **Face
-Security**. Changing the policy recalculates active evidence expiry times. The backend runs cleanup
-at startup and hourly:
+Security**. A second limit retains only the five newest encrypted pictures per person. When a sixth
+picture arrives, the oldest encrypted picture is deleted immediately even if it is less than five
+days old. Changing the time policy recalculates active evidence expiry times. The backend runs
+cleanup at startup and hourly:
 
-1. finds evidence older than the current retention period;
+1. finds evidence older than the current retention period or outside a user's latest five;
 2. deletes the encrypted file;
 3. clears `image_key`;
 4. records `deleted_at`;
@@ -142,7 +150,7 @@ not match after the five-day evidence window.
 
 The **Face Security** screen is responsive and available only to Developer Admin:
 
-- review counts for approved, pending, and action-required accounts;
+- review counts for approved, pending, action-required, and latest face-mismatch alerts;
 - review all retained registration and attendance captures for a user;
 - see confidence, liveness, anti-spoof, match, purpose, time, location accuracy, and failure reason;
 - approve a pending enrollment;
@@ -154,20 +162,21 @@ Every approval, rejection, reset, enrollment, and policy change writes `audit_lo
 
 ## API Contract
 
-| Method   | Endpoint                                      | Purpose                                        |
-| -------- | --------------------------------------------- | ---------------------------------------------- |
-| `GET`    | `/face/status`                                | Current user's state and consent text          |
-| `POST`   | `/face/session`                               | Create one-time enrollment/attendance session  |
-| `POST`   | `/face/enrollment`                            | Submit a registration capture                  |
-| `GET`    | `/face/admin/profiles`                        | Developer Admin enrollment overview            |
-| `PATCH`  | `/face/admin/profiles/:userId/approve`        | Approve registration                           |
-| `PATCH`  | `/face/admin/profiles/:userId/reject`         | Reject with reason                             |
-| `DELETE` | `/face/admin/profiles/:userId`                | Reset another user's registration              |
-| `GET`    | `/face/admin/settings`                        | Read verification/retention policy             |
-| `PATCH`  | `/face/admin/settings`                        | Update policy                                  |
-| `GET`    | `/face/admin/evidence?userId=...`             | List retained evidence metadata                |
-| `GET`    | `/face/admin/evidence/:evidenceId/image`      | Stream one authorized decrypted JPEG           |
-| `POST`   | `/attendance/mobile/check-in` and `check-out` | Create attendance with required face/GPS proof |
+| Method   | Endpoint                                 | Purpose                                       |
+| -------- | ---------------------------------------- | --------------------------------------------- |
+| `GET`    | `/face/status`                           | Current user's state and consent text         |
+| `POST`   | `/face/session`                          | Create one-time enrollment/attendance session |
+| `POST`   | `/face/enrollment`                       | Submit a registration capture                 |
+| `GET`    | `/face/admin/profiles`                   | Developer Admin enrollment overview           |
+| `PATCH`  | `/face/admin/profiles/:userId/approve`   | Approve registration                          |
+| `PATCH`  | `/face/admin/profiles/:userId/reject`    | Reject with reason                            |
+| `DELETE` | `/face/admin/profiles/:userId`           | Reset another user's registration             |
+| `GET`    | `/face/admin/settings`                   | Read verification/retention policy            |
+| `PATCH`  | `/face/admin/settings`                   | Update policy                                 |
+| `GET`    | `/face/admin/evidence?userId=...`        | List retained evidence metadata               |
+| `GET`    | `/face/admin/evidence/:evidenceId/image` | Stream one authorized decrypted JPEG          |
+| `POST`   | `/attendance/mobile/check-in`            | Create check-in with required face and GPS    |
+| `POST`   | `/attendance/mobile/check-out`           | Create check-out with fresh precise GPS       |
 
 All endpoints use the existing HTTP-only cookie authentication, origin validation, rate limiting,
 backend role checks, and audit conventions. JSON request size is capped at 2 MB; decoded JPEGs are
@@ -179,8 +188,10 @@ capped at 700 KB.
 - Use a current Chrome, Edge, Safari, or Samsung Internet release with WebGL enabled.
 - The browser must allow camera and precise location for the site.
 - Only one person may be visible.
-- Use even lighting; remove masks and dark glasses.
-- The first model load downloads roughly 12 MB of face-model assets and is then browser-cacheable.
+- Use even lighting and remove masks or dark/tinted glasses. Normal clear spectacles are supported;
+  tilt the screen or face slightly if glare covers the eyes.
+- The optimized model set is about 10.2 MB, starts preloading after the dashboard opens, compiles in
+  the background, and is browser-cacheable for later scans.
 - Low-power phones may take longer per detection frame; the UI remains in the verification dialog
   until a stable result is obtained.
 

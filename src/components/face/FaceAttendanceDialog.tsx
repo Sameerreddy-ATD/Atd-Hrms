@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { LoaderCircle, LocateFixed, ShieldCheck } from "lucide-react";
-import { FaceCapture } from "@/components/face/FaceCapture";
+import { FaceCapture, preloadFaceRecognition } from "@/components/face/FaceCapture";
 import {
   Dialog,
   DialogContent,
@@ -8,16 +8,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { faceApi } from "@/services/api";
 import { getDeviceLocation } from "@/lib/geolocation";
 import type { FaceCapturePayload, FaceVerificationSession } from "@/types/domain";
 
-export interface VerifiedAttendanceCapture {
+export interface LocationAttendanceCapture {
   latitude: number;
   longitude: number;
   locationAccuracy: number;
+}
+
+export interface VerifiedCheckInCapture extends LocationAttendanceCapture {
   faceVerification: FaceCapturePayload;
 }
+
+export type AttendanceCapture = VerifiedCheckInCapture | LocationAttendanceCapture;
 
 export function FaceAttendanceDialog({
   action,
@@ -26,11 +32,26 @@ export function FaceAttendanceDialog({
 }: {
   action: "check-in" | "check-out" | null;
   onClose: () => void;
-  onVerified: (payload: VerifiedAttendanceCapture) => Promise<void>;
+  onVerified: (payload: AttendanceCapture) => Promise<void>;
 }) {
   const [session, setSession] = useState<FaceVerificationSession | null>(null);
   const [position, setPosition] = useState<GeolocationPosition | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const onVerifiedRef = useRef(onVerified);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onVerifiedRef.current = onVerified;
+    onCloseRef.current = onClose;
+  }, [onClose, onVerified]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void preloadFaceRecognition().catch(() => undefined);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (!action) {
@@ -43,24 +64,34 @@ export function FaceAttendanceDialog({
     setSession(null);
     setPosition(null);
     setError(null);
-    Promise.all([
-      faceApi.createSession(
-        action === "check-in" ? "ATTENDANCE_CHECK_IN" : "ATTENDANCE_CHECK_OUT",
-        navigator.userAgent.slice(0, 120),
-      ),
-      getDeviceLocation({ allowRecent: false }),
-    ])
-      .then(([nextSession, nextPosition]) => {
+    const prepare = async () => {
+      try {
+        const [policy, nextPosition] = await Promise.all([
+          action === "check-in"
+            ? faceApi.createSession("ATTENDANCE_CHECK_IN", navigator.userAgent.slice(0, 120))
+            : faceApi.status(),
+          getDeviceLocation({ allowRecent: false }),
+        ]);
         if (!active) return;
-        if (nextPosition.coords.accuracy > nextSession.settings.maxGpsAccuracyMeters) {
+        const maxGpsAccuracyMeters =
+          "settings" in policy ? policy.settings.maxGpsAccuracyMeters : policy.maxGpsAccuracyMeters;
+        if (nextPosition.coords.accuracy > maxGpsAccuracyMeters) {
           throw new Error(
             `Location accuracy is ${Math.round(nextPosition.coords.accuracy)} m. Move near a window, enable precise location, and try again.`,
           );
         }
-        setSession(nextSession);
         setPosition(nextPosition);
-      })
-      .catch((caught) => {
+        if (action === "check-in" && "sessionId" in policy) {
+          setSession(policy);
+          return;
+        }
+        await onVerifiedRef.current({
+          latitude: nextPosition.coords.latitude,
+          longitude: nextPosition.coords.longitude,
+          locationAccuracy: nextPosition.coords.accuracy,
+        });
+        if (active) onCloseRef.current();
+      } catch (caught) {
         if (!active) return;
         const geolocationCode =
           caught && typeof caught === "object" && "code" in caught
@@ -71,13 +102,15 @@ export function FaceAttendanceDialog({
             ? "Precise location permission is required to mark attendance."
             : caught instanceof Error
               ? caught.message
-              : "Face attendance could not start.";
+              : "Attendance could not start.";
         setError(message);
-      });
+      }
+    };
+    void prepare();
     return () => {
       active = false;
     };
-  }, [action]);
+  }, [action, attempt]);
 
   const finish = useCallback(
     async (capture: FaceCapturePayload) => {
@@ -102,8 +135,9 @@ export function FaceAttendanceDialog({
             Verify to {action === "check-in" ? "check in" : "check out"}
           </DialogTitle>
           <DialogDescription>
-            Complete the live face movement. Your precise location is attached to this attendance
-            event.
+            {action === "check-in"
+              ? "Complete the quick live-face movement. Your precise location is attached to this check-in."
+              : "No camera is used for check-out. Your precise location is being verified."}
           </DialogDescription>
         </DialogHeader>
 
@@ -114,7 +148,11 @@ export function FaceAttendanceDialog({
               <LoaderCircle className="absolute -right-1 -top-1 size-5 animate-spin rounded-full bg-white text-blue-600" />
             </div>
             <div>
-              <div className="font-semibold text-slate-950">Confirming camera and location</div>
+              <div className="font-semibold text-slate-950">
+                {action === "check-in"
+                  ? "Preparing fast face scan and location"
+                  : "Confirming precise check-out location"}
+              </div>
               <p className="mt-1 text-sm text-slate-500">Keep precise location enabled.</p>
             </div>
           </div>
@@ -122,11 +160,20 @@ export function FaceAttendanceDialog({
 
         {error && (
           <div className="my-auto rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-            {error}
+            <div className="font-semibold">Attendance was not saved</div>
+            <div className="mt-1">{error}</div>
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-4 w-full"
+              onClick={() => setAttempt((value) => value + 1)}
+            >
+              Try again
+            </Button>
           </div>
         )}
 
-        {session && position && (
+        {action === "check-in" && session && position && (
           <FaceCapture session={session} onComplete={finish} onCancel={onClose} />
         )}
       </DialogContent>

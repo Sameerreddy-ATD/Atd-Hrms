@@ -123,8 +123,8 @@ Use one non-privileged test account representing a real employee and verify:
 1. First-login password change, mandatory normal-account face registration, Developer Admin
    exemption and approval, and subsequent sign-in.
 2. Mobile sidebar, profile, and module visibility match the assigned role.
-3. Camera/precise-location denial, live movement challenge, face-matched check-in/out, and
-   branch-radius behavior.
+3. Camera/precise-location denial, glasses-friendly live head-turn challenge, fast face-matched
+   check-in, another-face alerting, location-only check-out, and branch-radius behavior.
 4. Leave application and approval using a preserved leave policy.
 5. Task assignment, task opening on mobile, stage change, and daily work update.
 6. Advance expense and expense submission, including the Google Drive sharing confirmation.

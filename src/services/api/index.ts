@@ -312,6 +312,7 @@ export const faceApi = {
       rejectionReason: string | null;
       submittedAt: string | null;
       approvedAt: string | null;
+      maxGpsAccuracyMeters: number;
       consent: { version: string; text: string };
     }>("/face/status"),
   createSession: (purpose: FaceVerificationPurpose, deviceId?: string) =>
@@ -470,12 +471,7 @@ export const attendanceApi = {
         mobileDeviceId: payload.mobileDeviceId ?? navigator.userAgent.slice(0, 120),
       }),
     }),
-  checkOut: (payload: {
-    latitude: number;
-    longitude: number;
-    locationAccuracy: number;
-    faceVerification: FaceCapturePayload;
-  }) =>
+  checkOut: (payload: { latitude: number; longitude: number; locationAccuracy: number }) =>
     request<{ eventId: string }>("/attendance/mobile/check-out", {
       method: "POST",
       body: JSON.stringify({

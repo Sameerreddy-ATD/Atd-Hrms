@@ -7,9 +7,10 @@ assigned-work shortcuts, list/Kanban/timeline views, mobile-focused task details
 concurrency, and recoverable board archival.
 
 Every normal account now completes mandatory face registration before workspace access; Developer
-Admin is exempt. Mobile check-in and check-out require a randomized liveness movement, an approved
-encrypted face-template match, and precise GPS. Captures are encrypted, retained for five days by
-default, and controlled from the responsive Developer Admin **Face Security** screen.
+Admin is exempt. Mobile check-in requires a randomized liveness movement, an approved encrypted
+face-template match, and precise GPS; check-out requires precise GPS without opening the camera.
+Captures are encrypted, limited to the latest five pictures per person, retained for no more than
+five days by default, and controlled from the responsive Developer Admin **Face Security** screen.
 
 The role-aware workspace keeps operational actions with Developer Admin, HR, and organization
 heads while giving the CEO a read-only executive view of workforce health, attendance coverage,

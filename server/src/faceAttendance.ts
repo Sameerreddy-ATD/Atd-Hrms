@@ -15,11 +15,12 @@ import { prisma } from "./prisma.js";
 
 const FACE_SETTING_KEY = "face_attendance_settings";
 const FACE_CONSENT_VERSION = "2026-07";
-const CHALLENGES = ["BLINK", "TURN_LEFT", "TURN_RIGHT"] as const;
+const CHALLENGES = ["TURN_LEFT", "TURN_RIGHT"] as const;
+const MAX_RETAINED_IMAGES_PER_USER = 5;
 
 export const faceSettingsSchema = z.object({
   retentionDays: z.number().int().min(1).max(30).default(5),
-  matchThreshold: z.number().min(0.4).max(0.9).default(0.55),
+  matchThreshold: z.number().min(0.4).max(0.9).default(0.6),
   minFaceConfidence: z.number().min(0.4).max(1).default(0.6),
   minLivenessScore: z.number().min(0.4).max(1).default(0.6),
   minAntiSpoofScore: z.number().min(0.4).max(1).default(0.6),
@@ -245,6 +246,27 @@ async function duplicateEnrollmentSimilarity(userId: string, descriptor: number[
   return best;
 }
 
+async function enforceEvidenceImageLimit(userId: string) {
+  const overflow = await prisma.faceEvidence.findMany({
+    where: { userId, imageKey: { not: null }, deletedAt: null },
+    orderBy: [{ capturedAt: "desc" }, { evidenceId: "desc" }],
+    skip: MAX_RETAINED_IMAGES_PER_USER,
+    select: { evidenceId: true, imageKey: true },
+  });
+  for (const row of overflow) {
+    await removeFaceEvidenceFiles([row.imageKey]);
+    await prisma.faceEvidence.update({
+      where: { evidenceId: row.evidenceId },
+      data: {
+        imageKey: null,
+        deletedAt: new Date(),
+        outcome: FaceVerificationOutcome.EXPIRED,
+      },
+    });
+  }
+  return overflow.length;
+}
+
 export async function verifyFaceCapture(input: {
   userId: string;
   employeeId?: string | null;
@@ -321,7 +343,8 @@ export async function verifyFaceCapture(input: {
       const registered = await approvedDescriptorForUser(input.userId);
       similarityScore = descriptorSimilarity(registered, capture.descriptor);
       if (similarityScore < settings.matchThreshold) {
-        failureReason = "Face does not match the registered employee.";
+        failureReason =
+          "Another face detected. Check-in was blocked because this face does not match the registered employee.";
       }
     }
   }
@@ -363,6 +386,7 @@ export async function verifyFaceCapture(input: {
       deletedAt: imageKey ? null : capturedAt,
     },
   });
+  await enforceEvidenceImageLimit(input.userId);
   if (failureReason) throw new HttpError(422, failureReason);
   return { evidence, settings };
 }
@@ -464,13 +488,22 @@ export async function cleanupExpiredFaceEvidence() {
       data: { imageKey: null, deletedAt: new Date(), outcome: FaceVerificationOutcome.EXPIRED },
     });
   }
+  const owners = await prisma.faceEvidence.findMany({
+    where: { imageKey: { not: null }, deletedAt: null },
+    distinct: ["userId"],
+    select: { userId: true },
+  });
+  let trimmedImages = 0;
+  for (const owner of owners) {
+    trimmedImages += await enforceEvidenceImageLimit(owner.userId);
+  }
   await prisma.faceVerificationSession.deleteMany({
     where: {
       expiresAt: { lt: new Date(Date.now() - 86_400_000) },
       evidence: { is: null },
     },
   });
-  return rows.length;
+  return rows.length + trimmedImages;
 }
 
 export function startFaceEvidenceCleanupScheduler() {

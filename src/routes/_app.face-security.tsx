@@ -7,6 +7,7 @@ import {
   Eye,
   RefreshCw,
   RotateCcw,
+  ShieldAlert,
   ShieldCheck,
   UserRoundCheck,
   X,
@@ -67,6 +68,10 @@ function FaceSecurityPage() {
     void refresh()
       .catch((error) => toast.error((error as Error).message))
       .finally(() => setLoading(false));
+    const timer = window.setInterval(() => {
+      void refresh().catch(() => undefined);
+    }, 15_000);
+    return () => window.clearInterval(timer);
   }, []);
 
   const counts = useMemo(
@@ -76,6 +81,7 @@ function FaceSecurityPage() {
       required: profiles.filter(
         (profile) => profile.status !== "APPROVED" && profile.status !== "DISABLED",
       ).length,
+      alerts: profiles.filter((profile) => profile.latestAlert).length,
     }),
     [profiles],
   );
@@ -134,7 +140,7 @@ function FaceSecurityPage() {
         }
       />
 
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         {[
           {
             label: "Approved",
@@ -148,6 +154,12 @@ function FaceSecurityPage() {
             value: counts.required,
             icon: ShieldCheck,
             tone: "text-blue-700",
+          },
+          {
+            label: "Face alerts",
+            value: counts.alerts,
+            icon: ShieldAlert,
+            tone: "text-red-700",
           },
         ].map(({ label, value, icon: Icon, tone }) => (
           <Card key={label}>
@@ -193,6 +205,9 @@ function FaceSecurityPage() {
                   setSettings({ ...settings, matchThreshold: Number(event.target.value) })
                 }
               />
+              <p className="text-xs text-muted-foreground">
+                Recommended: 0.60. Raising this improves strictness but can require more retries.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="gpsAccuracy">Maximum GPS error (metres)</Label>
@@ -268,6 +283,20 @@ function FaceSecurityPage() {
                 {profile.rejectionReason && (
                   <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs text-red-800">
                     {profile.rejectionReason}
+                  </div>
+                )}
+
+                {profile.latestAlert && (
+                  <div className="mt-3 flex gap-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900">
+                    <ShieldAlert className="mt-0.5 size-4 shrink-0" />
+                    <div>
+                      <div className="font-semibold">Another face detected</div>
+                      <div className="mt-0.5 text-xs">
+                        A check-in attempt was blocked because the face did not match this employee
+                        {" · "}
+                        {new Date(profile.latestAlert.capturedAt).toLocaleString("en-IN")}.
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -361,7 +390,18 @@ function FaceSecurityPage() {
                   <div className="space-y-1 p-3 text-xs">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-semibold">{item.purpose.replaceAll("_", " ")}</span>
-                      <Badge variant="outline">{item.outcome}</Badge>
+                      <Badge
+                        variant="outline"
+                        className={
+                          item.failureReason?.startsWith("Another face detected")
+                            ? "border-red-300 bg-red-50 text-red-800"
+                            : undefined
+                        }
+                      >
+                        {item.failureReason?.startsWith("Another face detected")
+                          ? "FACE MISMATCH"
+                          : item.outcome}
+                      </Badge>
                     </div>
                     <div className="text-muted-foreground">
                       {new Date(item.capturedAt).toLocaleString("en-IN")}

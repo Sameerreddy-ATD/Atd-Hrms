@@ -108,16 +108,22 @@ flowchart LR
 
 ### Mobile branch attendance
 
-1. The device requests front-camera and fresh precise-location permission.
-2. The backend issues a purpose-bound, two-minute, single-use randomized blink/head-turn challenge.
-3. The browser requires one clear real face, liveness, anti-spoofing, and the requested movement.
-4. The backend matches the submitted descriptor against the approved encrypted template and rejects
-   inaccurate GPS or an invalid/reused session.
-5. Only then does the backend calculate the nearest active branch and create the attendance event.
-6. When the device is within a branch's radius, the event is displayed as
+1. Check-in requests the front camera and fresh precise-location permission.
+2. The backend issues a purpose-bound, two-minute, single-use randomized head-turn challenge.
+3. The browser averages three stable descriptors and supports clear spectacles; glare, masks, and
+   dark/tinted glasses must not cover the face.
+4. The backend matches the descriptor against the approved encrypted template and rejects
+   inaccurate GPS, a different face, or an invalid/reused session.
+5. A different face shows **Another face detected**, creates a visible Developer Admin security
+   alert, and never creates attendance.
+6. Check-out does not open the camera. It requires the authenticated employee's active check-in and
+   a new precise-location reading.
+7. Only then does the backend calculate the nearest active branch and create the attendance event.
+8. When the device is within a branch's radius, the event is displayed as
    `Mobile - Branch Name`; an outside punch remains `Mobile` and retains coordinates.
-7. The encrypted evidence image expires after five days by default. Developer Admin can choose
-   1–30 days and review retained evidence under **Face Security**.
+9. Encrypted evidence expires after five days by default and is also capped at the latest five
+   pictures per person. Developer Admin can choose 1–30 days and review retained evidence under
+   **Face Security**.
 
 Failed face, liveness, anti-spoof, session, or location verification never creates attendance. See
 [Face Registration and Verified Attendance](FACE_ATTENDANCE_SECURITY.md) for the complete

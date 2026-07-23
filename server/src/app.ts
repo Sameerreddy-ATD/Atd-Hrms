@@ -852,6 +852,7 @@ export function createApp() {
           approvedAt: true,
         },
       });
+      const settings = await readFaceSettings();
       res.json({
         status:
           req.user!.role === Role.DEVELOPER_ADMIN
@@ -863,6 +864,7 @@ export function createApp() {
         rejectionReason: profile?.rejectionReason ?? null,
         submittedAt: profile?.submittedAt?.toISOString() ?? null,
         approvedAt: profile?.approvedAt?.toISOString() ?? null,
+        maxGpsAccuracyMeters: settings.maxGpsAccuracyMeters,
         consent: FACE_CONSENT,
       });
     }),
@@ -910,74 +912,106 @@ export function createApp() {
     requireAuth,
     requireRoles(Role.DEVELOPER_ADMIN),
     asyncHandler(async (_req, res) => {
-      const users = await prisma.user.findMany({
-        where: { status: UserStatus.ACTIVE, role: { not: Role.DEVELOPER_ADMIN } },
-        orderBy: { name: "asc" },
-        select: {
-          id: true,
-          employeeId: true,
-          name: true,
-          email: true,
-          role: true,
-          faceProfile: {
-            select: {
-              status: true,
-              submittedAt: true,
-              approvedAt: true,
-              rejectionReason: true,
-              approvedBy: { select: { name: true } },
+      const settings = await readFaceSettings();
+      const alertWindowStart = new Date(Date.now() - settings.retentionDays * 24 * 60 * 60 * 1000);
+      const [users, mismatchEvidence] = await Promise.all([
+        prisma.user.findMany({
+          where: { status: UserStatus.ACTIVE, role: { not: Role.DEVELOPER_ADMIN } },
+          orderBy: { name: "asc" },
+          select: {
+            id: true,
+            employeeId: true,
+            name: true,
+            email: true,
+            role: true,
+            faceProfile: {
+              select: {
+                status: true,
+                submittedAt: true,
+                approvedAt: true,
+                rejectionReason: true,
+                approvedBy: { select: { name: true } },
+              },
+            },
+            faceEvidence: {
+              orderBy: { capturedAt: "desc" },
+              take: 1,
+              select: {
+                evidenceId: true,
+                outcome: true,
+                capturedAt: true,
+                expiresAt: true,
+                deletedAt: true,
+                imageKey: true,
+                faceConfidence: true,
+                livenessScore: true,
+                antiSpoofScore: true,
+                similarityScore: true,
+                failureReason: true,
+              },
             },
           },
-          faceEvidence: {
-            orderBy: { capturedAt: "desc" },
-            take: 1,
-            select: {
-              evidenceId: true,
-              outcome: true,
-              capturedAt: true,
-              expiresAt: true,
-              deletedAt: true,
-              imageKey: true,
-              faceConfidence: true,
-              livenessScore: true,
-              antiSpoofScore: true,
-              similarityScore: true,
-              failureReason: true,
-            },
+        }),
+        prisma.faceEvidence.findMany({
+          where: {
+            capturedAt: { gte: alertWindowStart },
+            failureReason: { startsWith: "Another face detected" },
+            user: { status: UserStatus.ACTIVE, role: { not: Role.DEVELOPER_ADMIN } },
           },
-        },
-      });
+          orderBy: { capturedAt: "desc" },
+          select: {
+            evidenceId: true,
+            userId: true,
+            capturedAt: true,
+            failureReason: true,
+          },
+        }),
+      ]);
+      const latestAlertByUser = new Map<string, (typeof mismatchEvidence)[number]>();
+      for (const alert of mismatchEvidence) {
+        if (!latestAlertByUser.has(alert.userId)) latestAlertByUser.set(alert.userId, alert);
+      }
       res.json(
-        users.map((user) => ({
-          userId: user.id,
-          employeeId: user.employeeId,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          status: user.faceProfile?.status ?? "NOT_REGISTERED",
-          submittedAt: user.faceProfile?.submittedAt?.toISOString() ?? null,
-          approvedAt: user.faceProfile?.approvedAt?.toISOString() ?? null,
-          approvedBy: user.faceProfile?.approvedBy?.name ?? null,
-          rejectionReason: user.faceProfile?.rejectionReason ?? null,
-          latestEvidence: user.faceEvidence[0]
-            ? {
-                ...user.faceEvidence[0],
-                faceConfidence: Number(user.faceEvidence[0].faceConfidence ?? 0),
-                livenessScore: Number(user.faceEvidence[0].livenessScore ?? 0),
-                antiSpoofScore: Number(user.faceEvidence[0].antiSpoofScore ?? 0),
-                similarityScore:
-                  user.faceEvidence[0].similarityScore === null
-                    ? null
-                    : Number(user.faceEvidence[0].similarityScore),
-                capturedAt: user.faceEvidence[0].capturedAt.toISOString(),
-                expiresAt: user.faceEvidence[0].expiresAt.toISOString(),
-                imageAvailable: Boolean(
-                  user.faceEvidence[0].imageKey && !user.faceEvidence[0].deletedAt,
-                ),
-                imageKey: undefined,
-              }
-            : null,
-        })),
+        users.map((user) => {
+          const latestAlert = latestAlertByUser.get(user.id);
+          return {
+            userId: user.id,
+            employeeId: user.employeeId,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            status: user.faceProfile?.status ?? "NOT_REGISTERED",
+            submittedAt: user.faceProfile?.submittedAt?.toISOString() ?? null,
+            approvedAt: user.faceProfile?.approvedAt?.toISOString() ?? null,
+            approvedBy: user.faceProfile?.approvedBy?.name ?? null,
+            rejectionReason: user.faceProfile?.rejectionReason ?? null,
+            latestAlert: latestAlert
+              ? {
+                  evidenceId: latestAlert.evidenceId,
+                  capturedAt: latestAlert.capturedAt.toISOString(),
+                  failureReason: latestAlert.failureReason,
+                }
+              : null,
+            latestEvidence: user.faceEvidence[0]
+              ? {
+                  ...user.faceEvidence[0],
+                  faceConfidence: Number(user.faceEvidence[0].faceConfidence ?? 0),
+                  livenessScore: Number(user.faceEvidence[0].livenessScore ?? 0),
+                  antiSpoofScore: Number(user.faceEvidence[0].antiSpoofScore ?? 0),
+                  similarityScore:
+                    user.faceEvidence[0].similarityScore === null
+                      ? null
+                      : Number(user.faceEvidence[0].similarityScore),
+                  capturedAt: user.faceEvidence[0].capturedAt.toISOString(),
+                  expiresAt: user.faceEvidence[0].expiresAt.toISOString(),
+                  imageAvailable: Boolean(
+                    user.faceEvidence[0].imageKey && !user.faceEvidence[0].deletedAt,
+                  ),
+                  imageKey: undefined,
+                }
+              : null,
+          };
+        }),
       );
     }),
   );
@@ -3207,9 +3241,19 @@ export function createApp() {
     const employeeId = body.employeeId ?? req.user?.employeeId;
     if (!employeeId) throw new HttpError(400, "employeeId is required");
     if (!req.user?.employeeId || employeeId !== req.user.employeeId) {
-      throw new HttpError(403, "Mobile face attendance can only be recorded for your own profile");
+      throw new HttpError(403, "Mobile attendance can only be recorded for your own profile");
     }
     await assertEmployeeAccess(req.user, employeeId);
+    const isCheckOut = type === EventType.FIELD_CHECK_OUT || type === EventType.CLIENT_CHECK_OUT;
+    if (isCheckOut) {
+      const settings = await readFaceSettings();
+      if (body.locationAccuracy > settings.maxGpsAccuracyMeters) {
+        throw new HttpError(
+          422,
+          `Location accuracy must be within ${settings.maxGpsAccuracyMeters} metres.`,
+        );
+      }
+    }
     let nearbyBranchId: string | undefined;
     if (workType === WorkType.FIELD) {
       const configuredBranches = await prisma.branch.findMany({
@@ -3249,7 +3293,6 @@ export function createApp() {
       EventType.BREAK_IN,
     ]);
     const latestIsOpen = latestEvent ? openInTypes.has(latestEvent.eventType) : false;
-    const isCheckOut = type === EventType.FIELD_CHECK_OUT || type === EventType.CLIENT_CHECK_OUT;
     if (!isCheckOut && latestIsOpen) {
       throw new HttpError(409, "You are already checked in. Refresh to see the latest punch.");
     }
@@ -3269,20 +3312,23 @@ export function createApp() {
         );
       }
     }
-    const facePurpose = isCheckOut
-      ? FaceVerificationPurpose.ATTENDANCE_CHECK_OUT
-      : FaceVerificationPurpose.ATTENDANCE_CHECK_IN;
-    const verifiedFace = await verifyFaceCapture({
-      userId: req.user!.id,
-      employeeId,
-      expectedPurpose: facePurpose,
-      capture: faceCaptureSchema.parse({
-        ...body.faceVerification,
-        latitude: body.latitude,
-        longitude: body.longitude,
-        locationAccuracy: body.locationAccuracy,
-      }),
-    });
+    let verifiedFace: Awaited<ReturnType<typeof verifyFaceCapture>> | null = null;
+    if (!isCheckOut) {
+      if (!body.faceVerification) {
+        throw new HttpError(400, "Live face verification is required for check-in");
+      }
+      verifiedFace = await verifyFaceCapture({
+        userId: req.user!.id,
+        employeeId,
+        expectedPurpose: FaceVerificationPurpose.ATTENDANCE_CHECK_IN,
+        capture: faceCaptureSchema.parse({
+          ...body.faceVerification,
+          latitude: body.latitude,
+          longitude: body.longitude,
+          locationAccuracy: body.locationAccuracy,
+        }),
+      });
+    }
     const matchingCheckOut = (checkInType: EventType): EventType => {
       switch (checkInType) {
         case EventType.OFFICE_IN:
@@ -3322,22 +3368,26 @@ export function createApp() {
         photoUrl: clientBody.photoUrl,
         createdByUserId: req.user!.id,
       });
-      await prisma.faceEvidence.update({
-        where: { evidenceId: verifiedFace.evidence.evidenceId },
-        data: { attendanceEventId: event.eventId },
-      });
-    } catch (error) {
-      await prisma.faceEvidence
-        .update({
+      if (verifiedFace) {
+        await prisma.faceEvidence.update({
           where: { evidenceId: verifiedFace.evidence.evidenceId },
-          data: {
-            outcome: "FAILED",
-            failureReason: "Attendance event creation failed after identity verification",
-          },
-        })
-        .catch((evidenceError) =>
-          console.error("Failed to mark unlinked face evidence as failed", evidenceError),
-        );
+          data: { attendanceEventId: event.eventId },
+        });
+      }
+    } catch (error) {
+      if (verifiedFace) {
+        await prisma.faceEvidence
+          .update({
+            where: { evidenceId: verifiedFace.evidence.evidenceId },
+            data: {
+              outcome: "FAILED",
+              failureReason: "Attendance event creation failed after identity verification",
+            },
+          })
+          .catch((evidenceError) =>
+            console.error("Failed to mark unlinked face evidence as failed", evidenceError),
+          );
+      }
       throw error;
     }
     if (approvedLeave) await cancelApprovedLeaveForDay(employeeId, eventDate);

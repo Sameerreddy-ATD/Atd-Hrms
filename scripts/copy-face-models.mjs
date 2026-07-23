@@ -1,4 +1,4 @@
-import { cp, mkdir } from "node:fs/promises";
+import { cp, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -14,12 +14,11 @@ const files = [
   "facemesh.json",
   "faceres.bin",
   "faceres.json",
-  "iris.bin",
-  "iris.json",
   "liveness.bin",
   "liveness.json",
 ];
 
+await rm(targetRoot, { recursive: true, force: true });
 await mkdir(targetRoot, { recursive: true });
 await Promise.all(
   files.map((file) =>

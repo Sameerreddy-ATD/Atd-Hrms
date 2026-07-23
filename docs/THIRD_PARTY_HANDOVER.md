@@ -268,8 +268,8 @@ secrets, HTTPS, independent backups, monitoring, restricted networking, and imag
 - [ ] MySQL, backend, and frontend internal ports are not publicly reachable.
 - [ ] Secrets are stored outside Git with least-privilege access.
 - [ ] Daily encrypted database backup and retention are configured.
-- [ ] The private face-evidence directory/volume, encryption-key custody, disk monitoring, and
-      automatic 1–30 day image retention are approved.
+- [ ] The private face-evidence directory/volume, encryption-key custody, disk monitoring,
+      automatic 1–30 day retention, and maximum-five-images-per-person limit are approved.
 - [ ] A restore has been tested in a non-production environment.
 
 ### Application verification
@@ -283,8 +283,10 @@ secrets, HTTPS, independent backups, monitoring, restricted networking, and imag
 - [ ] Employee profile, encrypted private fields, and ID card work.
 - [ ] Existing normal accounts receive the mandatory face gate and Developer Admin remains exempt.
 - [ ] Normal enrollment, approval/rejection/reset, evidence viewing, and retention cleanup work.
-- [ ] Mobile attendance rejects missing/failed face or imprecise GPS and links passed evidence to
-      the saved attendance event.
+- [ ] Check-in rejects missing/failed face or imprecise GPS, clearly reports another-face attempts,
+      and links passed evidence to the saved attendance event.
+- [ ] Check-out does not open the camera, requires precise GPS, and saves the location.
+- [ ] Developer Admin shows recent another-face alerts and retained evidence.
 - [ ] Attendance and live cross-device refresh work.
 - [ ] Leave, expenses, HR documents, assets, tasks, and notifications work.
 - [ ] CEO, HR, head, manager, and employee scopes are verified.

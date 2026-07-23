@@ -217,6 +217,18 @@ try {
     "Active evidence must retain an encrypted image key and deleted evidence must not retain one",
   );
   await countCheck(
+    "face evidence image limit",
+    `SELECT COUNT(*) AS count
+     FROM (
+       SELECT user_id
+       FROM face_evidence
+       WHERE image_key IS NOT NULL AND deleted_at IS NULL
+       GROUP BY user_id
+       HAVING COUNT(*) > 5
+     ) retained_over_limit`,
+    "No account may retain more than five encrypted face images",
+  );
+  await countCheck(
     "face attendance linkage",
     `SELECT COUNT(*) AS count FROM face_evidence
      WHERE outcome = 'PASSED'

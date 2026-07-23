@@ -138,8 +138,8 @@ For screens changed in a release, verify:
 - mandatory normal-account face gate, Developer Admin exemption, consent, camera denial,
   one-face rule, randomized movement, pending approval, rejection/retry, Developer Admin evidence
   history, and retention policy;
-- face-verified check-in/check-out with precise GPS, leave confirmation, session reuse prevention,
-  and no attendance row after failed verification;
+- face-verified check-in with precise GPS, location-only check-out, visible mismatch alerts, leave
+  confirmation, session reuse prevention, and no attendance row after failed verification;
 - keyboard focus, accessible names, and dialog close/cancel behavior;
 - no document-level horizontal overflow at 320 px and 390 px;
 - API failures produce a clear message and do not create duplicate writes; and

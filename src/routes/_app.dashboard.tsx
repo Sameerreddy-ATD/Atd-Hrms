@@ -52,7 +52,8 @@ import { formatWorkedTime, workedTime } from "@/lib/worked-time";
 import { subscribeToAttendanceChanges } from "@/lib/attendance-live";
 import {
   FaceAttendanceDialog,
-  type VerifiedAttendanceCapture,
+  type AttendanceCapture,
+  type VerifiedCheckInCapture,
 } from "@/components/face/FaceAttendanceDialog";
 import {
   AlertTriangle,
@@ -476,7 +477,7 @@ function MarkAttendanceCard({
     state: "CHECKED_IN" | "CHECKED_OUT";
     startedAt?: number;
   } | null>(null);
-  const [leaveCheckIn, setLeaveCheckIn] = useState<VerifiedAttendanceCapture | null>(null);
+  const [leaveCheckIn, setLeaveCheckIn] = useState<VerifiedCheckInCapture | null>(null);
   const workSession = useMemo(() => workedTime(timeline, clockNow), [clockNow, timeline]);
   const isCheckedIn = optimisticSession
     ? optimisticSession.state === "CHECKED_IN"
@@ -517,10 +518,7 @@ function MarkAttendanceCard({
     }
   }, [optimisticSession, workSession.isCheckedIn]);
 
-  async function submitCheckIn(
-    capture: VerifiedAttendanceCapture,
-    confirmLeaveCancellation = false,
-  ) {
+  async function submitCheckIn(capture: VerifiedCheckInCapture, confirmLeaveCancellation = false) {
     if (!user.employeeId) return;
     try {
       await attendanceApi.checkIn({
@@ -568,10 +566,13 @@ function MarkAttendanceCard({
     setFaceAction("check-out");
   }
 
-  async function handleVerifiedAttendance(capture: VerifiedAttendanceCapture) {
+  async function handleVerifiedAttendance(capture: AttendanceCapture) {
     setActionLoading(true);
     try {
       if (faceAction === "check-in") {
+        if (!("faceVerification" in capture)) {
+          throw new Error("Live face verification is required for check-in.");
+        }
         await submitCheckIn(capture);
       } else {
         await attendanceApi.checkOut(capture);
@@ -579,6 +580,16 @@ function MarkAttendanceCard({
         toast.success("You are checked out");
         onAttendanceChanged();
       }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Attendance could not be saved.";
+      if (message.startsWith("Another face detected")) {
+        toast.error("Another face detected", {
+          description: "Check-in was blocked and the security event is visible to Developer Admin.",
+        });
+      } else {
+        toast.error(message);
+      }
+      throw error;
     } finally {
       setActionLoading(false);
     }

@@ -13,8 +13,16 @@ function loadHuman() {
       const human = new Human({
         backend: "webgl",
         modelBasePath: "/face-models",
-        cacheSensitivity: 0.01,
-        filter: { enabled: true, equalization: true },
+        cacheModels: true,
+        cacheSensitivity: 0,
+        skipAllowed: false,
+        warmup: "full",
+        filter: {
+          enabled: true,
+          equalization: false,
+          autoBrightness: true,
+          return: true,
+        },
         face: {
           enabled: true,
           detector: {
@@ -22,14 +30,21 @@ function loadHuman() {
             return: true,
             mask: false,
             maxDetected: 2,
-            minConfidence: 0.4,
+            minConfidence: 0.5,
+            skipFrames: 0,
+            skipTime: 0,
           },
           mesh: { enabled: true },
-          description: { enabled: true },
-          iris: { enabled: true },
+          description: {
+            enabled: true,
+            minConfidence: 0.5,
+            skipFrames: 0,
+            skipTime: 0,
+          },
+          iris: { enabled: false },
           emotion: { enabled: false },
-          antispoof: { enabled: true },
-          liveness: { enabled: true },
+          antispoof: { enabled: true, skipFrames: 0, skipTime: 0 },
+          liveness: { enabled: true, skipFrames: 0, skipTime: 0 },
         },
         body: { enabled: false },
         hand: { enabled: false },
@@ -37,10 +52,17 @@ function loadHuman() {
         gesture: { enabled: true },
       });
       await human.load();
+      await human.warmup();
       return human;
     });
   }
   return humanPromise;
+}
+
+// Shared by the attendance dialog so model loading can begin before the camera opens.
+// eslint-disable-next-line react-refresh/only-export-components
+export async function preloadFaceRecognition() {
+  await loadHuman();
 }
 
 const challengeCopy: Record<FaceChallenge, { title: string; hint: string }> = {
@@ -86,6 +108,7 @@ export function FaceCapture({
     let challengeObserved = false;
     let centreObserved = false;
     let stableFrames = 0;
+    let stableEmbeddings: number[][] = [];
 
     const stop = () => {
       active = false;
@@ -135,6 +158,7 @@ export function FaceCapture({
             if (!active) return;
             if (result.face.length !== 1) {
               stableFrames = 0;
+              stableEmbeddings = [];
               setQuality(0);
               setMessage(
                 result.face.length > 1
@@ -178,35 +202,49 @@ export function FaceCapture({
 
             if (!largeEnough) {
               stableFrames = 0;
+              stableEmbeddings = [];
               setMessage("Move a little closer to the camera.");
             } else if (faceScore < session.settings.minFaceConfidence) {
               stableFrames = 0;
+              stableEmbeddings = [];
               setMessage("Use brighter, even lighting on your face.");
             } else if (real < session.settings.minAntiSpoofScore) {
               stableFrames = 0;
+              stableEmbeddings = [];
               setMessage("A real face is required—photos and screens are not accepted.");
             } else if (live < session.settings.minLivenessScore) {
               stableFrames = 0;
+              stableEmbeddings = [];
               setMessage("Keep your face visible and follow the movement prompt.");
             } else if (!challengeObserved) {
               stableFrames = 0;
+              stableEmbeddings = [];
               setMessage(challengeCopy[session.challenge].hint);
             } else if (!facingCentre) {
               stableFrames = 0;
+              stableEmbeddings = [];
               setMessage("Great. Now look straight at the camera.");
             } else if (!hasDescriptor) {
               stableFrames = 0;
+              stableEmbeddings = [];
               setMessage("Hold still while your face template is prepared.");
             } else {
               stableFrames += 1;
-              setMessage("Identity checks passed. Hold still…");
+              stableEmbeddings.push([...(face.embedding ?? [])]);
+              stableEmbeddings = stableEmbeddings.slice(-3);
+              setMessage(`Analysing face ${Math.min(stableFrames, 3)}/3…`);
             }
 
-            if (stableFrames >= 2 && face.embedding) {
+            if (stableFrames >= 3 && stableEmbeddings.length === 3 && face.embedding) {
               setPhase("verifying");
-              setMessage("Encrypting and verifying your capture…");
+              setMessage("Matching your face securely…");
+              const averagedDescriptor = stableEmbeddings[0].map(
+                (_, index) =>
+                  stableEmbeddings.reduce((sum, embedding) => sum + embedding[index], 0) /
+                  stableEmbeddings.length,
+              );
               const canvas = document.createElement("canvas");
-              const scale = Math.min(1, 640 / video.videoWidth);
+              const scale = Math.min(1, 720 / video.videoWidth);
               canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
               canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
               const context = canvas.getContext("2d");
@@ -216,8 +254,8 @@ export function FaceCapture({
               await completeRef.current({
                 sessionId: session.sessionId,
                 nonce: session.nonce,
-                descriptor: [...face.embedding],
-                imageData: canvas.toDataURL("image/jpeg", 0.8),
+                descriptor: averagedDescriptor,
+                imageData: canvas.toDataURL("image/jpeg", 0.86),
                 faceConfidence: faceScore,
                 livenessScore: live,
                 antiSpoofScore: real,
@@ -318,7 +356,7 @@ export function FaceCapture({
             Private and protected
           </div>
           <p className="mt-1 text-xs">
-            Your face template and capture are encrypted before storage.
+            Spectacles are supported. Reduce screen glare if it covers your eyes.
           </p>
         </div>
       </div>

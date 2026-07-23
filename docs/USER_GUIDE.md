@@ -162,14 +162,17 @@ Developer Admin assigns each employee a day or night shift and its start/end tim
 Employees can use mobile attendance in the current version. Biometric/eSSL attendance is planned for the next version.
 
 1. Open the Dashboard or **My Attendance** and review today's timeline.
-2. Select **Check In** or **Check Out**.
-3. Allow the front camera and precise location. The operation cannot continue when either permission
-   is denied or GPS accuracy is outside policy.
-4. Keep exactly one face inside the oval and complete the randomized blink/head-turn prompt.
-5. Return to the centre and hold still while the backend checks the approved template.
-6. The attendance event is saved only after face, liveness, anti-spoof, one-time session, and GPS
-   validation pass.
-7. Future eSSL/fingerprint imports can appear in the same daily timeline through the separate
+2. For **Check In**, allow the front camera and precise location.
+3. Keep exactly one face inside the oval, complete the head-turn prompt, return to the centre, and
+   hold still while three stable frames are averaged and matched.
+4. Clear spectacles are supported. Reduce glare if it covers the eyes; remove masks and
+   dark/tinted glasses.
+5. A different person produces an **Another face detected** popup, is visible in Developer Admin
+   **Face Security**, and does not create check-in.
+6. For **Check Out**, only precise location is requested; the camera does not open.
+7. The operation cannot continue when required permission is denied or GPS accuracy is outside
+   policy.
+8. Future eSSL/fingerprint imports can appear in the same daily timeline through the separate
    biometric integration workflow.
 
 After a successful mobile punch, the status and timer update immediately while the live server timeline refreshes. Keep the page open if the network is slow; the punch button remains disabled while the request is pending to prevent duplicate submissions. Other signed-in devices update through the attendance live stream.
@@ -393,13 +396,16 @@ Every active entry visible in the Holiday list counts as a holiday for attendanc
 
 1. Open **Face Security**.
 2. Review pending users, the encrypted evidence image, scores, time, and any GPS details.
-3. Select **Approve**, or select **Reject** and give a clear correction reason.
-4. Use **Reset** when another employee must register again. The account is blocked immediately.
-5. Use the privacy policy card to set capture retention (default five days), match threshold, and
+3. A red **Another face detected** alert means a check-in was blocked because the captured face did
+   not match that employee.
+4. Select **Approve**, or select **Reject** and give a clear correction reason.
+5. Use **Reset** when another employee must register again. The account is blocked immediately.
+6. Use the privacy policy card to set capture retention (default five days), match threshold, and
    maximum accepted GPS error.
 
-The evidence dialog lists retained registration and attendance captures. Expired pictures are
-automatically deleted while non-image audit metadata remains. See
+The evidence dialog lists retained registration and check-in captures. At most the latest five
+pictures per person remain available, and none remain longer than the configured retention.
+Expired pictures are automatically deleted while non-image audit metadata remains. See
 [Face Registration and Verified Attendance](FACE_ATTENDANCE_SECURITY.md).
 
 ## Notifications

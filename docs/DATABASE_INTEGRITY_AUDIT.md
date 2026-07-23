@@ -125,8 +125,8 @@ The command reports per-table row counts and runs the complete current check sui
 - employee and department hierarchy cycles;
 - employee versions, shifts, branch coordinates, and geofence ranges;
 - attendance totals, checkout ordering, and paired GPS coordinates;
-- face-template encryption, approval metadata, evidence deletion state, attendance linkage, and
-  face-attendance GPS completeness;
+- face-template encryption, approval metadata, evidence deletion state, the maximum-five active
+  image limit per user, check-in evidence linkage, and face-attendance GPS completeness;
 - leave date ranges and balance arithmetic;
 - expense type/status/required fields, Drive confirmation, and payment timestamp consistency;
 - HR-document workflow/link consistency;

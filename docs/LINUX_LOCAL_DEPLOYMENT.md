@@ -276,7 +276,8 @@ For the face-attendance release also verify:
 2. Developer Admin opens the workspace without face authentication;
 3. a normal employee submits and remains pending;
 4. Developer Admin reviews retained evidence and approves the employee;
-5. check-in and checkout require camera, movement challenge, face match, and precise GPS;
+5. check-in requires camera, head-turn challenge, face match, and precise GPS; check-out requires
+   precise GPS without camera access;
 6. `npm run db:verify` and `npm run db:audit` report no face integrity failure; and
 7. the backend service account can write `FACE_EVIDENCE_DIR` but Nginx cannot serve it directly.
 

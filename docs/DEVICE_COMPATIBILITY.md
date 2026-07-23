@@ -33,14 +33,17 @@ The application uses responsive web and Progressive Web App behavior. The suppor
 
 ## Face Registration and Camera Requirements
 
-- Every account is blocked after password setup until its face registration is approved.
+- Every normal account is blocked after password setup until its face registration is approved;
+  Developer Admin is exempt.
 - Camera and face-model APIs require HTTPS outside localhost. WebGL should remain enabled.
-- Keep exactly one face in the frame, use even lighting, and remove masks or dark glasses.
-- The first verification downloads approximately 12 MB of version-pinned model assets; repeat use
-  normally uses browser cache.
+- Keep exactly one face in the frame, use even lighting, and remove masks or dark/tinted glasses.
+  Clear spectacles are supported; reduce glare when it crosses the eyes.
+- The optimized version-pinned model set is approximately 10.2 MB. It preloads from the dashboard
+  and repeat use normally comes from browser cache.
 - A registration or attendance capture cannot be completed offline.
 - Camera denial must be reversed in site/OS settings. The application cannot override a denial.
-- Verify the full-screen gate and camera dialog in portrait and landscape without clipped controls.
+- Verify the full-screen gate and check-in camera dialog in portrait and landscape without clipped
+  controls. Check-out must request location without opening the camera.
 
 ## Low-Network Behavior
 
@@ -65,7 +68,8 @@ Test at minimum:
 For every size verify no overlapping text, horizontal page overflow, clipped dialogs, inaccessible
 actions, undersized touch targets, or tables without horizontal scrolling. Test login, mandatory
 face registration, camera/location denial, movement challenge, pending/rejected approval, Developer
-Admin evidence history, face-verified attendance, live timer/cross-device checkout, leave
+Admin mismatch/evidence history, face-verified check-in, location-only checkout, live
+timer/cross-device checkout, leave
 submission, task details, employee/user lists, holidays, assets, announcements, notification
 permission, account-deactivation confirmation, expense attachment acknowledgement, and the
 Developer Admin integration credential panel.

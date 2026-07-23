@@ -164,6 +164,11 @@ export interface FaceAdminProfile {
   approvedAt: string | null;
   approvedBy: string | null;
   rejectionReason: string | null;
+  latestAlert: {
+    evidenceId: string;
+    capturedAt: string;
+    failureReason: string | null;
+  } | null;
   latestEvidence: {
     evidenceId: string;
     outcome: "CREATED" | "PASSED" | "FAILED" | "EXPIRED";
