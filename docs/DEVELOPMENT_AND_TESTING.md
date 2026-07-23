@@ -42,6 +42,12 @@ Prisma loads `prisma.config.ts` for every CLI command. Even commands such as
 
 ## Daily Development
 
+`npm run dev` and `npm run build` run `face:models` automatically. It copies the version-pinned
+detector, mesh, iris, descriptor, liveness, and anti-spoof assets from
+`node_modules/@vladmandic/human/models` into ignored `public/face-models`. If the camera reports
+model 404 errors, run `npm run face:models` and verify the frontend origin serves
+`/face-models/blazeface.json`.
+
 With MySQL already running:
 
 ```powershell
@@ -129,6 +135,10 @@ For screens changed in a release, verify:
 
 - desktop Chromium and a narrow mobile viewport;
 - loading, error, empty, populated, and permission-denied states;
+- mandatory face gate, consent, camera denial, one-face rule, randomized movement, pending
+  approval, rejection/retry, Developer Admin evidence history, and retention policy;
+- face-verified check-in/check-out with precise GPS, leave confirmation, session reuse prevention,
+  and no attendance row after failed verification;
 - keyboard focus, accessible names, and dialog close/cancel behavior;
 - no document-level horizontal overflow at 320 px and 390 px;
 - API failures produce a clear message and do not create duplicate writes; and

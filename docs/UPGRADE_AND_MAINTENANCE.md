@@ -58,6 +58,19 @@ Before the first update containing employee private-data encryption, add a stabl
 `EMPLOYEE_DATA_ENCRYPTION_KEY` (32+ characters) to `/opt/anytime-crew-hub/.env` and include that
 file in the encrypted configuration backup. Do this before any bank/PAN/Aadhaar/UAN value is saved.
 
+Before migration `20260723180000_face_attendance`, also create a persistent private directory and add
+it to `.env`:
+
+```bash
+sudo install -d -m 700 -o ubuntu -g ubuntu /var/lib/anytime-crew-hub/face-evidence
+printf '%s\n' 'FACE_EVIDENCE_DIR="/var/lib/anytime-crew-hub/face-evidence"' >> .env
+```
+
+Do not add the variable twice. Review `.env` privately and correct duplicates before restarting.
+The migration is additive, but the security behavior is intentionally disruptive: every existing
+account is blocked until face registration is complete. Enroll the Developer Admin first; its first
+valid capture auto-approves, allowing it to review all other registrations.
+
 Run `npx prisma migrate deploy` before restarting the backend. Migration `20260721103000_add_employee_shifts` adds day/night shift configuration with day-shift defaults for existing employees.
 
 ### Task Workspace v2 migration warning
@@ -123,6 +136,11 @@ curl -I https://hrms.example.com
 ```
 
 Then test login, dashboard restore, mobile attendance, cross-device timer refresh, leave submit/approval, announcement delivery, notification scope, user status, and logout.
+
+For the face-attendance release, test camera and precise-location denial, enrollment retry, pending
+approval, rejection reason, encrypted evidence history, retention settings, leave-confirmed
+check-in, checkout, and one-time session expiry. Confirm the evidence directory is persistent across
+a PM2 restart or container replacement.
 
 For a Work Planner release, create a board and task, add/reorder a custom stage, change the task
 stage, post an update, archive and restore the board, and confirm the stage/status/activity remain

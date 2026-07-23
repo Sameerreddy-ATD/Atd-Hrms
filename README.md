@@ -6,6 +6,11 @@ Work Planner includes configurable open/role/member-gated boards, ordered custom
 assigned-work shortcuts, list/Kanban/timeline views, mobile-focused task details, optimistic
 concurrency, and recoverable board archival.
 
+Every account now completes mandatory face registration before workspace access. Mobile check-in
+and check-out require a randomized liveness movement, an approved encrypted face-template match,
+and precise GPS. Captures are encrypted, retained for five days by default, and controlled from the
+responsive Developer Admin **Face Security** screen.
+
 The role-aware workspace keeps operational actions with Developer Admin, HR, and organization
 heads while giving the CEO a read-only executive view of workforce health, attendance coverage,
 leave decisions, work delivery, and company investment in employees.
@@ -39,6 +44,7 @@ Start with the [documentation index](docs/README.md).
 | [Upgrade and Maintenance](docs/UPGRADE_AND_MAINTENANCE.md)                     | Production releases, backups, rollback, and monitoring                       |
 | [Reset and Go-Live](docs/RESET_AND_GO_LIVE.md)                                 | Developer Admin and go-live owners                                           |
 | [Device Compatibility](docs/DEVICE_COMPATIBILITY.md)                           | Mobile/PWA testing and support                                               |
+| [Face Registration and Verified Attendance](docs/FACE_ATTENDANCE_SECURITY.md)  | Enrollment, liveness, GPS, storage, retention, APIs, and operations          |
 | [Product Naming](docs/PRODUCT_NAMING.md)                                       | Product owners and interface writers                                         |
 
 Security reporting and credential-handling rules are in [SECURITY.md](SECURITY.md).
@@ -49,6 +55,7 @@ Security reporting and credential-handling rules are in [SECURITY.md](SECURITY.m
 - Express and TypeScript backend
 - MySQL 8 and Prisma ORM
 - HTTP-only cookie authentication with backend RBAC
+- Self-hosted browser face detection/liveness with backend matching and one-time challenges
 - Server-Sent Events for live attendance and notification refresh
 - Web Push and service worker support for installed applications
 - Responsive role-specific navigation for mobile, tablet, laptop, and installed PWA use
@@ -141,6 +148,7 @@ Create `.env` from `.env.example`. Never commit `.env`, passwords, JWT secrets, 
 | `JWT_ACCESS_SECRET`            | Strong access-token signing secret                                       |
 | `JWT_REFRESH_SECRET`           | Separate strong refresh-token signing secret                             |
 | `EMPLOYEE_DATA_ENCRYPTION_KEY` | Stable 32+ character key for encrypted bank/statutory employee fields    |
+| `FACE_EVIDENCE_DIR`            | Private persistent directory for encrypted short-lived face captures     |
 | `SESSION_COOKIE_NAME`          | Access-session cookie name                                               |
 | `REFRESH_COOKIE_NAME`          | Refresh-session cookie name                                              |
 | `COOKIE_SECURE`                | `true` in HTTPS production                                               |
@@ -188,6 +196,10 @@ The audit is read-only and verifies every foreign key plus cross-table business 
 - Employees can view only their own expense and HR document requests. HR and Developer Admin can review organization-wide requests.
 - External applications use `/api/v1` with scoped, revocable service credentials; browser cookies are not an integration authentication mechanism.
 - Bank account numbers, PAN, Aadhaar, and UAN are encrypted at rest and omitted from Employee API v1.
+- Face registration is enforced by both the frontend gate and backend middleware; existing accounts
+  must register after this release.
+- Face templates and short-lived evidence are AES-256-GCM encrypted and intentionally excluded from
+  Employee API v1.
 - Asset returns are completed through a recorded HR checklist before an assignment is released.
 - Assets use explicit `AVAILABLE`, `ASSIGNED`, `UNDER_REPAIR`, and `RETIRED` statuses. The return checklist records condition, accessories, charger, backup/wipe confirmation, damage, notes, receiver, and time.
 - Vulnerabilities and suspected secret exposure are reported privately according to [SECURITY.md](SECURITY.md), never through a public issue.
@@ -221,6 +233,11 @@ pm2 save
 ```
 
 Always take a MySQL backup first when a release contains migrations. See the [Upgrade and Maintenance Guide](docs/UPGRADE_AND_MAINTENANCE.md) for the complete procedure.
+
+Before deploying migration `20260723180000_face_attendance`, create the private
+`FACE_EVIDENCE_DIR`, keep `EMPLOYEE_DATA_ENCRYPTION_KEY` stable, and expect every existing account
+to see the mandatory registration gate. The first Developer Admin valid enrollment auto-approves so
+it can review other users.
 
 Migration `20260722213000_task_workspace_v2` intentionally clears legacy Task-only records while
 installing the new Work Planner model. Review the migration warning and retain a verified backup

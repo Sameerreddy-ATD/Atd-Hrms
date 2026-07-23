@@ -127,6 +127,7 @@ TRUST_PROXY="loopback"
 JWT_ACCESS_SECRET="LONG_RANDOM_SECRET"
 JWT_REFRESH_SECRET="DIFFERENT_LONG_RANDOM_SECRET"
 EMPLOYEE_DATA_ENCRYPTION_KEY="STABLE_32_PLUS_CHARACTER_EMPLOYEE_DATA_SECRET"
+FACE_EVIDENCE_DIR="/var/lib/anytime-crew-hub/face-evidence"
 SESSION_COOKIE_NAME="adh_session"
 REFRESH_COOKIE_NAME="adh_refresh"
 COOKIE_SECURE=true
@@ -142,6 +143,15 @@ Generate JWT secrets with a secure password generator or `openssl rand -base64 4
 Generate `EMPLOYEE_DATA_ENCRYPTION_KEY` once with `openssl rand -base64 48`, store it in a secret
 manager, and keep it stable across deployments. Do not rotate it without re-encrypting existing
 employee private fields.
+
+Create the private persistent evidence directory before starting the backend:
+
+```bash
+sudo install -d -m 700 -o ubuntu -g ubuntu /var/lib/anytime-crew-hub/face-evidence
+```
+
+It must remain outside the Git checkout and Nginx document root. Face templates and evidence use
+the same stable encryption key. Losing or changing the key makes them unreadable.
 
 ## 6. Install, Migrate, and Build
 
@@ -259,6 +269,16 @@ curl -I https://hrms.example.com
 ```
 
 Test browser login, session restore, mobile location permission, attendance, live cross-device refresh, leave, announcements, Web Push, logout, account deactivation/reactivation, expense Drive acknowledgement, integration credential creation/revocation, and one authenticated Employee API request.
+
+For the face-attendance release also verify:
+
+1. an existing account is blocked by the registration gate;
+2. the bootstrap Developer Admin completes a valid capture and is auto-approved;
+3. a normal employee submits and remains pending;
+4. Developer Admin reviews retained evidence and approves the employee;
+5. check-in and checkout require camera, movement challenge, face match, and precise GPS;
+6. `npm run db:verify` and `npm run db:audit` report no face integrity failure; and
+7. the backend service account can write `FACE_EVIDENCE_DIR` but Nginx cannot serve it directly.
 
 The `/api/v1` metadata and OpenAPI endpoints do not expose secrets. Employee data endpoints still
 require a scoped API key. See [Employee Data Model and Integration API](EMPLOYEE_DATA_AND_INTEGRATION_API.md).

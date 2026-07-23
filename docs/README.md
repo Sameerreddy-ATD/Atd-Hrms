@@ -20,6 +20,9 @@ in the same commit.
 - Server administrators: [Linux and AWS Deployment](LINUX_LOCAL_DEPLOYMENT.md)
 - Release owners: [Upgrade and Maintenance](UPGRADE_AND_MAINTENANCE.md)
 - Mobile QA/support: [Device Compatibility](DEVICE_COMPATIBILITY.md)
+- Security, HR, and attendance owners:
+  [Face Registration and Verified Attendance](FACE_ATTENDANCE_SECURITY.md)
+- Legal and receiving-company reviewers: [Third-Party Notices](THIRD_PARTY_NOTICES.md)
 
 ## Document Ownership
 
@@ -43,6 +46,8 @@ in the same commit.
 | `LINUX_LOCAL_DEPLOYMENT.md`            | Fresh Linux/AWS installation, private Git access, domain, TLS, Nginx, and PM2                    |
 | `UPGRADE_AND_MAINTENANCE.md`           | Production updates, backups, verification, rollback, and long-term operations                    |
 | `DEVICE_COMPATIBILITY.md`              | Supported browsers, PWA permissions, low-network behavior, and QA matrix                         |
+| `FACE_ATTENDANCE_SECURITY.md`          | Mandatory enrollment, liveness/GPS flow, encrypted storage, retention, admin, and deployment     |
+| `THIRD_PARTY_NOTICES.md`               | Licences and attribution for bundled third-party runtime/model assets                             |
 
 The repository-level [`SECURITY.md`](../SECURITY.md) defines private vulnerability reporting and
 mandatory handling of credentials and employee data.

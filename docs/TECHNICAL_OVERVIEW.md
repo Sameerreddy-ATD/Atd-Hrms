@@ -12,6 +12,9 @@ flowchart LR
   Prisma --> MySQL["MySQL 8"]
   Backend --> Live["Authenticated SSE streams"]
   Backend --> Push["Web Push service"]
+  Client -->|"Camera/WebGL models"| Face["Local face detection and liveness"]
+  Face -->|"Descriptor, scores, one-time nonce"| Backend
+  Backend --> Evidence["Private encrypted evidence directory"]
   Live --> Client
   Push --> Client
 ```
@@ -36,6 +39,7 @@ Supported AWS patterns and their scaling constraints are documented in
 | `server/src/attendanceDayRules.ts` | Workday, holiday, leave, and weekly-off settlement                       |
 | `server/src/leavePolicy.ts`        | Protected leave policies, accrual, validation, and credit sync           |
 | `server/src/attendanceLive.ts`     | Employee-scoped live attendance refresh                                  |
+| `server/src/faceAttendance.ts`     | Face sessions, matching, encrypted evidence, settings, and cleanup       |
 | `server/src/notificationLive.ts`   | Authenticated live notification refresh                                  |
 | `server/src/push.ts`               | VAPID Web Push delivery and stale subscription cleanup                   |
 | `server/src/mapper.ts`             | Safe API DTOs and status mapping                                         |
@@ -44,6 +48,7 @@ Supported AWS patterns and their scaling constraints are documented in
 | `src/lib/auth.tsx`                 | Browser session restore and auth state                                   |
 | `src/lib/attendance-live.ts`       | Attendance EventSource client                                            |
 | `src/lib/notification-live.ts`     | Notification EventSource client                                          |
+| `src/components/face/`             | Mandatory enrollment and responsive attendance camera flows              |
 | `public/sw.js`                     | App shell cache, Web Push display, and notification navigation           |
 
 ## Authentication
@@ -52,8 +57,11 @@ Supported AWS patterns and their scaling constraints are documented in
 2. Normal accounts lock after five consecutive failures; a successful login resets the counter.
 3. Access and refresh JWTs are placed in HTTP-only cookies.
 4. First-login users must replace the temporary password and are automatically authenticated afterward.
-5. `/auth/restore` restores eligible sessions from the refresh cookie.
-6. Suspended, inactive, and locked accounts cannot restore a browser session.
+5. Every account must submit and obtain approval for face registration.
+6. Backend middleware blocks protected APIs until `face_profiles.status = APPROVED`; the frontend
+   full-screen gate is a matching UX control, not the security boundary.
+7. `/auth/restore` restores eligible sessions from the refresh cookie.
+8. Suspended, inactive, and locked accounts cannot restore a browser session.
 
 Developer Admin is protected from failed-password lockout and cannot be suspended, deactivated, or deleted.
 
@@ -77,6 +85,7 @@ Lockout or suspension does not delete or disable the employee record, allowing h
 | `/departments`          | Organization hierarchy and unit heads                                                       |
 | `/branches`             | Branches and server-side geofence configuration                                             |
 | `/attendance`           | Mobile events, timelines, summaries, reports, corrections, and live stream                  |
+| `/face`                 | Enrollment/status, challenges, Developer Admin review, evidence, and policy                 |
 | `/leave`                | Leave types, requests, cancellation, approvals, and reports                                 |
 | `/weekly-offs`          | Date-specific weekly-off requests and direct-head approval                                  |
 | `/holidays`             | Active holiday calendar and branch scope                                                    |
@@ -98,6 +107,12 @@ Large collection endpoints support `limit` and `offset`. Operational screens loa
 Browser role checks live in `tests/e2e/role-navigation.spec.ts`. Set `E2E_BASE_URL` and `E2E_USERS_JSON` to run the same navigation check against Developer Admin, CEO, HR, head, and employee accounts without storing credentials in source control.
 
 ## Attendance Model
+
+Mobile events require a passed `face_evidence` row from a purpose-bound, single-use
+`face_verification_sessions` row. The server checks session ownership and expiry, liveness and
+anti-spoof thresholds, approved encrypted-template similarity, GPS coordinates, and accuracy before
+creating and linking the attendance event. Biometric imports and approved corrections retain their
+separate trusted-source workflows.
 
 Every punch is an immutable `AttendanceEvent`. The engine sorts events, pairs compatible in/out sources, calculates worked duration, and maintains one `AttendanceDailySummary` per employee/date. A live event tells the employee’s other signed-in devices to reload the authoritative timeline.
 
@@ -151,12 +166,15 @@ The production data reset is Developer Admin-only and requires both current-pass
 
 Use `npm run db:migrate` only during development. Use `npm run db:deploy` in production.
 
-The complete 40-table catalog, canonical employee/account synchronization rules, Employee API v1,
+The complete table catalog, canonical employee/account synchronization rules, Employee API v1,
 idempotency, optimistic concurrency, event consumption and integrity SQL are documented in
 [Employee Data Model and Integration API](EMPLOYEE_DATA_AND_INTEGRATION_API.md). Profile fields,
 company hierarchy, encrypted identifiers, and the ID-card contract are documented in
 [Employee Profile and ID Card](EMPLOYEE_PROFILE_AND_ID_CARD.md). The read-only database audit and
 repair policy are documented in [Database Integrity Audit](DATABASE_INTEGRITY_AUDIT.md).
+Face tables, encryption, retention, API contracts, browser requirements, and the self-hosted
+security boundary are documented in
+[Face Registration and Verified Attendance](FACE_ATTENDANCE_SECURITY.md).
 
 Migration `20260716190000_leave_policy_and_weekly_off` intentionally clears legacy leave requests, balances, and configurable leave types before installing the four protected system policies. Back up production before applying it when historical legacy leave data must be retained externally.
 

@@ -50,7 +50,10 @@ import {
 import { downloadCsv } from "@/lib/csv";
 import { formatWorkedTime, workedTime } from "@/lib/worked-time";
 import { subscribeToAttendanceChanges } from "@/lib/attendance-live";
-import { getDeviceLocation } from "@/lib/geolocation";
+import {
+  FaceAttendanceDialog,
+  type VerifiedAttendanceCapture,
+} from "@/components/face/FaceAttendanceDialog";
 import {
   AlertTriangle,
   Building2,
@@ -80,30 +83,6 @@ interface BirthdayItem {
   dateOfBirth: string;
   isToday: boolean;
   daysUntil: number;
-}
-
-async function getGeolocation(): Promise<GeolocationPosition> {
-  return new Promise((resolve, reject) => {
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
-      return reject(
-        new Error("Geolocation is not supported by your browser. Please use a modern browser."),
-      );
-    }
-    getDeviceLocation()
-      .then(resolve)
-      .catch((err: GeolocationPositionError) => {
-        let message = "Failed to retrieve location. Please check your system settings.";
-        if (err.code === err.PERMISSION_DENIED) {
-          message =
-            "Location permission was denied. Please enable location permissions for this app in your browser settings.";
-        } else if (err.code === err.POSITION_UNAVAILABLE) {
-          message = "Location information is unavailable.";
-        } else if (err.code === err.TIMEOUT) {
-          message = "Location request timed out. Please try again.";
-        }
-        reject(new Error(message));
-      });
-  });
 }
 
 export const Route = createFileRoute("/_app/dashboard")({
@@ -491,14 +470,13 @@ function MarkAttendanceCard({
 }) {
   const navigate = useNavigate();
   const [actionLoading, setActionLoading] = useState(false);
+  const [faceAction, setFaceAction] = useState<"check-in" | "check-out" | null>(null);
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [optimisticSession, setOptimisticSession] = useState<{
     state: "CHECKED_IN" | "CHECKED_OUT";
     startedAt?: number;
   } | null>(null);
-  const [leaveCheckIn, setLeaveCheckIn] = useState<{ latitude: number; longitude: number } | null>(
-    null,
-  );
+  const [leaveCheckIn, setLeaveCheckIn] = useState<VerifiedAttendanceCapture | null>(null);
   const workSession = useMemo(() => workedTime(timeline, clockNow), [clockNow, timeline]);
   const isCheckedIn = optimisticSession
     ? optimisticSession.state === "CHECKED_IN"
@@ -540,15 +518,14 @@ function MarkAttendanceCard({
   }, [optimisticSession, workSession.isCheckedIn]);
 
   async function submitCheckIn(
-    coordinates: { latitude: number; longitude: number },
+    capture: VerifiedAttendanceCapture,
     confirmLeaveCancellation = false,
   ) {
     if (!user.employeeId) return;
     try {
       await attendanceApi.checkIn({
         employeeId: user.employeeId,
-        latitude: coordinates.latitude,
-        longitude: coordinates.longitude,
+        ...capture,
         confirmLeaveCancellation,
       });
       setOptimisticSession({ state: "CHECKED_IN", startedAt: Date.now() });
@@ -559,28 +536,19 @@ function MarkAttendanceCard({
     } catch (err) {
       const message = (err as Error).message;
       if (message.includes("Confirm check-in to cancel leave")) {
-        setLeaveCheckIn(coordinates);
+        setLeaveCheckIn(capture);
         return;
       }
-      toast.error(message);
+      throw err;
     }
   }
 
-  async function checkIn() {
+  function checkIn() {
     if (!user.employeeId) {
       toast.error("You must have an employee profile to mark attendance.");
       return;
     }
-    setActionLoading(true);
-    try {
-      const position = await getGeolocation();
-      await submitCheckIn({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
-    } finally {
-      setActionLoading(false);
-    }
+    setFaceAction("check-in");
   }
 
   async function confirmLeaveCheckIn() {
@@ -588,24 +556,29 @@ function MarkAttendanceCard({
     setActionLoading(true);
     try {
       await submitCheckIn(leaveCheckIn, true);
+    } catch (err) {
+      setLeaveCheckIn(null);
+      toast.error((err as Error).message);
     } finally {
       setActionLoading(false);
     }
   }
 
-  async function checkOut() {
+  function checkOut() {
+    setFaceAction("check-out");
+  }
+
+  async function handleVerifiedAttendance(capture: VerifiedAttendanceCapture) {
     setActionLoading(true);
     try {
-      const position = await getGeolocation();
-      await attendanceApi.checkOut({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
-      setOptimisticSession({ state: "CHECKED_OUT" });
-      toast.success("You are checked out");
-      onAttendanceChanged();
-    } catch (err) {
-      toast.error((err as Error).message);
+      if (faceAction === "check-in") {
+        await submitCheckIn(capture);
+      } else {
+        await attendanceApi.checkOut(capture);
+        setOptimisticSession({ state: "CHECKED_OUT" });
+        toast.success("You are checked out");
+        onAttendanceChanged();
+      }
     } finally {
       setActionLoading(false);
     }
@@ -686,7 +659,7 @@ function MarkAttendanceCard({
               {!attendanceReady
                 ? "Checking status..."
                 : actionLoading
-                  ? "Getting location..."
+                  ? "Verifying..."
                   : "Check In"}
             </Button>
             <Button
@@ -699,12 +672,12 @@ function MarkAttendanceCard({
               {!attendanceReady
                 ? "Checking status..."
                 : actionLoading
-                  ? "Getting location..."
+                  ? "Verifying..."
                   : "Check Out"}
             </Button>
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Mobile and biometric punches synchronize automatically across your signed-in devices.
+            Each mobile punch requires a live face match and precise device location.
           </p>
         </div>
       </CardContent>
@@ -725,6 +698,11 @@ function MarkAttendanceCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <FaceAttendanceDialog
+        action={faceAction}
+        onClose={() => setFaceAction(null)}
+        onVerified={handleVerifiedAttendance}
+      />
     </Card>
   );
 }

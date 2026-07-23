@@ -49,8 +49,9 @@ flowchart LR
   A["Developer Admin creates login"] --> B["Employee receives temporary password"]
   B --> C["First sign-in"]
   C --> D["Employee changes password"]
-  D --> E["Automatic authenticated session"]
-  E --> F["Active account"]
+  D --> E["Mandatory live face registration"]
+  E --> K["Developer Admin approval"]
+  K --> F["Active account"]
   F --> G["Scheduled suspension, deactivation, or lockout"]
   G --> H["Developer Admin reactivates"]
   H --> F
@@ -59,6 +60,8 @@ flowchart LR
 ```
 
 - Public signup is disabled.
+- Frontend and backend access remain blocked until face registration is approved. The first
+  Developer Admin enrollment auto-approves to establish the review authority.
 - Five consecutive wrong passwords block a normal login.
 - The login page shows the remaining attempts after each failure.
 - A correct password cannot bypass a blocked status.
@@ -105,12 +108,20 @@ flowchart LR
 
 ### Mobile branch attendance
 
-1. The device requests browser location permission.
-2. The frontend sends latitude and longitude over HTTPS.
-3. The backend calculates the nearest active branch with configured coordinates.
-4. When the device is within a branch's radius, the event is matched to that branch and displayed as `Mobile - Branch Name`.
-5. Outside every branch radius, attendance is still accepted as `Mobile` without a branch match.
-6. The submitted coordinates are stored on the attendance event in both cases.
+1. The device requests front-camera and fresh precise-location permission.
+2. The backend issues a purpose-bound, two-minute, single-use randomized blink/head-turn challenge.
+3. The browser requires one clear real face, liveness, anti-spoofing, and the requested movement.
+4. The backend matches the submitted descriptor against the approved encrypted template and rejects
+   inaccurate GPS or an invalid/reused session.
+5. Only then does the backend calculate the nearest active branch and create the attendance event.
+6. When the device is within a branch's radius, the event is displayed as
+   `Mobile - Branch Name`; an outside punch remains `Mobile` and retains coordinates.
+7. The encrypted evidence image expires after five days by default. Developer Admin can choose
+   1–30 days and review retained evidence under **Face Security**.
+
+Failed face, liveness, anti-spoof, session, or location verification never creates attendance. See
+[Face Registration and Verified Attendance](FACE_ATTENDANCE_SECURITY.md) for the complete
+enrollment, approval, retention, and recovery contract.
 
 Madhapur is configured at `17.4391592, 78.3947783` with a default 250 meter radius. Each additional branch must be given latitude, longitude, and radius in Branches before it accepts mobile branch attendance. Client visits remain a separate field workflow and are not restricted to an office radius.
 
@@ -276,6 +287,8 @@ flowchart LR
 ## Audit And Data Retention
 
 - Security and operational changes write audit records with actor, action, affected object, time, and protected values.
+- Face enrollment, approval, rejection, reset, and policy changes are audited. Face descriptors and
+  short-lived JPEG evidence are encrypted; evidence metadata remains after automatic image deletion.
 - Passwords, tokens, hashes, and secrets are never written as readable audit values.
 - Suspension, deactivation, or login blocking does not remove historical employee records.
 - Employee and account history is retained through deactivation. Only the explicitly labelled test-data reset and announcement deletion are destructive; use them only after confirming backup, retention, and legal requirements.

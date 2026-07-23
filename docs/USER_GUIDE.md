@@ -61,7 +61,12 @@ not shown in the CEO login.
 1. Open the application URL.
 2. Enter the email and temporary password issued by the Developer Admin.
 3. If the account requires a first password change, enter a new password.
-4. After changing the password, the application signs the user in automatically.
+4. After changing the password, the mandatory face-registration screen opens.
+5. Accept the biometric-consent statement, allow the camera, centre one uncovered face, and complete
+   the blink or head-turn prompt.
+6. Developer Admin is approved automatically for its first valid capture. Every other account waits
+   on the blocking approval screen until Developer Admin approves it in **Face Security**.
+7. A rejected registration displays the reason and allows a new capture.
 
 Public signup is disabled. All accounts are created by the Developer Admin.
 
@@ -127,7 +132,14 @@ Use **System Settings > Production Data Reset** only once the testing period is 
 5. Confirm the reset, then verify that User Logins contains only the preserved Developer Admin account.
 6. Create the real organization logins from Developer Admin.
 
-The reset preserves the signed-in Developer Admin account and password, branches, departments and their hierarchy, predefined leave policies, and system settings. It clears department-head assignments because the testing employees are removed. It permanently removes all other users, employees, attendance, leave balances and requests, tasks, assets, holidays, biometric devices and mappings, announcements, subscriptions, service requests, notifications derived from those records, and audit history. The reset is transactional: a database failure rolls back the entire operation.
+The reset preserves the signed-in Developer Admin account, password, approved face registration,
+retained Developer Admin evidence, branches, departments and their hierarchy, predefined leave
+policies, and system settings. It clears department-head assignments because the testing employees
+are removed. It permanently removes all other users, employees, face registrations/evidence,
+attendance, leave balances and requests, tasks, assets, holidays, biometric devices and mappings,
+announcements, subscriptions, service requests, notifications derived from those records, and audit
+history. The database deletion is transactional; encrypted files belonging to removed users are
+purged immediately afterward.
 
 Follow the complete verification and real-data setup sequence in [Reset and Go-Live](RESET_AND_GO_LIVE.md).
 
@@ -149,10 +161,16 @@ Developer Admin assigns each employee a day or night shift and its start/end tim
 
 Employees can use mobile attendance in the current version. Biometric/eSSL attendance is planned for the next version.
 
-1. Open **My Attendance**.
-2. Review today's timeline.
-3. Use mobile check-in or check-out when allowed.
-4. In the next version, biometric punches from eSSL/fingerprint devices will appear in the same daily timeline after they are imported or synced into the backend.
+1. Open the Dashboard or **My Attendance** and review today's timeline.
+2. Select **Check In** or **Check Out**.
+3. Allow the front camera and precise location. The operation cannot continue when either permission
+   is denied or GPS accuracy is outside policy.
+4. Keep exactly one face inside the oval and complete the randomized blink/head-turn prompt.
+5. Return to the centre and hold still while the backend checks the approved template.
+6. The attendance event is saved only after face, liveness, anti-spoof, one-time session, and GPS
+   validation pass.
+7. Future eSSL/fingerprint imports can appear in the same daily timeline through the separate
+   biometric integration workflow.
 
 After a successful mobile punch, the status and timer update immediately while the live server timeline refreshes. Keep the page open if the network is slow; the punch button remains disabled while the request is pending to prevent duplicate submissions. Other signed-in devices update through the attendance live stream.
 
@@ -371,15 +389,18 @@ When eSSL integration is added in the next version, imported device punches shou
 
 Every active entry visible in the Holiday list counts as a holiday for attendance. Public, Optional, and Restricted are classification labels only. At 10:00 AM IST a no-punch employee is marked Holiday; a later punch changes the day to Present. A completed holiday punch-in/out session automatically earns one Comp Off credit. Holiday changes recalculate existing summaries for the affected date and branch.
 
-## Current And Future Attendance Verification
+## Developer Admin: Review Face Registrations
 
-The next attendance improvements should make branch-mobile attendance stricter and easier to trust:
+1. Open **Face Security**.
+2. Review pending users, the encrypted evidence image, scores, time, and any GPS details.
+3. Select **Approve**, or select **Reject** and give a clear correction reason.
+4. Use **Reset** when another employee must register again. The account is blocked immediately.
+5. Use the privacy policy card to set capture retention (default five days), match threshold, and
+   maximum accepted GPS error.
 
-- GPS/location check near a configured branch is implemented and enforced by the backend.
-- Approved branch Wi-Fi check, so attendance is accepted only when the mobile is connected to that branch network.
-- Photo/selfie verification during check-in and check-out.
-- Combined proof for branch-mobile attendance: location + Wi-Fi + optional photo.
-- Clear status labels showing whether attendance was verified by branch GPS, Wi-Fi, biometric device, or HR correction.
+The evidence dialog lists retained registration and attendance captures. Expired pictures are
+automatically deleted while non-image audit metadata remains. See
+[Face Registration and Verified Attendance](FACE_ATTENDANCE_SECURITY.md).
 
 ## Notifications
 

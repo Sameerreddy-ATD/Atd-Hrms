@@ -11,6 +11,8 @@ node_modules
 dist
 dist-server
 dist-ssr
+public/face-models/
+.face-evidence/
 .output
 .vinxi
 .npm-cache

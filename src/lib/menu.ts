@@ -21,6 +21,7 @@ import {
   FileClock,
   Megaphone,
   HandCoins,
+  ScanFace,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -205,6 +206,12 @@ export const menuGroups: MenuGroup[] = [
   {
     label: "System",
     items: [
+      {
+        label: "Face Security",
+        to: "/face-security",
+        icon: ScanFace,
+        roles: ["developer_admin"],
+      },
       {
         label: "System Settings",
         to: "/settings",

@@ -112,9 +112,97 @@ export interface User {
   shiftStartMinutes?: number;
   shiftEndMinutes?: number;
   mustChangePassword?: boolean;
+  faceEnrollmentStatus?: FaceEnrollmentStatus;
+  faceEnrollmentRequired?: boolean;
+  faceEnrollmentReason?: string;
+  faceEnrollmentSubmittedAt?: string;
+  faceEnrollmentApprovedAt?: string;
   terminatedAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export type FaceEnrollmentStatus =
+  "NOT_REGISTERED" | "PENDING" | "APPROVED" | "REJECTED" | "DISABLED";
+
+export type FaceVerificationPurpose = "ENROLLMENT" | "ATTENDANCE_CHECK_IN" | "ATTENDANCE_CHECK_OUT";
+
+export type FaceChallenge = "BLINK" | "TURN_LEFT" | "TURN_RIGHT";
+
+export interface FaceCapturePayload {
+  sessionId: string;
+  nonce: string;
+  descriptor: number[];
+  imageData: string;
+  faceConfidence: number;
+  livenessScore: number;
+  antiSpoofScore: number;
+  challengeCompleted: true;
+}
+
+export interface FaceVerificationSession {
+  sessionId: string;
+  nonce: string;
+  challenge: FaceChallenge;
+  expiresAt: string;
+  settings: {
+    minFaceConfidence: number;
+    minLivenessScore: number;
+    minAntiSpoofScore: number;
+    maxGpsAccuracyMeters: number;
+  };
+}
+
+export interface FaceAdminProfile {
+  userId: string;
+  employeeId: string | null;
+  name: string;
+  email: string;
+  role: string;
+  status: FaceEnrollmentStatus;
+  submittedAt: string | null;
+  approvedAt: string | null;
+  approvedBy: string | null;
+  rejectionReason: string | null;
+  latestEvidence: {
+    evidenceId: string;
+    outcome: "CREATED" | "PASSED" | "FAILED" | "EXPIRED";
+    capturedAt: string;
+    expiresAt: string;
+    imageAvailable: boolean;
+    faceConfidence: number;
+    livenessScore: number;
+    antiSpoofScore: number;
+    similarityScore: number | null;
+    failureReason: string | null;
+  } | null;
+}
+
+export interface FaceEvidenceRecord {
+  evidenceId: string;
+  purpose: FaceVerificationPurpose;
+  outcome: "CREATED" | "PASSED" | "FAILED" | "EXPIRED";
+  capturedAt: string;
+  expiresAt: string;
+  imageAvailable: boolean;
+  faceConfidence: number;
+  livenessScore: number;
+  antiSpoofScore: number;
+  similarityScore: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  locationAccuracy: number | null;
+  failureReason: string | null;
+}
+
+export interface FaceSettings {
+  retentionDays: number;
+  matchThreshold: number;
+  minFaceConfidence: number;
+  minLivenessScore: number;
+  minAntiSpoofScore: number;
+  maxGpsAccuracyMeters: number;
+  sessionTtlSeconds: number;
 }
 
 /** Employee directory/profile response. Its id is always the employeeId. */

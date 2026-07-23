@@ -468,11 +468,25 @@ export const mobileEventSchema = z.object({
   employeeId: z.string().optional(),
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
+  locationAccuracy: z.number().min(0).max(10_000),
   address: z.string().max(500).optional(),
   mobileDeviceId: z.string().min(3).max(200),
   remarks: z.string().max(1000).optional(),
   eventTime: z.coerce.date().optional(),
   confirmLeaveCancellation: z.boolean().optional(),
+  faceVerification: z.object({
+    sessionId: z.string().min(10).max(191),
+    nonce: z.string().min(32).max(200),
+    descriptor: z.array(z.number().finite().min(-10).max(10)).min(128).max(2048),
+    imageData: z
+      .string()
+      .max(950_000)
+      .regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/),
+    faceConfidence: z.number().min(0).max(1),
+    livenessScore: z.number().min(0).max(1),
+    antiSpoofScore: z.number().min(0).max(1),
+    challengeCompleted: z.literal(true),
+  }),
 });
 
 export const clientEventSchema = mobileEventSchema.extend({

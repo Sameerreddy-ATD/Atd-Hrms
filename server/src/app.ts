@@ -11,6 +11,8 @@ import morgan from "morgan";
 import {
   EventSource,
   EventType,
+  FaceEnrollmentStatus,
+  FaceVerificationPurpose,
   Prisma,
   Role,
   TaskActivityType,
@@ -45,6 +47,20 @@ import { config } from "./config.js";
 import { encryptEmployeeField, lastFour } from "./employeePrivateData.js";
 import { asyncHandler, errorHandler, HttpError } from "./errors.js";
 import { nearestBranch } from "./geofence.js";
+import {
+  FACE_CONSENT,
+  createFaceVerificationSession,
+  faceCaptureSchema,
+  faceSessionSchema,
+  invalidateFaceStatusCache,
+  readDecryptedEvidence,
+  readFaceSettings,
+  removeFaceEvidenceFiles,
+  saveFaceSettings,
+  submitFaceEnrollment,
+  userHasApprovedFace,
+  verifyFaceCapture,
+} from "./faceAttendance.js";
 import { registerIntegrationRoutes } from "./integration-api.js";
 import {
   assetCatalogItemDto,
@@ -172,7 +188,7 @@ export function createApp() {
       message: { error: "Too many requests. Please try again shortly." },
     }),
   );
-  app.use(express.json({ limit: "1mb" }));
+  app.use(express.json({ limit: "2mb" }));
   app.use(express.text({ type: "text/csv", limit: "5mb" }));
   app.use(cookieParser());
   app.use(cors({ origin: config.frontendOrigin, credentials: true }));
@@ -691,6 +707,10 @@ export function createApp() {
       if (!(await verifyPassword(body.password, developerAdmin.passwordHash))) {
         throw new HttpError(401, "The Developer Admin password is incorrect");
       }
+      const removedFaceEvidence = await prisma.faceEvidence.findMany({
+        where: { userId: { not: developerAdmin.id } },
+        select: { imageKey: true },
+      });
 
       const result = await prisma.$transaction(
         async (tx) => {
@@ -763,6 +783,10 @@ export function createApp() {
         { maxWait: 10_000, timeout: 60_000 },
       );
 
+      await removeFaceEvidenceFiles(removedFaceEvidence.map((evidence) => evidence.imageKey)).catch(
+        (error) =>
+          console.error("Test data reset left one or more encrypted evidence files", error),
+      );
       publishNotificationChange("test-data-reset", developerAdmin.id);
       res.json(result);
     }),
@@ -815,6 +839,314 @@ export function createApp() {
     }),
   );
 
+  app.get(
+    "/face/status",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const profile = await prisma.faceProfile.findUnique({
+        where: { userId: req.user!.id },
+        select: {
+          status: true,
+          rejectionReason: true,
+          submittedAt: true,
+          approvedAt: true,
+        },
+      });
+      res.json({
+        status: profile?.status ?? "NOT_REGISTERED",
+        required: profile?.status !== FaceEnrollmentStatus.APPROVED,
+        rejectionReason: profile?.rejectionReason ?? null,
+        submittedAt: profile?.submittedAt?.toISOString() ?? null,
+        approvedAt: profile?.approvedAt?.toISOString() ?? null,
+        consent: FACE_CONSENT,
+      });
+    }),
+  );
+
+  app.post(
+    "/face/session",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const body = faceSessionSchema.parse(req.body);
+      if (
+        body.purpose !== FaceVerificationPurpose.ENROLLMENT &&
+        !(await userHasApprovedFace(req.user!.id))
+      ) {
+        throw new HttpError(403, "Approved face registration is required for attendance");
+      }
+      res.status(201).json(await createFaceVerificationSession(req.user!.id, body));
+    }),
+  );
+
+  app.post(
+    "/face/enrollment",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const capture = faceCaptureSchema.parse(req.body);
+      const result = await submitFaceEnrollment({
+        userId: req.user!.id,
+        employeeId: req.user!.employeeId,
+        role: req.user!.role,
+        capture,
+      });
+      await audit({
+        action: result.autoApproved ? "FACE_ENROLLMENT_AUTO_APPROVED" : "FACE_ENROLLMENT_SUBMITTED",
+        performedByUserId: req.user!.id,
+        affectedUserId: req.user!.id,
+        newValue: { status: result.status, consentVersion: result.consentVersion },
+        ipAddress: req.ip,
+      });
+      res.status(201).json(result);
+    }),
+  );
+
+  app.get(
+    "/face/admin/profiles",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (_req, res) => {
+      const users = await prisma.user.findMany({
+        where: { status: UserStatus.ACTIVE },
+        orderBy: { name: "asc" },
+        select: {
+          id: true,
+          employeeId: true,
+          name: true,
+          email: true,
+          role: true,
+          faceProfile: {
+            select: {
+              status: true,
+              submittedAt: true,
+              approvedAt: true,
+              rejectionReason: true,
+              approvedBy: { select: { name: true } },
+            },
+          },
+          faceEvidence: {
+            orderBy: { capturedAt: "desc" },
+            take: 1,
+            select: {
+              evidenceId: true,
+              outcome: true,
+              capturedAt: true,
+              expiresAt: true,
+              deletedAt: true,
+              imageKey: true,
+              faceConfidence: true,
+              livenessScore: true,
+              antiSpoofScore: true,
+              similarityScore: true,
+              failureReason: true,
+            },
+          },
+        },
+      });
+      res.json(
+        users.map((user) => ({
+          userId: user.id,
+          employeeId: user.employeeId,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          status: user.faceProfile?.status ?? "NOT_REGISTERED",
+          submittedAt: user.faceProfile?.submittedAt?.toISOString() ?? null,
+          approvedAt: user.faceProfile?.approvedAt?.toISOString() ?? null,
+          approvedBy: user.faceProfile?.approvedBy?.name ?? null,
+          rejectionReason: user.faceProfile?.rejectionReason ?? null,
+          latestEvidence: user.faceEvidence[0]
+            ? {
+                ...user.faceEvidence[0],
+                faceConfidence: Number(user.faceEvidence[0].faceConfidence ?? 0),
+                livenessScore: Number(user.faceEvidence[0].livenessScore ?? 0),
+                antiSpoofScore: Number(user.faceEvidence[0].antiSpoofScore ?? 0),
+                similarityScore:
+                  user.faceEvidence[0].similarityScore === null
+                    ? null
+                    : Number(user.faceEvidence[0].similarityScore),
+                capturedAt: user.faceEvidence[0].capturedAt.toISOString(),
+                expiresAt: user.faceEvidence[0].expiresAt.toISOString(),
+                imageAvailable: Boolean(
+                  user.faceEvidence[0].imageKey && !user.faceEvidence[0].deletedAt,
+                ),
+                imageKey: undefined,
+              }
+            : null,
+        })),
+      );
+    }),
+  );
+
+  app.patch(
+    "/face/admin/profiles/:userId/approve",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const userId = String(req.params.userId);
+      const existing = await prisma.faceProfile.findUnique({ where: { userId } });
+      if (!existing) throw new HttpError(404, "Face registration was not submitted");
+      if (existing.status !== FaceEnrollmentStatus.PENDING) {
+        throw new HttpError(409, "Only a pending face registration can be approved");
+      }
+      const profile = await prisma.faceProfile.update({
+        where: { userId },
+        data: {
+          status: FaceEnrollmentStatus.APPROVED,
+          approvedByUserId: req.user!.id,
+          approvedAt: new Date(),
+          rejectedAt: null,
+          rejectionReason: null,
+          disabledAt: null,
+        },
+      });
+      invalidateFaceStatusCache(userId);
+      await audit({
+        action: "FACE_ENROLLMENT_APPROVED",
+        performedByUserId: req.user!.id,
+        affectedUserId: userId,
+        oldValue: { status: existing.status },
+        newValue: { status: profile.status },
+        ipAddress: req.ip,
+      });
+      res.json({ status: profile.status });
+    }),
+  );
+
+  app.patch(
+    "/face/admin/profiles/:userId/reject",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const userId = String(req.params.userId);
+      const body = z.object({ reason: z.string().trim().min(3).max(500) }).parse(req.body);
+      const existing = await prisma.faceProfile.findUnique({ where: { userId } });
+      if (!existing) throw new HttpError(404, "Face registration was not submitted");
+      if (existing.status !== FaceEnrollmentStatus.PENDING) {
+        throw new HttpError(409, "Only a pending face registration can be rejected");
+      }
+      const profile = await prisma.faceProfile.update({
+        where: { userId },
+        data: {
+          status: FaceEnrollmentStatus.REJECTED,
+          rejectedAt: new Date(),
+          rejectionReason: body.reason,
+          approvedAt: null,
+          approvedByUserId: null,
+        },
+      });
+      invalidateFaceStatusCache(userId);
+      await audit({
+        action: "FACE_ENROLLMENT_REJECTED",
+        performedByUserId: req.user!.id,
+        affectedUserId: userId,
+        oldValue: { status: existing.status },
+        newValue: { status: profile.status, reason: body.reason },
+        ipAddress: req.ip,
+      });
+      res.json({ status: profile.status, rejectionReason: profile.rejectionReason });
+    }),
+  );
+
+  app.delete(
+    "/face/admin/profiles/:userId",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const userId = String(req.params.userId);
+      if (userId === req.user!.id) {
+        throw new HttpError(400, "You cannot reset your own approved face registration");
+      }
+      const existing = await prisma.faceProfile.findUnique({ where: { userId } });
+      if (!existing) throw new HttpError(404, "Face registration was not found");
+      await prisma.faceProfile.delete({ where: { userId } });
+      invalidateFaceStatusCache(userId);
+      await audit({
+        action: "FACE_ENROLLMENT_RESET",
+        performedByUserId: req.user!.id,
+        affectedUserId: userId,
+        oldValue: { status: existing.status },
+        ipAddress: req.ip,
+      });
+      res.json({ status: "NOT_REGISTERED" });
+    }),
+  );
+
+  app.get(
+    "/face/admin/settings",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (_req, res) => res.json(await readFaceSettings())),
+  );
+
+  app.patch(
+    "/face/admin/settings",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const previous = await readFaceSettings();
+      const settings = await saveFaceSettings(req.body, req.user!.id);
+      await audit({
+        action: "FACE_ATTENDANCE_SETTINGS_UPDATED",
+        performedByUserId: req.user!.id,
+        oldValue: previous,
+        newValue: settings,
+        ipAddress: req.ip,
+      });
+      res.json(settings);
+    }),
+  );
+
+  app.get(
+    "/face/admin/evidence/:evidenceId/image",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const evidence = await prisma.faceEvidence.findUnique({
+        where: { evidenceId: String(req.params.evidenceId) },
+        select: { imageKey: true, deletedAt: true },
+      });
+      if (!evidence?.imageKey || evidence.deletedAt) {
+        throw new HttpError(404, "Evidence image has expired or is unavailable");
+      }
+      const image = await readDecryptedEvidence(evidence.imageKey);
+      res.setHeader("Cache-Control", "private, no-store, max-age=0");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.type("image/jpeg").send(image);
+    }),
+  );
+
+  app.get(
+    "/face/admin/evidence",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const { userId } = z.object({ userId: z.string().min(1) }).parse(req.query);
+      const evidence = await prisma.faceEvidence.findMany({
+        where: { userId },
+        orderBy: { capturedAt: "desc" },
+        take: 100,
+      });
+      res.json(
+        evidence.map((row) => ({
+          evidenceId: row.evidenceId,
+          purpose: row.purpose,
+          outcome: row.outcome,
+          capturedAt: row.capturedAt.toISOString(),
+          expiresAt: row.expiresAt.toISOString(),
+          imageAvailable: Boolean(row.imageKey && !row.deletedAt),
+          faceConfidence: Number(row.faceConfidence ?? 0),
+          livenessScore: Number(row.livenessScore ?? 0),
+          antiSpoofScore: Number(row.antiSpoofScore ?? 0),
+          similarityScore: row.similarityScore === null ? null : Number(row.similarityScore),
+          latitude: row.latitude === null ? null : Number(row.latitude),
+          longitude: row.longitude === null ? null : Number(row.longitude),
+          locationAccuracy: row.locationAccuracy === null ? null : Number(row.locationAccuracy),
+          failureReason: row.failureReason,
+        })),
+      );
+    }),
+  );
+
   registerIntegrationRoutes(app);
 
   app.post(
@@ -824,7 +1156,7 @@ export function createApp() {
       const body = loginSchema.parse(req.body);
       const user = await prisma.user.findUnique({
         where: { email: body.email.toLowerCase() },
-        include: { employee: true },
+        include: { employee: true, faceProfile: true },
       });
       if (!user) throw new HttpError(401, "Invalid credentials");
 
@@ -890,7 +1222,7 @@ export function createApp() {
             ? { suspendedUntil: null, suspensionStartsAt: null }
             : {}),
         },
-        include: { employee: true },
+        include: { employee: true, faceProfile: true },
       });
       issueCookies(res, updated);
       res.json({ user: userDto(updated) });
@@ -1000,7 +1332,7 @@ export function createApp() {
                   : undefined,
             failedLoginAttempts: body.status === UserStatus.ACTIVE ? 0 : undefined,
           },
-          include: { employee: true },
+          include: { employee: true, faceProfile: true },
         });
       });
       await audit({
@@ -1039,7 +1371,7 @@ export function createApp() {
       const updated = await prisma.user.update({
         where: { id },
         data: { suspensionStartsAt, suspendedUntil },
-        include: { employee: true },
+        include: { employee: true, faceProfile: true },
       });
       await audit({
         action: "user temporarily suspended",
@@ -1089,7 +1421,7 @@ export function createApp() {
         return tx.user.update({
           where: { id },
           data: { status: UserStatus.INACTIVE, deactivatedAt: new Date() },
-          include: { employee: true },
+          include: { employee: true, faceProfile: true },
         });
       });
       await audit({
@@ -1112,7 +1444,7 @@ export function createApp() {
       const id = String(req.params.id);
       const existing = await prisma.user.findUniqueOrThrow({
         where: { id },
-        include: { employee: true },
+        include: { employee: true, faceProfile: true },
       });
       if (existing.id === req.user!.id) {
         throw new HttpError(400, "You cannot deactivate your own account");
@@ -1152,7 +1484,7 @@ export function createApp() {
             suspendedUntil: null,
             suspensionStartsAt: null,
           },
-          include: { employee: true },
+          include: { employee: true, faceProfile: true },
         });
       });
 
@@ -1217,7 +1549,7 @@ export function createApp() {
       const payload = verifyRefreshToken(token);
       const user = await prisma.user.findUniqueOrThrow({
         where: { id: payload.id },
-        include: { employee: true },
+        include: { employee: true, faceProfile: true },
       });
       if (user.status !== UserStatus.ACTIVE) {
         clearCookies(res);
@@ -1243,7 +1575,7 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       const user = await prisma.user.findUniqueOrThrow({
         where: { id: req.user!.id },
-        include: { employee: true },
+        include: { employee: true, faceProfile: true },
       });
       if (
         user.suspensionStartsAt &&
@@ -1298,7 +1630,7 @@ export function createApp() {
           firstLoginPasswordChangeRequired: false,
           failedLoginAttempts: 0,
         },
-        include: { employee: true },
+        include: { employee: true, faceProfile: true },
       });
       issueCookies(res, updated);
       await audit({
@@ -1317,7 +1649,7 @@ export function createApp() {
     requireRoles(Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const users = await prisma.user.findMany({
-        include: { employee: true },
+        include: { employee: true, faceProfile: true },
         orderBy: { createdAt: "desc" },
         skip: listOffset(req),
         take: listLimit(req, 750, 1000),
@@ -1467,7 +1799,7 @@ export function createApp() {
             employeeId: employee?.employeeId,
             createdByUserId: req.user!.id,
           },
-          include: { employee: true },
+          include: { employee: true, faceProfile: true },
         });
       });
       await audit({
@@ -2869,6 +3201,9 @@ export function createApp() {
     ).parse(req.body);
     const employeeId = body.employeeId ?? req.user?.employeeId;
     if (!employeeId) throw new HttpError(400, "employeeId is required");
+    if (!req.user?.employeeId || employeeId !== req.user.employeeId) {
+      throw new HttpError(403, "Mobile face attendance can only be recorded for your own profile");
+    }
     await assertEmployeeAccess(req.user, employeeId);
     let nearbyBranchId: string | undefined;
     if (workType === WorkType.FIELD) {
@@ -2916,8 +3251,10 @@ export function createApp() {
     if (isCheckOut && !latestIsOpen) {
       throw new HttpError(409, "No active check-in was found. Refresh to see the latest punch.");
     }
+    let approvedLeave: Awaited<ReturnType<typeof findApprovedLeaveForDay>> | null | undefined =
+      null;
     if (!isCheckOut) {
-      const approvedLeave = await findApprovedLeaveForDay(employeeId, eventDate, true).then(
+      approvedLeave = await findApprovedLeaveForDay(employeeId, eventDate, true).then(
         (paidLeave) => paidLeave ?? findApprovedLeaveForDay(employeeId, eventDate, false),
       );
       if (approvedLeave && !body.confirmLeaveCancellation) {
@@ -2926,8 +3263,21 @@ export function createApp() {
           "You are on approved leave today. Confirm check-in to cancel leave for this date.",
         );
       }
-      if (approvedLeave) await cancelApprovedLeaveForDay(employeeId, eventDate);
     }
+    const facePurpose = isCheckOut
+      ? FaceVerificationPurpose.ATTENDANCE_CHECK_OUT
+      : FaceVerificationPurpose.ATTENDANCE_CHECK_IN;
+    const verifiedFace = await verifyFaceCapture({
+      userId: req.user!.id,
+      employeeId,
+      expectedPurpose: facePurpose,
+      capture: faceCaptureSchema.parse({
+        ...body.faceVerification,
+        latitude: body.latitude,
+        longitude: body.longitude,
+        locationAccuracy: body.locationAccuracy,
+      }),
+    });
     const matchingCheckOut = (checkInType: EventType): EventType => {
       switch (checkInType) {
         case EventType.OFFICE_IN:
@@ -2948,23 +3298,44 @@ export function createApp() {
       clientLocationName: string;
       photoUrl: string;
     }>;
-    const event = await createAttendanceEvent({
-      employeeId,
-      branchId: nearbyBranchId,
-      eventSource: EventSource.MOBILE_GPS,
-      eventType: resolvedType,
-      eventTime: body.eventTime,
-      latitude: body.latitude,
-      longitude: body.longitude,
-      address: body.address,
-      mobileDeviceId: body.mobileDeviceId,
-      remarks: body.remarks,
-      workType,
-      clientName: clientBody.clientName,
-      clientLocationName: clientBody.clientLocationName,
-      photoUrl: clientBody.photoUrl,
-      createdByUserId: req.user!.id,
-    });
+    let event: Awaited<ReturnType<typeof createAttendanceEvent>>;
+    try {
+      event = await createAttendanceEvent({
+        employeeId,
+        branchId: nearbyBranchId,
+        eventSource: EventSource.MOBILE_GPS,
+        eventType: resolvedType,
+        eventTime: body.eventTime,
+        latitude: body.latitude,
+        longitude: body.longitude,
+        address: body.address,
+        mobileDeviceId: body.mobileDeviceId,
+        remarks: body.remarks,
+        workType,
+        clientName: clientBody.clientName,
+        clientLocationName: clientBody.clientLocationName,
+        photoUrl: clientBody.photoUrl,
+        createdByUserId: req.user!.id,
+      });
+      await prisma.faceEvidence.update({
+        where: { evidenceId: verifiedFace.evidence.evidenceId },
+        data: { attendanceEventId: event.eventId },
+      });
+    } catch (error) {
+      await prisma.faceEvidence
+        .update({
+          where: { evidenceId: verifiedFace.evidence.evidenceId },
+          data: {
+            outcome: "FAILED",
+            failureReason: "Attendance event creation failed after identity verification",
+          },
+        })
+        .catch((evidenceError) =>
+          console.error("Failed to mark unlinked face evidence as failed", evidenceError),
+        );
+      throw error;
+    }
+    if (approvedLeave) await cancelApprovedLeaveForDay(employeeId, eventDate);
     res.status(201).json(event);
   }
 

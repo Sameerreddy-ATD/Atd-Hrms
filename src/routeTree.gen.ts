@@ -24,6 +24,7 @@ import { Route as AppProfileRouteImport } from './routes/_app.profile'
 import { Route as AppNotificationsRouteImport } from './routes/_app.notifications'
 import { Route as AppIdCardRouteImport } from './routes/_app.id-card'
 import { Route as AppHolidaysRouteImport } from './routes/_app.holidays'
+import { Route as AppFaceSecurityRouteImport } from './routes/_app.face-security'
 import { Route as AppEmployeesRouteImport } from './routes/_app.employees'
 import { Route as AppEmployeeServicesRouteImport } from './routes/_app.employee-services'
 import { Route as AppEmergencyContactRouteImport } from './routes/_app.emergency-contact'
@@ -127,6 +128,11 @@ const AppIdCardRoute = AppIdCardRouteImport.update({
 const AppHolidaysRoute = AppHolidaysRouteImport.update({
   id: '/holidays',
   path: '/holidays',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFaceSecurityRoute = AppFaceSecurityRouteImport.update({
+  id: '/face-security',
+  path: '/face-security',
   getParentRoute: () => AppRoute,
 } as any)
 const AppEmployeesRoute = AppEmployeesRouteImport.update({
@@ -299,6 +305,7 @@ export interface FileRoutesByFullPath {
   '/emergency-contact': typeof AppEmergencyContactRoute
   '/employee-services': typeof AppEmployeeServicesRoute
   '/employees': typeof AppEmployeesRoute
+  '/face-security': typeof AppFaceSecurityRoute
   '/holidays': typeof AppHolidaysRoute
   '/id-card': typeof AppIdCardRoute
   '/notifications': typeof AppNotificationsRoute
@@ -344,6 +351,7 @@ export interface FileRoutesByTo {
   '/emergency-contact': typeof AppEmergencyContactRoute
   '/employee-services': typeof AppEmployeeServicesRoute
   '/employees': typeof AppEmployeesRoute
+  '/face-security': typeof AppFaceSecurityRoute
   '/holidays': typeof AppHolidaysRoute
   '/id-card': typeof AppIdCardRoute
   '/notifications': typeof AppNotificationsRoute
@@ -392,6 +400,7 @@ export interface FileRoutesById {
   '/_app/emergency-contact': typeof AppEmergencyContactRoute
   '/_app/employee-services': typeof AppEmployeeServicesRoute
   '/_app/employees': typeof AppEmployeesRoute
+  '/_app/face-security': typeof AppFaceSecurityRoute
   '/_app/holidays': typeof AppHolidaysRoute
   '/_app/id-card': typeof AppIdCardRoute
   '/_app/notifications': typeof AppNotificationsRoute
@@ -440,6 +449,7 @@ export interface FileRouteTypes {
     | '/emergency-contact'
     | '/employee-services'
     | '/employees'
+    | '/face-security'
     | '/holidays'
     | '/id-card'
     | '/notifications'
@@ -485,6 +495,7 @@ export interface FileRouteTypes {
     | '/emergency-contact'
     | '/employee-services'
     | '/employees'
+    | '/face-security'
     | '/holidays'
     | '/id-card'
     | '/notifications'
@@ -532,6 +543,7 @@ export interface FileRouteTypes {
     | '/_app/emergency-contact'
     | '/_app/employee-services'
     | '/_app/employees'
+    | '/_app/face-security'
     | '/_app/holidays'
     | '/_app/id-card'
     | '/_app/notifications'
@@ -676,6 +688,13 @@ declare module '@tanstack/react-router' {
       path: '/holidays'
       fullPath: '/holidays'
       preLoaderRoute: typeof AppHolidaysRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/face-security': {
+      id: '/_app/face-security'
+      path: '/face-security'
+      fullPath: '/face-security'
+      preLoaderRoute: typeof AppFaceSecurityRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/employees': {
@@ -978,6 +997,7 @@ interface AppRouteChildren {
   AppEmergencyContactRoute: typeof AppEmergencyContactRoute
   AppEmployeeServicesRoute: typeof AppEmployeeServicesRoute
   AppEmployeesRoute: typeof AppEmployeesRoute
+  AppFaceSecurityRoute: typeof AppFaceSecurityRoute
   AppHolidaysRoute: typeof AppHolidaysRoute
   AppIdCardRoute: typeof AppIdCardRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
@@ -1008,6 +1028,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppEmergencyContactRoute: AppEmergencyContactRoute,
   AppEmployeeServicesRoute: AppEmployeeServicesRoute,
   AppEmployeesRoute: AppEmployeesRoute,
+  AppFaceSecurityRoute: AppFaceSecurityRoute,
   AppHolidaysRoute: AppHolidaysRoute,
   AppIdCardRoute: AppIdCardRoute,
   AppNotificationsRoute: AppNotificationsRoute,

@@ -1,6 +1,7 @@
 import { createApp } from "./app.js";
 import { startAttendanceSettlementScheduler } from "./attendanceSettlement.js";
 import { assertSecureConfig, config } from "./config.js";
+import { startFaceEvidenceCleanupScheduler } from "./faceAttendance.js";
 import { prisma } from "./prisma.js";
 
 assertSecureConfig();
@@ -10,6 +11,7 @@ const server = createApp().listen(config.port, () => {
     `Anytime Diesel Employee Management API listening on http://localhost:${config.port}`,
   );
   startAttendanceSettlementScheduler();
+  startFaceEvidenceCleanupScheduler();
 });
 server.requestTimeout = config.requestTimeoutMs;
 server.headersTimeout = config.requestTimeoutMs + 5000;

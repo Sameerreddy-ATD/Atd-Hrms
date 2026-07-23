@@ -24,6 +24,13 @@ verification has passed.
 - Use scoped, revocable API credentials for integrations; never reuse browser sessions.
 - Preserve audit and operational history when accounts are deactivated.
 - Back up and audit MySQL before migrations or destructive resets.
+- Keep `FACE_EVIDENCE_DIR` outside the web root with backend-only permissions. Face templates and
+  evidence are sensitive biometric data and must never be committed, logged, emailed, or exposed
+  through Employee API v1.
+- Keep `EMPLOYEE_DATA_ENCRYPTION_KEY` stable and separately recoverable; it protects employee
+  statutory fields, face templates, and evidence files.
+- Treat browser-computed self-hosted liveness and device GPS as risk-reduction controls, not
+  hardware-backed identity proofing. Review the documented threat boundary before regulated use.
 - Run `npm run audit:deps`, `npm run db:audit`, and `npm run repo:audit` before releases.
 - Use an exact trusted proxy hop count/subnet; production must not use `TRUST_PROXY=true`.
 - Preserve the employee-data encryption key in a separately controlled recovery backup.

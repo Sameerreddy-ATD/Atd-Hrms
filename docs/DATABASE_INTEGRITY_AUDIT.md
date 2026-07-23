@@ -40,7 +40,7 @@ MySQL 8.0 contains 40 application tables grouped as follows:
 
 | Domain                | Tables                                                                                                                                                                                                                   | Source-of-truth rule                                                                       |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| Identity and security | `users`, `audit_logs`, `system_settings`, `integration_clients`, `integration_idempotency`, `push_subscriptions`, `announcements`                                                                                        | `users` owns authentication; passwords and API secrets are stored only as hashes           |
+| Identity and security | `users`, `face_profiles`, `face_verification_sessions`, `face_evidence`, `audit_logs`, `system_settings`, `integration_clients`, `integration_idempotency`, `push_subscriptions`, `announcements`                        | `users` owns authentication; credentials are hashed and face templates/evidence encrypted  |
 | Workforce             | `employees`, `employee_change_events`, `departments`, `branches`, `emergency_contacts`, `profile_edit_requests`                                                                                                          | `employees` is the canonical workforce record; `version` enables safe integration updates  |
 | Attendance            | `attendance_events`, `attendance_daily_summary`, `attendance_reminders`, `field_attendance`, `attendance_correction_requests`, `employee_branch_schedule`, `biometric_devices`, `biometric_employee_mapping`, `holidays` | Events are immutable inputs; daily summaries are derived and may be recalculated           |
 | Leave                 | `leave_types`, `leave_balances`, `leave_requests`, `weekly_off_requests`, `comp_off_credits`                                                                                                                             | Policy, balance, request, and earned-credit records remain separate                        |
@@ -89,6 +89,26 @@ New guarantees:
 Create a verified MySQL backup before deploying this migration if legacy Task records must be
 retained outside the redesigned application.
 
+## Face Attendance Storage Rules
+
+Migration `20260723180000_face_attendance` is additive and does not rewrite existing employee or
+attendance rows. It creates `face_profiles`, `face_verification_sessions`, and `face_evidence`.
+Existing accounts intentionally have no profile and therefore enter the mandatory registration
+gate after deployment.
+
+- `face_profiles.user_id` is unique, so one login has one current encrypted template.
+- Approved profiles require approval actor/time; the bootstrap Developer Admin records self-approval.
+- Session nonces are stored only as SHA-256 hashes and can be consumed once.
+- `face_evidence.session_id` and `attendance_event_id` are unique.
+- Passed attendance evidence requires coordinates, accuracy, and an attendance-event link.
+- Active evidence has an encrypted private-file key; expired evidence has `image_key = NULL` and a
+  deletion timestamp.
+- `descriptor_encrypted` must use the versioned `v1.` AES-GCM envelope.
+
+The evidence cleanup job changes only short-lived image state. It never deletes an attendance event
+or approved face template. See
+[Face Registration and Verified Attendance](FACE_ATTENDANCE_SECURITY.md).
+
 ## Automated Audit
 
 Run from the repository root with the target `DATABASE_URL` already loaded:
@@ -97,7 +117,7 @@ Run from the repository root with the target `DATABASE_URL` already loaded:
 npm run db:audit
 ```
 
-The command reports per-table row counts and runs 97 checks, including:
+The command reports per-table row counts and runs the complete current check suite, including:
 
 - all foreign keys and orphan counts;
 - unfinished Prisma migrations, storage engine, and Unicode collation;
@@ -105,6 +125,8 @@ The command reports per-table row counts and runs 97 checks, including:
 - employee and department hierarchy cycles;
 - employee versions, shifts, branch coordinates, and geofence ranges;
 - attendance totals, checkout ordering, and paired GPS coordinates;
+- face-template encryption, approval metadata, evidence deletion state, attendance linkage, and
+  face-attendance GPS completeness;
 - leave date ranges and balance arithmetic;
 - expense type/status/required fields, Drive confirmation, and payment timestamp consistency;
 - HR-document workflow/link consistency;
@@ -133,9 +155,10 @@ numbers, remarks, or document links.
 
 ## Clean-database Validation
 
-This release was validated against a newly initialized disposable MySQL 8 database by applying all
-31 migrations in order, seeding baseline accounts, and running the audit. Result: 40 tables, 57
-foreign keys, 97 checks, zero failures, and zero warnings.
+The previous Task v2 baseline was validated against a newly initialized disposable MySQL 8
+database. This release adds one ordered migration and three face-security tables. Release acceptance
+must repeat the clean-database sequence below and record the current table, foreign-key, and check
+counts from `db:audit`; do not copy historical counts into an acceptance report.
 
 The Task smoke test creates and edits a board, adds a custom stage, creates a task, changes its
 stage/status, posts an activity, verifies task and board version increments, confirms stale task and

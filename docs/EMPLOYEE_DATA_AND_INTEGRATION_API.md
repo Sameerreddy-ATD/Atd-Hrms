@@ -60,20 +60,22 @@ returned separately as `userId`.
 
 ## 3. Table Catalog
 
-The schema contains 40 application tables and 31 ordered migrations after the employee
-profile/company migration.
+The schema contains 42 application tables and 32 ordered MySQL migrations in this release.
 
 ### Identity, security, and configuration
 
-| Table                     | Primary key       | Purpose and important relationships                                                                                                   |
-| ------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `users`                   | `id`              | Login email, bcrypt password hash, role, account status, lock/suspension state, optional unique `employee_id`, creator and timestamps |
-| `audit_logs`              | `audit_id`        | Actor, affected user, action, before/after JSON and request IP                                                                        |
-| `push_subscriptions`      | `subscription_id` | Web Push endpoint and keys; cascades with user                                                                                        |
-| `announcements`           | `announcement_id` | Role-visible organizational announcements and author                                                                                  |
-| `system_settings`         | `key`             | JSON/text-backed protected runtime settings, including module access                                                                  |
-| `integration_clients`     | `client_id`       | Hashed service credentials, scopes, expiry, revocation and last-use metadata                                                          |
-| `integration_idempotency` | `idempotency_id`  | 24-hour write-response cache keyed by integration client and `Idempotency-Key`                                                        |
+| Table                        | Primary key       | Purpose and important relationships                                                                                                   |
+| ---------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `users`                      | `id`              | Login email, bcrypt password hash, role, account status, lock/suspension state, optional unique `employee_id`, creator and timestamps |
+| `audit_logs`                 | `audit_id`        | Actor, affected user, action, before/after JSON and request IP                                                                        |
+| `push_subscriptions`         | `subscription_id` | Web Push endpoint and keys; cascades with user                                                                                        |
+| `announcements`              | `announcement_id` | Role-visible organizational announcements and author                                                                                  |
+| `system_settings`            | `key`             | JSON/text-backed protected runtime settings, including module access                                                                  |
+| `integration_clients`        | `client_id`       | Hashed service credentials, scopes, expiry, revocation and last-use metadata                                                          |
+| `integration_idempotency`    | `idempotency_id`  | 24-hour write-response cache keyed by integration client and `Idempotency-Key`                                                        |
+| `face_profiles`              | `profile_id`      | One encrypted face template and enrollment/approval state per login                                                                   |
+| `face_verification_sessions` | `session_id`      | Purpose-bound one-time challenge, hashed nonce, expiry, and consumption                                                               |
+| `face_evidence`              | `evidence_id`     | Short-lived encrypted image reference, scores, GPS, outcome, and optional attendance link                                             |
 
 Passwords and raw API keys are never stored. Passwords use bcrypt; integration keys use SHA-256.
 The raw integration key is returned once at creation.
@@ -183,6 +185,8 @@ automate browser login/cookies.
 
 Private banking/statutory fields are available only to the employee and authorized leadership/HR
 roles through the browser employee mapper. They are deliberately excluded from Employee API v1.
+Face templates, consent, sessions, evidence images/metadata, scores, and attendance-verification
+links are also deliberately excluded.
 
 ## 5. Integration Credential Administration
 
@@ -338,7 +342,8 @@ details, audit internals, and module access. It includes the employee profile, o
 employment, attendance configuration, timestamps, version, and only the linked account ID/status.
 
 Date-of-birth is personal data. Bank account number, IFSC, account holder/type, PAN, Aadhaar, UAN,
-and blood group are intentionally excluded from v1. Grant Employee API credentials only to systems
+and blood group are intentionally excluded from v1. Biometric face templates, captures, consent,
+verification sessions, and scores are never part of Employee API v1. Grant Employee API credentials only to systems
 approved to process employee personal information. Transport must use HTTPS in production.
 
 ## 11. Error Handling

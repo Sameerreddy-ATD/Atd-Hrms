@@ -6,6 +6,7 @@ import { AppHeader } from "@/components/layout/AppHeader";
 import { PermissionSetup } from "@/components/layout/PermissionSetup";
 import { LoadingState } from "@/components/common/LoadingState";
 import { useAuth } from "@/lib/auth";
+import { FaceEnrollmentGate } from "@/components/face/FaceEnrollmentGate";
 
 // FRONTEND-ONLY GUARD
 // Route guards below prevent unauthenticated users from seeing protected UI.
@@ -32,6 +33,10 @@ function AppLayout() {
         <LoadingState label="Preparing your workspace" showBrandStory className="min-h-[100dvh]" />
       </div>
     );
+  }
+
+  if (user.faceEnrollmentStatus !== "APPROVED") {
+    return <FaceEnrollmentGate />;
   }
 
   return (

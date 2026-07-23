@@ -67,6 +67,7 @@ receiving company's infrastructure-as-code standards.
 | API response mapping and audit history | `server/src/mapper.ts`, `server/src/audit.ts`                                                                 |
 | Employee Integration API v1            | `server/src/integration-api.ts`                                                                               |
 | Attendance calculation and live state  | `attendanceEngine.ts`, `attendanceDayRules.ts`, `attendanceSettlement.ts`, `attendanceLive.ts`, `geofence.ts` |
+| Face identity and attendance proof     | `faceAttendance.ts`                                                                                           |
 | Leave calculation                      | `server/src/leavePolicy.ts`                                                                                   |
 | Notifications, birthdays, and Web Push | `notificationLive.ts`, `push.ts`, `birthdays.ts`, `birthdayMessages.ts`                                       |
 
@@ -75,6 +76,11 @@ registration and transactional orchestration may remain in `app.ts`; reusable bu
 not be duplicated inside route handlers.
 
 ## Frontend Ownership
+
+Mandatory registration and attendance camera experiences live in `src/components/face/`.
+Developer Admin review is `src/routes/_app.face-security.tsx`. Model files are copied at build time
+by `scripts/copy-face-models.mjs` into ignored `public/face-models/`; never commit generated models
+or private evidence.
 
 - `src/routes/__root.tsx` owns the root HTML document, metadata, and global error boundary.
 - `src/routes/_app.tsx` owns authenticated layout and access setup.

@@ -4,14 +4,14 @@ The application uses responsive web and Progressive Web App behavior. The suppor
 
 ## Supported Device Families
 
-| Device                | Browser / installed mode      | Required checks                                                                                    |
-| --------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------- |
-| iPhone and iPad       | Safari and Add to Home Screen | HTTPS, cookies enabled, Precise Location enabled, location set to While Using                      |
-| Google Pixel          | Chrome and installed PWA      | Location permission allowed, device Location enabled, Chrome updated                               |
-| Samsung               | Chrome or Samsung Internet    | Location permission allowed, battery restrictions disabled when permission prompts are delayed     |
-| Vivo and Oppo         | Chrome                        | Location permission allowed, browser auto-start/background restrictions reviewed for notifications |
-| Windows laptop/tablet | Chrome or Edge                | Cookies enabled, responsive navigation, export and print checks                                    |
-| macOS                 | Safari or Chrome              | Cookies enabled, HTTPS, notification permission when required                                      |
+| Device                | Browser / installed mode      | Required checks                                                                                   |
+| --------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------- |
+| iPhone and iPad       | Safari and Add to Home Screen | HTTPS, camera, cookies, Precise Location, location While Using, current iOS                       |
+| Google Pixel          | Chrome and installed PWA      | Camera/location allowed, precise device Location enabled, WebGL, Chrome updated                   |
+| Samsung               | Chrome or Samsung Internet    | Camera/location allowed, WebGL, battery restrictions reviewed when permission prompts are delayed |
+| Vivo and Oppo         | Chrome                        | Camera/location allowed, WebGL, browser auto-start/background restrictions reviewed               |
+| Windows laptop/tablet | Chrome or Edge                | Camera, location, cookies, WebGL, responsive navigation, export and print checks                  |
+| macOS                 | Safari or Chrome              | Camera, precise location, cookies, HTTPS, WebGL, notification permission when required            |
 
 ## Location Requirements
 
@@ -30,6 +30,17 @@ The application uses responsive web and Progressive Web App behavior. The suppor
 - Closing and reopening the installed app should restore the session through the refresh cookie.
 - Web Push requires HTTPS, a valid VAPID configuration, an installed service worker, and user permission. iOS Web Push requires the site to be added to the Home Screen on a supported iOS version.
 - Open app sessions receive live attendance and announcement refresh through authenticated server-sent events.
+
+## Face Registration and Camera Requirements
+
+- Every account is blocked after password setup until its face registration is approved.
+- Camera and face-model APIs require HTTPS outside localhost. WebGL should remain enabled.
+- Keep exactly one face in the frame, use even lighting, and remove masks or dark glasses.
+- The first verification downloads approximately 12 MB of version-pinned model assets; repeat use
+  normally uses browser cache.
+- A registration or attendance capture cannot be completed offline.
+- Camera denial must be reversed in site/OS settings. The application cannot override a denial.
+- Verify the full-screen gate and camera dialog in portrait and landscape without clipped controls.
 
 ## Low-Network Behavior
 
@@ -51,7 +62,13 @@ Test at minimum:
 - 1366 x 768 laptop
 - 1920 x 1080 desktop
 
-For every size verify no overlapping text, horizontal page overflow, clipped dialogs, inaccessible actions, undersized touch targets, or tables without horizontal scrolling. Test login, navigation, attendance permission, live timer/cross-device checkout, leave submission, task details, employee/user lists, holidays, assets, announcements, notification permission, account-deactivation confirmation, expense attachment acknowledgement, and the Developer Admin integration credential panel.
+For every size verify no overlapping text, horizontal page overflow, clipped dialogs, inaccessible
+actions, undersized touch targets, or tables without horizontal scrolling. Test login, mandatory
+face registration, camera/location denial, movement challenge, pending/rejected approval, Developer
+Admin evidence history, face-verified attendance, live timer/cross-device checkout, leave
+submission, task details, employee/user lists, holidays, assets, announcements, notification
+permission, account-deactivation confirmation, expense attachment acknowledgement, and the
+Developer Admin integration credential panel.
 
 ## Important Limitation
 

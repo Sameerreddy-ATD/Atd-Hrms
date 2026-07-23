@@ -118,17 +118,18 @@ Never send secrets in an issue, commit, chat screenshot, or unencrypted email.
 
 ### Required runtime variables
 
-| Variable                       | Purpose                               | Example shape                                         |
-| ------------------------------ | ------------------------------------- | ----------------------------------------------------- |
-| `DATABASE_URL`                 | Prisma/MySQL connection               | `mysql://user:encoded-password@db-host:3306/database` |
-| `BACKEND_PORT`                 | Express listen port                   | `4000`                                                |
-| `FRONTEND_ORIGIN`              | Exact browser origin accepted by CORS | `https://hrms.example.com`                            |
-| `JWT_ACCESS_SECRET`            | Access-token signing                  | 32+ random characters                                 |
-| `JWT_REFRESH_SECRET`           | Refresh-token signing                 | Different 32+ random characters                       |
-| `EMPLOYEE_DATA_ENCRYPTION_KEY` | Private employee-field encryption     | Stable 32+ random characters                          |
-| `COOKIE_SECURE`                | Secure browser cookies                | `true`                                                |
-| `NODE_ENV`                     | Production security mode              | `production`                                          |
-| `TRUST_PROXY`                  | Trusted reverse-proxy hops/subnets    | `loopback` or `1`                                     |
+| Variable                       | Purpose                                | Example shape                                         |
+| ------------------------------ | -------------------------------------- | ----------------------------------------------------- |
+| `DATABASE_URL`                 | Prisma/MySQL connection                | `mysql://user:encoded-password@db-host:3306/database` |
+| `BACKEND_PORT`                 | Express listen port                    | `4000`                                                |
+| `FRONTEND_ORIGIN`              | Exact browser origin accepted by CORS  | `https://hrms.example.com`                            |
+| `JWT_ACCESS_SECRET`            | Access-token signing                   | 32+ random characters                                 |
+| `JWT_REFRESH_SECRET`           | Refresh-token signing                  | Different 32+ random characters                       |
+| `EMPLOYEE_DATA_ENCRYPTION_KEY` | Private employee-field encryption      | Stable 32+ random characters                          |
+| `FACE_EVIDENCE_DIR`            | Private encrypted face capture storage | Persistent backend-only directory                     |
+| `COOKIE_SECURE`                | Secure browser cookies                 | `true`                                                |
+| `NODE_ENV`                     | Production security mode               | `production`                                          |
+| `TRUST_PROXY`                  | Trusted reverse-proxy hops/subnets     | `loopback` or `1`                                     |
 
 ### Required frontend build variables
 
@@ -148,6 +149,10 @@ domain or API URL.
 - Session and refresh cookie names.
 - VAPID public/private keys and contact subject for Web Push.
 - Local Windows bootstrap-only `MYSQL_ROOT_PASSWORD` and `SEED_PASSWORD`.
+
+`FACE_EVIDENCE_DIR` is required for face attendance. It must survive deployments, remain outside
+the public web root, and be transferred with its access and retention policy. The container handoff
+uses the persistent `face-evidence` named volume.
 
 The safe template and descriptions are in [`.env.example`](../.env.example).
 
@@ -263,6 +268,8 @@ secrets, HTTPS, independent backups, monitoring, restricted networking, and imag
 - [ ] MySQL, backend, and frontend internal ports are not publicly reachable.
 - [ ] Secrets are stored outside Git with least-privilege access.
 - [ ] Daily encrypted database backup and retention are configured.
+- [ ] The private face-evidence directory/volume, encryption-key custody, disk monitoring, and
+      automatic 1–30 day image retention are approved.
 - [ ] A restore has been tested in a non-production environment.
 
 ### Application verification
@@ -274,6 +281,11 @@ secrets, HTTPS, independent backups, monitoring, restricted networking, and imag
 - [ ] HTTPS, secure cookies, login, refresh, and logout work.
 - [ ] Developer Admin can manage module access and create a login.
 - [ ] Employee profile, encrypted private fields, and ID card work.
+- [ ] Existing accounts receive the mandatory face gate and the bootstrap Developer Admin can
+      enroll without an approval deadlock.
+- [ ] Normal enrollment, approval/rejection/reset, evidence viewing, and retention cleanup work.
+- [ ] Mobile attendance rejects missing/failed face or imprecise GPS and links passed evidence to
+      the saved attendance event.
 - [ ] Attendance and live cross-device refresh work.
 - [ ] Leave, expenses, HR documents, assets, tasks, and notifications work.
 - [ ] CEO, HR, head, manager, and employee scopes are verified.

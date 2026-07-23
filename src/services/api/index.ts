@@ -31,6 +31,12 @@ import type {
   ModuleKey,
   IntegrationClient,
   IntegrationScope,
+  FaceAdminProfile,
+  FaceCapturePayload,
+  FaceSettings,
+  FaceVerificationPurpose,
+  FaceVerificationSession,
+  FaceEvidenceRecord,
 } from "@/types/domain";
 
 export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
@@ -151,7 +157,7 @@ async function warmPath<T>(path: string) {
 }
 
 export async function warmAuthenticatedWorkspace(user: User) {
-  if (user.mustChangePassword) return;
+  if (user.mustChangePassword || user.faceEnrollmentStatus !== "APPROVED") return;
   const ownAttendance = ["employee", "sales", "driver", "field_staff"].includes(user.role);
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata",
@@ -294,6 +300,59 @@ export const employeesApi = {
     >("/employees/birthdays"),
 };
 
+export const faceApi = {
+  status: () =>
+    request<{
+      status: User["faceEnrollmentStatus"];
+      required: boolean;
+      rejectionReason: string | null;
+      submittedAt: string | null;
+      approvedAt: string | null;
+      consent: { version: string; text: string };
+    }>("/face/status"),
+  createSession: (purpose: FaceVerificationPurpose, deviceId?: string) =>
+    request<FaceVerificationSession>("/face/session", {
+      method: "POST",
+      body: JSON.stringify({ purpose, deviceId }),
+    }),
+  enroll: (
+    capture: FaceCapturePayload & {
+      consentAccepted: true;
+      consentVersion: string;
+    },
+  ) =>
+    request<{ status: User["faceEnrollmentStatus"]; autoApproved: boolean }>("/face/enrollment", {
+      method: "POST",
+      body: JSON.stringify(capture),
+    }),
+  admin: {
+    profiles: () => request<FaceAdminProfile[]>("/face/admin/profiles"),
+    approve: (userId: string) =>
+      request<{ status: User["faceEnrollmentStatus"] }>(`/face/admin/profiles/${userId}/approve`, {
+        method: "PATCH",
+      }),
+    reject: (userId: string, reason: string) =>
+      request<{ status: User["faceEnrollmentStatus"]; rejectionReason: string }>(
+        `/face/admin/profiles/${userId}/reject`,
+        { method: "PATCH", body: JSON.stringify({ reason }) },
+      ),
+    reset: (userId: string) =>
+      request<{ status: User["faceEnrollmentStatus"] }>(`/face/admin/profiles/${userId}`, {
+        method: "DELETE",
+      }),
+    settings: () => request<FaceSettings>("/face/admin/settings"),
+    evidence: (userId: string) =>
+      request<FaceEvidenceRecord[]>(`/face/admin/evidence${toQuery({ userId })}`),
+    updateSettings: (settings: FaceSettings) =>
+      request<FaceSettings>("/face/admin/settings", {
+        method: "PATCH",
+        body: JSON.stringify(settings),
+      }),
+    evidenceImageUrl: (evidenceId: string) =>
+      `${API_BASE}/face/admin/evidence/${encodeURIComponent(evidenceId)}/image`,
+  },
+};
+
 export const leaveApi = {
   list: (filters: { status?: string } = {}) =>
     request<LeaveRequest[]>(`/leave/requests${toQuery(filters)}`),
@@ -393,10 +452,12 @@ export const attendanceApi = {
     request<AttendanceTimelineEvent[]>(`/attendance/team/timeline${toQuery({ employeeId, date })}`),
   checkIn: (payload: {
     employeeId: string;
-    latitude?: number;
-    longitude?: number;
+    latitude: number;
+    longitude: number;
+    locationAccuracy: number;
     mobileDeviceId?: string;
     confirmLeaveCancellation?: boolean;
+    faceVerification: FaceCapturePayload;
   }) =>
     request<{ eventId: string }>("/attendance/mobile/check-in", {
       method: "POST",
@@ -405,12 +466,16 @@ export const attendanceApi = {
         mobileDeviceId: payload.mobileDeviceId ?? navigator.userAgent.slice(0, 120),
       }),
     }),
-  checkOut: (payload: { latitude?: number; longitude?: number }) =>
+  checkOut: (payload: {
+    latitude: number;
+    longitude: number;
+    locationAccuracy: number;
+    faceVerification: FaceCapturePayload;
+  }) =>
     request<{ eventId: string }>("/attendance/mobile/check-out", {
       method: "POST",
       body: JSON.stringify({
-        latitude: payload.latitude ?? 0,
-        longitude: payload.longitude ?? 0,
+        ...payload,
         mobileDeviceId: navigator.userAgent.slice(0, 120),
       }),
     }),

@@ -11,6 +11,8 @@ real company use. The reset is intentionally destructive and cannot be reversed 
 - Departments, unit types, sort order, and parent/child hierarchy.
 - Predefined leave-policy types and their configured rules.
 - System settings, startup-screen values, and role/module-access configuration.
+- The acting Developer Admin face profile and its retained evidence, preventing an approval
+  authority lockout after reset.
 
 Department-head and employee-manager assignments are cleared because their testing employees may
 be removed.
@@ -26,6 +28,7 @@ be removed.
 - Holidays, biometric devices and mappings, announcements, push subscriptions, and notifications.
 - Employee API credentials, idempotency records, change events, profile requests, emergency
   contacts, and audit history.
+- Other users' face profiles, sessions, metadata, and encrypted evidence files.
 
 ## 3. Required Pre-Reset Checks
 
@@ -102,22 +105,26 @@ Complete these steps in order so references and permissions are correct:
 4. Review **System Settings > Module Access** for every role.
 5. Open **User Logins** and create leadership/HR accounts first, then managers and employees. Each
    login creates or links the canonical employee record.
-6. Return to **Departments** and assign real department heads.
-7. Edit employee profiles to set employer company, personal/company contact, manager, department,
+6. Ask each new user to change the temporary password and complete face registration. Review
+   submissions under **Face Security**; approve only after confirming the intended employee.
+7. Return to **Departments** and assign real department heads.
+8. Edit employee profiles to set employer company, personal/company contact, manager, department,
    attendance location, designation, joining date, banking/statutory fields, and employment
    type, attendance mode, and employee code.
-8. Add biometric devices, then map device user IDs to the correct employee records.
-9. Configure holidays, announcements, asset catalog/assignments, and task boards.
-10. If another application needs employee data, create a scoped credential under **Employee API
+9. Add biometric devices, then map device user IDs to the correct employee records.
+10. Configure holidays, announcements, asset catalog/assignments, and task boards.
+11. If another application needs employee data, create a scoped credential under **Employee API
     Access** and store the displayed secret in that application's secret manager.
 
 ## 7. Acceptance Test Before Staff Sign In
 
 Use one non-privileged test account representing a real employee and verify:
 
-1. First-login password change and subsequent sign-in.
+1. First-login password change, mandatory face registration, Developer Admin approval, and
+   subsequent sign-in.
 2. Mobile sidebar, profile, and module visibility match the assigned role.
-3. Mobile attendance permission and branch-radius behavior.
+3. Camera/precise-location denial, live movement challenge, face-matched check-in/out, and
+   branch-radius behavior.
 4. Leave application and approval using a preserved leave policy.
 5. Task assignment, task opening on mobile, stage change, and daily work update.
 6. Advance expense and expense submission, including the Google Drive sharing confirmation.

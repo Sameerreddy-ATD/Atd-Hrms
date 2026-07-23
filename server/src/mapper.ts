@@ -47,8 +47,15 @@ export function userDto(
       | "shiftStartMinutes"
       | "shiftEndMinutes"
     > | null;
+    faceProfile?: {
+      status: "PENDING" | "APPROVED" | "REJECTED" | "DISABLED";
+      rejectionReason: string | null;
+      submittedAt: Date;
+      approvedAt: Date | null;
+    } | null;
   },
 ) {
+  const faceEnrollmentStatus = user.faceProfile?.status ?? "NOT_REGISTERED";
   return {
     id: user.id,
     employeeId: user.employeeId ?? undefined,
@@ -72,6 +79,11 @@ export function userDto(
     department: user.employee?.departmentId ?? undefined,
     designation: user.employee?.designation ?? undefined,
     mustChangePassword: user.firstLoginPasswordChangeRequired,
+    faceEnrollmentStatus,
+    faceEnrollmentRequired: faceEnrollmentStatus !== "APPROVED",
+    faceEnrollmentReason: user.faceProfile?.rejectionReason ?? undefined,
+    faceEnrollmentSubmittedAt: user.faceProfile?.submittedAt?.toISOString(),
+    faceEnrollmentApprovedAt: user.faceProfile?.approvedAt?.toISOString(),
     attendanceMode: user.employee?.attendanceMode ?? undefined,
     isFieldEmployee: user.employee?.isFieldEmployee ?? undefined,
     employeeCode: user.employee?.employeeCode ?? undefined,

@@ -198,6 +198,40 @@ try {
         OR (uan_number_encrypted IS NULL) <> (uan_number_last4 IS NULL)`,
     "Every encrypted employee identifier must have a matching last-four display value",
   );
+  await countCheck(
+    "face template encryption",
+    "SELECT COUNT(*) AS count FROM face_profiles WHERE descriptor_encrypted NOT LIKE 'v1.%'",
+    "Every face template must use the versioned AES-GCM encrypted envelope",
+  );
+  await countCheck(
+    "approved face metadata",
+    `SELECT COUNT(*) AS count FROM face_profiles
+     WHERE status = 'APPROVED' AND (approved_at IS NULL OR approved_by_user_id IS NULL)`,
+    "Every approved face registration must record its approval time and approver",
+  );
+  await countCheck(
+    "face evidence deletion state",
+    `SELECT COUNT(*) AS count FROM face_evidence
+     WHERE (deleted_at IS NOT NULL AND image_key IS NOT NULL)
+        OR (deleted_at IS NULL AND image_key IS NULL)`,
+    "Active evidence must retain an encrypted image key and deleted evidence must not retain one",
+  );
+  await countCheck(
+    "face attendance linkage",
+    `SELECT COUNT(*) AS count FROM face_evidence
+     WHERE outcome = 'PASSED'
+       AND purpose IN ('ATTENDANCE_CHECK_IN','ATTENDANCE_CHECK_OUT')
+       AND attendance_event_id IS NULL`,
+    "Every passed attendance face verification must link to exactly one attendance event",
+  );
+  await countCheck(
+    "face attendance location",
+    `SELECT COUNT(*) AS count FROM face_evidence
+     WHERE purpose IN ('ATTENDANCE_CHECK_IN','ATTENDANCE_CHECK_OUT')
+       AND outcome = 'PASSED'
+       AND (latitude IS NULL OR longitude IS NULL OR location_accuracy IS NULL)`,
+    "Every passed attendance verification must store coordinates and GPS accuracy",
+  );
 
   const managerRows = await prisma.employee.findMany({
     select: { employeeId: true, managerId: true },
