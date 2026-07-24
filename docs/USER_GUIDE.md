@@ -88,6 +88,34 @@ Notes:
 - Bank account number, PAN, Aadhaar, and UAN are encrypted. They are not exported through the
   general Employee API.
 
+### Bulk Import Employee Logins
+
+Developer Admin can select **Bulk import** on **User Logins** and download the current `.xlsx`
+template. Always download a fresh copy because its reference sheets contain the current companies,
+attendance branches, organization units, and reporting managers.
+
+The Employees sheet supports:
+
+- employee code, full name, email, temporary password, personal phone, and company phone;
+- employer company, optional attendance branch, main/child organization unit, designation,
+  organization level, and reporting manager;
+- joining date, date of birth, gender, employment type, and blood group; and
+- account holder name, account type, account number, IFSC, PAN, Aadhaar, and optional UAN.
+
+Application role is intentionally not imported directly. The backend derives it from the selected
+organization unit and level, preventing a spreadsheet from granting an unauthorized role.
+Reporting Manager accepts an existing employee code/email, a code/email from another row in the
+same workbook, or `Automatic`. Same-workbook managers are created before their reports.
+
+The upload validates all rows before enabling import, including duplicate accounts, unit hierarchy,
+dates, manager references, passwords, and statutory formats. Up to 500 employees can be processed
+in one workbook. Every successful row creates the login and canonical employee record through the
+normal backend transaction, so encryption, role assignment, employee change events, and audit logs
+remain active.
+
+The workbook contains plaintext temporary passwords and any private information entered. Restrict
+access to it and permanently delete local/email copies after confirming a successful import.
+
 ## Employee: Review My Profile And ID Card
 
 **My Profile** displays identity/contact information first, employment and company information

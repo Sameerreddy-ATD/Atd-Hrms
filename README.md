@@ -16,6 +16,11 @@ The role-aware workspace keeps operational actions with Developer Admin, HR, and
 heads while giving the CEO a read-only executive view of workforce health, attendance coverage,
 leave decisions, work delivery, and company investment in employees.
 
+Developer Admin can create employees individually or use the generated bulk-import workbook. The
+current template covers the complete identity, employer, organization, reporting, employment,
+banking, and statutory profile; validates every row before import; derives roles on the backend;
+and stores successful rows through the standard transactional employee/login workflow.
+
 ## Current Release
 
 - Repository: `Sameerreddy-ATD/Employee-Management-System` (private)

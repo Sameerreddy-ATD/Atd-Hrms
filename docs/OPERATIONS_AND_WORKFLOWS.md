@@ -71,6 +71,12 @@ flowchart LR
 - User Logins and Employees display active, scheduled suspension, suspended, blocked, and inactive states from the same backend account status.
 - Developer Admin can deactivate an account by typing `DEACTIVATE`. The current account and all Developer Admin accounts are protected.
 - Deactivation synchronizes employee/account status and retains the profile, attendance, leave, biometric mappings, assigned assets, expenses, tasks, and audit history.
+- Developer Admin bulk import uses a generated Excel template containing the current company,
+  organization-unit, branch, and manager references. It accepts the complete employee identity,
+  employment, company, reporting, banking, and statutory profile.
+- Bulk-imported roles are derived by the backend from organization unit and level. Private
+  identifiers pass through the same validation and encryption used by individual login creation.
+  Manager-dependent workbook rows wait until their manager row has been created.
 
 ## Organization And Employee Visibility
 

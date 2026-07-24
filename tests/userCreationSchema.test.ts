@@ -44,4 +44,30 @@ describe("account creation validation", () => {
       false,
     );
   });
+
+  it("accepts the complete profile produced by the bulk-import template", () => {
+    const result = createUserSchema.safeParse({
+      ...validAccount,
+      employeeCode: "EMP-0100",
+      phone: "9000000000",
+      companyPhone: "9111111111",
+      companyEntity: "ROYAL_PETRO_PARK_PRIVATE_LIMITED",
+      designation: "Operations Manager",
+      managerId: "manager-employee-id",
+      organizationLevel: "SENIOR",
+      joiningDate: "2026-07-01",
+      dateOfBirth: "1995-04-12",
+      gender: "FEMALE",
+      employmentType: "FULL_TIME",
+      bloodGroup: "O+",
+      bankAccountHolderName: "Test Employee",
+      bankAccountType: "SALARY",
+      bankAccountNumber: "123456789012",
+      bankIfscCode: "ABCD0123456",
+      panNumber: "ABCDE1234F",
+      aadhaarNumber: "234567890123",
+      uanNumber: "100200300400",
+    });
+    expect(result.success).toBe(true);
+  });
 });

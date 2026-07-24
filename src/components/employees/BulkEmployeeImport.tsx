@@ -11,23 +11,44 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { Branch, Department, User } from "@/types/domain";
+import {
+  COMPANY_LABELS,
+  type BankAccountType,
+  type Branch,
+  type CompanyEntity,
+  type Department,
+  type User,
+} from "@/types/domain";
 import { usersApi } from "@/services/api";
 
 interface ImportRow {
   rowNumber: number;
   name: string;
   email: string;
+  phone?: string;
+  companyPhone?: string;
+  companyEntity: CompanyEntity;
   employeeCode?: string;
   departmentId?: string;
   departmentName: string;
   homeBranchId?: string;
   branchName: string;
   designation?: string;
+  managerReference?: string;
+  managerId?: string;
   organizationLevel: "HEAD" | "SENIOR" | "JUNIOR" | "MEMBER";
   gender: "FEMALE" | "MALE" | "PREFER_NOT_TO_SAY";
   employmentType: "FULL_TIME" | "PART_TIME" | "INTERN";
+  joiningDate?: string;
   dateOfBirth?: string;
+  bloodGroup?: "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-";
+  bankAccountHolderName?: string;
+  bankAccountType?: BankAccountType;
+  bankAccountNumber?: string;
+  bankIfscCode?: string;
+  panNumber?: string;
+  aadhaarNumber?: string;
+  uanNumber?: string;
   password?: string;
   errors: string[];
 }
@@ -37,19 +58,35 @@ const HEADERS = [
   "Full Name*",
   "Email*",
   "Temporary Password*",
-  "Home Branch*",
+  "Employer Company*",
+  "Personal Phone",
+  "Company Phone",
+  "Attendance Branch",
   "Main Organization Unit*",
   "Child Organization Unit",
-  "Job Title",
+  "Designation*",
   "Organization Level*",
+  "Reporting Manager Code or Email",
+  "Joining Date",
   "Date of Birth",
   "Gender*",
   "Employment Type*",
+  "Blood Group",
+  "Account Holder Name",
+  "Account Type",
+  "Bank Account Number",
+  "IFSC Code",
+  "PAN Number",
+  "Aadhaar Number",
+  "UAN Number",
 ] as const;
 
 const LEVELS = ["HEAD", "SENIOR", "JUNIOR", "MEMBER"] as const;
 const GENDERS = ["MALE", "FEMALE", "PREFER_NOT_TO_SAY"] as const;
 const EMPLOYMENT_TYPES = ["FULL_TIME", "PART_TIME", "INTERN"] as const;
+const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
+const BANK_ACCOUNT_TYPES = ["SAVINGS", "CURRENT", "SALARY", "NRE", "NRO", "OTHER"] as const;
+const COMPANY_ENTRIES = Object.entries(COMPANY_LABELS) as Array<[CompanyEntity, string]>;
 
 function cellText(value: CellValue): string {
   if (value === null || value === undefined) return "";
@@ -117,25 +154,37 @@ export function BulkEmployeeImport({
       "1. Enter employees only in the Employees sheet. Do not rename the column headers.",
     ]);
     instructions.addRow([
-      "2. Select branch and organization unit names from the supplied dropdowns.",
+      "2. Select employer company, organization units, and other controlled values from the supplied dropdowns.",
     ]);
     instructions.addRow([
-      "3. Weekly offs are requested by employees for a specific date after account creation.",
+      "3. Application role is assigned securely from the organization unit and organization level; it is not imported directly.",
     ]);
     instructions.addRow([
-      "4. Leave Employee Code blank to auto-generate it, or enter a unique ID.",
+      "4. Attendance Branch is optional. Employer Company replaces the old mandatory Home Branch profile field.",
     ]);
     instructions.addRow([
-      "5. Every row requires a temporary password of at least 10 characters with an uppercase letter and a number.",
+      "5. Leave Employee Code blank to auto-generate it, or enter a unique code.",
     ]);
     instructions.addRow([
-      "6. Download a fresh template whenever branches or organization units change.",
+      "6. Reporting Manager accepts an existing or same-workbook employee code/email. Leave blank or enter Automatic for hierarchy-based assignment.",
     ]);
     instructions.addRow([
-      "7. Date of Birth accepts an Excel date between 1900-01-01 and today. Leave it blank when unknown.",
+      "7. Every row requires a temporary password of at least 10 characters with an uppercase letter and a number.",
     ]);
     instructions.addRow([
-      "8. Rows 2 to 6 are examples only. Replace them with real employee details or delete them before upload.",
+      "8. Joining Date and Date of Birth accept Excel dates. Date of Birth cannot be in the future.",
+    ]);
+    instructions.addRow([
+      "9. Banking, PAN, Aadhaar, and UAN values are optional, validated, encrypted by the server, and never stored as plaintext in the database.",
+    ]);
+    instructions.addRow([
+      "10. The workbook itself contains plaintext passwords and any private data entered. Store it securely and delete it after a successful import.",
+    ]);
+    instructions.addRow([
+      "11. Download a fresh template whenever companies, branches, organization units, or employees change.",
+    ]);
+    instructions.addRow([
+      "12. Rows 2 to 6 are examples only. Replace them with real employee details or delete them before upload.",
     ]);
     instructions.getColumn(1).width = 100;
     instructions.getRow(1).font = { bold: true, size: 16, color: { argb: "FFD92D20" } };
@@ -151,12 +200,16 @@ export function BulkEmployeeImport({
     };
     employees.views = [{ state: "frozen", ySplit: 1 }];
     employees.properties.defaultRowHeight = 20;
-    employees.getColumn(4).numFmt = "@";
-    employees.getColumn(10).numFmt = "yyyy-mm-dd";
+    [4, 6, 7, 13, 21, 22, 23, 24, 25].forEach((column) => {
+      employees.getColumn(column).numFmt = "@";
+    });
+    employees.getColumn(14).numFmt = "yyyy-mm-dd";
+    employees.getColumn(15).numFmt = "yyyy-mm-dd";
     employees.autoFilter = `A1:${employees.getColumn(HEADERS.length).letter}1`;
-    employees.columns = [18, 26, 32, 24, 24, 28, 28, 24, 22, 18, 22, 22].map((width) => ({
-      width,
-    }));
+    employees.columns = [
+      18, 26, 32, 24, 34, 20, 20, 24, 28, 28, 24, 22, 30, 18, 18, 22, 22, 18, 26, 20, 26, 18, 18,
+      22, 20,
+    ].map((width) => ({ width }));
 
     const branchSheet = workbook.addWorksheet("Branches");
     branchSheet.addRow(["Branch Name", "Branch ID"]);
@@ -191,6 +244,20 @@ export function BulkEmployeeImport({
     }
     styleReferenceSheet(departmentSheet);
 
+    const managerSheet = workbook.addWorksheet("Reporting Managers");
+    managerSheet.addRow(["Employee Code", "Employee Name", "Email"]);
+    existingEmployees
+      .filter((employee) => employee.employeeId)
+      .sort((left, right) => left.name.localeCompare(right.name))
+      .forEach((employee) =>
+        managerSheet.addRow([
+          employee.employeeCode ?? employee.employeeId ?? "",
+          employee.name,
+          employee.email,
+        ]),
+      );
+    styleReferenceSheet(managerSheet);
+
     const sampleNames = [
       "Sample Employee One",
       "Sample Employee Two",
@@ -216,14 +283,29 @@ export function BulkEmployeeImport({
         sampleNames[index],
         `sample.employee${index + 1}@example.com`,
         "Welcome123",
+        COMPANY_LABELS[
+          index % 2 === 0 ? "ANYTIME_DIESEL" : "FUELISTIC_INNOVATIONS_PRIVATE_LIMITED"
+        ],
+        `90000000${String(index + 1).padStart(2, "0")}`,
+        "",
         branch?.name ?? "",
         mainUnit?.name ?? "",
         childChoice,
         childUnit?.name ? `${childUnit.name} Executive` : "Team Member",
         sampleLevels[index],
+        "Automatic",
+        new Date(2024, index, 1),
         new Date(1995 + index, index, 10 + index),
         sampleGenders[index],
         sampleEmploymentTypes[index],
+        index === 0 ? "O+" : "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
       ];
       sampleRow.eachCell({ includeEmpty: true }, (cell) => {
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF4CC" } };
@@ -232,10 +314,31 @@ export function BulkEmployeeImport({
     }
 
     const values = workbook.addWorksheet("Allowed Values");
-    values.addRow(["Organization Level", "Gender", "Employment Type"]);
-    const length = Math.max(LEVELS.length, GENDERS.length, EMPLOYMENT_TYPES.length);
+    values.addRow([
+      "Employer Company",
+      "Organization Level",
+      "Gender",
+      "Employment Type",
+      "Blood Group",
+      "Account Type",
+    ]);
+    const length = Math.max(
+      COMPANY_ENTRIES.length,
+      LEVELS.length,
+      GENDERS.length,
+      EMPLOYMENT_TYPES.length,
+      BLOOD_GROUPS.length,
+      BANK_ACCOUNT_TYPES.length,
+    );
     for (let index = 0; index < length; index += 1) {
-      values.addRow([LEVELS[index] ?? "", GENDERS[index] ?? "", EMPLOYMENT_TYPES[index] ?? ""]);
+      values.addRow([
+        COMPANY_ENTRIES[index]?.[1] ?? "",
+        LEVELS[index] ?? "",
+        GENDERS[index] ?? "",
+        EMPLOYMENT_TYPES[index] ?? "",
+        BLOOD_GROUPS[index] ?? "",
+        BANK_ACCOUNT_TYPES[index] ?? "",
+      ]);
     }
     styleReferenceSheet(values);
 
@@ -244,11 +347,19 @@ export function BulkEmployeeImport({
         type: "list",
         allowBlank: false,
         showErrorMessage: true,
-        errorTitle: "Select a branch",
-        error: "Choose a branch from the dropdown.",
+        errorTitle: "Select an employer company",
+        error: "Choose an employer company from the dropdown.",
+        formulae: [`'Allowed Values'!$A$2:$A$${COMPANY_ENTRIES.length + 1}`],
+      };
+      employees.getCell(`H${row}`).dataValidation = {
+        type: "list",
+        allowBlank: true,
+        showErrorMessage: true,
+        errorTitle: "Select an attendance branch",
+        error: "Choose a branch from the dropdown or leave it blank.",
         formulae: [`Branches!$A$2:$A$${Math.max(2, branches.length + 1)}`],
       };
-      employees.getCell(`F${row}`).dataValidation = {
+      employees.getCell(`I${row}`).dataValidation = {
         type: "list",
         allowBlank: false,
         showErrorMessage: true,
@@ -256,38 +367,62 @@ export function BulkEmployeeImport({
         error: "Choose a main organization unit from the dropdown.",
         formulae: [`'Organization Units'!$D$2:$D$${Math.max(2, mainUnits.length + 1)}`],
       };
-      employees.getCell(`G${row}`).dataValidation = {
+      employees.getCell(`J${row}`).dataValidation = {
         type: "list",
         allowBlank: true,
         formulae: [`'Organization Units'!$E$2:$E$${Math.max(2, childUnits.length + 2)}`],
       };
-      employees.getCell(`I${row}`).dataValidation = {
+      employees.getCell(`L${row}`).dataValidation = {
         type: "list",
         allowBlank: false,
-        formulae: [`'Allowed Values'!$A$2:$A$${LEVELS.length + 1}`],
+        formulae: [`'Allowed Values'!$B$2:$B$${LEVELS.length + 1}`],
       };
-      employees.getCell(`J${row}`).dataValidation = {
+      employees.getCell(`N${row}`).dataValidation = {
         type: "date",
         operator: "between",
         allowBlank: true,
         showErrorMessage: true,
         errorTitle: "Invalid date",
-        error: "Enter a date between 1900-01-01 and today.",
+        error: "Enter a joining date between 1900-01-01 and 2100-12-31.",
+        formulae: [new Date(1900, 0, 1), new Date(2100, 11, 31)],
+      };
+      employees.getCell(`N${row}`).numFmt = "yyyy-mm-dd";
+      employees.getCell(`O${row}`).dataValidation = {
+        type: "date",
+        operator: "between",
+        allowBlank: true,
+        showErrorMessage: true,
+        errorTitle: "Invalid date",
+        error: "Enter a date of birth between 1900-01-01 and today.",
         formulae: [new Date(1900, 0, 1), new Date()],
       };
-      employees.getCell(`J${row}`).numFmt = "yyyy-mm-dd";
-      employees.getCell(`K${row}`).dataValidation = {
+      employees.getCell(`O${row}`).numFmt = "yyyy-mm-dd";
+      employees.getCell(`P${row}`).dataValidation = {
         type: "list",
         allowBlank: false,
-        formulae: [`'Allowed Values'!$B$2:$B$${GENDERS.length + 1}`],
+        formulae: [`'Allowed Values'!$C$2:$C$${GENDERS.length + 1}`],
       };
-      employees.getCell(`L${row}`).dataValidation = {
+      employees.getCell(`Q${row}`).dataValidation = {
         type: "list",
         allowBlank: false,
-        formulae: [`'Allowed Values'!$C$2:$C$${EMPLOYMENT_TYPES.length + 1}`],
+        formulae: [`'Allowed Values'!$D$2:$D$${EMPLOYMENT_TYPES.length + 1}`],
+      };
+      employees.getCell(`R${row}`).dataValidation = {
+        type: "list",
+        allowBlank: true,
+        formulae: [`'Allowed Values'!$E$2:$E$${BLOOD_GROUPS.length + 1}`],
+      };
+      employees.getCell(`T${row}`).dataValidation = {
+        type: "list",
+        allowBlank: true,
+        formulae: [`'Allowed Values'!$F$2:$F$${BANK_ACCOUNT_TYPES.length + 1}`],
       };
       employees.getCell(`D${row}`).note =
         "Required: at least 10 characters with an uppercase letter and a number.";
+      employees.getCell(`M${row}`).note =
+        "Enter an employee code/email from Reporting Managers, a same-workbook employee code/email, or Automatic.";
+      employees.getCell(`U${row}`).note =
+        "Optional private value. The server encrypts it after import; protect and delete this workbook.";
       if (row <= 81) {
         employees.getRow(row).eachCell({ includeEmpty: true }, (cell) => {
           cell.border = {
@@ -300,6 +435,7 @@ export function BulkEmployeeImport({
     await Promise.all([
       branchSheet.protect("", { selectLockedCells: true }),
       departmentSheet.protect("", { selectLockedCells: true }),
+      managerSheet.protect("", { selectLockedCells: true }),
       values.protect("", { selectLockedCells: true }),
     ]);
 
@@ -339,6 +475,11 @@ export function BulkEmployeeImport({
       const branchMap = new Map(
         branches.map((branch) => [branch.name.trim().toLowerCase(), branch]),
       );
+      const companyMap = new Map<string, CompanyEntity>();
+      COMPANY_ENTRIES.forEach(([value, label]) => {
+        companyMap.set(value.toLowerCase(), value);
+        companyMap.set(label.toLowerCase(), value);
+      });
       const departmentMap = new Map(
         departments.map((department) => [department.name.trim().toLowerCase(), department]),
       );
@@ -352,6 +493,15 @@ export function BulkEmployeeImport({
             return [`${parent?.name ?? "Parent"} > ${department.name}`.toLowerCase(), department];
           }),
       );
+      const managerMap = new Map<string, string>();
+      existingEmployees.forEach((employee) => {
+        if (!employee.employeeId) return;
+        [employee.employeeCode, employee.employeeId, employee.email]
+          .filter(Boolean)
+          .forEach((key) => {
+            managerMap.set(String(key).trim().toLowerCase(), employee.employeeId!);
+          });
+      });
       const parsed: ImportRow[] = [];
       sheet.eachRow((row, rowNumber) => {
         if (rowNumber === 1) return;
@@ -364,13 +514,31 @@ export function BulkEmployeeImport({
         const name = cellText(values[1]);
         const email = cellText(values[2]).toLowerCase();
         const password = cellText(values[3]);
-        const branchName = cellText(values[4]);
-        const mainUnitName = cellText(values[5]);
-        const childUnitName = cellText(values[6]);
+        const companyName = cellText(values[4]);
+        const phone = cellText(values[5]);
+        const companyPhone = cellText(values[6]);
+        const branchName = cellText(values[7]);
+        const mainUnitName = cellText(values[8]);
+        const childUnitName = cellText(values[9]);
         const useMainUnit = !childUnitName || childUnitName.toLowerCase() === "use main unit";
-        const level = cellText(values[8]).toUpperCase();
-        const gender = cellText(values[10]).toUpperCase();
-        const employmentType = cellText(values[11]).toUpperCase();
+        const designation = cellText(values[10]);
+        const level = cellText(values[11]).toUpperCase();
+        const managerText = cellText(values[12]);
+        const managerReference =
+          managerText && managerText.toLowerCase() !== "automatic"
+            ? managerText.toLowerCase()
+            : undefined;
+        const gender = cellText(values[15]).toUpperCase();
+        const employmentType = cellText(values[16]).toUpperCase();
+        const bloodGroup = cellText(values[17]).toUpperCase();
+        const bankAccountHolderName = cellText(values[18]);
+        const bankAccountType = cellText(values[19]).toUpperCase();
+        const bankAccountNumber = cellText(values[20]);
+        const bankIfscCode = cellText(values[21]).replace(/\s+/g, "").toUpperCase();
+        const panNumber = cellText(values[22]).replace(/\s+/g, "").toUpperCase();
+        const aadhaarNumber = cellText(values[23]).replace(/\s+/g, "");
+        const uanNumber = cellText(values[24]).replace(/\s+/g, "");
+        const companyEntity = companyMap.get(companyName.toLowerCase());
         const branchRecord = branchMap.get(branchName.toLowerCase());
         const mainUnitRecord = departmentMap.get(mainUnitName.toLowerCase());
         const childUnitRecord = useMainUnit
@@ -382,6 +550,9 @@ export function BulkEmployeeImport({
         const errors: string[] = [];
         if (!name) errors.push("Full name is required");
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push("Valid email is required");
+        if (!companyEntity) errors.push(`Unknown employer company: ${companyName || "blank"}`);
+        if (phone.length > 30) errors.push("Personal phone must be 30 characters or fewer");
+        if (companyPhone.length > 30) errors.push("Company phone must be 30 characters or fewer");
         if (!mainUnitRecord || mainUnitRecord.parentDepartmentId)
           errors.push(`Unknown main organization unit: ${mainUnitName || "blank"}`);
         if (!useMainUnit && !childUnitRecord)
@@ -392,20 +563,38 @@ export function BulkEmployeeImport({
           childUnitRecord.parentDepartmentId !== mainUnitRecord.id
         )
           errors.push(`${childUnitName} is not under ${mainUnitName}`);
-        if (!branchRecord) errors.push(`Unknown branch: ${branchName || "blank"}`);
+        if (branchName && !branchRecord) errors.push(`Unknown attendance branch: ${branchName}`);
+        if (!designation) errors.push("Designation is required");
         if (!LEVELS.includes(level as (typeof LEVELS)[number]))
           errors.push("Invalid organization level");
         if (!GENDERS.includes(gender as (typeof GENDERS)[number])) errors.push("Invalid gender");
         if (!EMPLOYMENT_TYPES.includes(employmentType as (typeof EMPLOYMENT_TYPES)[number])) {
           errors.push("Invalid employment type");
         }
-        const dateOfBirth = normalizeDate(values[9]);
-        if (cellText(values[9]) && !dateOfBirth) errors.push("Invalid date of birth");
+        if (bloodGroup && !BLOOD_GROUPS.includes(bloodGroup as never))
+          errors.push("Invalid blood group");
+        if (bankAccountType && !BANK_ACCOUNT_TYPES.includes(bankAccountType as never))
+          errors.push("Invalid bank account type");
+        const joiningDate = normalizeDate(values[13]);
+        if (cellText(values[13]) && !joiningDate) errors.push("Invalid joining date");
+        if (joiningDate && (joiningDate < "1900-01-01" || joiningDate > "2100-12-31"))
+          errors.push("Joining date must be between 1900-01-01 and 2100-12-31");
+        const dateOfBirth = normalizeDate(values[14]);
+        if (cellText(values[14]) && !dateOfBirth) errors.push("Invalid date of birth");
         if (
           dateOfBirth &&
           (dateOfBirth < "1900-01-01" || dateOfBirth > new Date().toISOString().slice(0, 10))
         )
           errors.push("Date of birth must be between 1900-01-01 and today");
+        if (bankAccountNumber && !/^[A-Za-z0-9-]{6,34}$/.test(bankAccountNumber))
+          errors.push("Invalid bank account number");
+        if (bankIfscCode && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(bankIfscCode))
+          errors.push("Invalid IFSC code");
+        if (panNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(panNumber))
+          errors.push("Invalid PAN number");
+        if (aadhaarNumber && !/^[2-9][0-9]{11}$/.test(aadhaarNumber))
+          errors.push("Invalid Aadhaar number");
+        if (uanNumber && !/^[0-9]{12}$/.test(uanNumber)) errors.push("Invalid UAN number");
         if (!password) errors.push("Temporary password is required");
         else if (password.length < 10 || !/[A-Z]/.test(password) || !/[0-9]/.test(password))
           errors.push("Password needs 10+ characters, an uppercase letter, and a number");
@@ -414,12 +603,17 @@ export function BulkEmployeeImport({
           rowNumber,
           name,
           email,
+          phone: phone || undefined,
+          companyPhone: companyPhone || undefined,
+          companyEntity: companyEntity ?? "ANYTIME_DIESEL",
           employeeCode: employeeCode || undefined,
           departmentId: departmentRecord?.id,
           departmentName,
           homeBranchId: branchRecord?.id,
           branchName,
-          designation: cellText(values[7]) || undefined,
+          designation: designation || undefined,
+          managerReference,
+          managerId: managerReference ? managerMap.get(managerReference) : undefined,
           organizationLevel: (LEVELS.includes(level as never)
             ? level
             : "MEMBER") as ImportRow["organizationLevel"],
@@ -429,7 +623,20 @@ export function BulkEmployeeImport({
           employmentType: (EMPLOYMENT_TYPES.includes(employmentType as never)
             ? employmentType
             : "FULL_TIME") as ImportRow["employmentType"],
+          joiningDate,
           dateOfBirth,
+          bloodGroup: (BLOOD_GROUPS.includes(bloodGroup as never)
+            ? bloodGroup
+            : undefined) as ImportRow["bloodGroup"],
+          bankAccountHolderName: bankAccountHolderName || undefined,
+          bankAccountType: (BANK_ACCOUNT_TYPES.includes(bankAccountType as never)
+            ? bankAccountType
+            : undefined) as ImportRow["bankAccountType"],
+          bankAccountNumber: bankAccountNumber || undefined,
+          bankIfscCode: bankIfscCode || undefined,
+          panNumber: panNumber || undefined,
+          aadhaarNumber: aadhaarNumber || undefined,
+          uanNumber: uanNumber || undefined,
           password: password || undefined,
           errors,
         });
@@ -454,6 +661,11 @@ export function BulkEmployeeImport({
           .map((row) => (row.employeeCode ?? row.employeeId)?.toLowerCase())
           .filter(Boolean),
       );
+      const workbookManagerReferences = new Set<string>();
+      parsed.forEach((row) => {
+        workbookManagerReferences.add(row.email);
+        if (row.employeeCode) workbookManagerReferences.add(row.employeeCode.toLowerCase());
+      });
       parsed.forEach((row) => {
         if ((emailCounts.get(row.email) ?? 0) > 1) row.errors.push("Duplicate email in workbook");
         if (existingEmails.has(row.email)) row.errors.push("Email already has an account");
@@ -461,6 +673,23 @@ export function BulkEmployeeImport({
           const code = row.employeeCode.toLowerCase();
           if ((codeCounts.get(code) ?? 0) > 1) row.errors.push("Duplicate employee ID in workbook");
           if (existingCodes.has(code)) row.errors.push("Employee ID already exists");
+        }
+        if (
+          row.managerReference &&
+          !managerMap.has(row.managerReference) &&
+          !workbookManagerReferences.has(row.managerReference)
+        ) {
+          row.errors.push(`Reporting manager not found: ${row.managerReference}`);
+        }
+        if (
+          row.managerReference &&
+          (row.managerReference === row.email ||
+            row.managerReference === row.employeeCode?.toLowerCase())
+        ) {
+          row.errors.push("Employee cannot be their own reporting manager");
+        }
+        if (row.joiningDate && row.dateOfBirth && row.joiningDate <= row.dateOfBirth) {
+          row.errors.push("Joining date must be after date of birth");
         }
       });
       setRows(parsed);
@@ -478,35 +707,89 @@ export function BulkEmployeeImport({
     setImporting(true);
     setProgress({ completed: 0, total: validRows.length });
     const failures: Array<{ row: number; message: string }> = [];
-    let cursor = 0;
-    const workers = Array.from({ length: Math.min(4, validRows.length) }, async () => {
-      while (cursor < validRows.length) {
-        const row = validRows[cursor++];
-        try {
-          await usersApi.create({
-            name: row.name,
-            email: row.email,
-            employeeCode: row.employeeCode,
-            departmentId: row.departmentId,
-            homeBranchId: row.homeBranchId,
-            designation: row.designation,
-            organizationLevel: row.organizationLevel,
-            gender: row.gender,
-            employmentType: row.employmentType,
-            attendanceMode: "BOTH",
-            dateOfBirth: row.dateOfBirth,
-            password: row.password!,
-            active: true,
-            mustChangePassword: true,
-          } as never);
-        } catch (error) {
-          failures.push({ row: row.rowNumber, message: (error as Error).message });
-        } finally {
-          setProgress((current) => ({ ...current, completed: current.completed + 1 }));
-        }
-      }
+    const resolvedManagerIds = new Map<string, string>();
+    existingEmployees.forEach((employee) => {
+      if (!employee.employeeId) return;
+      [employee.employeeCode, employee.employeeId, employee.email]
+        .filter(Boolean)
+        .forEach((key) => {
+          resolvedManagerIds.set(String(key).trim().toLowerCase(), employee.employeeId!);
+        });
     });
-    await Promise.all(workers);
+    const pending = [...validRows];
+    while (pending.length) {
+      const ready = pending
+        .filter(
+          (row) =>
+            !row.managerReference ||
+            Boolean(row.managerId) ||
+            resolvedManagerIds.has(row.managerReference),
+        )
+        .slice(0, 4);
+      if (!ready.length) {
+        pending.forEach((row) =>
+          failures.push({
+            row: row.rowNumber,
+            message:
+              "Reporting manager could not be created or resolved. Check for a failed manager or circular reporting relationship.",
+          }),
+        );
+        setProgress((current) => ({
+          ...current,
+          completed: current.completed + pending.length,
+        }));
+        pending.length = 0;
+        break;
+      }
+      ready.forEach((row) => pending.splice(pending.indexOf(row), 1));
+      await Promise.all(
+        ready.map(async (row) => {
+          try {
+            const created = await usersApi.create({
+              name: row.name,
+              email: row.email,
+              phone: row.phone,
+              companyPhone: row.companyPhone,
+              companyEntity: row.companyEntity,
+              employeeCode: row.employeeCode,
+              departmentId: row.departmentId,
+              homeBranchId: row.homeBranchId,
+              designation: row.designation,
+              managerId:
+                row.managerId ??
+                (row.managerReference ? resolvedManagerIds.get(row.managerReference) : undefined),
+              organizationLevel: row.organizationLevel,
+              gender: row.gender,
+              employmentType: row.employmentType,
+              attendanceMode: "BOTH",
+              joiningDate: row.joiningDate,
+              dateOfBirth: row.dateOfBirth,
+              bloodGroup: row.bloodGroup,
+              bankAccountHolderName: row.bankAccountHolderName,
+              bankAccountType: row.bankAccountType,
+              bankAccountNumber: row.bankAccountNumber,
+              bankIfscCode: row.bankIfscCode,
+              panNumber: row.panNumber,
+              aadhaarNumber: row.aadhaarNumber,
+              uanNumber: row.uanNumber,
+              password: row.password!,
+              active: true,
+              mustChangePassword: true,
+            } as never);
+            if (created.employeeId) {
+              resolvedManagerIds.set(row.email, created.employeeId);
+              if (row.employeeCode) {
+                resolvedManagerIds.set(row.employeeCode.toLowerCase(), created.employeeId);
+              }
+            }
+          } catch (error) {
+            failures.push({ row: row.rowNumber, message: (error as Error).message });
+          } finally {
+            setProgress((current) => ({ ...current, completed: current.completed + 1 }));
+          }
+        }),
+      );
+    }
     setImporting(false);
     if (failures.length) {
       setRows((current) =>
@@ -540,8 +823,8 @@ export function BulkEmployeeImport({
           <DialogHeader>
             <DialogTitle>Bulk import employees</DialogTitle>
             <DialogDescription>
-              Download the current template, complete the Employees sheet, then upload it for
-              validation.
+              Download the current template, complete the full employee profile, then upload it for
+              validation before anything is saved.
             </DialogDescription>
           </DialogHeader>
 
@@ -556,7 +839,7 @@ export function BulkEmployeeImport({
               <span className="text-left">
                 <span className="block font-medium">Download Excel template</span>
                 <span className="block text-xs text-muted-foreground">
-                  Includes current branches and organization units
+                  Includes companies, units, managers, profile and banking fields
                 </span>
               </span>
             </Button>
@@ -629,7 +912,8 @@ export function BulkEmployeeImport({
                         <td className="p-2">
                           <span className="block">{row.departmentName || "-"}</span>
                           <span className="block text-xs text-muted-foreground">
-                            {row.branchName || "-"}
+                            {COMPANY_LABELS[row.companyEntity]}
+                            {row.branchName ? ` · ${row.branchName}` : ""}
                           </span>
                         </td>
                         <td className="p-2">
