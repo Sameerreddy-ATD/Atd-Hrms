@@ -1,4 +1,4 @@
-import { Logo } from "@/components/common/Logo";
+import { DieselTruckLoader } from "@/components/common/DieselTruckLoader";
 import { cn } from "@/lib/utils";
 import { systemApi, type BrandProofSettings } from "@/services/api";
 import { useEffect, useState } from "react";
@@ -47,13 +47,7 @@ export function LoadingState({
           showBrandStory ? "w-full max-w-3xl px-1 sm:px-0" : "max-w-xs",
         )}
       >
-        <div className="relative w-32 shrink-0 overflow-hidden px-2 py-1 sm:w-40">
-          <Logo className="h-auto w-full" />
-          <span
-            className="absolute inset-y-0 -left-1/2 w-1/3 skew-x-[-18deg] bg-white/75 blur-sm motion-safe:animate-[atd-sweep_1.35s_ease-in-out_infinite] motion-reduce:hidden"
-            aria-hidden="true"
-          />
-        </div>
+        <DieselTruckLoader compact={compact} />
 
         <div>
           {showBrandStory && (
@@ -76,12 +70,6 @@ export function LoadingState({
           >
             {label}
           </p>
-          <div
-            className="mx-auto mt-2 h-1 w-24 overflow-hidden rounded-full bg-primary/15"
-            aria-hidden="true"
-          >
-            <span className="block h-full w-2/5 rounded-full bg-primary motion-safe:animate-[atd-progress_1.15s_ease-in-out_infinite] motion-reduce:w-full" />
-          </div>
         </div>
 
         {showBrandStory && (

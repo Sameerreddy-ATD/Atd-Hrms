@@ -80,7 +80,7 @@ function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-8">
       <div className="min-w-0 w-full max-w-md space-y-8">
         <div className="flex min-w-0 justify-center overflow-hidden">
-          <Logo className="h-auto w-full max-w-64" />
+          <Logo className="h-auto w-36 sm:w-44" />
         </div>
 
         <Card className="border-border shadow-sm">
