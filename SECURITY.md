@@ -20,6 +20,8 @@ verification has passed.
 - Store passwords and integration credentials only as hashes.
 - Keep JWT secrets, database credentials, VAPID private keys, SSH keys, dumps, and `.env` outside Git.
 - Use HTTPS with secure HTTP-only cookies in production.
+- Keep access/refresh secrets separate. Account `session_version` makes suspension, deactivation,
+  password change/reset, sensitive account updates, and logout revoke previously issued cookies.
 - Enforce authorization in the backend even when the frontend hides an action.
 - Use scoped, revocable API credentials for integrations; never reuse browser sessions.
 - Preserve audit and operational history when accounts are deactivated.

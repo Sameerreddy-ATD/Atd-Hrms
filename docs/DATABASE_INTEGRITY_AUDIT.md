@@ -13,30 +13,30 @@ workflow.
 
 ## Latest Release Audit
 
-The 23 July 2026 handover audit was run against fresh, disposable MySQL 8 databases:
+The 25 July 2026 code and workflow audit produced these results:
 
-- all 31 ordered migrations applied successfully to an empty database;
-- the repository audit found 25 required handover files, with zero failures or warnings;
-- Prisma validation, frontend/backend type checks, production builds, and 53 unit/workflow/security
-  tests passed;
-- the database audit inspected all 40 application tables and passed every foreign-key,
-  cross-table, encryption-envelope, workflow, and migration check;
-- the Work Planner smoke test passed creation, assignment, workflow changes, activity, archive and
-  restore, optimistic conflicts, and stale-write protection;
-- the Employee Integration API smoke test passed authentication, create/read/update/deactivate,
-  idempotency, conflict protection, change feeds, account mirroring, history retention, and
-  credential revocation;
-- the guarded reset test deleted all demonstration employees/accounts, retained reference data and
-  the Developer Admin, and successfully created the first real CEO account; and
-- `npm audit --omit=dev` reported zero known production dependency vulnerabilities.
+- all 33 ordered migration directories are present and the Prisma schema validates;
+- the repository audit found every required handover file with zero failures or warnings;
+- frontend/backend type checks, production builds, 69 unit/workflow/security tests, and three
+  desktop/mobile Playwright checks passed;
+- the ExcelJS archive/read dependency paths are locked to maintained releases, workbook read/write
+  regression testing passed, and `npm audit --omit=dev` reports zero vulnerabilities; and
+- the new audit checks cover session versions, employment dates, hierarchy cycles, approver
+  eligibility, assets, HR Documents, and the existing cross-table invariants.
 
-Docker is not installed in the audit workstation, so the receiving team must still run the
-container validation commands in [Development and Testing](DEVELOPMENT_AND_TESTING.md) if it selects
-the container handoff. The application and backend production builds themselves were validated.
+This workstation did not have authorized credentials for a running application database. Therefore
+the current `db:verify`, `db:audit`, empty-schema migration, task, integration, and reset smoke
+checks remain mandatory target-environment acceptance steps; a code-only pass is not represented as
+a live-database pass.
+
+The previous 23 July database-backed handover audit successfully applied the then-current 31
+migrations to disposable MySQL, audited the then-current 40 tables, and passed the Work Planner,
+Employee Integration API, and guarded-reset smoke tests. It is historical evidence, not a
+substitute for applying migrations 32 and 33 and rerunning the current audit.
 
 ## Storage Layout
 
-MySQL 8.0 contains 40 application tables grouped as follows:
+MySQL 8.0 contains 42 application tables grouped as follows:
 
 | Domain                | Tables                                                                                                                                                                                                                   | Source-of-truth rule                                                                       |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
@@ -122,12 +122,13 @@ The command reports per-table row counts and runs the complete current check sui
 - all foreign keys and orphan counts;
 - unfinished Prisma migrations, storage engine, and Unicode collation;
 - employee/account profile and lifecycle synchronization;
-- employee and department hierarchy cycles;
+- employee and department hierarchy cycles, reporting-manager eligibility, and employment dates;
+- non-negative account session versions;
 - employee versions, shifts, branch coordinates, and geofence ranges;
 - attendance totals, checkout ordering, and paired GPS coordinates;
 - face-template encryption, approval metadata, evidence deletion state, the maximum-five active
   image limit per user, check-in evidence linkage, and face-attendance GPS completeness;
-- leave date ranges and balance arithmetic;
+- leave date ranges, balance arithmetic, and pending-request approver eligibility;
 - expense type/status/required fields, Drive confirmation, and payment timestamp consistency;
 - HR-document workflow/link consistency;
 - asset assignment, scope, state, and value consistency;
@@ -156,9 +157,10 @@ numbers, remarks, or document links.
 ## Clean-database Validation
 
 The previous Task v2 baseline was validated against a newly initialized disposable MySQL 8
-database. This release adds one ordered migration and three face-security tables. Release acceptance
-must repeat the clean-database sequence below and record the current table, foreign-key, and check
-counts from `db:audit`; do not copy historical counts into an acceptance report.
+database. Subsequent releases added face-security storage, task-board versioning, and
+`20260725110000_security_and_workflow_integrity`. Release acceptance must repeat the clean-database
+sequence below and record the current table, foreign-key, and check counts from `db:audit`; do not
+copy historical counts into an acceptance report.
 
 The Task smoke test creates and edits a board, adds a custom stage, creates a task, changes its
 stage/status, posts an activity, verifies task and board version increments, confirms stale task and

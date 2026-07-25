@@ -23,16 +23,16 @@ The frontend never connects directly to MySQL. Authorization and object-level ac
 
 ## Technology Stack
 
-| Concern                  | Technology and responsibility                                                         |
-| ------------------------ | ------------------------------------------------------------------------------------- |
-| Browser UI               | React 19, TanStack Start/Router, TypeScript 5.9, Vite 8 and Tailwind CSS 4            |
-| Accessible UI primitives | Radix UI, shared responsive dialogs/tables, Lucide icons and Recharts                 |
-| API and validation       | Node.js 22, Express 4, Zod 3 and rate-limited JSON endpoints                          |
-| Persistence              | MySQL 8, Prisma 6 schema/migrations and transactional writes                          |
-| Authentication           | bcrypt password hashing, signed JWT cookies, origin validation and backend RBAC       |
-| Live application state   | Authenticated Server-Sent Events, Web Push and service-worker PWA support             |
-| Face verification        | Self-hosted Human 3 WebGL models, one-time challenges and encrypted server storage    |
-| Verification             | Vitest 4, Playwright, ESLint 9, Prettier 3, TypeScript and repository/database audits |
+| Concern                  | Technology and responsibility                                                          |
+| ------------------------ | -------------------------------------------------------------------------------------- |
+| Browser UI               | React 19, TanStack Start/Router, TypeScript 5.9, Vite 8 and Tailwind CSS 4             |
+| Accessible UI primitives | Radix UI, shared responsive dialogs/tables, Lucide icons and Recharts                  |
+| API and validation       | Node.js 22, Express 4, Zod 3 and rate-limited JSON endpoints                           |
+| Persistence              | MySQL 8, Prisma 6 schema/migrations and transactional writes                           |
+| Authentication           | bcrypt password hashing, signed JWT cookies, origin validation and backend RBAC        |
+| Live application state   | Authenticated Server-Sent Events, Web Push and service-worker PWA support              |
+| Face verification        | Self-hosted Human 3 WebGL models, one-time challenges and encrypted server storage     |
+| Verification             | Vitest 4, Playwright, ESLint 10, Prettier 3, TypeScript and repository/database audits |
 
 The same runtime can be hosted on one Ubuntu VM or split into frontend, backend, and managed MySQL
 services. The container contract, secrets inventory, proxy settings, and receiving-company
@@ -78,8 +78,15 @@ Supported AWS patterns and their scaling constraints are documented in
    approved templates.
 7. `/auth/restore` restores eligible sessions from the refresh cookie.
 8. Suspended, inactive, and locked accounts cannot restore a browser session.
+9. Access and refresh tokens include the current `users.session_version`. Authenticated requests
+   reload account state from MySQL; password changes/resets, role-sensitive account updates,
+   suspension, deactivation, and logout increment the version and invalidate older cookies.
 
 Developer Admin is protected from failed-password lockout and cannot be suspended, deactivated, or deleted.
+
+Module access is defense in depth. The application layout blocks disabled routes for usability,
+and backend middleware maps protected API groups to their module before route handlers run. Role,
+ownership, hierarchy, and board-access checks still apply inside each domain.
 
 ## Data Statuses
 

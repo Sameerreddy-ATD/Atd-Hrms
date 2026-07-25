@@ -73,6 +73,17 @@ authentication and can immediately review all other registrations.
 
 Run `npx prisma migrate deploy` before restarting the backend. Migration `20260721103000_add_employee_shifts` adds day/night shift configuration with day-shift defaults for existing employees.
 
+### Workflow-integrity and session-revocation migration
+
+Migration `20260725110000_security_and_workflow_integrity` is required before starting the updated
+backend. It adds `users.session_version`, converts legacy HR-document delivery value `PHYSICAL` to
+`PRINTED`, and replaces the delivery-mode check constraint. The data conversion is limited to that
+legacy enum value; it does not delete requests.
+
+After deployment, existing browser cookies do not carry a session version and must sign in again.
+This is intentional. Password changes/resets, suspension, deactivation, sensitive account edits,
+and logout then revoke older cookies immediately.
+
 ### Task Workspace v2 migration warning
 
 Migration `20260722213000_task_workspace_v2` intentionally clears all legacy Task boards, stages,

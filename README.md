@@ -45,6 +45,7 @@ Start with the [documentation index](docs/README.md).
 | [Development and Testing](docs/DEVELOPMENT_AND_TESTING.md)                     | Local development, migrations, test matrix, and release checks               |
 | [Employee Data and Integration API](docs/EMPLOYEE_DATA_AND_INTEGRATION_API.md) | Database owners and external application developers                          |
 | [Database Integrity Audit](docs/DATABASE_INTEGRITY_AUDIT.md)                   | Database owners, maintainers, and release reviewers                          |
+| [Workflow and Security Audit](docs/WORKFLOW_AND_SECURITY_AUDIT.md)             | Security, QA, workflow owners, and release reviewers                         |
 | [Third-Party Technical Handover](docs/THIRD_PARTY_HANDOVER.md)                 | Receiving companies, technical owners, and transition managers               |
 | [Cloud Deployment Options and Costs](docs/CLOUD_DEPLOYMENT_OPTIONS.md)         | Owners choosing providers, capacity, budget, and hosting architecture        |
 | [AWS Deployment Patterns](docs/AWS_DEPLOYMENT_PATTERNS.md)                     | AWS architects, DevOps engineers, and infrastructure reviewers               |
@@ -59,15 +60,15 @@ Security reporting and credential-handling rules are in [SECURITY.md](SECURITY.m
 
 ## Technology
 
-| Layer                  | Current implementation                                                           |
-| ---------------------- | -------------------------------------------------------------------------------- |
-| Web application        | React 19, TanStack Start/Router, TypeScript 5.9, Vite 8, Tailwind CSS 4          |
-| API                    | Node.js 22, Express 4, Zod validation, HTTP-only cookie authentication and RBAC  |
-| Data                   | MySQL 8, Prisma 6 migrations and transactional persistence                       |
-| Realtime and installed | Authenticated Server-Sent Events, Web Push, service worker and PWA manifest      |
-| Face attendance        | Self-hosted Human 3, WebGL inference, backend matching and encrypted evidence    |
-| UI foundation          | Radix primitives, Lucide icons, responsive shared dialogs/tables and Recharts    |
-| Quality                | Vitest 4, Playwright, ESLint 9, Prettier 3 and strict frontend/backend typecheck |
+| Layer                  | Current implementation                                                            |
+| ---------------------- | --------------------------------------------------------------------------------- |
+| Web application        | React 19, TanStack Start/Router, TypeScript 5.9, Vite 8, Tailwind CSS 4           |
+| API                    | Node.js 22, Express 4, Zod validation, HTTP-only cookie authentication and RBAC   |
+| Data                   | MySQL 8, Prisma 6 migrations and transactional persistence                        |
+| Realtime and installed | Authenticated Server-Sent Events, Web Push, service worker and PWA manifest       |
+| Face attendance        | Self-hosted Human 3, WebGL inference, backend matching and encrypted evidence     |
+| UI foundation          | Radix primitives, Lucide icons, responsive shared dialogs/tables and Recharts     |
+| Quality                | Vitest 4, Playwright, ESLint 10, Prettier 3 and strict frontend/backend typecheck |
 
 See [Technical Overview](docs/TECHNICAL_OVERVIEW.md) and
 [Responsive UI Audit](docs/RESPONSIVE_UI_AUDIT.md) for the complete architecture and interface

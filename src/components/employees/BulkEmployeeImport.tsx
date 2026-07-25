@@ -667,6 +667,12 @@ export function BulkEmployeeImport({
         if (row.employeeCode) workbookManagerReferences.add(row.employeeCode.toLowerCase());
       });
       parsed.forEach((row) => {
+        if (
+          /^SAMPLE-\d+$/i.test(row.employeeCode ?? "") ||
+          /^sample\.employee\d+@example\.com$/i.test(row.email)
+        ) {
+          row.errors.push("Replace or delete this example row before importing");
+        }
         if ((emailCounts.get(row.email) ?? 0) > 1) row.errors.push("Duplicate email in workbook");
         if (existingEmails.has(row.email)) row.errors.push("Email already has an account");
         if (row.employeeCode) {

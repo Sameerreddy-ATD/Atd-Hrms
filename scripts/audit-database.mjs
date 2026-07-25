@@ -150,6 +150,11 @@ try {
     "Linked employee and login status must agree",
   );
   await countCheck(
+    "revocable session versions",
+    "SELECT COUNT(*) AS count FROM users WHERE session_version < 0",
+    "Every login must have a non-negative revocable session version",
+  );
+  await countCheck(
     "employee versions",
     "SELECT COUNT(*) AS count FROM employees WHERE version < 1",
     "Employee versions must be positive for safe API synchronization",
@@ -163,6 +168,13 @@ try {
     "employee shift ranges",
     "SELECT COUNT(*) AS count FROM employees WHERE shift_start_minutes NOT BETWEEN 0 AND 1439 OR shift_end_minutes NOT BETWEEN 0 AND 1439",
     "Shift minutes must be valid minutes within a day",
+  );
+  await countCheck(
+    "employee employment dates",
+    `SELECT COUNT(*) AS count FROM employees
+     WHERE date_of_birth > CURRENT_DATE()
+        OR (date_of_birth IS NOT NULL AND joining_date IS NOT NULL AND joining_date <= date_of_birth)`,
+    "Date of birth cannot be in the future and joining must be after birth",
   );
   await countCheck(
     "employee company assignments",
@@ -297,6 +309,16 @@ try {
     "Leave requests require an ordered date range and positive day count",
   );
   await countCheck(
+    "pending leave approvers",
+    `SELECT COUNT(*) AS count
+     FROM leave_requests request
+     LEFT JOIN employees approver ON approver.employee_id = request.manager_id
+     LEFT JOIN users account ON account.employee_id = approver.employee_id
+     WHERE request.status = 'PENDING'
+       AND (request.manager_id IS NULL OR approver.status <> 'ACTIVE' OR account.status <> 'ACTIVE')`,
+    "Every pending leave request must have an active organization-head approver",
+  );
+  await countCheck(
     "leave balance arithmetic",
     `SELECT COUNT(*) AS count FROM leave_balances
      WHERE ABS(balance - (entitled + manual_adjustment - used)) > 0.01 OR used < 0`,
@@ -331,7 +353,7 @@ try {
     "HR document workflow values",
     `SELECT COUNT(*) AS count FROM certificate_requests
      WHERE status NOT IN ('PENDING','IN_PROGRESS','READY','REJECTED','COLLECTED')
-        OR delivery_mode NOT IN ('DIGITAL','PHYSICAL')`,
+        OR delivery_mode NOT IN ('DIGITAL','PRINTED')`,
     "HR document status and delivery mode must be valid",
   );
   await countCheck(

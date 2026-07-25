@@ -96,11 +96,12 @@ npm run db:audit
 The repository currently permits known `react-refresh/only-export-components` warnings in shared
 UI/auth modules; lint errors are blocking.
 
-`npm audit fix` may apply compatible lockfile security updates. Never use `--force` without a
-reviewed migration and regression test: npm currently proposes breaking major-version changes for
-the remaining ExcelJS/ESLint transitive `brace-expansion` advisory. The application does not expose
-a user-controlled glob interface, but release owners must continue monitoring the upstream
-ExcelJS/archive chain and replace it when a compatible fix is published.
+`npm audit fix` may apply compatible lockfile security updates. Never use `--force` without review
+and regression testing. ExcelJS 4.4.0 still declares older archive/read chains, so `package.json`
+resolves its direct `archiver` and `unzipper` dependencies to compatible maintained releases.
+Keep those overrides until ExcelJS ships an upstream update. After any lockfile change, run
+`npm ci`, the Excel bulk-import and workbook read/write tests, production builds, and
+`npm run audit:deps`.
 
 ## Test Matrix
 

@@ -11,6 +11,7 @@ export interface SessionUser {
   name: string;
   email: string;
   mustChangePassword: boolean;
+  sessionVersion: number;
 }
 
 const cookieOptions = {
@@ -32,7 +33,13 @@ export function issueCookies(
   res: Response,
   user: Pick<
     User,
-    "id" | "employeeId" | "role" | "name" | "email" | "firstLoginPasswordChangeRequired"
+    | "id"
+    | "employeeId"
+    | "role"
+    | "name"
+    | "email"
+    | "firstLoginPasswordChangeRequired"
+    | "sessionVersion"
   >,
 ) {
   const payload: SessionUser = {
@@ -42,9 +49,14 @@ export function issueCookies(
     name: user.name,
     email: user.email,
     mustChangePassword: user.firstLoginPasswordChangeRequired,
+    sessionVersion: user.sessionVersion,
   };
   const access = jwt.sign(payload, config.accessSecret, { expiresIn: "15m" });
-  const refresh = jwt.sign({ id: user.id }, config.refreshSecret, { expiresIn: "7d" });
+  const refresh = jwt.sign(
+    { id: user.id, sessionVersion: user.sessionVersion },
+    config.refreshSecret,
+    { expiresIn: "7d" },
+  );
   res.cookie(config.sessionCookie, access, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
   res.cookie(config.refreshCookie, refresh, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
 }
@@ -58,6 +70,6 @@ export function verifyAccessToken(token: string): SessionUser {
   return jwt.verify(token, config.accessSecret) as SessionUser;
 }
 
-export function verifyRefreshToken(token: string): { id: string } {
-  return jwt.verify(token, config.refreshSecret) as { id: string };
+export function verifyRefreshToken(token: string): { id: string; sessionVersion: number } {
+  return jwt.verify(token, config.refreshSecret) as { id: string; sessionVersion: number };
 }

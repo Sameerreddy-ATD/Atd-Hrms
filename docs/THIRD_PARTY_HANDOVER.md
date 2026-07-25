@@ -35,19 +35,19 @@ authorization, validation, business rules, audit logging, and Prisma persistence
 
 ## 2. Canonical Repository and Branches
 
-| Item                                 | Value                                         |
-| ------------------------------------ | --------------------------------------------- |
-| Repository                           | `Sameerreddy-ATD/Employee-Management-System`  |
-| Canonical release branch             | `main`                                        |
-| Existing server compatibility branch | `version-1`                                   |
-| Runtime                              | Node.js 22                                    |
-| Browser application                  | React 19, TanStack Start/Router, Vite 8       |
-| UI system                            | Tailwind CSS 4, Radix UI, Lucide and Recharts |
-| API                                  | Express 4, TypeScript and Zod                 |
-| Database                             | MySQL 8                                       |
-| ORM/migrations                       | Prisma 6                                      |
-| Face verification                    | Self-hosted Human 3 with encrypted evidence   |
-| Automated verification               | Vitest 4, Playwright, ESLint 9 and Prettier 3 |
+| Item                                 | Value                                          |
+| ------------------------------------ | ---------------------------------------------- |
+| Repository                           | `Sameerreddy-ATD/Employee-Management-System`   |
+| Canonical release branch             | `main`                                         |
+| Existing server compatibility branch | `version-1`                                    |
+| Runtime                              | Node.js 22                                     |
+| Browser application                  | React 19, TanStack Start/Router, Vite 8        |
+| UI system                            | Tailwind CSS 4, Radix UI, Lucide and Recharts  |
+| API                                  | Express 4, TypeScript and Zod                  |
+| Database                             | MySQL 8                                        |
+| ORM/migrations                       | Prisma 6                                       |
+| Face verification                    | Self-hosted Human 3 with encrypted evidence    |
+| Automated verification               | Vitest 4, Playwright, ESLint 10 and Prettier 3 |
 
 New deployments should use `main`. The existing Ubuntu deployment may continue using `version-1`
 until it is deliberately switched. Do not force-push either release branch. Do not deploy a

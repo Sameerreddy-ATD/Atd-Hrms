@@ -77,6 +77,11 @@ flowchart LR
 - Bulk-imported roles are derived by the backend from organization unit and level. Private
   identifiers pass through the same validation and encryption used by individual login creation.
   Manager-dependent workbook rows wait until their manager row has been created.
+- Example rows must be replaced or removed. Import is row-atomic: every successful row commits the
+  same employee/user transaction as single creation, while a failed row is reported for correction
+  without leaving a partial employee or login.
+- Server-generated employee codes include time and randomness instead of a shared sequential
+  counter, avoiding duplicate selection when imports or backend instances run concurrently.
 
 ## Organization And Employee Visibility
 
@@ -85,6 +90,8 @@ flowchart LR
 - A head sees employees in their unit hierarchy; ordinary employees see only their own operational data.
 - CEO and authorized operational roles can view broader summaries and reports.
 - Organization placement drives team visibility and leave routing. A separate reporting-manager selection is not required for these flows.
+- Reporting-manager changes reject direct and indirect cycles. An employee cannot report to
+  themselves or create a loop through another manager.
 
 ## Attendance Flow
 

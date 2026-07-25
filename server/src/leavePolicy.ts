@@ -202,19 +202,26 @@ export async function consumeCompOffCredits(
   leaveRequestId: string,
   days: number,
   leaveDate: Date,
+  client: Prisma.TransactionClient = prisma,
 ) {
   const { start, end } = calendarYearRange(leaveDate);
-  const credits = await prisma.compOffCredit.findMany({
+  const credits = await client.compOffCredit.findMany({
     where: { employeeId, consumedByLeaveRequestId: null, earnedDate: { gte: start, lte: end } },
     orderBy: { earnedDate: "asc" },
     take: days,
   });
   if (credits.length !== days)
     throw new HttpError(400, "Not enough Comp Off credits are available");
-  await prisma.compOffCredit.updateMany({
-    where: { compOffCreditId: { in: credits.map((credit) => credit.compOffCreditId) } },
+  const claimed = await client.compOffCredit.updateMany({
+    where: {
+      compOffCreditId: { in: credits.map((credit) => credit.compOffCreditId) },
+      consumedByLeaveRequestId: null,
+    },
     data: { consumedByLeaveRequestId: leaveRequestId },
   });
+  if (claimed.count !== days) {
+    throw new HttpError(409, "Comp Off credit was used by another request. Refresh and try again");
+  }
 }
 
 export async function releaseCompOffCredits(leaveRequestId: string) {
@@ -233,7 +240,7 @@ export function medicalDocumentDueAt(toDate: Date) {
 
 export function leavePolicyDescription(code: string) {
   if (code === LEAVE_CODES.CASUAL)
-    return "1 day is credited on the first of every month from the joining month. Up to 12 days accrue yearly, unused credits carry forward, and the balance may become negative.";
+    return "1 day is credited on the first of every month beginning with the month after joining. Up to 12 days accrue yearly, unused credits carry forward, and the balance may become negative.";
   if (code === LEAVE_CODES.SICK)
     return "6 days are available each calendar year, with a maximum of 2 days per month. A shareable medical document link is due within 3 days after returning.";
   if (code === LEAVE_CODES.LOP)

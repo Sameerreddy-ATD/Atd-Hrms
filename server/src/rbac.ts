@@ -1,8 +1,8 @@
 import type { NextFunction, Request, Response } from "express";
-import { Role } from "@prisma/client";
+import { Role, UserStatus } from "@prisma/client";
 import { HttpError } from "./errors.js";
 import { prisma } from "./prisma.js";
-import { verifyAccessToken } from "./security.js";
+import { clearCookies, verifyAccessToken } from "./security.js";
 import { config } from "./config.js";
 import { moduleForApiPath, roleHasModuleAccess } from "./module-access.js";
 import { userHasApprovedFace } from "./faceAttendance.js";
@@ -31,16 +31,62 @@ export function canCreateRole(actor: Role, target: Role) {
   return creationRules[actor]?.includes(target) ?? false;
 }
 
-export async function requireAuth(req: Request, _res: Response, next: NextFunction) {
+export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const token = req.cookies?.[config.sessionCookie];
   if (!token) return next(new HttpError(401, "Authentication required"));
   let user: ReturnType<typeof verifyAccessToken>;
   try {
     user = verifyAccessToken(token);
   } catch {
+    clearCookies(res);
     return next(new HttpError(401, "Session expired"));
   }
-  req.user = user;
+  try {
+    const account = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        id: true,
+        employeeId: true,
+        role: true,
+        name: true,
+        email: true,
+        status: true,
+        firstLoginPasswordChangeRequired: true,
+        sessionVersion: true,
+        suspensionStartsAt: true,
+        suspendedUntil: true,
+      },
+    });
+    if (!account || account.status !== UserStatus.ACTIVE) {
+      clearCookies(res);
+      return next(new HttpError(401, "Account is inactive or no longer available"));
+    }
+    if (!Number.isInteger(user.sessionVersion) || user.sessionVersion !== account.sessionVersion) {
+      clearCookies(res);
+      return next(new HttpError(401, "Session has been revoked. Sign in again"));
+    }
+    if (
+      account.suspensionStartsAt &&
+      account.suspendedUntil &&
+      account.suspensionStartsAt.getTime() <= Date.now() &&
+      account.suspendedUntil.getTime() > Date.now()
+    ) {
+      clearCookies(res);
+      return next(new HttpError(403, "Account is temporarily suspended"));
+    }
+    user = {
+      id: account.id,
+      employeeId: account.employeeId,
+      role: account.role,
+      name: account.name,
+      email: account.email,
+      mustChangePassword: account.firstLoginPasswordChangeRequired,
+      sessionVersion: account.sessionVersion,
+    };
+    req.user = user;
+  } catch (error) {
+    return next(error);
+  }
   if (
     user.mustChangePassword &&
     req.path !== "/auth/change-password" &&
@@ -58,6 +104,7 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
     req.path === "/auth/change-password" ||
     req.path === "/auth/logout" ||
     req.path === "/auth/me" ||
+    req.path === "/module-access/me" ||
     req.path === "/health" ||
     req.path === "/health/db";
   try {
@@ -77,7 +124,7 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
   } catch (error) {
     return next(error);
   }
-  const module = moduleForApiPath(req.path);
+  const module = moduleForApiPath(req.path, req.method);
   try {
     if (module && !(await roleHasModuleAccess(user.role, module))) {
       return next(

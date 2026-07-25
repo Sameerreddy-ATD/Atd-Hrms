@@ -40,49 +40,77 @@ const uanNumberSchema = z
   .transform((value) => value.replace(/\s+/g, ""))
   .refine((value) => /^[0-9]{12}$/.test(value), "Enter a valid 12-digit UAN");
 
+function validateEmploymentDates(
+  value: { dateOfBirth?: Date | null; joiningDate?: Date | null },
+  context: z.RefinementCtx,
+) {
+  const today = new Date();
+  today.setUTCHours(23, 59, 59, 999);
+  if (value.dateOfBirth && value.dateOfBirth > today) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["dateOfBirth"],
+      message: "Date of birth cannot be in the future",
+    });
+  }
+  if (
+    value.dateOfBirth &&
+    value.joiningDate &&
+    value.joiningDate.getTime() <= value.dateOfBirth.getTime()
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["joiningDate"],
+      message: "Joining date must be after date of birth",
+    });
+  }
+}
+
 export const loginSchema = z.object({
   email: z.string().email().max(255),
   password: z.string().min(1).max(200),
 });
 
-export const createUserSchema = z.object({
-  name: z.string().min(2).max(120),
-  email: z.string().email().max(255),
-  phone: z.string().max(30).optional(),
-  companyPhone: z.string().max(30).optional(),
-  companyEntity: z.nativeEnum(CompanyEntity).default(CompanyEntity.ANYTIME_DIESEL),
-  password: z
-    .string()
-    .min(10)
-    .max(200)
-    .regex(/[A-Z]/, "Password must contain an uppercase letter")
-    .regex(/[0-9]/, "Password must contain a number"),
-  role: z.nativeEnum(Role).optional(),
-  employeeId: z.string().optional(),
-  employeeCode: z.string().max(40).optional(),
-  departmentId: z.string().nullable().optional(),
-  designation: z.string().max(120).nullable().optional(),
-  homeBranchId: z.string().nullable().optional(),
-  managerId: z.string().nullable().optional(),
-  attendanceMode: z.nativeEnum(AttendanceMode).optional(),
-  isFieldEmployee: z.boolean().optional(),
-  joiningDate: z.coerce.date().nullable().optional(),
-  dateOfBirth: z.coerce.date().nullable().optional(),
-  gender: z.nativeEnum(Gender).nullable().optional(),
-  bloodGroup: bloodGroupSchema.nullable().optional(),
-  employmentType: z.nativeEnum(EmploymentType).nullable().optional(),
-  organizationLevel: z.enum(["HEAD", "SENIOR", "JUNIOR", "MEMBER"]).optional(),
-  bankAccountType: z.nativeEnum(BankAccountType).nullable().optional(),
-  bankAccountHolderName: z.string().trim().max(160).nullable().optional(),
-  bankIfscCode: ifscCodeSchema.nullable().optional(),
-  bankAccountNumber: bankAccountNumberSchema.nullable().optional(),
-  panNumber: panNumberSchema.nullable().optional(),
-  aadhaarNumber: aadhaarNumberSchema.nullable().optional(),
-  uanNumber: uanNumberSchema.nullable().optional(),
-  shiftType: z.nativeEnum(ShiftType).optional(),
-  shiftStartMinutes: z.number().int().min(0).max(1439).optional(),
-  shiftEndMinutes: z.number().int().min(0).max(1439).optional(),
-});
+export const createUserSchema = z
+  .object({
+    name: z.string().min(2).max(120),
+    email: z.string().email().max(255),
+    phone: z.string().max(30).optional(),
+    companyPhone: z.string().max(30).optional(),
+    companyEntity: z.nativeEnum(CompanyEntity).default(CompanyEntity.ANYTIME_DIESEL),
+    password: z
+      .string()
+      .min(10)
+      .max(200)
+      .regex(/[A-Z]/, "Password must contain an uppercase letter")
+      .regex(/[0-9]/, "Password must contain a number"),
+    role: z.nativeEnum(Role).optional(),
+    employeeId: z.string().optional(),
+    employeeCode: z.string().max(40).optional(),
+    departmentId: z.string().nullable().optional(),
+    designation: z.string().max(120).nullable().optional(),
+    homeBranchId: z.string().nullable().optional(),
+    managerId: z.string().nullable().optional(),
+    attendanceMode: z.nativeEnum(AttendanceMode).optional(),
+    isFieldEmployee: z.boolean().optional(),
+    joiningDate: z.coerce.date().nullable().optional(),
+    dateOfBirth: z.coerce.date().nullable().optional(),
+    gender: z.nativeEnum(Gender).nullable().optional(),
+    bloodGroup: bloodGroupSchema.nullable().optional(),
+    employmentType: z.nativeEnum(EmploymentType).nullable().optional(),
+    organizationLevel: z.enum(["HEAD", "SENIOR", "JUNIOR", "MEMBER"]).optional(),
+    bankAccountType: z.nativeEnum(BankAccountType).nullable().optional(),
+    bankAccountHolderName: z.string().trim().max(160).nullable().optional(),
+    bankIfscCode: ifscCodeSchema.nullable().optional(),
+    bankAccountNumber: bankAccountNumberSchema.nullable().optional(),
+    panNumber: panNumberSchema.nullable().optional(),
+    aadhaarNumber: aadhaarNumberSchema.nullable().optional(),
+    uanNumber: uanNumberSchema.nullable().optional(),
+    shiftType: z.nativeEnum(ShiftType).optional(),
+    shiftStartMinutes: z.number().int().min(0).max(1439).optional(),
+    shiftEndMinutes: z.number().int().min(0).max(1439).optional(),
+  })
+  .superRefine(validateEmploymentDates);
 
 export const updateUserSchema = z.object({
   name: z.string().min(2).max(120).optional(),
@@ -141,6 +169,7 @@ export const updateEmployeeSchema = z
     shiftStartMinutes: z.number().int().min(0).max(1439).optional(),
     shiftEndMinutes: z.number().int().min(0).max(1439).optional(),
   })
+  .superRefine(validateEmploymentDates)
   .refine((value) => Object.keys(value).length > 0, "At least one field is required");
 
 export const branchSchema = z.object({

@@ -32,6 +32,7 @@ const requiredFiles = [
   "docs/CLOUD_DEPLOYMENT_OPTIONS.md",
   "docs/AWS_DEPLOYMENT_PATTERNS.md",
   "docs/DATABASE_INTEGRITY_AUDIT.md",
+  "docs/WORKFLOW_AND_SECURITY_AUDIT.md",
   "docs/EMPLOYEE_DATA_AND_INTEGRATION_API.md",
   "docs/openapi.employee-v1.yaml",
   "prisma/schema.prisma",

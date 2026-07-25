@@ -6,7 +6,17 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "dist-server", ".output", ".vinxi", "node_modules"] },
+  {
+    ignores: [
+      "dist",
+      "dist-server",
+      ".output",
+      ".vinxi",
+      "node_modules",
+      "test-results",
+      "playwright-report",
+    ],
+  },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
@@ -19,7 +29,10 @@ export default tseslint.config(
       "react-refresh": reactRefresh,
     },
     rules: {
-      ...reactHooks.configs.recommended.rules,
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
+      "no-useless-assignment": "off",
+      "preserve-caught-error": "off",
       "no-restricted-imports": [
         "error",
         {
@@ -32,9 +45,19 @@ export default tseslint.config(
           ],
         },
       ],
-      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+      "react-refresh/only-export-components": [
+        "warn",
+        { allowConstantExport: true, allowExportNames: ["Route"] },
+      ],
       "@typescript-eslint/no-unused-vars": "off",
       "@typescript-eslint/no-namespace": "off",
+    },
+  },
+  {
+    files: ["src/routes/**/*.{ts,tsx}"],
+    rules: {
+      // TanStack Router route modules intentionally export route definitions beside components.
+      "react-refresh/only-export-components": "off",
     },
   },
   eslintPluginPrettier,

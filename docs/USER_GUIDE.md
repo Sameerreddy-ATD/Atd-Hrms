@@ -9,15 +9,15 @@ This guide explains how Developer Admin, HR, organization heads, employees, fiel
 | Dashboard                      | Full system view                                               | Admin view              | HR operations view      | Summary/report view   | Team view                   | Personal view                           |
 | User logins                    | Create, edit, suspend, deactivate, reactivate, reset passwords | No                      | No                      | No                    | No                          | No                                      |
 | Employees                      | Full access                                                    | Full access             | Full access             | Summary/report access | Assigned team only          | Own profile only                        |
-| Departments                    | Add, edit, delete, assign department heads                     | As configured           | As configured           | View reports          | No                          | No                                      |
+| Departments                    | Add, edit, delete, assign department heads                     | Reference access        | Reference access        | Reference access      | Reference access            | No                                      |
 | Branches                       | Add, edit, deactivate                                          | Add, edit, deactivate   | Add, edit, deactivate   | View reports          | View assigned/team data     | No                                      |
 | Biometric devices and mappings | Planned next version                                           | Planned next version    | Planned next version    | Planned next version  | Planned next version        | No                                      |
 | Attendance                     | Full operational access                                        | Full operational access | Full operational access | Reports and summaries | Assigned team only          | Own attendance only                     |
-| Leave policy and types         | Add, edit, delete                                              | Add, edit, delete       | Add, edit, delete       | View reports          | Approve assigned team leave | Apply and track own leave               |
+| Leave policy and types         | View protected types; adjust credits                           | As configured           | View; adjust credits    | View reports          | Approve assigned team leave | Apply and track own leave               |
 | Holidays                       | Add, edit, delete                                              | Add, edit, delete       | Add, edit, delete       | View                  | View                        | View                                    |
 | Audit logs                     | View                                                           | View                    | No                      | No                    | No                          | No                                      |
 | Asset management               | Full access                                                    | No                      | Full access             | Read-only investment  | No                          | No                                      |
-| Expenses and HR documents      | Review all                                                     | Own requests            | Review all              | Own requests          | Own requests                | Own requests                            |
+| Expenses and HR documents      | Review all                                                     | No                      | Review all              | View all              | Own requests                | Own requests                            |
 | System settings                | Full access                                                    | As configured           | No                      | No                    | No                          | No                                      |
 
 ## CEO Workspace
@@ -113,6 +113,10 @@ dates, manager references, passwords, and statutory formats. Up to 500 employees
 in one workbook. Every successful row creates the login and canonical employee record through the
 normal backend transaction, so encryption, role assignment, employee change events, and audit logs
 remain active.
+
+Replace or delete every example row before importing. Rows retaining a `SAMPLE-...` employee code
+or the sample email are rejected. Import is row-atomic: a successful row remains saved when a later
+row fails, and the result panel identifies exactly which rows must be corrected and retried.
 
 The workbook contains plaintext temporary passwords and any private information entered. Restrict
 access to it and permanently delete local/email copies after confirming a successful import.
@@ -388,14 +392,16 @@ Use:
 
 Policy types cannot be added, renamed, or deleted. Adjustments are recorded in Audit Logs. Payroll deductions for negative Casual Leave or Unpaid Leave / LOP remain a manual HR responsibility.
 
-## HR/Admin: Manage Departments And Department Heads
+## Developer Admin: Manage Departments And Department Heads
 
 1. Open **Departments**.
 2. Add or edit a department.
 3. Select the department head from active employees.
 4. Save.
 
-Department head assignment is stored on the department record and can be changed later by authorized admin users.
+Department head assignment is stored on the department record. Other authorized roles may receive
+department references for directory and report screens, but only Developer Admin changes the
+organization structure.
 
 ## HR/Admin: Manage Branches
 

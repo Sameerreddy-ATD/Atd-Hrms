@@ -44,7 +44,7 @@ export function AppSidebar() {
     moduleAccessApi
       .mine()
       .then((result) => setAllowedModules(result.modules))
-      .catch(() => setAllowedModules(undefined));
+      .catch(() => setAllowedModules([]));
   }, [user]);
 
   if (!user) return null;

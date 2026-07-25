@@ -216,6 +216,7 @@ model User {
   status                           UserStatus                @default(ACTIVE)
   firstLoginPasswordChangeRequired Boolean                   @default(true) @map("first_login_password_change_required")
   failedLoginAttempts              Int                       @default(0) @map("failed_login_attempts")
+  sessionVersion                   Int                       @default(0) @map("session_version")
   lastLoginAt                      DateTime?                 @map("last_login_at")
   createdByUserId                  String?                   @map("created_by_user_id")
   createdAt                        DateTime                  @default(now()) @map("created_at")

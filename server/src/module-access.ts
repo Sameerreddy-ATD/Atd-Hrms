@@ -142,15 +142,53 @@ export async function saveModuleAccessMatrix(matrix: unknown, updatedById: strin
   return value;
 }
 
-export function moduleForApiPath(path: string): ModuleKey | null {
+export function moduleForApiPath(path: string, method = "GET"): ModuleKey | null {
+  if (path === "/module-access/me") return null;
+  if (path.startsWith("/users") || path.startsWith("/departments")) return "PEOPLE";
+  if (path.startsWith("/employees") && method !== "GET") return "PEOPLE";
+  if (path.startsWith("/branches") && method !== "GET") return "COMPANY";
   if (path.startsWith("/tasks") || path.startsWith("/task-boards")) return "TASKS";
   if (path.startsWith("/expense-claims") || path.startsWith("/certificate-requests"))
     return "EMPLOYEE_REQUESTS";
-  if (path.startsWith("/leave/")) return "LEAVE";
-  if (path.startsWith("/attendance/")) return "ATTENDANCE";
+  if (
+    path.startsWith("/leave/") ||
+    path.startsWith("/weekly-offs") ||
+    path.startsWith("/reports/leave")
+  )
+    return "LEAVE";
+  if (
+    path.startsWith("/attendance/") ||
+    path.startsWith("/biometric/") ||
+    path.startsWith("/reports/attendance") ||
+    path.startsWith("/reports/employee-attendance") ||
+    path.startsWith("/reports/branch-wise") ||
+    path.startsWith("/reports/multi-branch") ||
+    path.startsWith("/reports/field") ||
+    path.startsWith("/reports/client-visits") ||
+    path.startsWith("/reports/late") ||
+    path.startsWith("/reports/absent") ||
+    path.startsWith("/reports/payroll") ||
+    path.startsWith("/reports/timeline") ||
+    path.startsWith("/reports/movement")
+  )
+    return "ATTENDANCE";
   if (path.startsWith("/assets")) return "COMPANY";
-  if (path.startsWith("/announcements")) return "COMMUNICATIONS";
-  if (path.startsWith("/audit-logs")) return "SYSTEM";
+  if (path.startsWith("/holidays")) return "COMPANY";
+  if (path.startsWith("/profile/") || path.startsWith("/id-card/")) return "PROFILE";
+  if (
+    path.startsWith("/announcements") ||
+    path.startsWith("/notifications") ||
+    path.startsWith("/push/")
+  )
+    return "COMMUNICATIONS";
+  if (
+    path.startsWith("/audit-logs") ||
+    path.startsWith("/system/") ||
+    path.startsWith("/module-access/") ||
+    path.startsWith("/integration-clients") ||
+    path.startsWith("/face/admin/")
+  )
+    return "SYSTEM";
   return null;
 }
 

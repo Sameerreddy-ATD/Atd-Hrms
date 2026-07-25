@@ -112,11 +112,19 @@ export async function cancelApprovedLeaveForDay(employeeId: string, eventDate: D
       toDate: { gte: date },
       status: { in: APPROVED_LEAVE_STATUSES },
     },
+    include: { leaveType: true },
   });
   const updated = [];
   for (const request of requests) {
     if (cancelledDateKeys(request.cancelledDates).includes(dateKey)) continue;
-    updated.push(await cancelLeaveDates(request.leaveRequestId, [date]));
+    const cancelled = await cancelLeaveDates(request.leaveRequestId, [date]);
+    if (request.leaveType.code === "COMP_OFF" && cancelled.status === "CANCELLED") {
+      await prisma.compOffCredit.updateMany({
+        where: { consumedByLeaveRequestId: request.leaveRequestId },
+        data: { consumedByLeaveRequestId: null },
+      });
+    }
+    updated.push(cancelled);
   }
   return updated;
 }

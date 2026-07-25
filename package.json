@@ -105,7 +105,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@eslint/js": "^9.32.0",
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.55.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/compression": "^1.7.5",
@@ -120,11 +120,11 @@
     "@types/web-push": "^3.6.4",
     "@vitejs/plugin-react": "^5.2.0",
     "concurrently": "^9.1.2",
-    "eslint": "^9.32.0",
+    "eslint": "^10.8.0",
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-prettier": "^5.2.6",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-react-refresh": "^0.4.20",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.3",
     "globals": "^15.15.0",
     "lru-cache": "^11.5.2",
     "nitro": "3.0.260603-beta",
@@ -138,6 +138,8 @@
   },
   "overrides": {
     "exceljs": {
+      "archiver": "8.0.0",
+      "unzipper": "0.12.5",
       "uuid": "^11.1.1"
     }
   }
