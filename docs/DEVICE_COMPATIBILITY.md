@@ -25,7 +25,7 @@ The application uses responsive web and Progressive Web App behavior. The suppor
 ## Installed App Behavior
 
 - Add the application through Safari's **Add to Home Screen** on iOS, Chrome/Edge **Install app**
-  on Android/Windows/macOS, or follow the in-app install banner after sign-in.
+  on Android/Windows/macOS from the browser menu, or optionally from **Notifications** on a phone.
 - The web app manifest uses standalone display, maskable icons, launch handling for existing
   windows, and shortcuts to Dashboard, My Attendance, Notifications, and Apply Leave.
 - Installed mode removes the normal browser address bar when the manifest and HTTPS requirements
@@ -44,13 +44,14 @@ The application uses responsive web and Progressive Web App behavior. The suppor
 
 | Platform | How employees install | Alerts |
 | -------- | --------------------- | ------ |
-| Android (Chrome / Samsung Internet) | Install app / Add to Home screen from browser or in-app banner | Enable Alerts after install for background push |
+| Android (Chrome / Samsung Internet) | Browser menu Install / Add to Home screen, or optional steps under Notifications | Enable Alerts after install for background push |
 | iPhone / iPad (Safari) | Share → Add to Home Screen, then open from the icon | Enable Alerts inside the installed app (iOS 16.4+) |
-| Windows (Chrome / Edge) | Install app from address bar or browser menu | Enable Alerts for desktop notifications |
-| macOS (Chrome / Edge / Safari) | Install / Add to Dock where available | Enable Alerts after opening the installed app |
+| Windows (Chrome / Edge) | Install from address bar or browser menu only (no in-app prompt) | Enable Alerts for desktop notifications |
+| macOS (Chrome / Edge / Safari) | Install / Add to Dock from the browser only (no in-app prompt) | Enable Alerts after opening the installed app |
 
-The in-app banner and Notifications page show platform-specific steps. Employees can dismiss the
-banner for two weeks; it does not appear when the app is already running in standalone mode.
+Phone users can open **Notifications** for optional install steps. Laptop and desktop browsers are
+not shown an install banner; employees who want a desktop shortcut use the browser’s own install
+menu.
 
 ## Face Registration and Camera Requirements
 

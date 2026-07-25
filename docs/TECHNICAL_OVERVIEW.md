@@ -64,7 +64,7 @@ Supported AWS patterns and their scaling constraints are documented in
 | `public/sw.js`                     | App shell cache, Web Push display, notification actions, and offline shell |
 | `public/manifest.webmanifest`      | PWA identity, icons, shortcuts, and install display mode                   |
 | `src/lib/pwa-install.ts`           | Platform install detection and Home Screen guidance                        |
-| `src/components/layout/PwaInstallBanner.tsx` | Post-login install banner for Android/iOS/Windows/Mac               |
+| `src/components/layout/PwaInstallBanner.tsx` | Optional phone-only install help (not shown on laptop/desktop)    |
 | `src/components/face/`             | Mandatory enrollment and responsive attendance camera flows              |
 
 ## Authentication

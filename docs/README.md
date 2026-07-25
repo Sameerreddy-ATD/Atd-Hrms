@@ -76,12 +76,11 @@ Secrets are intentionally absent from documentation. Production `.env`, database
 This package is intended for internal Anytime Diesel use. Final review changes include:
 
 - Removed obsolete startup-screen / app-rating Developer Admin controls (no longer shown on loaders).
-- Role-ordered navigation and dashboard **Quick access** shortcuts for every login role.
-- Birthday celebration cards and upcoming-birthday lists polished for brand consistency.
-- Announcements ordered urgent → important → normal (backend and UI), with a dashboard strip.
-- Shared login screen clarifies that one sign-in opens the correct role workspace.
-- Login crew mascot (Anytime Diesel uniform) covers his eyes while a password is typed; peeks when
-  the password is revealed. Animation is motion-safe and fails soft if the image is missing.
+- Role-ordered navigation for every login role.
+- Login crew avatar (Anytime Diesel uniform, green-screen removed) closes his eyes while a password
+  is typed and opens them when the password is revealed.
+- Notifications limited to actionable items; push only for urgent/important announcements.
+- No automatic “Add to Home Screen” / install banner on laptop or desktop browsers.
 - Attendance/leave calendar helpers use Asia/Kolkata dates consistently.
 - Documentation updated for go-live owners (`USER_GUIDE`, `TECHNICAL_OVERVIEW`, `RESET_AND_GO_LIVE`).
 

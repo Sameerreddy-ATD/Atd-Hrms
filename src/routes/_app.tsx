@@ -5,7 +5,6 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { PermissionSetup } from "@/components/layout/PermissionSetup";
-import { PwaInstallBanner } from "@/components/layout/PwaInstallBanner";
 import { LoadingState } from "@/components/common/LoadingState";
 import { useAuth } from "@/lib/auth";
 import { FaceEnrollmentGate } from "@/components/face/FaceEnrollmentGate";
@@ -188,7 +187,6 @@ function AppLayout() {
               </div>
             ) : (
               <>
-                <PwaInstallBanner />
                 <Outlet />
               </>
             )}

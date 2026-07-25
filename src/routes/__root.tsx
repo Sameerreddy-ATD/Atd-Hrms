@@ -15,6 +15,7 @@ import { NotificationBridge } from "@/components/layout/NotificationBridge";
 import { SystemThemeSync } from "@/components/layout/SystemThemeSync";
 import { Toaster } from "@/components/ui/sonner";
 import { registerAppServiceWorker } from "@/lib/browser-notifications";
+import { detectPwaPlatform } from "@/lib/pwa-install";
 
 const SITE_TITLE = "Anytime Diesel Employee Management System";
 const SITE_DESCRIPTION =
@@ -126,6 +127,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
       { rel: "preload", href: "/atd-logo.png", as: "image", type: "image/png" },
       { rel: "preload", href: "/login-crew-mascot.png", as: "image", type: "image/png" },
+      { rel: "preload", href: "/login-crew-mascot-closed.png", as: "image", type: "image/png" },
       { rel: "manifest", href: "/manifest.webmanifest" },
     ],
   }),
@@ -158,6 +160,18 @@ function RootComponent() {
 
   useEffect(() => {
     void registerAppServiceWorker().catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    // Suppress Chrome/Edge install mini-infobar on laptop/desktop; users can still install
+    // from the browser address bar / menu if they choose.
+    const platform = detectPwaPlatform();
+    if (platform === "ios" || platform === "android") return;
+    function suppressDesktopInstall(event: Event) {
+      event.preventDefault();
+    }
+    window.addEventListener("beforeinstallprompt", suppressDesktopInstall);
+    return () => window.removeEventListener("beforeinstallprompt", suppressDesktopInstall);
   }, []);
 
   return (

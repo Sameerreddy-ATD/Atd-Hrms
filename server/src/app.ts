@@ -5950,16 +5950,18 @@ export function createApp() {
         ipAddress: req.ip,
       });
       publishNotificationChange("announcement-created", announcement.announcementId);
-      void sendPushToAll({
-        title: `New announcement: ${announcement.title}`,
-        body:
-          announcement.message.length > 180
-            ? `${announcement.message.slice(0, 177)}...`
-            : announcement.message,
-        href: "/notifications",
-        tag: `announcement-${announcement.announcementId}`,
-        priority: announcement.priority,
-      });
+      if (announcement.priority === "URGENT" || announcement.priority === "IMPORTANT") {
+        void sendPushToAll({
+          title: `New announcement: ${announcement.title}`,
+          body:
+            announcement.message.length > 180
+              ? `${announcement.message.slice(0, 177)}...`
+              : announcement.message,
+          href: "/notifications",
+          tag: `announcement-${announcement.announcementId}`,
+          priority: announcement.priority,
+        });
+      }
       res.status(201).json(announcementDto(announcement));
     }),
   );
@@ -6063,13 +6065,6 @@ export function createApp() {
         REJECTED: "Leave rejected by organization head",
         CANCELLED: "Leave cancelled",
       };
-      const currentEmployee = req.user!.employeeId
-        ? await prisma.employee.findUnique({
-            where: { employeeId: req.user!.employeeId },
-            select: { homeBranchId: true },
-          })
-        : null;
-      const holidayBranchId = currentEmployee?.homeBranchId;
       const correctionNotifications = req.user!.employeeId
         ? await prisma.attendanceCorrectionRequest.findMany({
             where: {
@@ -6105,13 +6100,10 @@ export function createApp() {
         : [];
 
       const suspensionWindowEnd = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
-      const suspensionManagerRoles: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR];
-      const canManageSuspensions = suspensionManagerRoles.includes(req.user!.role);
       const canManageEmployeeServices =
         req.user!.role === Role.HR || req.user!.role === Role.DEVELOPER_ADMIN;
       const [
         pendingLeaves,
-        holidays,
         birthdayEmployees,
         upcomingSuspensions,
         assignedTasks,
@@ -6122,23 +6114,13 @@ export function createApp() {
           where: leaveWhere,
           include: { employee: true, leaveType: true },
           orderBy: { createdAt: "desc" },
-          take: 10,
-        }),
-        prisma.holiday.findMany({
-          where: {
-            status: "ACTIVE",
-            date: { gte: new Date() },
-            OR: holidayBranchId
-              ? [{ branchId: null }, { branchId: holidayBranchId }]
-              : [{ branchId: null }],
-          },
-          orderBy: { date: "asc" },
-          take: 5,
+          take: 8,
         }),
         prisma.employee.findMany({
           where: {
             dateOfBirth: { not: null },
             status: "ACTIVE",
+            ...(req.user!.employeeId ? { employeeId: req.user!.employeeId } : { employeeId: "__none__" }),
           },
           select: {
             employeeId: true,
@@ -6148,38 +6130,48 @@ export function createApp() {
         }),
         prisma.user.findMany({
           where: {
+            id: req.user!.id,
             suspensionStartsAt: { gt: new Date(), lte: suspensionWindowEnd },
             suspendedUntil: { gt: new Date() },
-            ...(canManageSuspensions ? {} : { id: req.user!.id }),
           },
           select: { id: true, name: true, suspensionStartsAt: true, suspendedUntil: true },
           orderBy: { suspensionStartsAt: "asc" },
-          take: canManageSuspensions ? 50 : 1,
+          take: 1,
         }),
         req.user!.employeeId
           ? prisma.workTask.findMany({
               where: {
                 assignments: { some: { employeeId: req.user!.employeeId } },
-                status: { notIn: [TaskStatus.COMPLETED, TaskStatus.CANCELLED] },
+                status: TaskStatus.TODO,
               },
               orderBy: { updatedAt: "desc" },
-              take: 10,
+              take: 5,
             })
           : Promise.resolve([]),
         canManageEmployeeServices || req.user!.employeeId
           ? prisma.expenseClaim.findMany({
-              where: canManageEmployeeServices ? {} : { employeeId: req.user!.employeeId! },
+              where: canManageEmployeeServices
+                ? { status: "PENDING" }
+                : {
+                    employeeId: req.user!.employeeId!,
+                    status: { in: ["PENDING", "APPROVED", "REJECTED", "PAID"] },
+                  },
               include: { employee: { select: { name: true } } },
               orderBy: { updatedAt: "desc" },
-              take: 10,
+              take: 6,
             })
           : Promise.resolve([]),
         canManageEmployeeServices || req.user!.employeeId
           ? prisma.certificateRequest.findMany({
-              where: canManageEmployeeServices ? {} : { employeeId: req.user!.employeeId! },
+              where: canManageEmployeeServices
+                ? { status: "PENDING" }
+                : {
+                    employeeId: req.user!.employeeId!,
+                    status: { in: ["PENDING", "READY", "REJECTED"] },
+                  },
               include: { employee: { select: { name: true } } },
               orderBy: { updatedAt: "desc" },
-              take: 10,
+              take: 6,
             })
           : Promise.resolve([]),
       ]);
@@ -6192,11 +6184,12 @@ export function createApp() {
         where: {
           isActive: true,
           publishAt: { lte: today },
+          priority: { in: ["URGENT", "IMPORTANT"] },
           OR: [{ expiresAt: null }, { expiresAt: { gt: today } }],
         },
         include: { createdBy: true },
         orderBy: { publishAt: "desc" },
-        take: 10,
+        take: 8,
       });
 
       const birthdayItems = birthdayEmployees
@@ -6204,18 +6197,60 @@ export function createApp() {
           const dob = new Date(emp.dateOfBirth!);
           return dob.getUTCMonth() === todayMonth && dob.getUTCDate() === todayDate;
         })
-        .map((emp) => {
-          const isCurrentUser = emp.employeeId === req.user!.employeeId;
-          return {
-            id: `birthday-${emp.employeeId}-${today.toISOString().slice(0, 10)}`,
-            title: isCurrentUser ? "Happy Birthday! 🎂" : "Birthday Celebration! 🎉",
-            desc: isCurrentUser
-              ? `Happy Birthday, ${emp.name}! Wishing you a fantastic day and a wonderful year ahead!`
-              : `${emp.name} is celebrating their birthday today! Join us in wishing them a great day.`,
-            time: new Date(Date.UTC(today.getUTCFullYear(), todayMonth, todayDate)).toISOString(),
-            type: "birthday",
-          };
-        });
+        .map((emp) => ({
+          id: `birthday-${emp.employeeId}-${today.toISOString().slice(0, 10)}`,
+          title: "Happy Birthday",
+          desc: `Happy Birthday, ${emp.name}! Wishing you a wonderful year ahead.`,
+          time: new Date(Date.UTC(today.getUTCFullYear(), todayMonth, todayDate)).toISOString(),
+          type: "birthday" as const,
+        }));
+
+      const actionableLeaves = pendingLeaves.filter((leave) => {
+        const isOwn = leave.employeeId === req.user!.employeeId;
+        if (isOwn) {
+          // Own leave: only pending action or a recent decision — not the full history.
+          if (leave.status === "PENDING") return true;
+          if (!["APPROVED", "MANAGER_APPROVED", "HR_VERIFIED", "REJECTED"].includes(leave.status)) {
+            return false;
+          }
+          const updated = leave.updatedAt ?? leave.createdAt;
+          return Date.now() - updated.getTime() < 14 * 24 * 60 * 60 * 1000;
+        }
+        return leave.status === "PENDING";
+      });
+
+      const recentDecisionMs = 14 * 24 * 60 * 60 * 1000;
+      const actionableCorrections = correctionNotifications.filter((request) => {
+        if (request.approverId === req.user!.employeeId && request.status === "PENDING") return true;
+        if (request.employeeId !== req.user!.employeeId) return false;
+        if (request.status === "PENDING") return true;
+        return (
+          ["APPROVED", "REJECTED"].includes(request.status) &&
+          Date.now() - request.updatedAt.getTime() < recentDecisionMs
+        );
+      });
+      const actionableWeeklyOffs = weeklyOffNotifications.filter((request) => {
+        if (request.approverId === req.user!.employeeId && request.status === "PENDING") return true;
+        if (request.employeeId !== req.user!.employeeId) return false;
+        if (request.status === "PENDING") return true;
+        return (
+          ["APPROVED", "REJECTED"].includes(request.status) &&
+          Date.now() - request.updatedAt.getTime() < recentDecisionMs
+        );
+      });
+      const actionableExpenses = expenseNotifications.filter((claim) => {
+        if (canManageEmployeeServices) return claim.status === "PENDING";
+        if (claim.status === "PENDING") return false;
+        return Date.now() - claim.updatedAt.getTime() < recentDecisionMs;
+      });
+      const actionableCertificates = certificateNotifications.filter((request) => {
+        if (canManageEmployeeServices) return request.status === "PENDING";
+        if (request.status === "PENDING") return false;
+        return (
+          ["READY", "REJECTED"].includes(request.status) &&
+          Date.now() - request.updatedAt.getTime() < recentDecisionMs
+        );
+      });
 
       const items = [
         ...announcements.map((announcement) => ({
@@ -6229,7 +6264,7 @@ export function createApp() {
         })),
         ...assignedTasks.map((task) => ({
           id: `task-${task.taskId}-${task.updatedAt.toISOString()}`,
-          title: task.status === TaskStatus.TODO ? "New task assigned" : "Task progress reminder",
+          title: "New task assigned",
           desc: `${task.title}${task.dueDate ? ` - due ${task.dueDate.toISOString().slice(0, 10)}` : ""}`,
           time: task.updatedAt.toISOString(),
           type: "task" as const,
@@ -6241,13 +6276,10 @@ export function createApp() {
             1,
             Math.ceil((account.suspensionStartsAt!.getTime() - Date.now()) / (24 * 60 * 60 * 1000)),
           );
-          const isOwnAccount = account.id === req.user!.id;
           return {
             id: `suspension-${account.id}-${endDate}`,
-            title: isOwnAccount ? "Account suspension notice" : "Upcoming account suspension",
-            desc: isOwnAccount
-              ? `Your account will be suspended in ${daysRemaining} day${daysRemaining === 1 ? "" : "s"}, from ${startDate} through ${endDate}. Contact HR if you need an extension.`
-              : `${account.name}'s account will be suspended in ${daysRemaining} day${daysRemaining === 1 ? "" : "s"}, from ${startDate} through ${endDate}.`,
+            title: "Account suspension notice",
+            desc: `Your account will be suspended in ${daysRemaining} day${daysRemaining === 1 ? "" : "s"}, from ${startDate} through ${endDate}. Contact HR if you need help.`,
             time: new Date().toISOString(),
             type: "system" as const,
           };
@@ -6260,23 +6292,19 @@ export function createApp() {
           time: reminder.createdAt.toISOString(),
           type: "attendance" as const,
         })),
-        ...pendingLeaves.map((leave) => ({
+        ...actionableLeaves.map((leave) => ({
           id: `leave-${leave.leaveRequestId}`,
           title:
             leave.employeeId === req.user!.employeeId
               ? (leaveWorkflowTitle[leave.status] ?? `Leave ${leave.status.toLowerCase()}`)
-              : canSeeOperational
-                ? (leaveWorkflowTitle[leave.status] ?? "Leave update")
-                : leave.status === "PENDING"
-                  ? "Leave approval pending"
-                  : (leaveWorkflowTitle[leave.status] ?? "Leave update"),
+              : "Leave approval pending",
           desc: `${leave.employee.name} - ${leave.leaveType.name} from ${leave.fromDate
             .toISOString()
             .slice(0, 10)} to ${leave.toDate.toISOString().slice(0, 10)}`,
           time: (leave.updatedAt ?? leave.createdAt).toISOString(),
-          type: "leave",
+          type: "leave" as const,
         })),
-        ...correctionNotifications.map((request) => ({
+        ...actionableCorrections.map((request) => ({
           id: `attendance-correction-${request.requestId}-${request.updatedAt.toISOString()}`,
           title:
             request.employeeId === req.user!.employeeId
@@ -6288,7 +6316,7 @@ export function createApp() {
           time: request.updatedAt.toISOString(),
           type: "attendance" as const,
         })),
-        ...weeklyOffNotifications.map((request) => ({
+        ...actionableWeeklyOffs.map((request) => ({
           id: `weekly-off-${request.weeklyOffRequestId}-${request.updatedAt.toISOString()}`,
           title:
             request.employeeId === req.user!.employeeId
@@ -6300,40 +6328,29 @@ export function createApp() {
           time: request.updatedAt.toISOString(),
           type: "leave" as const,
         })),
-        ...expenseNotifications.map((claim) => ({
+        ...actionableExpenses.map((claim) => ({
           id: `expense-${claim.claimId}-${claim.updatedAt.toISOString()}`,
           title:
             claim.employeeId === req.user!.employeeId
               ? `Expense claim ${claim.status.toLowerCase()}`
-              : claim.status === "PENDING"
-                ? "New expense claim"
-                : "Expense claim updated",
+              : "Expense claim pending review",
           desc: `${claim.employee.name} - ${claim.claimType === "ADVANCE" ? "advance expense" : (claim.title ?? "expense")} - INR ${Number(claim.amount).toLocaleString("en-IN")}`,
           time: claim.updatedAt.toISOString(),
           type: "system" as const,
         })),
-        ...certificateNotifications.map((request) => ({
+        ...actionableCertificates.map((request) => ({
           id: `certificate-${request.certificateRequestId}-${request.updatedAt.toISOString()}`,
           title:
             request.employeeId === req.user!.employeeId
               ? `HR document request ${request.status.replaceAll("_", " ").toLowerCase()}`
-              : request.status === "PENDING"
-                ? "New HR document request"
-                : "HR document request updated",
+              : "HR document request pending",
           desc: `${request.employee.name} - ${request.certificateType.replaceAll("_", " ").toLowerCase()}`,
           time: request.updatedAt.toISOString(),
           type: "system" as const,
         })),
-        ...holidays.map((holiday) => ({
-          id: `holiday-${holiday.holidayId}`,
-          title: "Upcoming holiday",
-          desc: `${holiday.name} on ${holiday.date.toISOString().slice(0, 10)}`,
-          time: holiday.updatedAt.toISOString(),
-          type: "holiday",
-        })),
       ]
         .sort((a, b) => +new Date(b.time) - +new Date(a.time))
-        .slice(0, 30);
+        .slice(0, 20);
 
       res.json(items);
     }),

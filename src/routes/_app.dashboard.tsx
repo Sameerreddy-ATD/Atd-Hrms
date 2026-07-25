@@ -7,7 +7,6 @@ import { BIRTHDAY_LOOKAHEAD_DAYS, futureBirthdays, upcomingBirthdays } from "@/l
 import { PageHeader } from "@/components/common/PageHeader";
 import { BirthdayMarquee } from "@/components/layout/BirthdayMarquee";
 import { DashboardAnnouncements } from "@/components/layout/DashboardAnnouncements";
-import { RoleQuickAccess } from "@/components/layout/RoleQuickAccess";
 import { StatCard } from "@/components/common/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/common/StatusBadge";
@@ -285,7 +284,6 @@ function DashboardPage() {
 
       <BirthdayMarquee />
       <DashboardAnnouncements />
-      <RoleQuickAccess />
 
       {secondaryLoading && (
         <div className="mb-3 text-xs font-medium text-muted-foreground">
