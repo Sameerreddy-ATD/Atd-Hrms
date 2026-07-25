@@ -1,14 +1,5 @@
 import { DieselTruckLoader } from "@/components/common/DieselTruckLoader";
 import { cn } from "@/lib/utils";
-import { systemApi, type BrandProofSettings } from "@/services/api";
-import { useEffect, useState } from "react";
-
-const defaultBrandProof: BrandProofSettings = {
-  litresDelivered: "10M+",
-  happyClients: "5,000+",
-  appRating: "4.8 / 5",
-  certification: "PESO & OMC",
-};
 
 export function LoadingState({
   label = "Loading data",
@@ -21,16 +12,6 @@ export function LoadingState({
   showBrandStory?: boolean;
   className?: string;
 }) {
-  const [brandProof, setBrandProof] = useState(defaultBrandProof);
-
-  useEffect(() => {
-    if (!showBrandStory) return;
-    void systemApi
-      .brandProof()
-      .then(setBrandProof)
-      .catch(() => undefined);
-  }, [showBrandStory]);
-
   return (
     <div
       role="status"
@@ -71,26 +52,8 @@ export function LoadingState({
             {label}
           </p>
         </div>
-
-        {showBrandStory && (
-          <div className="startup-proof mt-2 flex w-full snap-x snap-mandatory overflow-x-auto rounded-lg border bg-card text-left sm:mt-3 sm:grid sm:grid-cols-4 sm:overflow-hidden">
-            <BrandProof value={brandProof.litresDelivered} label="Litres delivered" />
-            <BrandProof value={brandProof.happyClients} label="Happy clients" />
-            <BrandProof value={brandProof.appRating} label="App rating" />
-            <BrandProof value={brandProof.certification} label="Certified operations" />
-          </div>
-        )}
       </div>
       <span className="sr-only">Please wait.</span>
-    </div>
-  );
-}
-
-function BrandProof({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="w-[44%] min-w-[8.5rem] shrink-0 snap-start border-r p-3 last:border-r-0 sm:w-auto sm:min-w-0 sm:p-4">
-      <p className="text-sm font-bold text-foreground sm:text-base">{value}</p>
-      <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
     </div>
   );
 }

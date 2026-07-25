@@ -243,20 +243,34 @@
 }
 @keyframes diesel-road-move {
   to {
-    background-position-x: -72px;
+    background-position-x: 64px;
   }
 }
 
-@keyframes diesel-truck-ride {
+@keyframes diesel-truck-drive {
+  0% {
+    left: 100%;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    left: -72%;
+    opacity: 0;
+  }
+}
+
+@keyframes diesel-truck-suspension {
   0%,
   100% {
-    transform: translateY(0) rotate(0deg);
+    transform: translateY(0);
   }
-  35% {
-    transform: translateY(-2px) rotate(-0.4deg);
-  }
-  70% {
-    transform: translateY(1px) rotate(0.35deg);
+  50% {
+    transform: translateY(-1.5px);
   }
 }
 
@@ -266,62 +280,60 @@
   }
 }
 
-@keyframes diesel-cloud-pass {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-340px);
-  }
-}
-
 .diesel-loader {
   position: relative;
-  width: min(100%, 21rem);
+  width: min(100%, 24rem);
   overflow: hidden;
-  border-radius: 0.75rem;
-  background: linear-gradient(
-    180deg,
-    color-mix(in oklab, var(--primary) 6%, transparent),
-    transparent 74%
-  );
+  border-radius: 0.625rem;
+  background: linear-gradient(180deg, transparent 0 72%, var(--muted) 72% 100%);
 }
 
 .diesel-loader--standard {
-  height: 8.25rem;
+  height: 8rem;
 }
 
 .diesel-loader--compact {
-  width: 10rem;
-  height: 5.25rem;
+  width: 12rem;
+  height: 5rem;
 }
 
-.diesel-loader__sky {
+.diesel-loader__scene {
   position: absolute;
-  inset: 0 0 1.45rem;
+  inset: 0 0 1.55rem;
+  overflow: hidden;
+  border-bottom: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--primary) 4%, transparent),
+    transparent 78%
+  );
+}
+
+.diesel-loader__drive {
+  position: absolute;
+  bottom: -0.55rem;
+  left: -72%;
+  width: 13rem;
+  animation: diesel-truck-drive 3.4s linear infinite;
+  will-change: left;
 }
 
 .diesel-loader__truck {
-  position: absolute;
-  bottom: -0.18rem;
-  left: 50%;
-  width: 12.5rem;
-  color: var(--primary);
-  transform: translateX(-50%);
   transform-origin: 50% 100%;
-  animation: diesel-truck-ride 0.72s ease-in-out infinite;
-  filter: drop-shadow(0 8px 6px rgb(15 23 42 / 0.18));
+  animation: diesel-truck-suspension 0.5s ease-in-out infinite;
+  filter: drop-shadow(0 7px 5px rgb(15 23 42 / 0.2));
 }
 
-.diesel-loader--compact .diesel-loader__truck {
-  bottom: -0.45rem;
-  width: 7.75rem;
+.diesel-loader--compact .diesel-loader__drive {
+  bottom: -0.32rem;
+  width: 8.3rem;
+  animation-duration: 2.8s;
 }
 
 .diesel-loader__wheel {
   transform-box: fill-box;
   transform-origin: center;
-  animation: diesel-wheel-spin 0.72s linear infinite;
+  animation: diesel-wheel-spin 0.5s linear infinite;
 }
 
 .diesel-loader__road {
@@ -338,65 +350,29 @@
   top: 50%;
   left: 0;
   width: 100%;
-  height: 0.18rem;
+  height: 0.15rem;
   transform: translateY(-50%);
   background: repeating-linear-gradient(
     90deg,
-    transparent 0 28px,
-    rgb(255 255 255 / 0.9) 28px 58px,
-    transparent 58px 72px
+    transparent 0 22px,
+    rgb(255 255 255 / 0.85) 22px 46px,
+    transparent 46px 64px
   );
   background-position-x: 0;
-  animation: diesel-road-move 0.52s linear infinite;
-}
-
-.diesel-loader__cloud {
-  position: absolute;
-  width: 2.4rem;
-  height: 0.6rem;
-  border-radius: 999px;
-  background: color-mix(in oklab, var(--foreground) 8%, transparent);
-  animation: diesel-cloud-pass 4.8s linear infinite;
-}
-
-.diesel-loader__cloud::before,
-.diesel-loader__cloud::after {
-  position: absolute;
-  bottom: 0;
-  content: "";
-  border-radius: 999px 999px 0 0;
-  background: inherit;
-}
-
-.diesel-loader__cloud::before {
-  left: 0.45rem;
-  width: 0.85rem;
-  height: 0.85rem;
-}
-
-.diesel-loader__cloud::after {
-  left: 1.2rem;
-  width: 1.05rem;
-  height: 1.05rem;
-}
-
-.diesel-loader__cloud--one {
-  top: 1.25rem;
-  left: 92%;
-}
-
-.diesel-loader__cloud--two {
-  top: 2.6rem;
-  left: 145%;
-  animation-delay: -2.3s;
-  animation-duration: 5.8s;
+  animation: diesel-road-move 0.72s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .diesel-loader__drive {
+    left: 50%;
+    opacity: 1;
+    transform: translateX(-50%);
+  }
+
+  .diesel-loader__drive,
   .diesel-loader__truck,
   .diesel-loader__wheel,
-  .diesel-loader__lane,
-  .diesel-loader__cloud {
+  .diesel-loader__lane {
     animation: none;
   }
 }
