@@ -265,20 +265,20 @@ export function BoardWorkspace({
 
       <section className="space-y-3 border-y py-3">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="scrollbar-none flex gap-2 overflow-x-auto pb-1">
+          <div className="scrollbar-none flex w-full flex-col gap-2 min-[480px]:flex-row min-[480px]:flex-wrap min-[480px]:items-center min-[480px]:overflow-x-auto min-[480px]:pb-1">
             {employeeId && (
               <Button
                 size="sm"
                 variant={mineOnly ? "secondary" : "outline"}
                 onClick={() => setMineOnly((current) => !current)}
-                className="shrink-0"
+                className="w-full shrink-0 min-[480px]:w-auto"
               >
                 <UserRound className="mr-2 h-4 w-4" />
                 Mine
               </Button>
             )}
             <Select value={assigneeId} onValueChange={setAssigneeId}>
-              <SelectTrigger className="h-9 w-[170px] shrink-0">
+              <SelectTrigger className="h-11 w-full shrink-0 min-[480px]:h-9 min-[480px]:w-[170px]">
                 <SelectValue placeholder="All assignees" />
               </SelectTrigger>
               <SelectContent>
@@ -294,7 +294,7 @@ export function BoardWorkspace({
               value={priority}
               onValueChange={(value) => setPriority(value as TaskPriority | "ALL")}
             >
-              <SelectTrigger className="h-9 w-[150px] shrink-0">
+              <SelectTrigger className="h-11 w-full shrink-0 min-[480px]:h-9 min-[480px]:w-[150px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -307,7 +307,7 @@ export function BoardWorkspace({
               </SelectContent>
             </Select>
             <Select value={stageId} onValueChange={setStageId}>
-              <SelectTrigger className="h-9 w-[150px] shrink-0">
+              <SelectTrigger className="h-11 w-full shrink-0 min-[480px]:h-9 min-[480px]:w-[150px]">
                 <SelectValue placeholder="All stages" />
               </SelectTrigger>
               <SelectContent>
@@ -320,7 +320,7 @@ export function BoardWorkspace({
               </SelectContent>
             </Select>
             <Select value={due} onValueChange={(value) => setDue(value as DueFilter)}>
-              <SelectTrigger className="h-9 w-[150px] shrink-0">
+              <SelectTrigger className="h-11 w-full shrink-0 min-[480px]:h-9 min-[480px]:w-[150px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -332,18 +332,25 @@ export function BoardWorkspace({
             </Select>
           </div>
 
-          <div className="scrollbar-none flex items-center gap-2 overflow-x-auto pb-1">
-            <div className="flex rounded-lg border p-1">
+          <div className="flex w-full flex-col gap-2 min-[480px]:flex-row min-[480px]:items-center min-[480px]:overflow-x-auto min-[480px]:pb-1">
+            <div
+              className="flex w-full rounded-lg border p-1 min-[480px]:w-auto"
+              role="group"
+              aria-label="Board view"
+            >
               {VIEW_OPTIONS.map(({ value, label, Icon }) => (
                 <Button
                   key={value}
                   size="sm"
                   variant={view === value ? "default" : "ghost"}
                   onClick={() => setView(value)}
-                  className={cn("h-7", view === value && "bg-red-600 hover:bg-red-700")}
+                  className={cn(
+                    "h-10 flex-1 min-[480px]:h-9 min-[480px]:flex-none",
+                    view === value && "bg-red-600 hover:bg-red-700",
+                  )}
                 >
                   <Icon className="mr-1.5 h-4 w-4" />
-                  {label}
+                  <span className="truncate">{label}</span>
                 </Button>
               ))}
             </div>
@@ -353,12 +360,13 @@ export function BoardWorkspace({
                 size="icon"
                 aria-label="Board settings"
                 onClick={onEditBoard}
+                className="shrink-0"
               >
                 <Settings2 className="h-4 w-4" />
               </Button>
             )}
             <Select value={board.id} onValueChange={onSwitchBoard}>
-              <SelectTrigger className="w-[190px] shrink-0">
+              <SelectTrigger className="h-11 w-full shrink-0 min-[480px]:h-9 min-[480px]:w-[190px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -682,89 +690,139 @@ function TimelineView({
   );
 
   return (
-    <div className="overflow-x-auto rounded-xl border">
-      <div className="min-w-[900px]">
-        <div className="grid grid-cols-[260px_1fr] border-b bg-muted/30">
-          <div className="border-r px-4 py-3 text-xs font-semibold uppercase tracking-wide">
-            Assignee
-          </div>
-          <div className="grid grid-cols-3">
-            {monthLabels.map((label) => (
-              <div key={label} className="border-r px-3 py-3 text-sm font-semibold last:border-r-0">
-                {label}
-              </div>
-            ))}
-          </div>
-        </div>
-        {[...groups.entries()].map(([key, group]) => {
-          const rowHeight = Math.max(64, group.tasks.length * 34 + 18);
-          return (
-            <div
-              key={key}
-              className="grid grid-cols-[260px_1fr] border-b last:border-b-0"
-              style={{ minHeight: rowHeight }}
-            >
-              <div className="flex items-start gap-3 border-r p-4">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-[10px] font-semibold text-red-800">
-                  {initials(group.name)}
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{group.name}</p>
-                  <p className="text-xs text-muted-foreground">{group.tasks.length} tasks</p>
-                </div>
-              </div>
-              <div className="relative bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px)] bg-[size:33.333%_100%]">
-                <span
-                  className="absolute bottom-0 top-0 z-10 w-px bg-red-500"
-                  style={{ left: `${todayPosition}%` }}
-                />
-                {group.tasks.map((task, index) => {
-                  const start = dateValue(task.startDate || task.dueDate!);
-                  const end = dateValue(task.dueDate || task.startDate!);
-                  const left = Math.min(
-                    98,
-                    Math.max(0, (differenceInCalendarDays(start, rangeStart) / totalDays) * 100),
-                  );
-                  const width = Math.max(
-                    4,
-                    Math.min(
-                      100 - left,
-                      ((differenceInCalendarDays(end, start) + 1) / totalDays) * 100,
-                    ),
-                  );
-                  return (
-                    <button
-                      key={task.id}
-                      type="button"
-                      onClick={() => onOpenTask(task)}
-                      title={`${task.title}: ${dueLabel(task.dueDate, task.status === "COMPLETED")}`}
-                      className={cn(
-                        "absolute z-20 truncate rounded-md border px-2 py-1 text-left text-xs font-medium shadow-sm transition hover:ring-2 hover:ring-primary/30",
-                        PRIORITY_STYLES[task.priority],
-                      )}
-                      style={{ left: `${left}%`, width: `${width}%`, top: 10 + index * 34 }}
-                    >
-                      {task.title}
-                    </button>
-                  );
-                })}
+    <>
+      <div className="space-y-3 md:hidden">
+        {[...groups.entries()].map(([key, group]) => (
+          <div key={key} className="rounded-lg border bg-card p-3">
+            <div className="mb-3 flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-red-100 text-[10px] font-semibold text-red-800">
+                {initials(group.name)}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">{group.name}</p>
+                <p className="text-xs text-muted-foreground">{group.tasks.length} tasks</p>
               </div>
             </div>
-          );
-        })}
+            <div className="space-y-2">
+              {group.tasks.map((task) => (
+                <button
+                  key={task.id}
+                  type="button"
+                  onClick={() => onOpenTask(task)}
+                  className={cn(
+                    "flex w-full flex-col gap-1 rounded-md border px-3 py-2.5 text-left text-sm transition hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    PRIORITY_STYLES[task.priority],
+                  )}
+                >
+                  <span className="font-medium">{task.title}</span>
+                  <span className="text-xs opacity-80">
+                    {dueLabel(task.dueDate, task.status === "COMPLETED")}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
         {groups.size === 0 && (
-          <div className="p-12 text-center text-sm text-muted-foreground">
+          <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
             Add a start or due date to display tasks on the timeline.
           </div>
         )}
         {undatedTasks.length > 0 && (
-          <div className="flex items-center gap-2 border-t bg-muted/20 px-4 py-3 text-sm">
+          <div className="flex items-center gap-2 rounded-lg border bg-muted/20 px-4 py-3 text-sm">
             <ChevronRight className="h-4 w-4" />
             <span className="font-medium">No dates</span>
             <Badge variant="secondary">{undatedTasks.length}</Badge>
           </div>
         )}
       </div>
-    </div>
+      <div className="hidden overflow-x-auto rounded-xl border md:block">
+        <div className="min-w-[900px]">
+          <div className="grid grid-cols-[260px_1fr] border-b bg-muted/30">
+            <div className="border-r px-4 py-3 text-xs font-semibold uppercase tracking-wide">
+              Assignee
+            </div>
+            <div className="grid grid-cols-3">
+              {monthLabels.map((label) => (
+                <div
+                  key={label}
+                  className="border-r px-3 py-3 text-sm font-semibold last:border-r-0"
+                >
+                  {label}
+                </div>
+              ))}
+            </div>
+          </div>
+          {[...groups.entries()].map(([key, group]) => {
+            const rowHeight = Math.max(64, group.tasks.length * 34 + 18);
+            return (
+              <div
+                key={key}
+                className="grid grid-cols-[260px_1fr] border-b last:border-b-0"
+                style={{ minHeight: rowHeight }}
+              >
+                <div className="flex items-start gap-3 border-r p-4">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-[10px] font-semibold text-red-800">
+                    {initials(group.name)}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{group.name}</p>
+                    <p className="text-xs text-muted-foreground">{group.tasks.length} tasks</p>
+                  </div>
+                </div>
+                <div className="relative bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px)] bg-[size:33.333%_100%]">
+                  <span
+                    className="absolute bottom-0 top-0 z-10 w-px bg-red-500"
+                    style={{ left: `${todayPosition}%` }}
+                  />
+                  {group.tasks.map((task, index) => {
+                    const start = dateValue(task.startDate || task.dueDate!);
+                    const end = dateValue(task.dueDate || task.startDate!);
+                    const left = Math.min(
+                      98,
+                      Math.max(0, (differenceInCalendarDays(start, rangeStart) / totalDays) * 100),
+                    );
+                    const width = Math.max(
+                      4,
+                      Math.min(
+                        100 - left,
+                        ((differenceInCalendarDays(end, start) + 1) / totalDays) * 100,
+                      ),
+                    );
+                    return (
+                      <button
+                        key={task.id}
+                        type="button"
+                        onClick={() => onOpenTask(task)}
+                        title={`${task.title}: ${dueLabel(task.dueDate, task.status === "COMPLETED")}`}
+                        className={cn(
+                          "absolute z-20 truncate rounded-md border px-2 py-1 text-left text-xs font-medium shadow-sm transition hover:ring-2 hover:ring-primary/30",
+                          PRIORITY_STYLES[task.priority],
+                        )}
+                        style={{ left: `${left}%`, width: `${width}%`, top: 10 + index * 34 }}
+                      >
+                        {task.title}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+          {groups.size === 0 && (
+            <div className="p-12 text-center text-sm text-muted-foreground">
+              Add a start or due date to display tasks on the timeline.
+            </div>
+          )}
+          {undatedTasks.length > 0 && (
+            <div className="flex items-center gap-2 border-t bg-muted/20 px-4 py-3 text-sm">
+              <ChevronRight className="h-4 w-4" />
+              <span className="font-medium">No dates</span>
+              <Badge variant="secondary">{undatedTasks.length}</Badge>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
   );
 }

@@ -170,13 +170,13 @@ function AnnouncementsPage() {
       />
 
       {canManage && !loading && !error && (
-        <div className="mb-5 grid grid-cols-3 divide-x rounded-lg border bg-muted/25">
+        <div className="mb-5 grid grid-cols-1 divide-y rounded-lg border bg-muted/25 min-[400px]:grid-cols-3 min-[400px]:divide-x min-[400px]:divide-y-0">
           {[
             ["Active", summary.active],
             ["Urgent", summary.urgent],
             ["Expired", summary.expired],
           ].map(([label, value]) => (
-            <div key={label} className="min-w-0 px-2 py-3 text-center sm:px-4">
+            <div key={label} className="min-w-0 px-3 py-3 text-center sm:px-4">
               <p className="text-lg font-semibold tabular-nums sm:text-xl">{value}</p>
               <p className="truncate text-xs text-muted-foreground sm:text-sm">{label}</p>
             </div>

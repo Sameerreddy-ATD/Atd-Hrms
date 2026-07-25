@@ -13,6 +13,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  ResponsiveListShell,
+  MobileList,
+  MobileListItem,
+  MobileListHeader,
+  MobileListFields,
+  MobileListField,
+  DesktopTable,
+} from "@/components/common/ResponsiveList";
 import { ROLE_LABELS, type AuditLog } from "@/types/domain";
 import { auditApi } from "@/services/api";
 import { Database, Search } from "lucide-react";
@@ -87,8 +96,51 @@ function AuditPage() {
           className="pl-9"
         />
       </div>
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
-        <div className="overflow-x-auto">
+      <ResponsiveListShell>
+        <MobileList>
+          {rows.map((l) => (
+            <MobileListItem key={l.id} intrinsicSize="180px">
+              <MobileListHeader
+                title={l.actor}
+                meta={l.timestamp}
+                trailing={
+                  <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium">
+                    {ROLE_LABELS[l.role] ?? l.role}
+                  </span>
+                }
+              />
+              <MobileListFields>
+                <MobileListField label="Action" value={l.action} />
+                <MobileListField label="Target" value={l.target} />
+                <MobileListField
+                  className="col-span-2"
+                  label="Saved change"
+                  value={
+                    l.oldValue || l.newValue ? (
+                      <details className="text-xs">
+                        <summary className="cursor-pointer text-primary">View saved details</summary>
+                        {l.oldValue && (
+                          <pre className="mt-2 max-w-full overflow-auto rounded bg-muted p-2 text-[11px]">
+                            Before: {JSON.stringify(l.oldValue, null, 2)}
+                          </pre>
+                        )}
+                        {l.newValue && (
+                          <pre className="mt-2 max-w-full overflow-auto rounded bg-muted p-2 text-[11px]">
+                            After: {JSON.stringify(l.newValue, null, 2)}
+                          </pre>
+                        )}
+                      </details>
+                    ) : (
+                      "Activity recorded"
+                    )
+                  }
+                />
+                <MobileListField label="IP" value={l.ipAddress ?? "-"} mono />
+              </MobileListFields>
+            </MobileListItem>
+          ))}
+        </MobileList>
+        <DesktopTable>
           <Table className="min-w-[920px]">
             <TableHeader>
               <TableRow>
@@ -135,11 +187,11 @@ function AuditPage() {
               ))}
             </TableBody>
           </Table>
-        </div>
+        </DesktopTable>
         {!loading && rows.length === 0 && (
           <div className="p-6 text-sm text-muted-foreground">No audit logs found.</div>
         )}
-      </div>
+      </ResponsiveListShell>
     </div>
   );
 }

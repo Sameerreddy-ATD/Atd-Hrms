@@ -21,13 +21,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Label } from "@/components/ui/label";
 import type { Branch, Department, User } from "@/types/domain";
-import { attendanceApi, branchesApi, employeesApi } from "@/services/api";
-import { downloadCsv } from "@/lib/csv";
-import { attendanceSourceLabel } from "@/lib/attendance-labels";
-import { Search, ArrowRight, Calendar } from "lucide-react";
+import { branchesApi, employeesApi } from "@/services/api";
+import {
+  ResponsiveListShell,
+  MobileList,
+  MobileListItem,
+  MobileListHeader,
+  MobileListFields,
+  MobileListField,
+  MobileListActions,
+  DesktopTable,
+} from "@/components/common/ResponsiveList";
+import { Search, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/_app/attendance/")({
   validateSearch: (search: Record<string, unknown>): { q?: string } => ({
@@ -85,13 +91,14 @@ function AttendanceOverviewPage() {
   );
 
   function openDayLogs(employee: User) {
+    const today = new Date().toISOString().slice(0, 10);
     sessionStorage.setItem(
       "attendance-day-log-selection",
       JSON.stringify({
         employeeId: employee.employeeId || employee.id,
         employeeName: employee.name,
-        from: "",
-        to: "",
+        from: today,
+        to: today,
       }),
     );
     void navigate({ to: "/attendance/locations" });
@@ -152,8 +159,35 @@ function AttendanceOverviewPage() {
       {loading && <LoadingState label="Loading attendance logs" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
-        <div className="overflow-x-auto">
+      <ResponsiveListShell>
+        <MobileList>
+          {filteredEmployees.map((employee) => (
+            <MobileListItem key={employee.employeeId || employee.id}>
+              <MobileListHeader
+                title={employee.name}
+                meta={employee.employeeCode ?? employee.employeeId ?? employee.id}
+              />
+              <MobileListFields>
+                <MobileListField
+                  label="Department"
+                  value={employee.department ?? departmentName(employee.departmentId)}
+                />
+                <MobileListField label="Branch" value={branchName(employee.homeBranchId)} />
+              </MobileListFields>
+              <MobileListActions>
+                <Button
+                  className="w-full"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => openDayLogs(employee)}
+                >
+                  Open Day Logs <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                </Button>
+              </MobileListActions>
+            </MobileListItem>
+          ))}
+        </MobileList>
+        <DesktopTable>
           <Table className="min-w-[760px]">
             <TableHeader>
               <TableRow className="bg-muted/40">
@@ -185,7 +219,7 @@ function AttendanceOverviewPage() {
               ))}
             </TableBody>
           </Table>
-        </div>
+        </DesktopTable>
         {!loading && filteredEmployees.length === 0 && (
           <div className="p-6">
             <EmptyState
@@ -194,7 +228,7 @@ function AttendanceOverviewPage() {
             />
           </div>
         )}
-      </div>
+      </ResponsiveListShell>
     </div>
   );
 }

@@ -86,7 +86,9 @@ or private evidence.
 - `src/routes/_app.tsx` owns authenticated layout and access setup.
 - `_app.<feature>.tsx` files own their screen queries, mutations, and page composition.
 - `src/components/layout/` owns global navigation, header, command palette, and live bridges.
-- `src/components/common/` owns reusable application-specific controls and states.
+- `src/components/common/` owns reusable application-specific controls and states, including
+  `PageHeader`, `TableToolbar`, `StatCard`, and `ResponsiveList` for phone card / desktop table
+  layouts.
 - `src/components/ui/` contains low-level design-system primitives. Do not put business logic there.
 - `src/types/domain.ts` contains frontend API domain contracts. The old `src/mock/` location was
   removed because these are production contracts, not mock records.

@@ -563,13 +563,9 @@ export function createApp() {
     user: { employeeId?: string | null },
     leave: { managerId?: string | null; employeeId: string },
   ) {
-    if (!user.employeeId) {
-      throw new HttpError(
-        403,
-        "Only the responsible organization head can approve or reject leave.",
-      );
-    }
-    if (leave.managerId !== user.employeeId) {
+    const assignedApproverId =
+      leave.managerId ?? (await findLeaveApprover(leave.employeeId))?.employeeId;
+    if (!user.employeeId || assignedApproverId !== user.employeeId) {
       throw new HttpError(
         403,
         "Only the responsible organization head can approve or reject leave.",
@@ -3512,8 +3508,9 @@ export function createApp() {
         case EventType.BRANCH_IN:
           return EventType.OFFICE_OUT;
         case EventType.FIELD_CHECK_IN:
-        case EventType.CLIENT_CHECK_IN:
           return EventType.FIELD_CHECK_OUT;
+        case EventType.CLIENT_CHECK_IN:
+          return EventType.CLIENT_CHECK_OUT;
         case EventType.BREAK_IN:
           return EventType.BREAK_OUT;
         default:

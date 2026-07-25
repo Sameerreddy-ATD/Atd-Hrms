@@ -49,11 +49,18 @@ not shown in the CEO login.
 ## Responsive Navigation
 
 - On phones, use the menu icon in the top-left corner. Selecting a page closes the menu.
+- Keyboard users can press Tab once to reveal **Skip to main content**.
 - The mobile header shows the current page name and keeps search, notifications, and profile
   controls available.
 - Page actions stack on narrow screens and move into a compact row when space is available.
-- Wide operational tables scroll horizontally inside their own section instead of widening the
-  complete page.
+- Most operational lists (attendance, leave, employees, users, devices, audit, assets) show
+  card summaries on phones and full tables on tablets and desktops.
+- Wide desktop-only tables may still scroll horizontally inside their section; the page itself
+  does not widen.
+- Work Planner filters stack on phones; timeline view shows assignee groups as cards on phones
+  and the full timeline from tablet size upward.
+- After sign-in, an install banner can help you add Anytime Diesel Employees to Android, iPhone,
+  Windows, or Mac. Open **Notifications** for alert status and installation steps.
 - The same permissions apply on mobile, tablet, laptop, and installed PWA displays.
 
 ## Login And First Password Change
@@ -523,10 +530,20 @@ individual employee.
 
 ## Mobile Use
 
-The app is designed for phones, tablets, and laptops. See [DEVICE_COMPATIBILITY.md](DEVICE_COMPATIBILITY.md) for the iPhone, Pixel, Samsung, Vivo, Oppo, tablet, and desktop release checklist.
+The app is designed for phones, tablets, and laptops. See
+[DEVICE_COMPATIBILITY.md](DEVICE_COMPATIBILITY.md) for the iPhone, Pixel, Samsung, Vivo, Oppo,
+tablet, and desktop release checklist, and [RESPONSIVE_UI_AUDIT.md](RESPONSIVE_UI_AUDIT.md) for
+shared layout and accessibility standards.
 
 Recommended mobile workflows:
 
+- Install the app to the Home Screen / desktop for the fastest daily use and alert delivery.
 - Employees: My Attendance, Apply Leave, Leave History, Notifications, My Profile.
 - Field staff: My Attendance with GPS check-in/check-out and client visit details.
-- Managers: Leave Approvals and team attendance review.
+- Managers: Leave Approvals and team attendance review (card summaries on phones).
+- HR / Admin: Attendance overview and corrections, leave tracking, employee lists — use the menu
+  icon, then work from the card list; open the full table view on a tablet or laptop when needed.
+- Work Planner: use List or Kanban on phones; Timeline shows assignee cards on phones and the
+  full chart from tablet size upward.
+- Notifications: Enable Alerts after install so leave, announcement, and attendance notices arrive
+  even when the browser tab is closed (platform rules apply; see Device Compatibility).

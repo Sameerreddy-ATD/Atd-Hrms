@@ -5,6 +5,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { PermissionSetup } from "@/components/layout/PermissionSetup";
+import { PwaInstallBanner } from "@/components/layout/PwaInstallBanner";
 import { LoadingState } from "@/components/common/LoadingState";
 import { useAuth } from "@/lib/auth";
 import { FaceEnrollmentGate } from "@/components/face/FaceEnrollmentGate";
@@ -119,11 +120,21 @@ function AppLayout() {
 
   return (
     <SidebarProvider>
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-[100] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        Skip to main content
+      </a>
       <AppSidebar />
       <PermissionSetup />
       <SidebarInset className="flex h-[100dvh] min-w-0 flex-col overflow-hidden bg-muted/35 dark:bg-background">
         <AppHeader />
-        <main className="flex flex-1 flex-col overflow-y-auto overscroll-y-contain p-0 pb-[env(safe-area-inset-bottom)] sm:p-3 lg:p-5">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="flex flex-1 flex-col overflow-y-auto overscroll-y-contain p-0 pb-[env(safe-area-inset-bottom)] outline-none sm:p-3 lg:p-5"
+        >
           <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden bg-background p-3 text-card-foreground sm:rounded-lg sm:border sm:p-5 sm:shadow-sm lg:p-6">
             {moduleBlocked ? (
               <div className="m-auto flex max-w-md flex-col items-center px-4 py-12 text-center">
@@ -136,13 +147,16 @@ function AppLayout() {
                   if your work requires access.
                 </p>
                 {fallbackRoute && fallbackRoute !== pathname && (
-                  <Button asChild className="mt-5">
+                  <Button asChild className="mt-5 w-full sm:w-auto">
                     <Link to={fallbackRoute}>Open an available workspace</Link>
                   </Button>
                 )}
               </div>
             ) : (
-              <Outlet />
+              <>
+                <PwaInstallBanner />
+                <Outlet />
+              </>
             )}
           </div>
         </main>

@@ -136,6 +136,26 @@ export async function syncEmployeeLeaveBalances(employeeId: string, now = new Da
   );
 }
 
+function cancelledDateSet(cancelledDates: unknown) {
+  return new Set(
+    Array.isArray(cancelledDates)
+      ? cancelledDates.filter((value): value is string => typeof value === "string")
+      : [],
+  );
+}
+
+function requestOverlapsDates(
+  request: { fromDate: Date; toDate: Date; cancelledDates: unknown },
+  dates: Date[],
+) {
+  const cancelled = cancelledDateSet(request.cancelledDates);
+  return dates.some((date) => {
+    const key = dateKey(date);
+    if (cancelled.has(key)) return false;
+    return startOfDayUtc(request.fromDate) <= date && date <= startOfDayUtc(request.toDate);
+  });
+}
+
 export async function validateLeaveApplication(input: {
   employeeId: string;
   leaveTypeId: string;
@@ -155,15 +175,18 @@ export async function validateLeaveApplication(input: {
   if (startOfDayUtc(input.fromDate) < today)
     throw new HttpError(400, "Leave cannot start in the past");
 
-  const overlap = await prisma.leaveRequest.findFirst({
+  const overlappingCandidates = await prisma.leaveRequest.findMany({
     where: {
       employeeId: input.employeeId,
       status: { in: countedStatuses },
       fromDate: { lte: startOfDayUtc(input.toDate) },
       toDate: { gte: startOfDayUtc(input.fromDate) },
     },
+    select: { fromDate: true, toDate: true, cancelledDates: true },
   });
-  if (overlap) throw new HttpError(400, "Another active leave request overlaps these dates");
+  if (overlappingCandidates.some((request) => requestOverlapsDates(request, dates))) {
+    throw new HttpError(400, "Another active leave request overlaps these dates");
+  }
 
   if (
     type.code === LEAVE_CODES.COMP_OFF &&
@@ -197,7 +220,18 @@ export async function validateLeaveApplication(input: {
     if (monthUsed + input.days > Number(type.maxPerMonth ?? 2)) {
       throw new HttpError(400, "A maximum of 2 Sick Leave days may be used in one month");
     }
-    if (input.days > Number(balance?.balance ?? 0)) {
+    const { start: yearStart, end: yearEnd } = calendarYearRange(input.fromDate);
+    const pendingYear = await prisma.leaveRequest.findMany({
+      where: {
+        employeeId: input.employeeId,
+        leaveTypeId: type.leaveTypeId,
+        status: "PENDING",
+        fromDate: { gte: yearStart, lte: yearEnd },
+      },
+      select: { days: true, cancelledDates: true },
+    });
+    const pendingDays = pendingYear.reduce((total, request) => total + effectiveDays(request), 0);
+    if (input.days > Number(balance?.balance ?? 0) - pendingDays) {
       throw new HttpError(400, "Sick Leave cannot exceed the available balance");
     }
   }

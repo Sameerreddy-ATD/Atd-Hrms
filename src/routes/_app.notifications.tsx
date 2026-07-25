@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
+import { EmptyState } from "@/components/common/EmptyState";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +19,12 @@ import {
   NOTIFICATION_COUNT_CHANGED_EVENT,
 } from "@/lib/browser-notifications";
 import {
+  detectPwaPlatform,
+  installInstructionCopy,
+  isAppInstalled,
+  clearAppBadgeSafe,
+} from "@/lib/pwa-install";
+import {
   Bell,
   BellOff,
   CalendarCheck,
@@ -26,6 +33,9 @@ import {
   Download,
   Trash2,
   Megaphone,
+  Smartphone,
+  ShieldAlert,
+  CheckCircle2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/notifications")({
@@ -38,6 +48,10 @@ function NotificationsPage() {
   const [error, setError] = useState("");
   const [alertStatus, setAlertStatus] = useState(getDesktopAlertStatus);
   const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
+  const [showInstallHelp, setShowInstallHelp] = useState(false);
+  const platform = detectPwaPlatform();
+  const installCopy = installInstructionCopy(platform);
+  const installed = isAppInstalled();
 
   const loadNotifications = useCallback(() => {
     return notificationsApi.list().then((data) => setItems(filterVisibleNotifications(data)));
@@ -49,6 +63,7 @@ function NotificationsPage() {
   }, []);
 
   useEffect(() => {
+    void clearAppBadgeSafe();
     refreshAlertStatus();
 
     function handleBeforeInstallPrompt(event: Event) {
@@ -57,7 +72,10 @@ function NotificationsPage() {
     }
 
     function handleVisibilityChange() {
-      if (document.visibilityState === "visible") refreshAlertStatus();
+      if (document.visibilityState === "visible") {
+        refreshAlertStatus();
+        void clearAppBadgeSafe();
+      }
     }
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
@@ -106,7 +124,7 @@ function NotificationsPage() {
     <div>
       <PageHeader
         title="Notifications"
-        description="Relevant requests, assignments, account notices, holidays, and birthdays."
+        description="Leave decisions, attendance notices, announcements, holidays, and birthdays — keep alerts on for the installed app."
         actions={
           <>
             {alertStatus.effectivelyEnabled ? (
@@ -116,7 +134,7 @@ function NotificationsPage() {
                 onClick={async () => {
                   await disableDesktopAlerts();
                   refreshAlertStatus();
-                  toast.success("Browser alerts disabled in app");
+                  toast.success("Browser alerts disabled");
                 }}
               >
                 <BellOff className="mr-2 h-4 w-4" />
@@ -124,7 +142,6 @@ function NotificationsPage() {
               </Button>
             ) : (
               <Button
-                variant="outline"
                 size="sm"
                 onClick={async () => {
                   try {
@@ -141,23 +158,6 @@ function NotificationsPage() {
                 Enable Alerts
               </Button>
             )}
-            {installPrompt && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  const promptEvent = installPrompt as Event & {
-                    prompt: () => Promise<void>;
-                    userChoice: Promise<{ outcome: string }>;
-                  };
-                  await promptEvent.prompt();
-                  await promptEvent.userChoice;
-                  setInstallPrompt(null);
-                }}
-              >
-                <Download className="mr-2 h-4 w-4" /> Install App
-              </Button>
-            )}
             <Button
               variant="outline"
               size="sm"
@@ -165,49 +165,124 @@ function NotificationsPage() {
               onClick={() => {
                 clearNotifications(items);
                 setItems([]);
+                void clearAppBadgeSafe();
                 toast.success("Notifications cleared");
               }}
             >
-              <Trash2 className="mr-2 h-4 w-4" /> Clear Notifications
+              <Trash2 className="mr-2 h-4 w-4" /> Clear
             </Button>
           </>
         }
       />
 
-      <Card className="mb-4">
-        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-          <div>
-            <p className="text-sm font-medium">Browser alert status</p>
-            <p className="text-xs text-muted-foreground">
-              App alerts: {alertStatus.effectivelyEnabled ? "On" : "Off"} · Browser permission:{" "}
-              {permissionLabel}
-            </p>
-          </div>
-          <Badge
-            variant="outline"
-            className={
-              alertStatus.effectivelyEnabled
-                ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-400"
-                : alertStatus.permission === "denied"
-                  ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-400"
-                  : ""
-            }
-          >
-            {alertStatus.effectivelyEnabled ? "Alerts active" : "Alerts inactive"}
-          </Badge>
-        </CardContent>
-        <CardContent className="border-t px-4 py-3 text-xs text-muted-foreground">
-          Installed Android apps can receive company alerts in the background. On iPhone or iPad
-          16.4 and later, add the app to the Home Screen, open it from the icon, then tap Enable
-          Alerts.
-        </CardContent>
-      </Card>
+      <div className="mb-4 grid gap-3 lg:grid-cols-2">
+        <Card className="overflow-hidden border-primary/15 shadow-sm">
+          <CardContent className="flex items-start gap-3 p-4">
+            <div
+              className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                alertStatus.effectivelyEnabled
+                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                  : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+              }`}
+            >
+              {alertStatus.effectivelyEnabled ? (
+                <CheckCircle2 className="h-5 w-5" />
+              ) : (
+                <Bell className="h-5 w-5" />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-semibold tracking-tight">Alert delivery</p>
+                <Badge
+                  variant="outline"
+                  className={
+                    alertStatus.effectivelyEnabled
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-400"
+                      : ""
+                  }
+                >
+                  {alertStatus.effectivelyEnabled ? "Active" : "Inactive"}
+                </Badge>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                App alerts: {alertStatus.effectivelyEnabled ? "On" : "Off"} · Browser permission:{" "}
+                {permissionLabel}
+              </p>
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                Android and desktop PWAs can receive background push. On iPhone/iPad 16.4+, add the
+                app to Home Screen, open it from the icon, then enable alerts.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden shadow-sm">
+          <CardContent className="flex items-start gap-3 p-4">
+            <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Smartphone className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold tracking-tight">
+                {installed ? "Installed on this device" : installCopy.title}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {installed
+                  ? "You’re using the full-screen Anytime Diesel Employees app."
+                  : "Install for Android, iPhone, Windows, and Mac for the smoothest workplace experience."}
+              </p>
+              {!installed && (
+                <div className="mt-3 flex flex-col gap-2 min-[420px]:flex-row">
+                  {installPrompt && (
+                    <Button
+                      size="sm"
+                      className="w-full min-[420px]:w-auto"
+                      onClick={async () => {
+                        const promptEvent = installPrompt as Event & {
+                          prompt: () => Promise<void>;
+                          userChoice: Promise<{ outcome: string }>;
+                        };
+                        await promptEvent.prompt();
+                        await promptEvent.userChoice;
+                        setInstallPrompt(null);
+                      }}
+                    >
+                      <Download className="mr-2 h-4 w-4" /> Install app
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full min-[420px]:w-auto"
+                    onClick={() => setShowInstallHelp((current) => !current)}
+                  >
+                    {showInstallHelp ? "Hide steps" : "Installation steps"}
+                  </Button>
+                </div>
+              )}
+              {showInstallHelp && !installed && (
+                <ol className="mt-3 space-y-1.5 rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground sm:text-sm">
+                  {installCopy.steps.map((step, index) => (
+                    <li key={step} className="flex gap-2">
+                      <span className="font-semibold text-primary">{index + 1}.</span>
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {alertStatus.permission === "denied" && (
-        <p className="mb-4 text-sm text-amber-700 dark:text-amber-400">
-          Notification access is blocked in your browser or phone settings. Enable it there, then
-          return here and tap Enable Alerts again.
-        </p>
+        <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50/80 p-3.5 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            Notification access is blocked in browser or phone settings. Enable it there, return
+            here, and tap Enable Alerts again.
+          </p>
+        </div>
       )}
 
       {loading && <LoadingState label="Loading notifications" />}
@@ -216,10 +291,13 @@ function NotificationsPage() {
         {items.map((n) => {
           const Icon = iconFor(n.type);
           return (
-            <Card key={n.id}>
+            <Card
+              key={n.id}
+              className="overflow-hidden border-border/80 shadow-sm transition-colors hover:border-primary/25"
+            >
               <CardContent className="flex items-start gap-3 p-4">
                 <div
-                  className={`rounded-md p-2 ${
+                  className={`rounded-xl p-2.5 ${
                     n.type === "leave"
                       ? "bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400"
                       : n.type === "holiday"
@@ -235,10 +313,10 @@ function NotificationsPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="mb-1 flex flex-wrap items-center gap-2">
-                    <Badge variant="outline" className="text-[10px]">
+                    <Badge variant="outline" className="text-[10px] tracking-wide">
                       Anytime Diesel
                     </Badge>
-                    <span className="text-[10px] font-medium uppercase text-muted-foreground">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       {n.type}
                     </span>
                     {n.priority && n.priority !== "NORMAL" && (
@@ -247,14 +325,14 @@ function NotificationsPage() {
                       </Badge>
                     )}
                   </div>
-                  <p className="text-sm font-medium capitalize">{n.title}</p>
-                  <p className="text-sm text-muted-foreground">{n.desc}</p>
+                  <p className="text-sm font-semibold tracking-tight text-foreground">{n.title}</p>
+                  <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">{n.desc}</p>
                   {n.type === "announcement" && n.authorName && (
                     <p className="mt-1 text-xs font-medium text-muted-foreground">
                       Published by {n.authorName}
                     </p>
                   )}
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="mt-2 text-xs text-muted-foreground">
                     {new Date(n.time).toLocaleString()}
                   </p>
                 </div>
@@ -264,9 +342,10 @@ function NotificationsPage() {
         })}
       </div>
       {!loading && items.length === 0 && (
-        <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
-          No notifications yet.
-        </div>
+        <EmptyState
+          title="You're all caught up"
+          description="New leave, attendance, announcement, and birthday updates will appear here."
+        />
       )}
     </div>
   );

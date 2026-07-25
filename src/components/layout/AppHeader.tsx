@@ -95,7 +95,7 @@ export function AppHeader() {
   return (
     <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-1 border-b border-slate-200/70 bg-[#F6F8FC]/85 px-2 backdrop-blur-md dark:border-border dark:bg-card/95 dark:shadow-sm sm:h-16 sm:gap-3 sm:px-4 md:px-6">
       {/* Left: Collapsible Toggle, Logo & Page Title */}
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         <Button
           variant="ghost"
           size="icon"
@@ -106,13 +106,17 @@ export function AppHeader() {
           <Menu className="h-5 w-5 text-slate-700 dark:text-foreground" />
         </Button>
         <div className="flex min-w-0 items-center gap-2 pl-0.5 sm:pl-1">
-          <img src="/atd-favicon.png" alt="ATD" className="h-6 w-6 rounded-sm object-contain" />
+          <img
+            src="/atd-favicon.png"
+            alt="ATD"
+            className="h-6 w-6 shrink-0 rounded-sm object-contain"
+          />
           <span className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100 sm:text-base">
             <span className="sm:hidden">{toTitle(pathname)}</span>
             <span className="hidden sm:inline">Anytime Diesel Employee Management</span>
           </span>
-          <span className="hidden sm:inline text-slate-300 dark:text-zinc-700">|</span>
-          <span className="hidden sm:inline text-xs sm:text-sm font-medium text-slate-500 dark:text-zinc-400 capitalize whitespace-nowrap">
+          <span className="hidden shrink-0 sm:inline text-slate-300 dark:text-zinc-700">|</span>
+          <span className="hidden max-w-[10rem] truncate capitalize text-xs font-medium text-slate-500 dark:text-zinc-400 sm:inline sm:text-sm lg:max-w-none lg:whitespace-nowrap">
             {toTitle(pathname)}
           </span>
         </div>

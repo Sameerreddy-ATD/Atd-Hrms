@@ -1,5 +1,6 @@
-self.ATD_STATIC_CACHE = "atd-static-v3";
+self.ATD_STATIC_CACHE = "atd-static-v4";
 self.ATD_SHELL_ASSETS = [
+  "/manifest.webmanifest",
   "/atd-logo.png",
   "/atd-favicon.png",
   "/pwa-192.png",
@@ -58,17 +59,20 @@ self.addEventListener("fetch", (event) => {
           if (cached) return cached;
           const shell = await caches.match("/dashboard");
           if (shell) return shell;
-          return new Response("The app could not load. Check your connection and try again.", {
-            status: 503,
-            headers: { "Content-Type": "text/plain; charset=utf-8" },
-          });
+          return new Response(
+            "<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Offline</title><style>body{font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100dvh;margin:0;background:#F6F8FC;color:#1f2937;padding:24px;text-align:center}main{max-width:24rem}h1{font-size:1.25rem;margin:0 0 .5rem}p{margin:0;color:#64748b;line-height:1.5}</style></head><body><main><h1>You're offline</h1><p>Anytime Diesel Employees could not reach the server. Reconnect and try again.</p></main></body></html>",
+            {
+              status: 503,
+              headers: { "Content-Type": "text/html; charset=utf-8" },
+            },
+          );
         }),
     );
     return;
   }
 
   const networkFirstDestination = ["script", "style", "font"].includes(request.destination);
-  if (networkFirstDestination) {
+  if (networkFirstDestination || url.pathname === "/manifest.webmanifest") {
     event.respondWith(
       fetch(request)
         .then((response) => {
@@ -105,11 +109,13 @@ self.addEventListener("fetch", (event) => {
 
 self.addEventListener("push", (event) => {
   let payload = {
-    title: "Anytime Diesel Employee Management",
-    body: "You have a new update.",
+    title: "Anytime Diesel Employees",
+    body: "You have a new workplace update.",
     icon: "/pwa-192.png",
-    badge: "/pwa-192.png",
+    badge: "/atd-favicon.png",
     renotify: true,
+    tag: "atd-update",
+    vibrate: [80, 40, 80],
     data: { href: "/notifications" },
   };
 
@@ -121,14 +127,36 @@ self.addEventListener("push", (event) => {
     }
   }
 
-  event.waitUntil(self.registration.showNotification(payload.title, payload));
-  if (self.navigator && "setAppBadge" in self.navigator) {
-    event.waitUntil(self.navigator.setAppBadge(1));
-  }
+  event.waitUntil(
+    Promise.all([
+      self.registration.showNotification(payload.title, {
+        body: payload.body,
+        icon: payload.icon,
+        badge: payload.badge,
+        renotify: payload.renotify,
+        tag: payload.tag,
+        vibrate: payload.vibrate,
+        data: payload.data,
+        actions: [
+          { action: "open", title: "Open" },
+          { action: "dismiss", title: "Dismiss" },
+        ],
+      }),
+      self.navigator && "setAppBadge" in self.navigator
+        ? self.navigator.setAppBadge(1).catch(() => undefined)
+        : Promise.resolve(),
+    ]),
+  );
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  if (event.action === "dismiss") {
+    if (self.navigator && "clearAppBadge" in self.navigator) {
+      event.waitUntil(self.navigator.clearAppBadge());
+    }
+    return;
+  }
   if (self.navigator && "clearAppBadge" in self.navigator) {
     event.waitUntil(self.navigator.clearAppBadge());
   }

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -232,6 +232,7 @@ function DeptPage() {
                 size="icon"
                 variant="ghost"
                 title="Add child unit"
+                aria-label={`Add child unit under ${department.name}`}
                 onClick={(event) => {
                   event.stopPropagation();
                   openCreateUnder(department);
@@ -243,6 +244,7 @@ function DeptPage() {
                 size="icon"
                 variant="ghost"
                 title="Edit unit"
+                aria-label={`Edit ${department.name}`}
                 onClick={(event) => {
                   event.stopPropagation();
                   openEditDialog(department);
@@ -255,6 +257,7 @@ function DeptPage() {
                 variant="ghost"
                 className="text-destructive hover:text-destructive"
                 title="Delete unit"
+                aria-label={`Delete ${department.name}`}
                 onClick={(event) => {
                   event.stopPropagation();
                   setDeleteDept(department);
@@ -297,13 +300,21 @@ function DeptPage() {
 
       {loading && <LoadingState label="Loading organization chart" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
+      {!loading && !error && departments.length === 0 && (
+        <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+          No organization units yet. Add a unit under the CEO to start the chart.
+        </div>
+      )}
       {!loading && departments.length > 0 && (
         <div className="overflow-hidden rounded-lg border border-border bg-card">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/30 px-3 py-2 sm:px-4">
             <div>
               <p className="text-sm font-medium text-foreground">Organization chart</p>
               <p className="text-xs text-muted-foreground">
-                Drag the lower scrollbar to move across the chart.
+                <span className="md:hidden">Tap a unit to expand teams underneath.</span>
+                <span className="hidden md:inline">
+                  Drag the lower scrollbar to move across the chart.
+                </span>
               </p>
             </div>
             <div className="flex items-center gap-1 rounded-md border border-border bg-background p-1">
@@ -312,6 +323,7 @@ function DeptPage() {
                 size="icon"
                 variant="ghost"
                 title="Zoom out"
+                aria-label="Zoom out"
                 disabled={zoom <= 0.5}
                 onClick={() => setZoom((value) => Math.max(0.5, Number((value - 0.1).toFixed(1))))}
               >
@@ -325,6 +337,7 @@ function DeptPage() {
                 size="icon"
                 variant="ghost"
                 title="Zoom in"
+                aria-label="Zoom in"
                 disabled={zoom >= 1.4}
                 onClick={() => setZoom((value) => Math.min(1.4, Number((value + 0.1).toFixed(1))))}
               >
@@ -335,6 +348,7 @@ function DeptPage() {
                 size="icon"
                 variant="ghost"
                 title="Reset zoom"
+                aria-label="Reset zoom"
                 onClick={() => setZoom(0.8)}
               >
                 <RotateCcw className="h-4 w-4" />
@@ -342,13 +356,15 @@ function DeptPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto overscroll-x-contain px-4 py-6 sm:px-6">
+          <div className="overflow-x-auto overscroll-x-contain px-3 py-4 sm:px-6 sm:py-6 md:px-6">
             <div
-              className="transition-transform duration-200 ease-out motion-reduce:transition-none"
-              style={{
-                zoom,
-                width: chartWidth,
-              }}
+              className="w-full transition-transform duration-200 ease-out motion-reduce:transition-none md:w-[var(--chart-width)]"
+              style={
+                {
+                  zoom,
+                  "--chart-width": `${chartWidth}px`,
+                } as CSSProperties
+              }
             >
               <div className="mx-auto flex max-w-xs items-center gap-3 rounded-md border border-primary/30 bg-primary/5 px-4 py-3 shadow-sm">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
@@ -358,14 +374,15 @@ function DeptPage() {
                   <p className="text-xs font-medium uppercase text-muted-foreground">Leadership</p>
                   <p className="font-semibold text-foreground">Chief Executive Officer</p>
                 </div>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="ml-auto shrink-0"
-                  title="Add organization unit under CEO"
-                  onClick={openCreateTopLevel}
-                >
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="ml-auto shrink-0"
+              title="Add organization unit under CEO"
+              aria-label="Add organization unit under CEO"
+              onClick={openCreateTopLevel}
+            >
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
@@ -378,14 +395,14 @@ function DeptPage() {
                 </span>
               </div>
 
-              <div className="flex w-max items-start gap-7">
+              <div className="flex w-full max-w-full flex-col items-stretch gap-4 md:w-max md:flex-row md:items-start md:gap-7">
                 {topLevelDepartments.map((department) => {
                   const children = childrenOf(department.id);
                   const isExpanded = expandedUnits.has(department.id);
                   return (
                     <section
                       key={department.id}
-                      className="relative w-[360px] shrink-0 pt-6 before:absolute before:left-1/2 before:top-0 before:h-6 before:w-px before:bg-border"
+                      className="relative w-full shrink-0 pt-0 before:hidden md:w-[360px] md:pt-6 md:before:absolute md:before:left-1/2 md:before:top-0 md:before:block md:before:h-6 md:before:w-px md:before:bg-border"
                     >
                       <div
                         className="cursor-pointer rounded-md border border-border bg-background p-4 shadow-sm transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
@@ -422,6 +439,7 @@ function DeptPage() {
                               size="icon"
                               variant="ghost"
                               title={`Add under ${department.name}`}
+                              aria-label={`Add under ${department.name}`}
                               onClick={(event) => {
                                 event.stopPropagation();
                                 openCreateUnder(department);
@@ -433,6 +451,7 @@ function DeptPage() {
                               size="icon"
                               variant="ghost"
                               title="Edit unit"
+                              aria-label={`Edit ${department.name}`}
                               onClick={(event) => {
                                 event.stopPropagation();
                                 openEditDialog(department);
@@ -445,6 +464,7 @@ function DeptPage() {
                               variant="ghost"
                               className="text-destructive hover:text-destructive"
                               title="Delete unit"
+                              aria-label={`Delete ${department.name}`}
                               onClick={(event) => {
                                 event.stopPropagation();
                                 setDeleteDept(department);

@@ -180,7 +180,8 @@ For releases that change shared navigation or dashboards, also verify:
   Overview, and Company Investment;
 - Developer Admin, HR, head, and employee menus do not gain unauthorized entries;
 - page headers and actions at 390 px, tablet width, and laptop width; and
-- the document width does not overflow on mobile; wide tables must scroll inside their section.
+- the document width does not overflow on mobile; primary lists use cards on phones and tables may
+  scroll inside their section on larger screens;
 
 ## Rollback
 

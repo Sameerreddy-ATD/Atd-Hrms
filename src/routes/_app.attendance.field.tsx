@@ -18,6 +18,16 @@ import type { AttendanceRecord } from "@/types/domain";
 import { attendanceApi } from "@/services/api";
 import { punchSourceLabel } from "@/lib/attendance-labels";
 import { formatStoredWorkedTime } from "@/lib/worked-time";
+import {
+  ResponsiveListShell,
+  MobileList,
+  MobileListItem,
+  MobileListHeader,
+  MobileListFields,
+  MobileListField,
+  MobileListActions,
+  DesktopTable,
+} from "@/components/common/ResponsiveList";
 import { ArrowRight, MapPin } from "lucide-react";
 
 function calculateDistance(
@@ -115,8 +125,110 @@ function FieldAttendancePage() {
       </TableToolbar>
       {loading && <LoadingState label="Loading field attendance" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
-        <div className="overflow-x-auto">
+      <ResponsiveListShell>
+        <MobileList>
+          {rows.map((r) => {
+            const dist =
+              r.fieldCheckInLatitude && r.fieldCheckOutLatitude
+                ? calculateDistance(
+                    r.fieldCheckInLatitude,
+                    r.fieldCheckInLongitude,
+                    r.fieldCheckOutLatitude,
+                    r.fieldCheckOutLongitude,
+                  )
+                : null;
+            return (
+              <MobileListItem key={r.id} intrinsicSize="240px">
+                <MobileListHeader
+                  title={r.employeeName}
+                  meta={r.employeeId}
+                  trailing={<StatusBadge status={r.status} />}
+                />
+                <MobileListFields>
+                  <MobileListField label="Date" value={r.date} />
+                  <MobileListField
+                    label="Worked Time"
+                    value={formatStoredWorkedTime(r.totalHours, r.workedMinutes)}
+                  />
+                  <MobileListField
+                    label="Check In"
+                    value={
+                      <>
+                        <span>{r.punchIn ?? "-"}</span>
+                        <span className="mt-0.5 block text-[11px] font-semibold text-muted-foreground">
+                          {punchSourceLabel(r.punchInSource, r.punchInBranchId, [])}
+                        </span>
+                        {r.fieldCheckInLatitude && r.fieldCheckInLongitude ? (
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${r.fieldCheckInLatitude},${r.fieldCheckInLongitude}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-0.5 flex items-center gap-1 text-xs text-primary hover:underline"
+                          >
+                            <MapPin className="h-3 w-3 shrink-0 text-red-500" />
+                            {r.fieldCheckInLatitude.toFixed(4)}, {r.fieldCheckInLongitude.toFixed(4)}
+                          </a>
+                        ) : null}
+                      </>
+                    }
+                  />
+                  <MobileListField
+                    label="Check Out"
+                    value={
+                      <>
+                        <span>{r.punchOut ?? "-"}</span>
+                        <span className="mt-0.5 block text-[11px] font-semibold text-muted-foreground">
+                          {punchSourceLabel(r.punchOutSource, r.punchOutBranchId, [])}
+                        </span>
+                        {r.fieldCheckOutLatitude && r.fieldCheckOutLongitude ? (
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${r.fieldCheckOutLatitude},${r.fieldCheckOutLongitude}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-0.5 flex items-center gap-1 text-xs text-primary hover:underline"
+                          >
+                            <MapPin className="h-3 w-3 shrink-0 text-red-500" />
+                            {r.fieldCheckOutLatitude.toFixed(4)},{" "}
+                            {r.fieldCheckOutLongitude.toFixed(4)}
+                          </a>
+                        ) : null}
+                      </>
+                    }
+                  />
+                  <MobileListField
+                    className="col-span-2"
+                    label="Distance"
+                    value={
+                      dist != null && r.fieldCheckInLatitude && r.fieldCheckOutLatitude ? (
+                        <a
+                          href={`https://www.google.com/maps/dir/?api=1&origin=${r.fieldCheckInLatitude},${r.fieldCheckInLongitude}&destination=${r.fieldCheckOutLatitude},${r.fieldCheckOutLongitude}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs font-semibold text-emerald-600 hover:underline dark:text-emerald-400"
+                        >
+                          {dist.toFixed(2)} km
+                        </a>
+                      ) : (
+                        "-"
+                      )
+                    }
+                  />
+                </MobileListFields>
+                <MobileListActions>
+                  <Button
+                    className="w-full"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openDayLogs(r)}
+                  >
+                    Open Day Logs <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                  </Button>
+                </MobileListActions>
+              </MobileListItem>
+            );
+          })}
+        </MobileList>
+        <DesktopTable>
           <Table className="min-w-[900px]">
             <TableHeader>
               <TableRow>
@@ -127,6 +239,7 @@ function FieldAttendancePage() {
                 <TableHead>Worked Time</TableHead>
                 <TableHead>Check In-Out Distance</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -198,7 +311,7 @@ function FieldAttendancePage() {
                               className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold hover:underline"
                               title="Click to view check-in to check-out route on Google Maps"
                             >
-                              📏 {dist.toFixed(2)} km
+                              {dist.toFixed(2)} km
                             </a>
                           );
                         })()
@@ -207,17 +320,22 @@ function FieldAttendancePage() {
                   <TableCell>
                     <StatusBadge status={r.status} />
                   </TableCell>
+                  <TableCell className="text-right">
+                    <Button size="sm" variant="outline" onClick={() => openDayLogs(r)}>
+                      Open Day Logs <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-        </div>
+        </DesktopTable>
         {!loading && rows.length === 0 && (
           <div className="p-6 text-sm text-muted-foreground">
             No field attendance records found.
           </div>
         )}
-      </div>
+      </ResponsiveListShell>
     </div>
   );
 }

@@ -804,7 +804,7 @@ function HRDashboard({
 }) {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 min-[480px]:grid-cols-3 lg:grid-cols-5">
         <StatCard label="Total employees" value={data.total} icon={Users} />
         <StatCard
           label="Present today"
@@ -923,7 +923,7 @@ function CEODashboard({
             {attendanceCoverage}% attendance accounted for
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 min-[480px]:grid-cols-3 xl:grid-cols-6">
           <StatCard label="Total workforce" value={data.total} icon={Users} />
           <StatCard label="Present today" value={data.present} icon={UserCheck} tone="success" />
           <StatCard label="On leave today" value={data.onLeave} icon={PlaneTakeoff} tone="info" />

@@ -160,7 +160,7 @@ function PolicyPage() {
         {directoryLoading ? (
           <LoadingState label="Loading employees" />
         ) : (
-          <div className="grid min-h-[420px] lg:grid-cols-[minmax(260px,0.34fr)_minmax(0,1fr)]">
+          <div className="grid min-h-0 lg:min-h-[420px] lg:grid-cols-[minmax(260px,0.34fr)_minmax(0,1fr)]">
             <aside className="border-b border-border lg:border-b-0 lg:border-r">
               <div className="border-b border-border p-3">
                 <div className="mb-2 lg:hidden">
