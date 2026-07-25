@@ -3412,6 +3412,23 @@ export function createApp() {
       }
     }
     const eventDate = await attendanceDateForEmployee(employeeId, body.eventTime ?? new Date());
+    if (!isCheckOut) {
+      const unresolvedPreviousDay = await prisma.attendanceDailySummary.findFirst({
+        where: {
+          employeeId,
+          date: { lt: eventDate },
+          hasMissingOutEvent: true,
+        },
+        orderBy: { date: "desc" },
+        select: { date: true },
+      });
+      if (unresolvedPreviousDay) {
+        throw new HttpError(
+          409,
+          `Your attendance for ${unresolvedPreviousDay.date.toISOString().slice(0, 10)} has a missing checkout. Submit a missed-punch correction before checking in again.`,
+        );
+      }
+    }
     const latestEvent = await prisma.attendanceEvent.findFirst({
       where: { employeeId, eventType: { in: attendancePunchEventTypes } },
       orderBy: { eventTime: "desc" },
