@@ -62,8 +62,8 @@ export function PermissionSetup() {
 
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : close())}>
-      <DialogContent className="w-[calc(100%-1.5rem)] max-w-lg overflow-hidden rounded-lg p-0">
-        <div className="border-b bg-muted/35 px-5 py-5 sm:px-6">
+      <DialogContent className="w-[calc(100%-1.5rem)] max-w-lg overflow-hidden p-0">
+        <div className="border-b border-border/80 bg-muted/35 px-5 py-5 sm:px-6">
           <span className="mb-3 grid h-10 w-10 place-items-center rounded-md bg-primary text-primary-foreground">
             <ShieldCheck className="h-5 w-5" />
           </span>
@@ -88,8 +88,8 @@ export function PermissionSetup() {
           )}
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="flex min-h-28 items-start gap-3 rounded-md border p-3.5">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+            <div className="flex min-h-28 items-start gap-3 rounded-md border border-border/80 p-3.5">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
                 <LocateFixed className="h-5 w-5" />
               </span>
               <div className="min-w-0 flex-1">
@@ -103,7 +103,7 @@ export function PermissionSetup() {
                 </p>
               </div>
               {location === "granted" ? (
-                <Check className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                <Check className="h-5 w-5 text-primary" />
               ) : (
                 <Button
                   size="sm"
@@ -132,8 +132,8 @@ export function PermissionSetup() {
               )}
             </div>
 
-            <div className="flex min-h-28 items-start gap-3 rounded-md border p-3.5">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+            <div className="flex min-h-28 items-start gap-3 rounded-md border border-border/80 p-3.5">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
                 <Bell className="h-5 w-5" />
               </span>
               <div className="min-w-0 flex-1">
@@ -147,7 +147,7 @@ export function PermissionSetup() {
                 </p>
               </div>
               {notifications === "granted" ? (
-                <Check className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                <Check className="h-5 w-5 text-primary" />
               ) : (
                 <Button
                   size="sm"

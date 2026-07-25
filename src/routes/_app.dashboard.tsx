@@ -494,8 +494,15 @@ function MarkAttendanceCard({
   useEffect(() => {
     setClockNow(Date.now());
     if (!isCheckedIn) return;
-    const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
+    const tick = () => {
+      if (document.visibilityState === "visible") setClockNow(Date.now());
+    };
+    const timer = window.setInterval(tick, 1000);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", tick);
+    };
   }, [isCheckedIn]);
 
   useEffect(() => {

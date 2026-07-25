@@ -28,7 +28,7 @@ export function LoginCrewMascot({
               alt=""
               className={cn("login-crew__photo", eyesClosed && "login-crew__photo--hidden")}
               decoding="async"
-              fetchPriority="high"
+              fetchPriority="low"
               draggable={false}
               onError={() => setImageFailed(true)}
             />
@@ -51,13 +51,11 @@ export function LoginCrewMascot({
           </div>
         )}
       </div>
-      <p className="login-crew__caption">
-        {mode === "hiding"
-          ? "Keeping your password private"
-          : mode === "peeking"
-            ? "Password visible"
-            : "Welcome to Anytime Diesel"}
-      </p>
+      {mode !== "hiding" && (
+        <p className="login-crew__caption">
+          {mode === "peeking" ? "Password visible" : "Welcome to Anytime Diesel"}
+        </p>
+      )}
     </div>
   );
 }

@@ -90,7 +90,9 @@ function UsersPage() {
         setDepartments(departmentRows);
       })
       .catch((err) => setError((err as Error).message));
-    const statusTimer = window.setInterval(() => void loadUsers(false), 15_000);
+    const statusTimer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void loadUsers(false);
+    }, 45_000);
     return () => window.clearInterval(statusTimer);
   }, []);
 

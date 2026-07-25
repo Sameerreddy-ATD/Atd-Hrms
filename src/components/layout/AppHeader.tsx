@@ -69,12 +69,18 @@ export function AppHeader() {
       }
     };
     void refreshCount();
-    const interval = window.setInterval(refreshCount, 60000);
+    // Count updates via SSE / NotificationBridge — no duplicate 60s poll.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refreshCount();
+    };
     window.addEventListener(NOTIFICATION_COUNT_CHANGED_EVENT, refreshCount);
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
       window.removeEventListener(NOTIFICATION_COUNT_CHANGED_EVENT, refreshCount);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
     };
   }, [user]);
 
@@ -93,7 +99,7 @@ export function AppHeader() {
     : "??";
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-1 border-b border-slate-200/70 bg-[#F6F8FC]/85 px-2 backdrop-blur-md dark:border-border dark:bg-card/95 dark:shadow-sm sm:h-16 sm:gap-3 sm:px-4 md:px-6">
+    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-1 border-b border-border/80 bg-background/90 px-2 backdrop-blur-md dark:bg-card/95 dark:shadow-sm sm:h-16 sm:gap-3 sm:px-4 md:px-6">
       {/* Left: Collapsible Toggle, Logo & Page Title */}
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <Button

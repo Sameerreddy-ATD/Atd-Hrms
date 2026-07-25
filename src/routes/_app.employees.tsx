@@ -103,11 +103,12 @@ function EmployeesPage() {
       .catch((err) => setError((err as Error).message))
       .finally(() => setLoading(false));
     const statusTimer = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
       void employeesApi
         .list({ limit: PAGE_SIZE, offset: 0 })
         .then((rows) => setEmployees((current) => [...rows, ...current.slice(PAGE_SIZE)]))
         .catch(() => undefined);
-    }, 15_000);
+    }, 45_000);
     return () => window.clearInterval(statusTimer);
   }, []);
 

@@ -201,8 +201,15 @@ function MedicalDocumentCard({
   const [now, setNow] = useState(Date.now());
   const [saving, setSaving] = useState(false);
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
+    const tick = () => {
+      if (document.visibilityState === "visible") setNow(Date.now());
+    };
+    const timer = window.setInterval(tick, 1000);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", tick);
+    };
   }, []);
   const remaining = Math.max(0, new Date(leave.medicalDocumentDueAt!).getTime() - now);
   const days = Math.floor(remaining / 86400000);

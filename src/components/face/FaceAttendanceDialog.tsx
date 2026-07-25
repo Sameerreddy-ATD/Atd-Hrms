@@ -47,18 +47,6 @@ export function FaceAttendanceDialog({
   }, [onClose, onVerified]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void faceApi
-        .status()
-        .then((status) =>
-          status.verificationEnabled ? preloadFaceRecognition() : Promise.resolve(),
-        )
-        .catch(() => undefined);
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
     if (!action) {
       setSession(null);
       setPosition(null);
@@ -71,10 +59,14 @@ export function FaceAttendanceDialog({
     setError(null);
     const prepare = async () => {
       try {
-        const [status, nextPosition] = await Promise.all([
-          faceApi.status(),
-          getDeviceLocation({ allowRecent: false }),
-        ]);
+        // Load face models only when the user starts check-in (not on every dashboard visit).
+        const statusPromise = faceApi.status();
+        const locationPromise = getDeviceLocation({ allowRecent: false });
+        const status = await statusPromise;
+        if (action === "check-in" && status.verificationEnabled) {
+          void preloadFaceRecognition().catch(() => undefined);
+        }
+        const nextPosition = await locationPromise;
         if (!active) return;
         if (nextPosition.coords.accuracy > status.maxGpsAccuracyMeters) {
           throw new Error(
@@ -83,6 +75,7 @@ export function FaceAttendanceDialog({
         }
         setPosition(nextPosition);
         if (action === "check-in" && status.verificationEnabled) {
+          await preloadFaceRecognition().catch(() => undefined);
           const nextSession = await faceApi.createSession(
             "ATTENDANCE_CHECK_IN",
             navigator.userAgent.slice(0, 120),
@@ -134,10 +127,12 @@ export function FaceAttendanceDialog({
 
   return (
     <Dialog open={Boolean(action)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="h-[calc(100dvh-1rem)] max-w-2xl overflow-y-auto rounded-2xl p-4 sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:p-6">
+      <DialogContent className="h-[calc(100dvh-1rem)] max-w-2xl overflow-y-auto p-4 sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:p-6">
         <DialogHeader className="pr-10 text-left">
           <DialogTitle className="flex items-center gap-2">
-            <ShieldCheck className="size-5 text-blue-600" />
+            <span className="grid size-8 place-items-center rounded-md bg-primary text-primary-foreground">
+              <ShieldCheck className="size-4" />
+            </span>
             Verify to {action === "check-in" ? "check in" : "check out"}
           </DialogTitle>
           <DialogDescription>
@@ -149,25 +144,25 @@ export function FaceAttendanceDialog({
 
         {!session && !error && (
           <div className="flex min-h-80 flex-col items-center justify-center gap-4 text-center">
-            <div className="relative flex size-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
+            <div className="relative flex size-16 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <LocateFixed className="size-8" />
-              <LoaderCircle className="absolute -right-1 -top-1 size-5 animate-spin rounded-full bg-white text-blue-600" />
+              <LoaderCircle className="absolute -right-1 -top-1 size-5 animate-spin rounded-full bg-background text-primary" />
             </div>
             <div>
-              <div className="font-semibold text-slate-950">
+              <div className="font-semibold tracking-tight text-foreground">
                 {action === "check-in"
                   ? "Checking face policy and precise location"
                   : "Confirming precise check-out location"}
               </div>
-              <p className="mt-1 text-sm text-slate-500">Keep precise location enabled.</p>
+              <p className="mt-1 text-sm text-muted-foreground">Keep precise location enabled.</p>
             </div>
           </div>
         )}
 
         {error && (
-          <div className="my-auto rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          <div className="my-auto rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
             <div className="font-semibold">Attendance was not saved</div>
-            <div className="mt-1">{error}</div>
+            <div className="mt-1 text-destructive/90">{error}</div>
             <Button
               type="button"
               variant="outline"

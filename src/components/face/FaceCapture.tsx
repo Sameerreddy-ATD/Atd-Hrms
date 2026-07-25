@@ -302,7 +302,7 @@ export function FaceCapture({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="relative mx-auto aspect-[4/5] w-full max-w-md overflow-hidden rounded-[1.75rem] bg-slate-950 shadow-inner sm:aspect-square">
+      <div className="relative mx-auto aspect-[4/5] w-full max-w-md overflow-hidden rounded-xl bg-foreground shadow-inner sm:aspect-square">
         <video
           ref={videoRef}
           muted
@@ -310,10 +310,10 @@ export function FaceCapture({
           aria-label="Live camera preview for face verification"
           className="h-full w-full scale-x-[-1] object-cover"
         />
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_36%_46%_at_50%_44%,transparent_96%,rgba(2,6,23,.72)_100%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_36%_46%_at_50%_44%,transparent_96%,rgb(0_0_0_/_0.72)_100%)]" />
         <div
           className={`pointer-events-none absolute left-1/2 top-[44%] h-[58%] w-[55%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] border-2 transition-colors ${
-            challengeDone ? "border-emerald-400" : "border-white/75"
+            challengeDone ? "border-primary" : "border-background/75"
           }`}
         />
         {onCancel && (
@@ -321,25 +321,25 @@ export function FaceCapture({
             type="button"
             size="icon"
             variant="secondary"
-            className="absolute right-3 top-3 rounded-full bg-white/90"
+            className="absolute right-3 top-3 rounded-full bg-background/90"
             onClick={onCancel}
             aria-label="Close face verification"
           >
             <X className="size-4" />
           </Button>
         )}
-        <div className="absolute inset-x-3 bottom-3 rounded-2xl bg-slate-950/75 p-3 text-white backdrop-blur">
+        <div className="absolute inset-x-3 bottom-3 rounded-xl bg-foreground/80 p-3 text-background backdrop-blur">
           <div className="flex items-center gap-2 text-sm font-semibold">
             {phase === "loading" || phase === "verifying" ? (
-              <LoaderCircle className="size-4 animate-spin text-sky-300" />
+              <LoaderCircle className="size-4 animate-spin text-primary" />
             ) : phase === "done" ? (
-              <CheckCircle2 className="size-4 text-emerald-300" />
+              <CheckCircle2 className="size-4 text-primary" />
             ) : (
-              <ScanFace className="size-4 text-sky-300" />
+              <ScanFace className="size-4 text-primary" />
             )}
             {message}
           </div>
-          <Progress value={quality} className="mt-2 h-1.5 bg-white/20" />
+          <Progress value={quality} className="mt-2 h-1.5 bg-background/20" />
         </div>
       </div>
 
@@ -347,29 +347,29 @@ export function FaceCapture({
         <div
           className={`rounded-xl border p-3 ${
             challengeDone
-              ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-              : "border-sky-200 bg-sky-50 text-sky-950"
+              ? "border-primary/30 bg-primary/10 text-foreground"
+              : "border-border/80 bg-muted/50 text-foreground"
           }`}
         >
           <div className="flex items-center gap-2 text-sm font-semibold">
-            <Camera className="size-4" />
+            <Camera className="size-4 text-primary" />
             {challengeCopy[session.challenge].title}
           </div>
-          <p className="mt-1 text-xs opacity-80">{challengeCopy[session.challenge].hint}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{challengeCopy[session.challenge].hint}</p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-slate-700">
+        <div className="rounded-xl border border-border/80 bg-muted/40 p-3 text-foreground">
           <div className="flex items-center gap-2 text-sm font-semibold">
-            <ShieldCheck className="size-4 text-emerald-600" />
+            <ShieldCheck className="size-4 text-primary" />
             Private and protected
           </div>
-          <p className="mt-1 text-xs">
+          <p className="mt-1 text-xs text-muted-foreground">
             Spectacles are supported. Reduce screen glare if it covers your eyes.
           </p>
         </div>
       </div>
 
       {error && (
-        <div className="mx-auto mt-4 w-full max-w-md rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+        <div className="mx-auto mt-4 w-full max-w-md rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
           {error}
           {onCancel && (
             <Button type="button" variant="outline" className="mt-3 w-full" onClick={onCancel}>
