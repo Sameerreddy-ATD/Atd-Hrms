@@ -4,6 +4,8 @@ import { reportingHierarchyCycle } from "../server/src/organizationRules.js";
 import {
   certificateRequestSchema,
   createUserSchema,
+  leaveDecisionSchema,
+  medicalDocumentSchema,
   updateEmployeeSchema,
 } from "../server/src/schemas.js";
 import { moduleForApiPath } from "../server/src/module-access.js";
@@ -98,5 +100,24 @@ describe("asset and HR-document persistence integrity", () => {
     expect(moduleForApiPath("/employees/employee-1", "PATCH")).toBe("PEOPLE");
     expect(moduleForApiPath("/notifications")).toBe("COMMUNICATIONS");
     expect(moduleForApiPath("/module-access/me")).toBeNull();
+  });
+});
+
+describe("leave review integrity", () => {
+  it("normalizes review notes and rejects oversized decisions", () => {
+    expect(leaveDecisionSchema.parse({ note: "  Approved for the requested dates.  " }).note).toBe(
+      "Approved for the requested dates.",
+    );
+    expect(leaveDecisionSchema.safeParse({ note: "x".repeat(1001) }).success).toBe(false);
+  });
+
+  it("accepts only Google document links for Sick Leave evidence", () => {
+    expect(
+      medicalDocumentSchema.safeParse({ url: "https://drive.google.com/file/d/example/view" })
+        .success,
+    ).toBe(true);
+    expect(
+      medicalDocumentSchema.safeParse({ url: "https://example.com/untrusted-document" }).success,
+    ).toBe(false);
   });
 });

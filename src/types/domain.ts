@@ -466,7 +466,10 @@ export interface LeaveRequest {
   employeeId: string;
   employeeName: string;
   managerName?: string;
+  approverId?: string;
   type: LeaveType;
+  leaveCode?: string;
+  paid?: boolean;
   from: string;
   to: string;
   days: number;
@@ -481,9 +484,12 @@ export interface LeaveRequest {
   medicalDocumentUrl?: string;
   medicalDocumentDueAt?: string;
   medicalDocumentVerifiedAt?: string;
-  availableBalance?: number;
+  reviewerName?: string;
+  reviewedAt?: string;
+  decisionNote?: string;
+  availableBalance?: number | null;
   requestedDays?: number;
-  projectedBalance?: number;
+  projectedBalance?: number | null;
 }
 
 export interface LeaveBalance {

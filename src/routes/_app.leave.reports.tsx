@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -25,7 +26,16 @@ import { leaveApi } from "@/services/api";
 import type { LeaveRequest } from "@/types/domain";
 import { downloadCsv } from "@/lib/csv";
 import { useAuth } from "@/lib/auth";
-import { CalendarDays, CheckCircle2, Download } from "lucide-react";
+import {
+  BadgeCheck,
+  Ban,
+  CalendarDays,
+  CheckCircle2,
+  Clock3,
+  Download,
+  Search,
+  XCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/leave/reports")({
@@ -36,6 +46,8 @@ function LeaveReportsPage() {
   const { user } = useAuth();
   const [rows, setRows] = useState<LeaveRequest[]>([]);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
@@ -58,13 +70,35 @@ function LeaveReportsPage() {
     setLoading(true);
     setError("");
     leaveApi
-      .list(statusFilter === "all" ? {} : { status: statusFilter })
+      .list()
       .then(setRows)
       .catch((err) => setError((err as Error).message))
       .finally(() => setLoading(false));
-  }, [statusFilter]);
+  }, []);
 
-  const filteredRows = useMemo(() => rows, [rows]);
+  const leaveTypes = useMemo(
+    () => [...new Set(rows.map((row) => row.type))].sort((a, b) => a.localeCompare(b)),
+    [rows],
+  );
+  const filteredRows = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return rows.filter((row) => {
+      const statusMatches =
+        statusFilter === "all" || row.status.toUpperCase() === statusFilter.toUpperCase();
+      const typeMatches = typeFilter === "all" || row.type === typeFilter;
+      const searchMatches =
+        !term ||
+        [row.employeeName, row.employeeId, row.type, row.approverName, row.reason, row.decisionNote]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(term));
+      return statusMatches && typeMatches && searchMatches;
+    });
+  }, [rows, search, statusFilter, typeFilter]);
+
+  const pendingCount = rows.filter((row) => row.status === "Pending").length;
+  const approvedCount = rows.filter((row) => row.status === "Approved").length;
+  const rejectedCount = rows.filter((row) => row.status === "Rejected").length;
+  const cancelledCount = rows.filter((row) => row.status === "Cancelled").length;
 
   const csvRows = filteredRows.map((row) => ({
     employee: row.employeeName,
@@ -78,6 +112,9 @@ function LeaveReportsPage() {
     workflow: row.workflowStatus ?? row.status,
     appliedOn: row.appliedOn,
     updatedOn: row.updatedOn ?? "",
+    reviewedBy: row.reviewerName ?? "",
+    reviewedAt: row.reviewedAt ?? "",
+    decisionNote: row.decisionNote ?? "",
     reason: row.reason,
     medicalDocument: row.medicalDocumentUrl ?? "",
     medicalDocumentDue: row.medicalDocumentDueAt ?? "",
@@ -88,20 +125,16 @@ function LeaveReportsPage() {
     <div>
       <PageHeader
         title="Leave Tracking"
-        description="Read-only view of every leave request and its approval progress. HR can monitor the flow but cannot approve it here."
+        description="Organization-wide, read-only register of leave requests, assigned approvers, decisions, and medical-report verification."
         actions={
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Filter status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All requests</SelectItem>
-                <SelectItem value="PENDING">Pending</SelectItem>
-                <SelectItem value="APPROVED">Approved</SelectItem>
-                <SelectItem value="REJECTED">Rejected</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            {user?.role !== "ceo" && (
+              <Button asChild size="sm" variant="outline">
+                <Link to="/leave/approvals">
+                  <BadgeCheck className="mr-2 h-4 w-4" /> Approval queue
+                </Link>
+              </Button>
+            )}
             <Button
               size="sm"
               variant="outline"
@@ -115,6 +148,52 @@ function LeaveReportsPage() {
       />
       {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
       {loading && <LoadingState label="Loading leave requests" />}
+      {!loading && (
+        <>
+          <section className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <TrackingMetric icon={Clock3} label="Pending" value={pendingCount} />
+            <TrackingMetric icon={CheckCircle2} label="Approved" value={approvedCount} />
+            <TrackingMetric icon={XCircle} label="Rejected" value={rejectedCount} />
+            <TrackingMetric icon={Ban} label="Cancelled" value={cancelledCount} />
+          </section>
+          <section className="mb-4 grid gap-2 rounded-lg border bg-card p-3 sm:grid-cols-2 xl:grid-cols-[minmax(240px,1fr)_180px_200px]">
+            <div className="relative sm:col-span-2 xl:col-span-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search employee, approver, type, or reason"
+                className="pl-9"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="APPROVED">Approved</SelectItem>
+                <SelectItem value="REJECTED">Rejected</SelectItem>
+                <SelectItem value="CANCELLED">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter leave type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All leave types</SelectItem>
+                {leaveTypes.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </section>
+        </>
+      )}
       <div className="space-y-3 md:hidden">
         {filteredRows.map((row) => (
           <Card key={row.id}>
@@ -147,6 +226,22 @@ function LeaveReportsPage() {
                   <p className="text-xs text-muted-foreground">Reason</p>
                   <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6">
                     {row.reason}
+                  </p>
+                </div>
+              )}
+              {row.status !== "Pending" && (
+                <div className="mt-3 border-t pt-3 text-sm">
+                  <p className="text-xs text-muted-foreground">Decision</p>
+                  <p className="font-medium">{row.reviewerName ?? "System"}</p>
+                  {row.decisionNote && (
+                    <p className="mt-1 whitespace-pre-wrap break-words text-muted-foreground">
+                      {row.decisionNote}
+                    </p>
+                  )}
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {row.reviewedAt
+                      ? new Date(row.reviewedAt).toLocaleString()
+                      : (row.updatedOn ?? "-")}
                   </p>
                 </div>
               )}
@@ -200,7 +295,7 @@ function LeaveReportsPage() {
       )}
       <div className="hidden overflow-hidden rounded-lg border border-border bg-card md:block">
         <div className="overflow-x-auto">
-          <Table className="min-w-[1100px]">
+          <Table className="min-w-[1320px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Employee</TableHead>
@@ -212,6 +307,7 @@ function LeaveReportsPage() {
                 <TableHead>Applied</TableHead>
                 <TableHead>Flow status</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Decision</TableHead>
                 <TableHead>Reason</TableHead>
                 <TableHead>Medical report</TableHead>
               </TableRow>
@@ -234,6 +330,25 @@ function LeaveReportsPage() {
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={row.status} />
+                  </TableCell>
+                  <TableCell className="min-w-[210px] text-sm">
+                    {row.status === "Pending" ? (
+                      <span className="text-muted-foreground">Awaiting decision</span>
+                    ) : (
+                      <>
+                        <p className="font-medium">{row.reviewerName ?? "System"}</p>
+                        {row.decisionNote && (
+                          <p className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">
+                            {row.decisionNote}
+                          </p>
+                        )}
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {row.reviewedAt
+                            ? new Date(row.reviewedAt).toLocaleString()
+                            : (row.updatedOn ?? "-")}
+                        </p>
+                      </>
+                    )}
                   </TableCell>
                   <TableCell className="min-w-[260px] max-w-[420px] whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">
                     {row.reason}
@@ -292,5 +407,29 @@ function LeaveReportsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+function TrackingMetric({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Clock3;
+  label: string;
+  value: number;
+}) {
+  return (
+    <Card>
+      <CardContent className="flex items-center gap-3 p-4">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+          <Icon className="h-5 w-5" />
+        </span>
+        <div>
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="text-xl font-semibold tabular-nums">{value}</p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

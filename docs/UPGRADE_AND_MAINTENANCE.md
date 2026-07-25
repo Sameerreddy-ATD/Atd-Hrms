@@ -84,6 +84,14 @@ After deployment, existing browser cookies do not carry a session version and mu
 This is intentional. Password changes/resets, suspension, deactivation, sensitive account edits,
 and logout then revoke older cookies immediately.
 
+### Leave review metadata migration
+
+Migration `20260725190000_leave_review_metadata` is additive and preserves every existing leave
+request. It adds the reviewer user foreign key, review note, review timestamp, and supporting index
+used by Leave Approvals, Leave Tracking, and employee Leave History. Existing reviewed rows retain a
+blank reviewer/note because historical audit records cannot be safely converted into a direct row
+relationship. Run `npm run db:deploy` before restarting the updated backend.
+
 ### Precise attendance-duration and open-session migration
 
 Migration `20260725170000_precise_attendance_durations` increases attendance-hour precision and

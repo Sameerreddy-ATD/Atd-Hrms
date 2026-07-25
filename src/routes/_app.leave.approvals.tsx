@@ -6,6 +6,8 @@ import { LoadingState } from "@/components/common/LoadingState";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -27,6 +29,7 @@ import {
 import type { LeaveRequest, WeeklyOffRequest } from "@/types/domain";
 import { employeesApi, leaveApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
+import { BadgeCheck, CalendarClock, CheckCircle2, Clock3 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/leave/approvals")({
   component: LeaveApprovalsPage,
@@ -38,9 +41,12 @@ function LeaveApprovalsPage() {
   const [rows, setRows] = useState<LeaveRequest[]>([]);
   const [history, setHistory] = useState<LeaveRequest[]>([]);
   const [weeklyOffs, setWeeklyOffs] = useState<WeeklyOffRequest[]>([]);
-  const [confirm, setConfirm] = useState<{ id: string; action: "Approved" | "Rejected" } | null>(
-    null,
-  );
+  const [confirm, setConfirm] = useState<{
+    request: LeaveRequest;
+    action: "Approved" | "Rejected";
+  } | null>(null);
+  const [decisionNote, setDecisionNote] = useState("");
+  const [reviewing, setReviewing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [accessChecked, setAccessChecked] = useState(false);
@@ -68,12 +74,11 @@ function LeaveApprovalsPage() {
   useEffect(() => {
     if (!canApprove && !canOversee) return;
     Promise.all([
-      canApprove ? leaveApi.assignedApprovals("PENDING") : Promise.resolve([]),
-      canApprove ? leaveApi.assignedApprovals() : Promise.resolve([]),
+      canOversee ? leaveApi.approvalQueue() : leaveApi.assignedApprovals(),
       leaveApi.weeklyOffs(canApprove, canOversee),
     ])
-      .then(([pending, all, weeklyRows]) => {
-        setRows(pending);
+      .then(([all, weeklyRows]) => {
+        setRows(all.filter((request) => request.status === "Pending"));
         setHistory(all.filter((request) => request.status !== "Pending"));
         setWeeklyOffs(weeklyRows);
       })
@@ -83,12 +88,36 @@ function LeaveApprovalsPage() {
 
   async function apply() {
     if (!confirm) return;
-    const { id, action } = confirm;
-    const updated = action === "Approved" ? await leaveApi.approve(id) : await leaveApi.reject(id);
-    setRows((prev) => prev.filter((r) => r.id !== id));
-    setHistory((prev) => [updated, ...prev.filter((request) => request.id !== id)]);
-    toast.success(`Request ${action.toLowerCase()}`);
-    setConfirm(null);
+    const { request, action } = confirm;
+    if (action === "Rejected" && decisionNote.trim().length < 3) {
+      toast.error("Enter a rejection reason with at least 3 characters");
+      return;
+    }
+    setReviewing(true);
+    try {
+      const updated =
+        action === "Approved"
+          ? await leaveApi.approve(request.id, decisionNote)
+          : await leaveApi.reject(request.id, decisionNote);
+      setRows((prev) => prev.filter((row) => row.id !== request.id));
+      setHistory((prev) => [updated, ...prev.filter((historyRow) => historyRow.id !== request.id)]);
+      toast.success(`Leave request ${action.toLowerCase()}`);
+      setConfirm(null);
+      setDecisionNote("");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setReviewing(false);
+    }
+  }
+
+  function openDecision(request: LeaveRequest, action: "Approved" | "Rejected") {
+    setDecisionNote("");
+    setConfirm({ request, action });
+  }
+
+  function canReview(request: LeaveRequest) {
+    return Boolean(user?.employeeId && request.approverId === user.employeeId);
   }
 
   async function reviewWeeklyOff(id: string, approve: boolean) {
@@ -109,79 +138,46 @@ function LeaveApprovalsPage() {
     );
   }
 
+  const pendingWeeklyOffs = weeklyOffs.filter((request) => request.status === "PENDING");
+  const assignedLeaveCount = rows.filter(canReview).length;
+  const approvedCount = history.filter((request) => request.status === "Approved").length;
+
   return (
     <div>
       <PageHeader
-        title="Leave Approvals"
+        title="Leave Approval Queue"
         description={
-          canApprove
-            ? "Approve or reject requests assigned directly to you as the employee's organization head."
-            : "Monitor weekly-off requests across the organization. Approval remains with each employee's direct head."
+          canOversee
+            ? "Review the organization-wide queue and history. Only the assigned organization head can approve or reject each request."
+            : "Approve or reject requests assigned directly to you as the employee's organization head."
         }
       />
       {loading && <LoadingState label="Loading leave approvals" />}
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      <section className="mb-7">
-        <h2 className="mb-3 text-base font-semibold">Weekly-off approvals</h2>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {weeklyOffs
-            .filter((request) => request.status === "PENDING")
-            .map((request) => (
-              <Card key={request.id}>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold">{request.employeeName}</p>
-                      <p className="text-sm text-muted-foreground">{request.date}</p>
-                    </div>
-                    <StatusBadge status={request.status} />
-                  </div>
-                  {request.reason && <p className="mt-3 text-sm">{request.reason}</p>}
-                  <p className="mt-3 text-xs text-muted-foreground">
-                    One weekly off per Monday-Sunday week. Consecutive weekly-off dates are blocked.
-                  </p>
-                  {request.approverId === user?.employeeId && (
-                    <div className="mt-4 grid grid-cols-2 gap-2">
-                      <Button variant="outline" onClick={() => reviewWeeklyOff(request.id, false)}>
-                        Reject
-                      </Button>
-                      <Button onClick={() => reviewWeeklyOff(request.id, true)}>Approve</Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-        </div>
-        {weeklyOffs.filter((request) => request.status === "PENDING").length === 0 && (
-          <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-            No weekly-off requests are waiting for approval.
-          </p>
-        )}
-        {weeklyOffs.some((request) => request.status !== "PENDING") && (
-          <div className="mt-5">
-            <h3 className="mb-2 text-sm font-semibold">Weekly-off history</h3>
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-              {weeklyOffs
-                .filter((request) => request.status !== "PENDING")
-                .map((request) => (
-                  <div
-                    key={request.id}
-                    className="flex items-start justify-between gap-3 rounded-md border bg-background p-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{request.employeeName}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {request.employeeCode} · {request.date}
-                      </p>
-                    </div>
-                    <StatusBadge status={request.status} />
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
-      </section>
-      <h2 className="mb-3 text-base font-semibold">Pending approvals</h2>
+      {error && (
+        <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+          {error}
+        </p>
+      )}
+      {!loading && (
+        <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <ApprovalMetric icon={Clock3} label="Pending leave" value={rows.length} />
+          <ApprovalMetric icon={BadgeCheck} label="Assigned to me" value={assignedLeaveCount} />
+          <ApprovalMetric
+            icon={CalendarClock}
+            label="Pending weekly off"
+            value={pendingWeeklyOffs.length}
+          />
+          <ApprovalMetric icon={CheckCircle2} label="Approved leave" value={approvedCount} />
+        </section>
+      )}
+      <div className="mb-3">
+        <h2 className="text-base font-semibold">Pending leave requests</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {canOversee
+            ? "Organization-wide visibility. Action buttons appear only on requests assigned to you."
+            : "Requests assigned to you for a decision."}
+        </p>
+      </div>
       <div className="space-y-3 md:hidden">
         {rows.map((leave) => (
           <Card key={leave.id}>
@@ -205,19 +201,29 @@ function LeaveApprovalsPage() {
                   <p className="font-medium">{leave.days}</p>
                 </div>
               </div>
-              <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
-                <div>
-                  <p className="text-xs text-muted-foreground">Available</p>
-                  <p className="font-semibold">{leave.availableBalance ?? 0}</p>
+              {leave.leaveCode === "LOP" ? (
+                <p className="mt-3 rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                  Unpaid leave — no paid-leave credit is deducted.
+                </p>
+              ) : (
+                <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Available</p>
+                    <p className="font-semibold">{leave.availableBalance ?? "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Requested</p>
+                    <p className="font-semibold">{leave.requestedDays ?? leave.days}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">After approval</p>
+                    <p className="font-semibold">{leave.projectedBalance ?? "—"}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Requested</p>
-                  <p className="font-semibold">{leave.requestedDays ?? leave.days}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">After approval</p>
-                  <p className="font-semibold">{leave.projectedBalance ?? 0}</p>
-                </div>
+              )}
+              <div className="mt-3 text-sm">
+                <p className="text-xs text-muted-foreground">Assigned approver</p>
+                <p className="font-medium">{leave.approverName ?? "Not assigned"}</p>
               </div>
               <div className="mt-3">
                 <p className="text-xs text-muted-foreground">Reason</p>
@@ -244,17 +250,18 @@ function LeaveApprovalsPage() {
                   )}
                 </div>
               )}
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setConfirm({ id: leave.id, action: "Rejected" })}
-                >
-                  Reject
-                </Button>
-                <Button onClick={() => setConfirm({ id: leave.id, action: "Approved" })}>
-                  Approve
-                </Button>
-              </div>
+              {canReview(leave) ? (
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <Button variant="outline" onClick={() => openDecision(leave, "Rejected")}>
+                    Reject
+                  </Button>
+                  <Button onClick={() => openDecision(leave, "Approved")}>Approve</Button>
+                </div>
+              ) : (
+                <p className="mt-4 rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+                  Awaiting {leave.approverName ?? "the assigned organization head"}.
+                </p>
+              )}
             </CardContent>
           </Card>
         ))}
@@ -270,6 +277,7 @@ function LeaveApprovalsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Employee</TableHead>
+                <TableHead>Approver</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>From</TableHead>
                 <TableHead>To</TableHead>
@@ -284,16 +292,25 @@ function LeaveApprovalsPage() {
               {rows.map((l) => (
                 <TableRow key={l.id}>
                   <TableCell className="font-medium">{l.employeeName}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {l.approverName ?? "Not assigned"}
+                  </TableCell>
                   <TableCell>{l.type}</TableCell>
                   <TableCell>{l.from}</TableCell>
                   <TableCell>{l.to}</TableCell>
                   <TableCell>{l.days}</TableCell>
                   <TableCell className="whitespace-nowrap text-sm">
-                    {l.availableBalance ?? 0} available
-                    <br />
-                    <span className="text-xs text-muted-foreground">
-                      {l.projectedBalance ?? 0} after
-                    </span>
+                    {l.leaveCode === "LOP" ? (
+                      <span className="text-xs text-muted-foreground">Not applicable</span>
+                    ) : (
+                      <>
+                        {l.availableBalance ?? "—"} available
+                        <br />
+                        <span className="text-xs text-muted-foreground">
+                          {l.projectedBalance ?? "—"} after
+                        </span>
+                      </>
+                    )}
                   </TableCell>
                   <TableCell className="min-w-[260px] max-w-[420px] whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">
                     {l.reason}
@@ -302,24 +319,21 @@ function LeaveApprovalsPage() {
                     <StatusBadge status={l.status} />
                   </TableCell>
                   <TableCell className="text-right">
-                    {l.status === "Pending" ? (
+                    {canReview(l) ? (
                       <div className="flex justify-end gap-2">
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => setConfirm({ id: l.id, action: "Rejected" })}
+                          onClick={() => openDecision(l, "Rejected")}
                         >
                           Reject
                         </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => setConfirm({ id: l.id, action: "Approved" })}
-                        >
+                        <Button size="sm" onClick={() => openDecision(l, "Approved")}>
                           Approve
                         </Button>
                       </div>
                     ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
+                      <span className="text-xs text-muted-foreground">Read only</span>
                     )}
                   </TableCell>
                 </TableRow>
@@ -352,9 +366,22 @@ function LeaveApprovalsPage() {
                   {leave.reason}
                 </p>
               )}
-              <p className="mt-2 text-xs text-muted-foreground">
-                Updated {leave.updatedOn ? new Date(leave.updatedOn).toLocaleDateString() : "-"}
-              </p>
+              <div className="mt-3 border-t pt-3 text-sm">
+                <p className="text-xs text-muted-foreground">Decision</p>
+                <p className="font-medium">{leave.reviewerName ?? "System"}</p>
+                {leave.decisionNote && (
+                  <p className="mt-1 whitespace-pre-wrap break-words text-muted-foreground">
+                    {leave.decisionNote}
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {leave.reviewedAt
+                    ? new Date(leave.reviewedAt).toLocaleString()
+                    : leave.updatedOn
+                      ? new Date(leave.updatedOn).toLocaleDateString()
+                      : "-"}
+                </p>
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -376,7 +403,7 @@ function LeaveApprovalsPage() {
                 <TableHead>Days</TableHead>
                 <TableHead>Reason</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Updated</TableHead>
+                <TableHead>Decision</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -393,8 +420,20 @@ function LeaveApprovalsPage() {
                   <TableCell>
                     <StatusBadge status={leave.status} />
                   </TableCell>
-                  <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                    {leave.updatedOn ? new Date(leave.updatedOn).toLocaleDateString() : "-"}
+                  <TableCell className="min-w-[220px] text-sm">
+                    <p className="font-medium">{leave.reviewerName ?? "System"}</p>
+                    {leave.decisionNote && (
+                      <p className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">
+                        {leave.decisionNote}
+                      </p>
+                    )}
+                    <p className="mt-1 whitespace-nowrap text-xs text-muted-foreground">
+                      {leave.reviewedAt
+                        ? new Date(leave.reviewedAt).toLocaleString()
+                        : leave.updatedOn
+                          ? new Date(leave.updatedOn).toLocaleDateString()
+                          : "-"}
+                    </p>
                   </TableCell>
                 </TableRow>
               ))}
@@ -406,23 +445,154 @@ function LeaveApprovalsPage() {
         )}
       </div>
 
-      <AlertDialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
+      <section className="mt-8 border-t border-border pt-7">
+        <div className="mb-3">
+          <h2 className="text-base font-semibold">Weekly-off requests</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Weekly offs follow the same assigned organization-head approval rule.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {pendingWeeklyOffs.map((request) => (
+            <Card key={request.id}>
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold">{request.employeeName}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {request.employeeCode} · {request.date}
+                    </p>
+                  </div>
+                  <StatusBadge status={request.status} />
+                </div>
+                {request.reason && (
+                  <p className="mt-3 whitespace-pre-wrap break-words text-sm">{request.reason}</p>
+                )}
+                {request.approverId === user?.employeeId ? (
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <Button variant="outline" onClick={() => reviewWeeklyOff(request.id, false)}>
+                      Reject
+                    </Button>
+                    <Button onClick={() => reviewWeeklyOff(request.id, true)}>Approve</Button>
+                  </div>
+                ) : (
+                  <p className="mt-4 rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+                    Read-only HR visibility. The assigned organization head must review this
+                    request.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        {!loading && pendingWeeklyOffs.length === 0 && (
+          <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+            No weekly-off requests are waiting for approval.
+          </p>
+        )}
+        {weeklyOffs.some((request) => request.status !== "PENDING") && (
+          <div className="mt-5">
+            <h3 className="mb-2 text-sm font-semibold">Weekly-off history</h3>
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {weeklyOffs
+                .filter((request) => request.status !== "PENDING")
+                .map((request) => (
+                  <div
+                    key={request.id}
+                    className="flex items-start justify-between gap-3 rounded-md border bg-background p-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{request.employeeName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {request.employeeCode} · {request.date}
+                      </p>
+                    </div>
+                    <StatusBadge status={request.status} />
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <AlertDialog
+        open={!!confirm}
+        onOpenChange={(open) => {
+          if (!open && !reviewing) {
+            setConfirm(null);
+            setDecisionNote("");
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
               {confirm?.action === "Approved" ? "Approve leave request?" : "Reject leave request?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Approved leave is added to day logs only on days without attendance. If the employee
-              punches in on a leave day, attendance will override the leave mark.
+              {confirm?.action === "Approved"
+                ? "Approval updates the employee's leave balance and attendance day logs. Attendance still takes priority if the employee punches in."
+                : "A rejection closes this request without deducting leave credit. The employee will see your reason in Leave History."}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="leave-decision-note">
+              {confirm?.action === "Rejected" ? "Rejection reason" : "Approval note (optional)"}
+            </Label>
+            <Textarea
+              id="leave-decision-note"
+              rows={4}
+              maxLength={1000}
+              value={decisionNote}
+              placeholder={
+                confirm?.action === "Rejected"
+                  ? "Explain why this request is being rejected"
+                  : "Add any instruction or context for the employee"
+              }
+              onChange={(event) => setDecisionNote(event.target.value)}
+            />
+            <p className="text-right text-xs text-muted-foreground">{decisionNote.length}/1000</p>
+          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={apply}>Confirm</AlertDialogAction>
+            <AlertDialogCancel disabled={reviewing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void apply();
+              }}
+              disabled={
+                reviewing || (confirm?.action === "Rejected" && decisionNote.trim().length < 3)
+              }
+            >
+              {reviewing ? "Saving..." : confirm?.action === "Approved" ? "Approve" : "Reject"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+function ApprovalMetric({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Clock3;
+  label: string;
+  value: number;
+}) {
+  return (
+    <Card>
+      <CardContent className="flex items-center gap-3 p-4">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+          <Icon className="h-5 w-5" />
+        </span>
+        <div>
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="text-xl font-semibold tabular-nums">{value}</p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

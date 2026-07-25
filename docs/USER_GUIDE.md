@@ -383,6 +383,11 @@ Use:
 - **Attendance Corrections** for missed punch requests.
 - **Leave Approvals** for team leave.
 
+In **Leave Approval Queue**, review the request dates, reason, assigned approver, and credit
+projection. Approval notes are optional. A rejection reason of at least three characters is required
+and is shown to the employee in **Leave History**. HR may see requests across the organization, but
+only the exact assigned organization head receives action buttons.
+
 ## HR: Manage Leave Policies And Credits
 
 1. Open **Leave Policies & Credits**.
@@ -391,6 +396,18 @@ Use:
 4. Select the edit icon, enter the complete manual adjustment and reason, and save.
 
 Policy types cannot be added, renamed, or deleted. Adjustments are recorded in Audit Logs. Payroll deductions for negative Casual Leave or Unpaid Leave / LOP remain a manual HR responsibility.
+
+### HR: Monitor leave workflow
+
+1. Open **Leave Approvals** to see pending leave and weekly-off requests across the organization.
+2. Requests assigned to another organization head are read-only and show who must act.
+3. If the signed-in HR employee is the exact assigned head, approve with an optional note or reject
+   with a required reason.
+4. Open **Leave Tracking** for the permanent read-only register.
+5. Search by employee, approver, leave type, or reason; filter by status/type; export the filtered
+   result to CSV.
+6. For Sick Leave, open the submitted medical-report link and mark it verified. If the employee later
+   changes the link, verification is automatically cleared and HR must verify the new document.
 
 ## Developer Admin: Manage Departments And Department Heads
 

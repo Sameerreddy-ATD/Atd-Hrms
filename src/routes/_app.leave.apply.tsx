@@ -25,6 +25,15 @@ export const Route = createFileRoute("/_app/leave/apply")({
   component: ApplyLeavePage,
 });
 
+function indiaDateString(date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
 function ApplyLeavePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -45,7 +54,8 @@ function ApplyLeavePage() {
   const [typesLoading, setTypesLoading] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [requestKind, setRequestKind] = useState<"leave" | "weekly-off">("leave");
-  const todayString = new Date().toISOString().split("T")[0];
+  const todayString = indiaDateString();
+  const tomorrowString = indiaDateString(new Date(Date.now() + 86400000));
 
   useEffect(() => {
     Promise.all([leaveApi.types(), leaveApi.myBalance(), leaveApi.weeklyOffs()])
@@ -428,7 +438,7 @@ function ApplyLeavePage() {
                     id="weekly-off-date"
                     type="date"
                     value={weeklyOffDate}
-                    min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                    min={tomorrowString}
                     onChange={(event) => setWeeklyOffDate(event.target.value)}
                   />
                 </div>

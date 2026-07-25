@@ -62,7 +62,13 @@ function LeaveHistoryPage() {
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="mb-4 grid gap-3 lg:grid-cols-2">
         {leaveRequests
-          .filter((leave) => leave.type === "Sick Leave" && leave.medicalDocumentDueAt)
+          .filter(
+            (leave) =>
+              leave.type === "Sick Leave" &&
+              leave.medicalDocumentDueAt &&
+              !leave.medicalDocumentVerifiedAt &&
+              !["Rejected", "Cancelled"].includes(leave.status),
+          )
           .map((leave) => (
             <MedicalDocumentCard
               key={`medical-${leave.id}`}
@@ -112,6 +118,23 @@ function LeaveHistoryPage() {
                   Cancelled: {leave.cancelledDates?.join(", ")}
                 </p>
               )}
+              {leave.reason && (
+                <div className="mt-3 rounded-md bg-muted/40 p-3 text-sm">
+                  <p className="text-xs text-muted-foreground">Reason</p>
+                  <p className="mt-1 whitespace-pre-wrap break-words">{leave.reason}</p>
+                </div>
+              )}
+              {leave.status !== "Pending" && (
+                <div className="mt-3 border-t pt-3 text-sm">
+                  <p className="text-xs text-muted-foreground">Decision</p>
+                  <p className="font-medium">{leave.reviewerName ?? "System"}</p>
+                  {leave.decisionNote && (
+                    <p className="mt-1 whitespace-pre-wrap break-words text-muted-foreground">
+                      {leave.decisionNote}
+                    </p>
+                  )}
+                </div>
+              )}
               {["Pending", "Approved"].includes(leave.status) && (
                 <Button
                   className="mt-3 w-full"
@@ -138,6 +161,7 @@ function LeaveHistoryPage() {
                 <TableHead>Applied</TableHead>
                 <TableHead>Approver</TableHead>
                 <TableHead>Approval progress</TableHead>
+                <TableHead>Decision</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Action</TableHead>
               </TableRow>
@@ -155,6 +179,20 @@ function LeaveHistoryPage() {
                     {l.workflowStatus ?? l.status}
                     {(l.cancelledDates?.length ?? 0) > 0 && (
                       <div className="mt-1 text-xs">Cancelled: {l.cancelledDates?.join(", ")}</div>
+                    )}
+                  </TableCell>
+                  <TableCell className="min-w-[200px] text-sm">
+                    {l.status === "Pending" ? (
+                      <span className="text-muted-foreground">Awaiting review</span>
+                    ) : (
+                      <>
+                        <p className="font-medium">{l.reviewerName ?? "System"}</p>
+                        {l.decisionNote && (
+                          <p className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">
+                            {l.decisionNote}
+                          </p>
+                        )}
+                      </>
                     )}
                   </TableCell>
                   <TableCell>

@@ -43,7 +43,7 @@ MySQL 8.0 contains 42 application tables grouped as follows:
 | Identity and security | `users`, `face_profiles`, `face_verification_sessions`, `face_evidence`, `audit_logs`, `system_settings`, `integration_clients`, `integration_idempotency`, `push_subscriptions`, `announcements`                        | `users` owns authentication; credentials are hashed and face templates/evidence encrypted  |
 | Workforce             | `employees`, `employee_change_events`, `departments`, `branches`, `emergency_contacts`, `profile_edit_requests`                                                                                                          | `employees` is the canonical workforce record; `version` enables safe integration updates  |
 | Attendance            | `attendance_events`, `attendance_daily_summary`, `attendance_reminders`, `field_attendance`, `attendance_correction_requests`, `employee_branch_schedule`, `biometric_devices`, `biometric_employee_mapping`, `holidays` | Events are immutable inputs; daily summaries are derived and may be recalculated           |
-| Leave                 | `leave_types`, `leave_balances`, `leave_requests`, `weekly_off_requests`, `comp_off_credits`                                                                                                                             | Policy, balance, request, and earned-credit records remain separate                        |
+| Leave                 | `leave_types`, `leave_balances`, `leave_requests`, `weekly_off_requests`, `comp_off_credits`                                                                                                                             | Policy, balance, request, review metadata, and earned-credit records remain separate       |
 | Employee services     | `expense_claims`, `certificate_requests`                                                                                                                                                                                 | Expense and HR-document workflow state is retained with reviewer and completion timestamps |
 | Assets                | `asset_catalog_items`, `company_assets`, `asset_returns`                                                                                                                                                                 | Current assignment is on the asset; every completed return is a separate historical row    |
 | Work Planner          | `task_boards`, `task_stages`, `task_board_roles`, `task_board_members`, `work_tasks`, `task_assignments`, `task_updates`                                                                                                 | Stage status is canonical for board tasks; assignments and activity are relational history |
@@ -61,6 +61,7 @@ documentation call this feature **HR Documents**.
   not deletion.
 - Application tables use InnoDB so multi-record business changes can be transactional.
 - Tables use `utf8mb4` so names and remarks retain full Unicode.
+- Leave decisions retain the reviewer foreign key, timestamp, and note on `leave_requests`.
 - Task progress and logged minutes have database check constraints in addition to API validation.
 
 ## Work Planner v2 Storage Rules

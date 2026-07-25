@@ -13,6 +13,7 @@ import {
   EventType,
   FaceEnrollmentStatus,
   FaceVerificationPurpose,
+  LeaveStatus,
   Prisma,
   Role,
   TaskActivityType,
@@ -122,6 +123,7 @@ import {
   departmentUpdateSchema,
   holidaySchema,
   holidayUpdateSchema,
+  leaveDecisionSchema,
   leaveRequestSchema,
   leaveBalanceAdjustmentSchema,
   leaveTypeSchema,
@@ -149,6 +151,7 @@ import {
   leavePolicyDescription,
   LEAVE_CODES,
   medicalDocumentDueAt,
+  projectedLeaveBalance,
   releaseCompOffCredits,
   syncEmployeeLeaveBalances,
   validateLeaveApplication,
@@ -404,12 +407,16 @@ export function createApp() {
       leaveTypeId: string;
       managerId?: string | null;
       employee?: { name: string; manager?: { name: string } | null } | null;
-      leaveType?: { name: string } | null;
+      leaveType?: { name: string; code?: string; paid?: boolean } | null;
+      reviewedBy?: { name: string } | null;
+      reviewedByUserId?: string | null;
+      reviewNote?: string | null;
+      reviewedAt?: Date | null;
       fromDate: Date;
       toDate: Date;
       days: Prisma.Decimal | number;
       reason: string;
-      status: string;
+      status: LeaveStatus;
       createdAt: Date;
       updatedAt?: Date;
       cancelledDates?: unknown;
@@ -443,8 +450,11 @@ export function createApp() {
       employeeId: row.employeeId,
       employeeName: row.employee?.name ?? row.employeeId,
       managerName: row.employee?.manager?.name,
+      approverId: row.managerId ?? undefined,
       approverName,
       type: row.leaveType?.name ?? "-",
+      leaveCode: row.leaveType?.code,
+      paid: row.leaveType?.paid,
       from: row.fromDate.toISOString().slice(0, 10),
       to: row.toDate.toISOString().slice(0, 10),
       days: Number(row.days),
@@ -461,34 +471,65 @@ export function createApp() {
       medicalDocumentUrl: row.medicalDocumentUrl ?? undefined,
       medicalDocumentDueAt: row.medicalDocumentDueAt?.toISOString(),
       medicalDocumentVerifiedAt: row.medicalDocumentVerifiedAt?.toISOString(),
+      reviewerName: row.reviewedBy?.name ?? undefined,
+      reviewedAt: row.reviewedAt?.toISOString(),
+      decisionNote: row.reviewNote ?? undefined,
     };
   }
 
-  async function leaveRequestDtos<T extends Parameters<typeof leaveRequestDto>[0]>(rows: T[]) {
+  async function leaveRequestDtos<T extends Parameters<typeof leaveRequestDto>[0]>(
+    rows: T[],
+    includeBalances = false,
+  ) {
     const approverIds = [...new Set(rows.map((row) => row.managerId).filter(Boolean))] as string[];
     const approvers = await prisma.employee.findMany({
       where: { employeeId: { in: approverIds } },
       select: { employeeId: true, name: true },
     });
     const names = new Map(approvers.map((approver) => [approver.employeeId, approver.name]));
+    const dtos = rows.map((row) =>
+      leaveRequestDto(row, row.managerId ? names.get(row.managerId) : undefined),
+    );
+    if (!includeBalances) return dtos;
+
     const balancePromises = new Map<string, ReturnType<typeof syncEmployeeLeaveBalances>>();
     return Promise.all(
-      rows.map(async (row) => {
-        const dto = leaveRequestDto(row, row.managerId ? names.get(row.managerId) : undefined);
+      rows.map(async (row, index) => {
+        const dto = dtos[index];
         if (!balancePromises.has(row.employeeId)) {
           balancePromises.set(row.employeeId, syncEmployeeLeaveBalances(row.employeeId));
         }
         const balances = await balancePromises.get(row.employeeId)!;
         const balance = balances.find((item) => item.leaveTypeId === row.leaveTypeId);
-        const availableBalance = Number(balance?.balance ?? 0);
+        const requestedDays = Math.max(0, Number(row.days) - (dto.cancelledDays ?? 0));
+        const availableBalance =
+          row.leaveType?.code === LEAVE_CODES.LOP ? null : Number(balance?.balance ?? 0);
         return {
           ...dto,
           availableBalance,
-          requestedDays: Number(row.days),
-          projectedBalance: availableBalance - Number(row.days),
+          requestedDays,
+          projectedBalance: projectedLeaveBalance({
+            currentBalance: availableBalance ?? 0,
+            leaveCode: row.leaveType?.code ?? "",
+            status: row.status,
+            requestedDays,
+          }),
         };
       }),
     );
+  }
+
+  function applyLeaveStatusFilter(where: Prisma.LeaveRequestWhereInput, rawStatus: unknown): void {
+    if (typeof rawStatus !== "string" || !rawStatus.trim()) return;
+    const status = rawStatus.trim().toUpperCase();
+    if (status === "PENDING") where.status = "PENDING";
+    else if (status === "APPROVED") {
+      where.status = { in: ["APPROVED", "MANAGER_APPROVED", "HR_VERIFIED"] };
+    } else if (status === "REJECTED") where.status = "REJECTED";
+    else if (status === "CANCELLED") where.status = "CANCELLED";
+    else {
+      throw new HttpError(400, "Leave status must be PENDING, APPROVED, REJECTED, or CANCELLED");
+    }
   }
 
   async function findLeaveApprover(employeeId: string) {
@@ -3856,7 +3897,7 @@ export function createApp() {
         where.toDate = { lte: to };
       }
       if (typeof req.query.employeeId === "string") where.employeeId = req.query.employeeId;
-      if (typeof req.query.status === "string") where.status = req.query.status as never;
+      applyLeaveStatusFilter(where, req.query.status);
       if (req.user!.role === Role.MANAGER && req.user!.employeeId) {
         where.employee = {
           employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) },
@@ -3864,7 +3905,7 @@ export function createApp() {
       }
       const rows = await prisma.leaveRequest.findMany({
         where,
-        include: { leaveType: true, employee: { include: { manager: true } } },
+        include: { leaveType: true, employee: { include: { manager: true } }, reviewedBy: true },
         orderBy: { createdAt: "desc" },
         skip: listOffset(req),
         take: listLimit(req, 500, 1000),
@@ -4570,21 +4611,14 @@ export function createApp() {
                   employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) },
                 }
               : { employeeId: req.user!.employeeId ?? "__none__" };
-      if (typeof req.query.status === "string") {
-        const status = req.query.status.toUpperCase();
-        if (status === "PENDING") where.status = "PENDING";
-        else if (status === "APPROVED")
-          where.status = { in: ["APPROVED", "MANAGER_APPROVED", "HR_VERIFIED"] };
-        else if (status === "REJECTED") where.status = "REJECTED";
-        else if (status === "CANCELLED") where.status = "CANCELLED";
-      }
+      applyLeaveStatusFilter(where, req.query.status);
       const rows = await prisma.leaveRequest.findMany({
         where,
-        include: { leaveType: true, employee: { include: { manager: true } } },
+        include: { leaveType: true, employee: { include: { manager: true } }, reviewedBy: true },
         orderBy: { createdAt: "desc" },
         take: listLimit(req, 500, 1000),
       });
-      res.json(await leaveRequestDtos(rows));
+      res.json(await leaveRequestDtos(rows, req.query.includeBalances === "true"));
     }),
   );
   app.post(
@@ -4619,7 +4653,7 @@ export function createApp() {
             medicalDocumentDueAt:
               policy.type.code === LEAVE_CODES.SICK ? medicalDocumentDueAt(body.toDate) : undefined,
           },
-          include: { leaveType: true, employee: { include: { manager: true } } },
+          include: { leaveType: true, employee: { include: { manager: true } }, reviewedBy: true },
         });
         if (policy.type.code === LEAVE_CODES.COMP_OFF) {
           await consumeCompOffCredits(
@@ -4647,13 +4681,14 @@ export function createApp() {
         newValue: { leaveRequestId: request.leaveRequestId },
         ipAddress: req.ip,
       });
-      res.status(201).json(leaveRequestDto(request, approver?.name ?? "No approval required"));
+      res.status(201).json((await leaveRequestDtos([request]))[0]);
     }),
   );
   app.post(
     "/leave/requests/:id/approve",
     requireAuth,
     asyncHandler(async (req, res) => {
+      const body = leaveDecisionSchema.parse(req.body ?? {});
       const existing = await prisma.leaveRequest.findUniqueOrThrow({
         where: { leaveRequestId: String(req.params.id) },
         include: { employee: true },
@@ -4664,14 +4699,19 @@ export function createApp() {
       }
       const changed = await prisma.leaveRequest.updateMany({
         where: { leaveRequestId: String(req.params.id), status: "PENDING" },
-        data: { status: "APPROVED" },
+        data: {
+          status: "APPROVED",
+          reviewedByUserId: req.user!.id,
+          reviewedAt: new Date(),
+          reviewNote: body.note || null,
+        },
       });
       if (changed.count !== 1) {
         throw new HttpError(409, "This leave request was already reviewed");
       }
       const leave = await prisma.leaveRequest.findUniqueOrThrow({
         where: { leaveRequestId: String(req.params.id) },
-        include: { leaveType: true, employee: { include: { manager: true } } },
+        include: { leaveType: true, employee: { include: { manager: true } }, reviewedBy: true },
       });
       await syncEmployeeLeaveBalances(leave.employeeId);
       await recalculateLeaveDateRange(
@@ -4683,16 +4723,20 @@ export function createApp() {
       await audit({
         action: "leave approved",
         performedByUserId: req.user!.id,
-        newValue: { leaveRequestId: leave.leaveRequestId },
+        newValue: { leaveRequestId: leave.leaveRequestId, note: body.note || null },
         ipAddress: req.ip,
       });
-      res.json((await leaveRequestDtos([leave]))[0]);
+      res.json((await leaveRequestDtos([leave], true))[0]);
     }),
   );
   app.post(
     "/leave/requests/:id/reject",
     requireAuth,
     asyncHandler(async (req, res) => {
+      const body = leaveDecisionSchema.parse(req.body ?? {});
+      if (!body.note || body.note.length < 3) {
+        throw new HttpError(400, "Enter a rejection reason with at least 3 characters.");
+      }
       const existing = await prisma.leaveRequest.findUniqueOrThrow({
         where: { leaveRequestId: String(req.params.id) },
         include: { employee: true },
@@ -4703,22 +4747,27 @@ export function createApp() {
       }
       const changed = await prisma.leaveRequest.updateMany({
         where: { leaveRequestId: String(req.params.id), status: "PENDING" },
-        data: { status: "REJECTED" },
+        data: {
+          status: "REJECTED",
+          reviewedByUserId: req.user!.id,
+          reviewedAt: new Date(),
+          reviewNote: body.note,
+        },
       });
       if (changed.count !== 1) {
         throw new HttpError(409, "This leave request was already reviewed");
       }
       const leave = await prisma.leaveRequest.findUniqueOrThrow({
         where: { leaveRequestId: String(req.params.id) },
-        include: { leaveType: true, employee: { include: { manager: true } } },
+        include: { leaveType: true, employee: { include: { manager: true } }, reviewedBy: true },
       });
       await audit({
         action: "leave rejected",
         performedByUserId: req.user!.id,
-        newValue: { leaveRequestId: leave.leaveRequestId },
+        newValue: { leaveRequestId: leave.leaveRequestId, note: body.note },
         ipAddress: req.ip,
       });
-      res.json((await leaveRequestDtos([leave]))[0]);
+      res.json((await leaveRequestDtos([leave], true))[0]);
     }),
   );
 
@@ -4729,7 +4778,7 @@ export function createApp() {
       if (!req.user!.employeeId) throw new HttpError(400, "No employee profile");
       const existing = await prisma.leaveRequest.findUniqueOrThrow({
         where: { leaveRequestId: String(req.params.id) },
-        include: { leaveType: true, employee: { include: { manager: true } } },
+        include: { leaveType: true, employee: { include: { manager: true } }, reviewedBy: true },
       });
       if (existing.employeeId !== req.user!.employeeId) {
         throw new HttpError(403, "You can only cancel your own leave request.");
@@ -4743,7 +4792,7 @@ export function createApp() {
         leave = await prisma.leaveRequest.update({
           where: { leaveRequestId: existing.leaveRequestId },
           data: { status: "CANCELLED" },
-          include: { leaveType: true, employee: { include: { manager: true } } },
+          include: { leaveType: true, employee: { include: { manager: true } }, reviewedBy: true },
         });
       } else {
         const today = todayIstDate();
@@ -4791,15 +4840,28 @@ export function createApp() {
       if (existing.leaveType.code !== LEAVE_CODES.SICK) {
         throw new HttpError(400, "Medical documents apply only to Sick Leave");
       }
+      if (["REJECTED", "CANCELLED"].includes(existing.status)) {
+        throw new HttpError(400, "A closed leave request cannot accept a medical document");
+      }
+      const linkChanged = existing.medicalDocumentUrl !== body.url;
       const leave = await prisma.leaveRequest.update({
         where: { leaveRequestId: existing.leaveRequestId },
-        data: { medicalDocumentUrl: body.url },
-        include: { leaveType: true, employee: { include: { manager: true } } },
+        data: {
+          medicalDocumentUrl: body.url,
+          ...(linkChanged
+            ? { medicalDocumentVerifiedAt: null, medicalDocumentVerifiedBy: null }
+            : {}),
+        },
+        include: { leaveType: true, employee: { include: { manager: true } }, reviewedBy: true },
       });
       await audit({
         action: "sick leave medical document updated",
         performedByUserId: req.user!.id,
-        newValue: { leaveRequestId: leave.leaveRequestId, documentProvided: true },
+        newValue: {
+          leaveRequestId: leave.leaveRequestId,
+          documentProvided: true,
+          verificationReset: linkChanged,
+        },
         ipAddress: req.ip,
       });
       res.json((await leaveRequestDtos([leave]))[0]);
@@ -4811,10 +4873,42 @@ export function createApp() {
     requireAuth,
     requireRoles(Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
-      const leave = await prisma.leaveRequest.update({
+      const existing = await prisma.leaveRequest.findUniqueOrThrow({
         where: { leaveRequestId: String(req.params.id) },
-        data: { medicalDocumentVerifiedAt: new Date(), medicalDocumentVerifiedBy: req.user!.id },
-        include: { leaveType: true, employee: { include: { manager: true } } },
+        include: { leaveType: true },
+      });
+      if (existing.leaveType.code !== LEAVE_CODES.SICK) {
+        throw new HttpError(400, "Only Sick Leave medical documents can be verified");
+      }
+      if (!existing.medicalDocumentUrl) {
+        throw new HttpError(400, "The employee has not submitted a medical document link");
+      }
+      if (["REJECTED", "CANCELLED"].includes(existing.status)) {
+        throw new HttpError(400, "A closed leave request cannot have its document verified");
+      }
+      if (existing.medicalDocumentVerifiedAt) {
+        throw new HttpError(409, "This medical document is already verified");
+      }
+      const verifiedAt = new Date();
+      const changed = await prisma.leaveRequest.updateMany({
+        where: {
+          leaveRequestId: existing.leaveRequestId,
+          medicalDocumentVerifiedAt: null,
+        },
+        data: { medicalDocumentVerifiedAt: verifiedAt, medicalDocumentVerifiedBy: req.user!.id },
+      });
+      if (changed.count !== 1) {
+        throw new HttpError(409, "This medical document was already verified");
+      }
+      const leave = await prisma.leaveRequest.findUniqueOrThrow({
+        where: { leaveRequestId: existing.leaveRequestId },
+        include: { leaveType: true, employee: { include: { manager: true } }, reviewedBy: true },
+      });
+      await audit({
+        action: "sick leave medical document verified",
+        performedByUserId: req.user!.id,
+        newValue: { leaveRequestId: leave.leaveRequestId, verifiedAt },
+        ipAddress: req.ip,
       });
       res.json((await leaveRequestDtos([leave]))[0]);
     }),

@@ -362,9 +362,12 @@ export const faceApi = {
 export const leaveApi = {
   list: (filters: { status?: string } = {}) =>
     request<LeaveRequest[]>(`/leave/requests${toQuery(filters)}`),
+  approvalQueue: () => request<LeaveRequest[]>("/leave/requests?includeBalances=true"),
   mine: () => request<LeaveRequest[]>("/leave/requests?mine=true"),
   assignedApprovals: (status?: string) =>
-    request<LeaveRequest[]>(`/leave/requests${toQuery({ assignedApprovals: "true", status })}`),
+    request<LeaveRequest[]>(
+      `/leave/requests${toQuery({ assignedApprovals: "true", includeBalances: "true", status })}`,
+    ),
   approver: () => request<{ approverName: string | null; canApply: boolean }>("/leave/approver"),
   types: () => request<LeaveTypeOption[]>("/leave/types"),
   createType: (payload: { name: string; paid: boolean }) =>
@@ -401,9 +404,16 @@ export const leaveApi = {
     reason: string;
     medicalDocumentUrl?: string;
   }) => request<LeaveRequest>("/leave/requests", { method: "POST", body: JSON.stringify(req) }),
-  approve: (id: string) =>
-    request<LeaveRequest>(`/leave/requests/${id}/approve`, { method: "POST" }),
-  reject: (id: string) => request<LeaveRequest>(`/leave/requests/${id}/reject`, { method: "POST" }),
+  approve: (id: string, note?: string) =>
+    request<LeaveRequest>(`/leave/requests/${id}/approve`, {
+      method: "POST",
+      body: JSON.stringify({ note: note?.trim() || undefined }),
+    }),
+  reject: (id: string, note: string) =>
+    request<LeaveRequest>(`/leave/requests/${id}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ note: note.trim() }),
+    }),
   cancel: (id: string) => request<LeaveRequest>(`/leave/requests/${id}/cancel`, { method: "POST" }),
   updateMedicalDocument: (id: string, url: string) =>
     request<LeaveRequest>(`/leave/requests/${id}/medical-document`, {

@@ -18,6 +18,19 @@ export const LEAVE_CODES = {
 const countedStatuses: LeaveStatus[] = ["PENDING", "APPROVED", "MANAGER_APPROVED", "HR_VERIFIED"];
 const usedStatuses: LeaveStatus[] = ["APPROVED", "MANAGER_APPROVED", "HR_VERIFIED"];
 
+export function projectedLeaveBalance(input: {
+  currentBalance: number;
+  leaveCode: string;
+  status: LeaveStatus;
+  requestedDays: number;
+}) {
+  if (input.leaveCode === LEAVE_CODES.LOP) return null;
+  if (input.status === "PENDING" && input.leaveCode !== LEAVE_CODES.COMP_OFF) {
+    return input.currentBalance - input.requestedDays;
+  }
+  return input.currentBalance;
+}
+
 function dateKey(date: Date) {
   return startOfDayUtc(date).toISOString().slice(0, 10);
 }

@@ -143,14 +143,14 @@ export const menuGroups: MenuGroup[] = [
         label: "Leave Approvals",
         to: "/leave/approvals",
         icon: BadgeCheck,
-        roles: [],
-        requiresReportingManager: true,
+        roles: ["hr", "developer_admin", "main_admin"],
+        allowReportingManager: true,
       },
       {
         label: "Leave Tracking",
         to: "/leave/reports",
         icon: FileText,
-        roles: ["hr", "ceo", "main_admin"],
+        roles: ["developer_admin", "hr", "ceo", "main_admin"],
       },
       {
         label: "Leave Policies",

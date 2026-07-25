@@ -531,17 +531,37 @@ export const clientEventSchema = mobileEventSchema.extend({
   photoUrl: z.string().url().optional(),
 });
 
+const medicalDocumentUrlSchema = z
+  .string()
+  .url()
+  .max(2000)
+  .refine(
+    (value) => {
+      try {
+        const host = new URL(value).hostname.toLowerCase();
+        return host === "drive.google.com" || host === "docs.google.com";
+      } catch {
+        return false;
+      }
+    },
+    { message: "Use a Google Drive link shared with anyone who has the link" },
+  );
+
 export const leaveRequestSchema = z.object({
   leaveTypeId: z.string(),
   fromDate: z.coerce.date(),
   toDate: z.coerce.date(),
   days: z.number().positive().max(365),
   reason: z.string().trim().min(3).max(1000),
-  medicalDocumentUrl: z.string().url().max(2000).optional(),
+  medicalDocumentUrl: medicalDocumentUrlSchema.optional(),
+});
+
+export const leaveDecisionSchema = z.object({
+  note: z.string().trim().max(1000).optional(),
 });
 
 export const medicalDocumentSchema = z.object({
-  url: z.string().url().max(2000),
+  url: medicalDocumentUrlSchema,
 });
 
 export const leaveBalanceAdjustmentSchema = z.object({

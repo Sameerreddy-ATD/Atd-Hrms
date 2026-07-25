@@ -110,11 +110,19 @@ flowchart LR
   E --> G["Attendance settlement and balance rules"]
 ```
 
-Only the approver stored on the request may action it. Review uses a conditional database update,
-so two simultaneous approvals cannot both succeed. Leave balance checks and Comp Off credit
+Only the approver stored on the request may action it. HR and authorized administrators receive
+organization-wide read-only visibility, while action controls remain restricted to the stored
+approver. Review persists `reviewed_by_user_id`, `reviewed_at`, and `review_note`; rejection requires
+a meaningful reason. Review uses a conditional database update, so two simultaneous approvals
+cannot both succeed. Leave balance checks and Comp Off credit
 consumption occur in the same transaction as request creation. If attendance cancels an approved
 Comp Off day, the consumed credit is released. Weekly-off and attendance-correction decisions use
 the same stale-state protection.
+
+Changing a Sick Leave medical-document URL clears its earlier verification. HR/admin verification
+rejects missing links, non-Sick Leave records, closed requests, and duplicate concurrent verification.
+The read-only tracking API does not recalculate or write balances; balance enrichment is requested
+only by the approval queue.
 
 Protected company leave types cannot be created, renamed, or deleted through the UI. HR can make
 audited employee credit adjustments. Casual Leave accrual begins on the first day of the month

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { calendarYearRange, monthsCredited } from "../server/src/leavePolicy.js";
+import {
+  calendarYearRange,
+  monthsCredited,
+  projectedLeaveBalance,
+} from "../server/src/leavePolicy.js";
 
 describe("casual leave monthly credit", () => {
   it("credits a July joiner for the first time on August 1", () => {
@@ -27,5 +31,48 @@ describe("calendar-year leave balances", () => {
     const range = calendarYearRange(new Date("2027-01-01T00:00:00.000Z"));
     expect(range.year).toBe(2027);
     expect(range.start.toISOString()).toBe("2027-01-01T00:00:00.000Z");
+  });
+});
+
+describe("leave approval balance projection", () => {
+  it("deducts a pending approval exactly once", () => {
+    expect(
+      projectedLeaveBalance({
+        currentBalance: 6,
+        leaveCode: "CASUAL",
+        status: "PENDING",
+        requestedDays: 2,
+      }),
+    ).toBe(4);
+  });
+
+  it("does not double-deduct approved or reserved Comp Off leave", () => {
+    expect(
+      projectedLeaveBalance({
+        currentBalance: 4,
+        leaveCode: "CASUAL",
+        status: "APPROVED",
+        requestedDays: 2,
+      }),
+    ).toBe(4);
+    expect(
+      projectedLeaveBalance({
+        currentBalance: 1,
+        leaveCode: "COMP_OFF",
+        status: "PENDING",
+        requestedDays: 1,
+      }),
+    ).toBe(1);
+  });
+
+  it("does not present a paid-credit projection for LOP", () => {
+    expect(
+      projectedLeaveBalance({
+        currentBalance: 0,
+        leaveCode: "LOP",
+        status: "PENDING",
+        requestedDays: 3,
+      }),
+    ).toBeNull();
   });
 });

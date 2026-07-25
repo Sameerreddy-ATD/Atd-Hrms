@@ -170,7 +170,13 @@ flowchart LR
 
 - Only the exact head stored as the request approver can approve or reject it.
 - A super-head can monitor authorized reports but cannot action a request assigned to a lower head.
-- The request history displays the actual assigned approver.
+- HR and authorized administrators see the organization-wide **Leave Approval Queue**. Requests not
+  assigned to the signed-in user are explicitly read-only.
+- **Leave Tracking** is the organization-wide read-only register. It supports employee/reason
+  search, leave-type and status filters, CSV export, and medical-report verification.
+- Approval stores the reviewer, review timestamp, and optional note. Rejection additionally requires
+  a reason of at least three characters. Employees and HR can see this decision history.
+- The request history displays the actual assigned approver and persisted decision details.
 - Employees can cancel their own pending request without approval.
 - Employees can cancel current or future dates from approved leave; history retains the approval and cancellation record.
 - Mobile check-in warns before cancelling approved leave for that date. A biometric punch cancels that date directly.

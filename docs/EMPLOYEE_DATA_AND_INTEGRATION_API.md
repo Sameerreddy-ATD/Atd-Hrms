@@ -117,13 +117,13 @@ discarding source punches.
 
 ### Leave and weekly off
 
-| Table                 | Purpose                                                      |
-| --------------------- | ------------------------------------------------------------ |
-| `leave_types`         | Leave policy definition                                      |
-| `leave_balances`      | Employee/type entitlement, usage and manual adjustment       |
-| `leave_requests`      | Requested date range, reason, documents, approver and status |
-| `weekly_off_requests` | Employee weekly-off request and approver                     |
-| `comp_off_credits`    | Earned and consumed compensatory-off credit                  |
+| Table                 | Purpose                                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------- |
+| `leave_types`         | Leave policy definition                                                                     |
+| `leave_balances`      | Employee/type entitlement, usage and manual adjustment                                      |
+| `leave_requests`      | Dates, reason, approver, status, reviewer/note/time, cancellations and medical verification |
+| `weekly_off_requests` | Employee weekly-off request and approver                                                    |
+| `comp_off_credits`    | Earned and consumed compensatory-off credit                                                 |
 
 ### Expenses and HR documents
 
