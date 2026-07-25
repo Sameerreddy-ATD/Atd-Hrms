@@ -3730,7 +3730,7 @@ export function createApp() {
     requireAuth,
     requireRoles(Role.MANAGER, Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
-      const date = new Date(new Date().toISOString().slice(0, 10));
+      const date = todayIstDate();
       const where: Prisma.AttendanceDailySummaryWhereInput =
         req.user!.role === Role.MANAGER && req.user!.employeeId
           ? {
