@@ -57,7 +57,7 @@ function FirstLoginPage() {
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-muted/30 px-4 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))]">
       <div className="w-full max-w-md space-y-5">
-        <LoginCrewMascot mode={crewMode} className="mx-auto w-full max-w-xs" />
+        <LoginCrewMascot mode={crewMode} className="mx-auto w-full max-w-[11rem] sm:max-w-[12.5rem]" />
         <Card className="border-border shadow-sm">
           <CardContent className="p-6 sm:p-8">
             <Logo className="mb-6 h-9 w-auto" />

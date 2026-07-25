@@ -67,7 +67,7 @@ not shown in the CEO login.
 
 1. Open the application URL.
 2. The sign-in screen shows the Anytime Diesel crew avatar at the top. While you type your
-   password (with it hidden), he closes his eyes. If you reveal the password, he opens them again.
+   password (with it hidden), he covers his eyes. If you reveal the password, he looks again.
 3. Enter the work email and temporary password issued by the Developer Admin.
 4. There is one shared sign-in screen for every role. After authentication, the app opens the
    matching workspace automatically (employee, manager, HR, CEO, Main Admin, or Developer Admin).

@@ -477,16 +477,16 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.4rem;
   user-select: none;
 }
 
 .login-crew__stage {
   position: relative;
-  width: min(100%, 15.5rem);
-  aspect-ratio: 484 / 900;
+  width: min(100%, 10.5rem);
+  aspect-ratio: 356 / 560;
   overflow: hidden;
-  border-radius: 1.25rem;
+  border-radius: 1rem;
   background: transparent;
   transform-origin: 50% 100%;
   animation: login-crew-idle 3.6s ease-in-out infinite;
@@ -499,7 +499,7 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
-  object-position: center top;
+  object-position: center bottom;
   transition: opacity 0.35s ease;
 }
 
@@ -525,46 +525,13 @@
   place-items: center;
   width: 100%;
   height: 100%;
-  border-radius: 1.25rem;
+  border-radius: 1rem;
   background: color-mix(in oklab, var(--muted) 70%, transparent);
 }
 
 .login-crew__fallback-logo {
   width: 58%;
   height: auto;
-}
-
-.login-crew__hand {
-  position: absolute;
-  bottom: -42%;
-  width: 44%;
-  opacity: 0;
-  transition:
-    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.3s ease;
-  pointer-events: none;
-  filter: drop-shadow(0 8px 10px rgb(0 0 0 / 0.28));
-  z-index: 3;
-}
-
-.login-crew__hand--left {
-  left: 4%;
-  transform: translate3d(-12%, 18%, 0) rotate(-18deg);
-}
-
-.login-crew__hand--right {
-  right: 4%;
-  transform: translate3d(12%, 18%, 0) rotate(18deg);
-}
-
-.login-crew__hand-svg {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.login-crew__hand-svg--mirrored {
-  transform: scaleX(-1);
 }
 
 .login-crew__caption {
@@ -577,29 +544,8 @@
   transition: color 0.25s ease;
 }
 
-.login-crew--hiding .login-crew__hand--left {
-  opacity: 1;
-  /* Full-body avatar: eyes sit near the top — hands must travel most of the stage height */
-  transform: translate3d(22%, -470%, 0) rotate(-10deg);
-}
-
-.login-crew--hiding .login-crew__hand--right {
-  opacity: 1;
-  transform: translate3d(-22%, -470%, 0) rotate(10deg);
-}
-
 .login-crew--hiding .login-crew__caption {
   color: var(--primary);
-}
-
-.login-crew--peeking .login-crew__hand--left {
-  opacity: 0.85;
-  transform: translate3d(16%, -390%, 0) rotate(-16deg);
-}
-
-.login-crew--peeking .login-crew__hand--right {
-  opacity: 0.85;
-  transform: translate3d(-16%, -390%, 0) rotate(16deg);
 }
 
 .login-crew--peeking .login-crew__caption {
@@ -612,13 +558,19 @@
     transform: translateY(0);
   }
   50% {
-    transform: translateY(-4px);
+    transform: translateY(-3px);
   }
 }
 
-@media (max-width: 420px) {
+@media (min-width: 640px) {
   .login-crew__stage {
-    width: min(100%, 13.5rem);
+    width: min(100%, 12rem);
+  }
+}
+
+@media (max-width: 380px) {
+  .login-crew__stage {
+    width: min(100%, 9rem);
   }
 }
 
@@ -656,8 +608,7 @@
     animation: none;
   }
 
-  .login-crew__photo,
-  .login-crew__hand {
+  .login-crew__photo {
     transition: none;
   }
 
