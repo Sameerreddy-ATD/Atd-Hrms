@@ -1,4 +1,5 @@
 import { DieselTruckLoader } from "@/components/common/DieselTruckLoader";
+import { Logo } from "@/components/common/Logo";
 import { cn } from "@/lib/utils";
 
 export function LoadingState({
@@ -28,7 +29,19 @@ export function LoadingState({
           showBrandStory ? "w-full max-w-3xl px-1 sm:px-0" : "max-w-xs",
         )}
       >
-        <DieselTruckLoader compact={compact} />
+        {showBrandStory ? (
+          <DieselTruckLoader compact={compact} />
+        ) : (
+          <div
+            className={cn(
+              "module-logo-loader",
+              compact ? "module-logo-loader--compact" : "module-logo-loader--standard",
+            )}
+            aria-hidden="true"
+          >
+            <Logo className="h-auto w-full" />
+          </div>
+        )}
 
         <div>
           {showBrandStory && (

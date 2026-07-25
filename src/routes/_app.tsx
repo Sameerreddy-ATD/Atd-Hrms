@@ -82,14 +82,22 @@ function AppLayout() {
   if (loading || !user || user.mustChangePassword) {
     return (
       <div className="flex min-h-[100dvh] items-center justify-center bg-background px-3 py-[env(safe-area-inset-top)] sm:px-4">
-        <LoadingState label="Preparing your workspace" showBrandStory className="min-h-[100dvh]" />
+        <LoadingState
+          label="Preparing your workspace"
+          showBrandStory
+          className="min-h-screen min-h-[100dvh]"
+        />
       </div>
     );
   }
 
   if (faceRequired === null) {
     return (
-      <LoadingState label="Checking security policy" showBrandStory className="min-h-[100dvh]" />
+      <LoadingState
+        label="Checking security policy"
+        showBrandStory
+        className="min-h-screen min-h-[100dvh]"
+      />
     );
   }
 
@@ -98,7 +106,7 @@ function AppLayout() {
   }
 
   if (allowedModules === null) {
-    return <LoadingState label="Loading module access" className="min-h-[100dvh]" />;
+    return <LoadingState label="Loading module access" className="min-h-screen min-h-[100dvh]" />;
   }
 
   const activeModule = moduleForRoute(pathname);

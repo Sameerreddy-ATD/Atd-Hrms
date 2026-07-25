@@ -201,7 +201,7 @@ function TaskBoardsPage() {
     setTaskDetailOpen(true);
   }
 
-  if (loading) return <LoadingState label="Loading task boards" showBrandStory />;
+  if (loading) return <LoadingState label="Loading task boards" />;
 
   if (error) {
     return (

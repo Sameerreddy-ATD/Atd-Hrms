@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { useId } from "react";
 
 export function DieselTruckLoader({
   compact = false,
@@ -7,6 +8,10 @@ export function DieselTruckLoader({
   compact?: boolean;
   className?: string;
 }) {
+  const instanceId = useId().replace(/:/g, "");
+  const yellowGradientId = `delivery-yellow-${instanceId}`;
+  const windowGradientId = `delivery-window-${instanceId}`;
+
   return (
     <div
       className={cn(
@@ -21,12 +26,12 @@ export function DieselTruckLoader({
           <div className="diesel-loader__truck">
             <svg viewBox="0 0 300 122" role="presentation">
               <defs>
-                <linearGradient id="delivery-yellow" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id={yellowGradientId} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0" stopColor="#ffe83d" />
                   <stop offset=".58" stopColor="#ffd914" />
                   <stop offset="1" stopColor="#efbb00" />
                 </linearGradient>
-                <linearGradient id="delivery-window" x1="0" y1="0" x2="1" y2="1">
+                <linearGradient id={windowGradientId} x1="0" y1="0" x2="1" y2="1">
                   <stop offset="0" stopColor="#d9f3ff" />
                   <stop offset="1" stopColor="#547b88" />
                 </linearGradient>
@@ -34,7 +39,14 @@ export function DieselTruckLoader({
 
               <rect x="24" y="86" width="256" height="12" rx="4" fill="#222936" />
 
-              <rect x="116" y="19" width="161" height="73" rx="5" fill="url(#delivery-yellow)" />
+              <rect
+                x="116"
+                y="19"
+                width="161"
+                height="73"
+                rx="5"
+                fill={`url(#${yellowGradientId})`}
+              />
               <path d="M116 19h161v17H116z" fill="#d93625" />
               <text
                 x="196"
@@ -47,39 +59,22 @@ export function DieselTruckLoader({
               >
                 DOORSTEP DIESEL DELIVERY
               </text>
-              <path d="M132 44h28v35h-28z" fill="#d93625" />
-              <path
-                d="m137 50 7-3-5 26-7 3 5-26Zm10-3 7-3-6 29-7 3 6-29Zm11-3 7-3-6 29-7 3 6-29Z"
-                fill="#ffdf19"
+              <rect x="127" y="43" width="139" height="39" rx="3" fill="#fff3a6" opacity=".38" />
+              <image
+                href="/atd-logo.png"
+                xlinkHref="/atd-logo.png"
+                x="145"
+                y="49"
+                width="105"
+                height="27"
+                preserveAspectRatio="xMidYMid meet"
               />
-              <text
-                x="215"
-                y="62"
-                fill="#c92e21"
-                fontFamily="Arial, sans-serif"
-                fontSize="15"
-                fontWeight="900"
-                textAnchor="middle"
-              >
-                ANYTIME
-              </text>
-              <text
-                x="215"
-                y="77"
-                fill="#c92e21"
-                fontFamily="Arial, sans-serif"
-                fontSize="15"
-                fontWeight="900"
-                textAnchor="middle"
-              >
-                DIESEL
-              </text>
 
               <path
                 d="M22 82V68l15-7 17-31h53c8 0 14 6 14 14v49H29c-4 0-7-4-7-11Z"
-                fill="url(#delivery-yellow)"
+                fill={`url(#${yellowGradientId})`}
               />
-              <path d="M58 37h42v27H45l13-27Z" fill="url(#delivery-window)" />
+              <path d="M58 37h42v27H45l13-27Z" fill={`url(#${windowGradientId})`} />
               <path d="M85 37h5v27h-5z" fill="#263744" opacity=".55" />
               <path d="M43 67h65v25H34V78l9-11Z" fill="#ffd914" />
               <rect x="92" y="69" width="17" height="4" rx="2" fill="#5c4a20" />
