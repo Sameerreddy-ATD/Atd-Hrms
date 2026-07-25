@@ -59,20 +59,19 @@ not shown in the CEO login.
   does not widen.
 - Work Planner filters stack on phones; timeline view shows assignee groups as cards on phones
   and the full timeline from tablet size upward.
-- After sign-in, an install banner can help you add Anytime Diesel Employees to Android, iPhone,
-  Windows, or Mac. Open **Notifications** for alert status and installation steps.
+- After sign-in on a phone, you can optionally install Anytime Diesel Employees from
+  **Notifications**. Laptop and desktop browsers are not prompted to add the app to the home screen.
 - The same permissions apply on mobile, tablet, laptop, and installed PWA displays.
 
 ## Login And First Password Change
 
 1. Open the application URL.
-2. The sign-in screen shows the Anytime Diesel crew mascot at the top. While you type your
-   password (with it hidden), he covers his eyes. If you reveal the password, he peeks again.
+2. The sign-in screen shows the Anytime Diesel crew avatar at the top. While you type your
+   password (with it hidden), he closes his eyes. If you reveal the password, he opens them again.
 3. Enter the work email and temporary password issued by the Developer Admin.
 4. There is one shared sign-in screen for every role. After authentication, the app opens the
    matching workspace automatically (employee, manager, HR, CEO, Main Admin, or Developer Admin).
-5. The dashboard shows today's birthday cards (if any), urgent/recent announcements, and a
-   **Quick access** grid tailored to that role.
+5. The dashboard shows today's birthday cards (if any) and urgent/important announcements.
 6. Sidebar groups are ordered by role so everyday actions appear first.
 7. If the account requires a first password change, enter a new password.
 8. After changing the password, the face-registration screen opens for normal accounts when
@@ -94,12 +93,16 @@ if the mascot image cannot load, so sign-in remains usable.
 On every dashboard the company communications appear in this order:
 
 1. Today's birthday celebration card(s) — your own card first when applicable
-2. Active announcements — urgent, then important, then normal; newest within each level
-3. Role-specific quick access shortcuts
-4. Role dashboard widgets (attendance, team summaries, upcoming birthdays list)
+2. Active urgent/important announcements
+3. Role dashboard widgets (attendance, team summaries, upcoming birthdays list)
 
-Open **Announcements** from the Me menu or Quick access for the full board. The same priority
-order is used on the announcements page.
+Open **Announcements** from the Me menu for the full board. Notifications focus on actionable
+items only: leave/weekly-off decisions, punch corrections, checkout reminders, new tasks, expense
+and HR-document decisions, urgent/important announcements, and your own birthday or suspension
+notice. Routine holidays and normal announcements are not pushed into the notification list.
+
+Laptop and desktop browsers are not prompted to install or add the app to the home screen. Phone
+users can optionally install from **Notifications** if they want a home-screen icon.
 
 ## Developer Admin: Create A New Login
 

@@ -32,9 +32,10 @@ The code audit confirmed:
   Gantt scroll as the only option;
 - reduced-motion preferences disable decorative animation;
 - login and first-password screens respect safe-area insets and dynamic viewport height;
-- the Anytime Diesel crew mascot sits above the sign-in / first-password forms; he covers his eyes
-  while a hidden password is focused or typed, peeks when the password is revealed, and falls back
-  to the logo if the image fails so the form never crashes;
+- the Anytime Diesel crew avatar sits above the sign-in / first-password forms; he closes his eyes
+  while a hidden password is focused or typed, opens them when the password is revealed, and falls
+  back to the logo if the image fails so the form never crashes;
+- laptop/desktop browsers are not auto-prompted to install or add the app to the home screen;
 - camera and evidence media cannot exceed their containers.
 
 ## Face Evidence Resolution
@@ -95,8 +96,8 @@ employees, leave history/approvals/reports, holidays, users, and assets.
   UI on phones and desktops.
 - Loading states use the shared logo/truck loaders with a progress bar and dots; honor
   `prefers-reduced-motion`.
-- Installed-app UX: show the install banner after login when not already standalone; document
-  platform steps on Notifications; clear app badges when notifications are viewed.
+- Installed-app UX: phone users may optionally install from **Notifications**; do not auto-prompt
+  laptop/desktop browsers. Clear app badges when notifications are viewed.
 
 ## Release Verification
 

@@ -124,7 +124,7 @@ function NotificationsPage() {
     <div>
       <PageHeader
         title="Notifications"
-        description="Leave decisions, attendance notices, announcements, holidays, and birthdays — keep alerts on for the installed app."
+        description="Important leave, attendance, and company alerts. Enable browser alerts only if you want push reminders."
         actions={
           <>
             {alertStatus.effectivelyEnabled ? (
@@ -175,7 +175,9 @@ function NotificationsPage() {
         }
       />
 
-      <div className="mb-4 grid gap-3 lg:grid-cols-2">
+      <div
+        className={`mb-4 grid gap-3 ${platform === "ios" || platform === "android" ? "lg:grid-cols-2" : ""}`}
+      >
         <Card className="overflow-hidden border-primary/15 shadow-sm">
           <CardContent className="flex items-start gap-3 p-4">
             <div
@@ -210,69 +212,71 @@ function NotificationsPage() {
                 {permissionLabel}
               </p>
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                Android and desktop PWAs can receive background push. On iPhone/iPad 16.4+, add the
-                app to Home Screen, open it from the icon, then enable alerts.
+                Enable alerts only for important leave, attendance, and company updates. Laptop and
+                desktop browsers are not prompted to install the app.
               </p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="overflow-hidden shadow-sm">
-          <CardContent className="flex items-start gap-3 p-4">
-            <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Smartphone className="h-5 w-5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold tracking-tight">
-                {installed ? "Installed on this device" : installCopy.title}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {installed
-                  ? "You’re using the full-screen Anytime Diesel Employees app."
-                  : "Install for Android, iPhone, Windows, and Mac for the smoothest workplace experience."}
-              </p>
-              {!installed && (
-                <div className="mt-3 flex flex-col gap-2 min-[420px]:flex-row">
-                  {installPrompt && (
+        {(platform === "ios" || platform === "android") && (
+          <Card className="overflow-hidden shadow-sm">
+            <CardContent className="flex items-start gap-3 p-4">
+              <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Smartphone className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold tracking-tight">
+                  {installed ? "Installed on this phone" : "Optional phone install"}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {installed
+                    ? "You’re using the full-screen Anytime Diesel Employees app."
+                    : "Install from your phone browser menu if you want a home-screen icon. This is optional."}
+                </p>
+                {!installed && (
+                  <div className="mt-3 flex flex-col gap-2 min-[420px]:flex-row">
+                    {installPrompt && (
+                      <Button
+                        size="sm"
+                        className="w-full min-[420px]:w-auto"
+                        onClick={async () => {
+                          const promptEvent = installPrompt as Event & {
+                            prompt: () => Promise<void>;
+                            userChoice: Promise<{ outcome: string }>;
+                          };
+                          await promptEvent.prompt();
+                          await promptEvent.userChoice;
+                          setInstallPrompt(null);
+                        }}
+                      >
+                        <Download className="mr-2 h-4 w-4" /> Install app
+                      </Button>
+                    )}
                     <Button
                       size="sm"
+                      variant="outline"
                       className="w-full min-[420px]:w-auto"
-                      onClick={async () => {
-                        const promptEvent = installPrompt as Event & {
-                          prompt: () => Promise<void>;
-                          userChoice: Promise<{ outcome: string }>;
-                        };
-                        await promptEvent.prompt();
-                        await promptEvent.userChoice;
-                        setInstallPrompt(null);
-                      }}
+                      onClick={() => setShowInstallHelp((current) => !current)}
                     >
-                      <Download className="mr-2 h-4 w-4" /> Install app
+                      {showInstallHelp ? "Hide steps" : "Installation steps"}
                     </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full min-[420px]:w-auto"
-                    onClick={() => setShowInstallHelp((current) => !current)}
-                  >
-                    {showInstallHelp ? "Hide steps" : "Installation steps"}
-                  </Button>
-                </div>
-              )}
-              {showInstallHelp && !installed && (
-                <ol className="mt-3 space-y-1.5 rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground sm:text-sm">
-                  {installCopy.steps.map((step, index) => (
-                    <li key={step} className="flex gap-2">
-                      <span className="font-semibold text-primary">{index + 1}.</span>
-                      <span>{step}</span>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                  </div>
+                )}
+                {showInstallHelp && !installed && (
+                  <ol className="mt-3 space-y-1.5 rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground sm:text-sm">
+                    {installCopy.steps.map((step, index) => (
+                      <li key={step} className="flex gap-2">
+                        <span className="font-semibold text-primary">{index + 1}.</span>
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {alertStatus.permission === "denied" && (

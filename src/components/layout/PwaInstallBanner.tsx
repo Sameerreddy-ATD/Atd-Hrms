@@ -22,9 +22,11 @@ export function PwaInstallBanner({ className }: { className?: string }) {
   const [showSteps, setShowSteps] = useState(false);
   const platform = useMemo(() => detectPwaPlatform(), []);
   const copy = useMemo(() => installInstructionCopy(platform), [platform]);
+  const isPhone = platform === "ios" || platform === "android";
 
   useEffect(() => {
-    if (isAppInstalled() || wasInstallDismissedRecently()) return;
+    // Laptop/desktop browsers should never be nudged to install — optional via browser menu only.
+    if (!isPhone || isAppInstalled() || wasInstallDismissedRecently()) return;
 
     function onBeforeInstallPrompt(event: Event) {
       event.preventDefault();
@@ -38,21 +40,12 @@ export function PwaInstallBanner({ className }: { className?: string }) {
     if (isIosSafari()) {
       setVisible(true);
       setShowSteps(true);
-    } else if (platform === "mac" || platform === "windows" || platform === "android") {
-      // Soft tip until Chrome/Edge provides a deferred prompt.
-      const timer = window.setTimeout(() => {
-        if (!isAppInstalled() && !wasInstallDismissedRecently()) setVisible(true);
-      }, 1800);
-      return () => {
-        window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
-        window.clearTimeout(timer);
-      };
     }
 
     return () => window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
-  }, [platform]);
+  }, [isPhone]);
 
-  if (!visible || isAppInstalled()) return null;
+  if (!isPhone || !visible || isAppInstalled()) return null;
 
   async function install() {
     if (!deferredPrompt) {
