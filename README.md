@@ -6,9 +6,11 @@ Work Planner includes configurable open/role/member-gated boards, ordered custom
 assigned-work shortcuts, list/Kanban/timeline views, mobile-focused task details, optimistic
 concurrency, and recoverable board archival.
 
-Every normal account now completes mandatory face registration before workspace access; Developer
-Admin is exempt. Mobile check-in requires a randomized liveness movement, an approved encrypted
-face-template match, and precise GPS; check-out requires precise GPS without opening the camera.
+When Developer Admin enables face verification, every normal account completes face registration
+before workspace access; Developer Admin is always exempt. Mobile check-in then requires a
+randomized liveness movement, a five-sample encrypted face-template match, and precise GPS.
+Developer Admin can pause verification immediately; employee access and check-in become GPS-only
+while existing templates remain available for safe re-enablement. Check-out is always GPS-only.
 Captures are encrypted, limited to the latest five pictures per person, retained for no more than
 five days by default, and controlled from the responsive Developer Admin **Face Security** screen.
 

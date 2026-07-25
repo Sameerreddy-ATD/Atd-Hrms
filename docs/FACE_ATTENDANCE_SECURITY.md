@@ -2,11 +2,12 @@
 
 ## Purpose
 
-Face registration is a mandatory account-activation step after the first password change for every
-normal application account. Developer Admin is explicitly exempt from face authentication. Mobile
-check-in is accepted only when the signed-in employee completes a randomized live-face challenge,
-matches the approved encrypted face template, and supplies precise device location. Check-out uses
-the authenticated employee's active check-in and fresh precise location without opening the camera.
+Face registration is an account-activation step for every normal application account while the
+Developer Admin verification switch is enabled. Developer Admin is explicitly exempt. When enabled,
+mobile check-in requires a randomized live-face challenge, an approved encrypted multi-sample
+template match, and precise location. When paused, enrollment gating and check-in camera
+verification are disabled at both frontend and backend, but precise GPS remains required. Check-out
+is always camera-free and location-verified.
 
 This implementation is self-hosted and has no per-check cloud charge. It uses the MIT-licensed
 `@vladmandic/human` browser library and models bundled during the frontend build. AWS Rekognition
@@ -25,7 +26,8 @@ Face Liveness is not used.
    make blink detection difficult.
 7. The camera verifies that exactly one face is present, the face is large and clear enough, the
    anti-spoof and liveness scores pass, and the requested movement is completed.
-8. The browser submits the descriptor, encrypted-evidence candidate, scores, session ID, and nonce.
+8. The browser captures five spaced, stable descriptors and submits their centroid, the sample set,
+   encrypted-evidence candidate, scores, session ID, and nonce.
 9. The backend consumes the session once, enforces thresholds, rejects a face already assigned to
    another approved account, encrypts the descriptor, encrypts the JPEG, and creates an evidence
    record.
@@ -37,6 +39,11 @@ Face Liveness is not used.
 Developer Admin accounts bypass the face-registration gate at both frontend and backend layers.
 They do not enroll a face and are omitted from the registration review list. This preserves a
 password-protected recovery authority while normal employee attendance remains face verified.
+
+Developer Admin can pause the policy from **Face Security**. The API immediately stops creating
+face sessions, treats employee enrollment as non-blocking, and permits GPS-only check-in. Existing
+encrypted templates and retained evidence are not deleted. Re-enabling restores the gate only for
+accounts that do not already have an approved registration.
 
 ## Enrollment States
 
@@ -51,8 +58,10 @@ password-protected recovery authority while normal employee attendance remains f
 ## Attendance Flow
 
 1. For **Check In**, the browser requests the front-facing camera and fresh, high-accuracy GPS.
-2. The face models are preloaded after the dashboard opens. Three stable centred descriptors are
-   averaged before matching to reduce single-frame noise and improve recognition with spectacles.
+2. The face models are preloaded after the dashboard opens. Five stable centred descriptors are
+   sampled over time. The backend compares the strongest three valid sample pairs instead of
+   trusting one frame, improving recognition across days, clear spectacles, lighting, and small
+   pose changes.
 3. The server issues a single-use head-turn challenge and verifies session ownership, liveness,
    anti-spoofing, the approved encrypted template, similarity, GPS coordinates, and accuracy.
 4. A matching face creates the `attendance_events` row and links the `face_evidence` row.
@@ -67,6 +76,8 @@ password-protected recovery authority while normal employee attendance remains f
    still valid.
 9. Other failed check-in verifications store a short-lived failure record but never create
    attendance.
+10. If Developer Admin pauses verification, check-in follows the same precise-GPS validation but
+    skips camera capture, face evidence, and face-session creation.
 
 Mobile face attendance is always self-service. A privileged user cannot use their own face to create
 a mobile punch for another employee. Biometric-device imports and approved HR correction workflows
@@ -81,8 +92,8 @@ Migration `20260723180000_face_attendance` creates three MySQL tables.
 One row per login account:
 
 - `user_id` is unique and references `users.id`;
-- `descriptor_encrypted` contains only an AES-256-GCM encrypted numeric template, never a JPEG or
-  plaintext descriptor;
+- `descriptor_encrypted` contains only an AES-256-GCM encrypted versioned numeric template with a
+  centroid and up to five samples, never a JPEG or plaintext descriptor;
 - `status`, consent version/time, submission time, approval actor/time, and rejection details form
   the auditable enrollment state;
 - deleting a login cascades its profile, but normal account removal is deactivation and retains
@@ -157,26 +168,28 @@ The **Face Security** screen is responsive and available only to Developer Admin
 - reject it with a required correction reason;
 - reset another user's registration, immediately restoring the mandatory gate;
 - change retention, match threshold, and maximum GPS accuracy.
+- turn employee face verification on or off; the change is backend-enforced and does not delete
+  registrations.
 
 Every approval, rejection, reset, enrollment, and policy change writes `audit_logs`.
 
 ## API Contract
 
-| Method   | Endpoint                                 | Purpose                                       |
-| -------- | ---------------------------------------- | --------------------------------------------- |
-| `GET`    | `/face/status`                           | Current user's state and consent text         |
-| `POST`   | `/face/session`                          | Create one-time enrollment/attendance session |
-| `POST`   | `/face/enrollment`                       | Submit a registration capture                 |
-| `GET`    | `/face/admin/profiles`                   | Developer Admin enrollment overview           |
-| `PATCH`  | `/face/admin/profiles/:userId/approve`   | Approve registration                          |
-| `PATCH`  | `/face/admin/profiles/:userId/reject`    | Reject with reason                            |
-| `DELETE` | `/face/admin/profiles/:userId`           | Reset another user's registration             |
-| `GET`    | `/face/admin/settings`                   | Read verification/retention policy            |
-| `PATCH`  | `/face/admin/settings`                   | Update policy                                 |
-| `GET`    | `/face/admin/evidence?userId=...`        | List retained evidence metadata               |
-| `GET`    | `/face/admin/evidence/:evidenceId/image` | Stream one authorized decrypted JPEG          |
-| `POST`   | `/attendance/mobile/check-in`            | Create check-in with required face and GPS    |
-| `POST`   | `/attendance/mobile/check-out`           | Create check-out with fresh precise GPS       |
+| Method   | Endpoint                                 | Purpose                                                      |
+| -------- | ---------------------------------------- | ------------------------------------------------------------ |
+| `GET`    | `/face/status`                           | Current user's state and consent text                        |
+| `POST`   | `/face/session`                          | Create one-time enrollment/attendance session                |
+| `POST`   | `/face/enrollment`                       | Submit a registration capture                                |
+| `GET`    | `/face/admin/profiles`                   | Developer Admin enrollment overview                          |
+| `PATCH`  | `/face/admin/profiles/:userId/approve`   | Approve registration                                         |
+| `PATCH`  | `/face/admin/profiles/:userId/reject`    | Reject with reason                                           |
+| `DELETE` | `/face/admin/profiles/:userId`           | Reset another user's registration                            |
+| `GET`    | `/face/admin/settings`                   | Read verification/retention policy                           |
+| `PATCH`  | `/face/admin/settings`                   | Update policy                                                |
+| `GET`    | `/face/admin/evidence?userId=...`        | List retained evidence metadata                              |
+| `GET`    | `/face/admin/evidence/:evidenceId/image` | Stream one authorized decrypted JPEG                         |
+| `POST`   | `/attendance/mobile/check-in`            | Create check-in with policy-controlled face and required GPS |
+| `POST`   | `/attendance/mobile/check-out`           | Create check-out with fresh precise GPS                      |
 
 All endpoints use the existing HTTP-only cookie authentication, origin validation, rate limiting,
 backend role checks, and audit conventions. JSON request size is capped at 2 MB; decoded JPEGs are
@@ -259,6 +272,23 @@ Common failures:
 | User remains pending               | Developer Admin **Face Security** approval and `/auth/me` connectivity |
 | Existing users see a blocking page | Expected: every account must register after this release               |
 | Evidence image is unavailable      | Retention expiry, directory ownership, encryption key, disk health     |
+
+The default and recommended match threshold is `0.50`. Settings saved by the earlier single-template
+release without the verification toggle are read at no more than `0.50` until Developer Admin next
+saves policy. Raising the value makes matching stricter and can increase false rejections.
+
+## Recognition Engine and Limits
+
+The implementation continues to use the MIT-licensed Human library already bundled with the
+application. Its official FaceID example uses a `0.50` match threshold, and its distance
+documentation describes similarity above `0.50` as a match under default normalization:
+
+- [Human source and license](https://github.com/vladmandic/human)
+- [Official FaceID example](https://vladmandic.github.io/human/demo/faceid/index.html)
+- [Official descriptor-distance documentation](https://vladmandic.github.io/human/typedoc/functions/match.distance.html)
+
+The five-sample matcher improves stability without adding a paid cloud dependency or sending face
+data to a third party. It does not turn a normal RGB phone camera into depth-sensing Face ID.
 
 ## Security Boundary
 

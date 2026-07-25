@@ -5,6 +5,8 @@ import {
   Check,
   Clock3,
   Eye,
+  Power,
+  PowerOff,
   RefreshCw,
   RotateCcw,
   ShieldAlert,
@@ -28,6 +30,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { faceApi } from "@/services/api";
 import type { FaceAdminProfile, FaceEvidenceRecord, FaceSettings } from "@/types/domain";
 
@@ -78,12 +81,14 @@ function FaceSecurityPage() {
     () => ({
       approved: profiles.filter((profile) => profile.status === "APPROVED").length,
       pending: profiles.filter((profile) => profile.status === "PENDING").length,
-      required: profiles.filter(
-        (profile) => profile.status !== "APPROVED" && profile.status !== "DISABLED",
-      ).length,
+      required: settings?.verificationEnabled
+        ? profiles.filter(
+            (profile) => profile.status !== "APPROVED" && profile.status !== "DISABLED",
+          ).length
+        : 0,
       alerts: profiles.filter((profile) => profile.latestAlert).length,
     }),
-    [profiles],
+    [profiles, settings?.verificationEnabled],
   );
 
   async function updateProfile(userId: string, action: () => Promise<unknown>, success: string) {
@@ -106,6 +111,27 @@ function FaceSecurityPage() {
       setSettings(await faceApi.admin.updateSettings(settings));
       toast.success("Face attendance settings updated");
     } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleVerification(verificationEnabled: boolean) {
+    if (!settings) return;
+    const previous = settings;
+    const next = { ...settings, verificationEnabled };
+    setSettings(next);
+    setSaving(true);
+    try {
+      setSettings(await faceApi.admin.updateSettings(next));
+      toast.success(
+        verificationEnabled
+          ? "Face verification enabled for employees"
+          : "Face verification paused; precise location remains required",
+      );
+    } catch (error) {
+      setSettings(previous);
       toast.error((error as Error).message);
     } finally {
       setSaving(false);
@@ -173,6 +199,55 @@ function FaceSecurityPage() {
       </div>
 
       {settings && (
+        <Card
+          className={
+            settings.verificationEnabled
+              ? "border-emerald-200 bg-emerald-50/35"
+              : "border-amber-200 bg-amber-50/45"
+          }
+        >
+          <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <div className="flex gap-3">
+              <div
+                className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${
+                  settings.verificationEnabled
+                    ? "bg-emerald-100 text-emerald-700"
+                    : "bg-amber-100 text-amber-700"
+                }`}
+              >
+                {settings.verificationEnabled ? (
+                  <Power className="size-5" />
+                ) : (
+                  <PowerOff className="size-5" />
+                )}
+              </div>
+              <div>
+                <div className="font-semibold">
+                  Face verification {settings.verificationEnabled ? "is active" : "is paused"}
+                </div>
+                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                  {settings.verificationEnabled
+                    ? "Employees must have an approved face profile and complete a live five-sample scan at check-in."
+                    : "Employees can open the application and check in without a camera. Precise GPS is still required; existing face profiles and evidence are retained."}
+                </p>
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center justify-between gap-3 rounded-xl border bg-background px-4 py-3 sm:justify-start">
+              <Label htmlFor="faceVerificationEnabled" className="cursor-pointer">
+                Employee verification
+              </Label>
+              <Switch
+                id="faceVerificationEnabled"
+                checked={settings.verificationEnabled}
+                disabled={saving}
+                onCheckedChange={(checked) => void toggleVerification(checked)}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {settings && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Privacy and verification policy</CardTitle>
@@ -206,7 +281,7 @@ function FaceSecurityPage() {
                 }
               />
               <p className="text-xs text-muted-foreground">
-                Recommended: 0.60. Raising this improves strictness but can require more retries.
+                Recommended: 0.50. Raising this is stricter but can reject the correct employee.
               </p>
             </div>
             <div className="space-y-2">

@@ -61,7 +61,8 @@ not shown in the CEO login.
 1. Open the application URL.
 2. Enter the email and temporary password issued by the Developer Admin.
 3. If the account requires a first password change, enter a new password.
-4. After changing the password, the mandatory face-registration screen opens for normal accounts.
+4. After changing the password, the face-registration screen opens for normal accounts when
+   Developer Admin has enabled employee face verification.
 5. Accept the biometric-consent statement, allow the camera, centre one uncovered face, and complete
    the blink or head-turn prompt.
 6. Developer Admin is exempt from face authentication. Normal accounts wait on the blocking
@@ -192,7 +193,7 @@ Employees can use mobile attendance in the current version. Biometric/eSSL atten
 1. Open the Dashboard or **My Attendance** and review today's timeline.
 2. For **Check In**, allow the front camera and precise location.
 3. Keep exactly one face inside the oval, complete the head-turn prompt, return to the centre, and
-   hold still while three stable frames are averaged and matched.
+   hold still while five stable frames are securely compared.
 4. Clear spectacles are supported. Reduce glare if it covers the eyes; remove masks and
    dark/tinted glasses.
 5. A different person produces an **Another face detected** popup, is visible in Developer Admin
@@ -202,6 +203,9 @@ Employees can use mobile attendance in the current version. Biometric/eSSL atten
    policy.
 8. Future eSSL/fingerprint imports can appear in the same daily timeline through the separate
    biometric integration workflow.
+
+When Developer Admin pauses face verification, check-in does not open the camera and requires only
+fresh precise location. Existing approved registrations remain ready for later re-enablement.
 
 After a successful mobile punch, the status and timer update immediately while the live server timeline refreshes. Keep the page open if the network is slow; the punch button remains disabled while the request is pending to prevent duplicate submissions. Other signed-in devices update through the attendance live stream.
 
@@ -423,12 +427,15 @@ Every active entry visible in the Holiday list counts as a holiday for attendanc
 ## Developer Admin: Review Face Registrations
 
 1. Open **Face Security**.
-2. Review pending users, the encrypted evidence image, scores, time, and any GPS details.
-3. A red **Another face detected** alert means a check-in was blocked because the captured face did
+2. Use **Employee verification** to enable or pause face checks. Pausing keeps precise GPS required
+   and retains existing encrypted registrations.
+3. Review pending users, the encrypted evidence image, scores, time, and any GPS details.
+4. A red **Another face detected** alert means a check-in was blocked because the captured face did
    not match that employee.
-4. Select **Approve**, or select **Reject** and give a clear correction reason.
-5. Use **Reset** when another employee must register again. The account is blocked immediately.
-6. Use the privacy policy card to set capture retention (default five days), match threshold, and
+5. Select **Approve**, or select **Reject** and give a clear correction reason.
+6. Use **Reset** when another employee must register again. The account is blocked immediately only
+   while verification is enabled.
+7. Use the privacy policy card to set capture retention (default five days), match threshold, and
    maximum accepted GPS error.
 
 The evidence dialog lists retained registration and check-in captures. At most the latest five

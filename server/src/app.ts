@@ -859,8 +859,10 @@ export function createApp() {
             ? "DISABLED"
             : (profile?.status ?? "NOT_REGISTERED"),
         required:
+          settings.verificationEnabled &&
           req.user!.role !== Role.DEVELOPER_ADMIN &&
           profile?.status !== FaceEnrollmentStatus.APPROVED,
+        verificationEnabled: settings.verificationEnabled,
         rejectionReason: profile?.rejectionReason ?? null,
         submittedAt: profile?.submittedAt?.toISOString() ?? null,
         approvedAt: profile?.approvedAt?.toISOString() ?? null,
@@ -875,6 +877,10 @@ export function createApp() {
     requireAuth,
     asyncHandler(async (req, res) => {
       const body = faceSessionSchema.parse(req.body);
+      const settings = await readFaceSettings();
+      if (!settings.verificationEnabled) {
+        throw new HttpError(409, "Face verification is currently disabled by Developer Admin");
+      }
       if (
         body.purpose !== FaceVerificationPurpose.ENROLLMENT &&
         !(await userHasApprovedFace(req.user!.id))
@@ -3245,14 +3251,12 @@ export function createApp() {
     }
     await assertEmployeeAccess(req.user, employeeId);
     const isCheckOut = type === EventType.FIELD_CHECK_OUT || type === EventType.CLIENT_CHECK_OUT;
-    if (isCheckOut) {
-      const settings = await readFaceSettings();
-      if (body.locationAccuracy > settings.maxGpsAccuracyMeters) {
-        throw new HttpError(
-          422,
-          `Location accuracy must be within ${settings.maxGpsAccuracyMeters} metres.`,
-        );
-      }
+    const faceSettings = await readFaceSettings();
+    if (body.locationAccuracy > faceSettings.maxGpsAccuracyMeters) {
+      throw new HttpError(
+        422,
+        `Location accuracy must be within ${faceSettings.maxGpsAccuracyMeters} metres.`,
+      );
     }
     let nearbyBranchId: string | undefined;
     if (workType === WorkType.FIELD) {
@@ -3313,7 +3317,7 @@ export function createApp() {
       }
     }
     let verifiedFace: Awaited<ReturnType<typeof verifyFaceCapture>> | null = null;
-    if (!isCheckOut) {
+    if (!isCheckOut && faceSettings.verificationEnabled) {
       if (!body.faceVerification) {
         throw new HttpError(400, "Live face verification is required for check-in");
       }

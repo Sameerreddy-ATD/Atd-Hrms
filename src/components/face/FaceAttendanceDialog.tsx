@@ -48,7 +48,12 @@ export function FaceAttendanceDialog({
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      void preloadFaceRecognition().catch(() => undefined);
+      void faceApi
+        .status()
+        .then((status) =>
+          status.verificationEnabled ? preloadFaceRecognition() : Promise.resolve(),
+        )
+        .catch(() => undefined);
     }, 250);
     return () => window.clearTimeout(timer);
   }, []);
@@ -66,23 +71,24 @@ export function FaceAttendanceDialog({
     setError(null);
     const prepare = async () => {
       try {
-        const [policy, nextPosition] = await Promise.all([
-          action === "check-in"
-            ? faceApi.createSession("ATTENDANCE_CHECK_IN", navigator.userAgent.slice(0, 120))
-            : faceApi.status(),
+        const [status, nextPosition] = await Promise.all([
+          faceApi.status(),
           getDeviceLocation({ allowRecent: false }),
         ]);
         if (!active) return;
-        const maxGpsAccuracyMeters =
-          "settings" in policy ? policy.settings.maxGpsAccuracyMeters : policy.maxGpsAccuracyMeters;
-        if (nextPosition.coords.accuracy > maxGpsAccuracyMeters) {
+        if (nextPosition.coords.accuracy > status.maxGpsAccuracyMeters) {
           throw new Error(
             `Location accuracy is ${Math.round(nextPosition.coords.accuracy)} m. Move near a window, enable precise location, and try again.`,
           );
         }
         setPosition(nextPosition);
-        if (action === "check-in" && "sessionId" in policy) {
-          setSession(policy);
+        if (action === "check-in" && status.verificationEnabled) {
+          const nextSession = await faceApi.createSession(
+            "ATTENDANCE_CHECK_IN",
+            navigator.userAgent.slice(0, 120),
+          );
+          if (!active) return;
+          setSession(nextSession);
           return;
         }
         await onVerifiedRef.current({
@@ -150,7 +156,7 @@ export function FaceAttendanceDialog({
             <div>
               <div className="font-semibold text-slate-950">
                 {action === "check-in"
-                  ? "Preparing fast face scan and location"
+                  ? "Checking face policy and precise location"
                   : "Confirming precise check-out location"}
               </div>
               <p className="mt-1 text-sm text-slate-500">Keep precise location enabled.</p>

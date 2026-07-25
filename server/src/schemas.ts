@@ -479,6 +479,11 @@ export const mobileEventSchema = z.object({
       sessionId: z.string().min(10).max(191),
       nonce: z.string().min(32).max(200),
       descriptor: z.array(z.number().finite().min(-10).max(10)).min(128).max(2048),
+      descriptorSamples: z
+        .array(z.array(z.number().finite().min(-10).max(10)).min(128).max(2048))
+        .min(3)
+        .max(5)
+        .optional(),
       imageData: z
         .string()
         .max(950_000)

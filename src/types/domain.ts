@@ -133,6 +133,7 @@ export interface FaceCapturePayload {
   sessionId: string;
   nonce: string;
   descriptor: number[];
+  descriptorSamples?: number[][];
   imageData: string;
   faceConfidence: number;
   livenessScore: number;
@@ -201,6 +202,7 @@ export interface FaceEvidenceRecord {
 }
 
 export interface FaceSettings {
+  verificationEnabled: boolean;
   retentionDays: number;
   matchThreshold: number;
   minFaceConfidence: number;

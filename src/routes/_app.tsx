@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
@@ -7,6 +7,7 @@ import { PermissionSetup } from "@/components/layout/PermissionSetup";
 import { LoadingState } from "@/components/common/LoadingState";
 import { useAuth } from "@/lib/auth";
 import { FaceEnrollmentGate } from "@/components/face/FaceEnrollmentGate";
+import { faceApi } from "@/services/api";
 
 // FRONTEND-ONLY GUARD
 // Route guards below prevent unauthenticated users from seeing protected UI.
@@ -19,6 +20,9 @@ export const Route = createFileRoute("/_app")({
 function AppLayout() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const [faceRequired, setFaceRequired] = useState<boolean | null>(null);
+  const userId = user?.id;
+  const userRole = user?.role;
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/login", replace: true });
@@ -26,6 +30,28 @@ function AppLayout() {
       navigate({ to: "/first-login", replace: true });
     }
   }, [loading, user, navigate]);
+
+  useEffect(() => {
+    if (!userId || userRole === "developer_admin") {
+      setFaceRequired(false);
+      return;
+    }
+    let active = true;
+    const refreshFacePolicy = async () => {
+      try {
+        const status = await faceApi.status();
+        if (active) setFaceRequired(status.required);
+      } catch {
+        if (active) setFaceRequired(null);
+      }
+    };
+    void refreshFacePolicy();
+    const timer = window.setInterval(() => void refreshFacePolicy(), 10_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [userId, userRole]);
 
   if (loading || !user || user.mustChangePassword) {
     return (
@@ -35,7 +61,13 @@ function AppLayout() {
     );
   }
 
-  if (user.role !== "developer_admin" && user.faceEnrollmentStatus !== "APPROVED") {
+  if (faceRequired === null) {
+    return (
+      <LoadingState label="Checking security policy" showBrandStory className="min-h-[100dvh]" />
+    );
+  }
+
+  if (faceRequired) {
     return <FaceEnrollmentGate />;
   }
 

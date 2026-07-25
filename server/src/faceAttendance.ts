@@ -19,8 +19,9 @@ const CHALLENGES = ["TURN_LEFT", "TURN_RIGHT"] as const;
 const MAX_RETAINED_IMAGES_PER_USER = 5;
 
 export const faceSettingsSchema = z.object({
+  verificationEnabled: z.boolean().default(true),
   retentionDays: z.number().int().min(1).max(30).default(5),
-  matchThreshold: z.number().min(0.4).max(0.9).default(0.6),
+  matchThreshold: z.number().min(0.4).max(0.9).default(0.5),
   minFaceConfidence: z.number().min(0.4).max(1).default(0.6),
   minLivenessScore: z.number().min(0.4).max(1).default(0.6),
   minAntiSpoofScore: z.number().min(0.4).max(1).default(0.6),
@@ -39,6 +40,11 @@ export const faceCaptureSchema = z.object({
   sessionId: z.string().min(10).max(191),
   nonce: z.string().min(32).max(200),
   descriptor: z.array(z.number().finite().min(-10).max(10)).min(128).max(2048),
+  descriptorSamples: z
+    .array(z.array(z.number().finite().min(-10).max(10)).min(128).max(2048))
+    .min(3)
+    .max(5)
+    .optional(),
   imageData: z
     .string()
     .max(950_000)
@@ -143,11 +149,43 @@ export function descriptorSimilarity(left: number[], right: number[]) {
   return Math.round(100 * Math.max(0, Math.min(1, normalized))) / 100;
 }
 
+export function descriptorSetSimilarity(registered: number[][], captured: number[][]) {
+  const scores = captured
+    .map((capturedDescriptor) =>
+      Math.max(
+        0,
+        ...registered.map((registeredDescriptor) =>
+          descriptorSimilarity(registeredDescriptor, capturedDescriptor),
+        ),
+      ),
+    )
+    .filter(Number.isFinite)
+    .sort((left, right) => right - left);
+  if (!scores.length) return 0;
+  const strongest = scores.slice(0, Math.min(3, scores.length));
+  return (
+    Math.round((strongest.reduce((total, score) => total + score, 0) / strongest.length) * 100) /
+    100
+  );
+}
+
+function capturedDescriptors(capture: FaceCaptureInput) {
+  return capture.descriptorSamples?.length
+    ? [capture.descriptor, ...capture.descriptorSamples]
+    : [capture.descriptor];
+}
+
 export async function readFaceSettings(): Promise<FaceSettings> {
   const row = await prisma.systemSetting.findUnique({ where: { key: FACE_SETTING_KEY } });
   if (!row) return defaultSettings;
   try {
-    return faceSettingsSchema.parse(JSON.parse(row.value));
+    const stored = JSON.parse(row.value) as Record<string, unknown>;
+    // Settings saved before the v2 multi-sample matcher used an overly strict recommended
+    // threshold. Migrate that one legacy default in memory until the admin next saves policy.
+    if (stored.verificationEnabled === undefined) {
+      stored.matchThreshold = Math.min(Number(stored.matchThreshold ?? 0.5), 0.5);
+    }
+    return faceSettingsSchema.parse(stored);
   } catch {
     return defaultSettings;
   }
@@ -179,6 +217,7 @@ export async function saveFaceSettings(value: unknown, updatedById: string) {
     );
   }
   await cleanupExpiredFaceEvidence();
+  invalidateFaceStatusCache();
   return settings;
 }
 
@@ -214,7 +253,16 @@ export async function createFaceVerificationSession(
   };
 }
 
-async function approvedDescriptorForUser(userId: string) {
+const storedFaceTemplateSchema = z.union([
+  faceCaptureSchema.shape.descriptor,
+  z.object({
+    version: z.literal(2),
+    centroid: faceCaptureSchema.shape.descriptor,
+    samples: z.array(faceCaptureSchema.shape.descriptor).min(1).max(5),
+  }),
+]);
+
+async function approvedDescriptorsForUser(userId: string) {
   const profile = await prisma.faceProfile.findUnique({ where: { userId } });
   if (!profile || profile.status !== FaceEnrollmentStatus.APPROVED) {
     throw new HttpError(403, "Approved face registration is required");
@@ -222,13 +270,14 @@ async function approvedDescriptorForUser(userId: string) {
   const decrypted = decryptEmployeeField(profile.descriptorEncrypted);
   if (!decrypted) throw new HttpError(500, "The registered face template cannot be read");
   try {
-    return faceCaptureSchema.shape.descriptor.parse(JSON.parse(decrypted));
+    const stored = storedFaceTemplateSchema.parse(JSON.parse(decrypted));
+    return Array.isArray(stored) ? [stored] : [stored.centroid, ...stored.samples];
   } catch {
     throw new HttpError(500, "The registered face template is invalid");
   }
 }
 
-async function duplicateEnrollmentSimilarity(userId: string, descriptor: number[]) {
+async function duplicateEnrollmentSimilarity(userId: string, descriptors: number[][]) {
   const profiles = await prisma.faceProfile.findMany({
     where: { userId: { not: userId }, status: FaceEnrollmentStatus.APPROVED },
     select: { descriptorEncrypted: true },
@@ -238,7 +287,9 @@ async function duplicateEnrollmentSimilarity(userId: string, descriptor: number[
     const value = decryptEmployeeField(profile.descriptorEncrypted);
     if (!value) continue;
     try {
-      best = Math.max(best, descriptorSimilarity(descriptor, JSON.parse(value) as number[]));
+      const stored = storedFaceTemplateSchema.parse(JSON.parse(value));
+      const registered = Array.isArray(stored) ? [stored] : [stored.centroid, ...stored.samples];
+      best = Math.max(best, descriptorSetSimilarity(registered, descriptors));
     } catch {
       // An unreadable historical template is skipped and remains visible to database audits.
     }
@@ -340,8 +391,8 @@ export async function verifyFaceCapture(input: {
     } else if (capture.locationAccuracy > settings.maxGpsAccuracyMeters) {
       failureReason = `Location accuracy must be within ${settings.maxGpsAccuracyMeters} metres.`;
     } else {
-      const registered = await approvedDescriptorForUser(input.userId);
-      similarityScore = descriptorSimilarity(registered, capture.descriptor);
+      const registered = await approvedDescriptorsForUser(input.userId);
+      similarityScore = descriptorSetSimilarity(registered, capturedDescriptors(capture));
       if (similarityScore < settings.matchThreshold) {
         failureReason =
           "Another face detected. Check-in was blocked because this face does not match the registered employee.";
@@ -355,7 +406,7 @@ export async function verifyFaceCapture(input: {
     } else {
       const duplicateSimilarity = await duplicateEnrollmentSimilarity(
         input.userId,
-        capture.descriptor,
+        capturedDescriptors(capture),
       );
       if (duplicateSimilarity >= settings.matchThreshold) {
         similarityScore = duplicateSimilarity;
@@ -400,6 +451,10 @@ export async function submitFaceEnrollment(input: {
   if (input.role === Role.DEVELOPER_ADMIN) {
     throw new HttpError(403, "Developer Admin accounts do not use face authentication");
   }
+  const settings = await readFaceSettings();
+  if (!settings.verificationEnabled) {
+    throw new HttpError(409, "Face verification is currently disabled by Developer Admin");
+  }
   const existingProfile = await prisma.faceProfile.findUnique({
     where: { userId: input.userId },
     select: { status: true },
@@ -414,11 +469,18 @@ export async function submitFaceEnrollment(input: {
     capture: input.capture,
   });
   const now = new Date();
+  const template = {
+    version: 2 as const,
+    centroid: input.capture.descriptor,
+    samples: input.capture.descriptorSamples?.length
+      ? input.capture.descriptorSamples
+      : [input.capture.descriptor],
+  };
   const profile = await prisma.faceProfile.upsert({
     where: { userId: input.userId },
     create: {
       userId: input.userId,
-      descriptorEncrypted: encryptEmployeeField(JSON.stringify(input.capture.descriptor))!,
+      descriptorEncrypted: encryptEmployeeField(JSON.stringify(template))!,
       status: FaceEnrollmentStatus.PENDING,
       consentVersion: FACE_CONSENT_VERSION,
       consentedAt: now,
@@ -427,7 +489,7 @@ export async function submitFaceEnrollment(input: {
       approvedAt: null,
     },
     update: {
-      descriptorEncrypted: encryptEmployeeField(JSON.stringify(input.capture.descriptor))!,
+      descriptorEncrypted: encryptEmployeeField(JSON.stringify(template))!,
       status: FaceEnrollmentStatus.PENDING,
       consentVersion: FACE_CONSENT_VERSION,
       consentedAt: now,
@@ -455,6 +517,8 @@ export function invalidateFaceStatusCache(userId?: string) {
 }
 
 export async function userHasApprovedFace(userId: string) {
+  const settings = await readFaceSettings();
+  if (!settings.verificationEnabled) return true;
   const cached = faceStatusCache.get(userId);
   if (cached && cached.expiresAt > Date.now()) return cached.approved;
   const profile = await prisma.faceProfile.findUnique({

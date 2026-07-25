@@ -21,16 +21,17 @@ function loadHuman() {
           enabled: true,
           equalization: false,
           autoBrightness: true,
-          return: true,
+          return: false,
         },
         face: {
           enabled: true,
           detector: {
             rotation: true,
-            return: true,
+            return: false,
             mask: false,
             maxDetected: 2,
             minConfidence: 0.5,
+            minSize: 160,
             skipFrames: 0,
             skipTime: 0,
           },
@@ -109,6 +110,7 @@ export function FaceCapture({
     let centreObserved = false;
     let stableFrames = 0;
     let stableEmbeddings: number[][] = [];
+    let lastSampleAt = 0;
 
     const stop = () => {
       active = false;
@@ -189,7 +191,7 @@ export function FaceCapture({
             const faceScore = Math.min(face.faceScore ?? face.score, face.boxScore ?? face.score);
             const live = face.live ?? 0;
             const real = face.real ?? 0;
-            const largeEnough = Math.min(...face.size) >= 140;
+            const largeEnough = Math.min(...face.size) >= 180;
             const hasDescriptor = Boolean(face.embedding && face.embedding.length >= 128);
             const scoreProgress = Math.round(
               Math.min(1, faceScore) * 25 +
@@ -229,13 +231,17 @@ export function FaceCapture({
               stableEmbeddings = [];
               setMessage("Hold still while your face template is prepared.");
             } else {
-              stableFrames += 1;
-              stableEmbeddings.push([...(face.embedding ?? [])]);
-              stableEmbeddings = stableEmbeddings.slice(-3);
-              setMessage(`Analysing face ${Math.min(stableFrames, 3)}/3…`);
+              const sampleTime = performance.now();
+              if (sampleTime - lastSampleAt >= 120) {
+                lastSampleAt = sampleTime;
+                stableEmbeddings.push([...(face.embedding ?? [])]);
+                stableEmbeddings = stableEmbeddings.slice(-5);
+                stableFrames = stableEmbeddings.length;
+              }
+              setMessage(`Building accurate face match ${Math.min(stableFrames, 5)}/5…`);
             }
 
-            if (stableFrames >= 3 && stableEmbeddings.length === 3 && face.embedding) {
+            if (stableFrames >= 5 && stableEmbeddings.length === 5 && face.embedding) {
               setPhase("verifying");
               setMessage("Matching your face securely…");
               const averagedDescriptor = stableEmbeddings[0].map(
@@ -255,6 +261,7 @@ export function FaceCapture({
                 sessionId: session.sessionId,
                 nonce: session.nonce,
                 descriptor: averagedDescriptor,
+                descriptorSamples: stableEmbeddings,
                 imageData: canvas.toDataURL("image/jpeg", 0.86),
                 faceConfidence: faceScore,
                 livenessScore: live,

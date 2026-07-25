@@ -309,6 +309,7 @@ export const faceApi = {
     request<{
       status: User["faceEnrollmentStatus"];
       required: boolean;
+      verificationEnabled: boolean;
       rejectionReason: string | null;
       submittedAt: string | null;
       approvedAt: string | null;
@@ -462,7 +463,7 @@ export const attendanceApi = {
     locationAccuracy: number;
     mobileDeviceId?: string;
     confirmLeaveCancellation?: boolean;
-    faceVerification: FaceCapturePayload;
+    faceVerification?: FaceCapturePayload;
   }) =>
     request<{ eventId: string }>("/attendance/mobile/check-in", {
       method: "POST",

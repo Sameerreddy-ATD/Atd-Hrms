@@ -108,8 +108,8 @@ export function FaceEnrollmentGate() {
                 {[
                   {
                     icon: Camera,
-                    title: "Live camera check",
-                    body: "A blink or head-turn confirms you are physically present.",
+                    title: "Five-sample live scan",
+                    body: "A guided head-turn and five clear frames improve matching across days.",
                   },
                   {
                     icon: MapPin,
