@@ -78,9 +78,9 @@ function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-8">
-      <div className="w-full max-w-md space-y-8">
-        <div className="flex justify-center">
-          <Logo className="h-12 w-auto" />
+      <div className="min-w-0 w-full max-w-md space-y-8">
+        <div className="flex min-w-0 justify-center overflow-hidden">
+          <Logo className="h-auto w-full max-w-64" />
         </div>
 
         <Card className="border-border shadow-sm">

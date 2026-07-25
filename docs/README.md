@@ -13,6 +13,7 @@ in the same commit.
 - New contributors: [Repository Structure](REPOSITORY_STRUCTURE.md) and [Development and Testing](DEVELOPMENT_AND_TESTING.md)
 - Database owners and integration developers: [Database Integrity Audit](DATABASE_INTEGRITY_AUDIT.md), [Employee Data and Integration API](EMPLOYEE_DATA_AND_INTEGRATION_API.md), [Employee Profile and ID Card](EMPLOYEE_PROFILE_AND_ID_CARD.md), and [OpenAPI](openapi.employee-v1.yaml)
 - Product owners and UI writers: [Product Naming](PRODUCT_NAMING.md)
+- Product, frontend, and QA teams: [Responsive UI Audit](RESPONSIVE_UI_AUDIT.md)
 - Go-live owners: [Reset and Go-Live](RESET_AND_GO_LIVE.md)
 - Receiving companies: [Third-Party Technical Handover](THIRD_PARTY_HANDOVER.md)
 - Infrastructure owners: [Cloud Deployment Options and Costs](CLOUD_DEPLOYMENT_OPTIONS.md)
@@ -46,8 +47,9 @@ in the same commit.
 | `LINUX_LOCAL_DEPLOYMENT.md`            | Fresh Linux/AWS installation, private Git access, domain, TLS, Nginx, and PM2                    |
 | `UPGRADE_AND_MAINTENANCE.md`           | Production updates, backups, verification, rollback, and long-term operations                    |
 | `DEVICE_COMPATIBILITY.md`              | Supported browsers, PWA permissions, low-network behavior, and QA matrix                         |
+| `RESPONSIVE_UI_AUDIT.md`               | Shared responsive rules, audited surfaces, resolved issues, and UI release checklist             |
 | `FACE_ATTENDANCE_SECURITY.md`          | Mandatory enrollment, liveness/GPS flow, encrypted storage, retention, admin, and deployment     |
-| `THIRD_PARTY_NOTICES.md`               | Licences and attribution for bundled third-party runtime/model assets                             |
+| `THIRD_PARTY_NOTICES.md`               | Licences and attribution for bundled third-party runtime/model assets                            |
 
 The repository-level [`SECURITY.md`](../SECURITY.md) defines private vulnerability reporting and
 mandatory handling of credentials and employee data.

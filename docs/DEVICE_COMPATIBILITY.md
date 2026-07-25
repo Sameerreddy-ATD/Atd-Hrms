@@ -33,8 +33,9 @@ The application uses responsive web and Progressive Web App behavior. The suppor
 
 ## Face Registration and Camera Requirements
 
-- Every normal account is blocked after password setup until its face registration is approved;
-  Developer Admin is exempt.
+- While employee face verification is enabled, every normal account is blocked after password
+  setup until its registration is approved; Developer Admin is exempt. Paused mode removes the
+  gate and check-in camera but still requires precise location.
 - Camera and face-model APIs require HTTPS outside localhost. WebGL should remain enabled.
 - Keep exactly one face in the frame, use even lighting, and remove masks or dark/tinted glasses.
   Clear spectacles are supported; reduce glare when it crosses the eyes.
@@ -44,6 +45,8 @@ The application uses responsive web and Progressive Web App behavior. The suppor
 - Camera denial must be reversed in site/OS settings. The application cannot override a denial.
 - Verify the full-screen gate and check-in camera dialog in portrait and landscape without clipped
   controls. Check-out must request location without opening the camera.
+- Verify the Developer Admin evidence history as one readable record per capture: the complete
+  image must remain visible, metadata must wrap, and scrolling must stay inside the dialog.
 
 ## Low-Network Behavior
 

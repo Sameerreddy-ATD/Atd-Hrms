@@ -143,14 +143,24 @@
     border-color: var(--color-border);
   }
 
+  :focus-visible {
+    scroll-margin-block: 5rem;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-size: 1rem;
     line-height: 1.5;
-    min-width: 20rem;
+    min-width: 0;
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
+  }
+
+  img,
+  video,
+  canvas {
+    max-width: 100%;
   }
 }
 
@@ -196,6 +206,17 @@
 
   .scrollbar-none::-webkit-scrollbar {
     display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

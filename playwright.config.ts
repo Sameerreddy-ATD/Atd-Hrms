@@ -10,6 +10,10 @@ export default defineConfig({
   },
   projects: [
     { name: "desktop-chromium", use: { ...devices["Desktop Chrome"] } },
+    {
+      name: "small-mobile-chromium",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 320, height: 568 }, isMobile: true },
+    },
     { name: "mobile-chromium", use: { ...devices["Pixel 7"] } },
   ],
   webServer: process.env.E2E_BASE_URL

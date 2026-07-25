@@ -59,15 +59,19 @@ Security reporting and credential-handling rules are in [SECURITY.md](SECURITY.m
 
 ## Technology
 
-- React 19, TanStack Start/Router, Vite, Tailwind CSS
-- Express and TypeScript backend
-- MySQL 8 and Prisma ORM
-- HTTP-only cookie authentication with backend RBAC
-- Self-hosted browser face detection/liveness with backend matching and one-time challenges
-- Server-Sent Events for live attendance and notification refresh
-- Web Push and service worker support for installed applications
-- Responsive role-specific navigation for mobile, tablet, laptop, and installed PWA use
-- Vitest, ESLint, Prettier, and TypeScript verification
+| Layer                  | Current implementation                                                           |
+| ---------------------- | -------------------------------------------------------------------------------- |
+| Web application        | React 19, TanStack Start/Router, TypeScript 5.9, Vite 8, Tailwind CSS 4          |
+| API                    | Node.js 22, Express 4, Zod validation, HTTP-only cookie authentication and RBAC  |
+| Data                   | MySQL 8, Prisma 6 migrations and transactional persistence                       |
+| Realtime and installed | Authenticated Server-Sent Events, Web Push, service worker and PWA manifest      |
+| Face attendance        | Self-hosted Human 3, WebGL inference, backend matching and encrypted evidence    |
+| UI foundation          | Radix primitives, Lucide icons, responsive shared dialogs/tables and Recharts    |
+| Quality                | Vitest 4, Playwright, ESLint 9, Prettier 3 and strict frontend/backend typecheck |
+
+See [Technical Overview](docs/TECHNICAL_OVERVIEW.md) and
+[Responsive UI Audit](docs/RESPONSIVE_UI_AUDIT.md) for the complete architecture and interface
+standards.
 
 ## Repository Layout
 

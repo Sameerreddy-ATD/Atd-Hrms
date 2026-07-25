@@ -15,6 +15,11 @@ test("login screen is usable on desktop and mobile", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
   await expect(page.getByLabel(/email/i)).toBeVisible();
   await expect(page.locator("#password")).toBeVisible();
+  const dimensions = await page.evaluate(() => ({
+    viewport: window.innerWidth,
+    document: document.documentElement.scrollWidth,
+  }));
+  expect(dimensions.document).toBeLessThanOrEqual(dimensions.viewport);
 });
 
 for (const user of configuredUsers()) {

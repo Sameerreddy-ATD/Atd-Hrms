@@ -5,10 +5,13 @@ import {
   Check,
   Clock3,
   Eye,
+  ImageOff,
+  MapPin,
   Power,
   PowerOff,
   RefreshCw,
   RotateCcw,
+  Search,
   ShieldAlert,
   ShieldCheck,
   UserRoundCheck,
@@ -57,6 +60,10 @@ function FaceSecurityPage() {
   const [evidenceLoading, setEvidenceLoading] = useState(false);
   const [rejecting, setRejecting] = useState<FaceAdminProfile | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [profileSearch, setProfileSearch] = useState("");
+  const [profileFilter, setProfileFilter] = useState<"all" | "pending" | "alerts" | "unregistered">(
+    "all",
+  );
 
   const refresh = async () => {
     const [nextProfiles, nextSettings] = await Promise.all([
@@ -90,6 +97,23 @@ function FaceSecurityPage() {
     }),
     [profiles, settings?.verificationEnabled],
   );
+
+  const visibleProfiles = useMemo(() => {
+    const query = profileSearch.trim().toLowerCase();
+    return profiles.filter((profile) => {
+      const matchesSearch =
+        !query ||
+        [profile.name, profile.email, profile.employeeId, profile.role]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(query));
+      const matchesFilter =
+        profileFilter === "all" ||
+        (profileFilter === "pending" && profile.status === "PENDING") ||
+        (profileFilter === "alerts" && Boolean(profile.latestAlert)) ||
+        (profileFilter === "unregistered" && profile.status === "NOT_REGISTERED");
+      return matchesSearch && matchesFilter;
+    });
+  }, [profileFilter, profileSearch, profiles]);
 
   async function updateProfile(userId: string, action: () => Promise<unknown>, success: string) {
     setBusyUser(userId);
@@ -306,8 +330,50 @@ function FaceSecurityPage() {
         </Card>
       )}
 
+      <div className="flex flex-col gap-3 rounded-xl border bg-card p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative min-w-0 flex-1 sm:max-w-md">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={profileSearch}
+            onChange={(event) => setProfileSearch(event.target.value)}
+            placeholder="Search employee, email, ID, or role"
+            aria-label="Search face profiles"
+            className="h-11 pl-9 sm:h-10"
+          />
+        </div>
+        <div
+          className="scrollbar-none flex max-w-full snap-x gap-1 overflow-x-auto rounded-lg bg-muted/55 p-1"
+          aria-label="Filter face profiles"
+        >
+          {[
+            { value: "all", label: "All", count: profiles.length },
+            { value: "pending", label: "Pending", count: counts.pending },
+            { value: "alerts", label: "Alerts", count: counts.alerts },
+            {
+              value: "unregistered",
+              label: "Not registered",
+              count: profiles.filter((profile) => profile.status === "NOT_REGISTERED").length,
+            },
+          ].map((filter) => (
+            <Button
+              key={filter.value}
+              type="button"
+              size="sm"
+              variant={profileFilter === filter.value ? "default" : "ghost"}
+              className="shrink-0 snap-start"
+              onClick={() =>
+                setProfileFilter(filter.value as "all" | "pending" | "alerts" | "unregistered")
+              }
+            >
+              {filter.label}
+              <span className="tabular-nums opacity-70">{filter.count}</span>
+            </Button>
+          ))}
+        </div>
+      </div>
+
       <div className="grid gap-3 xl:grid-cols-2">
-        {profiles.map((profile) => {
+        {visibleProfiles.map((profile) => {
           const latest = profile.latestEvidence;
           const busy = busyUser === profile.userId;
           return (
@@ -435,60 +501,36 @@ function FaceSecurityPage() {
             </Card>
           );
         })}
+        {!visibleProfiles.length && (
+          <div className="col-span-full rounded-xl border border-dashed bg-muted/20 px-4 py-10 text-center">
+            <Search className="mx-auto size-6 text-muted-foreground" />
+            <div className="mt-3 font-medium">No matching face profiles</div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Change the search text or select another filter.
+            </p>
+          </div>
+        )}
       </div>
 
       <Dialog open={Boolean(evidence)} onOpenChange={(open) => !open && setEvidence(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Registration evidence</DialogTitle>
+        <DialogContent className="grid max-h-[calc(100dvh-1rem)] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:max-h-[calc(100dvh-2rem)] sm:max-w-4xl">
+          <DialogHeader className="border-b px-4 py-4 pr-14 text-left sm:px-6 sm:py-5">
+            <DialogTitle>Face evidence history</DialogTitle>
             <DialogDescription>
-              {evidence?.name} · This encrypted capture is automatically deleted after retention.
+              {evidence?.name} · Up to five encrypted captures are retained and automatically
+              removed under the active policy.
             </DialogDescription>
           </DialogHeader>
           {evidenceLoading ? (
-            <LoadingState label="Loading encrypted evidence" />
+            <LoadingState label="Loading encrypted evidence" className="min-h-72" />
           ) : (
-            <div className="grid max-h-[70dvh] gap-3 overflow-y-auto sm:grid-cols-2">
+            <div className="min-h-0 space-y-3 overflow-y-auto overscroll-contain p-3 sm:p-5">
               {evidenceHistory.map((item) => (
-                <div key={item.evidenceId} className="overflow-hidden rounded-xl border">
-                  {item.imageAvailable ? (
-                    <img
-                      src={faceApi.admin.evidenceImageUrl(item.evidenceId)}
-                      alt={`Face evidence for ${evidence?.name}`}
-                      className="aspect-[4/3] w-full bg-slate-950 object-cover"
-                    />
-                  ) : (
-                    <div className="flex aspect-[4/3] items-center justify-center bg-muted text-xs text-muted-foreground">
-                      Image expired
-                    </div>
-                  )}
-                  <div className="space-y-1 p-3 text-xs">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold">{item.purpose.replaceAll("_", " ")}</span>
-                      <Badge
-                        variant="outline"
-                        className={
-                          item.failureReason?.startsWith("Another face detected")
-                            ? "border-red-300 bg-red-50 text-red-800"
-                            : undefined
-                        }
-                      >
-                        {item.failureReason?.startsWith("Another face detected")
-                          ? "FACE MISMATCH"
-                          : item.outcome}
-                      </Badge>
-                    </div>
-                    <div className="text-muted-foreground">
-                      {new Date(item.capturedAt).toLocaleString("en-IN")}
-                    </div>
-                    {item.locationAccuracy !== null && (
-                      <div className="text-muted-foreground">
-                        GPS accuracy: {Math.round(item.locationAccuracy)} m
-                      </div>
-                    )}
-                    {item.failureReason && <div className="text-red-700">{item.failureReason}</div>}
-                  </div>
-                </div>
+                <EvidenceHistoryCard
+                  key={item.evidenceId}
+                  item={item}
+                  employeeName={evidence?.name}
+                />
               ))}
               {!evidenceHistory.length && (
                 <div className="col-span-full rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
@@ -539,5 +581,92 @@ function FaceSecurityPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function EvidenceHistoryCard({
+  item,
+  employeeName,
+}: {
+  item: FaceEvidenceRecord;
+  employeeName?: string;
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const mismatch = item.failureReason?.startsWith("Another face detected");
+  const imageVisible = item.imageAvailable && !imageFailed;
+
+  return (
+    <article className="grid min-w-0 overflow-hidden rounded-2xl border bg-card shadow-sm min-[560px]:grid-cols-[minmax(13rem,17rem)_minmax(0,1fr)]">
+      <div className="relative min-h-52 overflow-hidden bg-slate-950 min-[560px]:min-h-64">
+        {imageVisible ? (
+          <img
+            src={faceApi.admin.evidenceImageUrl(item.evidenceId)}
+            alt={`Face evidence for ${employeeName ?? "employee"}`}
+            loading="lazy"
+            onError={() => setImageFailed(true)}
+            className="absolute inset-0 h-full w-full object-contain"
+          />
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-muted text-sm text-muted-foreground">
+            <ImageOff className="size-6" />
+            <span>{imageFailed ? "Image could not be loaded" : "Image expired"}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="min-w-0 space-y-4 p-4 sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <div className="font-semibold capitalize">
+              {item.purpose.replaceAll("_", " ").toLowerCase()}
+            </div>
+            <div className="mt-1 text-sm text-muted-foreground">
+              {new Date(item.capturedAt).toLocaleString("en-IN")}
+            </div>
+          </div>
+          <Badge
+            variant="outline"
+            className={
+              mismatch
+                ? "border-red-300 bg-red-50 text-red-800"
+                : item.outcome === "PASSED"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  : undefined
+            }
+          >
+            {mismatch ? "FACE MISMATCH" : item.outcome}
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 text-sm min-[420px]:grid-cols-4 min-[560px]:grid-cols-2 lg:grid-cols-4">
+          {[
+            ["Face", item.faceConfidence],
+            ["Liveness", item.livenessScore],
+            ["Anti-spoof", item.antiSpoofScore],
+            ["Match", item.similarityScore],
+          ].map(([label, score]) => (
+            <div key={String(label)} className="rounded-xl bg-muted/55 p-2.5">
+              <div className="text-xs text-muted-foreground">{label}</div>
+              <div className="mt-1 font-semibold tabular-nums">
+                {typeof score === "number" ? `${Math.round(score * 100)}%` : "—"}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {item.locationAccuracy !== null && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <MapPin className="size-4 shrink-0" />
+            GPS accuracy: {Math.round(item.locationAccuracy)} m
+          </div>
+        )}
+
+        {item.failureReason && (
+          <div className="break-words rounded-xl border border-red-200 bg-red-50 p-3 text-sm leading-5 text-red-800">
+            {item.failureReason}
+          </div>
+        )}
+      </div>
+    </article>
   );
 }

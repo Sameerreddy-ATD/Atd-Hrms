@@ -96,6 +96,12 @@ npm run db:audit
 The repository currently permits known `react-refresh/only-export-components` warnings in shared
 UI/auth modules; lint errors are blocking.
 
+`npm audit fix` may apply compatible lockfile security updates. Never use `--force` without a
+reviewed migration and regression test: npm currently proposes breaking major-version changes for
+the remaining ExcelJS/ESLint transitive `brace-expansion` advisory. The application does not expose
+a user-controlled glob interface, but release owners must continue monitoring the upstream
+ExcelJS/archive chain and replace it when a compatible fix is published.
+
 ## Test Matrix
 
 | Command                     | Scope                                                                       | Data impact                                               |

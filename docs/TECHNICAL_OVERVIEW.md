@@ -21,6 +21,19 @@ flowchart LR
 
 The frontend never connects directly to MySQL. Authorization and object-level access are enforced by Express before Prisma queries run.
 
+## Technology Stack
+
+| Concern                  | Technology and responsibility                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------- |
+| Browser UI               | React 19, TanStack Start/Router, TypeScript 5.9, Vite 8 and Tailwind CSS 4            |
+| Accessible UI primitives | Radix UI, shared responsive dialogs/tables, Lucide icons and Recharts                 |
+| API and validation       | Node.js 22, Express 4, Zod 3 and rate-limited JSON endpoints                          |
+| Persistence              | MySQL 8, Prisma 6 schema/migrations and transactional writes                          |
+| Authentication           | bcrypt password hashing, signed JWT cookies, origin validation and backend RBAC       |
+| Live application state   | Authenticated Server-Sent Events, Web Push and service-worker PWA support             |
+| Face verification        | Self-hosted Human 3 WebGL models, one-time challenges and encrypted server storage    |
+| Verification             | Vitest 4, Playwright, ESLint 9, Prettier 3, TypeScript and repository/database audits |
+
 The same runtime can be hosted on one Ubuntu VM or split into frontend, backend, and managed MySQL
 services. The container contract, secrets inventory, proxy settings, and receiving-company
 acceptance process are documented in [Third-Party Technical Handover](THIRD_PARTY_HANDOVER.md).
@@ -57,9 +70,12 @@ Supported AWS patterns and their scaling constraints are documented in
 2. Normal accounts lock after five consecutive failures; a successful login resets the counter.
 3. Access and refresh JWTs are placed in HTTP-only cookies.
 4. First-login users must replace the temporary password and are automatically authenticated afterward.
-5. Every account must submit and obtain approval for face registration.
-6. Backend middleware blocks protected APIs until `face_profiles.status = APPROVED`; the frontend
-   full-screen gate is a matching UX control, not the security boundary.
+5. When Developer Admin enables employee face verification, every normal account must submit and
+   obtain approval for face registration. Developer Admin remains exempt.
+6. While enabled, backend middleware blocks protected APIs until
+   `face_profiles.status = APPROVED`; the frontend full-screen gate mirrors that policy. When
+   verification is paused, normal access and GPS-only attendance continue without deleting
+   approved templates.
 7. `/auth/restore` restores eligible sessions from the refresh cookie.
 8. Suspended, inactive, and locked accounts cannot restore a browser session.
 
