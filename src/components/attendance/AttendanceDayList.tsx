@@ -30,8 +30,15 @@ function WorkedTime({ record }: { record: AttendanceRecord }) {
 
   useEffect(() => {
     if (!isOpenToday) return;
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
+    const tick = () => {
+      if (document.visibilityState === "visible") setNow(Date.now());
+    };
+    const timer = window.setInterval(tick, 1000);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", tick);
+    };
   }, [isOpenToday]);
 
   if (record.hasMissedCheckout || (record.hasMissingOutEvent && !isOpenToday)) {

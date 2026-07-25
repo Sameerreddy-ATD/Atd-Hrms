@@ -47,6 +47,7 @@ function AppLayout() {
     }
     let active = true;
     const refreshFacePolicy = async () => {
+      if (document.visibilityState !== "visible") return;
       try {
         const status = await faceApi.status();
         if (active) {
@@ -61,10 +62,18 @@ function AppLayout() {
       }
     };
     void refreshFacePolicy();
-    const timer = window.setInterval(() => void refreshFacePolicy(), 10_000);
+    // Policy rarely changes — avoid 10s polling on mobile data.
+    const timer = window.setInterval(() => void refreshFacePolicy(), 120_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refreshFacePolicy();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
     return () => {
       active = false;
       window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
     };
   }, [userId, userRole]);
 
@@ -89,7 +98,7 @@ function AppLayout() {
 
   if (loading || !user || user.mustChangePassword) {
     return (
-      <div className="flex min-h-[100dvh] items-center justify-center bg-background px-3 py-[env(safe-area-inset-top)] sm:px-4">
+      <div className="flex min-h-[100dvh] items-center justify-center bg-gradient-to-b from-muted/40 via-background to-background px-3 py-[env(safe-area-inset-top)] sm:px-4">
         <LoadingState
           label="Preparing your workspace"
           showBrandStory
@@ -101,7 +110,7 @@ function AppLayout() {
 
   if (faceRequired === null) {
     return (
-      <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 bg-background px-4 py-[env(safe-area-inset-top)]">
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 bg-gradient-to-b from-muted/40 via-background to-background px-4 py-[env(safe-area-inset-top)]">
         <LoadingState
           label={facePolicyError ? "Security policy unavailable" : "Checking security policy"}
           showBrandStory
@@ -140,7 +149,15 @@ function AppLayout() {
   }
 
   if (allowedModules === null) {
-    return <LoadingState label="Loading module access" className="min-h-screen min-h-[100dvh]" />;
+    return (
+      <div className="flex min-h-[100dvh] items-center justify-center bg-gradient-to-b from-muted/40 via-background to-background px-3 py-[env(safe-area-inset-top)] sm:px-4">
+        <LoadingState
+          label="Loading module access"
+          showBrandStory
+          className="min-h-screen min-h-[100dvh]"
+        />
+      </div>
+    );
   }
 
   const activeModule = moduleForRoute(pathname);
@@ -171,7 +188,7 @@ function AppLayout() {
           <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden bg-background p-4 text-card-foreground sm:rounded-xl sm:border sm:border-border/80 sm:p-5 sm:shadow-sm lg:p-6">
             {moduleBlocked ? (
               <div className="m-auto flex max-w-md flex-col items-center px-4 py-12 text-center">
-                <span className="grid h-12 w-12 place-items-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                <span className="grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
                   <ShieldX className="h-6 w-6" />
                 </span>
                 <h1 className="mt-4 text-xl font-semibold">Module access is disabled</h1>

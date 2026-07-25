@@ -81,7 +81,6 @@ function NotificationsPage() {
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
     window.addEventListener("focus", refreshAlertStatus);
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    const intervalId = window.setInterval(refreshAlertStatus, 5000);
 
     loadNotifications()
       .catch((err) => setError((err as Error).message))
@@ -91,7 +90,6 @@ function NotificationsPage() {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
       window.removeEventListener("focus", refreshAlertStatus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.clearInterval(intervalId);
     };
   }, [loadNotifications, refreshAlertStatus]);
 

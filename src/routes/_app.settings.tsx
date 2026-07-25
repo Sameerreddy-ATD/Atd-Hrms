@@ -179,7 +179,9 @@ function SettingsPage() {
   useEffect(() => {
     if (!isDeveloperAdmin) return;
     void refreshHealth();
-    const intervalId = window.setInterval(() => void refreshHealth(), 30_000);
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") void refreshHealth();
+    }, 60_000);
     return () => window.clearInterval(intervalId);
   }, [isDeveloperAdmin, refreshHealth]);
 

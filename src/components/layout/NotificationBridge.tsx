@@ -51,9 +51,14 @@ export function NotificationBridge() {
     }
 
     void syncNotifications();
+    // Prefer live SSE; slow fallback only when the tab is visible.
     const intervalId = window.setInterval(() => {
-      void syncNotifications();
-    }, 60000);
+      if (document.visibilityState === "visible") void syncNotifications();
+    }, 180_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void syncNotifications();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     const unsubscribe = subscribeToNotificationChanges(() => {
       window.dispatchEvent(new Event(NOTIFICATION_COUNT_CHANGED_EVENT));
       void syncNotifications();
@@ -62,6 +67,7 @@ export function NotificationBridge() {
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisible);
       unsubscribe();
     };
   }, [user]);

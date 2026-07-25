@@ -1,4 +1,4 @@
-self.ATD_STATIC_CACHE = "atd-static-v4";
+self.ATD_STATIC_CACHE = "atd-static-v5";
 self.ATD_SHELL_ASSETS = [
   "/manifest.webmanifest",
   "/atd-logo.png",
@@ -31,6 +31,21 @@ self.addEventListener("activate", (event) => {
     ]),
   );
 });
+
+function cacheFirst(request) {
+  return caches.match(request).then((cached) => {
+    const network = fetch(request)
+      .then((response) => {
+        if (response.ok) {
+          const copy = response.clone();
+          void caches.open(self.ATD_STATIC_CACHE).then((cache) => cache.put(request, copy));
+        }
+        return response;
+      })
+      .catch(() => cached);
+    return cached ?? network;
+  });
+}
 
 self.addEventListener("fetch", (event) => {
   const request = event.request;
@@ -71,6 +86,16 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Face models + login mascots are large; serve from cache after first download.
+  const heavyStatic =
+    url.pathname.startsWith("/face-models/") ||
+    url.pathname.startsWith("/login-crew-mascot") ||
+    url.pathname.startsWith("/fonts/");
+  if (heavyStatic || request.destination === "image") {
+    event.respondWith(cacheFirst(request));
+    return;
+  }
+
   const networkFirstDestination = ["script", "style", "font"].includes(request.destination);
   if (networkFirstDestination || url.pathname === "/manifest.webmanifest") {
     event.respondWith(
@@ -87,24 +112,7 @@ self.addEventListener("fetch", (event) => {
           return cached ?? new Response("Asset unavailable while offline", { status: 503 });
         }),
     );
-    return;
   }
-
-  const cacheableDestination = request.destination === "image";
-  if (!cacheableDestination) return;
-
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      const network = fetch(request).then((response) => {
-        if (response.ok) {
-          const copy = response.clone();
-          void caches.open(self.ATD_STATIC_CACHE).then((cache) => cache.put(request, copy));
-        }
-        return response;
-      });
-      return cached ?? network;
-    }),
-  );
 });
 
 self.addEventListener("push", (event) => {

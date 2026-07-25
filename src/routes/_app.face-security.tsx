@@ -79,8 +79,8 @@ function FaceSecurityPage() {
       .catch((error) => toast.error((error as Error).message))
       .finally(() => setLoading(false));
     const timer = window.setInterval(() => {
-      void refresh().catch(() => undefined);
-    }, 15_000);
+      if (document.visibilityState === "visible") void refresh().catch(() => undefined);
+    }, 45_000);
     return () => window.clearInterval(timer);
   }, []);
 

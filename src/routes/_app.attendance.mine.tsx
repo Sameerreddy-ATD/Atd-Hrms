@@ -190,12 +190,16 @@ function MyAttendancePage() {
 
   useEffect(() => {
     if (!user) return;
-    const refresh = () => void load(false);
-    const interval = window.setInterval(refresh, 15000);
+    const refresh = () => {
+      if (document.visibilityState === "visible") void load(false);
+    };
+    const interval = window.setInterval(refresh, 45_000);
     window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
     return () => {
       window.clearInterval(interval);
       window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
     };
   }, [load, user]);
 

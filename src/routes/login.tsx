@@ -13,6 +13,11 @@ import { Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export const Route = createFileRoute("/login")({
+  head: () => ({
+    links: [
+      { rel: "preload", href: "/login-crew-mascot.png", as: "image", type: "image/png" },
+    ],
+  }),
   component: LoginPage,
 });
 

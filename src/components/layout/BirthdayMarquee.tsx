@@ -109,9 +109,11 @@ export function BirthdayMarquee() {
 
   useEffect(() => {
     if (!api || celebrants.length <= 1) return;
-    const timer = window.setInterval(() => {
-      api.scrollNext();
-    }, 5500);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const tick = () => {
+      if (document.visibilityState === "visible") api.scrollNext();
+    };
+    const timer = window.setInterval(tick, 5500);
     return () => window.clearInterval(timer);
   }, [api, celebrants.length]);
 

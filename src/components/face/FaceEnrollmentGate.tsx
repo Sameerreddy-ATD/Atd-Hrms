@@ -46,8 +46,17 @@ export function FaceEnrollmentGate() {
         // A temporary network failure should not unlock or dismiss the gate.
       }
     };
-    const timer = window.setInterval(() => void refresh(), 10_000);
-    return () => window.clearInterval(timer);
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void refresh();
+    }, 30_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [user?.faceEnrollmentStatus, updateCurrentUser]);
 
   const startEnrollment = async () => {
@@ -84,22 +93,22 @@ export function FaceEnrollmentGate() {
   const rejected = user?.faceEnrollmentStatus === "REJECTED";
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto bg-[radial-gradient(circle_at_top_left,#eff6ff_0%,#f8fafc_40%,#eef2ff_100%)] px-3 py-[max(1rem,env(safe-area-inset-top))] sm:px-6 sm:py-8">
+    <div className="fixed inset-0 z-[100] overflow-y-auto bg-gradient-to-b from-muted/40 via-background to-background px-3 py-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-8">
       <div className="mx-auto flex min-h-full w-full max-w-5xl items-center justify-center">
-        <section className="grid w-full overflow-hidden rounded-[1.75rem] border border-white/80 bg-white shadow-[0_24px_80px_rgba(15,23,42,.16)] lg:grid-cols-[.82fr_1.18fr]">
-          <aside className="relative overflow-hidden bg-slate-950 p-6 text-white sm:p-9">
-            <div className="absolute -right-20 -top-24 size-64 rounded-full bg-blue-500/25 blur-3xl" />
+        <section className="grid w-full overflow-hidden rounded-xl border border-border/80 bg-card text-card-foreground shadow-sm lg:grid-cols-[.82fr_1.18fr]">
+          <aside className="relative overflow-hidden bg-foreground p-6 text-background sm:p-9">
+            <div className="absolute -right-20 -top-24 size-64 rounded-full bg-primary/25 blur-3xl" />
             <div className="relative">
-              <div className="flex size-12 items-center justify-center rounded-2xl bg-blue-500 shadow-lg shadow-blue-950/30">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
                 <Fingerprint className="size-7" />
               </div>
-              <p className="mt-6 text-xs font-semibold uppercase tracking-[.18em] text-blue-300">
+              <p className="mt-6 text-xs font-semibold uppercase tracking-[.18em] text-primary">
                 Secure account activation
               </p>
               <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
                 Register your face to continue
               </h1>
-              <p className="mt-3 max-w-md text-sm leading-6 text-slate-300">
+              <p className="mt-3 max-w-md text-sm leading-6 text-background/70">
                 This one-time setup protects your account and makes every mobile attendance punch
                 verifiable.
               </p>
@@ -128,12 +137,12 @@ export function FaceEnrollmentGate() {
                   },
                 ].map(({ icon: Icon, title, body }) => (
                   <div key={title} className="flex gap-3">
-                    <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-white/10">
-                      <Icon className="size-4 text-blue-300" />
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-background/10">
+                      <Icon className="size-4 text-primary" />
                     </div>
                     <div>
                       <div className="font-semibold">{title}</div>
-                      <div className="mt-0.5 text-xs leading-5 text-slate-400">{body}</div>
+                      <div className="mt-0.5 text-xs leading-5 text-background/60">{body}</div>
                     </div>
                   </div>
                 ))}
@@ -145,10 +154,10 @@ export function FaceEnrollmentGate() {
             {session ? (
               <>
                 <div className="mb-4">
-                  <p className="text-xs font-semibold uppercase tracking-[.16em] text-blue-600">
+                  <p className="text-xs font-semibold uppercase tracking-[.16em] text-primary">
                     Live verification
                   </p>
-                  <h2 className="mt-1 text-xl font-bold text-slate-950">
+                  <h2 className="mt-1 text-xl font-bold tracking-tight text-foreground">
                     Follow the camera prompt
                   </h2>
                 </div>
@@ -160,15 +169,17 @@ export function FaceEnrollmentGate() {
               </>
             ) : pending ? (
               <div className="m-auto max-w-md text-center">
-                <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-amber-100">
-                  <Clock3 className="size-8 text-amber-700" />
+                <div className="mx-auto flex size-16 items-center justify-center rounded-xl bg-amber-500/15 text-amber-700 dark:text-amber-400">
+                  <Clock3 className="size-8" />
                 </div>
-                <h2 className="mt-5 text-2xl font-bold text-slate-950">Registration submitted</h2>
-                <p className="mt-3 text-sm leading-6 text-slate-600">
+                <h2 className="mt-5 text-2xl font-bold tracking-tight text-foreground">
+                  Registration submitted
+                </h2>
+                <p className="mt-3 text-sm leading-6 text-muted-foreground">
                   A Developer Admin must approve your face registration. This page checks
                   automatically, so you can leave it open.
                 </p>
-                <div className="mt-6 flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+                <div className="mt-6 flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
                   <span className="size-2 animate-pulse rounded-full bg-amber-500" />
                   Waiting for approval
                 </div>
@@ -180,28 +191,28 @@ export function FaceEnrollmentGate() {
             ) : (
               <div className="m-auto w-full max-w-lg">
                 <div className="flex items-center gap-3">
-                  <div className="flex size-11 items-center justify-center rounded-2xl bg-emerald-100">
-                    <ShieldCheck className="size-6 text-emerald-700" />
+                  <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <ShieldCheck className="size-6" />
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[.14em] text-slate-500">
+                    <p className="text-xs font-semibold uppercase tracking-[.14em] text-muted-foreground">
                       Signed in as
                     </p>
-                    <h2 className="font-bold text-slate-950">{user?.name}</h2>
+                    <h2 className="font-bold tracking-tight text-foreground">{user?.name}</h2>
                   </div>
                 </div>
 
                 {rejected && (
-                  <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+                  <div className="mt-6 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
                     <div className="font-semibold">Registration needs to be repeated</div>
-                    <p className="mt-1">
+                    <p className="mt-1 text-destructive/90">
                       {user?.faceEnrollmentReason ??
                         "The previous capture could not be approved. Please submit a clearer capture."}
                     </p>
                   </div>
                 )}
 
-                <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="mt-6 rounded-xl border border-border/80 bg-muted/40 p-4">
                   <label className="flex cursor-pointer items-start gap-3">
                     <input
                       type="checkbox"
@@ -210,21 +221,21 @@ export function FaceEnrollmentGate() {
                         setConsent(event.target.checked);
                         setError(null);
                       }}
-                      className="mt-1 size-4 rounded border-slate-300 accent-blue-600"
+                      className="mt-1 size-4 rounded border-border accent-primary"
                     />
-                    <span className="text-sm leading-6 text-slate-700">{consentText}</span>
+                    <span className="text-sm leading-6 text-foreground/90">{consentText}</span>
                   </label>
                 </div>
 
                 {error && (
-                  <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                  <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
                     {error}
                   </div>
                 )}
 
                 <Button
                   size="lg"
-                  className="mt-5 h-12 w-full rounded-xl bg-blue-600 text-base hover:bg-blue-700"
+                  className="mt-5 h-12 w-full rounded-xl text-base"
                   disabled={starting}
                   onClick={() => void startEnrollment()}
                 >
@@ -234,11 +245,11 @@ export function FaceEnrollmentGate() {
                       ? "Register again"
                       : "Start registration"}
                 </Button>
-                <div className="mt-4 flex items-center justify-center gap-2 text-xs text-slate-500">
-                  <CheckCircle2 className="size-3.5 text-emerald-600" />
+                <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                  <CheckCircle2 className="size-3.5 text-primary" />
                   Use a well-lit area and remove masks or dark glasses.
                 </div>
-                <Button variant="ghost" className="mt-3 w-full text-slate-600" onClick={logout}>
+                <Button variant="ghost" className="mt-3 w-full" onClick={logout}>
                   Sign out
                 </Button>
               </div>
