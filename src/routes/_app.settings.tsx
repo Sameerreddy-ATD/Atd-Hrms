@@ -240,7 +240,46 @@ function SettingsPage() {
             </div>
           </CardHeader>
           <CardContent className="p-4 sm:p-5">
-            <div className="overflow-x-auto rounded-md border">
+            <div className="space-y-3 md:hidden">
+              {Object.entries(BACKEND_ROLE_TO_UI).map(([backendRole, uiRole]) => {
+                const immutable = backendRole === "DEVELOPER_ADMIN";
+                return (
+                  <div key={backendRole} className="rounded-lg border bg-background p-3">
+                    <p className="text-sm font-semibold">{ROLE_LABELS[uiRole]}</p>
+                    <div className="mt-3 space-y-2">
+                      {moduleKeys.map((module) => {
+                        const enabled =
+                          immutable || (moduleMatrix[backendRole] ?? []).includes(module);
+                        return (
+                          <div
+                            key={module}
+                            className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-3 py-2"
+                          >
+                            <span className="min-w-0 text-sm">{MODULE_LABELS[module]}</span>
+                            <Switch
+                              checked={enabled}
+                              disabled={immutable || moduleAccessSaving}
+                              aria-label={`${ROLE_LABELS[uiRole]} ${MODULE_LABELS[module]}`}
+                              onCheckedChange={(checked) =>
+                                setModuleMatrix((current) => ({
+                                  ...current,
+                                  [backendRole]: checked
+                                    ? [...new Set([...(current[backendRole] ?? []), module])]
+                                    : (current[backendRole] ?? []).filter(
+                                        (item) => item !== module,
+                                      ),
+                                }))
+                              }
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="hidden overflow-x-auto rounded-md border md:block">
               <table className="w-full min-w-[760px] text-sm">
                 <thead className="bg-muted/50 text-left">
                   <tr>
@@ -289,6 +328,7 @@ function SettingsPage() {
             </div>
             <div className="mt-4 flex justify-end">
               <Button
+                className="w-full sm:w-auto"
                 disabled={moduleAccessSaving || moduleKeys.length === 0}
                 onClick={() => {
                   setModuleAccessSaving(true);

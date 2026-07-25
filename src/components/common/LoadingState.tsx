@@ -25,7 +25,7 @@ export function LoadingState({
     >
       <div
         className={cn(
-          "flex min-w-0 flex-col items-center gap-3 text-center",
+          "flex min-w-0 flex-col items-center gap-3 text-center animate-in fade-in zoom-in-95 duration-500",
           showBrandStory ? "w-full max-w-3xl px-1 sm:px-0" : "max-w-xs",
         )}
       >
@@ -46,7 +46,9 @@ export function LoadingState({
         <div>
           {showBrandStory && (
             <>
-              <p className="text-lg font-semibold text-foreground sm:text-xl">Anytime Diesel</p>
+              <p className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+                Anytime Diesel
+              </p>
               <p className="mx-auto mt-1 max-w-[19rem] text-sm font-medium leading-5 text-primary sm:max-w-none sm:text-base">
                 Powering India&apos;s Growth, One Litre at a Time.
               </p>
@@ -58,12 +60,20 @@ export function LoadingState({
           )}
           <p
             className={cn(
-              "text-sm font-medium text-foreground sm:text-base",
+              "text-sm font-medium tracking-tight text-foreground sm:text-base",
               showBrandStory && "mt-3 sm:mt-4",
             )}
           >
             {label}
           </p>
+          <div className="loading-progress mx-auto" aria-hidden="true">
+            <span className="loading-progress__bar" />
+          </div>
+          <div className="loading-dots justify-center" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </div>
         </div>
       </div>
       <span className="sr-only">Please wait.</span>

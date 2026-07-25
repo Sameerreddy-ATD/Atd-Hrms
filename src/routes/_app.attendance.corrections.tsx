@@ -26,6 +26,16 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  ResponsiveListShell,
+  MobileList,
+  MobileListItem,
+  MobileListHeader,
+  MobileListFields,
+  MobileListField,
+  MobileListActions,
+  DesktopTable,
+} from "@/components/common/ResponsiveList";
 import { attendanceApi } from "@/services/api";
 import type { AttendanceRecord } from "@/types/domain";
 import { useAuth } from "@/lib/auth";
@@ -412,8 +422,58 @@ function AttendanceCorrectionsPage() {
           {loading && <LoadingState label="Loading system alerts" compact />}
           {error && <p className="text-sm text-destructive">{error}</p>}
 
-          <div className="overflow-hidden rounded-lg border border-border bg-card">
-            <div className="overflow-x-auto">
+          <ResponsiveListShell>
+            <MobileList>
+              {rows.map((row) => (
+                <MobileListItem key={row.id} intrinsicSize="200px">
+                  <MobileListHeader
+                    title={row.employeeName}
+                    meta={row.employeeId}
+                    trailing={<StatusBadge status={row.status} />}
+                  />
+                  <MobileListFields>
+                    <MobileListField label="Date" value={row.date} />
+                    <MobileListField label="Source" value={row.source} />
+                    <MobileListField label="Punch In" value={row.punchIn ?? "-"} />
+                    <MobileListField label="Punch Out" value={row.punchOut ?? "-"} />
+                  </MobileListFields>
+                  <MobileListActions>
+                    <Button
+                      className="w-full"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openDayLogs(row.employeeId, row.employeeName, row.date)}
+                    >
+                      Open Day Logs <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                    </Button>
+                    {canHrCorrect &&
+                      (row.status.includes("Missed Punch") ||
+                        row.status.includes("Missed Checkout")) && (
+                        <Button
+                          className="w-full"
+                          size="sm"
+                          disabled={actionId === row.id}
+                          onClick={() => setPunchOutTarget(row)}
+                        >
+                          Add punch out
+                        </Button>
+                      )}
+                    {canRecalculate && (
+                      <Button
+                        className="w-full"
+                        size="sm"
+                        variant="outline"
+                        disabled={actionId === row.id}
+                        onClick={() => recalculate(row)}
+                      >
+                        Recalculate
+                      </Button>
+                    )}
+                  </MobileListActions>
+                </MobileListItem>
+              ))}
+            </MobileList>
+            <DesktopTable>
               <Table className="min-w-[760px]">
                 <TableHeader>
                   <TableRow>
@@ -476,7 +536,7 @@ function AttendanceCorrectionsPage() {
                   ))}
                 </TableBody>
               </Table>
-            </div>
+            </DesktopTable>
             {!loading && rows.length === 0 && (
               <div className="p-6">
                 <EmptyState
@@ -485,7 +545,7 @@ function AttendanceCorrectionsPage() {
                 />
               </div>
             )}
-          </div>
+          </ResponsiveListShell>
         </TabsContent>
       </Tabs>
 

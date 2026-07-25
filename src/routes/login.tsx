@@ -77,7 +77,7 @@ function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-8">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-muted/30 px-4 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))]">
       <div className="min-w-0 w-full max-w-md space-y-8">
         <div className="flex min-w-0 justify-center overflow-hidden">
           <Logo className="h-auto w-36 sm:w-44" />

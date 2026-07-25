@@ -26,7 +26,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { AttendanceRecord, AttendanceTimelineEvent, Branch, User } from "@/types/domain";
-import { attendanceApi, branchesApi, employeesApi, reportsApi } from "@/services/api";
+import { attendanceApi, branchesApi, employeesApi } from "@/services/api";
 import { downloadCsv, downloadAttendanceExcel } from "@/lib/csv";
 import {
   movementEventLabel,
@@ -123,16 +123,19 @@ function DayLogsPage() {
     attendanceApi
       .list({
         employeeId: selectedEmployeeId !== "all" ? selectedEmployeeId : undefined,
-        from: selectedEmployeeId === "all" ? from : undefined,
-        to: selectedEmployeeId === "all" ? to : undefined,
+        from: from || undefined,
+        to: to || undefined,
         branchId: selectedEmployeeId === "all" && branchId !== "all" ? branchId : undefined,
         limit: "none",
       })
       .then((rows) => {
-        const filtered = rows.filter((row) => {
-          const emp = employees.find((e) => (e.employeeId || e.id) === row.employeeId);
-          return emp && emp.role !== "developer_admin" && emp.role !== "main_admin";
-        });
+        const filtered =
+          employees.length === 0
+            ? rows
+            : rows.filter((row) => {
+                const emp = employees.find((e) => (e.employeeId || e.id) === row.employeeId);
+                return emp && emp.role !== "developer_admin" && emp.role !== "main_admin";
+              });
         setEmployeeRows(
           [...filtered].sort(
             (a, b) => b.date.localeCompare(a.date) || a.employeeName.localeCompare(b.employeeName),
@@ -233,7 +236,7 @@ function DayLogsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className={selectedEmployeeId === "all" ? "space-y-1.5" : "hidden"}>
+            <div className="space-y-1.5">
               <Label>From</Label>
               <Input
                 type="date"
@@ -246,7 +249,7 @@ function DayLogsPage() {
                 }}
               />
             </div>
-            <div className={selectedEmployeeId === "all" ? "space-y-1.5" : "hidden"}>
+            <div className="space-y-1.5">
               <Label>To</Label>
               <Input
                 type="date"
@@ -279,7 +282,7 @@ function DayLogsPage() {
 
       <Card>
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+          <div className="min-w-0">
             <CardTitle className="text-sm">Employee Day-wise Logs</CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
               Clear per-day attendance records for{" "}
@@ -302,14 +305,17 @@ function DayLogsPage() {
               )}
             </p>
           </div>
-          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-            <div className="inline-flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground">
-              <CalendarRange className="h-3.5 w-3.5" />
-              {selectedEmployeeId === "all" ? `${from} to ${to}` : "All available dates"}
+          <div className="flex w-full flex-col gap-2 min-[420px]:flex-row min-[420px]:flex-wrap min-[420px]:items-center sm:w-auto sm:justify-end">
+            <div className="inline-flex w-full items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground min-[420px]:w-auto">
+              <CalendarRange className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">
+                {from && to ? `${from} to ${to}` : from || to || "Select date range"}
+              </span>
             </div>
             <Button
               size="sm"
               variant="outline"
+              className="w-full min-[420px]:w-auto"
               disabled={employeeRows.length === 0}
               onClick={() =>
                 downloadAttendanceExcel(

@@ -25,6 +25,16 @@ import type { AttendanceRecord, Branch } from "@/types/domain";
 import { attendanceApi, branchesApi } from "@/services/api";
 import { punchSourceLabel } from "@/lib/attendance-labels";
 import { formatStoredWorkedTime } from "@/lib/worked-time";
+import {
+  ResponsiveListShell,
+  MobileList,
+  MobileListItem,
+  MobileListHeader,
+  MobileListFields,
+  MobileListField,
+  MobileListActions,
+  DesktopTable,
+} from "@/components/common/ResponsiveList";
 import { ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/_app/attendance/branch")({
@@ -118,8 +128,59 @@ function BranchAttendancePage() {
       </TableToolbar>
       {loading && <LoadingState label="Loading branch attendance" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
-        <div className="overflow-x-auto">
+      <ResponsiveListShell>
+        <MobileList>
+          {rows.map((r) => (
+            <MobileListItem key={r.id} intrinsicSize="200px">
+              <MobileListHeader
+                title={r.employeeName}
+                meta={r.employeeId}
+                trailing={<StatusBadge status={r.status} />}
+              />
+              <MobileListFields>
+                <MobileListField label="Date" value={r.date} />
+                <MobileListField label="Home Branch" value={branchName(r.homeBranchId)} />
+                <MobileListField
+                  label="Punch In"
+                  value={
+                    <>
+                      <span>{r.punchIn ?? "-"}</span>
+                      <span className="mt-0.5 block text-[11px] font-semibold text-muted-foreground">
+                        {punchSourceLabel(r.punchInSource, r.punchInBranchId, branches)}
+                      </span>
+                    </>
+                  }
+                />
+                <MobileListField
+                  label="Punch Out"
+                  value={
+                    <>
+                      <span>{r.punchOut ?? "-"}</span>
+                      <span className="mt-0.5 block text-[11px] font-semibold text-muted-foreground">
+                        {punchSourceLabel(r.punchOutSource, r.punchOutBranchId, branches)}
+                      </span>
+                    </>
+                  }
+                />
+                <MobileListField
+                  label="Worked Time"
+                  value={formatStoredWorkedTime(r.totalHours, r.workedMinutes)}
+                />
+              </MobileListFields>
+              <MobileListActions>
+                <Button
+                  className="w-full"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => openDayLogs(r)}
+                >
+                  Open Day Logs <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                </Button>
+              </MobileListActions>
+            </MobileListItem>
+          ))}
+        </MobileList>
+        <DesktopTable>
           <Table className="min-w-[860px]">
             <TableHeader>
               <TableRow>
@@ -130,6 +191,7 @@ function BranchAttendancePage() {
                 <TableHead>Punch Out</TableHead>
                 <TableHead>Worked Time</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -159,17 +221,22 @@ function BranchAttendancePage() {
                   <TableCell>
                     <StatusBadge status={r.status} />
                   </TableCell>
+                  <TableCell className="text-right">
+                    <Button size="sm" variant="outline" onClick={() => openDayLogs(r)}>
+                      Open Day Logs <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-        </div>
+        </DesktopTable>
         {!loading && rows.length === 0 && (
           <div className="p-6 text-sm text-muted-foreground">
             No branch attendance records found.
           </div>
         )}
-      </div>
+      </ResponsiveListShell>
     </div>
   );
 }

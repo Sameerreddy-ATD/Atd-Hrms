@@ -609,7 +609,7 @@ function AssetsPage() {
             ))}
           </div>
           <div className="hidden overflow-x-auto md:block">
-            <Table className="min-w-[1180px]">
+            <Table className="min-w-[960px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Asset ID</TableHead>

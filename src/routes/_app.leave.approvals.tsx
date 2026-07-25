@@ -27,6 +27,8 @@ import {
 import type { LeaveRequest, WeeklyOffRequest } from "@/types/domain";
 import { employeesApi, leaveApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
+import { StatCard } from "@/components/common/StatCard";
+import { CalendarClock, CheckCircle2, Clock3 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/leave/approvals")({
   component: LeaveApprovalsPage,
@@ -121,6 +123,23 @@ function LeaveApprovalsPage() {
       />
       {loading && <LoadingState label="Loading leave approvals" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
+      {!loading && (
+        <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <StatCard label="Pending leave" value={rows.length} icon={Clock3} tone="warning" />
+          <StatCard
+            label="Pending weekly off"
+            value={weeklyOffs.filter((request) => request.status === "PENDING").length}
+            icon={CalendarClock}
+            tone="info"
+          />
+          <StatCard
+            label="Approved leave"
+            value={history.filter((request) => request.status === "Approved").length}
+            icon={CheckCircle2}
+            tone="success"
+          />
+        </section>
+      )}
       <section className="mb-7">
         <h2 className="mb-3 text-base font-semibold">Weekly-off approvals</h2>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -244,17 +263,19 @@ function LeaveApprovalsPage() {
                   )}
                 </div>
               )}
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setConfirm({ id: leave.id, action: "Rejected" })}
-                >
-                  Reject
-                </Button>
-                <Button onClick={() => setConfirm({ id: leave.id, action: "Approved" })}>
-                  Approve
-                </Button>
-              </div>
+              {canApprove && leave.status === "Pending" && (
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setConfirm({ id: leave.id, action: "Rejected" })}
+                  >
+                    Reject
+                  </Button>
+                  <Button onClick={() => setConfirm({ id: leave.id, action: "Approved" })}>
+                    Approve
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         ))}

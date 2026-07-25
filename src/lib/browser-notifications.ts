@@ -124,11 +124,22 @@ export async function showDesktopNotification(item: NotificationItem) {
   const registration = await navigator.serviceWorker.ready;
   await registration.showNotification(item.title, {
     body: item.desc,
-    icon: "/atd-logo.png",
+    icon: "/pwa-192.png",
     badge: "/atd-favicon.png",
     tag: item.id,
     data: { href: "/notifications" },
+    ...({
+      renotify: true,
+      vibrate: [80, 40, 80],
+    } as NotificationOptions),
   });
+  try {
+    if ("setAppBadge" in navigator) {
+      await (navigator as Navigator & { setAppBadge: (count?: number) => Promise<void> }).setAppBadge();
+    }
+  } catch {
+    // Optional badge support.
+  }
 }
 
 export async function enableDesktopAlerts() {

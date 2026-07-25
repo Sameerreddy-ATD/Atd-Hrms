@@ -24,12 +24,33 @@ The application uses responsive web and Progressive Web App behavior. The suppor
 
 ## Installed App Behavior
 
-- Add the application through Safari's Add to Home Screen on iOS or Chrome's Install/Add to Home Screen on Android.
-- Installed mode removes the normal browser address bar when the manifest and HTTPS requirements are satisfied.
+- Add the application through Safari's **Add to Home Screen** on iOS, Chrome/Edge **Install app**
+  on Android/Windows/macOS, or follow the in-app install banner after sign-in.
+- The web app manifest uses standalone display, maskable icons, launch handling for existing
+  windows, and shortcuts to Dashboard, My Attendance, Notifications, and Apply Leave.
+- Installed mode removes the normal browser address bar when the manifest and HTTPS requirements
+  are satisfied.
 - Authentication uses secure cookies; no production token is stored in local storage.
 - Closing and reopening the installed app should restore the session through the refresh cookie.
-- Web Push requires HTTPS, a valid VAPID configuration, an installed service worker, and user permission. iOS Web Push requires the site to be added to the Home Screen on a supported iOS version.
-- Open app sessions receive live attendance and announcement refresh through authenticated server-sent events.
+- Web Push requires HTTPS, a valid VAPID configuration, an installed service worker, and user
+  permission. iOS Web Push requires the site to be added to the Home Screen on iOS 16.4+ and opened
+  from that icon before alerts can be enabled.
+- Open app sessions receive live attendance and announcement refresh through authenticated
+  server-sent events.
+- Notification clicks open the Notifications screen; Android/desktop badges clear when that screen
+  is viewed. Offline navigation shows a branded reconnect message when the shell cache is empty.
+
+## Install Checklist By Platform
+
+| Platform | How employees install | Alerts |
+| -------- | --------------------- | ------ |
+| Android (Chrome / Samsung Internet) | Install app / Add to Home screen from browser or in-app banner | Enable Alerts after install for background push |
+| iPhone / iPad (Safari) | Share → Add to Home Screen, then open from the icon | Enable Alerts inside the installed app (iOS 16.4+) |
+| Windows (Chrome / Edge) | Install app from address bar or browser menu | Enable Alerts for desktop notifications |
+| macOS (Chrome / Edge / Safari) | Install / Add to Dock where available | Enable Alerts after opening the installed app |
+
+The in-app banner and Notifications page show platform-specific steps. Employees can dismiss the
+banner for two weeks; it does not appear when the app is already running in standalone mode.
 
 ## Face Registration and Camera Requirements
 
@@ -69,13 +90,15 @@ Test at minimum:
 - 1920 x 1080 desktop
 
 For every size verify no overlapping text, horizontal page overflow, clipped dialogs, inaccessible
-actions, undersized touch targets, or tables without horizontal scrolling. Test login, mandatory
-face registration, camera/location denial, movement challenge, pending/rejected approval, Developer
-Admin mismatch/evidence history, face-verified check-in, location-only checkout, live
-timer/cross-device checkout, leave
-submission, task details, employee/user lists, holidays, assets, announcements, notification
+actions, undersized touch targets, or primary list screens that require horizontal scrolling just
+to read key fields. Prefer the card layout on phones and the table layout from tablet width.
+Test login, mandatory face registration, camera/location denial, movement challenge,
+pending/rejected approval, Developer Admin mismatch/evidence history, face-verified check-in,
+location-only checkout, live timer/cross-device checkout, leave submission, task details (list,
+Kanban, and timeline on phone), employee/user lists, holidays, assets, announcements, notification
 permission, account-deactivation confirmation, expense attachment acknowledgement, and the
-Developer Admin integration credential panel.
+Developer Admin integration credential panel. Also confirm keyboard skip-to-content and visible
+focus rings on primary controls.
 
 ## Important Limitation
 

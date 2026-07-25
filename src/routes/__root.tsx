@@ -82,7 +82,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: SITE_TITLE },
       { name: "description", content: SITE_DESCRIPTION },
       {
@@ -90,10 +90,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "Anytime Diesel, employee management system, attendance management, leave management, biometric attendance, GPS attendance, tasks, assets",
       },
-      { name: "application-name", content: SITE_TITLE },
-      { name: "apple-mobile-web-app-title", content: SITE_TITLE },
+      { name: "application-name", content: "ATD Employees" },
+      { name: "apple-mobile-web-app-title", content: "ATD Employees" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       { name: "mobile-web-app-capable", content: "yes" },
-      { name: "theme-color", content: "#dc2f20" },
+      { name: "format-detection", content: "telephone=no" },
+      { name: "theme-color", content: "#dc2f20", media: "(prefers-color-scheme: light)" },
+      { name: "theme-color", content: "#1a1f2a", media: "(prefers-color-scheme: dark)" },
       { name: "robots", content: "noindex,nofollow" },
       { property: "og:site_name", content: SITE_TITLE },
       { property: "og:title", content: SITE_TITLE },
@@ -107,6 +111,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:image", content: SITE_IMAGE },
     ],
     links: [
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap",
+      },
       {
         rel: "stylesheet",
         href: appCss,
@@ -156,7 +166,7 @@ function RootComponent() {
         <Outlet />
         <SystemThemeSync />
         <NotificationBridge />
-        <Toaster position="top-right" />
+        <Toaster position="top-center" richColors closeButton />
       </AuthProvider>
     </QueryClientProvider>
   );

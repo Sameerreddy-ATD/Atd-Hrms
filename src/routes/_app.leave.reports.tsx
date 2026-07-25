@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -25,8 +25,9 @@ import { leaveApi } from "@/services/api";
 import type { LeaveRequest } from "@/types/domain";
 import { downloadCsv } from "@/lib/csv";
 import { useAuth } from "@/lib/auth";
-import { CalendarDays, CheckCircle2, Download } from "lucide-react";
+import { CalendarDays, CheckCircle2, Clock3, Download, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { StatCard } from "@/components/common/StatCard";
 
 export const Route = createFileRoute("/_app/leave/reports")({
   component: LeaveReportsPage,
@@ -64,7 +65,11 @@ function LeaveReportsPage() {
       .finally(() => setLoading(false));
   }, [statusFilter]);
 
-  const filteredRows = useMemo(() => rows, [rows]);
+  const filteredRows = rows;
+  const pendingCount = filteredRows.filter((row) => row.status === "Pending").length;
+  const approvedCount = filteredRows.filter((row) => row.status === "Approved").length;
+  const rejectedCount = filteredRows.filter((row) => row.status === "Rejected").length;
+  const showStatusBreakdown = statusFilter === "all";
 
   const csvRows = filteredRows.map((row) => ({
     employee: row.employeeName,
@@ -90,9 +95,43 @@ function LeaveReportsPage() {
         title="Leave Tracking"
         description="Read-only view of every leave request and its approval progress. HR can monitor the flow but cannot approve it here."
         actions={
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full sm:w-auto"
+            disabled={filteredRows.length === 0}
+            onClick={() => downloadCsv("leave-tracking.csv", csvRows)}
+          >
+            <Download className="mr-2 h-4 w-4" /> Export CSV
+          </Button>
+        }
+      />
+      {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
+      {loading && <LoadingState label="Loading leave requests" />}
+      {!loading && (
+        <>
+          {showStatusBreakdown ? (
+            <section className="mb-4 grid gap-3 sm:grid-cols-3">
+              <StatCard label="Pending" value={pendingCount} icon={Clock3} tone="warning" />
+              <StatCard label="Approved" value={approvedCount} icon={CheckCircle2} tone="success" />
+              <StatCard label="Rejected" value={rejectedCount} icon={XCircle} />
+            </section>
+          ) : (
+            <section className="mb-4">
+              <StatCard
+                label="Matching requests"
+                value={filteredRows.length}
+                icon={Clock3}
+                hint={`Filtered to ${statusFilter.toLowerCase()} leave`}
+              />
+            </section>
+          )}
+          <section className="mb-4 grid gap-2 rounded-lg border bg-card p-3 sm:grid-cols-[minmax(0,1fr)_180px]">
+            <p className="text-sm text-muted-foreground sm:self-center">
+              Showing {filteredRows.length} leave request{filteredRows.length === 1 ? "" : "s"}
+            </p>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Filter status" />
               </SelectTrigger>
               <SelectContent>
@@ -102,19 +141,9 @@ function LeaveReportsPage() {
                 <SelectItem value="REJECTED">Rejected</SelectItem>
               </SelectContent>
             </Select>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={filteredRows.length === 0}
-              onClick={() => downloadCsv("leave-tracking.csv", csvRows)}
-            >
-              <Download className="mr-2 h-4 w-4" /> Export CSV
-            </Button>
-          </div>
-        }
-      />
-      {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
-      {loading && <LoadingState label="Loading leave requests" />}
+          </section>
+        </>
+      )}
       <div className="space-y-3 md:hidden">
         {filteredRows.map((row) => (
           <Card key={row.id}>

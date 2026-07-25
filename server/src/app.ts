@@ -481,11 +481,13 @@ export function createApp() {
         const balances = await balancePromises.get(row.employeeId)!;
         const balance = balances.find((item) => item.leaveTypeId === row.leaveTypeId);
         const availableBalance = Number(balance?.balance ?? 0);
+        const requestedDays = Number(row.days);
         return {
           ...dto,
           availableBalance,
-          requestedDays: Number(row.days),
-          projectedBalance: availableBalance - Number(row.days),
+          requestedDays,
+          projectedBalance:
+            row.status === "PENDING" ? availableBalance - requestedDays : availableBalance,
         };
       }),
     );
@@ -522,13 +524,9 @@ export function createApp() {
     user: { employeeId?: string | null },
     leave: { managerId?: string | null; employeeId: string },
   ) {
-    if (!user.employeeId) {
-      throw new HttpError(
-        403,
-        "Only the responsible organization head can approve or reject leave.",
-      );
-    }
-    if (leave.managerId !== user.employeeId) {
+    const assignedApproverId =
+      leave.managerId ?? (await findLeaveApprover(leave.employeeId))?.employeeId;
+    if (!user.employeeId || assignedApproverId !== user.employeeId) {
       throw new HttpError(
         403,
         "Only the responsible organization head can approve or reject leave.",
@@ -3471,8 +3469,9 @@ export function createApp() {
         case EventType.BRANCH_IN:
           return EventType.OFFICE_OUT;
         case EventType.FIELD_CHECK_IN:
-        case EventType.CLIENT_CHECK_IN:
           return EventType.FIELD_CHECK_OUT;
+        case EventType.CLIENT_CHECK_IN:
+          return EventType.CLIENT_CHECK_OUT;
         case EventType.BREAK_IN:
           return EventType.BREAK_OUT;
         default:
@@ -3692,7 +3691,7 @@ export function createApp() {
     requireAuth,
     requireRoles(Role.MANAGER, Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
-      const date = new Date(new Date().toISOString().slice(0, 10));
+      const date = todayIstDate();
       const where: Prisma.AttendanceDailySummaryWhereInput =
         req.user!.role === Role.MANAGER && req.user!.employeeId
           ? {

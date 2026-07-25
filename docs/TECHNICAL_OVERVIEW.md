@@ -26,7 +26,7 @@ The frontend never connects directly to MySQL. Authorization and object-level ac
 | Concern                  | Technology and responsibility                                                          |
 | ------------------------ | -------------------------------------------------------------------------------------- |
 | Browser UI               | React 19, TanStack Start/Router, TypeScript 5.9, Vite 8 and Tailwind CSS 4             |
-| Accessible UI primitives | Radix UI, shared responsive dialogs/tables, Lucide icons and Recharts                  |
+| Accessible UI primitives | Radix UI, shared responsive dialogs/tables/`ResponsiveList`, Lucide icons and Recharts |
 | API and validation       | Node.js 22, Express 4, Zod 3 and rate-limited JSON endpoints                           |
 | Persistence              | MySQL 8, Prisma 6 schema/migrations and transactional writes                           |
 | Authentication           | bcrypt password hashing, signed JWT cookies, origin validation and backend RBAC        |
@@ -61,8 +61,11 @@ Supported AWS patterns and their scaling constraints are documented in
 | `src/lib/auth.tsx`                 | Browser session restore and auth state                                   |
 | `src/lib/attendance-live.ts`       | Attendance EventSource client                                            |
 | `src/lib/notification-live.ts`     | Notification EventSource client                                          |
+| `public/sw.js`                     | App shell cache, Web Push display, notification actions, and offline shell |
+| `public/manifest.webmanifest`      | PWA identity, icons, shortcuts, and install display mode                   |
+| `src/lib/pwa-install.ts`           | Platform install detection and Home Screen guidance                        |
+| `src/components/layout/PwaInstallBanner.tsx` | Post-login install banner for Android/iOS/Windows/Mac               |
 | `src/components/face/`             | Mandatory enrollment and responsive attendance camera flows              |
-| `public/sw.js`                     | App shell cache, Web Push display, and notification navigation           |
 
 ## Authentication
 
@@ -211,6 +214,12 @@ complete test matrix are documented in [Development and Testing](DEVELOPMENT_AND
 - Keep tokens out of localStorage.
 - Add a migration for schema changes; never edit a deployed migration.
 - Use the central API client rather than direct page-level `fetch` calls.
-- Keep loading, error, empty, and mobile states for API-backed views.
+- Keep loading, error, empty, and mobile card/table states for API-backed list views.
+- Prefer `ResponsiveList` helpers for new operational lists so phones never depend on
+  horizontal scrolling to read primary fields.
+- Keep install/PWA guidance current in `DEVICE_COMPATIBILITY.md` when manifest, service-worker, or
+  notification behavior changes.
+- Prefer Plus Jakarta Sans through the shared theme font stack for UI text; keep loading states on
+  `LoadingState` so brand motion stays consistent.
 - Never commit `.env`, database dumps, generated builds, logs, private keys, or credentials.
 - Run all required checks in the root README before pushing.

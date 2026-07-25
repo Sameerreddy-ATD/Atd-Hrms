@@ -3,6 +3,15 @@ import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
 import { EmptyState } from "@/components/common/EmptyState";
+import {
+  ResponsiveListShell,
+  MobileList,
+  MobileListItem,
+  MobileListHeader,
+  MobileListFields,
+  MobileListField,
+  DesktopTable,
+} from "@/components/common/ResponsiveList";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -46,8 +55,27 @@ function DeviceSettingsPage() {
       />
       {loading && <LoadingState label="Loading device settings" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
-        <div className="overflow-x-auto">
+      <ResponsiveListShell>
+        <MobileList>
+          {devices.map((device) => (
+            <MobileListItem key={device.id}>
+              <MobileListHeader
+                title={device.name}
+                meta={device.serial}
+                trailing={
+                  <Badge variant="outline" className="shrink-0">
+                    {device.status}
+                  </Badge>
+                }
+              />
+              <MobileListFields>
+                <MobileListField label="Branch" value={branchName(device.branchId)} />
+                <MobileListField label="Last Sync" value={device.lastSync} />
+              </MobileListFields>
+            </MobileListItem>
+          ))}
+        </MobileList>
+        <DesktopTable>
           <Table>
             <TableHeader>
               <TableRow>
@@ -72,7 +100,7 @@ function DeviceSettingsPage() {
               ))}
             </TableBody>
           </Table>
-        </div>
+        </DesktopTable>
         {!loading && devices.length === 0 && (
           <div className="p-6">
             <EmptyState
@@ -81,7 +109,7 @@ function DeviceSettingsPage() {
             />
           </div>
         )}
-      </div>
+      </ResponsiveListShell>
     </div>
   );
 }
