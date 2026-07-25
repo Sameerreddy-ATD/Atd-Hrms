@@ -1,4 +1,4 @@
-import type { Announcement } from "@/types/domain";
+import type { Announcement } from "../types/domain.js";
 
 const PRIORITY_RANK: Record<Announcement["priority"], number> = {
   URGENT: 0,
