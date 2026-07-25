@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { leaveApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
+import { indiaDateKey, indiaDateKeyShift } from "@/lib/india-date";
 import type { LeaveBalance, LeaveTypeOption, WeeklyOffRequest } from "@/types/domain";
 import { CalendarClock, CalendarDays, CheckCircle2, ShieldCheck, UserRound } from "lucide-react";
 
@@ -45,7 +46,7 @@ function ApplyLeavePage() {
   const [typesLoading, setTypesLoading] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [requestKind, setRequestKind] = useState<"leave" | "weekly-off">("leave");
-  const todayString = new Date().toISOString().split("T")[0];
+  const todayString = indiaDateKey();
 
   useEffect(() => {
     Promise.all([leaveApi.types(), leaveApi.myBalance(), leaveApi.weeklyOffs()])
@@ -67,7 +68,12 @@ function ApplyLeavePage() {
       : 0;
 
   useEffect(() => {
-    if (!user?.employeeId) return;
+    if (!user?.employeeId) {
+      setApproverName(null);
+      setApproverLoading(false);
+      return;
+    }
+    setApproverLoading(true);
     leaveApi
       .approver()
       .then((result) => setApproverName(result.approverName))
@@ -428,7 +434,7 @@ function ApplyLeavePage() {
                     id="weekly-off-date"
                     type="date"
                     value={weeklyOffDate}
-                    min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                    min={indiaDateKeyShift(1)}
                     onChange={(event) => setWeeklyOffDate(event.target.value)}
                   />
                 </div>

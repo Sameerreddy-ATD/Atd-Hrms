@@ -773,21 +773,8 @@ export interface SystemHealth {
   nodeVersion: string;
 }
 
-export interface BrandProofSettings {
-  litresDelivered: string;
-  happyClients: string;
-  appRating: string;
-  certification: string;
-}
-
 export const systemApi = {
   health: () => request<SystemHealth>("/system/health"),
-  brandProof: () => request<BrandProofSettings>("/public/brand-proof"),
-  updateBrandProof: (value: BrandProofSettings) =>
-    request<BrandProofSettings>("/system/brand-proof", {
-      method: "PATCH",
-      body: JSON.stringify(value),
-    }),
   resetTestData: (payload: { confirmation: string; password: string }) =>
     request<{
       ok: true;

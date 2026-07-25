@@ -66,17 +66,40 @@ not shown in the CEO login.
 ## Login And First Password Change
 
 1. Open the application URL.
-2. Enter the email and temporary password issued by the Developer Admin.
-3. If the account requires a first password change, enter a new password.
-4. After changing the password, the face-registration screen opens for normal accounts when
+2. The sign-in screen shows the Anytime Diesel crew mascot at the top. While you type your
+   password (with it hidden), he covers his eyes. If you reveal the password, he peeks again.
+3. Enter the work email and temporary password issued by the Developer Admin.
+4. There is one shared sign-in screen for every role. After authentication, the app opens the
+   matching workspace automatically (employee, manager, HR, CEO, Main Admin, or Developer Admin).
+5. The dashboard shows today's birthday cards (if any), urgent/recent announcements, and a
+   **Quick access** grid tailored to that role.
+6. Sidebar groups are ordered by role so everyday actions appear first.
+7. If the account requires a first password change, enter a new password.
+8. After changing the password, the face-registration screen opens for normal accounts when
    Developer Admin has enabled employee face verification.
-5. Accept the biometric-consent statement, allow the camera, centre one uncovered face, and complete
+9. Accept the biometric-consent statement, allow the camera, centre one uncovered face, and complete
    the blink or head-turn prompt.
-6. Developer Admin is exempt from face authentication. Normal accounts wait on the blocking
-   approval screen until Developer Admin approves them in **Face Security**.
-7. A rejected registration displays the reason and allows a new capture.
+10. Developer Admin is exempt from face authentication. Normal accounts wait on the blocking
+    approval screen until Developer Admin approves them in **Face Security**.
+11. A rejected registration displays the reason and allows a new capture.
 
-Public signup is disabled. All accounts are created by the Developer Admin.
+Public signup is disabled. All accounts are created by the Developer Admin. Use **Need help?** on
+the login screen for password-reset guidance.
+
+The login mascot animation respects reduced-motion preferences and falls back to the company logo
+if the mascot image cannot load, so sign-in remains usable.
+
+## Dashboard Communications Order
+
+On every dashboard the company communications appear in this order:
+
+1. Today's birthday celebration card(s) — your own card first when applicable
+2. Active announcements — urgent, then important, then normal; newest within each level
+3. Role-specific quick access shortcuts
+4. Role dashboard widgets (attendance, team summaries, upcoming birthdays list)
+
+Open **Announcements** from the Me menu or Quick access for the full board. The same priority
+order is used on the announcements page.
 
 ## Developer Admin: Create A New Login
 

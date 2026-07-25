@@ -21,6 +21,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import type { Announcement } from "@/types/domain";
 import { announcementsApi } from "@/services/api";
+import { sortAnnouncements } from "@/lib/announcements";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -77,12 +78,13 @@ function AnnouncementsPage() {
 
   const visible = useMemo(() => {
     const now = Date.now();
-    return announcements.filter((announcement) => {
+    const filtered = announcements.filter((announcement) => {
       const expired = Boolean(announcement.expiresAt && +new Date(announcement.expiresAt) <= now);
       if (filter === "inactive") return !announcement.isActive;
       if (filter === "expired") return expired;
       return announcement.isActive && !expired;
     });
+    return sortAnnouncements(filtered);
   }, [announcements, filter]);
 
   const summary = useMemo(() => {

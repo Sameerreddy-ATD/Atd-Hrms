@@ -29,6 +29,7 @@ import {
   punchTypeLabel,
 } from "@/lib/attendance-labels";
 import { formatStoredWorkedTime } from "@/lib/worked-time";
+import { indiaDateKey } from "@/lib/india-date";
 import {
   Select,
   SelectContent,
@@ -38,8 +39,7 @@ import {
 } from "@/components/ui/select";
 
 function todayDateInputValue() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  return indiaDateKey();
 }
 
 function currentTimeInputValue() {
@@ -128,7 +128,12 @@ function MyAttendancePage() {
           branchesApi.list(),
         ]);
         setRecords(attendanceRows);
-        setMyRequests(requestsList || []);
+        const employeeId = user?.employeeId ?? "";
+        setMyRequests(
+          (requestsList || []).filter((request) =>
+            employeeId ? request.employeeId === employeeId : true,
+          ),
+        );
         setBranches(branchRows || []);
       } catch (err) {
         setError((err as Error).message);

@@ -86,11 +86,16 @@ function LeaveApprovalsPage() {
   async function apply() {
     if (!confirm) return;
     const { id, action } = confirm;
-    const updated = action === "Approved" ? await leaveApi.approve(id) : await leaveApi.reject(id);
-    setRows((prev) => prev.filter((r) => r.id !== id));
-    setHistory((prev) => [updated, ...prev.filter((request) => request.id !== id)]);
-    toast.success(`Request ${action.toLowerCase()}`);
-    setConfirm(null);
+    try {
+      const updated =
+        action === "Approved" ? await leaveApi.approve(id) : await leaveApi.reject(id);
+      setRows((prev) => prev.filter((r) => r.id !== id));
+      setHistory((prev) => [updated, ...prev.filter((request) => request.id !== id)]);
+      toast.success(`Request ${action.toLowerCase()}`);
+      setConfirm(null);
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
   }
 
   async function reviewWeeklyOff(id: string, approve: boolean) {

@@ -20,8 +20,8 @@ function ForgotPasswordPage() {
           <div className="mt-6 flex gap-3 rounded-md border bg-muted/30 p-4 text-sm">
             <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
             <p>
-              Contact the Developer Admin to reset your password or reactivate a blocked account.
-              Never share your current password with anyone.
+              Contact HR or the Developer Admin to reset your password or reactivate a blocked
+              account. Never share your current password with anyone.
             </p>
           </div>
           <Link

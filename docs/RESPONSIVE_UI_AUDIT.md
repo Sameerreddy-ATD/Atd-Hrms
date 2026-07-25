@@ -32,6 +32,9 @@ The code audit confirmed:
   Gantt scroll as the only option;
 - reduced-motion preferences disable decorative animation;
 - login and first-password screens respect safe-area insets and dynamic viewport height;
+- the Anytime Diesel crew mascot sits above the sign-in / first-password forms; he covers his eyes
+  while a hidden password is focused or typed, peeks when the password is revealed, and falls back
+  to the logo if the image fails so the form never crashes;
 - camera and evidence media cannot exceed their containers.
 
 ## Face Evidence Resolution

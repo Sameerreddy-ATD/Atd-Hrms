@@ -36,6 +36,7 @@ import {
   punchSourceLabel,
 } from "@/lib/attendance-labels";
 import { formatStoredWorkedTime } from "@/lib/worked-time";
+import { indiaDateKey } from "@/lib/india-date";
 import {
   ArrowRight,
   CalendarRange,
@@ -75,7 +76,7 @@ function DayLogsPage() {
         // Use today's date when a saved selection cannot be read.
       }
     }
-    return new Date().toISOString().slice(0, 10);
+    return indiaDateKey();
   });
   const [to, setTo] = useState(() => {
     const savedSelectionRaw = sessionStorage.getItem("attendance-day-log-selection");
@@ -87,7 +88,7 @@ function DayLogsPage() {
         // Use today's date when a saved selection cannot be read.
       }
     }
-    return new Date().toISOString().slice(0, 10);
+    return indiaDateKey();
   });
   const [branchId, setBranchId] = useState("all");
   const [employeeRows, setEmployeeRows] = useState<AttendanceRecord[]>([]);
@@ -179,7 +180,7 @@ function DayLogsPage() {
   }
 
   function setToday() {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = indiaDateKey();
     setFrom(today);
     setTo(today);
   }

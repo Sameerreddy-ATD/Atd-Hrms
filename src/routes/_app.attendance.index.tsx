@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import type { Branch, Department, User } from "@/types/domain";
 import { branchesApi, employeesApi } from "@/services/api";
+import { indiaDateKey } from "@/lib/india-date";
 import {
   ResponsiveListShell,
   MobileList,
@@ -91,7 +92,7 @@ function AttendanceOverviewPage() {
   );
 
   function openDayLogs(employee: User) {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = indiaDateKey();
     sessionStorage.setItem(
       "attendance-day-log-selection",
       JSON.stringify({

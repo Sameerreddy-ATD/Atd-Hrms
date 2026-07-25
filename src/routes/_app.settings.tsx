@@ -34,6 +34,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth";
+import { indiaDateKeyShift } from "@/lib/india-date";
 import {
   ROLE_LABELS,
   type IntegrationClient,
@@ -113,14 +114,6 @@ function SettingsPage() {
   const [healthLoading, setHealthLoading] = useState(true);
   const [healthError, setHealthError] = useState("");
   const previousHealth = useRef<SystemHealth["status"] | null>(null);
-  const [brandProof, setBrandProof] = useState({
-    litresDelivered: "10M+",
-    happyClients: "5,000+",
-    appRating: "4.8 / 5",
-    certification: "PESO & OMC",
-  });
-  const [brandProofLoading, setBrandProofLoading] = useState(isDeveloperAdmin);
-  const [brandProofSaving, setBrandProofSaving] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetConfirmation, setResetConfirmation] = useState("");
   const [resetPassword, setResetPassword] = useState("");
@@ -186,11 +179,6 @@ function SettingsPage() {
   useEffect(() => {
     if (!isDeveloperAdmin) return;
     void refreshHealth();
-    void systemApi
-      .brandProof()
-      .then(setBrandProof)
-      .catch((err) => toast.error((err as Error).message))
-      .finally(() => setBrandProofLoading(false));
     const intervalId = window.setInterval(() => void refreshHealth(), 30_000);
     return () => window.clearInterval(intervalId);
   }, [isDeveloperAdmin, refreshHealth]);
@@ -215,7 +203,7 @@ function SettingsPage() {
   }, [isDeveloperAdmin]);
 
   return (
-    <div>
+    <div className="space-y-5">
       <PageHeader
         title="System Settings"
         description="Monitor the system and manage protected Developer Admin configuration."
@@ -224,8 +212,8 @@ function SettingsPage() {
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       {isDeveloperAdmin && (
-        <Card className="mb-6">
-          <CardHeader className="border-b p-4 sm:p-5">
+        <Card>
+          <CardHeader className="gap-1 border-b border-border/80 px-4 py-3.5 sm:px-5">
             <div className="flex items-start gap-3">
               <span className="rounded-md bg-primary/10 p-2 text-primary">
                 <Blocks className="h-5 w-5" />
@@ -239,7 +227,7 @@ function SettingsPage() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="p-4 sm:p-5">
+          <CardContent className="space-y-4 px-4 py-4 sm:px-5">
             <div className="space-y-3 md:hidden">
               {Object.entries(BACKEND_ROLE_TO_UI).map(([backendRole, uiRole]) => {
                 const immutable = backendRole === "DEVELOPER_ADMIN";
@@ -350,8 +338,8 @@ function SettingsPage() {
       )}
 
       {isDeveloperAdmin && (
-        <Card className="mb-6">
-          <CardHeader className="border-b p-4 sm:p-5">
+        <Card>
+          <CardHeader className="gap-1 border-b border-border/80 px-4 py-3.5 sm:px-5">
             <div className="flex items-start gap-3">
               <span className="rounded-md bg-primary/10 p-2 text-primary">
                 <KeyRound className="h-5 w-5" />
@@ -365,7 +353,7 @@ function SettingsPage() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-5 p-4 sm:p-5">
+          <CardContent className="space-y-5 px-4 py-4 sm:px-5">
             {generatedApiKey && (
               <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
                 <p className="font-semibold">Copy this API key now</p>
@@ -406,7 +394,7 @@ function SettingsPage() {
                 <Input
                   id="integration-expiry"
                   type="date"
-                  min={new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)}
+                  min={indiaDateKeyShift(1)}
                   value={integrationExpiry}
                   onChange={(event) => setIntegrationExpiry(event.target.value)}
                 />
@@ -530,73 +518,10 @@ function SettingsPage() {
       )}
 
       {isDeveloperAdmin && (
-        <Card className="mb-6">
-          <CardHeader className="border-b p-4 sm:p-5">
-            <CardTitle className="text-base">Startup Screen Details</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Update the company proof values shown while the application starts.
-            </p>
-          </CardHeader>
-          <CardContent className="p-4 sm:p-5">
-            {brandProofLoading ? (
-              <LoadingState compact label="Loading startup details" />
-            ) : (
-              <form
-                className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
-                onSubmit={async (event) => {
-                  event.preventDefault();
-                  setBrandProofSaving(true);
-                  try {
-                    const saved = await systemApi.updateBrandProof(brandProof);
-                    setBrandProof(saved);
-                    toast.success("Startup details updated");
-                  } catch (err) {
-                    toast.error((err as Error).message);
-                  } finally {
-                    setBrandProofSaving(false);
-                  }
-                }}
-              >
-                <BrandProofInput
-                  label="Litres delivered"
-                  field="litresDelivered"
-                  value={brandProof}
-                  onChange={setBrandProof}
-                />
-                <BrandProofInput
-                  label="Happy clients"
-                  field="happyClients"
-                  value={brandProof}
-                  onChange={setBrandProof}
-                />
-                <BrandProofInput
-                  label="App rating"
-                  field="appRating"
-                  value={brandProof}
-                  onChange={setBrandProof}
-                />
-                <BrandProofInput
-                  label="Certification"
-                  field="certification"
-                  value={brandProof}
-                  onChange={setBrandProof}
-                />
-                <div className="sm:col-span-2 lg:col-span-4">
-                  <Button type="submit" disabled={brandProofSaving}>
-                    {brandProofSaving ? "Saving..." : "Save startup details"}
-                  </Button>
-                </div>
-              </form>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {isDeveloperAdmin && (
         <Card
-          className={`mb-6 overflow-hidden ${health?.status === "DEGRADED" || healthError ? "border-destructive/50" : "border-emerald-200 dark:border-emerald-900"}`}
+          className={`overflow-hidden ${health?.status === "DEGRADED" || healthError ? "border-destructive/50" : "border-emerald-200 dark:border-emerald-900"}`}
         >
-          <CardHeader className="flex flex-row items-start justify-between gap-3 border-b p-4 sm:p-5">
+          <CardHeader className="flex flex-row items-start justify-between gap-3 border-b border-border/80 px-4 py-3.5 sm:px-5">
             <div className="flex min-w-0 items-start gap-3">
               <div
                 className={`rounded-md p-2 ${health?.status === "DEGRADED" || healthError ? "bg-destructive/10 text-destructive" : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"}`}
@@ -628,7 +553,7 @@ function SettingsPage() {
               <RefreshCw className={`h-4 w-4 ${healthLoading ? "animate-spin" : ""}`} />
             </Button>
           </CardHeader>
-          <CardContent className="p-4 sm:p-5">
+          <CardContent className="space-y-4 px-4 py-4 sm:px-5">
             {healthError && (
               <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
                 Health check failed: {healthError}
@@ -680,7 +605,7 @@ function SettingsPage() {
         </Card>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard label="User accounts" value={counts.users} icon={Users} />
         <StatCard label="Branches" value={counts.branches} icon={Building2} />
         <StatCard label="Departments" value={counts.departments} icon={Shield} />
@@ -689,7 +614,7 @@ function SettingsPage() {
         <StatCard label="Audit logs" value={counts.auditLogs} icon={BellRing} />
       </div>
 
-      <Card className="mt-6">
+      <Card>
         <CardHeader>
           <CardTitle className="text-sm">Runtime Policy</CardTitle>
         </CardHeader>
@@ -702,8 +627,8 @@ function SettingsPage() {
       </Card>
 
       {isDeveloperAdmin && (
-        <Card className="mt-6 border-destructive/40">
-          <CardHeader className="border-b border-destructive/20 p-4 sm:p-5">
+        <Card className="border-destructive/40">
+          <CardHeader className="gap-1 border-b border-destructive/20 px-4 py-3.5 sm:px-5">
             <div className="flex items-start gap-3">
               <div className="rounded-md bg-destructive/10 p-2 text-destructive">
                 <Trash2 className="h-5 w-5" />
@@ -716,7 +641,7 @@ function SettingsPage() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="p-4 sm:p-5">
+          <CardContent className="space-y-4 px-4 py-4 sm:px-5">
             <div className="grid gap-3 text-sm sm:grid-cols-2">
               <div className="rounded-md border bg-muted/20 p-3">
                 <p className="font-semibold">Preserved</p>
@@ -813,36 +738,6 @@ function SettingsPage() {
           </CardContent>
         </Card>
       )}
-    </div>
-  );
-}
-
-function BrandProofInput({
-  label,
-  field,
-  value,
-  onChange,
-}: {
-  label: string;
-  field: keyof typeof value;
-  value: {
-    litresDelivered: string;
-    happyClients: string;
-    appRating: string;
-    certification: string;
-  };
-  onChange: React.Dispatch<React.SetStateAction<typeof value>>;
-}) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor={`brand-${field}`}>{label}</Label>
-      <Input
-        id={`brand-${field}`}
-        value={value[field]}
-        maxLength={field === "certification" ? 50 : 30}
-        required
-        onChange={(event) => onChange((current) => ({ ...current, [field]: event.target.value }))}
-      />
     </div>
   );
 }

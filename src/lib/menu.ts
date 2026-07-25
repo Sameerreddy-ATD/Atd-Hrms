@@ -143,7 +143,7 @@ export const menuGroups: MenuGroup[] = [
         label: "Leave Approvals",
         to: "/leave/approvals",
         icon: BadgeCheck,
-        roles: [],
+        roles: ["hr", "developer_admin", "main_admin"],
         requiresReportingManager: true,
       },
       {
@@ -192,6 +192,8 @@ export const menuGroups: MenuGroup[] = [
   {
     label: "Me",
     items: [
+      { label: "Announcements", to: "/announcements", icon: Megaphone, roles: ALL },
+      { label: "Notifications", to: "/notifications", icon: BellRing, roles: ALL },
       { label: "My Profile", to: "/profile", icon: UserCog, roles: ALL },
       {
         label: "ID Card",
@@ -199,8 +201,6 @@ export const menuGroups: MenuGroup[] = [
         icon: IdCard,
         roles: ["employee", "manager", "hr", "sales", "driver", "field_staff"],
       },
-      { label: "Notifications", to: "/notifications", icon: BellRing, roles: ALL },
-      { label: "Announcements", to: "/announcements", icon: Megaphone, roles: ALL },
     ],
   },
   {
@@ -232,13 +232,14 @@ export function menuForRole(
   role: Role,
   options?: { isReportingManager?: boolean; allowedModules?: ModuleKey[] },
 ): MenuGroup[] {
+  const groupOrder = groupOrderForRole(role);
   return menuGroups
     .map((g) => ({
       ...g,
       items: g.items
         .filter((i) => {
           const roleAllowed = i.requiresReportingManager
-            ? options?.isReportingManager === true
+            ? options?.isReportingManager === true || i.roles.includes(role)
             : i.roles.includes(role) || (i.allowReportingManager && options?.isReportingManager);
           const module = moduleForRoute(i.to);
           const moduleAllowed = !options?.allowedModules || options.allowedModules.includes(module);
@@ -256,7 +257,34 @@ export function menuForRole(
           return { ...item, label: executiveLabels[item.to] ?? item.label };
         }),
     }))
-    .filter((g) => g.items.length > 0);
+    .filter((g) => g.items.length > 0)
+    .sort((a, b) => {
+      const aIndex = groupOrder.indexOf(a.label);
+      const bIndex = groupOrder.indexOf(b.label);
+      return (aIndex === -1 ? 99 : aIndex) - (bIndex === -1 ? 99 : bIndex);
+    });
+}
+
+function groupOrderForRole(role: Role): string[] {
+  switch (role) {
+    case "employee":
+    case "sales":
+    case "driver":
+    case "field_staff":
+      return ["Overview", "Attendance", "Leave", "Work", "Me", "Company", "People", "System"];
+    case "manager":
+      return ["Overview", "Attendance", "Leave", "Work", "People", "Me", "Company", "System"];
+    case "hr":
+      return ["Overview", "People", "Leave", "Attendance", "Company", "Work", "Me", "System"];
+    case "ceo":
+      return ["Overview", "People", "Attendance", "Leave", "Work", "Company", "Me", "System"];
+    case "main_admin":
+      return ["Overview", "People", "Attendance", "Leave", "Company", "System", "Work", "Me"];
+    case "developer_admin":
+      return ["Overview", "People", "System", "Company", "Attendance", "Leave", "Work", "Me"];
+    default:
+      return ["Overview", "Attendance", "Leave", "Work", "People", "Company", "Me", "System"];
+  }
 }
 
 export function moduleForRoute(path: string): ModuleKey {

@@ -25,7 +25,7 @@ export function LoadingState({
     >
       <div
         className={cn(
-          "flex min-w-0 flex-col items-center gap-3 text-center animate-in fade-in zoom-in-95 duration-500",
+          "flex min-w-0 flex-col items-center gap-4 text-center animate-in fade-in zoom-in-95 duration-500",
           showBrandStory ? "w-full max-w-3xl px-1 sm:px-0" : "max-w-xs",
         )}
       >
@@ -43,16 +43,16 @@ export function LoadingState({
           </div>
         )}
 
-        <div>
+        <div className="space-y-2">
           {showBrandStory && (
             <>
               <p className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">
                 Anytime Diesel
               </p>
-              <p className="mx-auto mt-1 max-w-[19rem] text-sm font-medium leading-5 text-primary sm:max-w-none sm:text-base">
+              <p className="mx-auto max-w-[19rem] text-sm font-medium leading-5 text-primary sm:max-w-none sm:text-base">
                 Powering India&apos;s Growth, One Litre at a Time.
               </p>
-              <p className="mx-auto mt-2 hidden max-w-xl text-xs leading-5 text-muted-foreground min-[390px]:block sm:text-sm">
+              <p className="mx-auto hidden max-w-xl text-xs leading-5 text-muted-foreground min-[390px]:block sm:text-sm">
                 India&apos;s trusted doorstep diesel delivery company serving businesses and
                 individuals across multiple cities.
               </p>
@@ -61,7 +61,7 @@ export function LoadingState({
           <p
             className={cn(
               "text-sm font-medium tracking-tight text-foreground sm:text-base",
-              showBrandStory && "mt-3 sm:mt-4",
+              showBrandStory && "pt-1",
             )}
           >
             {label}
