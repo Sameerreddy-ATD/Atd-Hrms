@@ -126,7 +126,7 @@ Lockout or suspension does not delete or disable the employee record, allowing h
 | `/notifications`        | User-scoped notification feed and live stream                                               |
 | `/push`                 | VAPID key and browser subscription management                                               |
 | `/audit-logs`           | Administrative audit history                                                                |
-| `/system`               | Health, startup proof, module access, and protected Developer Admin test-data reset         |
+| `/system`               | Health, module access, and protected Developer Admin test-data reset                        |
 
 Large collection endpoints support `limit` and `offset`. Operational screens load the first 100 records and fetch additional pages on demand. ExcelJS remains in a lazy route chunk so spreadsheet functionality is excluded from the initial application path.
 

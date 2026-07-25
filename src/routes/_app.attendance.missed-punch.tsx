@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
+import { indiaDateKey } from "@/lib/india-date";
 import { attendanceApi } from "@/services/api";
 import { MISSED_PUNCH_TYPE_OPTIONS, punchTypeLabel } from "@/lib/attendance-labels";
 import { CalendarClock, CheckCircle2, Clock3, FilePenLine } from "lucide-react";
@@ -18,11 +19,7 @@ export const Route = createFileRoute("/_app/attendance/missed-punch")({
 });
 
 function todayDateInputValue() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return indiaDateKey();
 }
 
 function currentTimeInputValue() {

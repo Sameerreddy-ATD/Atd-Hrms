@@ -27,6 +27,7 @@ function AppLayout() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [faceRequired, setFaceRequired] = useState<boolean | null>(null);
+  const [facePolicyError, setFacePolicyError] = useState("");
   const [allowedModules, setAllowedModules] = useState<ModuleKey[] | null | undefined>(null);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const userId = user?.id;
@@ -42,15 +43,22 @@ function AppLayout() {
   useEffect(() => {
     if (!userId || userRole === "developer_admin") {
       setFaceRequired(false);
+      setFacePolicyError("");
       return;
     }
     let active = true;
     const refreshFacePolicy = async () => {
       try {
         const status = await faceApi.status();
-        if (active) setFaceRequired(status.required);
-      } catch {
-        if (active) setFaceRequired(null);
+        if (active) {
+          setFaceRequired(status.required);
+          setFacePolicyError("");
+        }
+      } catch (err) {
+        if (active) {
+          setFaceRequired(null);
+          setFacePolicyError((err as Error).message || "Unable to check face security policy");
+        }
       }
     };
     void refreshFacePolicy();
@@ -94,11 +102,37 @@ function AppLayout() {
 
   if (faceRequired === null) {
     return (
-      <LoadingState
-        label="Checking security policy"
-        showBrandStory
-        className="min-h-screen min-h-[100dvh]"
-      />
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 bg-background px-4 py-[env(safe-area-inset-top)]">
+        <LoadingState
+          label={facePolicyError ? "Security policy unavailable" : "Checking security policy"}
+          showBrandStory
+          className="min-h-0"
+        />
+        {facePolicyError && (
+          <div className="max-w-md space-y-3 text-center">
+            <p className="text-sm text-destructive">{facePolicyError}</p>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setFacePolicyError("");
+                void faceApi
+                  .status()
+                  .then((status) => {
+                    setFaceRequired(status.required);
+                    setFacePolicyError("");
+                  })
+                  .catch((err) => {
+                    setFacePolicyError(
+                      (err as Error).message || "Unable to check face security policy",
+                    );
+                  });
+              }}
+            >
+              Retry security check
+            </Button>
+          </div>
+        )}
+      </div>
     );
   }
 
@@ -133,9 +167,9 @@ function AppLayout() {
         <main
           id="main-content"
           tabIndex={-1}
-          className="flex flex-1 flex-col overflow-y-auto overscroll-y-contain p-0 pb-[env(safe-area-inset-bottom)] outline-none sm:p-3 lg:p-5"
+          className="flex flex-1 flex-col overflow-y-auto overscroll-y-contain p-0 pb-[env(safe-area-inset-bottom)] outline-none sm:p-3 lg:p-4"
         >
-          <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden bg-background p-3 text-card-foreground sm:rounded-lg sm:border sm:p-5 sm:shadow-sm lg:p-6">
+          <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden bg-background p-4 text-card-foreground sm:rounded-xl sm:border sm:border-border/80 sm:p-5 sm:shadow-sm lg:p-6">
             {moduleBlocked ? (
               <div className="m-auto flex max-w-md flex-col items-center px-4 py-12 text-center">
                 <span className="grid h-12 w-12 place-items-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">

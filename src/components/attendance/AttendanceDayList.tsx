@@ -18,15 +18,7 @@ import {
 } from "@/components/ui/accordion";
 import type { AttendanceRecord } from "@/types/domain";
 import { formatStoredWorkedTime, formatWorkedTime } from "@/lib/worked-time";
-
-function indiaDateKey() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
+import { indiaDateKey } from "@/lib/india-date";
 
 function WorkedTime({ record }: { record: AttendanceRecord }) {
   const [now, setNow] = useState(() => Date.now());

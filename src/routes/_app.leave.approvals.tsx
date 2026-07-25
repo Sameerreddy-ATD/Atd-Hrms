@@ -119,7 +119,6 @@ function LeaveApprovalsPage() {
   function canReview(request: LeaveRequest) {
     return Boolean(user?.employeeId && request.approverId === user.employeeId);
   }
-
   async function reviewWeeklyOff(id: string, approve: boolean) {
     try {
       const updated = approve

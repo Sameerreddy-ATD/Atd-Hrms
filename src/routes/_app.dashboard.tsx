@@ -2,9 +2,12 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
+import { indiaDateKey } from "@/lib/india-date";
 import { BIRTHDAY_LOOKAHEAD_DAYS, futureBirthdays, upcomingBirthdays } from "@/lib/birthdays";
 import { PageHeader } from "@/components/common/PageHeader";
 import { BirthdayMarquee } from "@/components/layout/BirthdayMarquee";
+import { DashboardAnnouncements } from "@/components/layout/DashboardAnnouncements";
+import { RoleQuickAccess } from "@/components/layout/RoleQuickAccess";
 import { StatCard } from "@/components/common/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/common/StatusBadge";
@@ -140,18 +143,6 @@ function countStatusIncludes(rows: AttendanceRecord[], fragment: string) {
     if (row.status.includes(fragment)) ids.add(row.employeeId);
   }
   return ids.size;
-}
-
-function indiaDateKey() {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const part = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((value) => value.type === type)?.value ?? "";
-  return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
 function DashboardPage() {
@@ -293,6 +284,8 @@ function DashboardPage() {
       />
 
       <BirthdayMarquee />
+      <DashboardAnnouncements />
+      <RoleQuickAccess />
 
       {secondaryLoading && (
         <div className="mb-3 text-xs font-medium text-muted-foreground">
@@ -1451,29 +1444,29 @@ function UpcomingBirthdaysCard({
     <Card className="h-full">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          <Cake className="h-4 w-4 text-pink-500" /> Upcoming Birthdays
+          <Cake className="h-4 w-4 text-primary" /> Upcoming Birthdays
         </CardTitle>
         <span className="text-xs text-muted-foreground">Next {BIRTHDAY_LOOKAHEAD_DAYS} days</span>
       </CardHeader>
       <CardContent className="space-y-4">
         {myBirthdayToday && (
-          <div className="flex items-center justify-between rounded-md border border-pink-200 bg-pink-50/50 p-3 text-sm shadow-sm dark:border-pink-900/40 dark:bg-pink-950/10">
-            <div className="flex items-center gap-3">
-              <div className="rounded-full bg-pink-100 p-2 text-pink-600 animate-bounce dark:bg-pink-950/40 dark:text-pink-400">
-                🎂
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/25 bg-primary/[0.05] p-3 text-sm">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="rounded-xl bg-primary/10 p-2 text-primary">
+                <Cake className="h-4 w-4" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="font-semibold text-foreground">Your birthday</p>
                 <p className="text-xs text-muted-foreground">
-                  The Anytime Diesel Team wishes you a very happy birthday!
+                  The Anytime Diesel team wishes you a very happy birthday.
                 </p>
               </div>
             </div>
-            <div className="text-right">
+            <div className="shrink-0 text-right">
               <p className="font-semibold text-foreground">
                 {formatDob(myBirthdayToday.dateOfBirth)}
               </p>
-              <p className="text-[10px] font-medium text-pink-700 dark:text-pink-400">Today</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">Today</p>
             </div>
           </div>
         )}
@@ -1485,34 +1478,37 @@ function UpcomingBirthdaysCard({
               : `No upcoming birthdays in the next ${BIRTHDAY_LOOKAHEAD_DAYS} days.`}
           </p>
         ) : (
-          <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+          <div className="max-h-[300px] space-y-2.5 overflow-y-auto pr-1">
             {upcoming.map((b) => {
               const isSelf = b.employeeId === user?.employeeId;
 
               return (
                 <div
                   key={b.employeeId}
-                  className="flex items-center justify-between rounded-md border border-border bg-card p-3 text-sm transition-all duration-300 hover:bg-muted/50"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border/80 bg-card p-3 text-sm transition-colors hover:bg-muted/40"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="rounded-full bg-muted p-2 text-muted-foreground">🎁</div>
-                    <div>
-                      <p className="font-medium flex items-center gap-1.5">
-                        {isSelf ? "Your birthday" : b.name}
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="rounded-xl bg-muted p-2 text-muted-foreground">
+                      <Cake className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="flex flex-wrap items-center gap-1.5 font-medium">
+                        <span className="truncate">{isSelf ? "Your birthday" : b.name}</span>
                         {isSelf && (
                           <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
                             You
                           </span>
                         )}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="truncate text-xs text-muted-foreground">
                         {isSelf
                           ? "Coming up soon"
-                          : [b.designation, b.department].filter(Boolean).join(" · ")}
+                          : [b.designation, b.department].filter(Boolean).join(" · ") ||
+                            "Team member"}
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="shrink-0 text-right">
                     <p className="font-semibold text-foreground">{formatDob(b.dateOfBirth)}</p>
                     <p className="text-[10px] text-muted-foreground">
                       {isSelf ? `In ${b.daysUntil} days` : `${b.daysUntil} days left`}

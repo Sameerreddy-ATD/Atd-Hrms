@@ -38,6 +38,7 @@ import {
 } from "@/components/common/ResponsiveList";
 import { attendanceApi } from "@/services/api";
 import type { AttendanceRecord } from "@/types/domain";
+import { indiaDateKeyShift } from "@/lib/india-date";
 import { useAuth } from "@/lib/auth";
 import { punchTypeLabel } from "@/lib/attendance-labels";
 import { ArrowRight, Check, X, FileClock, AlertTriangle } from "lucide-react";
@@ -82,9 +83,7 @@ function AttendanceCorrectionsPage() {
   const loadAlerts = useCallback(() => {
     setLoading(true);
     setError("");
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().slice(0, 10);
+    const yesterdayStr = indiaDateKeyShift(-1);
     const queryFrom = from || yesterdayStr;
     const queryTo = to || yesterdayStr;
     attendanceApi
@@ -101,9 +100,7 @@ function AttendanceCorrectionsPage() {
   }, [from, to]);
 
   useEffect(() => {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().slice(0, 10);
+    const yesterdayStr = indiaDateKeyShift(-1);
     setFrom(yesterdayStr);
     setTo(yesterdayStr);
   }, []);

@@ -10,7 +10,7 @@ real company use. The reset is intentionally destructive and cannot be reversed 
 - Branches and their attendance coordinates/radii.
 - Departments, unit types, sort order, and parent/child hierarchy.
 - Predefined leave-policy types and their configured rules.
-- System settings, startup-screen values, and role/module-access configuration.
+- System settings and role/module-access configuration.
 - Developer Admin remains exempt from face authentication, preventing an approval-authority
   lockout after reset.
 
@@ -34,7 +34,7 @@ be removed.
 
 1. Schedule a maintenance window and stop users from entering new information.
 2. Confirm that you are signed in as the Developer Admin account that must remain.
-3. Confirm that the current branches, departments, hierarchy, leave policies, startup values, and
+3. Confirm that the current branches, departments, hierarchy, leave policies, and
    module-access rules are suitable for production.
 4. Create a timestamped MySQL backup outside the application server's repository.
 5. Verify that the backup is non-empty and record its SHA-256 checksum.

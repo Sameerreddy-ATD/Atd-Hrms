@@ -18,21 +18,13 @@ import {
 } from "@/components/ui/select";
 import { leaveApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
+import { indiaDateKey, indiaDateKeyShift } from "@/lib/india-date";
 import type { LeaveBalance, LeaveTypeOption, WeeklyOffRequest } from "@/types/domain";
 import { CalendarClock, CalendarDays, CheckCircle2, ShieldCheck, UserRound } from "lucide-react";
 
 export const Route = createFileRoute("/_app/leave/apply")({
   component: ApplyLeavePage,
 });
-
-function indiaDateString(date = new Date()) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
 
 function ApplyLeavePage() {
   const navigate = useNavigate();
@@ -54,9 +46,8 @@ function ApplyLeavePage() {
   const [typesLoading, setTypesLoading] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [requestKind, setRequestKind] = useState<"leave" | "weekly-off">("leave");
-  const todayString = indiaDateString();
-  const tomorrowString = indiaDateString(new Date(Date.now() + 86400000));
-
+  const todayString = indiaDateKey();
+  const tomorrowString = indiaDateKeyShift(1);
   useEffect(() => {
     Promise.all([leaveApi.types(), leaveApi.myBalance(), leaveApi.weeklyOffs()])
       .then(([rows, balanceRows, weeklyRows]) => {
@@ -77,7 +68,12 @@ function ApplyLeavePage() {
       : 0;
 
   useEffect(() => {
-    if (!user?.employeeId) return;
+    if (!user?.employeeId) {
+      setApproverName(null);
+      setApproverLoading(false);
+      return;
+    }
+    setApproverLoading(true);
     leaveApi
       .approver()
       .then((result) => setApproverName(result.approverName))
@@ -438,8 +434,7 @@ function ApplyLeavePage() {
                     id="weekly-off-date"
                     type="date"
                     value={weeklyOffDate}
-                    min={tomorrowString}
-                    onChange={(event) => setWeeklyOffDate(event.target.value)}
+                    min={tomorrowString}                    onChange={(event) => setWeeklyOffDate(event.target.value)}
                   />
                 </div>
                 <div className="space-y-1.5">
