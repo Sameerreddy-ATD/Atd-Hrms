@@ -69,7 +69,7 @@ function LoginPage() {
           <Logo className="h-auto w-36 sm:w-40" />
         </div>
 
-        <LoginCrewMascot mode={crewMode} className="mx-auto w-full max-w-[16rem] sm:max-w-[17.5rem]" />
+        <LoginCrewMascot mode={crewMode} className="mx-auto w-full max-w-[11rem] sm:max-w-[12.5rem]" />
 
         <Card className="border-border/80 shadow-sm">
           <CardContent className="p-6 sm:p-8">
