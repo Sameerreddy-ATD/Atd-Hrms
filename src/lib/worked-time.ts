@@ -55,7 +55,7 @@ export function formatWorkedTime(milliseconds: number) {
 
 export function formatStoredWorkedTime(totalHours?: number, workedMinutes?: number) {
   const milliseconds = Number.isFinite(totalHours)
-    ? Math.max(0, totalHours ?? 0) * 3_600_000
+    ? Math.round(Math.max(0, totalHours ?? 0) * 3600) * 1000
     : Math.max(0, workedMinutes ?? 0) * 60_000;
   return formatWorkedTime(milliseconds);
 }

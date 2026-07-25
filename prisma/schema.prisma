@@ -679,10 +679,10 @@ model AttendanceDailySummary {
   date                    DateTime       @db.Date
   firstCheckIn            DateTime?      @map("first_check_in")
   lastCheckOut            DateTime?      @map("last_check_out")
-  totalHours              Decimal        @default(0) @map("total_hours") @db.Decimal(8, 2)
-  officeHours             Decimal        @default(0) @map("office_hours") @db.Decimal(8, 2)
-  fieldHours              Decimal        @default(0) @map("field_hours") @db.Decimal(8, 2)
-  clientVisitHours        Decimal        @default(0) @map("client_visit_hours") @db.Decimal(8, 2)
+  totalHours              Decimal        @default(0) @map("total_hours") @db.Decimal(12, 6)
+  officeHours             Decimal        @default(0) @map("office_hours") @db.Decimal(12, 6)
+  fieldHours              Decimal        @default(0) @map("field_hours") @db.Decimal(12, 6)
+  clientVisitHours        Decimal        @default(0) @map("client_visit_hours") @db.Decimal(12, 6)
   attendanceSourceSummary String         @map("attendance_source_summary")
   status                  String
   homeBranchId            String?        @map("home_branch_id")

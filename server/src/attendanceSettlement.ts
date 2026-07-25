@@ -92,6 +92,14 @@ export async function settleExpiredOpenPunches(employeeId?: string) {
     `,
   );
   if (candidates.length === 0) return 0;
+  await Promise.all(
+    candidates.map((candidate) =>
+      prisma.attendanceDailySummary.updateMany({
+        where: { employeeId: candidate.employeeId, date: candidate.eventDate },
+        data: { hasMissingOutEvent: true, hasMissedCheckout: true },
+      }),
+    ),
+  );
   const existing = await prisma.attendanceReminder.findMany({
     where: { eventId: { in: candidates.map((candidate) => candidate.eventId) } },
     select: { eventId: true },

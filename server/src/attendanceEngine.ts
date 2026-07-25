@@ -24,6 +24,8 @@ const inTypes = new Set<EventType>([
   EventType.BREAK_IN,
 ]);
 
+export const attendancePunchEventTypes = [...inTypes, ...outTypes];
+
 function startOfDay(date: string | Date) {
   return startOfDayUtc(date);
 }
@@ -70,6 +72,31 @@ export function openPunchState(
     hasOpenPunch && latestEvent && now - latestEvent.eventTime.getTime() >= 9 * 60 * 60 * 1000,
   );
   return { hasOpenPunch, expired };
+}
+
+export function attendanceTransitionIssue(
+  latestEvent: { eventType: EventType; eventDate: Date } | null,
+  requestedEventDate: Date,
+  isCheckOut: boolean,
+) {
+  const latestIsOpen = Boolean(latestEvent && inTypes.has(latestEvent.eventType));
+  if (!isCheckOut && latestIsOpen) {
+    if (latestEvent!.eventDate.getTime() !== requestedEventDate.getTime()) {
+      return "Your previous attendance day still has a missing checkout. Submit a missed-punch correction before checking in again.";
+    }
+    return "You are already checked in. Refresh to see the latest punch.";
+  }
+  if (isCheckOut && !latestIsOpen) {
+    return "No active check-in was found. Refresh to see the latest punch.";
+  }
+  if (
+    isCheckOut &&
+    latestEvent &&
+    latestEvent.eventDate.getTime() !== requestedEventDate.getTime()
+  ) {
+    return "Your previous attendance day has a missing checkout. Submit a missed-punch correction for that date.";
+  }
+  return undefined;
 }
 
 const officeGeofences = [
@@ -220,11 +247,11 @@ export async function recalculateDailySummary(employeeId: string, date: string |
           ? "MOBILE_GPS"
           : "SYSTEM";
   const lastOut = [...events].reverse().find((e) => outTypes.has(e.eventType));
-  const { hasOpenPunch } = openPunchState(events);
+  const { hasOpenPunch, expired } = openPunchState(events);
   // Open sessions remain active until an explicit checkout. The scheduler sends
   // a reminder after nine hours without changing attendance status or stopping time.
   const hasMissingOutEvent = hasOpenPunch;
-  const hasMissedCheckout = false;
+  const hasMissedCheckout = expired;
 
   let officeHours = 0;
   let fieldHours = 0;

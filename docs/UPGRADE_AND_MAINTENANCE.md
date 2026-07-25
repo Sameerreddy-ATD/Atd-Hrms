@@ -84,6 +84,15 @@ After deployment, existing browser cookies do not carry a session version and mu
 This is intentional. Password changes/resets, suspension, deactivation, sensitive account edits,
 and logout then revoke older cookies immediately.
 
+### Precise attendance-duration and open-session migration
+
+Migration `20260725170000_precise_attendance_durations` increases attendance-hour precision and
+rebuilds existing daily duration totals from the immutable punch ledger. It also flags historical
+days whose latest punch is an unmatched check-in. The updated backend blocks a new attendance day
+until that earlier session is resolved through a missed-punch correction, preventing overlapping
+cross-day sessions. The migration does not invent checkout times or count an open interval as
+worked time.
+
 ### Task Workspace v2 migration warning
 
 Migration `20260722213000_task_workspace_v2` intentionally clears all legacy Task boards, stages,

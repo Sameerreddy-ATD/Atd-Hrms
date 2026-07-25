@@ -1,4 +1,13 @@
-import { CalendarDays, Clock3, LogIn, LogOut, UserRound, UsersRound } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  AlertTriangle,
+  CalendarDays,
+  Clock3,
+  LogIn,
+  LogOut,
+  UserRound,
+  UsersRound,
+} from "lucide-react";
 import { AttendanceDayEvents } from "@/components/attendance/AttendanceDayEvents";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
@@ -8,7 +17,52 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import type { AttendanceRecord } from "@/types/domain";
-import { formatStoredWorkedTime } from "@/lib/worked-time";
+import { formatStoredWorkedTime, formatWorkedTime } from "@/lib/worked-time";
+
+function indiaDateKey() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function WorkedTime({ record }: { record: AttendanceRecord }) {
+  const [now, setNow] = useState(() => Date.now());
+  const isOpenToday =
+    record.hasMissingOutEvent &&
+    !record.hasMissedCheckout &&
+    record.date === indiaDateKey() &&
+    Boolean(record.latestOpenPunchAt);
+
+  useEffect(() => {
+    if (!isOpenToday) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [isOpenToday]);
+
+  if (record.hasMissedCheckout || (record.hasMissingOutEvent && !isOpenToday)) {
+    return (
+      <span className="flex items-center gap-1 text-amber-700 dark:text-amber-400">
+        <AlertTriangle className="h-3.5 w-3.5" />
+        Missing checkout
+      </span>
+    );
+  }
+
+  if (isOpenToday) {
+    const completedMs = Math.round(Math.max(0, record.totalHours ?? 0) * 3600) * 1000;
+    const openMs = Math.max(0, now - new Date(record.latestOpenPunchAt!).getTime());
+    return (
+      <span className="text-emerald-700 dark:text-emerald-400">
+        {formatWorkedTime(completedMs + openMs)} · In progress
+      </span>
+    );
+  }
+
+  return <>{formatStoredWorkedTime(record.totalHours, record.workedMinutes)}</>;
+}
 
 function DayRecordSummary({
   record,
@@ -52,14 +106,14 @@ function DayRecordSummary({
         <p className="text-xs text-muted-foreground">Last out</p>
         <p className="mt-0.5 flex items-center gap-1 text-sm font-medium tabular-nums">
           <LogOut className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-          {record.punchOut ?? "-"}
+          {record.hasMissingOutEvent ? "Open session" : (record.punchOut ?? "-")}
         </p>
       </div>
       <div>
         <p className="text-xs text-muted-foreground">Worked</p>
         <p className="mt-0.5 flex items-center gap-1 text-sm font-semibold tabular-nums">
           <Clock3 className="h-3.5 w-3.5" />
-          {formatStoredWorkedTime(record.totalHours, record.workedMinutes)}
+          <WorkedTime record={record} />
         </p>
       </div>
     </div>

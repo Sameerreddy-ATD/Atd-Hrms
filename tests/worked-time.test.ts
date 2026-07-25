@@ -27,5 +27,6 @@ describe("worked time", () => {
 
   it("formats stored decimal hours as hours, minutes, and seconds", () => {
     expect(formatStoredWorkedTime(1.5014)).toBe("01:30:05");
+    expect(formatStoredWorkedTime(0.841944)).toBe("00:50:31");
   });
 });

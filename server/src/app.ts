@@ -39,6 +39,8 @@ import {
 } from "./attendanceDayRules.js";
 import {
   attendanceDateForEmployee,
+  attendancePunchEventTypes,
+  attendanceTransitionIssue,
   createAttendanceEvent,
   recalculateDailySummary,
 } from "./attendanceEngine.js";
@@ -3411,23 +3413,11 @@ export function createApp() {
     }
     const eventDate = await attendanceDateForEmployee(employeeId, body.eventTime ?? new Date());
     const latestEvent = await prisma.attendanceEvent.findFirst({
-      where: { employeeId, eventDate },
+      where: { employeeId, eventType: { in: attendancePunchEventTypes } },
       orderBy: { eventTime: "desc" },
     });
-    const openInTypes = new Set<EventType>([
-      EventType.OFFICE_IN,
-      EventType.BRANCH_IN,
-      EventType.FIELD_CHECK_IN,
-      EventType.CLIENT_CHECK_IN,
-      EventType.BREAK_IN,
-    ]);
-    const latestIsOpen = latestEvent ? openInTypes.has(latestEvent.eventType) : false;
-    if (!isCheckOut && latestIsOpen) {
-      throw new HttpError(409, "You are already checked in. Refresh to see the latest punch.");
-    }
-    if (isCheckOut && !latestIsOpen) {
-      throw new HttpError(409, "No active check-in was found. Refresh to see the latest punch.");
-    }
+    const transitionIssue = attendanceTransitionIssue(latestEvent, eventDate, isCheckOut);
+    if (transitionIssue) throw new HttpError(409, transitionIssue);
     let approvedLeave: Awaited<ReturnType<typeof findApprovedLeaveForDay>> | null | undefined =
       null;
     if (!isCheckOut) {
@@ -3604,6 +3594,10 @@ export function createApp() {
 
       return {
         ...dto,
+        latestOpenPunchAt:
+          summary.hasMissingOutEvent && summaryEvents.length
+            ? summaryEvents.at(-1)?.eventTime.toISOString()
+            : undefined,
         punchInSource: sourceLabel(firstInEvent),
         punchInBranchId: firstInEvent?.branchId ?? undefined,
         punchOutSource: sourceLabel(lastOutEvent),

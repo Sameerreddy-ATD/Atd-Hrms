@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { Clock3, Fingerprint, LogIn, LogOut, MapPin, Smartphone } from "lucide-react";
+import {
+  AlertTriangle,
+  Clock3,
+  Fingerprint,
+  LogIn,
+  LogOut,
+  MapPin,
+  Smartphone,
+} from "lucide-react";
 import { LoadingState } from "@/components/common/LoadingState";
 import { attendanceApi } from "@/services/api";
 import type { AttendanceTimelineEvent } from "@/types/domain";
@@ -140,6 +148,12 @@ export function AttendanceDayEvents({
           <span className="absolute -left-3 top-7 h-px w-3 bg-border sm:-left-5 sm:w-5" />
           <span className="absolute -left-[18px] top-[23px] h-3 w-3 rounded-full border-2 border-background bg-primary sm:-left-[26px]" />
           <div className="overflow-hidden rounded-md border bg-background">
+            {session.punchIn && !session.punchOut && (
+              <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300 sm:px-4">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                Checkout missing — submit a missed-punch correction before your next check-in.
+              </div>
+            )}
             <div className="grid grid-cols-2 divide-x border-b bg-muted/25">
               <div className="min-w-0 px-3 py-3 sm:px-4">
                 <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
@@ -154,7 +168,9 @@ export function AttendanceDayEvents({
                   <LogOut className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" /> Punch out
                 </p>
                 <time className="mt-1 block text-sm font-semibold tabular-nums sm:text-base">
-                  {formatTime(session.punchOut)}
+                  {session.punchIn && !session.punchOut
+                    ? "Missing checkout"
+                    : formatTime(session.punchOut)}
                 </time>
               </div>
             </div>

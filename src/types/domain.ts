@@ -426,6 +426,9 @@ export interface AttendanceRecord {
   clientVisitCount?: number;
   totalHours?: number;
   workedMinutes?: number;
+  hasMissingOutEvent?: boolean;
+  hasMissedCheckout?: boolean;
+  latestOpenPunchAt?: string;
   officeHours?: number;
   fieldHours?: number;
   clientVisitHours?: number;

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { EventSource, EventType } from "@prisma/client";
-import { attendanceDateForShift, openPunchState } from "../server/src/attendanceEngine.js";
+import {
+  attendanceDateForShift,
+  attendanceTransitionIssue,
+  openPunchState,
+} from "../server/src/attendanceEngine.js";
 
 const outTypes = new Set<EventType>([
   EventType.OFFICE_OUT,
@@ -61,6 +65,37 @@ describe("attendance movement summary rules", () => {
       hasOpenPunch: true,
       expired: true,
     });
+  });
+
+  it("blocks a new day while the previous attendance day remains open", () => {
+    const previousDate = new Date("2026-07-24T00:00:00.000Z");
+    const currentDate = new Date("2026-07-25T00:00:00.000Z");
+    const latestEvent = { eventType: EventType.FIELD_CHECK_IN, eventDate: previousDate };
+
+    expect(attendanceTransitionIssue(latestEvent, currentDate, false)).toContain(
+      "previous attendance day",
+    );
+    expect(attendanceTransitionIssue(latestEvent, currentDate, true)).toContain(
+      "missed-punch correction",
+    );
+  });
+
+  it("allows checkout only for an open session on the requested attendance day", () => {
+    const date = new Date("2026-07-25T00:00:00.000Z");
+    expect(
+      attendanceTransitionIssue(
+        { eventType: EventType.FIELD_CHECK_IN, eventDate: date },
+        date,
+        true,
+      ),
+    ).toBeUndefined();
+    expect(
+      attendanceTransitionIssue(
+        { eventType: EventType.FIELD_CHECK_OUT, eventDate: date },
+        date,
+        true,
+      ),
+    ).toContain("No active check-in");
   });
 
   it("supports branch one to branch two plus client GPS in one day", () => {
