@@ -1,17 +1,39 @@
--- AlterTable
-ALTER TABLE `expense_claims` ADD COLUMN `claim_meta` JSON NULL;
+-- AlterTable (idempotent: prior partial apply may have added these columns)
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'expense_claims' AND COLUMN_NAME = 'claim_meta'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `expense_claims` ADD COLUMN `claim_meta` JSON NULL', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- AlterTable
-ALTER TABLE `work_tasks` ADD COLUMN `custom_fields` JSON NULL;
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'work_tasks' AND COLUMN_NAME = 'custom_fields'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `work_tasks` ADD COLUMN `custom_fields` JSON NULL', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- AlterTable
-ALTER TABLE `task_boards` ADD COLUMN `custom_field_defs` JSON NULL;
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'task_boards' AND COLUMN_NAME = 'custom_field_defs'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `task_boards` ADD COLUMN `custom_field_defs` JSON NULL', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- CreateIndex
-CREATE INDEX `work_tasks_parent_task_id_idx` ON `work_tasks`(`parent_task_id`);
+-- CreateIndex (parent_task_id index may already exist from earlier schema)
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'work_tasks' AND INDEX_NAME = 'work_tasks_parent_task_id_idx'
+);
+SET @sqlstmt := IF(
+  @exist = 0,
+  'CREATE INDEX `work_tasks_parent_task_id_idx` ON `work_tasks`(`parent_task_id`)',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- CreateTable
-CREATE TABLE `task_attachments` (
+CREATE TABLE IF NOT EXISTS `task_attachments` (
     `attachment_id` VARCHAR(191) NOT NULL,
     `task_id` VARCHAR(191) NOT NULL,
     `file_name` VARCHAR(191) NOT NULL,
@@ -26,7 +48,7 @@ CREATE TABLE `task_attachments` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `notification_preferences` (
+CREATE TABLE IF NOT EXISTS `notification_preferences` (
     `preference_id` VARCHAR(191) NOT NULL,
     `user_id` VARCHAR(191) NOT NULL,
     `digest_mode` VARCHAR(191) NOT NULL DEFAULT 'immediate',
@@ -39,7 +61,7 @@ CREATE TABLE `notification_preferences` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `roster_assignments` (
+CREATE TABLE IF NOT EXISTS `roster_assignments` (
     `assignment_id` VARCHAR(191) NOT NULL,
     `employee_id` VARCHAR(191) NOT NULL,
     `work_date` DATE NOT NULL,
@@ -57,7 +79,7 @@ CREATE TABLE `roster_assignments` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `overtime_claims` (
+CREATE TABLE IF NOT EXISTS `overtime_claims` (
     `claim_id` VARCHAR(191) NOT NULL,
     `employee_id` VARCHAR(191) NOT NULL,
     `work_date` DATE NOT NULL,
@@ -76,7 +98,7 @@ CREATE TABLE `overtime_claims` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `checklist_templates` (
+CREATE TABLE IF NOT EXISTS `checklist_templates` (
     `template_id` VARCHAR(191) NOT NULL,
     `name` VARCHAR(191) NOT NULL,
     `kind` VARCHAR(191) NOT NULL,
@@ -89,7 +111,7 @@ CREATE TABLE `checklist_templates` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `checklist_template_items` (
+CREATE TABLE IF NOT EXISTS `checklist_template_items` (
     `item_id` VARCHAR(191) NOT NULL,
     `template_id` VARCHAR(191) NOT NULL,
     `title` VARCHAR(191) NOT NULL,
@@ -101,7 +123,7 @@ CREATE TABLE `checklist_template_items` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `checklist_instances` (
+CREATE TABLE IF NOT EXISTS `checklist_instances` (
     `instance_id` VARCHAR(191) NOT NULL,
     `template_id` VARCHAR(191) NOT NULL,
     `employee_id` VARCHAR(191) NOT NULL,
@@ -115,7 +137,7 @@ CREATE TABLE `checklist_instances` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `checklist_item_states` (
+CREATE TABLE IF NOT EXISTS `checklist_item_states` (
     `state_id` VARCHAR(191) NOT NULL,
     `instance_id` VARCHAR(191) NOT NULL,
     `title` VARCHAR(191) NOT NULL,
@@ -129,7 +151,7 @@ CREATE TABLE `checklist_item_states` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `company_documents` (
+CREATE TABLE IF NOT EXISTS `company_documents` (
     `document_id` VARCHAR(191) NOT NULL,
     `title` VARCHAR(191) NOT NULL,
     `category` VARCHAR(191) NOT NULL DEFAULT 'POLICY',
@@ -150,7 +172,7 @@ CREATE TABLE `company_documents` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `document_acks` (
+CREATE TABLE IF NOT EXISTS `document_acks` (
     `ack_id` VARCHAR(191) NOT NULL,
     `document_id` VARCHAR(191) NOT NULL,
     `employee_id` VARCHAR(191) NOT NULL,
@@ -163,7 +185,7 @@ CREATE TABLE `document_acks` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `appraisal_cycles` (
+CREATE TABLE IF NOT EXISTS `appraisal_cycles` (
     `cycle_id` VARCHAR(191) NOT NULL,
     `name` VARCHAR(191) NOT NULL,
     `starts_on` DATE NOT NULL,
@@ -177,7 +199,7 @@ CREATE TABLE `appraisal_cycles` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `appraisal_reviews` (
+CREATE TABLE IF NOT EXISTS `appraisal_reviews` (
     `review_id` VARCHAR(191) NOT NULL,
     `cycle_id` VARCHAR(191) NOT NULL,
     `employee_id` VARCHAR(191) NOT NULL,
@@ -195,7 +217,7 @@ CREATE TABLE `appraisal_reviews` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `sop_articles` (
+CREATE TABLE IF NOT EXISTS `sop_articles` (
     `article_id` VARCHAR(191) NOT NULL,
     `title` VARCHAR(191) NOT NULL,
     `body` TEXT NOT NULL,
@@ -210,7 +232,7 @@ CREATE TABLE `sop_articles` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `sop_reads` (
+CREATE TABLE IF NOT EXISTS `sop_reads` (
     `read_id` VARCHAR(191) NOT NULL,
     `article_id` VARCHAR(191) NOT NULL,
     `employee_id` VARCHAR(191) NOT NULL,
@@ -221,7 +243,7 @@ CREATE TABLE `sop_reads` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `recruitment_jobs` (
+CREATE TABLE IF NOT EXISTS `recruitment_jobs` (
     `job_id` VARCHAR(191) NOT NULL,
     `title` VARCHAR(191) NOT NULL,
     `department_name` VARCHAR(191) NULL,
@@ -236,7 +258,7 @@ CREATE TABLE `recruitment_jobs` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `candidates` (
+CREATE TABLE IF NOT EXISTS `candidates` (
     `candidate_id` VARCHAR(191) NOT NULL,
     `job_id` VARCHAR(191) NOT NULL,
     `name` VARCHAR(191) NOT NULL,
@@ -252,37 +274,168 @@ CREATE TABLE `candidates` (
     PRIMARY KEY (`candidate_id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- AddForeignKey
-ALTER TABLE `task_attachments` ADD CONSTRAINT `task_attachments_task_id_fkey` FOREIGN KEY (`task_id`) REFERENCES `work_tasks`(`task_id`) ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE `task_attachments` ADD CONSTRAINT `task_attachments_uploaded_by_id_fkey` FOREIGN KEY (`uploaded_by_id`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE `notification_preferences` ADD CONSTRAINT `notification_preferences_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE `roster_assignments` ADD CONSTRAINT `roster_assignments_employee_id_fkey` FOREIGN KEY (`employee_id`) REFERENCES `employees`(`employee_id`) ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE `overtime_claims` ADD CONSTRAINT `overtime_claims_employee_id_fkey` FOREIGN KEY (`employee_id`) REFERENCES `employees`(`employee_id`) ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE `overtime_claims` ADD CONSTRAINT `overtime_claims_reviewed_by_user_id_fkey` FOREIGN KEY (`reviewed_by_user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE `checklist_template_items` ADD CONSTRAINT `checklist_template_items_template_id_fkey` FOREIGN KEY (`template_id`) REFERENCES `checklist_templates`(`template_id`) ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE `checklist_instances` ADD CONSTRAINT `checklist_instances_template_id_fkey` FOREIGN KEY (`template_id`) REFERENCES `checklist_templates`(`template_id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE `checklist_instances` ADD CONSTRAINT `checklist_instances_employee_id_fkey` FOREIGN KEY (`employee_id`) REFERENCES `employees`(`employee_id`) ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE `checklist_item_states` ADD CONSTRAINT `checklist_item_states_instance_id_fkey` FOREIGN KEY (`instance_id`) REFERENCES `checklist_instances`(`instance_id`) ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE `company_documents` ADD CONSTRAINT `company_documents_uploaded_by_id_fkey` FOREIGN KEY (`uploaded_by_id`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE `document_acks` ADD CONSTRAINT `document_acks_document_id_fkey` FOREIGN KEY (`document_id`) REFERENCES `company_documents`(`document_id`) ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE `document_acks` ADD CONSTRAINT `document_acks_employee_id_fkey` FOREIGN KEY (`employee_id`) REFERENCES `employees`(`employee_id`) ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE `appraisal_reviews` ADD CONSTRAINT `appraisal_reviews_cycle_id_fkey` FOREIGN KEY (`cycle_id`) REFERENCES `appraisal_cycles`(`cycle_id`) ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE `appraisal_reviews` ADD CONSTRAINT `appraisal_reviews_employee_id_fkey` FOREIGN KEY (`employee_id`) REFERENCES `employees`(`employee_id`) ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE `appraisal_reviews` ADD CONSTRAINT `appraisal_reviews_manager_user_id_fkey` FOREIGN KEY (`manager_user_id`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE `sop_articles` ADD CONSTRAINT `sop_articles_author_user_id_fkey` FOREIGN KEY (`author_user_id`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE `sop_reads` ADD CONSTRAINT `sop_reads_article_id_fkey` FOREIGN KEY (`article_id`) REFERENCES `sop_articles`(`article_id`) ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE `sop_reads` ADD CONSTRAINT `sop_reads_employee_id_fkey` FOREIGN KEY (`employee_id`) REFERENCES `employees`(`employee_id`) ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE `recruitment_jobs` ADD CONSTRAINT `recruitment_jobs_created_by_user_id_fkey` FOREIGN KEY (`created_by_user_id`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE `candidates` ADD CONSTRAINT `candidates_job_id_fkey` FOREIGN KEY (`job_id`) REFERENCES `recruitment_jobs`(`job_id`) ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE `candidates` ADD CONSTRAINT `candidates_hired_employee_id_fkey` FOREIGN KEY (`hired_employee_id`) REFERENCES `employees`(`employee_id`) ON DELETE SET NULL ON UPDATE CASCADE;
+-- AddForeignKey (ignore if already present)
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'task_attachments' AND CONSTRAINT_NAME = 'task_attachments_task_id_fkey'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `task_attachments` ADD CONSTRAINT `task_attachments_task_id_fkey` FOREIGN KEY (`task_id`) REFERENCES `work_tasks`(`task_id`) ON DELETE CASCADE ON UPDATE CASCADE', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'task_attachments' AND CONSTRAINT_NAME = 'task_attachments_uploaded_by_id_fkey'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `task_attachments` ADD CONSTRAINT `task_attachments_uploaded_by_id_fkey` FOREIGN KEY (`uploaded_by_id`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'notification_preferences' AND CONSTRAINT_NAME = 'notification_preferences_user_id_fkey'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `notification_preferences` ADD CONSTRAINT `notification_preferences_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'roster_assignments' AND CONSTRAINT_NAME = 'roster_assignments_employee_id_fkey'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `roster_assignments` ADD CONSTRAINT `roster_assignments_employee_id_fkey` FOREIGN KEY (`employee_id`) REFERENCES `employees`(`employee_id`) ON DELETE CASCADE ON UPDATE CASCADE', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'overtime_claims' AND CONSTRAINT_NAME = 'overtime_claims_employee_id_fkey'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `overtime_claims` ADD CONSTRAINT `overtime_claims_employee_id_fkey` FOREIGN KEY (`employee_id`) REFERENCES `employees`(`employee_id`) ON DELETE CASCADE ON UPDATE CASCADE', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'overtime_claims' AND CONSTRAINT_NAME = 'overtime_claims_reviewed_by_user_id_fkey'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `overtime_claims` ADD CONSTRAINT `overtime_claims_reviewed_by_user_id_fkey` FOREIGN KEY (`reviewed_by_user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'checklist_template_items' AND CONSTRAINT_NAME = 'checklist_template_items_template_id_fkey'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `checklist_template_items` ADD CONSTRAINT `checklist_template_items_template_id_fkey` FOREIGN KEY (`template_id`) REFERENCES `checklist_templates`(`template_id`) ON DELETE CASCADE ON UPDATE CASCADE', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'checklist_instances' AND CONSTRAINT_NAME = 'checklist_instances_template_id_fkey'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `checklist_instances` ADD CONSTRAINT `checklist_instances_template_id_fkey` FOREIGN KEY (`template_id`) REFERENCES `checklist_templates`(`template_id`) ON DELETE RESTRICT ON UPDATE CASCADE', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'checklist_instances' AND CONSTRAINT_NAME = 'checklist_instances_employee_id_fkey'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `checklist_instances` ADD CONSTRAINT `checklist_instances_employee_id_fkey` FOREIGN KEY (`employee_id`) REFERENCES `employees`(`employee_id`) ON DELETE CASCADE ON UPDATE CASCADE', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'checklist_item_states' AND CONSTRAINT_NAME = 'checklist_item_states_instance_id_fkey'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `checklist_item_states` ADD CONSTRAINT `checklist_item_states_instance_id_fkey` FOREIGN KEY (`instance_id`) REFERENCES `checklist_instances`(`instance_id`) ON DELETE CASCADE ON UPDATE CASCADE', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'company_documents' AND CONSTRAINT_NAME = 'company_documents_uploaded_by_id_fkey'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `company_documents` ADD CONSTRAINT `company_documents_uploaded_by_id_fkey` FOREIGN KEY (`uploaded_by_id`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'document_acks' AND CONSTRAINT_NAME = 'document_acks_document_id_fkey'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `document_acks` ADD CONSTRAINT `document_acks_document_id_fkey` FOREIGN KEY (`document_id`) REFERENCES `company_documents`(`document_id`) ON DELETE CASCADE ON UPDATE CASCADE', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'document_acks' AND CONSTRAINT_NAME = 'document_acks_employee_id_fkey'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `document_acks` ADD CONSTRAINT `document_acks_employee_id_fkey` FOREIGN KEY (`employee_id`) REFERENCES `employees`(`employee_id`) ON DELETE CASCADE ON UPDATE CASCADE', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'appraisal_reviews' AND CONSTRAINT_NAME = 'appraisal_reviews_cycle_id_fkey'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `appraisal_reviews` ADD CONSTRAINT `appraisal_reviews_cycle_id_fkey` FOREIGN KEY (`cycle_id`) REFERENCES `appraisal_cycles`(`cycle_id`) ON DELETE CASCADE ON UPDATE CASCADE', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'appraisal_reviews' AND CONSTRAINT_NAME = 'appraisal_reviews_employee_id_fkey'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `appraisal_reviews` ADD CONSTRAINT `appraisal_reviews_employee_id_fkey` FOREIGN KEY (`employee_id`) REFERENCES `employees`(`employee_id`) ON DELETE CASCADE ON UPDATE CASCADE', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'appraisal_reviews' AND CONSTRAINT_NAME = 'appraisal_reviews_manager_user_id_fkey'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `appraisal_reviews` ADD CONSTRAINT `appraisal_reviews_manager_user_id_fkey` FOREIGN KEY (`manager_user_id`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sop_articles' AND CONSTRAINT_NAME = 'sop_articles_author_user_id_fkey'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `sop_articles` ADD CONSTRAINT `sop_articles_author_user_id_fkey` FOREIGN KEY (`author_user_id`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sop_reads' AND CONSTRAINT_NAME = 'sop_reads_article_id_fkey'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `sop_reads` ADD CONSTRAINT `sop_reads_article_id_fkey` FOREIGN KEY (`article_id`) REFERENCES `sop_articles`(`article_id`) ON DELETE CASCADE ON UPDATE CASCADE', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sop_reads' AND CONSTRAINT_NAME = 'sop_reads_employee_id_fkey'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `sop_reads` ADD CONSTRAINT `sop_reads_employee_id_fkey` FOREIGN KEY (`employee_id`) REFERENCES `employees`(`employee_id`) ON DELETE CASCADE ON UPDATE CASCADE', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'recruitment_jobs' AND CONSTRAINT_NAME = 'recruitment_jobs_created_by_user_id_fkey'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `recruitment_jobs` ADD CONSTRAINT `recruitment_jobs_created_by_user_id_fkey` FOREIGN KEY (`created_by_user_id`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'candidates' AND CONSTRAINT_NAME = 'candidates_job_id_fkey'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `candidates` ADD CONSTRAINT `candidates_job_id_fkey` FOREIGN KEY (`job_id`) REFERENCES `recruitment_jobs`(`job_id`) ON DELETE CASCADE ON UPDATE CASCADE', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exist := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'candidates' AND CONSTRAINT_NAME = 'candidates_hired_employee_id_fkey'
+);
+SET @sqlstmt := IF(@exist = 0, 'ALTER TABLE `candidates` ADD CONSTRAINT `candidates_hired_employee_id_fkey` FOREIGN KEY (`hired_employee_id`) REFERENCES `employees`(`employee_id`) ON DELETE SET NULL ON UPDATE CASCADE', 'SELECT 1');
+PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- Seed default onboarding/offboarding templates
-INSERT INTO `checklist_templates` (`template_id`, `name`, `kind`, `is_active`, `created_at`, `updated_at`)
+INSERT IGNORE INTO `checklist_templates` (`template_id`, `name`, `kind`, `is_active`, `created_at`, `updated_at`)
 VALUES
   ('tmpl_onboarding_default', 'Default onboarding', 'ONBOARDING', true, CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
   ('tmpl_offboarding_default', 'Default offboarding', 'OFFBOARDING', true, CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3));
 
-INSERT INTO `checklist_template_items` (`item_id`, `template_id`, `title`, `link_path`, `sort_order`) VALUES
+INSERT IGNORE INTO `checklist_template_items` (`item_id`, `template_id`, `title`, `link_path`, `sort_order`) VALUES
   ('tmpl_on_item_1', 'tmpl_onboarding_default', 'Complete My Profile', '/profile', 0),
   ('tmpl_on_item_2', 'tmpl_onboarding_default', 'Register face verification', '/dashboard', 1),
   ('tmpl_on_item_3', 'tmpl_onboarding_default', 'View ID card', '/id-card', 2),
