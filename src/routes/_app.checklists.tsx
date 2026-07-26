@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { EmployeePicker } from "@/components/common/EmployeePicker";
@@ -52,21 +52,41 @@ type TemplateRow = Awaited<ReturnType<typeof checklistsApi.templates>>[number];
 const NO_LINK = "__none__";
 const LINK_OPTIONS = [
   { value: NO_LINK, label: "No link" },
-  { value: "/profile", label: "My Profile" },
-  { value: "/face-enrollment", label: "Face enrollment" },
+  { value: "/employees", label: "Employees" },
+  { value: "/assets", label: "Assets" },
+  { value: "/users", label: "User Logins" },
+  { value: "/face-security", label: "Face security" },
   { value: "/id-card", label: "ID card" },
-  { value: "/announcements", label: "Announcements" },
-  { value: "/leave/apply", label: "Apply leave" },
-  { value: "/attendance/mine", label: "My attendance" },
   { value: "/employee-services", label: "Employee requests" },
-  { value: "/assets", label: "Assets (offboarding)" },
+  { value: "/announcements", label: "Announcements" },
+  { value: "/branches", label: "Branches" },
+  { value: "/devices", label: "Devices" },
+  { value: "/holidays", label: "Holidays" },
+  { value: "/leave/policy", label: "Leave policy" },
   { value: "/checklists", label: "Checklists" },
   { value: "/dashboard", label: "Dashboard" },
 ];
 
+type TemplateDraft = {
+  name: string;
+  kind: "ONBOARDING" | "OFFBOARDING";
+  isActive: boolean;
+  items: Array<{ title: string; linkPath: string }>;
+};
+
+function emptyDraft(kind: "ONBOARDING" | "OFFBOARDING" = "ONBOARDING"): TemplateDraft {
+  return {
+    name: kind === "ONBOARDING" ? "Onboarding checklist" : "Offboarding checklist",
+    kind,
+    isActive: true,
+    items: [{ title: "", linkPath: NO_LINK }],
+  };
+}
+
 function ChecklistsPage() {
   const { user } = useAuth();
-  const canManage = ["developer_admin", "main_admin", "hr"].includes(user?.role ?? "");
+  const canOperate = user?.role === "hr" || user?.role === "developer_admin";
+  const canEditTemplates = user?.role === "developer_admin";
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<ChecklistRow[]>([]);
   const [employees, setEmployees] = useState<User[]>([]);
@@ -75,21 +95,21 @@ function ChecklistsPage() {
   const [kindFilter, setKindFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [templates, setTemplates] = useState<TemplateRow[]>([]);
-  const [editingTemplate, setEditingTemplate] = useState<TemplateRow | null>(null);
-  const [templateDraft, setTemplateDraft] = useState<{
-    name: string;
-    isActive: boolean;
-    items: Array<{ title: string; linkPath: string }>;
-  } | null>(null);
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+  const [templateDraft, setTemplateDraft] = useState<TemplateDraft | null>(null);
   const [savingTemplate, setSavingTemplate] = useState(false);
 
   const reload = useCallback(async () => {
+    if (!canOperate) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const [checklistRows, people, templateRows] = await Promise.all([
         checklistsApi.list(),
-        canManage ? employeesApi.list().catch(() => []) : Promise.resolve([]),
-        canManage ? checklistsApi.templates().catch(() => []) : Promise.resolve([]),
+        employeesApi.list().catch(() => []),
+        canEditTemplates ? checklistsApi.templates().catch(() => []) : Promise.resolve([]),
       ]);
       setRows(checklistRows);
       setEmployees((people as User[]).filter((person) => person.active && person.employeeId));
@@ -99,7 +119,7 @@ function ChecklistsPage() {
     } finally {
       setLoading(false);
     }
-  }, [canManage]);
+  }, [canOperate, canEditTemplates]);
 
   useEffect(() => {
     void reload();
@@ -161,10 +181,16 @@ function ChecklistsPage() {
     }
   }
 
+  function beginCreateTemplate() {
+    setEditingTemplateId(null);
+    setTemplateDraft(emptyDraft("ONBOARDING"));
+  }
+
   function beginEditTemplate(template: TemplateRow) {
-    setEditingTemplate(template);
+    setEditingTemplateId(template.id);
     setTemplateDraft({
       name: template.name,
+      kind: template.kind === "OFFBOARDING" ? "OFFBOARDING" : "ONBOARDING",
       isActive: template.isActive,
       items: template.items.map((item) => ({
         title: item.title,
@@ -174,23 +200,34 @@ function ChecklistsPage() {
   }
 
   async function saveTemplate() {
-    if (!editingTemplate || !templateDraft) return;
+    if (!templateDraft) return;
     if (templateDraft.items.some((item) => item.title.trim().length < 2)) {
       toast.error("Every item needs a title");
       return;
     }
     setSavingTemplate(true);
+    const payloadItems = templateDraft.items.map((item) => ({
+      title: item.title.trim(),
+      linkPath: !item.linkPath || item.linkPath === NO_LINK ? null : item.linkPath,
+    }));
     try {
-      await checklistsApi.saveTemplate(editingTemplate.id, {
-        name: templateDraft.name.trim(),
-        isActive: templateDraft.isActive,
-        items: templateDraft.items.map((item) => ({
-          title: item.title.trim(),
-          linkPath: !item.linkPath || item.linkPath === NO_LINK ? null : item.linkPath,
-        })),
-      });
-      toast.success("Template saved — new starts use these items");
-      setEditingTemplate(null);
+      if (editingTemplateId) {
+        await checklistsApi.saveTemplate(editingTemplateId, {
+          name: templateDraft.name.trim(),
+          isActive: templateDraft.isActive,
+          items: payloadItems,
+        });
+        toast.success("Template saved — new starts use these items");
+      } else {
+        await checklistsApi.createTemplate({
+          name: templateDraft.name.trim(),
+          kind: templateDraft.kind,
+          isActive: templateDraft.isActive,
+          items: payloadItems,
+        });
+        toast.success("Template created");
+      }
+      setEditingTemplateId(null);
       setTemplateDraft(null);
       await reload();
     } catch (error) {
@@ -200,6 +237,28 @@ function ChecklistsPage() {
     }
   }
 
+  async function removeTemplate(template: TemplateRow) {
+    try {
+      const result = await checklistsApi.deleteTemplate(template.id);
+      toast.success(
+        result.deactivated
+          ? "Template deactivated (existing checklists kept)"
+          : "Template deleted",
+      );
+      if (editingTemplateId === template.id) {
+        setEditingTemplateId(null);
+        setTemplateDraft(null);
+      }
+      await reload();
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
+  }
+
+  if (!canOperate) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   if (loading) return <LoadingState label="Loading checklists" />;
 
   return (
@@ -207,9 +266,9 @@ function ChecklistsPage() {
       <PageHeader
         title="Onboarding & offboarding"
         description={
-          canManage
-            ? "Start checklists, track progress, and edit the templates used for every new hire or exit."
-            : "Complete your open onboarding or offboarding items. Linked screens open in one tap."
+          canEditTemplates
+            ? "HR works each hire/exit checklist. Developer Admin adds, edits, or removes the process templates."
+            : "For each new hire or exit, work through what to provide and what data to collect. Tick items as you complete them."
         }
       />
 
@@ -227,30 +286,30 @@ function ChecklistsPage() {
       <Tabs defaultValue="instances" className="space-y-4">
         <TabsList className="h-auto w-full flex-wrap justify-start">
           <TabsTrigger value="instances">Checklists ({visible.length})</TabsTrigger>
-          {canManage && <TabsTrigger value="templates">Templates ({templates.length})</TabsTrigger>}
+          {canEditTemplates && (
+            <TabsTrigger value="templates">Templates ({templates.length})</TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="instances" className="space-y-4">
-          {canManage && (
-            <div className="flex flex-col gap-3 rounded-lg border bg-card p-3 sm:flex-row sm:flex-wrap sm:items-end">
-              <EmployeePicker
-                className="min-w-[220px] flex-1 space-y-1.5"
-                employees={employees}
-                value={employeeId}
-                onChange={setEmployeeId}
-              />
-              <Button disabled={!employeeId} onClick={() => void start("ONBOARDING")}>
-                Start onboarding
-              </Button>
-              <Button
-                variant="outline"
-                disabled={!employeeId}
-                onClick={() => void start("OFFBOARDING")}
-              >
-                Start offboarding
-              </Button>
-            </div>
-          )}
+          <div className="flex flex-col gap-3 rounded-lg border bg-card p-3 sm:flex-row sm:flex-wrap sm:items-end">
+            <EmployeePicker
+              className="min-w-[220px] flex-1 space-y-1.5"
+              employees={employees}
+              value={employeeId}
+              onChange={setEmployeeId}
+            />
+            <Button disabled={!employeeId} onClick={() => void start("ONBOARDING")}>
+              Start onboarding
+            </Button>
+            <Button
+              variant="outline"
+              disabled={!employeeId}
+              onClick={() => void start("OFFBOARDING")}
+            >
+              Start offboarding
+            </Button>
+          </div>
 
           <TableToolbar>
             <Input
@@ -285,11 +344,7 @@ function ChecklistsPage() {
           {visible.length === 0 ? (
             <EmptyState
               title="No checklists"
-              description={
-                canManage
-                  ? "Start onboarding or offboarding for an employee, or clear filters."
-                  : "You have no checklist items matching these filters."
-              }
+              description="Start onboarding or offboarding for an employee, or clear filters."
             />
           ) : (
             <div className="space-y-4">
@@ -314,7 +369,7 @@ function ChecklistsPage() {
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <StatusBadge status={row.status} />
-                        {canManage && row.status === "OPEN" && (
+                        {row.status === "OPEN" && (
                           <>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
@@ -349,7 +404,7 @@ function ChecklistsPage() {
                             </Button>
                           </>
                         )}
-                        {canManage && row.status !== "OPEN" && (
+                        {row.status !== "OPEN" && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -426,12 +481,17 @@ function ChecklistsPage() {
           )}
         </TabsContent>
 
-        {canManage && (
+        {canEditTemplates && (
           <TabsContent value="templates" className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Templates control what new onboarding/offboarding checklists contain. Editing a
-              template does not change checklists already in progress.
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-muted-foreground">
+                Templates define what HR must provide and collect. Editing a template does not change
+                checklists already in progress.
+              </p>
+              <Button onClick={beginCreateTemplate}>
+                <Plus className="mr-2 h-4 w-4" /> New template
+              </Button>
+            </div>
             <div className="grid gap-3 lg:grid-cols-2">
               {templates.map((template) => (
                 <div key={template.id} className="rounded-xl border bg-card p-4">
@@ -443,9 +503,34 @@ function ChecklistsPage() {
                         instances · {template.isActive ? "Active" : "Inactive"}
                       </p>
                     </div>
-                    <Button size="sm" variant="outline" onClick={() => beginEditTemplate(template)}>
-                      Edit
-                    </Button>
+                    <div className="flex shrink-0 gap-2">
+                      <Button size="sm" variant="outline" onClick={() => beginEditTemplate(template)}>
+                        Edit
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="ghost">
+                            Delete
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Remove this template?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              {template.instanceCount > 0
+                                ? "It has existing checklists, so it will be deactivated instead of deleted."
+                                : "This permanently deletes the unused template."}
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => void removeTemplate(template)}>
+                              Confirm
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   </div>
                   <ul className="mt-3 space-y-1.5 text-sm">
                     {template.items.map((item) => (
@@ -461,11 +546,14 @@ function ChecklistsPage() {
               ))}
             </div>
 
-            {editingTemplate && templateDraft && (
+            {templateDraft && (
               <div className="rounded-xl border bg-card p-4 sm:p-5">
-                <h3 className="font-semibold">Edit template · {editingTemplate.kind}</h3>
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-1.5">
+                <h3 className="font-semibold">
+                  {editingTemplateId ? "Edit template" : "New template"}
+                  {editingTemplateId ? ` · ${templateDraft.kind}` : ""}
+                </h3>
+                <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                  <div className="space-y-1.5 sm:col-span-1">
                     <Label>Name</Label>
                     <Input
                       value={templateDraft.name}
@@ -476,6 +564,32 @@ function ChecklistsPage() {
                       }
                     />
                   </div>
+                  {!editingTemplateId && (
+                    <div className="space-y-1.5">
+                      <Label>Kind</Label>
+                      <Select
+                        value={templateDraft.kind}
+                        onValueChange={(value) =>
+                          setTemplateDraft((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  kind: value === "OFFBOARDING" ? "OFFBOARDING" : "ONBOARDING",
+                                }
+                              : current,
+                          )
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ONBOARDING">Onboarding</SelectItem>
+                          <SelectItem value="OFFBOARDING">Offboarding</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   <div className="space-y-1.5">
                     <Label>Status</Label>
                     <Select
@@ -505,7 +619,7 @@ function ChecklistsPage() {
                     >
                       <Input
                         value={item.title}
-                        placeholder="Item title"
+                        placeholder="What HR should provide or collect"
                         onChange={(event) =>
                           setTemplateDraft((current) => {
                             if (!current) return current;
@@ -577,12 +691,12 @@ function ChecklistsPage() {
                     <Plus className="mr-2 h-4 w-4" /> Add item
                   </Button>
                   <Button disabled={savingTemplate} onClick={() => void saveTemplate()}>
-                    {savingTemplate ? "Saving..." : "Save template"}
+                    {savingTemplate ? "Saving..." : editingTemplateId ? "Save template" : "Create template"}
                   </Button>
                   <Button
                     variant="ghost"
                     onClick={() => {
-                      setEditingTemplate(null);
+                      setEditingTemplateId(null);
                       setTemplateDraft(null);
                     }}
                   >

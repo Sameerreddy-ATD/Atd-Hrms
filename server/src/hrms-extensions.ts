@@ -178,291 +178,24 @@ export function registerHrmsExtensions(app: Express) {
     }),
   );
 
-  app.get(
-    "/reports/ops-summary",
-    requireAuth,
-    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.CEO, Role.HR, Role.MANAGER),
-    asyncHandler(async (req, res) => {
-      const today = new Date();
-      today.setUTCHours(0, 0, 0, 0);
-      const monthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
-      const teamIds =
-        req.user!.role === Role.MANAGER && req.user!.employeeId
-          ? await getOrganizationTeamEmployeeIds(req.user!.employeeId)
-          : undefined;
+  // Checklists — HR runs instances; Developer Admin owns template CRUD
+  const checklistOperators = [Role.DEVELOPER_ADMIN, Role.HR] as const;
+  const checklistTemplateAdmins = [Role.DEVELOPER_ADMIN] as const;
 
-      const employeeWhere = teamIds ? { employeeId: { in: teamIds } } : { status: "ACTIVE" as const };
-      const [activeEmployees, presentToday, pendingLeave, overdueTasks, openTasks, paidClaims] =
-        await Promise.all([
-          prisma.employee.count({ where: { status: "ACTIVE", ...(teamIds ? { employeeId: { in: teamIds } } : {}) } }),
-          prisma.attendanceDailySummary.count({
-            where: {
-              date: today,
-              status: { startsWith: "Present" },
-              ...(teamIds ? { employeeId: { in: teamIds } } : {}),
-            },
-          }),
-          prisma.leaveRequest.count({
-            where: {
-              status: "PENDING",
-              ...(teamIds ? { employeeId: { in: teamIds } } : {}),
-            },
-          }),
-          prisma.workTask.count({
-            where: {
-              archivedAt: null,
-              dueDate: { lt: today },
-              status: { notIn: ["COMPLETED", "CANCELLED"] },
-              ...(teamIds
-                ? { assignments: { some: { employeeId: { in: teamIds } } } }
-                : {}),
-            },
-          }),
-          prisma.workTask.count({
-            where: {
-              archivedAt: null,
-              status: { notIn: ["COMPLETED", "CANCELLED"] },
-              ...(teamIds
-                ? { assignments: { some: { employeeId: { in: teamIds } } } }
-                : {}),
-            },
-          }),
-          prisma.expenseClaim.aggregate({
-            where: {
-              status: "PAID",
-              paidAt: { gte: monthStart },
-              ...(teamIds ? { employeeId: { in: teamIds } } : {}),
-            },
-            _sum: { amount: true },
-            _count: true,
-          }),
-        ]);
+  const templateItemSchema = z.object({
+    title: z.string().trim().min(2).max(200),
+    linkPath: z.string().trim().max(200).nullable().optional(),
+  });
 
-      const boards = await prisma.taskBoard.findMany({
-        where: { archived: false },
-        select: {
-          boardId: true,
-          name: true,
-          tasks: {
-            where: {
-              archivedAt: null,
-              status: { notIn: ["COMPLETED", "CANCELLED"] },
-            },
-            select: { taskId: true, dueDate: true, status: true },
-          },
-        },
-        take: 20,
-      });
-
-      res.json({
-        activeEmployees,
-        presentToday,
-        attendancePct:
-          activeEmployees > 0 ? Math.round((presentToday / activeEmployees) * 1000) / 10 : 0,
-        pendingLeave,
-        overdueTasks,
-        openTasks,
-        paidClaimsThisMonth: paidClaims._count,
-        paidClaimsAmount: Number(paidClaims._sum.amount ?? 0),
-        boards: boards.map((board) => ({
-          id: board.boardId,
-          name: board.name,
-          active: board.tasks.length,
-          overdue: board.tasks.filter(
-            (task) => task.dueDate && task.dueDate < today && task.status !== "COMPLETED",
-          ).length,
-        })),
-      });
-    }),
-  );
-
-  app.get(
-    "/reports/claims-export",
-    requireAuth,
-    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR, Role.CEO),
-    asyncHandler(async (req, res) => {
-      const from = typeof req.query.from === "string" ? new Date(req.query.from) : undefined;
-      const to = typeof req.query.to === "string" ? new Date(req.query.to) : undefined;
-      const claims = await prisma.expenseClaim.findMany({
-        where: {
-          status: "PAID",
-          ...(from || to
-            ? {
-                paidAt: {
-                  ...(from ? { gte: from } : {}),
-                  ...(to ? { lte: to } : {}),
-                },
-              }
-            : {}),
-        },
-        include: { employee: { select: { name: true, employeeCode: true } } },
-        orderBy: { paidAt: "desc" },
-        take: 5000,
-      });
-      const header = "claimId,employeeCode,employeeName,claimType,amount,paidAt,title\n";
-      const rows = claims
-        .map((claim) =>
-          [
-            claim.claimId,
-            claim.employee.employeeCode,
-            JSON.stringify(claim.employee.name),
-            claim.claimType,
-            String(claim.amount),
-            claim.paidAt?.toISOString() ?? "",
-            JSON.stringify(claim.title ?? ""),
-          ].join(","),
-        )
-        .join("\n");
-      res.setHeader("Content-Type", "text/csv");
-      res.setHeader("Content-Disposition", 'attachment; filename="paid-claims.csv"');
-      res.send(header + rows);
-    }),
-  );
-
-  app.get(
-    "/reports/ops-export.xlsx",
-    requireAuth,
-    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.CEO, Role.HR, Role.MANAGER),
-    asyncHandler(async (req, res) => {
-      const today = new Date();
-      today.setUTCHours(0, 0, 0, 0);
-      const rangeStart = new Date(today);
-      rangeStart.setUTCDate(rangeStart.getUTCDate() - 30);
-      const teamIds =
-        req.user!.role === Role.MANAGER && req.user!.employeeId
-          ? await getOrganizationTeamEmployeeIds(req.user!.employeeId)
-          : undefined;
-      const employeeFilter = teamIds ? { employeeId: { in: teamIds } } : {};
-
-      const [attendance, leaveRows, tasks] = await Promise.all([
-        prisma.attendanceDailySummary.findMany({
-          where: { date: { gte: rangeStart, lte: today }, ...employeeFilter },
-          include: { employee: { select: { name: true, employeeCode: true } } },
-          orderBy: [{ date: "desc" }, { employeeId: "asc" }],
-          take: 5000,
-        }),
-        prisma.leaveRequest.findMany({
-          where: {
-            ...employeeFilter,
-            OR: [
-              { fromDate: { gte: rangeStart } },
-              { toDate: { gte: rangeStart } },
-              { status: "PENDING" },
-            ],
-          },
-          include: {
-            employee: { select: { name: true, employeeCode: true } },
-            leaveType: { select: { name: true } },
-          },
-          orderBy: { createdAt: "desc" },
-          take: 2000,
-        }),
-        prisma.workTask.findMany({
-          where: {
-            archivedAt: null,
-            ...(teamIds
-              ? { assignments: { some: { employeeId: { in: teamIds } } } }
-              : {}),
-          },
-          include: {
-            board: { select: { name: true } },
-            assignments: { include: { employee: { select: { name: true } } } },
-          },
-          orderBy: [{ dueDate: "asc" }, { updatedAt: "desc" }],
-          take: 2000,
-        }),
-      ]);
-
-      const { Workbook } = await import("exceljs");
-      const workbook = new Workbook();
-      workbook.creator = "Anytime Diesel HRMS";
-      workbook.created = new Date();
-
-      const attendanceSheet = workbook.addWorksheet("Attendance");
-      attendanceSheet.columns = [
-        { header: "Date", key: "date", width: 12 },
-        { header: "Employee code", key: "code", width: 14 },
-        { header: "Employee", key: "name", width: 28 },
-        { header: "Status", key: "status", width: 18 },
-        { header: "Total hours", key: "minutes", width: 14 },
-      ];
-      for (const row of attendance) {
-        attendanceSheet.addRow({
-          date: row.date.toISOString().slice(0, 10),
-          code: row.employee.employeeCode,
-          name: row.employee.name,
-          status: row.status,
-          minutes: Number(row.totalHours ?? 0),
-        });
-      }
-
-      const leaveSheet = workbook.addWorksheet("Leave");
-      leaveSheet.columns = [
-        { header: "Employee code", key: "code", width: 14 },
-        { header: "Employee", key: "name", width: 28 },
-        { header: "Type", key: "type", width: 18 },
-        { header: "From", key: "from", width: 12 },
-        { header: "To", key: "to", width: 12 },
-        { header: "Status", key: "status", width: 16 },
-        { header: "Days", key: "days", width: 10 },
-      ];
-      for (const row of leaveRows) {
-        leaveSheet.addRow({
-          code: row.employee.employeeCode,
-          name: row.employee.name,
-          type: row.leaveType.name,
-          from: row.fromDate.toISOString().slice(0, 10),
-          to: row.toDate.toISOString().slice(0, 10),
-          status: row.status,
-          days: Number(row.days),
-        });
-      }
-
-      const plannerSheet = workbook.addWorksheet("Work Planner");
-      plannerSheet.columns = [
-        { header: "Board", key: "board", width: 22 },
-        { header: "Title", key: "title", width: 36 },
-        { header: "Status", key: "status", width: 14 },
-        { header: "Priority", key: "priority", width: 12 },
-        { header: "Progress %", key: "progress", width: 12 },
-        { header: "Start", key: "start", width: 12 },
-        { header: "Due", key: "due", width: 12 },
-        { header: "Assignees", key: "assignees", width: 36 },
-      ];
-      for (const task of tasks) {
-        plannerSheet.addRow({
-          board: task.board?.name ?? "",
-          title: task.title,
-          status: task.status,
-          priority: task.priority,
-          progress: task.progress,
-          start: task.startDate?.toISOString().slice(0, 10) ?? "",
-          due: task.dueDate?.toISOString().slice(0, 10) ?? "",
-          assignees: task.assignments.map((entry) => entry.employee.name).join(", "),
-        });
-      }
-
-      const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
-      res.setHeader(
-        "Content-Type",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      );
-      res.setHeader("Content-Disposition", 'attachment; filename="ops-reports.xlsx"');
-      res.send(buffer);
-    }),
-  );
-
-  // Checklists
   app.get(
     "/checklists",
     requireAuth,
+    requireRoles(...checklistOperators),
     asyncHandler(async (req, res) => {
-      const canManage = roleIn(req.user!.role, [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR]);
       const status = typeof req.query.status === "string" ? req.query.status : undefined;
       const kind = typeof req.query.kind === "string" ? req.query.kind : undefined;
       const rows = await prisma.checklistInstance.findMany({
         where: {
-          ...(canManage ? {} : { employeeId: req.user!.employeeId ?? "__none__" }),
           ...(status ? { status } : {}),
           ...(kind ? { kind } : {}),
         },
@@ -506,7 +239,7 @@ export function registerHrmsExtensions(app: Express) {
   app.post(
     "/checklists/start",
     requireAuth,
-    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
+    requireRoles(...checklistOperators),
     asyncHandler(async (req, res) => {
       const body = z
         .object({
@@ -523,15 +256,15 @@ export function registerHrmsExtensions(app: Express) {
   app.patch(
     "/checklists/items/:id",
     requireAuth,
+    requireRoles(...checklistOperators),
     asyncHandler(async (req, res) => {
       const body = z.object({ completed: z.boolean() }).parse(req.body);
       const item = await prisma.checklistItemState.findUniqueOrThrow({
         where: { stateId: String(req.params.id) },
         include: { instance: true },
       });
-      const canManage = roleIn(req.user!.role, [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR]);
-      if (!canManage && item.instance.employeeId !== req.user!.employeeId) {
-        throw new HttpError(403, "Not your checklist");
+      if (item.instance.status === "CANCELLED" || item.instance.status === "COMPLETED") {
+        throw new HttpError(400, "This checklist is locked. Reopen it before changing items.");
       }
       const updated = await prisma.checklistItemState.update({
         where: { stateId: item.stateId },
@@ -547,14 +280,18 @@ export function registerHrmsExtensions(app: Express) {
         where: { instanceId: item.instanceId },
         data: { status: remaining === 0 ? "COMPLETED" : "OPEN" },
       });
-      res.json({ id: updated.stateId, completed: updated.completed, instanceStatus: remaining === 0 ? "COMPLETED" : "OPEN" });
+      res.json({
+        id: updated.stateId,
+        completed: updated.completed,
+        instanceStatus: remaining === 0 ? "COMPLETED" : "OPEN",
+      });
     }),
   );
 
   app.get(
     "/checklists/templates",
     requireAuth,
-    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
+    requireRoles(...checklistTemplateAdmins),
     asyncHandler(async (_req, res) => {
       const templates = await prisma.checklistTemplate.findMany({
         include: { items: { orderBy: { sortOrder: "asc" } }, _count: { select: { instances: true } } },
@@ -578,24 +315,51 @@ export function registerHrmsExtensions(app: Express) {
     }),
   );
 
+  app.post(
+    "/checklists/templates",
+    requireAuth,
+    requireRoles(...checklistTemplateAdmins),
+    asyncHandler(async (req, res) => {
+      const body = z
+        .object({
+          name: z.string().trim().min(2).max(120),
+          kind: z.enum(["ONBOARDING", "OFFBOARDING"]),
+          isActive: z.boolean().default(true),
+          items: z.array(templateItemSchema).min(1).max(40),
+        })
+        .parse(req.body);
+      const template = await prisma.$transaction(async (tx) => {
+        const created = await tx.checklistTemplate.create({
+          data: {
+            name: body.name,
+            kind: body.kind,
+            isActive: body.isActive,
+          },
+        });
+        await tx.checklistTemplateItem.createMany({
+          data: body.items.map((item, index) => ({
+            templateId: created.templateId,
+            title: item.title,
+            linkPath: item.linkPath?.trim() || null,
+            sortOrder: index,
+          })),
+        });
+        return created;
+      });
+      res.status(201).json({ id: template.templateId, ok: true });
+    }),
+  );
+
   app.put(
     "/checklists/templates/:id",
     requireAuth,
-    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
+    requireRoles(...checklistTemplateAdmins),
     asyncHandler(async (req, res) => {
       const body = z
         .object({
           name: z.string().trim().min(2).max(120),
           isActive: z.boolean(),
-          items: z
-            .array(
-              z.object({
-                title: z.string().trim().min(2).max(200),
-                linkPath: z.string().trim().max(200).nullable().optional(),
-              }),
-            )
-            .min(1)
-            .max(40),
+          items: z.array(templateItemSchema).min(1).max(40),
         })
         .parse(req.body);
       const templateId = String(req.params.id);
@@ -619,10 +383,33 @@ export function registerHrmsExtensions(app: Express) {
     }),
   );
 
+  app.delete(
+    "/checklists/templates/:id",
+    requireAuth,
+    requireRoles(...checklistTemplateAdmins),
+    asyncHandler(async (req, res) => {
+      const templateId = String(req.params.id);
+      const template = await prisma.checklistTemplate.findUniqueOrThrow({
+        where: { templateId },
+        include: { _count: { select: { instances: true } } },
+      });
+      if (template._count.instances > 0) {
+        await prisma.checklistTemplate.update({
+          where: { templateId },
+          data: { isActive: false },
+        });
+        res.json({ id: templateId, ok: true, deactivated: true });
+        return;
+      }
+      await prisma.checklistTemplate.delete({ where: { templateId } });
+      res.json({ id: templateId, ok: true, deleted: true });
+    }),
+  );
+
   app.patch(
     "/checklists/:id/status",
     requireAuth,
-    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
+    requireRoles(...checklistOperators),
     asyncHandler(async (req, res) => {
       const body = z.object({ status: z.enum(["OPEN", "COMPLETED", "CANCELLED"]) }).parse(req.body);
       const instance = await prisma.checklistInstance.findUniqueOrThrow({

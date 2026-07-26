@@ -250,9 +250,9 @@ Required behavior:
 ## People Operations Modules (MVP)
 
 - Field expense claim types on expense claims with optional `claimMeta`.
-- Onboarding/offboarding checklists with HR-editable templates and per-employee instances.
+- Onboarding/offboarding checklists: HR runs instances; Developer Admin owns templates.
 - Document vault / SOP library deferred (tables retained unused).
-- Global `/search`, notification digest preferences, `/reports/ops-summary`, paid-claims CSV.
+- Global `/search`, notification digest preferences.
 - Work Planner Phase 2: soft-archive, attachments, mentions metadata, cross-board move, custom fields.
 
 ## Future Employee Modules

@@ -22,7 +22,6 @@ import {
   Megaphone,
   HandCoins,
   ScanFace,
-  BarChart3,
   ListChecks,
 } from "lucide-react";
 import type { ComponentType } from "react";
@@ -58,12 +57,6 @@ export const menuGroups: MenuGroup[] = [
     label: "Overview",
     items: [
       { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard, roles: ALL },
-      {
-        label: "Operations Reports",
-        to: "/reports",
-        icon: BarChart3,
-        roles: ["developer_admin", "main_admin", "ceo", "hr", "manager"],
-      },
     ],
   },
   {
@@ -136,7 +129,7 @@ export const menuGroups: MenuGroup[] = [
         label: "Checklists",
         to: "/checklists",
         icon: ListChecks,
-        roles: ALL,
+        roles: ["developer_admin", "hr"],
       },
     ],
   },
@@ -324,7 +317,6 @@ function itemOrderForRole(role: Role): string[] {
         "/leave/history",
         "/tasks",
         "/employee-services",
-        "/checklists",
         "/announcements",
         "/notifications",
         "/profile",
@@ -333,7 +325,6 @@ function itemOrderForRole(role: Role): string[] {
     case "manager":
       return [
         "/dashboard",
-        "/reports",
         "/attendance/mine",
         "/attendance/locations",
         "/attendance/corrections",
@@ -342,7 +333,6 @@ function itemOrderForRole(role: Role): string[] {
         "/leave/approvals",
         "/tasks",
         "/employee-services",
-        "/checklists",
         "/employees",
         "/announcements",
         "/notifications",
@@ -352,8 +342,8 @@ function itemOrderForRole(role: Role): string[] {
     case "hr":
       return [
         "/dashboard",
-        "/reports",
         "/employees",
+        "/checklists",
         "/leave/approvals",
         "/leave/reports",
         "/leave/policy",
@@ -364,7 +354,6 @@ function itemOrderForRole(role: Role): string[] {
         "/attendance/corrections",
         "/tasks",
         "/employee-services",
-        "/checklists",
         "/branches",
         "/devices",
         "/holidays",
@@ -377,13 +366,11 @@ function itemOrderForRole(role: Role): string[] {
     case "ceo":
       return [
         "/dashboard",
-        "/reports",
         "/employees",
         "/attendance/locations",
         "/leave/reports",
         "/tasks",
         "/employee-services",
-        "/checklists",
         "/assets",
         "/announcements",
         "/notifications",
@@ -392,7 +379,6 @@ function itemOrderForRole(role: Role): string[] {
     case "main_admin":
       return [
         "/dashboard",
-        "/reports",
         "/employees",
         "/attendance/locations",
         "/attendance/corrections",
@@ -405,7 +391,6 @@ function itemOrderForRole(role: Role): string[] {
         "/settings",
         "/audit",
         "/tasks",
-        "/checklists",
         "/announcements",
         "/notifications",
         "/profile",
@@ -413,10 +398,10 @@ function itemOrderForRole(role: Role): string[] {
     case "developer_admin":
       return [
         "/dashboard",
-        "/reports",
         "/users",
         "/employees",
         "/departments",
+        "/checklists",
         "/face-security",
         "/settings",
         "/audit",
@@ -429,7 +414,6 @@ function itemOrderForRole(role: Role): string[] {
         "/leave/policy",
         "/tasks",
         "/employee-services",
-        "/checklists",
         "/announcements",
         "/notifications",
         "/profile",
@@ -440,7 +424,7 @@ function itemOrderForRole(role: Role): string[] {
 }
 
 export function moduleForRoute(path: string): ModuleKey {
-  if (path === "/dashboard" || path.startsWith("/reports")) return "DASHBOARD";
+  if (path === "/dashboard") return "DASHBOARD";
   if (
     ["/employees", "/users", "/departments", "/checklists"].some(
       (entry) => path === entry || path.startsWith(`${entry}/`),

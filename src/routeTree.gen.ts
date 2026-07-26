@@ -19,7 +19,6 @@ import { Route as AppUsersRouteImport } from './routes/_app.users'
 import { Route as AppTasksRouteImport } from './routes/_app.tasks'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppRolesRouteImport } from './routes/_app.roles'
-import { Route as AppReportsRouteImport } from './routes/_app.reports'
 import { Route as AppProfileRouteImport } from './routes/_app.profile'
 import { Route as AppNotificationsRouteImport } from './routes/_app.notifications'
 import { Route as AppIdCardRouteImport } from './routes/_app.id-card'
@@ -42,7 +41,6 @@ import { Route as AppAnnouncementsRouteImport } from './routes/_app.announcement
 import { Route as AppAttendanceIndexRouteImport } from './routes/_app.attendance.index'
 import { Route as AppUsersNewRouteImport } from './routes/_app.users.new'
 import { Route as AppSettingsDevicesRouteImport } from './routes/_app.settings.devices'
-import { Route as AppReportsPayrollRouteImport } from './routes/_app.reports.payroll'
 import { Route as AppLeaveReportsRouteImport } from './routes/_app.leave.reports'
 import { Route as AppLeavePolicyRouteImport } from './routes/_app.leave.policy'
 import { Route as AppLeaveHistoryRouteImport } from './routes/_app.leave.history'
@@ -105,11 +103,6 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
 const AppRolesRoute = AppRolesRouteImport.update({
   id: '/roles',
   path: '/roles',
-  getParentRoute: () => AppRoute
-} as any)
-const AppReportsRoute = AppReportsRouteImport.update({
-  id: '/reports',
-  path: '/reports',
   getParentRoute: () => AppRoute
 } as any)
 const AppProfileRoute = AppProfileRouteImport.update({
@@ -222,11 +215,6 @@ const AppSettingsDevicesRoute = AppSettingsDevicesRouteImport.update({
   path: '/devices',
   getParentRoute: () => AppSettingsRoute
 } as any)
-const AppReportsPayrollRoute = AppReportsPayrollRouteImport.update({
-  id: '/payroll',
-  path: '/payroll',
-  getParentRoute: () => AppReportsRoute
-} as any)
 const AppLeaveReportsRoute = AppLeaveReportsRouteImport.update({
   id: '/leave/reports',
   path: '/leave/reports',
@@ -324,7 +312,6 @@ export interface FileRoutesByFullPath {
   '/id-card': typeof AppIdCardRoute
   '/notifications': typeof AppNotificationsRoute
   '/profile': typeof AppProfileRoute
-  '/reports': typeof AppReportsRouteWithChildren
   '/roles': typeof AppRolesRoute
   '/settings': typeof AppSettingsRouteWithChildren
   '/tasks': typeof AppTasksRoute
@@ -344,7 +331,6 @@ export interface FileRoutesByFullPath {
   '/leave/history': typeof AppLeaveHistoryRoute
   '/leave/policy': typeof AppLeavePolicyRoute
   '/leave/reports': typeof AppLeaveReportsRoute
-  '/reports/payroll': typeof AppReportsPayrollRoute
   '/settings/devices': typeof AppSettingsDevicesRoute
   '/users/new': typeof AppUsersNewRoute
   '/attendance/': typeof AppAttendanceIndexRoute
@@ -372,7 +358,6 @@ export interface FileRoutesByTo {
   '/id-card': typeof AppIdCardRoute
   '/notifications': typeof AppNotificationsRoute
   '/profile': typeof AppProfileRoute
-  '/reports': typeof AppReportsRouteWithChildren
   '/roles': typeof AppRolesRoute
   '/settings': typeof AppSettingsRouteWithChildren
   '/tasks': typeof AppTasksRoute
@@ -392,7 +377,6 @@ export interface FileRoutesByTo {
   '/leave/history': typeof AppLeaveHistoryRoute
   '/leave/policy': typeof AppLeavePolicyRoute
   '/leave/reports': typeof AppLeaveReportsRoute
-  '/reports/payroll': typeof AppReportsPayrollRoute
   '/settings/devices': typeof AppSettingsDevicesRoute
   '/users/new': typeof AppUsersNewRoute
   '/attendance': typeof AppAttendanceIndexRoute
@@ -423,7 +407,6 @@ export interface FileRoutesById {
   '/_app/id-card': typeof AppIdCardRoute
   '/_app/notifications': typeof AppNotificationsRoute
   '/_app/profile': typeof AppProfileRoute
-  '/_app/reports': typeof AppReportsRouteWithChildren
   '/_app/roles': typeof AppRolesRoute
   '/_app/settings': typeof AppSettingsRouteWithChildren
   '/_app/tasks': typeof AppTasksRoute
@@ -443,7 +426,6 @@ export interface FileRoutesById {
   '/_app/leave/history': typeof AppLeaveHistoryRoute
   '/_app/leave/policy': typeof AppLeavePolicyRoute
   '/_app/leave/reports': typeof AppLeaveReportsRoute
-  '/_app/reports/payroll': typeof AppReportsPayrollRoute
   '/_app/settings/devices': typeof AppSettingsDevicesRoute
   '/_app/users/new': typeof AppUsersNewRoute
   '/_app/attendance/': typeof AppAttendanceIndexRoute
@@ -474,7 +456,6 @@ export interface FileRouteTypes {
     | '/id-card'
     | '/notifications'
     | '/profile'
-    | '/reports'
     | '/roles'
     | '/settings'
     | '/tasks'
@@ -494,7 +475,6 @@ export interface FileRouteTypes {
     | '/leave/history'
     | '/leave/policy'
     | '/leave/reports'
-    | '/reports/payroll'
     | '/settings/devices'
     | '/users/new'
     | '/attendance/'
@@ -522,7 +502,6 @@ export interface FileRouteTypes {
     | '/id-card'
     | '/notifications'
     | '/profile'
-    | '/reports'
     | '/roles'
     | '/settings'
     | '/tasks'
@@ -542,7 +521,6 @@ export interface FileRouteTypes {
     | '/leave/history'
     | '/leave/policy'
     | '/leave/reports'
-    | '/reports/payroll'
     | '/settings/devices'
     | '/users/new'
     | '/attendance'
@@ -572,7 +550,6 @@ export interface FileRouteTypes {
     | '/_app/id-card'
     | '/_app/notifications'
     | '/_app/profile'
-    | '/_app/reports'
     | '/_app/roles'
     | '/_app/settings'
     | '/_app/tasks'
@@ -592,7 +569,6 @@ export interface FileRouteTypes {
     | '/_app/leave/history'
     | '/_app/leave/policy'
     | '/_app/leave/reports'
-    | '/_app/reports/payroll'
     | '/_app/settings/devices'
     | '/_app/users/new'
     | '/_app/attendance/'
@@ -677,13 +653,6 @@ declare module '@tanstack/react-router' {
       path: '/roles'
       fullPath: '/roles'
       preLoaderRoute: typeof AppRolesRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/reports': {
-      id: '/_app/reports'
-      path: '/reports'
-      fullPath: '/reports'
-      preLoaderRoute: typeof AppReportsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/profile': {
@@ -840,13 +809,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsDevicesRouteImport
       parentRoute: typeof AppSettingsRoute
     }
-    '/_app/reports/payroll': {
-      id: '/_app/reports/payroll'
-      path: '/payroll'
-      fullPath: '/reports/payroll'
-      preLoaderRoute: typeof AppReportsPayrollRouteImport
-      parentRoute: typeof AppReportsRoute
-    }
     '/_app/leave/reports': {
       id: '/_app/leave/reports'
       path: '/leave/reports'
@@ -986,17 +948,6 @@ const AppDevicesRouteWithChildren = AppDevicesRoute._addFileChildren(
   AppDevicesRouteChildren,
 )
 
-interface AppReportsRouteChildren {
-  AppReportsPayrollRoute: typeof AppReportsPayrollRoute
-}
-
-const AppReportsRouteChildren: AppReportsRouteChildren = {
-  AppReportsPayrollRoute: AppReportsPayrollRoute
-}
-
-const AppReportsRouteWithChildren = AppReportsRoute._addFileChildren(
-  AppReportsRouteChildren,
-)
 
 interface AppSettingsRouteChildren {
   AppSettingsDevicesRoute: typeof AppSettingsDevicesRoute
@@ -1042,7 +993,6 @@ interface AppRouteChildren {
   AppIdCardRoute: typeof AppIdCardRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
   AppProfileRoute: typeof AppProfileRoute
-  AppReportsRoute: typeof AppReportsRouteWithChildren
   AppRolesRoute: typeof AppRolesRoute
   AppSettingsRoute: typeof AppSettingsRouteWithChildren
   AppTasksRoute: typeof AppTasksRoute
@@ -1075,7 +1025,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppIdCardRoute: AppIdCardRoute,
   AppNotificationsRoute: AppNotificationsRoute,
   AppProfileRoute: AppProfileRoute,
-  AppReportsRoute: AppReportsRouteWithChildren,
   AppRolesRoute: AppRolesRoute,
   AppSettingsRoute: AppSettingsRouteWithChildren,
   AppTasksRoute: AppTasksRoute,
