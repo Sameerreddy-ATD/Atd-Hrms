@@ -860,9 +860,14 @@ export const tasksApi = {
       priority?: TaskPriority;
       q?: string;
       due?: "today" | "overdue" | "none";
+      detail?: "summary" | "full";
+      stageId?: string;
+      assigneeEmployeeId?: string;
     } = {},
   ) => request<WorkTask[]>(`/tasks${toQuery({ scope, ...filters })}`),
-  assignees: () => request<TaskAssignee[]>("/tasks/assignees"),
+  get: (id: string) => request<WorkTask>(`/tasks/${id}`),
+  assignees: (boardId?: string) =>
+    request<TaskAssignee[]>(`/tasks/assignees${toQuery({ boardId })}`),
   create: (payload: {
     title: string;
     description?: string | null;

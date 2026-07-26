@@ -23,7 +23,7 @@ import {
   UserRound,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -61,7 +61,9 @@ type BoardWorkspaceProps = {
   tasks: WorkTask[];
   assignees: TaskAssignee[];
   employeeId?: string;
+  loading?: boolean;
   canChangeBoard: boolean;
+  initialMineOnly?: boolean;
   onBack: () => void;
   onSwitchBoard: (boardId: string) => void;
   onNewTask: (stageId?: string) => void;
@@ -110,7 +112,9 @@ export function BoardWorkspace({
   tasks,
   assignees,
   employeeId,
+  loading = false,
   canChangeBoard,
+  initialMineOnly = false,
   onBack,
   onSwitchBoard,
   onNewTask,
@@ -120,23 +124,26 @@ export function BoardWorkspace({
 }: BoardWorkspaceProps) {
   const [view, setView] = useState<BoardView>("list");
   const [query, setQuery] = useState("");
-  const [mineOnly, setMineOnly] = useState(false);
+  const [mineOnly, setMineOnly] = useState(initialMineOnly);
   const [assigneeId, setAssigneeId] = useState("ALL");
   const [priority, setPriority] = useState<TaskPriority | "ALL">("ALL");
   const [stageId, setStageId] = useState("ALL");
   const [due, setDue] = useState<DueFilter>("ALL");
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
+  const draggingTaskIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     setQuery("");
-    setMineOnly(false);
+    setMineOnly(initialMineOnly);
     setAssigneeId("ALL");
     setPriority("ALL");
     setStageId("ALL");
     setDue("ALL");
     setCollapsedStages(new Set());
-  }, [board.id]);
+    draggingTaskIdRef.current = null;
+    setDraggingTaskId(null);
+  }, [board.id, initialMineOnly]);
 
   const boardTasks = useMemo(
     () => tasks.filter((task) => task.boardId === board.id),
@@ -196,21 +203,22 @@ export function BoardWorkspace({
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] space-y-4 pb-20">
+    <div className="mx-auto w-full max-w-[1440px] space-y-5 px-4 pb-20 sm:px-6">
       <Button variant="ghost" size="sm" onClick={onBack} className="-ml-2">
         <ArrowLeft className="mr-2 h-4 w-4" />
         All boards
       </Button>
 
-      <section className="overflow-hidden rounded-2xl bg-gradient-to-r from-red-600 via-red-500 to-rose-400 px-5 py-6 text-white shadow-lg shadow-red-900/10 sm:px-8 sm:py-8">
+      <section className="overflow-hidden rounded-2xl bg-gradient-to-r from-red-600 via-red-500 to-rose-400 px-5 py-6 text-white shadow-lg shadow-red-900/10 sm:px-8 sm:py-7">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/75">
-              Work Planner
+              Shared board
             </p>
             <h1 className="mt-1 truncate text-2xl font-semibold sm:text-3xl">{board.name}</h1>
             <p className="mt-1 text-sm text-white/85">
               {board.taskCount} tasks · {activeCount} active
+              {loading ? " · Refreshing…" : ""}
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -241,7 +249,7 @@ export function BoardWorkspace({
           All <span className="ml-2 tabular-nums">{boardTasks.length}</span>
         </Button>
         {board.stages.map((stage) => {
-          const color = STAGE_COLORS[stage.color];
+          const color = STAGE_COLORS[stage.color] ?? STAGE_COLORS.SLATE;
           const count = boardTasks.filter((task) => task.stageId === stage.id).length;
           return (
             <Button
@@ -263,9 +271,9 @@ export function BoardWorkspace({
         })}
       </div>
 
-      <section className="space-y-3 border-y py-3">
+      <section className="space-y-3 border-y border-border/80 py-3">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="scrollbar-none flex w-full flex-col gap-2 min-[480px]:flex-row min-[480px]:flex-wrap min-[480px]:items-center min-[480px]:overflow-x-auto min-[480px]:pb-1">
+          <div className="flex w-full flex-col gap-2 min-[480px]:flex-row min-[480px]:flex-wrap min-[480px]:items-center">
             {employeeId && (
               <Button
                 size="sm"
@@ -278,7 +286,7 @@ export function BoardWorkspace({
               </Button>
             )}
             <Select value={assigneeId} onValueChange={setAssigneeId}>
-              <SelectTrigger className="h-11 w-full shrink-0 min-[480px]:h-9 min-[480px]:w-[170px]">
+              <SelectTrigger className="h-10 w-full shrink-0 min-[480px]:h-9 min-[480px]:w-[170px]">
                 <SelectValue placeholder="All assignees" />
               </SelectTrigger>
               <SelectContent>
@@ -294,7 +302,7 @@ export function BoardWorkspace({
               value={priority}
               onValueChange={(value) => setPriority(value as TaskPriority | "ALL")}
             >
-              <SelectTrigger className="h-11 w-full shrink-0 min-[480px]:h-9 min-[480px]:w-[150px]">
+              <SelectTrigger className="h-10 w-full shrink-0 min-[480px]:h-9 min-[480px]:w-[150px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -306,21 +314,8 @@ export function BoardWorkspace({
                 ))}
               </SelectContent>
             </Select>
-            <Select value={stageId} onValueChange={setStageId}>
-              <SelectTrigger className="h-11 w-full shrink-0 min-[480px]:h-9 min-[480px]:w-[150px]">
-                <SelectValue placeholder="All stages" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All stages</SelectItem>
-                {board.stages.map((stage) => (
-                  <SelectItem key={stage.id} value={stage.id}>
-                    {stage.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
             <Select value={due} onValueChange={(value) => setDue(value as DueFilter)}>
-              <SelectTrigger className="h-11 w-full shrink-0 min-[480px]:h-9 min-[480px]:w-[150px]">
+              <SelectTrigger className="h-10 w-full shrink-0 min-[480px]:h-9 min-[480px]:w-[150px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -332,7 +327,7 @@ export function BoardWorkspace({
             </Select>
           </div>
 
-          <div className="flex w-full flex-col gap-2 min-[480px]:flex-row min-[480px]:items-center min-[480px]:overflow-x-auto min-[480px]:pb-1">
+          <div className="flex w-full flex-col gap-2 min-[480px]:flex-row min-[480px]:items-center">
             <div
               className="flex w-full rounded-lg border p-1 min-[480px]:w-auto"
               role="group"
@@ -345,7 +340,7 @@ export function BoardWorkspace({
                   variant={view === value ? "default" : "ghost"}
                   onClick={() => setView(value)}
                   className={cn(
-                    "h-10 flex-1 min-[480px]:h-9 min-[480px]:flex-none",
+                    "h-9 flex-1 min-[480px]:flex-none",
                     view === value && "bg-red-600 hover:bg-red-700",
                   )}
                 >
@@ -366,7 +361,7 @@ export function BoardWorkspace({
               </Button>
             )}
             <Select value={board.id} onValueChange={onSwitchBoard}>
-              <SelectTrigger className="h-11 w-full shrink-0 min-[480px]:h-9 min-[480px]:w-[190px]">
+              <SelectTrigger className="h-10 w-full shrink-0 min-[480px]:h-9 min-[480px]:w-[190px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -383,7 +378,7 @@ export function BoardWorkspace({
 
       {visibleTasks.length === 0 ? (
         <Card className="border-dashed shadow-none">
-          <CardContent className="flex flex-col items-center py-16 text-center">
+          <CardContent className="flex flex-col items-center py-14 text-center">
             <ListFilter className="mb-3 h-7 w-7 text-muted-foreground" />
             <h2 className="font-semibold">No matching tasks</h2>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -408,6 +403,7 @@ export function BoardWorkspace({
           tasksByStage={tasksByStage}
           draggingTaskId={draggingTaskId}
           setDraggingTaskId={setDraggingTaskId}
+          draggingTaskIdRef={draggingTaskIdRef}
           onNewTask={onNewTask}
           onOpenTask={onOpenTask}
           onMoveTask={onMoveTask}
@@ -445,7 +441,7 @@ function ListView({
       {board.stages.map((stage) => {
         const stageTasks = tasksByStage.get(stage.id) ?? [];
         const collapsed = collapsedStages.has(stage.id);
-        const color = STAGE_COLORS[stage.color];
+        const color = STAGE_COLORS[stage.color] ?? STAGE_COLORS.SLATE;
         return (
           <section key={stage.id}>
             <button
@@ -470,20 +466,22 @@ function ListView({
             {!collapsed && (
               <div className="space-y-2">
                 {stageTasks.map((task) => (
-                  <div
+                  <button
                     key={task.id}
+                    type="button"
                     onClick={() => onOpenTask(task)}
-                    className="grid w-full cursor-pointer gap-3 rounded-xl border bg-background px-4 py-3 text-left transition hover:border-red-200 hover:bg-red-50/20 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:items-center"
+                    className="grid w-full gap-3 rounded-lg border border-border/80 bg-background px-3 py-3 text-left transition hover:border-primary/30 hover:bg-muted/30 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:items-center sm:px-4"
                   >
-                    <button type="button" className="min-w-0 text-left">
-                      <p className="truncate font-medium">{task.title}</p>
-                      {task.description && (
-                        <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
-                          {task.description}
-                        </p>
-                      )}
-                    </button>
-                    <div className="flex flex-wrap items-center gap-2">
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium">{task.title}</span>
+                      <span className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                        {task.progress > 0 && <span className="tabular-nums">{task.progress}%</span>}
+                        {task.description && (
+                          <span className="line-clamp-1">{task.description}</span>
+                        )}
+                      </span>
+                    </span>
+                    <span className="flex flex-wrap items-center gap-2">
                       <TaskPriorityBadge priority={task.priority} />
                       <span
                         className={cn(
@@ -496,7 +494,7 @@ function ListView({
                       >
                         {dueLabel(task.dueDate, task.status === "COMPLETED")}
                       </span>
-                    </div>
+                    </span>
                     <TaskAvatars task={task} />
                     <Select
                       value={task.stageId ?? ""}
@@ -517,7 +515,7 @@ function ListView({
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
+                  </button>
                 ))}
                 <Button
                   variant="ghost"
@@ -533,9 +531,22 @@ function ListView({
         );
       })}
       {cancelledTasks.length > 0 && (
-        <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
-          {cancelledTasks.length} cancelled tasks are hidden from workflow stages.
-        </div>
+        <section className="space-y-2">
+          <h3 className="px-2 text-sm font-semibold text-muted-foreground">
+            Cancelled ({cancelledTasks.length})
+          </h3>
+          {cancelledTasks.map((task) => (
+            <button
+              key={task.id}
+              type="button"
+              onClick={() => onOpenTask(task)}
+              className="flex w-full items-center justify-between gap-3 rounded-lg border border-dashed px-4 py-3 text-left text-sm text-muted-foreground hover:bg-muted/20"
+            >
+              <span className="truncate font-medium">{task.title}</span>
+              <TaskPriorityBadge priority={task.priority} />
+            </button>
+          ))}
+        </section>
       )}
     </div>
   );
@@ -546,6 +557,7 @@ type KanbanViewProps = {
   tasksByStage: Map<string, WorkTask[]>;
   draggingTaskId: string | null;
   setDraggingTaskId: (taskId: string | null) => void;
+  draggingTaskIdRef: MutableRefObject<string | null>;
   onNewTask: (stageId?: string) => void;
   onOpenTask: (task: WorkTask) => void;
   onMoveTask: (task: WorkTask, stageId: string) => Promise<void>;
@@ -556,6 +568,7 @@ function KanbanView({
   tasksByStage,
   draggingTaskId,
   setDraggingTaskId,
+  draggingTaskIdRef,
   onNewTask,
   onOpenTask,
   onMoveTask,
@@ -565,23 +578,25 @@ function KanbanView({
     <div className="overflow-x-auto pb-3">
       <div
         className="grid min-w-max gap-3"
-        style={{ gridTemplateColumns: `repeat(${board.stages.length}, minmax(285px, 1fr))` }}
+        style={{ gridTemplateColumns: `repeat(${board.stages.length}, minmax(260px, 1fr))` }}
       >
         {board.stages.map((stage) => {
           const stageTasks = tasksByStage.get(stage.id) ?? [];
-          const color = STAGE_COLORS[stage.color];
+          const color = STAGE_COLORS[stage.color] ?? STAGE_COLORS.SLATE;
           return (
             <section
               key={stage.id}
-              className="flex max-h-[calc(100dvh-330px)] min-h-[440px] w-[300px] flex-col rounded-xl border bg-muted/15 xl:w-auto"
+              className="flex max-h-[min(70dvh,640px)] min-h-[320px] w-[280px] flex-col rounded-xl border border-border/80 bg-muted/10 xl:w-auto"
               onDragOver={(event) => event.preventDefault()}
               onDrop={() => {
-                const task = allTasks.find((entry) => entry.id === draggingTaskId);
+                const id = draggingTaskIdRef.current ?? draggingTaskId;
+                const task = allTasks.find((entry) => entry.id === id);
+                draggingTaskIdRef.current = null;
                 setDraggingTaskId(null);
                 if (task && task.stageId !== stage.id) void onMoveTask(task, stage.id);
               }}
             >
-              <header className="flex items-center justify-between border-b px-4 py-3">
+              <header className="flex items-center justify-between px-3 py-2.5">
                 <div className="flex items-center gap-2">
                   <span className={cn("h-2.5 w-2.5 rounded-full", color.dot)} />
                   <h2 className="text-sm font-semibold">{stage.name}</h2>
@@ -590,50 +605,58 @@ function KanbanView({
                   {stageTasks.length}
                 </span>
               </header>
-              <div className="flex-1 space-y-3 overflow-y-auto p-3">
+              <div className="flex-1 space-y-2 overflow-y-auto px-2 pb-2">
                 {stageTasks.map((task) => (
-                  <Card
+                  <div
                     key={task.id}
                     draggable
-                    onDragStart={() => setDraggingTaskId(task.id)}
-                    onDragEnd={() => setDraggingTaskId(null)}
+                    onDragStart={() => {
+                      draggingTaskIdRef.current = task.id;
+                      setDraggingTaskId(task.id);
+                    }}
+                    onDragEnd={() => {
+                      // Keep ref until drop runs; clear visual state only. If no drop,
+                      // clear the ref on the next tick.
+                      setDraggingTaskId(null);
+                      window.setTimeout(() => {
+                        if (draggingTaskIdRef.current === task.id) {
+                          draggingTaskIdRef.current = null;
+                        }
+                      }, 0);
+                    }}
                     className={cn(
-                      "cursor-grab overflow-hidden shadow-sm transition hover:border-red-200 hover:shadow-md active:cursor-grabbing",
+                      "cursor-grab rounded-lg border border-border/80 bg-background p-3 text-left transition hover:border-primary/30 active:cursor-grabbing",
                       draggingTaskId === task.id && "opacity-50",
                     )}
                   >
-                    <button
-                      type="button"
-                      onClick={() => onOpenTask(task)}
-                      className="w-full text-left"
-                    >
-                      <CardContent className="space-y-3 p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <h3 className="line-clamp-2 font-semibold leading-snug">{task.title}</h3>
-                          <TaskPriorityBadge priority={task.priority} />
+                    <button type="button" onClick={() => onOpenTask(task)} className="w-full text-left">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="line-clamp-2 text-sm font-semibold leading-snug">
+                          {task.title}
+                        </h3>
+                        <TaskPriorityBadge priority={task.priority} />
+                      </div>
+                      {task.description && (
+                        <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
+                          {task.description}
+                        </p>
+                      )}
+                      {task.progress > 0 && task.status !== "COMPLETED" && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <Progress value={task.progress} className="h-1.5" />
+                          <span className="text-xs tabular-nums text-muted-foreground">
+                            {task.progress}%
+                          </span>
                         </div>
-                        {task.description && (
-                          <p className="line-clamp-2 text-sm text-muted-foreground">
-                            {task.description}
-                          </p>
-                        )}
-                        {task.progress > 0 && task.status !== "COMPLETED" && (
-                          <div className="flex items-center gap-2">
-                            <Progress value={task.progress} className="h-1.5" />
-                            <span className="text-xs tabular-nums text-muted-foreground">
-                              {task.progress}%
-                            </span>
-                          </div>
-                        )}
-                      </CardContent>
-                      <div className="flex items-center justify-between border-t px-4 py-3">
+                      )}
+                      <div className="mt-3 flex items-center justify-between">
                         <span
                           className={cn(
                             "text-xs text-muted-foreground",
                             task.dueDate &&
                               isBefore(dateValue(task.dueDate), startOfToday()) &&
                               task.status !== "COMPLETED" &&
-                              "rounded bg-rose-100 px-2 py-1 text-rose-700",
+                              "rounded bg-rose-100 px-2 py-0.5 text-rose-700",
                           )}
                         >
                           {dueLabel(task.dueDate, task.status === "COMPLETED")}
@@ -641,12 +664,12 @@ function KanbanView({
                         <TaskAvatars task={task} />
                       </div>
                     </button>
-                  </Card>
+                  </div>
                 ))}
               </div>
               <Button
                 variant="ghost"
-                className="m-2 justify-start"
+                className="m-2 justify-start text-muted-foreground"
                 onClick={() => onNewTask(stage.id)}
               >
                 <Plus className="mr-2 h-4 w-4" />

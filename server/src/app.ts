@@ -5197,8 +5197,8 @@ export function createApp() {
 
   type TaskWithDetails = Prisma.WorkTaskGetPayload<{ include: typeof taskInclude }>;
 
-  function taskDto(task: TaskWithDetails) {
-    return {
+  function taskDto(task: TaskWithDetails, options?: { summary?: boolean }) {
+    const base = {
       id: task.taskId,
       title: task.title,
       description: task.description ?? undefined,
@@ -5238,6 +5238,12 @@ export function createApp() {
       updatedAt: task.updatedAt.toISOString(),
       subtaskCount: task._count?.subtasks ?? 0,
       updateCount: task._count?.updates ?? 0,
+    };
+    if (options?.summary) {
+      return { ...base, updates: [] };
+    }
+    return {
+      ...base,
       updates: task.updates.map((entry) => ({
         id: entry.updateId,
         authorName: entry.author.name,
@@ -5250,6 +5256,28 @@ export function createApp() {
         createdAt: entry.createdAt.toISOString(),
       })),
     };
+  }
+
+  const taskSummaryInclude = {
+    assignments: taskInclude.assignments,
+    createdBy: taskInclude.createdBy,
+    board: taskInclude.board,
+    stage: taskInclude.stage,
+    _count: taskInclude._count,
+  } satisfies Prisma.WorkTaskInclude;
+
+  async function assertCanViewTask(
+    user: NonNullable<express.Request["user"]>,
+    task: { taskId: string; boardId: string | null },
+    assigneeEmployeeIds: string[],
+  ) {
+    const { visibleIds } = await taskScope(user);
+    if (!visibleIds || assigneeEmployeeIds.some((id) => visibleIds.includes(id))) return;
+    if (task.boardId) {
+      await assertBoardAccess(user, task.boardId);
+      return;
+    }
+    throw new HttpError(403, "Task is outside your organization team");
   }
 
   async function taskScope(user: NonNullable<express.Request["user"]>) {
@@ -5655,11 +5683,28 @@ export function createApp() {
     requireAuth,
     asyncHandler(async (req, res) => {
       const { assignableIds } = await taskScope(req.user!);
+      const boardId = typeof req.query.boardId === "string" ? req.query.boardId : undefined;
+      const boardFilters: Prisma.EmployeeWhereInput[] = [];
+      if (boardId) {
+        const board = await assertBoardAccess(req.user!, boardId);
+        if (board.accessType === TaskBoardAccessType.MEMBER_GATED) {
+          boardFilters.push({
+            employeeId: { in: board.members.map((member) => member.employeeId) },
+          });
+        } else if (board.accessType === TaskBoardAccessType.ROLE_GATED) {
+          boardFilters.push({
+            user: { role: { in: board.roleAccess.map((entry) => entry.role) } },
+          });
+        }
+      }
       const employees = await prisma.employee.findMany({
         where: {
           status: "ACTIVE",
-          ...(assignableIds ? { employeeId: { in: assignableIds } } : {}),
-          OR: [{ user: null }, { user: { role: { not: Role.DEVELOPER_ADMIN } } }],
+          AND: [
+            ...(assignableIds ? [{ employeeId: { in: assignableIds } }] : []),
+            ...boardFilters,
+            { OR: [{ user: null }, { user: { role: { not: Role.DEVELOPER_ADMIN } } }] },
+          ],
         },
         include: { department: true, user: { select: { role: true } } },
         orderBy: { name: "asc" },
@@ -5682,11 +5727,19 @@ export function createApp() {
     requireAuth,
     asyncHandler(async (req, res) => {
       const { visibleIds } = await taskScope(req.user!);
+      const boardId = typeof req.query.boardId === "string" ? req.query.boardId : undefined;
+      const summary = req.query.detail === "summary";
+      const stageId = typeof req.query.stageId === "string" ? req.query.stageId : undefined;
+      const assigneeEmployeeId =
+        typeof req.query.assigneeEmployeeId === "string" ? req.query.assigneeEmployeeId : undefined;
       const scope =
-        req.query.scope === "mine" && req.user!.employeeId ? [req.user!.employeeId] : visibleIds;
+        req.query.scope === "mine" && req.user!.employeeId
+          ? [req.user!.employeeId]
+          : boardId
+            ? undefined
+            : visibleIds;
       const requestedStatus = z.nativeEnum(TaskStatus).safeParse(req.query.status);
       const requestedPriority = z.nativeEnum(TaskPriority).safeParse(req.query.priority);
-      const boardId = typeof req.query.boardId === "string" ? req.query.boardId : undefined;
       const query = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 120) : "";
       const due = typeof req.query.due === "string" ? req.query.due : undefined;
       const today = todayIstDate();
@@ -5700,6 +5753,10 @@ export function createApp() {
           ...(requestedStatus.success ? { status: requestedStatus.data } : {}),
           ...(requestedPriority.success ? { priority: requestedPriority.data } : {}),
           ...(boardId ? { boardId } : {}),
+          ...(stageId ? { stageId } : {}),
+          ...(assigneeEmployeeId
+            ? { assignments: { some: { employeeId: assigneeEmployeeId } } }
+            : {}),
           ...(due === "today" ? { dueDate: { gte: today, lt: tomorrow } } : {}),
           ...(due === "overdue"
             ? {
@@ -5709,7 +5766,9 @@ export function createApp() {
             : {}),
           ...(due === "none" ? { dueDate: null } : {}),
           AND: [
-            { OR: [{ boardId: null }, { board: { is: boardAccessWhere(req.user!) } }] },
+            boardId
+              ? {}
+              : { OR: [{ boardId: null }, { board: { is: boardAccessWhere(req.user!) } }] },
             ...(query
               ? [
                   {
@@ -5723,12 +5782,39 @@ export function createApp() {
               : []),
           ],
         },
-        include: taskInclude,
+        include: summary ? taskSummaryInclude : taskInclude,
         orderBy: [{ dueDate: "asc" }, { updatedAt: "desc" }],
         skip: listOffset(req),
         take: listLimit(req, 300, 1000),
       });
-      res.json(tasks.map(taskDto));
+      res.json(
+        tasks.map((task) =>
+          taskDto(
+            summary
+              ? ({ ...task, updates: [] } as TaskWithDetails)
+              : (task as TaskWithDetails),
+            { summary },
+          ),
+        ),
+      );
+    }),
+  );
+
+  app.get(
+    "/tasks/:id",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const task = await prisma.workTask.findUniqueOrThrow({
+        where: { taskId: String(req.params.id) },
+        include: taskInclude,
+      });
+      if (task.archivedAt) throw new HttpError(404, "Task not found");
+      await assertCanViewTask(
+        req.user!,
+        task,
+        task.assignments.map((assignment) => assignment.employeeId),
+      );
+      res.json(taskDto(task));
     }),
   );
 
@@ -5839,23 +5925,31 @@ export function createApp() {
       const existing = await prisma.workTask.findUniqueOrThrow({
         where: { taskId: String(req.params.id) },
       });
-      const { visibleIds, assignableIds } = await taskScope(req.user!);
+      const { assignableIds } = await taskScope(req.user!);
       const existingAssignments = await prisma.taskAssignment.findMany({
         where: { taskId: existing.taskId },
         select: { employeeId: true },
       });
       const existingEmployeeIds = existingAssignments.map(({ employeeId }) => employeeId);
-      if (visibleIds && !existingEmployeeIds.some((id) => visibleIds.includes(id)))
-        throw new HttpError(403, "Task is outside your organization team");
+      await assertCanViewTask(req.user!, existing, existingEmployeeIds);
       const isOwn = !!req.user!.employeeId && existingEmployeeIds.includes(req.user!.employeeId);
       const canManage =
         assignableIds === undefined || existingEmployeeIds.some((id) => assignableIds.includes(id));
-      if (!canManage && !isOwn) throw new HttpError(403, "You cannot update this task");
+      const hasBoardAccess = existing.boardId
+        ? !!(await prisma.taskBoard.findFirst({
+            where: { boardId: existing.boardId, ...boardAccessWhere(req.user!) },
+            select: { boardId: true },
+          }))
+        : false;
+      if (!canManage && !isOwn && !hasBoardAccess) {
+        throw new HttpError(403, "You cannot update this task");
+      }
       if (
         !canManage &&
         Object.keys(body).some((key) => !["version", "status", "progress", "stageId"].includes(key))
-      )
+      ) {
         throw new HttpError(403, "Employees can update only task status and progress");
+      }
       if (
         body.assigneeEmployeeIds &&
         assignableIds &&
@@ -5924,11 +6018,17 @@ export function createApp() {
         if (body.status === TaskStatus.CANCELLED) {
           nextStageId = null;
         } else {
-          const matchingStage = board.stages.find((stage) => stage.status === body.status);
-          if (!matchingStage) {
+          const matchingStages = board.stages.filter((stage) => stage.status === body.status);
+          if (matchingStages.length === 0) {
             throw new HttpError(400, "This workspace has no stage for the selected status");
           }
-          nextStageId = matchingStage.stageId;
+          if (matchingStages.length > 1) {
+            throw new HttpError(
+              400,
+              "Multiple stages share this status. Move the task by selecting a stage instead.",
+            );
+          }
+          nextStageId = matchingStages[0]!.stageId;
         }
       } else if (body.stageId === null && existing.boardId) {
         throw new HttpError(400, "Workspace tasks must remain in a stage");
@@ -6042,14 +6142,15 @@ export function createApp() {
       const existing = await prisma.workTask.findUniqueOrThrow({
         where: { taskId: String(req.params.id) },
       });
-      const { visibleIds } = await taskScope(req.user!);
       const assignments = await prisma.taskAssignment.findMany({
         where: { taskId: existing.taskId },
         select: { employeeId: true },
       });
-      if (visibleIds && !assignments.some(({ employeeId }) => visibleIds.includes(employeeId))) {
-        throw new HttpError(403, "Task is outside your organization team");
-      }
+      await assertCanViewTask(
+        req.user!,
+        existing,
+        assignments.map(({ employeeId }) => employeeId),
+      );
 
       const board = existing.boardId
         ? await assertBoardAccess(req.user!, existing.boardId)
@@ -6062,11 +6163,17 @@ export function createApp() {
         if (body.status === TaskStatus.CANCELLED) {
           nextStageId = null;
         } else {
-          const matchingStage = board.stages.find((stage) => stage.status === body.status);
-          if (!matchingStage) {
+          const matchingStages = board.stages.filter((stage) => stage.status === body.status);
+          if (matchingStages.length === 0) {
             throw new HttpError(400, "This workspace has no stage for the selected status");
           }
-          nextStageId = matchingStage.stageId;
+          if (matchingStages.length > 1) {
+            throw new HttpError(
+              400,
+              "Multiple stages share this status. Move the task by selecting a stage instead.",
+            );
+          }
+          nextStageId = matchingStages[0]!.stageId;
         }
       }
       const effectiveStatus = body.status ?? existing.status;
