@@ -167,7 +167,7 @@ function DevicesPage() {
     <div>
       <PageHeader
         title="eSSL Biometric Devices"
-        description="Configure eSSL fingerprint devices and manage employee biometric IDs."
+        description="Inventory for office fingerprint devices and employee biometric IDs. Live device sync is not connected yet — keep records ready for installation."
         actions={
           <div className="flex flex-wrap gap-2">
             <Button asChild size="sm" variant="outline">
@@ -181,6 +181,10 @@ function DevicesPage() {
           </div>
         }
       />
+      <div className="mb-4 rounded-xl border border-border/80 bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+        Office biometric hardware is not linked to this system yet. You can store device and mapping
+        details now; automatic punch sync will be enabled after installation.
+      </div>
       {loading && <LoadingState label="Loading biometric devices" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="grid gap-3 md:hidden">

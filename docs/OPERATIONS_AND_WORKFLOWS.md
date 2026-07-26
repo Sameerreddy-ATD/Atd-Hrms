@@ -150,7 +150,7 @@ Madhapur is configured at `17.4391592, 78.3947783` with a default 250 meter radi
 - A punch always takes priority over holiday, weekly off, or approved leave status for that day.
 - At 10:00 AM IST, every active no-punch employee is settled as Absent, approved Leave, approved Weekly Off, or Holiday.
 - A later mobile or biometric punch recalculates the same day immediately and changes it to the correct Present status.
-- Weekly off is requested for a specific date at least one day earlier and approved only by the employee's direct organization head.
+- Weekly off is requested for a specific date at least one day earlier and approved by the employee's organization head or a higher head in that chain.
 - Every active entry in the portal Holiday list counts as a holiday. `Public`, `Optional`, and `Restricted` are classification labels only in this version.
 - A global holiday applies to everyone; a branch holiday applies only to employees whose home branch matches it.
 - Editing, moving, or deactivating a holiday recalculates existing attendance summaries for the affected date and branch.
@@ -188,7 +188,7 @@ flowchart LR
 
 - Weekly off is not fixed during account creation or employee editing. The approved date request is the only source of truth.
 - An employee chooses one date in a Monday-Sunday week and submits it at least one calendar day in advance.
-- The exact direct organization head approves or rejects the request.
+- The organization head (nearest unit head) and higher heads in the same parent chain approve or reject the request.
 - Only one weekly off may be used in a week. Unused entitlement expires and never carries forward.
 - Weekly offs cannot be on consecutive dates, including Sunday followed by Monday in the next week.
 - A punch on an approved weekly off changes attendance to Present automatically.

@@ -476,6 +476,7 @@ export interface LeaveRequest {
   appliedOn: string;
   updatedOn?: string;
   approverName?: string;
+  reviewedByName?: string;
   cancelledDates?: string[];
   cancelledDays?: number;
   medicalDocumentUrl?: string;
@@ -484,6 +485,16 @@ export interface LeaveRequest {
   availableBalance?: number;
   requestedDays?: number;
   projectedBalance?: number;
+  leaveBalances?: Array<{
+    type: LeaveType;
+    code?: string;
+    entitled: number;
+    used: number;
+    balance: number;
+  }>;
+  otherPendingCount?: number;
+  otherPendingDays?: number;
+  sameTypeOtherPendingDays?: number;
 }
 
 export interface LeaveBalance {
@@ -505,6 +516,8 @@ export interface WeeklyOffRequest {
   status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
   reason?: string;
   approverId: string;
+  assignedApproverName?: string;
+  reviewedByName?: string;
   createdAt: string;
 }
 

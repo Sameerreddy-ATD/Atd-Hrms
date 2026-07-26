@@ -682,7 +682,8 @@ function MarkAttendanceCard({
             </Button>
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Each mobile punch requires a live face match and precise device location.
+            Each mobile check-in requires a live face match and precise device location. Check-out
+            uses precise location only.
           </p>
         </div>
       </CardContent>

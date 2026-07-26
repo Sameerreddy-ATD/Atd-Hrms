@@ -81,7 +81,9 @@ export function userDto(
     designation: user.employee?.designation ?? undefined,
     mustChangePassword: user.firstLoginPasswordChangeRequired,
     faceEnrollmentStatus,
-    faceEnrollmentRequired: user.role !== "DEVELOPER_ADMIN" && faceEnrollmentStatus !== "APPROVED",
+    faceEnrollmentRequired:
+      // Authoritative gate is GET /face/status (respects pause). This flag is a coarse UI hint.
+      user.role !== "DEVELOPER_ADMIN" && faceEnrollmentStatus !== "APPROVED",
     faceEnrollmentReason: user.faceProfile?.rejectionReason ?? undefined,
     faceEnrollmentSubmittedAt: user.faceProfile?.submittedAt?.toISOString(),
     faceEnrollmentApprovedAt: user.faceProfile?.approvedAt?.toISOString(),

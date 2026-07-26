@@ -11,7 +11,7 @@ This guide explains how Developer Admin, HR, organization heads, employees, fiel
 | Employees                      | Full access                                                    | Full access             | Full access             | Summary/report access | Assigned team only          | Own profile only                        |
 | Departments                    | Add, edit, delete, assign department heads                     | Reference access        | Reference access        | Reference access      | Reference access            | No                                      |
 | Branches                       | Add, edit, deactivate                                          | Add, edit, deactivate   | Add, edit, deactivate   | View reports          | View assigned/team data     | No                                      |
-| Biometric devices and mappings | Planned next version                                           | Planned next version    | Planned next version    | Planned next version  | Planned next version        | No                                      |
+| Biometric devices and mappings | Inventory only (live sync after office install)                | Inventory only          | Inventory only          | No                    | No                          | No                                      |
 | Attendance                     | Full operational access                                        | Full operational access | Full operational access | Reports and summaries | Assigned team only          | Own attendance only                     |
 | Leave policy and types         | View protected types; adjust credits                           | As configured           | View; adjust credits    | View reports          | Approve assigned team leave | Apply and track own leave               |
 | Holidays                       | Add, edit, delete                                              | Add, edit, delete       | Add, edit, delete       | View                  | View                        | View                                    |
@@ -23,7 +23,8 @@ This guide explains how Developer Admin, HR, organization heads, employees, fiel
 ## CEO Workspace
 
 The CEO workspace is a read-only company overview. CEO accounts do not mark attendance and are
-excluded from automatic absence settlement.
+excluded from automatic absence settlement. CEO can open **Employee Services** to view expense and
+HR-document queues (review actions remain with HR / Developer Admin).
 
 The dashboard shows:
 
@@ -43,8 +44,8 @@ Use the executive navigation shortcuts or sidebar:
 - **Leave Overview** opens leave status and approval progress.
 - **Company Investment** opens read-only physical and online asset investment by employee.
 
-Employee Services, attendance marking, user provisioning, company setup, and system controls are
-not shown in the CEO login.
+Attendance marking, user provisioning, company setup, and system controls are not shown in the CEO
+login.
 
 ## Responsive Navigation
 
@@ -98,8 +99,9 @@ On every dashboard the company communications appear in this order:
 
 Open **Announcements** from the Me menu for the full board. Notifications focus on actionable
 items only: leave/weekly-off decisions, punch corrections, checkout reminders, new tasks, expense
-and HR-document decisions, urgent/important announcements, and your own birthday or suspension
-notice. Routine holidays and normal announcements are not pushed into the notification list.
+and HR-document decisions, urgent/important announcements, team/company birthday alerts for
+managers and HR (own birthday for staff), and your own suspension notice. Routine holidays and
+normal announcements are not pushed into the notification list.
 
 Laptop and desktop browsers are not prompted to install or add the app to the home screen. Phone
 users can optionally install from **Notifications** if they want a home-screen icon.
@@ -322,17 +324,20 @@ Weekly off is selected through this request flow, not while the account is creat
 
 1. Open **Apply Leave** and use **Request weekly off**.
 2. Select a date at least one day in advance.
-3. Submit it to the direct organization head.
+3. Submit it to your organization head (higher heads in the same chain can also approve).
 
 Only one date is allowed in each Monday-Sunday week. It expires unused, does not carry forward, and cannot be consecutive with another weekly off, including Sunday followed by Monday.
 
-The request is assigned to the nearest organization-unit head above the employee. Only that exact head can approve or reject it.
+The request is assigned to the nearest organization-unit head above the employee. That head and any higher head in the same parent chain can approve or reject it.
 
 ```mermaid
 flowchart LR
-  A["Employee applies for leave"] --> B["Exact organization head"]
+  A["Employee applies for leave"] --> B["Nearest organization head"]
+  B --> H["Higher heads in the same chain"]
   B -->|Approve| C["Approved"]
+  H -->|Approve| C
   B -->|Reject| R["Rejected"]
+  H -->|Reject| R
   C --> D["Employee may cancel current or future dates"]
   C --> E["Attendance cancels leave for that date"]
 ```
@@ -406,7 +411,7 @@ current task from one of its assignees.
 
 ## Manager: Review Team Leave And Attendance
 
-Organization heads see employees within their permitted unit hierarchy. Leave actions show only requests assigned directly to that head; a super-head cannot approve or reject a lower head's assigned request.
+Organization heads see employees within their permitted unit hierarchy. Leave and weekly-off actions are available to the employee's nearest head and to higher heads above that unit. Approvals show available balance, days applied for, projected balance after approval, and other pending leave for that person. After a decision, Leave History and Approvals show who approved or rejected the request.
 
 Use:
 
@@ -484,7 +489,9 @@ Expired pictures are automatically deleted while non-image audit metadata remain
 
 ## Notifications
 
-Notifications are scoped to the signed-in user. Users should see only their own leave, birthday, system, suspension, and relevant workflow notifications.
+Notifications are scoped to the signed-in user. Staff see their own leave, birthday, system,
+suspension, and workflow items. Managers see team birthday alerts; HR and leadership see
+company-wide birthday alerts for today.
 
 Open app sessions receive new announcement updates immediately. Installed/background devices can display Web Push after the user grants notification permission. Browser or operating-system denial must be changed in device settings; the application cannot override it.
 

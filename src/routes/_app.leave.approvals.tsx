@@ -34,6 +34,72 @@ export const Route = createFileRoute("/_app/leave/approvals")({
   component: LeaveApprovalsPage,
 });
 
+function LeaveBalancePanel({ leave }: { leave: LeaveRequest }) {
+  const balances = leave.leaveBalances ?? [];
+  const requested = leave.requestedDays ?? leave.days;
+  const available = leave.availableBalance ?? 0;
+  const after = leave.projectedBalance ?? available - requested;
+  const otherPending = leave.otherPendingCount ?? 0;
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-2 rounded-md border bg-muted/30 p-3 text-sm">
+        <div>
+          <p className="text-xs text-muted-foreground">Available ({leave.type})</p>
+          <p className="text-lg font-semibold tabular-nums">{available}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Applying for</p>
+          <p className="text-lg font-semibold tabular-nums">{requested}</p>
+          <p className="text-[11px] text-muted-foreground">day{requested === 1 ? "" : "s"}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">After approval</p>
+          <p
+            className={`text-lg font-semibold tabular-nums ${after < 0 ? "text-destructive" : ""}`}
+          >
+            {after}
+          </p>
+        </div>
+      </div>
+      {balances.length > 0 && (
+        <div>
+          <p className="mb-1.5 text-xs font-medium text-muted-foreground">All leave balances</p>
+          <div className="flex flex-wrap gap-1.5">
+            {balances.map((balance) => (
+              <span
+                key={`${balance.type}-${balance.code ?? ""}`}
+                className={`rounded-md border px-2 py-1 text-xs ${
+                  balance.type === leave.type
+                    ? "border-primary/40 bg-primary/5 font-medium"
+                    : "bg-background"
+                }`}
+              >
+                {balance.type}: <span className="tabular-nums">{balance.balance}</span> left
+                <span className="text-muted-foreground">
+                  {" "}
+                  ({balance.used}/{balance.entitled} used)
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {otherPending > 0 && (
+        <p className="text-xs text-amber-800 dark:text-amber-300">
+          Also has {otherPending} other pending leave request
+          {otherPending === 1 ? "" : "s"} ({leave.otherPendingDays ?? 0} day
+          {(leave.otherPendingDays ?? 0) === 1 ? "" : "s"}
+          {(leave.sameTypeOtherPendingDays ?? 0) > 0
+            ? `, including ${leave.sameTypeOtherPendingDays} more ${leave.type}`
+            : ""}
+          ).
+        </p>
+      )}
+    </div>
+  );
+}
+
 function LeaveApprovalsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -110,6 +176,8 @@ function LeaveApprovalsPage() {
     }
   }
 
+  const confirmLeave = confirm ? rows.find((leave) => leave.id === confirm.id) : undefined;
+
   if (!accessChecked || (!canApprove && !canOversee)) {
     return (
       <div className="text-sm text-muted-foreground">Checking organization approval access...</div>
@@ -122,8 +190,8 @@ function LeaveApprovalsPage() {
         title="Leave Approvals"
         description={
           canApprove
-            ? "Approve or reject requests assigned directly to you as the employee's organization head."
-            : "Monitor weekly-off requests across the organization. Approval remains with each employee's direct head."
+            ? "Approve leave and weekly-off for your unit and for people under heads below you. Each card shows available balance, days requested, and projected balance."
+            : "Monitor weekly-off requests across the organization. Approval sits with each employee's organization head and higher heads in that chain."
         }
       />
       {loading && <LoadingState label="Loading leave approvals" />}
@@ -163,8 +231,11 @@ function LeaveApprovalsPage() {
                   {request.reason && <p className="mt-3 text-sm">{request.reason}</p>}
                   <p className="mt-3 text-xs text-muted-foreground">
                     One weekly off per Monday-Sunday week. Consecutive weekly-off dates are blocked.
+                    {request.approverId !== user?.employeeId
+                      ? " You can act as a higher head in this employee's chain."
+                      : " Assigned to you as the primary head."}
                   </p>
-                  {request.approverId === user?.employeeId && (
+                  {canApprove && (
                     <div className="mt-4 grid grid-cols-2 gap-2">
                       <Button variant="outline" onClick={() => reviewWeeklyOff(request.id, false)}>
                         Reject
@@ -196,6 +267,17 @@ function LeaveApprovalsPage() {
                       <p className="truncate text-sm font-semibold">{request.employeeName}</p>
                       <p className="text-xs text-muted-foreground">
                         {request.employeeCode} · {request.date}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {request.reviewedByName
+                          ? request.status === "REJECTED"
+                            ? `Rejected by ${request.reviewedByName}`
+                            : request.status === "APPROVED"
+                              ? `Approved by ${request.reviewedByName}`
+                              : `Reviewed by ${request.reviewedByName}`
+                          : request.assignedApproverName
+                            ? `Assigned to ${request.assignedApproverName}`
+                            : null}
                       </p>
                     </div>
                     <StatusBadge status={request.status} />
@@ -229,20 +311,13 @@ function LeaveApprovalsPage() {
                   <p className="font-medium">{leave.days}</p>
                 </div>
               </div>
-              <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
-                <div>
-                  <p className="text-xs text-muted-foreground">Available</p>
-                  <p className="font-semibold">{leave.availableBalance ?? 0}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Requested</p>
-                  <p className="font-semibold">{leave.requestedDays ?? leave.days}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">After approval</p>
-                  <p className="font-semibold">{leave.projectedBalance ?? 0}</p>
-                </div>
+              <div className="mt-3">
+                <LeaveBalancePanel leave={leave} />
               </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Applied {leave.appliedOn}
+                {leave.approverName ? ` · Primary head: ${leave.approverName}` : ""}
+              </p>
               <div className="mt-3">
                 <p className="text-xs text-muted-foreground">Reason</p>
                 <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6">
@@ -290,71 +365,74 @@ function LeaveApprovalsPage() {
           No pending leave requests.
         </div>
       )}
-      <div className="hidden overflow-hidden rounded-lg border border-border bg-card md:block">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Employee</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>From</TableHead>
-                <TableHead>To</TableHead>
-                <TableHead>Days</TableHead>
-                <TableHead>Balance</TableHead>
-                <TableHead>Reason</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((l) => (
-                <TableRow key={l.id}>
-                  <TableCell className="font-medium">{l.employeeName}</TableCell>
-                  <TableCell>{l.type}</TableCell>
-                  <TableCell>{l.from}</TableCell>
-                  <TableCell>{l.to}</TableCell>
-                  <TableCell>{l.days}</TableCell>
-                  <TableCell className="whitespace-nowrap text-sm">
-                    {l.availableBalance ?? 0} available
-                    <br />
-                    <span className="text-xs text-muted-foreground">
-                      {l.projectedBalance ?? 0} after
-                    </span>
-                  </TableCell>
-                  <TableCell className="min-w-[260px] max-w-[420px] whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">
-                    {l.reason}
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={l.status} />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {l.status === "Pending" ? (
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setConfirm({ id: l.id, action: "Rejected" })}
+      <div className="hidden space-y-4 md:block">
+        {rows.map((leave) => (
+          <Card key={leave.id}>
+            <CardContent className="p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-lg font-semibold">{leave.employeeName}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {leave.type} · {leave.from} to {leave.to} · {leave.days} day
+                    {leave.days === 1 ? "" : "s"}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Applied {leave.appliedOn}
+                    {leave.approverName ? ` · Primary head: ${leave.approverName}` : ""}
+                  </p>
+                </div>
+                <StatusBadge status={leave.status} />
+              </div>
+              <div className="mt-4">
+                <LeaveBalancePanel leave={leave} />
+              </div>
+              <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_auto]">
+                <div>
+                  <p className="text-xs text-muted-foreground">Reason</p>
+                  <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6">
+                    {leave.reason || "-"}
+                  </p>
+                  {leave.type === "Sick Leave" && (
+                    <div className="mt-3 rounded-md border p-3 text-sm">
+                      <p className="text-xs text-muted-foreground">Medical report</p>
+                      {leave.medicalDocumentUrl ? (
+                        <a
+                          className="font-medium text-primary underline"
+                          href={leave.medicalDocumentUrl}
+                          target="_blank"
+                          rel="noreferrer"
                         >
-                          Reject
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => setConfirm({ id: l.id, action: "Approved" })}
-                        >
-                          Approve
-                        </Button>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+                          Open shared report
+                        </a>
+                      ) : (
+                        <p className="font-medium text-amber-700 dark:text-amber-400">
+                          Awaiting employee link
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {canApprove && leave.status === "Pending" && (
+                  <div className="flex shrink-0 gap-2 self-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => setConfirm({ id: leave.id, action: "Rejected" })}
+                    >
+                      Reject
+                    </Button>
+                    <Button onClick={() => setConfirm({ id: leave.id, action: "Approved" })}>
+                      Approve
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
         {!loading && rows.length === 0 && (
-          <div className="p-6 text-sm text-muted-foreground">No pending leave requests.</div>
+          <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">
+            No pending leave requests.
+          </div>
         )}
       </div>
 
@@ -372,6 +450,15 @@ function LeaveApprovalsPage() {
               </div>
               <p className="mt-3 text-sm">
                 {leave.from} to {leave.to} · {leave.days} day(s)
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {leave.reviewedByName
+                  ? leave.status === "Rejected"
+                    ? `Rejected by ${leave.reviewedByName}`
+                    : `Approved by ${leave.reviewedByName}`
+                  : leave.approverName
+                    ? `Assigned head: ${leave.approverName}`
+                    : null}
               </p>
               {leave.reason && (
                 <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">
@@ -400,6 +487,7 @@ function LeaveApprovalsPage() {
                 <TableHead>From</TableHead>
                 <TableHead>To</TableHead>
                 <TableHead>Days</TableHead>
+                <TableHead>Decision by</TableHead>
                 <TableHead>Reason</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Updated</TableHead>
@@ -413,6 +501,15 @@ function LeaveApprovalsPage() {
                   <TableCell>{leave.from}</TableCell>
                   <TableCell>{leave.to}</TableCell>
                   <TableCell>{leave.days}</TableCell>
+                  <TableCell className="text-sm">
+                    {leave.reviewedByName
+                      ? leave.status === "Rejected"
+                        ? `Rejected by ${leave.reviewedByName}`
+                        : `Approved by ${leave.reviewedByName}`
+                      : leave.approverName
+                        ? `Assigned: ${leave.approverName}`
+                        : "-"}
+                  </TableCell>
                   <TableCell className="min-w-[260px] max-w-[420px] whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">
                     {leave.reason}
                   </TableCell>
@@ -438,9 +535,28 @@ function LeaveApprovalsPage() {
             <AlertDialogTitle>
               {confirm?.action === "Approved" ? "Approve leave request?" : "Reject leave request?"}
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              Approved leave is added to day logs only on days without attendance. If the employee
-              punches in on a leave day, attendance will override the leave mark.
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                {confirmLeave && (
+                  <div className="rounded-md border bg-muted/30 p-3 text-foreground">
+                    <p className="font-medium text-foreground">
+                      {confirmLeave.employeeName} · {confirmLeave.type}
+                    </p>
+                    <p className="mt-1">
+                      Applying for <strong>{confirmLeave.requestedDays ?? confirmLeave.days}</strong>{" "}
+                      day
+                      {(confirmLeave.requestedDays ?? confirmLeave.days) === 1 ? "" : "s"} (
+                      {confirmLeave.from} to {confirmLeave.to}). Available{" "}
+                      <strong>{confirmLeave.availableBalance ?? 0}</strong>, after approval{" "}
+                      <strong>{confirmLeave.projectedBalance ?? 0}</strong>.
+                    </p>
+                  </div>
+                )}
+                <p>
+                  Approved leave is added to day logs only on days without attendance. If the
+                  employee punches in on a leave day, attendance will override the leave mark.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

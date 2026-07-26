@@ -236,6 +236,7 @@ model User {
   pushSubscriptions                PushSubscription[]
   reviewedExpenseClaims            ExpenseClaim[]            @relation("ExpenseReviewer")
   reviewedDocumentRequests         CertificateRequest[]      @relation("DocumentReviewer")
+  reviewedLeaveRequests            LeaveRequest[]            @relation("LeaveReviewer")
   createdIntegrationClients        IntegrationClient[]       @relation("IntegrationClientCreator")
   faceProfile                      FaceProfile?              @relation("FaceProfileOwner")
   approvedFaceProfiles             FaceProfile[]             @relation("FaceProfileApprover")
@@ -803,6 +804,8 @@ model LeaveRequest {
   reason                    String      @db.Text
   status                    LeaveStatus @default(PENDING)
   managerId                 String?     @map("manager_id")
+  reviewedByUserId          String?     @map("reviewed_by_user_id")
+  reviewedByUser            User?       @relation("LeaveReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
   hrVerifiedBy              String?     @map("hr_verified_by")
   cancelledDates            Json?       @map("cancelled_dates")
   medicalDocumentUrl        String?     @map("medical_document_url") @db.Text
@@ -814,6 +817,7 @@ model LeaveRequest {
 
   @@index([employeeId, createdAt])
   @@index([managerId, status, createdAt])
+  @@index([reviewedByUserId])
   @@map("leave_requests")
 }
 

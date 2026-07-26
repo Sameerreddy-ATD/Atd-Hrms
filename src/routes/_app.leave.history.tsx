@@ -99,10 +99,24 @@ function LeaveHistoryPage() {
                   <p className="font-medium">{leave.appliedOn}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Approver</p>
+                  <p className="text-xs text-muted-foreground">Assigned head</p>
                   <p className="break-words font-medium">{leave.approverName ?? "-"}</p>
                 </div>
                 <div>
+                  <p className="text-xs text-muted-foreground">Decision by</p>
+                  <p className="break-words font-medium">
+                    {leave.reviewedByName
+                      ? leave.status === "Rejected"
+                        ? `Rejected by ${leave.reviewedByName}`
+                        : leave.status === "Approved"
+                          ? `Approved by ${leave.reviewedByName}`
+                          : leave.reviewedByName
+                      : leave.status === "Pending"
+                        ? "Awaiting decision"
+                        : "-"}
+                  </p>
+                </div>
+                <div className="col-span-2">
                   <p className="text-xs text-muted-foreground">Progress</p>
                   <p className="break-words font-medium">{leave.workflowStatus ?? leave.status}</p>
                 </div>
@@ -136,7 +150,8 @@ function LeaveHistoryPage() {
                 <TableHead>To</TableHead>
                 <TableHead>Days</TableHead>
                 <TableHead>Applied</TableHead>
-                <TableHead>Approver</TableHead>
+                <TableHead>Assigned head</TableHead>
+                <TableHead>Decision by</TableHead>
                 <TableHead>Approval progress</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Action</TableHead>
@@ -151,6 +166,17 @@ function LeaveHistoryPage() {
                   <TableCell>{l.days}</TableCell>
                   <TableCell>{l.appliedOn}</TableCell>
                   <TableCell>{l.approverName ?? "-"}</TableCell>
+                  <TableCell className="text-sm">
+                    {l.reviewedByName
+                      ? l.status === "Rejected"
+                        ? `Rejected by ${l.reviewedByName}`
+                        : l.status === "Approved"
+                          ? `Approved by ${l.reviewedByName}`
+                          : l.reviewedByName
+                      : l.status === "Pending"
+                        ? "Awaiting decision"
+                        : "-"}
+                  </TableCell>
                   <TableCell className="max-w-[260px] text-sm text-muted-foreground">
                     {l.workflowStatus ?? l.status}
                     {(l.cancelledDates?.length ?? 0) > 0 && (

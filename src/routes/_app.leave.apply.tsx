@@ -165,9 +165,10 @@ function ApplyLeavePage() {
         description="Choose the leave type and dates. Approval follows the policy for that leave type."
         actions={
           <InfoButton title="Leave request process">
-            Leave requests go only to your responsible organization head. Comp Off uses an earned
-            holiday-work credit and does not require approval. You can track the result in Leave
-            History and cancel an approved leave when required.
+            Leave requests go to your organization head. Higher heads in the same chain can also
+            approve or reject. Comp Off uses an earned holiday-work credit and does not require
+            approval. You can track the result in Leave History and cancel an approved leave when
+            required.
           </InfoButton>
         }
       />
@@ -248,7 +249,8 @@ function ApplyLeavePage() {
                 {!approverLoading && requiresApprover && approverName && (
                   <p className="mb-4 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
                     This request will be sent to your organization head:{" "}
-                    <span className="font-medium text-foreground">{approverName}</span>
+                    <span className="font-medium text-foreground">{approverName}</span>. Higher heads
+                    in the same chain can also approve or reject it.
                   </p>
                 )}
                 {selectedType && !requiresApprover && (
@@ -424,7 +426,8 @@ function ApplyLeavePage() {
               {!approverLoading && approverName && (
                 <p className="mb-4 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
                   This request will be sent to your organization head:{" "}
-                  <span className="font-medium text-foreground">{approverName}</span>
+                  <span className="font-medium text-foreground">{approverName}</span>. Higher heads in
+                  the same chain can also approve or reject it.
                 </p>
               )}
               <form onSubmit={submitWeeklyOff} className="grid gap-4 sm:grid-cols-2">
@@ -472,6 +475,13 @@ function ApplyLeavePage() {
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-semibold text-muted-foreground">
                           {request.status}
+                          {request.reviewedByName
+                            ? request.status === "REJECTED"
+                              ? ` · by ${request.reviewedByName}`
+                              : request.status === "APPROVED"
+                                ? ` · by ${request.reviewedByName}`
+                                : ""
+                            : ""}
                         </span>
                         {(request.status === "PENDING" || request.status === "APPROVED") && (
                           <Button
