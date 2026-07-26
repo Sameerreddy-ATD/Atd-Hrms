@@ -6666,17 +6666,20 @@ export function createApp() {
               take: 40,
             })
           : Promise.resolve([]),
-        req.user!.employeeId
+        req.user!.role === Role.HR || req.user!.role === Role.DEVELOPER_ADMIN
           ? prisma.checklistItemState.findMany({
               where: {
                 completed: false,
-                instance: {
-                  employeeId: req.user!.employeeId,
-                  status: "OPEN",
-                },
+                instance: { status: "OPEN" },
               },
               include: {
-                instance: { select: { kind: true, instanceId: true } },
+                instance: {
+                  select: {
+                    kind: true,
+                    instanceId: true,
+                    employee: { select: { name: true, employeeCode: true } },
+                  },
+                },
               },
               orderBy: { sortOrder: "asc" },
               take: 8,
@@ -6958,9 +6961,10 @@ export function createApp() {
             item.instance.kind === "OFFBOARDING"
               ? "Offboarding step open"
               : "Onboarding step open",
-          desc: item.title,
+          desc: `${item.instance.employee.name} (${item.instance.employee.employeeCode}): ${item.title}`,
           time: new Date().toISOString(),
           type: "system" as const,
+          href: "/checklists",
         })),
       ]
         .sort((a, b) => +new Date(b.time) - +new Date(a.time))

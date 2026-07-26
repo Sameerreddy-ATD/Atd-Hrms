@@ -1068,50 +1068,6 @@ export const notificationPreferencesApi = {
     ),
 };
 
-export const opsReportsApi = {
-  summary: () =>
-    request<{
-      activeEmployees: number;
-      presentToday: number;
-      attendancePct: number;
-      pendingLeave: number;
-      overdueTasks: number;
-      openTasks: number;
-      paidClaimsThisMonth: number;
-      paidClaimsAmount: number;
-      boards: Array<{ id: string; name: string; active: number; overdue: number }>;
-    }>("/reports/ops-summary"),
-  downloadOpsExcel: () => downloadBinary("/reports/ops-export.xlsx", "ops-reports.xlsx"),
-  downloadClaimsCsv: (from?: string, to?: string) =>
-    downloadBinary(`/reports/claims-export${toQuery({ from, to })}`, "paid-claims.csv"),
-};
-
-async function downloadBinary(path: string, filename: string) {
-  const res = await fetch(`${API_BASE}${path}`, { credentials: "include" });
-  if (res.status === 401) {
-    const refreshed = await refreshSession();
-    if (!refreshed) throw new Error("Session expired. Sign in again.");
-    const retry = await fetch(`${API_BASE}${path}`, { credentials: "include" });
-    if (!retry.ok) throw new Error("Unable to download the export.");
-    const retryBlob = await retry.blob();
-    const retryUrl = URL.createObjectURL(retryBlob);
-    const link = document.createElement("a");
-    link.href = retryUrl;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(retryUrl);
-    return;
-  }
-  if (!res.ok) throw new Error("Unable to download the export.");
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
 export const checklistsApi = {
   list: (filters: { status?: string; kind?: string } = {}) =>
     request<
@@ -1163,6 +1119,16 @@ export const checklistsApi = {
         items: Array<{ id: string; title: string; linkPath?: string | null; sortOrder: number }>;
       }>
     >("/checklists/templates"),
+  createTemplate: (payload: {
+    name: string;
+    kind: "ONBOARDING" | "OFFBOARDING";
+    isActive: boolean;
+    items: Array<{ title: string; linkPath?: string | null }>;
+  }) =>
+    request<{ id: string; ok: boolean }>("/checklists/templates", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   saveTemplate: (
     id: string,
     payload: {
@@ -1175,4 +1141,9 @@ export const checklistsApi = {
       method: "PUT",
       body: JSON.stringify(payload),
     }),
+  deleteTemplate: (id: string) =>
+    request<{ id: string; ok: boolean; deleted?: boolean; deactivated?: boolean }>(
+      `/checklists/templates/${id}`,
+      { method: "DELETE" },
+    ),
 };

@@ -19,7 +19,7 @@ This guide explains how Developer Admin, HR, organization heads, employees, fiel
 | Asset management               | Full access                                                    | No                      | Full access             | Read-only investment  | No                          | No                                      |
 | Expenses and HR documents      | Review all                                                     | No                      | Review all              | View all              | Own requests                | Own requests                            |
 | Operations reports             | Full                                                           | Full                    | Full                    | Full                  | Team summary                | No                                      |
-| Checklists                     | Full                                                           | Full                    | Full                    | View                  | View                        | Own checklists                          |
+| Checklists                     | Templates add/edit/delete; can run instances                   | No                      | Run onboarding/offboarding instances | No                    | No                          | No                                      |
 | System settings                | Full access                                                    | As configured           | No                      | No                    | No                          | No                                      |
 
 ## CEO Workspace
@@ -356,12 +356,6 @@ Open **Work Planner** to see every task board available to your account.
 Active boards show their access policy and open-task count. Archived boards remain recoverable and
 do not accept new work until their owner restores them.
 
-## Operations Reports
-
-Managers, HR, and leadership open **Operations Reports** for attendance coverage, pending leave,
-planner load by board, and paid claims this month. Managers and above can export Attendance, Leave,
-and Work Planner sheets as Excel. HR/Admin/CEO can also export paid claims as CSV.
-
 Press **Ctrl/Cmd+K** for global search across pages, people, boards, tasks, and announcements.
 
 ## Employee Requests
@@ -371,10 +365,12 @@ payment remain the same workflow. Travel and fuel claim types are deferred for a
 
 ## Checklists
 
-Creating a login auto-starts onboarding; deactivating a login auto-starts offboarding. HR can
-also start instances manually, mark complete/cancel/reopen, and edit onboarding/offboarding
-templates (item titles and in-app links). Employees tick items from **Checklists**; linked
-screens open from each item. Document Vault and SOP Library are deferred for a later release.
+Creating a login auto-starts onboarding; deactivating a login auto-starts offboarding. **HR**
+works each checklist: what to provide to the employee and what data to collect, then ticks items
+as they finish. HR can also start instances manually and mark complete/cancel/reopen.
+
+**Developer Admin** alone adds, edits, and deletes the onboarding/offboarding process templates
+(item titles and in-app links). Managers and employees do not see Checklists.
 
 Payroll/payslips and live biometric device connectors remain out of scope.
 

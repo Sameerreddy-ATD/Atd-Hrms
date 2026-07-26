@@ -65,7 +65,7 @@ Supported AWS patterns and their scaling constraints are documented in
 | `server/src/push.ts`               | VAPID Web Push delivery and stale subscription cleanup                   |
 | `server/src/mapper.ts`             | Safe API DTOs and status mapping                                         |
 | `server/src/integration-api.ts`    | Versioned Employee API, service credentials, concurrency and change feed |
-| `server/src/hrms-extensions.ts`    | Checklists (instances + templates), search, ops reports, private uploads (dormant docs/SOP/ATS handlers removed) |
+| `server/src/hrms-extensions.ts`    | Checklists (instances + templates), search, private uploads (dormant docs/SOP/ATS handlers removed) |
 | `server/src/taskBoardAccess.ts`    | Shared board/task ACL helpers for planner and attachment routes              |
 | `server/src/checklistService.ts`   | Onboarding/offboarding instance creation and face-item auto-complete         |
 | `server/src/privateFiles.ts`       | Base64 private-file storage helpers                                          |
@@ -135,9 +135,7 @@ Lockout or suspension does not delete or disable the employee record, allowing h
 | `/integration-clients`  | Developer Admin credential creation, listing, expiry and revocation                         |
 | `/expense-claims`       | Employee-scoped advances/expenses, private receipt upload, and HR review/payment workflow |
 | `/certificate-requests` | Employee-scoped HR document requests and HR fulfilment                                      |
-| `/checklists`           | Onboarding/offboarding checklist instances                                                  |
-| `/checklists`           | Onboarding/offboarding instances, progress, and HR template editing                         |
-| `/reports/ops-summary`  | Manager/HR ops summary                                                                      |
+| `/checklists`           | HR onboarding/offboarding instances; Developer Admin template CRUD                          |
 | `/announcements`        | Publishing, activation, expiry, and permanent announcement deletion                         |
 | `/notifications`        | User-scoped notification feed and live stream                                               |
 | `/push`                 | VAPID key and browser subscription management                                               |

@@ -30,7 +30,7 @@ The app is usable for core attendance and leave for employees with an org head, 
 2. **People maintenance is a dead end** for employees and HR (edit-requests return 501; only Developer Admin has Edit on Employees).
 3. **Emergency contact** has a route and database model but **no UI**.
 4. Several attendance screens (**field**, **branch**, **mismatch**) exist or are stubbed but are **not in the sidebar**, while the dashboard still surfaces related stats.
-5. Multiple **redirect stubs** (`/leave/balance`, `/reports/payroll`, `/forgot-password`, `/roles`) look like real features but dump the user somewhere else.
+5. Multiple **redirect stubs** (`/leave/balance`, `/forgot-password`, `/roles`) look like real features but dump the user somewhere else.
 
 Fix Critical/High items before treating the build as company-ready for HR ops and payroll-adjacent expense payment.
 
@@ -96,7 +96,7 @@ Fix Critical/High items before treating the build as company-ready for HR ops an
 | M14 | Devices | `/settings/devices` | Orphan read-only list; overlaps `/devices`. | One devices surface under Company/Settings. | Duplicate/orphan settings path. | Yes |
 | M15 | Assets | Roles | `main_admin` not in assets menu/API manage set. | Align with company ops role design. | Main Admin cannot open assets. | — |
 | M16 | Announcements | `canManage` | HR + Developer Admin only; CEO cannot post. | Confirm product rule; if CEO should post, add UI+API. | Leadership cannot announce. | — |
-| M17 | Reports | `/reports/payroll` | Redirects to `/attendance` (orphan overview). | Real payroll page **or** remove route and menu references. | “Payroll” name is false. | Yes — fake payroll entry |
+| M17 | Reports | `/reports/payroll` | **Removed** with Operations Reports (2026-07-26). | — | — | Resolved |
 | M18 | Auth | `/first-login` | No session guard; empty old-password change call if opened cold. | Redirect to login if unauthenticated. | Opaque API errors. | — |
 
 ---
@@ -199,7 +199,7 @@ Mismatch route stubs to Branch (H3)
 | Leave Approvals (sidebar) | Shown to HR/admins who cannot approve | Org heads / reporting managers only; HR → Tracking |
 | Apply Leave CTA | Attendance Mine / Attendance overview headers | Keep secondary; put Missed Punch / Corrections first on attendance pages |
 | Forgot-password / Need help | Implies self-serve reset | Rename or implement reset |
-| Payroll report | Route name `/reports/payroll` | Real report or remove |
+| Payroll report | Removed with Operations Reports | — |
 | Emergency contact | Redirect stub | Profile section or real page |
 | Role shortcuts | `role-shortcuts.ts` unused | Dashboard tiles or delete |
 | Checklist Open → Assets/Users | Template editor offers admin routes | Employee-safe routes only |
@@ -214,7 +214,7 @@ Mismatch route stubs to Branch (H3)
 | `/emergency-contact` | → `/profile` | High — EC data unused |
 | `/attendance/mismatch` | → `/attendance/branch` | High — false feature name |
 | `/leave/balance` | → `/leave/history` | Medium — balances not on History |
-| `/reports/payroll` | → `/attendance` | Medium — false payroll |
+| `/reports/payroll` | Removed | Resolved |
 | `/forgot-password` | Static help card | High — UX expectation |
 | `/roles` | → `/dashboard` | Low |
 | `/company-setup` | → `/branches` | Low |
