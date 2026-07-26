@@ -344,17 +344,23 @@ flowchart LR
 
 ## Work Planner
 
-Open **Work Planner** to see every task board available to your account. **Assigned to me** keeps
-your active work at the top so you can open a task without first finding its board. Active boards
-show their access policy and open-task count. Archived boards remain recoverable and do not accept
-new work until their owner restores them.
+Open **Work Planner** to see every task board available to your account.
+
+- A **board** is a shared workspace: anyone with access to that board sees **all** of its tasks
+  (not only cards assigned to them). Use filters such as **Mine** when you want a personal slice.
+- **Assigned to me** is your personal inbox on the directory. It lists active work assigned to you
+  across boards so you can open a task without first finding its board. Use **View all** to expand
+  the list or open a board with the Mine filter on.
+
+Active boards show their access policy and open-task count. Archived boards remain recoverable and
+do not accept new work until their owner restores them.
 
 ### Open and navigate a board
 
-1. Select an active board card. The header shows total and active work.
+1. Select an active board card. The header shows total and active work for the whole board.
 2. Search by title, description, or assignee.
-3. Use **Mine**, assignee, priority, stage, and due-date filters together.
-4. Select a stage total to focus the board on that stage; select it again to clear the filter.
+3. Use **Mine**, assignee, priority, stage chips, and due-date filters together.
+4. Select a stage chip to focus the board on that stage; select it again to clear the filter.
 5. Switch among:
    - **List** for compact, collapsible stage groups and inline stage changes.
    - **Kanban** for visual workflow columns and drag-and-drop stage movement.
@@ -362,13 +368,14 @@ new work until their owner restores them.
 6. Use the board selector to move directly to another accessible board.
 
 All wide controls and Kanban/timeline content scroll horizontally on narrow screens. Selecting a
-task opens one focused, full-height mobile dialog containing its description, assignees, dates,
-progress, and complete activity history.
+task opens a focused detail panel with editable fields, assignees, dates, progress, and activity.
 
 ### Find and update work
 
 1. Select a task row, card, timeline bar, or **Assigned to me** entry.
-2. Review the current stage, priority, owners, schedule, and prior updates.
+2. Edit title, description, priority, dates, stage, and assignees in the detail panel, then **Save**.
+   Managers and admins can change full details; employees may be limited to stage, status, and
+   progress depending on policy.
 3. Change the stage from the detail panel, or from the list stage selector. In Kanban, drag the card
    to another column.
 4. Enter a decision, progress note, or blocker; set the resulting progress; then select
