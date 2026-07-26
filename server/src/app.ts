@@ -2931,13 +2931,30 @@ export function createApp() {
     "/certificate-requests",
     requireAuth,
     asyncHandler(async (req, res) => {
-      if (!req.user!.employeeId) throw new HttpError(403, "Employee profile required");
       const body = certificateRequestSchema.parse(req.body);
+      const canSubmitForEmployee = ([Role.HR, Role.DEVELOPER_ADMIN] as Role[]).includes(
+        req.user!.role,
+      );
+      if (canSubmitForEmployee && !body.employeeId && !req.user!.employeeId) {
+        throw new HttpError(400, "Select the employee who needs this document");
+      }
+      if (body.employeeId && !canSubmitForEmployee) {
+        throw new HttpError(403, "Only HR can submit a document request for another employee");
+      }
+      const employeeId =
+        canSubmitForEmployee && body.employeeId ? body.employeeId : req.user!.employeeId;
+      if (!employeeId) throw new HttpError(403, "Employee profile required");
       if (body.requiredBy && body.requiredBy.getTime() < startOfDayUtc(todayIstDate()).getTime()) {
         throw new HttpError(400, "Required-by date cannot be in the past");
       }
+      const activeEmployee = await prisma.employee.findFirst({
+        where: { employeeId, status: "ACTIVE" },
+        select: { employeeId: true },
+      });
+      if (!activeEmployee) throw new HttpError(400, "Active employee record required");
+      const { employeeId: _ignored, ...requestData } = body;
       const row = await prisma.certificateRequest.create({
-        data: { employeeId: req.user!.employeeId, ...body },
+        data: { employeeId, ...requestData },
       });
       await audit({
         action: "certificate requested",

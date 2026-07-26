@@ -16,6 +16,18 @@ import {
 } from "@prisma/client";
 import { z } from "zod";
 
+/** Treat blank strings as null so HTML date/url inputs do not fail coerce/url checks. */
+function emptyToNull(value: unknown) {
+  if (value === "" || value === undefined) return null;
+  return value;
+}
+
+const optionalNullableDate = z.preprocess(emptyToNull, z.coerce.date().nullable());
+const optionalNullableUrl = z.preprocess(
+  emptyToNull,
+  z.union([z.string().trim().url().max(2000), z.null()]),
+);
+
 const bloodGroupSchema = z.enum(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]);
 const bankAccountNumberSchema = z
   .string()
@@ -396,7 +408,7 @@ export const expenseClaimSchema = z
       .nullable()
       .optional(),
     amount: z.coerce.number().positive().max(10_000_000),
-    expenseDate: z.coerce.date().nullable().optional(),
+    expenseDate: optionalNullableDate.optional(),
     description: z.string().trim().min(5).max(3000).nullable().optional(),
     remark: z.string().trim().min(2).max(2000).nullable().optional(),
     claimMeta: z
@@ -406,7 +418,7 @@ export const expenseClaimSchema = z
       })
       .nullable()
       .optional(),
-    receiptUrl: z.string().trim().min(1).max(2000).nullable().optional(),
+    receiptUrl: z.preprocess(emptyToNull, z.string().trim().min(1).max(2000).nullable()).optional(),
     receiptAccessConfirmed: z.boolean().default(false),
   })
   .superRefine((value, context) => {
@@ -478,15 +490,20 @@ export const certificateRequestSchema = z.object({
     "RELIEVING",
     "OTHER",
   ]),
-  purpose: z.string().trim().min(5).max(3000),
+  employeeId: z.string().min(1).optional(),
+  purpose: z
+    .string()
+    .trim()
+    .min(5, "Purpose must be at least 5 characters")
+    .max(3000, "Purpose is too long"),
   deliveryMode: z.enum(["DIGITAL", "PRINTED"]).default("DIGITAL"),
-  requiredBy: z.coerce.date().nullable().optional(),
+  requiredBy: optionalNullableDate.optional(),
 });
 
 export const certificateRequestReviewSchema = z.object({
   status: z.enum(["IN_PROGRESS", "READY", "REJECTED", "COLLECTED"]),
-  hrNotes: z.string().trim().max(2000).nullable().optional(),
-  documentUrl: z.string().url().max(2000).nullable().optional(),
+  hrNotes: z.preprocess(emptyToNull, z.string().trim().max(2000).nullable()).optional(),
+  documentUrl: optionalNullableUrl.optional(),
 });
 
 export const assetCatalogItemSchema = z.object({

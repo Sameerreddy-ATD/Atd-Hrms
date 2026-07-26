@@ -70,6 +70,7 @@ const certificateInitial = {
   purpose: "",
   deliveryMode: "DIGITAL" as "DIGITAL" | "PRINTED",
   requiredBy: "",
+  employeeId: "",
 };
 
 function EmployeeServicesPage() {
@@ -179,11 +180,23 @@ function EmployeeServicesPage() {
 
   async function submitCertificate(event: React.FormEvent) {
     event.preventDefault();
+    const purpose = certificateForm.purpose.trim();
+    if (purpose.length < 5) {
+      toast.error("Purpose must be at least 5 characters");
+      return;
+    }
+    if (isHr && !certificateForm.employeeId && !user?.employeeId) {
+      toast.error("Select the employee who needs this document");
+      return;
+    }
     setSaving(true);
     try {
       await employeeServicesApi.submitCertificate({
-        ...certificateForm,
-        requiredBy: certificateForm.requiredBy || null,
+        certificateType: certificateForm.certificateType,
+        purpose,
+        deliveryMode: certificateForm.deliveryMode,
+        requiredBy: certificateForm.requiredBy.trim() || null,
+        employeeId: isHr ? certificateForm.employeeId || undefined : undefined,
       });
       setCertificateOpen(false);
       setCertificateForm(certificateInitial);
@@ -198,6 +211,15 @@ function EmployeeServicesPage() {
 
   async function saveReview() {
     if (!review) return;
+    if (
+      review.kind === "certificate" &&
+      review.status === "READY" &&
+      review.documentUrl.trim() &&
+      !/^https?:\/\//i.test(review.documentUrl.trim())
+    ) {
+      toast.error("Document link must start with http:// or https://");
+      return;
+    }
     setSaving(true);
     try {
       if (review.kind === "expense")
@@ -210,8 +232,8 @@ function EmployeeServicesPage() {
         await employeeServicesApi.reviewCertificate(
           review.id,
           review.status as "IN_PROGRESS" | "READY" | "REJECTED" | "COLLECTED",
-          review.notes,
-          review.documentUrl || undefined,
+          review.notes.trim() || null,
+          review.documentUrl.trim() || null,
         );
       setReview(null);
       await load();
@@ -586,6 +608,15 @@ function EmployeeServicesPage() {
               <DialogTitle>Request HR document</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4 sm:grid-cols-2">
+              {isHr && (
+                <div className="sm:col-span-2">
+                  <EmployeeSelect
+                    employees={employees}
+                    value={certificateForm.employeeId}
+                    onChange={(employeeId) => setCertificateForm((v) => ({ ...v, employeeId }))}
+                  />
+                </div>
+              )}
               <Field label="Document type">
                 <Select
                   value={certificateForm.certificateType}
@@ -642,11 +673,14 @@ function EmployeeServicesPage() {
                 <Field label="Purpose">
                   <Textarea
                     rows={4}
+                    minLength={5}
                     maxLength={3000}
+                    placeholder="Example: Required for bank loan verification"
                     value={certificateForm.purpose}
                     onChange={(e) => setCertificateForm((v) => ({ ...v, purpose: e.target.value }))}
                     required
                   />
+                  <p className="text-xs text-muted-foreground">At least 5 characters.</p>
                 </Field>
               </div>
             </div>
@@ -687,11 +721,15 @@ function EmployeeServicesPage() {
                 <Field label="Document link (required for digital Ready status)">
                   <Input
                     type="url"
+                    placeholder="https://…"
                     value={review.documentUrl}
                     onChange={(e) =>
                       setReview((v) => (v ? { ...v, documentUrl: e.target.value } : v))
                     }
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Use a full link starting with https:// when marking a digital copy ready.
+                  </p>
                 </Field>
               )}
               <Field label="HR notes">
@@ -882,14 +920,19 @@ function CertificateActions({
     </Button>
   );
 }
-function reviewOptions(review: { kind: "expense" | "certificate"; status: string }) {
+function reviewOptions(review: {
+  kind: "expense" | "certificate";
+  status: string;
+  currentStatus?: string;
+}) {
   if (review.kind === "expense")
     return review.status === "UNPAID" ? ["UNPAID", "PAID", "REJECTED"] : ["UNPAID", "REJECTED"];
-  return review.status === "IN_PROGRESS"
-    ? ["IN_PROGRESS", "REJECTED"]
-    : review.status === "READY"
-      ? ["READY", "REJECTED"]
-      : ["COLLECTED"];
+  // Options are based on the intended next status already selected in the dialog.
+  if (review.status === "IN_PROGRESS") return ["IN_PROGRESS", "REJECTED"];
+  if (review.status === "READY") return ["READY", "REJECTED"];
+  if (review.status === "COLLECTED") return ["COLLECTED"];
+  if (review.status === "REJECTED") return ["REJECTED"];
+  return ["IN_PROGRESS", "REJECTED"];
 }
 function label(value: string) {
   const professionalLabels: Record<string, string> = {
