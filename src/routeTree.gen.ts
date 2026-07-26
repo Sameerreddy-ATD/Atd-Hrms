@@ -17,7 +17,6 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as VerifyIdEmployeeIdRouteImport } from './routes/verify-id.$employeeId'
 import { Route as AppUsersRouteImport } from './routes/_app.users'
 import { Route as AppTasksRouteImport } from './routes/_app.tasks'
-import { Route as AppSopRouteImport } from './routes/_app.sop'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppRolesRouteImport } from './routes/_app.roles'
 import { Route as AppReportsRouteImport } from './routes/_app.reports'
@@ -30,7 +29,6 @@ import { Route as AppFaceEnrollmentRouteImport } from './routes/_app.face-enroll
 import { Route as AppEmployeesRouteImport } from './routes/_app.employees'
 import { Route as AppEmployeeServicesRouteImport } from './routes/_app.employee-services'
 import { Route as AppEmergencyContactRouteImport } from './routes/_app.emergency-contact'
-import { Route as AppDocumentsRouteImport } from './routes/_app.documents'
 import { Route as AppDevicesRouteImport } from './routes/_app.devices'
 import { Route as AppDepartmentsRouteImport } from './routes/_app.departments'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
@@ -99,11 +97,6 @@ const AppTasksRoute = AppTasksRouteImport.update({
   path: '/tasks',
   getParentRoute: () => AppRoute
 } as any)
-const AppSopRoute = AppSopRouteImport.update({
-  id: '/sop',
-  path: '/sop',
-  getParentRoute: () => AppRoute
-} as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -162,11 +155,6 @@ const AppEmployeeServicesRoute = AppEmployeeServicesRouteImport.update({
 const AppEmergencyContactRoute = AppEmergencyContactRouteImport.update({
   id: '/emergency-contact',
   path: '/emergency-contact',
-  getParentRoute: () => AppRoute
-} as any)
-const AppDocumentsRoute = AppDocumentsRouteImport.update({
-  id: '/documents',
-  path: '/documents',
   getParentRoute: () => AppRoute
 } as any)
 const AppDevicesRoute = AppDevicesRouteImport.update({
@@ -327,7 +315,6 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AppDashboardRoute
   '/departments': typeof AppDepartmentsRoute
   '/devices': typeof AppDevicesRouteWithChildren
-  '/documents': typeof AppDocumentsRoute
   '/emergency-contact': typeof AppEmergencyContactRoute
   '/employee-services': typeof AppEmployeeServicesRoute
   '/employees': typeof AppEmployeesRoute
@@ -340,7 +327,6 @@ export interface FileRoutesByFullPath {
   '/reports': typeof AppReportsRouteWithChildren
   '/roles': typeof AppRolesRoute
   '/settings': typeof AppSettingsRouteWithChildren
-  '/sop': typeof AppSopRoute
   '/tasks': typeof AppTasksRoute
   '/users': typeof AppUsersRouteWithChildren
   '/verify-id/$employeeId': typeof VerifyIdEmployeeIdRoute
@@ -377,7 +363,6 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AppDashboardRoute
   '/departments': typeof AppDepartmentsRoute
   '/devices': typeof AppDevicesRouteWithChildren
-  '/documents': typeof AppDocumentsRoute
   '/emergency-contact': typeof AppEmergencyContactRoute
   '/employee-services': typeof AppEmployeeServicesRoute
   '/employees': typeof AppEmployeesRoute
@@ -390,7 +375,6 @@ export interface FileRoutesByTo {
   '/reports': typeof AppReportsRouteWithChildren
   '/roles': typeof AppRolesRoute
   '/settings': typeof AppSettingsRouteWithChildren
-  '/sop': typeof AppSopRoute
   '/tasks': typeof AppTasksRoute
   '/users': typeof AppUsersRouteWithChildren
   '/verify-id/$employeeId': typeof VerifyIdEmployeeIdRoute
@@ -430,7 +414,6 @@ export interface FileRoutesById {
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/departments': typeof AppDepartmentsRoute
   '/_app/devices': typeof AppDevicesRouteWithChildren
-  '/_app/documents': typeof AppDocumentsRoute
   '/_app/emergency-contact': typeof AppEmergencyContactRoute
   '/_app/employee-services': typeof AppEmployeeServicesRoute
   '/_app/employees': typeof AppEmployeesRoute
@@ -443,7 +426,6 @@ export interface FileRoutesById {
   '/_app/reports': typeof AppReportsRouteWithChildren
   '/_app/roles': typeof AppRolesRoute
   '/_app/settings': typeof AppSettingsRouteWithChildren
-  '/_app/sop': typeof AppSopRoute
   '/_app/tasks': typeof AppTasksRoute
   '/_app/users': typeof AppUsersRouteWithChildren
   '/verify-id/$employeeId': typeof VerifyIdEmployeeIdRoute
@@ -483,7 +465,6 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/departments'
     | '/devices'
-    | '/documents'
     | '/emergency-contact'
     | '/employee-services'
     | '/employees'
@@ -496,7 +477,6 @@ export interface FileRouteTypes {
     | '/reports'
     | '/roles'
     | '/settings'
-    | '/sop'
     | '/tasks'
     | '/users'
     | '/verify-id/$employeeId'
@@ -533,7 +513,6 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/departments'
     | '/devices'
-    | '/documents'
     | '/emergency-contact'
     | '/employee-services'
     | '/employees'
@@ -546,7 +525,6 @@ export interface FileRouteTypes {
     | '/reports'
     | '/roles'
     | '/settings'
-    | '/sop'
     | '/tasks'
     | '/users'
     | '/verify-id/$employeeId'
@@ -585,7 +563,6 @@ export interface FileRouteTypes {
     | '/_app/dashboard'
     | '/_app/departments'
     | '/_app/devices'
-    | '/_app/documents'
     | '/_app/emergency-contact'
     | '/_app/employee-services'
     | '/_app/employees'
@@ -598,7 +575,6 @@ export interface FileRouteTypes {
     | '/_app/reports'
     | '/_app/roles'
     | '/_app/settings'
-    | '/_app/sop'
     | '/_app/tasks'
     | '/_app/users'
     | '/verify-id/$employeeId'
@@ -689,13 +665,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTasksRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/sop': {
-      id: '/_app/sop'
-      path: '/sop'
-      fullPath: '/sop'
-      preLoaderRoute: typeof AppSopRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/settings': {
       id: '/_app/settings'
       path: '/settings'
@@ -778,13 +747,6 @@ declare module '@tanstack/react-router' {
       path: '/emergency-contact'
       fullPath: '/emergency-contact'
       preLoaderRoute: typeof AppEmergencyContactRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/documents': {
-      id: '/_app/documents'
-      path: '/documents'
-      fullPath: '/documents'
-      preLoaderRoute: typeof AppDocumentsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/devices': {
@@ -1071,7 +1033,6 @@ interface AppRouteChildren {
   AppDashboardRoute: typeof AppDashboardRoute
   AppDepartmentsRoute: typeof AppDepartmentsRoute
   AppDevicesRoute: typeof AppDevicesRouteWithChildren
-  AppDocumentsRoute: typeof AppDocumentsRoute
   AppEmergencyContactRoute: typeof AppEmergencyContactRoute
   AppEmployeeServicesRoute: typeof AppEmployeeServicesRoute
   AppEmployeesRoute: typeof AppEmployeesRoute
@@ -1084,7 +1045,6 @@ interface AppRouteChildren {
   AppReportsRoute: typeof AppReportsRouteWithChildren
   AppRolesRoute: typeof AppRolesRoute
   AppSettingsRoute: typeof AppSettingsRouteWithChildren
-  AppSopRoute: typeof AppSopRoute
   AppTasksRoute: typeof AppTasksRoute
   AppUsersRoute: typeof AppUsersRouteWithChildren
   AppLeaveApplyRoute: typeof AppLeaveApplyRoute
@@ -1106,7 +1066,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppDashboardRoute: AppDashboardRoute,
   AppDepartmentsRoute: AppDepartmentsRoute,
   AppDevicesRoute: AppDevicesRouteWithChildren,
-  AppDocumentsRoute: AppDocumentsRoute,
   AppEmergencyContactRoute: AppEmergencyContactRoute,
   AppEmployeeServicesRoute: AppEmployeeServicesRoute,
   AppEmployeesRoute: AppEmployeesRoute,
@@ -1119,7 +1078,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppReportsRoute: AppReportsRouteWithChildren,
   AppRolesRoute: AppRolesRoute,
   AppSettingsRoute: AppSettingsRouteWithChildren,
-  AppSopRoute: AppSopRoute,
   AppTasksRoute: AppTasksRoute,
   AppUsersRoute: AppUsersRouteWithChildren,
   AppLeaveApplyRoute: AppLeaveApplyRoute,

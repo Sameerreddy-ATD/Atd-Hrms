@@ -24,8 +24,6 @@ import {
   ScanFace,
   BarChart3,
   ListChecks,
-  FolderOpen,
-  BookOpen,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -205,18 +203,6 @@ export const menuGroups: MenuGroup[] = [
         icon: Package,
         roles: ["hr", "developer_admin", "ceo"],
       },
-      {
-        label: "Document Vault",
-        to: "/documents",
-        icon: FolderOpen,
-        roles: ALL,
-      },
-      {
-        label: "SOP Library",
-        to: "/sop",
-        icon: BookOpen,
-        roles: ALL,
-      },
     ],
   },
   {
@@ -343,8 +329,6 @@ function itemOrderForRole(role: Role): string[] {
         "/notifications",
         "/profile",
         "/id-card",
-        "/documents",
-        "/sop",
       ];
     case "manager":
       return [
@@ -364,8 +348,6 @@ function itemOrderForRole(role: Role): string[] {
         "/notifications",
         "/profile",
         "/id-card",
-        "/documents",
-        "/sop",
       ];
     case "hr":
       return [
@@ -387,8 +369,6 @@ function itemOrderForRole(role: Role): string[] {
         "/devices",
         "/holidays",
         "/assets",
-        "/documents",
-        "/sop",
         "/announcements",
         "/notifications",
         "/profile",
@@ -405,8 +385,6 @@ function itemOrderForRole(role: Role): string[] {
         "/employee-services",
         "/checklists",
         "/assets",
-        "/documents",
-        "/sop",
         "/announcements",
         "/notifications",
         "/profile",
@@ -424,8 +402,6 @@ function itemOrderForRole(role: Role): string[] {
         "/branches",
         "/devices",
         "/holidays",
-        "/documents",
-        "/sop",
         "/settings",
         "/audit",
         "/tasks",
@@ -448,8 +424,6 @@ function itemOrderForRole(role: Role): string[] {
         "/devices",
         "/holidays",
         "/assets",
-        "/documents",
-        "/sop",
         "/attendance/corrections",
         "/leave/approvals",
         "/leave/policy",
@@ -477,8 +451,8 @@ export function moduleForRoute(path: string): ModuleKey {
   if (path === "/tasks" || path.startsWith("/tasks/")) return "TASKS";
   if (path === "/employee-services") return "EMPLOYEE_REQUESTS";
   if (path.startsWith("/leave")) return "LEAVE";
-  if (["/branches", "/holidays", "/assets", "/documents"].includes(path)) return "COMPANY";
+  if (["/branches", "/holidays", "/assets"].includes(path)) return "COMPANY";
   if (["/profile", "/id-card"].includes(path)) return "PROFILE";
-  if (["/notifications", "/announcements", "/sop"].includes(path)) return "COMMUNICATIONS";
+  if (["/notifications", "/announcements"].includes(path)) return "COMMUNICATIONS";
   return "SYSTEM";
 }

@@ -20,7 +20,6 @@ This guide explains how Developer Admin, HR, organization heads, employees, fiel
 | Expenses and HR documents      | Review all                                                     | No                      | Review all              | View all              | Own requests                | Own requests                            |
 | Operations reports             | Full                                                           | Full                    | Full                    | Full                  | Team summary                | No                                      |
 | Checklists                     | Full                                                           | Full                    | Full                    | View                  | View                        | Own checklists                          |
-| Document vault / SOP library   | Full                                                           | Full                    | Full                    | View / ack            | View / ack                  | View / ack                              |
 | System settings                | Full access                                                    | As configured           | No                      | No                    | No                          | No                                      |
 
 ## CEO Workspace
@@ -375,12 +374,12 @@ Press **Ctrl/Cmd+K** for global search across pages, people, boards, tasks, and 
 Employee Requests support claim types **Expense**, **Advance**, and **Field**. HR review and
 payment remain the same workflow. Travel and fuel claim types are deferred for a later release.
 
-## Checklists, Documents, SOP
+## Checklists
 
-- **Checklists**: Creating a login auto-starts onboarding; deactivating a login auto-starts
-  offboarding. HR can also start instances manually. Employees tick items from **Checklists**.
-- **Document Vault**: HR publishes policies; employees acknowledge required versions.
-- **SOP Library**: published operating procedures with mark-as-read.
+Creating a login auto-starts onboarding; deactivating a login auto-starts offboarding. HR can
+also start instances manually, mark complete/cancel/reopen, and edit onboarding/offboarding
+templates (item titles and in-app links). Employees tick items from **Checklists**; linked
+screens open from each item. Document Vault and SOP Library are deferred for a later release.
 
 Payroll/payslips and live biometric device connectors remain out of scope.
 

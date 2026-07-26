@@ -151,7 +151,7 @@ For screens changed in a release, verify:
 - no document-level horizontal overflow at 320 px and 390 px;
 - API failures produce a clear message and do not create duplicate writes; and
 - role-restricted controls remain enforced by the backend;
-- new MVP modules: reports, checklists, documents, SOP, notification preferences, and Work Planner
+- new MVP modules: reports, checklists, notification preferences, and Work Planner (document vault / SOP deferred)
   archive/attachment flows.
 
 ## Commit Hygiene

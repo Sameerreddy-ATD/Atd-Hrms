@@ -7,7 +7,6 @@ import { z } from "zod";
 import { prisma } from "./prisma.js";
 import { asyncHandler, HttpError } from "./errors.js";
 import { requireAuth, requireRoles, getOrganizationTeamEmployeeIds } from "./rbac.js";
-import { audit } from "./audit.js";
 import { config } from "./config.js";
 import { ensureChecklistInstance } from "./checklistService.js";
 import { assertCanAccessTask, boardAccessWhere } from "./taskBoardAccess.js";
@@ -18,17 +17,11 @@ function roleIn(userRole: Role, allowed: Role[]) {
 }
 
 const attachmentsDir = process.env.TASK_ATTACHMENTS_DIR ?? ".task-attachments";
-const documentsDir = process.env.COMPANY_DOCUMENTS_DIR ?? ".company-documents";
 const receiptsDir = process.env.EXPENSE_RECEIPTS_DIR ?? ".expense-receipts";
 const medicalDir = process.env.LEAVE_MEDICAL_DIR ?? ".leave-medical";
 
 async function ensureDir(dir: string) {
   await mkdir(dir, { recursive: true });
-}
-
-function parseRoles(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === "string");
 }
 
 export function registerHrmsExtensions(app: Express) {
@@ -465,33 +458,47 @@ export function registerHrmsExtensions(app: Express) {
     requireAuth,
     asyncHandler(async (req, res) => {
       const canManage = roleIn(req.user!.role, [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR]);
+      const status = typeof req.query.status === "string" ? req.query.status : undefined;
+      const kind = typeof req.query.kind === "string" ? req.query.kind : undefined;
       const rows = await prisma.checklistInstance.findMany({
-        where: canManage
-          ? {}
-          : { employeeId: req.user!.employeeId ?? "__none__" },
+        where: {
+          ...(canManage ? {} : { employeeId: req.user!.employeeId ?? "__none__" }),
+          ...(status ? { status } : {}),
+          ...(kind ? { kind } : {}),
+        },
         include: {
           items: { orderBy: { sortOrder: "asc" } },
           employee: { select: { name: true, employeeCode: true } },
           template: { select: { name: true } },
         },
         orderBy: { createdAt: "desc" },
-        take: 100,
+        take: 200,
       });
       res.json(
-        rows.map((row) => ({
-          id: row.instanceId,
-          kind: row.kind,
-          status: row.status,
-          templateName: row.template.name,
-          employeeName: row.employee.name,
-          employeeCode: row.employee.employeeCode,
-          items: row.items.map((item) => ({
-            id: item.stateId,
-            title: item.title,
-            linkPath: item.linkPath,
-            completed: item.completed,
-          })),
-        })),
+        rows.map((row) => {
+          const completedCount = row.items.filter((item) => item.completed).length;
+          return {
+            id: row.instanceId,
+            kind: row.kind,
+            status: row.status,
+            templateName: row.template.name,
+            employeeId: row.employeeId,
+            employeeName: row.employee.name,
+            employeeCode: row.employee.employeeCode,
+            createdAt: row.createdAt.toISOString(),
+            updatedAt: row.updatedAt.toISOString(),
+            completedCount,
+            totalCount: row.items.length,
+            items: row.items.map((item) => ({
+              id: item.stateId,
+              title: item.title,
+              linkPath: item.linkPath,
+              completed: item.completed,
+              completedAt: item.completedAt?.toISOString() ?? null,
+              sortOrder: item.sortOrder,
+            })),
+          };
+        }),
       );
     }),
   );
@@ -508,7 +515,7 @@ export function registerHrmsExtensions(app: Express) {
         })
         .parse(req.body);
       const instance = await ensureChecklistInstance(body.employeeId, body.kind);
-      if (!instance) throw new HttpError(404, "No checklist template found");
+      if (!instance) throw new HttpError(404, "No active checklist template found for this kind");
       res.status(201).json({ id: instance.instanceId });
     }),
   );
@@ -536,239 +543,102 @@ export function registerHrmsExtensions(app: Express) {
       const remaining = await prisma.checklistItemState.count({
         where: { instanceId: item.instanceId, completed: false },
       });
-      if (remaining === 0) {
-        await prisma.checklistInstance.update({
-          where: { instanceId: item.instanceId },
-          data: { status: "COMPLETED" },
-        });
-      }
-      res.json({ id: updated.stateId, completed: updated.completed });
+      await prisma.checklistInstance.update({
+        where: { instanceId: item.instanceId },
+        data: { status: remaining === 0 ? "COMPLETED" : "OPEN" },
+      });
+      res.json({ id: updated.stateId, completed: updated.completed, instanceStatus: remaining === 0 ? "COMPLETED" : "OPEN" });
     }),
   );
 
-  // Documents
   app.get(
-    "/documents",
+    "/checklists/templates",
     requireAuth,
-    asyncHandler(async (req, res) => {
-      const canManage = roleIn(req.user!.role, [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR]);
-      const docs = await prisma.companyDocument.findMany({
-        where: canManage ? {} : { published: true },
-        orderBy: { updatedAt: "desc" },
-        take: 100,
+    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
+    asyncHandler(async (_req, res) => {
+      const templates = await prisma.checklistTemplate.findMany({
+        include: { items: { orderBy: { sortOrder: "asc" } }, _count: { select: { instances: true } } },
+        orderBy: [{ kind: "asc" }, { name: "asc" }],
       });
-      const acks = req.user!.employeeId
-        ? await prisma.documentAck.findMany({
-            where: { employeeId: req.user!.employeeId },
-          })
-        : [];
-      const ackKey = new Set(acks.map((ack) => `${ack.documentId}:${ack.version}`));
       res.json(
-        docs
-          .filter((doc) => {
-            if (canManage) return true;
-            const roles = parseRoles(doc.visibilityRoles);
-            return roles.length === 0 || roles.includes(req.user!.role);
-          })
-          .map((doc) => ({
-            id: doc.documentId,
-            title: doc.title,
-            category: doc.category,
-            body: doc.body,
-            version: doc.version,
-            requiresAck: doc.requiresAck,
-            published: doc.published,
-            fileName: doc.fileName,
-            mimeType: doc.mimeType,
-            hasFile: Boolean(doc.storageKey),
-            acknowledged: ackKey.has(`${doc.documentId}:${doc.version}`),
+        templates.map((template) => ({
+          id: template.templateId,
+          name: template.name,
+          kind: template.kind,
+          isActive: template.isActive,
+          instanceCount: template._count.instances,
+          items: template.items.map((item) => ({
+            id: item.itemId,
+            title: item.title,
+            linkPath: item.linkPath,
+            sortOrder: item.sortOrder,
           })),
+        })),
       );
     }),
   );
 
-  app.post(
-    "/documents",
+  app.put(
+    "/checklists/templates/:id",
     requireAuth,
     requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
     asyncHandler(async (req, res) => {
       const body = z
         .object({
-          title: z.string().trim().min(2).max(200),
-          category: z.string().trim().min(2).max(80).default("POLICY"),
-          body: z.string().trim().max(50_000).nullable().optional(),
-          requiresAck: z.boolean().default(true),
-          visibilityRoles: z.array(z.string()).default([]),
-          published: z.boolean().default(true),
-          fileName: z.string().trim().min(1).max(200).optional(),
-          mimeType: z.string().trim().min(3).max(120).optional(),
-          contentBase64: z.string().min(8).max(8_000_000).optional(),
+          name: z.string().trim().min(2).max(120),
+          isActive: z.boolean(),
+          items: z
+            .array(
+              z.object({
+                title: z.string().trim().min(2).max(200),
+                linkPath: z.string().trim().max(200).nullable().optional(),
+              }),
+            )
+            .min(1)
+            .max(40),
         })
         .parse(req.body);
-      let storageKey: string | null = null;
-      let fileName: string | null = null;
-      let mimeType: string | null = null;
-      if (body.contentBase64 && body.fileName && body.mimeType) {
-        const stored = await storePrivateFile({
-          dir: documentsDir,
-          prefix: "doc",
-          fileName: body.fileName,
-          contentBase64: body.contentBase64,
-          maxBytes: 2_500_000,
+      const templateId = String(req.params.id);
+      await prisma.checklistTemplate.findUniqueOrThrow({ where: { templateId } });
+      await prisma.$transaction(async (tx) => {
+        await tx.checklistTemplate.update({
+          where: { templateId },
+          data: { name: body.name, isActive: body.isActive },
         });
-        storageKey = stored.storageKey;
-        fileName = body.fileName;
-        mimeType = body.mimeType;
-      }
-      const doc = await prisma.companyDocument.create({
-        data: {
-          title: body.title,
-          category: body.category,
-          body: body.body ?? null,
-          requiresAck: body.requiresAck,
-          visibilityRoles: body.visibilityRoles,
-          published: body.published,
-          uploadedById: req.user!.id,
-          fileName,
-          mimeType,
-          storageKey,
-        },
-      });
-      await audit({
-        action: "document created",
-        performedByUserId: req.user!.id,
-        newValue: { documentId: doc.documentId, title: doc.title, hasFile: Boolean(storageKey) },
-        ipAddress: req.ip,
-      });
-      res.status(201).json({ id: doc.documentId });
-    }),
-  );
-
-  app.get(
-    "/documents/:id/file",
-    requireAuth,
-    asyncHandler(async (req, res) => {
-      const canManage = roleIn(req.user!.role, [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR]);
-      const doc = await prisma.companyDocument.findUniqueOrThrow({
-        where: { documentId: String(req.params.id) },
-      });
-      if (!canManage && !doc.published) throw new HttpError(404, "Document not found");
-      if (!doc.storageKey) throw new HttpError(404, "No file attached");
-      const roles = parseRoles(doc.visibilityRoles);
-      if (!canManage && roles.length > 0 && !roles.includes(req.user!.role)) {
-        throw new HttpError(403, "Document not available");
-      }
-      const buffer = await readPrivateFile(documentsDir, doc.storageKey);
-      res.setHeader("Content-Type", doc.mimeType || "application/octet-stream");
-      res.setHeader(
-        "Content-Disposition",
-        `inline; filename="${(doc.fileName || "document").replace(/"/g, "")}"`,
-      );
-      res.send(buffer);
-    }),
-  );
-
-  app.post(
-    "/documents/:id/ack",
-    requireAuth,
-    asyncHandler(async (req, res) => {
-      if (!req.user!.employeeId) throw new HttpError(400, "Employee profile required");
-      const doc = await prisma.companyDocument.findUniqueOrThrow({
-        where: { documentId: String(req.params.id) },
-      });
-      await prisma.documentAck.upsert({
-        where: {
-          documentId_employeeId_version: {
-            documentId: doc.documentId,
-            employeeId: req.user!.employeeId,
-            version: doc.version,
-          },
-        },
-        create: {
-          documentId: doc.documentId,
-          employeeId: req.user!.employeeId,
-          version: doc.version,
-        },
-        update: {},
-      });
-      res.json({ ok: true });
-    }),
-  );
-
-  // SOP
-  app.get(
-    "/sop",
-    requireAuth,
-    asyncHandler(async (req, res) => {
-      const canManage = roleIn(req.user!.role, [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR]);
-      const articles = await prisma.sopArticle.findMany({
-        where: canManage ? {} : { published: true },
-        orderBy: { updatedAt: "desc" },
-        take: 100,
-      });
-      res.json(
-        articles
-          .filter((article) => {
-            if (canManage) return true;
-            const roles = parseRoles(article.audienceRoles);
-            return roles.length === 0 || roles.includes(req.user!.role);
-          })
-          .map((article) => ({
-            id: article.articleId,
-            title: article.title,
-            body: article.body,
-            published: article.published,
-            updatedAt: article.updatedAt.toISOString(),
+        await tx.checklistTemplateItem.deleteMany({ where: { templateId } });
+        await tx.checklistTemplateItem.createMany({
+          data: body.items.map((item, index) => ({
+            templateId,
+            title: item.title,
+            linkPath: item.linkPath?.trim() || null,
+            sortOrder: index,
           })),
-      );
+        });
+      });
+      res.json({ id: templateId, ok: true });
     }),
   );
 
-  app.post(
-    "/sop",
+  app.patch(
+    "/checklists/:id/status",
     requireAuth,
     requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
     asyncHandler(async (req, res) => {
-      const body = z
-        .object({
-          title: z.string().trim().min(2).max(200),
-          body: z.string().trim().min(2).max(100_000),
-          audienceRoles: z.array(z.string()).default([]),
-          published: z.boolean().default(false),
-        })
-        .parse(req.body);
-      const article = await prisma.sopArticle.create({
-        data: {
-          title: body.title,
-          body: body.body,
-          audienceRoles: body.audienceRoles,
-          published: body.published,
-          authorUserId: req.user!.id,
-        },
+      const body = z.object({ status: z.enum(["OPEN", "COMPLETED", "CANCELLED"]) }).parse(req.body);
+      const instance = await prisma.checklistInstance.findUniqueOrThrow({
+        where: { instanceId: String(req.params.id) },
       });
-      res.status(201).json({ id: article.articleId });
-    }),
-  );
-
-  app.post(
-    "/sop/:id/read",
-    requireAuth,
-    asyncHandler(async (req, res) => {
-      if (!req.user!.employeeId) throw new HttpError(400, "Employee profile required");
-      await prisma.sopRead.upsert({
-        where: {
-          articleId_employeeId: {
-            articleId: String(req.params.id),
-            employeeId: req.user!.employeeId,
-          },
-        },
-        create: {
-          articleId: String(req.params.id),
-          employeeId: req.user!.employeeId,
-        },
-        update: { readAt: new Date() },
+      if (body.status === "COMPLETED") {
+        await prisma.checklistItemState.updateMany({
+          where: { instanceId: instance.instanceId, completed: false },
+          data: { completed: true, completedAt: new Date() },
+        });
+      }
+      const updated = await prisma.checklistInstance.update({
+        where: { instanceId: instance.instanceId },
+        data: { status: body.status },
       });
-      res.json({ ok: true });
+      res.json({ id: updated.instanceId, status: updated.status });
     }),
   );
 
