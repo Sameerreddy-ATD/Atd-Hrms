@@ -13,9 +13,19 @@ workflow.
 
 ## Latest Release Audit
 
-The 25 July 2026 code and workflow audit produced these results:
+The 26 July 2026 Wave A–C release audit notes:
 
-- all 33 ordered migration directories are present and the Prisma schema validates;
+- all **38** ordered migration directories are present and the Prisma schema validates;
+- MySQL now contains **58** application tables (HRMS modules plus vehicle asset columns);
+- ACL fixes cover task attachment/archive access and scoped global search boards;
+- overtime review uses conditional `PENDING` updates (HTTP 409 on concurrent conflict);
+- private upload paths exist for company documents, expense receipts, and sick-leave medical files;
+- roster vs attendance variance, travel/fuel rate cards, OT suggestions from roster, and offline
+  punch queueing are available for daily ops.
+
+The previous 25 July 2026 code and workflow audit produced these results:
+
+- all 33 ordered migration directories were present and the Prisma schema validated;
 - the repository audit found every required handover file with zero failures or warnings;
 - frontend/backend type checks, production builds, 69 unit/workflow/security tests, and three
   desktop/mobile Playwright checks passed;
@@ -32,11 +42,11 @@ a live-database pass.
 The previous 23 July database-backed handover audit successfully applied the then-current 31
 migrations to disposable MySQL, audited the then-current 40 tables, and passed the Work Planner,
 Employee Integration API, and guarded-reset smoke tests. It is historical evidence, not a
-substitute for applying migrations 32 and 33 and rerunning the current audit.
+substitute for applying later migrations and rerunning the current audit.
 
 ## Storage Layout
 
-MySQL 8.0 contains 42 application tables grouped as follows:
+MySQL 8.0 contains 58 application tables grouped as follows:
 
 | Domain                | Tables                                                                                                                                                                                                                   | Source-of-truth rule                                                                       |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
@@ -45,8 +55,9 @@ MySQL 8.0 contains 42 application tables grouped as follows:
 | Attendance            | `attendance_events`, `attendance_daily_summary`, `attendance_reminders`, `field_attendance`, `attendance_correction_requests`, `employee_branch_schedule`, `biometric_devices`, `biometric_employee_mapping`, `holidays` | Events are immutable inputs; daily summaries are derived and may be recalculated           |
 | Leave                 | `leave_types`, `leave_balances`, `leave_requests`, `weekly_off_requests`, `comp_off_credits`                                                                                                                             | Policy, balance, request, and earned-credit records remain separate                        |
 | Employee services     | `expense_claims`, `certificate_requests`                                                                                                                                                                                 | Expense and HR-document workflow state is retained with reviewer and completion timestamps |
-| Assets                | `asset_catalog_items`, `company_assets`, `asset_returns`                                                                                                                                                                 | Current assignment is on the asset; every completed return is a separate historical row    |
-| Work Planner          | `task_boards`, `task_stages`, `task_board_roles`, `task_board_members`, `work_tasks`, `task_assignments`, `task_updates`                                                                                                 | Stage status is canonical for board tasks; assignments and activity are relational history |
+| Assets                | `asset_catalog_items`, `company_assets` (incl. optional vehicle registration/insurance/fitness), `asset_returns` | Current assignment is on the asset; every completed return is a separate historical row |
+| Work Planner          | `task_boards`, `task_stages`, `task_board_roles`, `task_board_members`, `work_tasks`, `task_assignments`, `task_updates`, `task_attachments` | Stage status is canonical for board tasks; assignments and activity are relational history |
+| HRMS extensions       | `roster_assignments`, `overtime_claims`, `checklist_*`, `company_documents`, `document_acks`, `appraisal_*`, `recruitment_jobs`, `candidates`, `sop_*`, `notification_preferences` | Thin ops modules for roster, OT, onboarding, docs, ATS, appraisals, SOP, and alert prefs |
 
 The physical table `certificate_requests` keeps its historical name for migration safety. The UI and
 documentation call this feature **HR Documents**.

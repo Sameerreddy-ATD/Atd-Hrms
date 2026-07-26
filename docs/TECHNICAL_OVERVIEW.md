@@ -22,9 +22,11 @@ flowchart LR
 
 Additional MySQL tables introduced in migration `20260726150000_hrms_remaining_modules` cover task
 attachments, notification preferences, roster/overtime, checklists, documents, appraisals, SOP,
-and recruitment. Task and board rows also store optional JSON custom fields.
+and recruitment. Task and board rows also store optional JSON custom fields. Migration
+`20260726180000_vehicle_assets_and_checklist_links` adds optional vehicle registration/insurance/
+fitness fields on company assets and corrects face onboarding checklist links.
 
-The frontend never connects directly to MySQL. Authorization and object-level access are enforced by Express before Prisma queries run.
+The frontend never connects directly to MySQL. Authorization and object-level access are enforced by Express before Prisma queries run. Private uploads for documents, expense receipts, and sick-leave medical files are stored outside the public web root and served only through authenticated routes.
 
 ## Technology Stack
 
@@ -62,6 +64,11 @@ Supported AWS patterns and their scaling constraints are documented in
 | `server/src/push.ts`               | VAPID Web Push delivery and stale subscription cleanup                   |
 | `server/src/mapper.ts`             | Safe API DTOs and status mapping                                         |
 | `server/src/integration-api.ts`    | Versioned Employee API, service credentials, concurrency and change feed |
+| `server/src/hrms-extensions.ts`    | Roster, OT, checklists, documents, ATS, search, ops reports, private uploads |
+| `server/src/taskBoardAccess.ts`    | Shared board/task ACL helpers for planner and attachment routes              |
+| `server/src/checklistService.ts`   | Onboarding/offboarding instance creation and face-item auto-complete         |
+| `server/src/privateFiles.ts`       | Base64 private-file storage helpers                                          |
+| `src/lib/offline-punch-queue.ts`   | IndexedDB queue for offline attendance punch sync                            |
 | `src/services/api/index.ts`        | Central frontend API client                                              |
 | `src/lib/auth.tsx`                 | Browser session restore and auth state                                   |
 | `src/lib/attendance-live.ts`       | Attendance EventSource client                                            |
@@ -125,8 +132,14 @@ Lockout or suspension does not delete or disable the employee record, allowing h
 | `/assets`               | Physical/online assets, return checklists, and company investment per employee calculations |
 | `/api/v1`               | Scoped server-to-server employee master data and ordered employee change feed               |
 | `/integration-clients`  | Developer Admin credential creation, listing, expiry and revocation                         |
-| `/expense-claims`       | Employee-scoped advances/expenses and HR review/payment workflow                            |
+| `/expense-claims`       | Employee-scoped advances/expenses, private receipt upload, and HR review/payment workflow |
 | `/certificate-requests` | Employee-scoped HR document requests and HR fulfilment                                      |
+| `/roster`               | Published shift roster assignments for managers and staff                                   |
+| `/overtime-claims`      | Manual OT claims, concurrent-safe review, and roster overrun suggestions                    |
+| `/checklists`           | Onboarding/offboarding checklist instances                                                  |
+| `/documents`            | Company document vault with optional private file upload                                    |
+| `/reports/ops-summary`  | Manager/HR ops summary; `/reports/roster-variance` for roster vs attendance                 |
+| `/settings/travel-rates`| INR/km and diesel litre rate card for travel/fuel claim suggestions                         |
 | `/announcements`        | Publishing, activation, expiry, and permanent announcement deletion                         |
 | `/notifications`        | User-scoped notification feed and live stream                                               |
 | `/push`                 | VAPID key and browser subscription management                                               |

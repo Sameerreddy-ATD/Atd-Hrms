@@ -70,6 +70,9 @@ const EMPTY_ASSET_FORM = {
   renewalDate: "",
   branchId: "",
   status: "AVAILABLE" as CompanyAsset["status"],
+  vehicleRegistration: "",
+  insuranceExpiry: "",
+  fitnessExpiry: "",
 };
 
 const PAGE_SIZE = 100;
@@ -262,6 +265,9 @@ function AssetsPage() {
       renewalDate: asset.renewalDate ?? "",
       branchId: asset.branchId ?? "",
       status: asset.status,
+      vehicleRegistration: asset.vehicleRegistration ?? "",
+      insuranceExpiry: asset.insuranceExpiry ?? "",
+      fitnessExpiry: asset.fitnessExpiry ?? "",
     });
     setAssetDialogOpen(true);
   }
@@ -295,6 +301,9 @@ function AssetsPage() {
         renewalDate: assetForm.costFrequency === "ONE_TIME" ? null : assetForm.renewalDate || null,
         branchId: assetForm.assetType === "ONLINE" ? null : assetForm.branchId || null,
         status: assetForm.status,
+        vehicleRegistration: assetForm.vehicleRegistration.trim() || null,
+        insuranceExpiry: assetForm.insuranceExpiry || null,
+        fitnessExpiry: assetForm.fitnessExpiry || null,
       };
       const saved = editingAsset
         ? await assetsApi.update(editingAsset.id, payload)
@@ -699,6 +708,37 @@ function AssetsPage() {
                 }
               />
             </FormField>
+            {assetForm.assetType === "PHYSICAL" && (
+              <>
+                <FormField label="Vehicle registration (optional)">
+                  <Input
+                    value={assetForm.vehicleRegistration}
+                    placeholder="e.g. TS09AB1234"
+                    onChange={(event) =>
+                      setAssetForm({ ...assetForm, vehicleRegistration: event.target.value })
+                    }
+                  />
+                </FormField>
+                <FormField label="Insurance expiry">
+                  <Input
+                    type="date"
+                    value={assetForm.insuranceExpiry}
+                    onChange={(event) =>
+                      setAssetForm({ ...assetForm, insuranceExpiry: event.target.value })
+                    }
+                  />
+                </FormField>
+                <FormField label="Fitness expiry">
+                  <Input
+                    type="date"
+                    value={assetForm.fitnessExpiry}
+                    onChange={(event) =>
+                      setAssetForm({ ...assetForm, fitnessExpiry: event.target.value })
+                    }
+                  />
+                </FormField>
+              </>
+            )}
             <FormField label={`${costLabel(assetForm.costFrequency)} (INR)`}>
               <Input
                 type="number"

@@ -10,12 +10,18 @@ import { requireAuth, requireRoles, getOrganizationTeamEmployeeIds } from "./rba
 import { audit } from "./audit.js";
 import { config } from "./config.js";
 import { ensureChecklistInstance } from "./checklistService.js";
+import { assertCanAccessTask, boardAccessWhere } from "./taskBoardAccess.js";
+import { readPrivateFile, storePrivateFile } from "./privateFiles.js";
 
 function roleIn(userRole: Role, allowed: Role[]) {
   return allowed.includes(userRole);
 }
 
 const attachmentsDir = process.env.TASK_ATTACHMENTS_DIR ?? ".task-attachments";
+const documentsDir = process.env.COMPANY_DOCUMENTS_DIR ?? ".company-documents";
+const receiptsDir = process.env.EXPENSE_RECEIPTS_DIR ?? ".expense-receipts";
+const medicalDir = process.env.LEAVE_MEDICAL_DIR ?? ".leave-medical";
+const DEFAULT_TRAVEL_RATES = { inrPerKm: 12, fuelInrPerLitre: 100 };
 
 async function ensureDir(dir: string) {
   await mkdir(dir, { recursive: true });
@@ -66,7 +72,7 @@ export function registerHrmsExtensions(app: Express) {
           select: { employeeId: true, name: true, employeeCode: true, designation: true },
         }),
         prisma.taskBoard.findMany({
-          where: { archived: false, name: { contains: q } },
+          where: { archived: false, name: { contains: q }, ...boardAccessWhere(req.user!) },
           take: 6,
           select: { boardId: true, name: true },
         }),
@@ -157,7 +163,7 @@ export function registerHrmsExtensions(app: Express) {
     asyncHandler(async (req, res) => {
       const body = z
         .object({
-          digestMode: z.enum(["off", "immediate", "daily"]),
+          digestMode: z.enum(["off", "immediate"]),
           categories: z.record(z.boolean()).default({}),
         })
         .parse(req.body);
@@ -627,8 +633,8 @@ export function registerHrmsExtensions(app: Express) {
         const team = await getOrganizationTeamEmployeeIds(req.user!.employeeId);
         if (!team.includes(existing.employeeId)) throw new HttpError(403, "Outside your team");
       }
-      const claim = await prisma.overtimeClaim.update({
-        where: { claimId: existing.claimId },
+      const claim = await prisma.overtimeClaim.updateMany({
+        where: { claimId: existing.claimId, status: "PENDING" },
         data: {
           status: body.status,
           reviewNotes: body.reviewNotes ?? null,
@@ -636,7 +642,10 @@ export function registerHrmsExtensions(app: Express) {
           reviewedAt: new Date(),
         },
       });
-      res.json({ id: claim.claimId, status: claim.status });
+      if (claim.count !== 1) {
+        throw new HttpError(409, "This overtime claim was already reviewed");
+      }
+      res.json({ id: existing.claimId, status: body.status });
     }),
   );
 
@@ -759,6 +768,9 @@ export function registerHrmsExtensions(app: Express) {
             version: doc.version,
             requiresAck: doc.requiresAck,
             published: doc.published,
+            fileName: doc.fileName,
+            mimeType: doc.mimeType,
+            hasFile: Boolean(doc.storageKey),
             acknowledged: ackKey.has(`${doc.documentId}:${doc.version}`),
           })),
       );
@@ -778,8 +790,26 @@ export function registerHrmsExtensions(app: Express) {
           requiresAck: z.boolean().default(true),
           visibilityRoles: z.array(z.string()).default([]),
           published: z.boolean().default(true),
+          fileName: z.string().trim().min(1).max(200).optional(),
+          mimeType: z.string().trim().min(3).max(120).optional(),
+          contentBase64: z.string().min(8).max(8_000_000).optional(),
         })
         .parse(req.body);
+      let storageKey: string | null = null;
+      let fileName: string | null = null;
+      let mimeType: string | null = null;
+      if (body.contentBase64 && body.fileName && body.mimeType) {
+        const stored = await storePrivateFile({
+          dir: documentsDir,
+          prefix: "doc",
+          fileName: body.fileName,
+          contentBase64: body.contentBase64,
+          maxBytes: 2_500_000,
+        });
+        storageKey = stored.storageKey;
+        fileName = body.fileName;
+        mimeType = body.mimeType;
+      }
       const doc = await prisma.companyDocument.create({
         data: {
           title: body.title,
@@ -789,15 +819,42 @@ export function registerHrmsExtensions(app: Express) {
           visibilityRoles: body.visibilityRoles,
           published: body.published,
           uploadedById: req.user!.id,
+          fileName,
+          mimeType,
+          storageKey,
         },
       });
       await audit({
         action: "document created",
         performedByUserId: req.user!.id,
-        newValue: { documentId: doc.documentId, title: doc.title },
+        newValue: { documentId: doc.documentId, title: doc.title, hasFile: Boolean(storageKey) },
         ipAddress: req.ip,
       });
       res.status(201).json({ id: doc.documentId });
+    }),
+  );
+
+  app.get(
+    "/documents/:id/file",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const canManage = roleIn(req.user!.role, [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR]);
+      const doc = await prisma.companyDocument.findUniqueOrThrow({
+        where: { documentId: String(req.params.id) },
+      });
+      if (!canManage && !doc.published) throw new HttpError(404, "Document not found");
+      if (!doc.storageKey) throw new HttpError(404, "No file attached");
+      const roles = parseRoles(doc.visibilityRoles);
+      if (!canManage && roles.length > 0 && !roles.includes(req.user!.role)) {
+        throw new HttpError(403, "Document not available");
+      }
+      const buffer = await readPrivateFile(documentsDir, doc.storageKey);
+      res.setHeader("Content-Type", doc.mimeType || "application/octet-stream");
+      res.setHeader(
+        "Content-Disposition",
+        `inline; filename="${(doc.fileName || "document").replace(/"/g, "")}"`,
+      );
+      res.send(buffer);
     }),
   );
 
@@ -1180,9 +1237,7 @@ export function registerHrmsExtensions(app: Express) {
           contentBase64: z.string().min(8).max(6_000_000),
         })
         .parse(req.body);
-      const task = await prisma.workTask.findUniqueOrThrow({
-        where: { taskId: String(req.params.id) },
-      });
+      const task = await assertCanAccessTask(req.user!, String(req.params.id));
       const raw = body.contentBase64.includes(",")
         ? body.contentBase64.split(",").pop()!
         : body.contentBase64;
@@ -1215,6 +1270,7 @@ export function registerHrmsExtensions(app: Express) {
     "/tasks/:id/attachments",
     requireAuth,
     asyncHandler(async (req, res) => {
+      await assertCanAccessTask(req.user!, String(req.params.id));
       const rows = await prisma.taskAttachment.findMany({
         where: { taskId: String(req.params.id) },
         orderBy: { createdAt: "desc" },
@@ -1238,24 +1294,320 @@ export function registerHrmsExtensions(app: Express) {
       const body = z
         .object({ version: z.number().int().positive(), archived: z.boolean() })
         .parse(req.body);
-      const existing = await prisma.workTask.findUniqueOrThrow({
-        where: { taskId: String(req.params.id) },
+      const existing = await assertCanAccessTask(req.user!, String(req.params.id));
+      const full = await prisma.workTask.findUniqueOrThrow({
+        where: { taskId: existing.taskId },
       });
-      if (existing.version !== body.version) {
+      if (full.version !== body.version) {
         throw new HttpError(409, "Task was updated elsewhere. Refresh and try again.");
       }
       const task = await prisma.workTask.update({
-        where: { taskId: existing.taskId },
+        where: { taskId: full.taskId },
         data: {
           archivedAt: body.archived ? new Date() : null,
           version: { increment: 1 },
           lastActivityAt: new Date(),
         },
       });
-      res.json({ id: task.taskId, archivedAt: task.archivedAt?.toISOString() ?? null, version: task.version });
+      res.json({
+        id: task.taskId,
+        archivedAt: task.archivedAt?.toISOString() ?? null,
+        version: task.version,
+      });
+    }),
+  );
+
+  app.post(
+    "/expense-claims/receipts",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const body = z
+        .object({
+          fileName: z.string().trim().min(1).max(200),
+          mimeType: z.string().trim().min(3).max(120),
+          contentBase64: z.string().min(8).max(6_000_000),
+        })
+        .parse(req.body);
+      const stored = await storePrivateFile({
+        dir: receiptsDir,
+        prefix: req.user!.id.slice(0, 8),
+        fileName: body.fileName,
+        contentBase64: body.contentBase64,
+      });
+      res.status(201).json({
+        url: `/expense-claims/receipts/${stored.storageKey}`,
+        fileName: body.fileName,
+        mimeType: body.mimeType,
+        sizeBytes: stored.sizeBytes,
+      });
+    }),
+  );
+
+  app.get(
+    "/expense-claims/receipts/:key",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const key = String(req.params.key);
+      const canManage = roleIn(req.user!.role, [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR]);
+      if (!canManage && !key.startsWith(req.user!.id.slice(0, 8))) {
+        // Still allow reviewers/managers who can see claims — HR/admin only for arbitrary keys;
+        // employees can only fetch their own upload prefix.
+        throw new HttpError(403, "Receipt not available");
+      }
+      const buffer = await readPrivateFile(receiptsDir, key);
+      res.setHeader("Content-Type", "application/octet-stream");
+      res.send(buffer);
+    }),
+  );
+
+  app.post(
+    "/leave/medical-files",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const body = z
+        .object({
+          fileName: z.string().trim().min(1).max(200),
+          mimeType: z.string().trim().min(3).max(120),
+          contentBase64: z.string().min(8).max(6_000_000),
+        })
+        .parse(req.body);
+      const stored = await storePrivateFile({
+        dir: medicalDir,
+        prefix: req.user!.id.slice(0, 8),
+        fileName: body.fileName,
+        contentBase64: body.contentBase64,
+      });
+      res.status(201).json({
+        url: `/leave/medical-files/${stored.storageKey}`,
+        fileName: body.fileName,
+        mimeType: body.mimeType,
+        sizeBytes: stored.sizeBytes,
+      });
+    }),
+  );
+
+  app.get(
+    "/leave/medical-files/:key",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const key = String(req.params.key);
+      const canManage = roleIn(req.user!.role, [
+        Role.DEVELOPER_ADMIN,
+        Role.MAIN_ADMIN,
+        Role.HR,
+        Role.MANAGER,
+      ]);
+      if (!canManage && !key.startsWith(req.user!.id.slice(0, 8))) {
+        throw new HttpError(403, "Medical file not available");
+      }
+      const buffer = await readPrivateFile(medicalDir, key);
+      res.setHeader("Content-Type", "application/octet-stream");
+      res.send(buffer);
+    }),
+  );
+
+  app.get(
+    "/settings/travel-rates",
+    requireAuth,
+    asyncHandler(async (_req, res) => {
+      const row = await prisma.systemSetting.findUnique({ where: { key: "travel_fuel_rates" } });
+      let rates = DEFAULT_TRAVEL_RATES;
+      if (row?.value) {
+        try {
+          rates = { ...DEFAULT_TRAVEL_RATES, ...JSON.parse(row.value) };
+        } catch {
+          rates = DEFAULT_TRAVEL_RATES;
+        }
+      }
+      res.json(rates);
+    }),
+  );
+
+  app.put(
+    "/settings/travel-rates",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
+    asyncHandler(async (req, res) => {
+      const body = z
+        .object({
+          inrPerKm: z.number().positive().max(10_000),
+          fuelInrPerLitre: z.number().positive().max(10_000),
+        })
+        .parse(req.body);
+      await prisma.systemSetting.upsert({
+        where: { key: "travel_fuel_rates" },
+        create: {
+          key: "travel_fuel_rates",
+          value: JSON.stringify(body),
+          updatedById: req.user!.id,
+        },
+        update: { value: JSON.stringify(body), updatedById: req.user!.id },
+      });
+      res.json(body);
+    }),
+  );
+
+  app.get(
+    "/reports/roster-variance",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.CEO, Role.HR, Role.MANAGER),
+    asyncHandler(async (req, res) => {
+      const from = String(req.query.from ?? "").slice(0, 10);
+      const to = String(req.query.to ?? "").slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+        throw new HttpError(400, "from and to dates are required (yyyy-MM-dd)");
+      }
+      const fromDate = new Date(`${from}T00:00:00.000Z`);
+      const toDate = new Date(`${to}T00:00:00.000Z`);
+      const teamIds =
+        req.user!.role === Role.MANAGER && req.user!.employeeId
+          ? await getOrganizationTeamEmployeeIds(req.user!.employeeId)
+          : undefined;
+
+      const roster = await prisma.rosterAssignment.findMany({
+        where: {
+          workDate: { gte: fromDate, lte: toDate },
+          published: true,
+          ...(teamIds ? { employeeId: { in: teamIds } } : {}),
+        },
+        include: {
+          employee: {
+            select: {
+              employeeId: true,
+              name: true,
+              employeeCode: true,
+              homeBranchId: true,
+              homeBranch: { select: { branchName: true } },
+            },
+          },
+        },
+      });
+      const attendance = await prisma.attendanceDailySummary.findMany({
+        where: {
+          date: { gte: fromDate, lte: toDate },
+          ...(teamIds ? { employeeId: { in: teamIds } } : {}),
+        },
+        select: { employeeId: true, date: true, status: true },
+      });
+      const attendanceKey = new Map(
+        attendance.map((row) => [
+          `${row.employeeId}:${row.date.toISOString().slice(0, 10)}`,
+          row.status,
+        ]),
+      );
+
+      const byBranch = new Map<
+        string,
+        { branch: string; rostered: number; present: number; absent: number; late: number; off: number }
+      >();
+      const rows: Array<{
+        employeeName: string;
+        employeeCode: string;
+        branch: string;
+        workDate: string;
+        shift: string;
+        attendance: string;
+      }> = [];
+
+      for (const entry of roster) {
+        const workDate = entry.workDate.toISOString().slice(0, 10);
+        const branch = entry.employee.homeBranch?.branchName || "Unassigned";
+        const status = attendanceKey.get(`${entry.employeeId}:${workDate}`) || "No mark";
+        const bucket = byBranch.get(branch) ?? {
+          branch,
+          rostered: 0,
+          present: 0,
+          absent: 0,
+          late: 0,
+          off: 0,
+        };
+        bucket.rostered += 1;
+        if (entry.shiftPreset === "OFF") bucket.off += 1;
+        else if (/present/i.test(status)) bucket.present += 1;
+        else if (/late/i.test(status)) bucket.late += 1;
+        else if (/absent/i.test(status) || status === "No mark") bucket.absent += 1;
+        byBranch.set(branch, bucket);
+        rows.push({
+          employeeName: entry.employee.name,
+          employeeCode: entry.employee.employeeCode,
+          branch,
+          workDate,
+          shift: entry.shiftPreset,
+          attendance: status,
+        });
+      }
+
+      res.json({
+        from,
+        to,
+        branches: [...byBranch.values()].sort((a, b) => a.branch.localeCompare(b.branch)),
+        rows: rows.slice(0, 500),
+      });
+    }),
+  );
+
+  app.get(
+    "/overtime-claims/suggestions",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      if (!req.user!.employeeId) {
+        res.json([]);
+        return;
+      }
+      const to = new Date();
+      to.setUTCHours(0, 0, 0, 0);
+      const from = new Date(to);
+      from.setUTCDate(from.getUTCDate() - 7);
+      const [roster, summaries] = await Promise.all([
+        prisma.rosterAssignment.findMany({
+          where: {
+            employeeId: req.user!.employeeId,
+            published: true,
+            workDate: { gte: from, lte: to },
+            shiftPreset: { in: ["DAY", "NIGHT", "CUSTOM"] },
+          },
+        }),
+        prisma.attendanceDailySummary.findMany({
+          where: {
+            employeeId: req.user!.employeeId,
+            date: { gte: from, lte: to },
+          },
+        }),
+      ]);
+      const summaryByDate = new Map(
+        summaries.map((row) => [row.date.toISOString().slice(0, 10), row]),
+      );
+      const suggestions = roster
+        .map((entry) => {
+          const workDate = entry.workDate.toISOString().slice(0, 10);
+          const summary = summaryByDate.get(workDate);
+          const workedMinutes = Math.round(Number(summary?.totalHours ?? 0) * 60);
+          const expected =
+            entry.endMinutes != null && entry.startMinutes != null
+              ? Math.max(0, entry.endMinutes - entry.startMinutes)
+              : entry.shiftPreset === "NIGHT"
+                ? 8 * 60
+                : 8 * 60;
+          const overtimeMinutes = Math.max(0, workedMinutes - expected);
+          if (overtimeMinutes < 15) return null;
+          return {
+            workDate,
+            shiftPreset: entry.shiftPreset,
+            suggestedMinutes: Math.min(overtimeMinutes, 8 * 60),
+            workedMinutes,
+            expectedMinutes: expected,
+            reason: `Shift overrun on ${workDate} (${entry.shiftPreset})`,
+          };
+        })
+        .filter(Boolean);
+      res.json(suggestions);
     }),
   );
 
   void config;
   void Prisma;
+  void randomBytes;
+  void writeFile;
+  void path;
+  void ensureDir;
 }

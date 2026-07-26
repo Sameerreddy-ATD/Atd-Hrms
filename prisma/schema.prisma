@@ -424,6 +424,9 @@ model CompanyAsset {
   branch             Branch?              @relation(fields: [branchId], references: [branchId])
   location           String?
   notes              String?
+  vehicleRegistration String?             @map("vehicle_registration")
+  insuranceExpiry    DateTime?            @map("insurance_expiry") @db.Date
+  fitnessExpiry      DateTime?            @map("fitness_expiry") @db.Date
   returns            AssetReturn[]
   createdAt          DateTime             @default(now()) @map("created_at")
   updatedAt          DateTime             @updatedAt @map("updated_at")

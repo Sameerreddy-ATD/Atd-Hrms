@@ -515,6 +515,42 @@ function MarkAttendanceCard({
     }
   }, [optimisticSession, workSession.isCheckedIn]);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function flushQueue() {
+      if (!navigator.onLine) return;
+      const { listOfflinePunches, removeOfflinePunch } = await import("@/lib/offline-punch-queue");
+      const queue = await listOfflinePunches();
+      for (const entry of queue) {
+        if (cancelled) return;
+        try {
+          if (entry.kind === "check-in") {
+            await attendanceApi.checkIn(entry.payload as Parameters<typeof attendanceApi.checkIn>[0]);
+          } else {
+            await attendanceApi.checkOut(
+              entry.payload as Parameters<typeof attendanceApi.checkOut>[0],
+            );
+          }
+          await removeOfflinePunch(entry.id);
+          toast.success(
+            entry.kind === "check-in" ? "Queued check-in synced" : "Queued check-out synced",
+          );
+          onAttendanceChanged();
+        } catch {
+          // Keep in queue for the next online attempt.
+          break;
+        }
+      }
+    }
+    void flushQueue();
+    const onOnline = () => void flushQueue();
+    window.addEventListener("online", onOnline);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("online", onOnline);
+    };
+  }, [onAttendanceChanged]);
+
   async function submitCheckIn(capture: AttendanceCapture, confirmLeaveCancellation = false) {
     if (!user.employeeId) return;
     try {
@@ -532,6 +568,25 @@ function MarkAttendanceCard({
       const message = (err as Error).message;
       if (message.includes("Confirm check-in to cancel leave")) {
         setLeaveCheckIn(capture);
+        return;
+      }
+      const { enqueueOfflinePunch, isLikelyNetworkError } = await import(
+        "@/lib/offline-punch-queue"
+      );
+      if (isLikelyNetworkError(err)) {
+        await enqueueOfflinePunch({
+          id: crypto.randomUUID(),
+          kind: "check-in",
+          createdAt: new Date().toISOString(),
+          payload: {
+            employeeId: user.employeeId,
+            ...capture,
+            confirmLeaveCancellation,
+            mobileDeviceId: navigator.userAgent.slice(0, 120),
+          },
+        });
+        setOptimisticSession({ state: "CHECKED_IN", startedAt: Date.now() });
+        toast.success("Check-in queued offline — will sync when you reconnect");
         return;
       }
       throw err;
@@ -569,10 +624,31 @@ function MarkAttendanceCard({
       if (faceAction === "check-in") {
         await submitCheckIn(capture);
       } else {
-        await attendanceApi.checkOut(capture);
-        setOptimisticSession({ state: "CHECKED_OUT" });
-        toast.success("You are checked out");
-        onAttendanceChanged();
+        try {
+          await attendanceApi.checkOut(capture);
+          setOptimisticSession({ state: "CHECKED_OUT" });
+          toast.success("You are checked out");
+          onAttendanceChanged();
+        } catch (error) {
+          const { enqueueOfflinePunch, isLikelyNetworkError } = await import(
+            "@/lib/offline-punch-queue"
+          );
+          if (isLikelyNetworkError(error)) {
+            await enqueueOfflinePunch({
+              id: crypto.randomUUID(),
+              kind: "check-out",
+              createdAt: new Date().toISOString(),
+              payload: {
+                ...capture,
+                mobileDeviceId: navigator.userAgent.slice(0, 120),
+              },
+            });
+            setOptimisticSession({ state: "CHECKED_OUT" });
+            toast.success("Check-out queued offline — will sync when you reconnect");
+          } else {
+            throw error;
+          }
+        }
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Attendance could not be saved.";

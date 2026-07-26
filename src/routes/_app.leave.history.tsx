@@ -226,6 +226,7 @@ function MedicalDocumentCard({
   const [url, setUrl] = useState(leave.medicalDocumentUrl ?? "");
   const [now, setNow] = useState(Date.now());
   const [saving, setSaving] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
   useEffect(() => {
     const tick = () => {
       if (document.visibilityState === "visible") setNow(Date.now());
@@ -244,12 +245,21 @@ function MedicalDocumentCard({
   const seconds = Math.floor((remaining % 60000) / 1000);
 
   async function save() {
-    if (!url.trim()) return toast.error("Enter the shareable Google Drive link");
     setSaving(true);
     try {
-      const updated = await leaveApi.updateMedicalDocument(leave.id, url.trim());
+      let nextUrl = url.trim();
+      if (file) {
+        const { fileToBase64 } = await import("@/lib/file-upload");
+        const upload = await fileToBase64(file);
+        const stored = await leaveApi.uploadMedicalFile(upload);
+        nextUrl = stored.url;
+        setUrl(stored.url);
+      }
+      if (!nextUrl) return toast.error("Upload a medical report or paste a Drive link");
+      const updated = await leaveApi.updateMedicalDocument(leave.id, nextUrl);
       onUpdated(updated);
-      toast.success("Medical document link saved");
+      setFile(null);
+      toast.success("Medical document saved");
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -276,27 +286,37 @@ function MedicalDocumentCard({
             </p>
           </div>
         </div>
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+        <div className="mt-3 space-y-2">
           <Input
-            type="url"
-            value={url}
-            placeholder="Google Drive link shared with anyone who has the link"
-            onChange={(event) => setUrl(event.target.value)}
+            type="file"
+            accept=".pdf,.png,.jpg,.jpeg"
+            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
           />
-          <Button onClick={save} disabled={saving} className="sm:shrink-0">
-            {saving ? "Saving..." : "Save link"}
-          </Button>
-          {leave.medicalDocumentUrl && (
-            <Button asChild variant="outline" size="icon" title="Open medical document">
-              <a href={leave.medicalDocumentUrl} target="_blank" rel="noreferrer">
-                <ExternalLink className="h-4 w-4" />
-              </a>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Input
+              type="url"
+              value={url}
+              placeholder="Or paste a Google Drive link"
+              onChange={(event) => setUrl(event.target.value)}
+            />
+            <Button onClick={save} disabled={saving} className="sm:shrink-0">
+              {saving ? "Saving..." : "Save"}
             </Button>
-          )}
+            {leave.medicalDocumentUrl && (
+              <Button asChild variant="outline" size="icon" title="Open medical document">
+                <a
+                  href={leaveApi.medicalFileUrl(leave.medicalDocumentUrl)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              </Button>
+            )}
+          </div>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          The link must allow anyone with the link to view the report. HR and your organization head
-          can review it.
+          Prefer a private upload. Drive links still work if anyone with the link can view.
         </p>
       </CardContent>
     </Card>

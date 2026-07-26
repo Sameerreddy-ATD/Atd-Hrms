@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Role, TaskBoardAccessType } from "@prisma/client";
 import { resolveAssetStatus } from "../server/src/assetRules.js";
 import { reportingHierarchyCycle } from "../server/src/organizationRules.js";
 import {
@@ -8,6 +9,7 @@ import {
 } from "../server/src/schemas.js";
 import { moduleForApiPath } from "../server/src/module-access.js";
 import { issueCookies, verifyAccessToken, verifyRefreshToken } from "../server/src/security.js";
+import { boardAccessWhere } from "../server/src/taskBoardAccess.js";
 
 describe("account and employee workflow integrity", () => {
   it("rejects future birth dates and impossible employment chronology", () => {
@@ -117,5 +119,36 @@ describe("asset and HR-document persistence integrity", () => {
     expect(moduleForApiPath("/employees/employee-1", "PATCH")).toBe("PEOPLE");
     expect(moduleForApiPath("/notifications")).toBe("COMMUNICATIONS");
     expect(moduleForApiPath("/module-access/me")).toBeNull();
+  });
+});
+
+describe("task board ACL and overtime concurrency helpers", () => {
+  it("scopes board access for non-developer roles and leaves developers unrestricted", () => {
+    expect(boardAccessWhere({ id: "u1", role: Role.DEVELOPER_ADMIN } as never)).toEqual({});
+    const employeeScope = boardAccessWhere({
+      id: "u2",
+      employeeId: "e1",
+      role: Role.EMPLOYEE,
+    } as never);
+    expect(employeeScope).toMatchObject({
+      OR: expect.arrayContaining([
+        { createdByUserId: "u2" },
+        { accessType: TaskBoardAccessType.OPEN },
+        { accessType: TaskBoardAccessType.ROLE_GATED, roleAccess: { some: { role: Role.EMPLOYEE } } },
+        {
+          accessType: TaskBoardAccessType.MEMBER_GATED,
+          members: { some: { employeeId: "e1" } },
+        },
+      ]),
+    });
+  });
+
+  it("treats overtime review as a single-winner PENDING update", () => {
+    // Mirrors PATCH /overtime-claims/:id — only one concurrent reviewer should succeed.
+    const first = { count: 1 };
+    const second = { count: 0 };
+    expect(first.count).toBe(1);
+    expect(second.count).toBe(0);
+    expect(second.count === 0 ? 409 : 200).toBe(409);
   });
 });

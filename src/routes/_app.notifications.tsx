@@ -57,7 +57,7 @@ function NotificationPreferencesCard() {
     void notificationPreferencesApi
       .get()
       .then((pref) => {
-        setDigestMode(pref.digestMode || "immediate");
+        setDigestMode(pref.digestMode === "off" ? "off" : "immediate");
         if (pref.categories && typeof pref.categories === "object") {
           setCategories((current) => ({ ...current, ...pref.categories }));
         }
@@ -70,18 +70,23 @@ function NotificationPreferencesCard() {
       <CardContent className="space-y-3 p-4">
         <h2 className="text-sm font-semibold">Digest preferences</h2>
         <p className="text-xs text-muted-foreground">
-          Choose immediate actionable alerts or a daily digest mode. Push still only sends for
-          urgent/important announcements.
+          In-app alerts only — email digests are not enabled. Choose off or immediate notifications.
+          Push still only sends for urgent/important announcements.
         </p>
         <div className="flex flex-wrap gap-2">
-          {["off", "immediate", "daily"].map((mode) => (
+          {(
+            [
+              { id: "off", label: "Off" },
+              { id: "immediate", label: "Immediate" },
+            ] as const
+          ).map((mode) => (
             <Button
-              key={mode}
+              key={mode.id}
               size="sm"
-              variant={digestMode === mode ? "default" : "outline"}
-              onClick={() => setDigestMode(mode)}
+              variant={digestMode === mode.id ? "default" : "outline"}
+              onClick={() => setDigestMode(mode.id)}
             >
-              {mode}
+              {mode.label}
             </Button>
           ))}
         </div>

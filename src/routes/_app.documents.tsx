@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { documentsApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
+import { fileToBase64 } from "@/lib/file-upload";
 
 export const Route = createFileRoute("/_app/documents")({ component: DocumentsPage });
 
@@ -17,6 +18,7 @@ function DocumentsPage() {
   const [rows, setRows] = useState<Awaited<ReturnType<typeof documentsApi.list>>>([]);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const canManage = ["developer_admin", "main_admin", "hr"].includes(user?.role ?? "");
 
   async function reload() {
@@ -46,21 +48,42 @@ function DocumentsPage() {
         <div className="space-y-2 rounded-lg border p-4">
           <Input placeholder="Title" value={title} onChange={(event) => setTitle(event.target.value)} />
           <Textarea
-            placeholder="Policy body"
+            placeholder="Policy body (optional if you upload a file)"
             value={body}
             onChange={(event) => setBody(event.target.value)}
           />
+          <Input
+            type="file"
+            accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt"
+            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+          />
           <Button
             onClick={() =>
-              void documentsApi
-                .create({ title, body, published: true, requiresAck: true })
-                .then(() => {
+              void (async () => {
+                try {
+                  const upload = file ? await fileToBase64(file) : null;
+                  await documentsApi.create({
+                    title,
+                    body: body || null,
+                    published: true,
+                    requiresAck: true,
+                    ...(upload
+                      ? {
+                          fileName: upload.fileName,
+                          mimeType: upload.mimeType,
+                          contentBase64: upload.contentBase64,
+                        }
+                      : {}),
+                  });
                   toast.success("Document published");
                   setTitle("");
                   setBody("");
-                  return reload();
-                })
-                .catch((error) => toast.error((error as Error).message))
+                  setFile(null);
+                  await reload();
+                } catch (error) {
+                  toast.error((error as Error).message);
+                }
+              })()
             }
           >
             Publish document
@@ -76,24 +99,34 @@ function DocumentsPage() {
                 <p className="text-xs text-muted-foreground">
                   {doc.category} · v{doc.version}
                   {doc.acknowledged ? " · acknowledged" : ""}
+                  {doc.hasFile ? ` · ${doc.fileName || "file"}` : ""}
                 </p>
               </div>
-              {doc.requiresAck && !doc.acknowledged && (
-                <Button
-                  size="sm"
-                  onClick={() =>
-                    void documentsApi
-                      .ack(doc.id)
-                      .then(() => {
-                        toast.success("Acknowledged");
-                        return reload();
-                      })
-                      .catch((error) => toast.error((error as Error).message))
-                  }
-                >
-                  Acknowledge
-                </Button>
-              )}
+              <div className="flex flex-wrap gap-2">
+                {doc.hasFile && (
+                  <Button size="sm" variant="outline" asChild>
+                    <a href={documentsApi.fileUrl(doc.id)} target="_blank" rel="noreferrer">
+                      Open file
+                    </a>
+                  </Button>
+                )}
+                {doc.requiresAck && !doc.acknowledged && (
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      void documentsApi
+                        .ack(doc.id)
+                        .then(() => {
+                          toast.success("Acknowledged");
+                          return reload();
+                        })
+                        .catch((error) => toast.error((error as Error).message))
+                    }
+                  >
+                    Acknowledge
+                  </Button>
+                )}
+              </div>
             </div>
             {doc.body && (
               <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">{doc.body}</p>

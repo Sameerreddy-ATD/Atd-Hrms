@@ -290,6 +290,9 @@ export interface CompanyAsset {
   branchName?: string;
   location?: string;
   notes?: string;
+  vehicleRegistration?: string;
+  insuranceExpiry?: string;
+  fitnessExpiry?: string;
 }
 
 export interface EmployeeAssetInvestment {

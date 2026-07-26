@@ -1,13 +1,30 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { EmployeePicker } from "@/components/common/EmployeePicker";
 import { LoadingState } from "@/components/common/LoadingState";
 import { PageHeader } from "@/components/common/PageHeader";
+import {
+  DesktopTable,
+  MobileList,
+  MobileListHeader,
+  MobileListItem,
+  ResponsiveListShell,
+} from "@/components/common/ResponsiveList";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { appraisalsApi } from "@/services/api";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { appraisalsApi, employeesApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
+import type { User } from "@/types/domain";
 
 export const Route = createFileRoute("/_app/appraisals")({ component: AppraisalsPage });
 
@@ -16,6 +33,7 @@ function AppraisalsPage() {
   const [loading, setLoading] = useState(true);
   const [cycles, setCycles] = useState<Awaited<ReturnType<typeof appraisalsApi.cycles>>>([]);
   const [reviews, setReviews] = useState<Awaited<ReturnType<typeof appraisalsApi.reviews>>>([]);
+  const [employees, setEmployees] = useState<User[]>([]);
   const [name, setName] = useState("");
   const [startsOn, setStartsOn] = useState("");
   const [endsOn, setEndsOn] = useState("");
@@ -29,12 +47,15 @@ function AppraisalsPage() {
   async function reload() {
     setLoading(true);
     try {
-      const [cycleRows, reviewRows] = await Promise.all([
+      const [cycleRows, reviewRows, people] = await Promise.all([
         appraisalsApi.cycles(),
         appraisalsApi.reviews(),
+        canReview ? employeesApi.list().catch(() => []) : Promise.resolve([]),
       ]);
       setCycles(cycleRows);
       setReviews(reviewRows);
+      setEmployees((people as User[]).filter((person) => person.active && person.employeeId));
+      if (!cycleId && cycleRows[0]) setCycleId(cycleRows[0].id);
     } catch (error) {
       toast.error((error as Error).message || "Unable to load appraisals");
     } finally {
@@ -78,25 +99,61 @@ function AppraisalsPage() {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Cycles
         </h2>
-        {cycles.map((cycle) => (
-          <div key={cycle.id} className="rounded-lg border px-4 py-3 text-sm">
-            <strong>{cycle.name}</strong> · {cycle.startsOn} → {cycle.endsOn} · {cycle.reviewCount}{" "}
-            reviews · {cycle.status}
-          </div>
-        ))}
+        <ResponsiveListShell>
+          <MobileList>
+            {cycles.map((cycle) => (
+              <MobileListItem key={cycle.id}>
+                <MobileListHeader
+                  title={cycle.name}
+                  meta={`${cycle.startsOn} → ${cycle.endsOn} · ${cycle.reviewCount} reviews · ${cycle.status}`}
+                />
+              </MobileListItem>
+            ))}
+          </MobileList>
+          <DesktopTable>
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40 text-left">
+                <tr>
+                  <th className="px-3 py-2">Cycle</th>
+                  <th className="px-3 py-2">Dates</th>
+                  <th className="px-3 py-2">Reviews</th>
+                  <th className="px-3 py-2">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cycles.map((cycle) => (
+                  <tr key={cycle.id} className="border-t">
+                    <td className="px-3 py-2 font-medium">{cycle.name}</td>
+                    <td className="px-3 py-2">
+                      {cycle.startsOn} → {cycle.endsOn}
+                    </td>
+                    <td className="px-3 py-2">{cycle.reviewCount}</td>
+                    <td className="px-3 py-2">{cycle.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </DesktopTable>
+        </ResponsiveListShell>
       </section>
       {canReview && (
-        <div className="grid gap-2 rounded-lg border p-4 sm:grid-cols-2">
-          <Input
-            placeholder="Cycle ID"
-            value={cycleId}
-            onChange={(e) => setCycleId(e.target.value)}
-          />
-          <Input
-            placeholder="Employee ID"
-            value={employeeId}
-            onChange={(e) => setEmployeeId(e.target.value)}
-          />
+        <div className="grid gap-3 rounded-lg border p-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label>Cycle</Label>
+            <Select value={cycleId || undefined} onValueChange={setCycleId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select cycle" />
+              </SelectTrigger>
+              <SelectContent>
+                {cycles.map((cycle) => (
+                  <SelectItem key={cycle.id} value={cycle.id}>
+                    {cycle.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <EmployeePicker employees={employees} value={employeeId} onChange={setEmployeeId} />
           <Input
             placeholder="Rating 1-5"
             value={rating}
@@ -109,6 +166,7 @@ function AppraisalsPage() {
           />
           <Button
             className="sm:col-span-2"
+            disabled={!cycleId || !employeeId}
             onClick={() =>
               void appraisalsApi
                 .saveReview({
@@ -133,14 +191,45 @@ function AppraisalsPage() {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Reviews
         </h2>
-        {reviews.map((review) => (
-          <div key={review.id} className="rounded-lg border px-4 py-3 text-sm">
-            {review.employeeName} · {review.cycleName} · {review.rating ?? "—"}/5 · {review.status}
-            {review.comments && (
-              <p className="mt-1 text-muted-foreground">{review.comments}</p>
-            )}
-          </div>
-        ))}
+        <ResponsiveListShell>
+          <MobileList>
+            {reviews.map((review) => (
+              <MobileListItem key={review.id}>
+                <MobileListHeader
+                  title={review.employeeName}
+                  meta={`${review.cycleName} · ${review.rating ?? "—"}/5 · ${review.status}`}
+                />
+                {review.comments && (
+                  <p className="mt-1 text-xs text-muted-foreground">{review.comments}</p>
+                )}
+              </MobileListItem>
+            ))}
+          </MobileList>
+          <DesktopTable>
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40 text-left">
+                <tr>
+                  <th className="px-3 py-2">Employee</th>
+                  <th className="px-3 py-2">Cycle</th>
+                  <th className="px-3 py-2">Rating</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2">Comments</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reviews.map((review) => (
+                  <tr key={review.id} className="border-t">
+                    <td className="px-3 py-2">{review.employeeName}</td>
+                    <td className="px-3 py-2">{review.cycleName}</td>
+                    <td className="px-3 py-2">{review.rating ?? "—"}/5</td>
+                    <td className="px-3 py-2">{review.status}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{review.comments || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </DesktopTable>
+        </ResponsiveListShell>
       </section>
     </div>
   );
