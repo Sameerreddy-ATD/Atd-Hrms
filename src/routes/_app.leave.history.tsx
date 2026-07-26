@@ -71,7 +71,11 @@ function LeaveHistoryPage() {
   }, []);
 
   const medicalDue = useMemo(
-    () => leaveRequests.filter((leave) => leave.type === "Sick Leave" && leave.medicalDocumentDueAt),
+    () =>
+      leaveRequests.filter(
+        (leave) =>
+          leave.type === "Sick Leave" && leave.medicalDocumentDueAt && !leave.medicalDocumentUrl,
+      ),
     [leaveRequests],
   );
 

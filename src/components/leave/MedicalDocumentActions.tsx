@@ -90,7 +90,7 @@ export function MedicalDocumentUploadCard({
     };
   }, []);
 
-  if (!leave.medicalDocumentDueAt) return null;
+  if (!leave.medicalDocumentDueAt || leave.medicalDocumentUrl) return null;
 
   const remaining = Math.max(0, new Date(leave.medicalDocumentDueAt).getTime() - now);
   const days = Math.floor(remaining / 86400000);
@@ -131,7 +131,8 @@ export function MedicalDocumentUploadCard({
           <div>
             <p className="font-semibold">Sick leave medical report</p>
             <p className="text-sm text-muted-foreground">
-              {leave.from} to {leave.to}
+              {leave.from} to {leave.to}. Upload within 2 days after leave ends; HR is notified if
+              overdue.
             </p>
           </div>
           <div className="rounded-md bg-amber-50 px-3 py-2 text-right dark:bg-amber-950/30">

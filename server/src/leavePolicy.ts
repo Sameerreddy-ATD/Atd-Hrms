@@ -280,7 +280,7 @@ export async function releaseCompOffCredits(leaveRequestId: string) {
 
 export function medicalDocumentDueAt(toDate: Date) {
   const due = new Date(toDate);
-  due.setUTCDate(due.getUTCDate() + 3);
+  due.setUTCDate(due.getUTCDate() + 2);
   due.setUTCHours(18, 29, 59, 999);
   return due;
 }
@@ -289,7 +289,7 @@ export function leavePolicyDescription(code: string) {
   if (code === LEAVE_CODES.CASUAL)
     return "1 day is credited on the first of every month beginning with the month after joining. Up to 12 days accrue yearly, unused credits carry forward, and the balance may become negative.";
   if (code === LEAVE_CODES.SICK)
-    return "6 days are available each calendar year, with a maximum of 2 days per month. A shareable medical document link is due within 3 days after returning.";
+    return "6 days are available each calendar year, with a maximum of 2 days per month. A medical report must be uploaded within 2 days after the leave ends; HR is notified if it is overdue.";
   if (code === LEAVE_CODES.LOP)
     return "Unpaid Leave / LOP is recorded separately from paid leave credits.";
   return "Earned automatically after a completed work session on a listed company holiday. Use it by December 31 of the year earned; it expires at year end. Usage does not require approval.";

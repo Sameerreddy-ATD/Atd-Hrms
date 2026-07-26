@@ -263,7 +263,6 @@ function DashboardPage() {
   const onLeave = countStatusIncludes(todayAttendance, "Leave");
   const fieldPresent = countFieldPresent(todayAttendance);
   const missed = countStatusIncludes(todayAttendance, "Missed");
-  const mismatch = todayAttendance.filter((r) => r.branchMismatch).length;
   const pendingLeaves = leaves.filter((l) => l.status === "Pending").length;
   const branchPresentCounts = branches.map((branch) => ({
     branch,
@@ -313,7 +312,7 @@ function DashboardPage() {
             present: presentToday,
             onLeave,
             pendingLeaves,
-            mismatch,
+            missed,
           }}
           attendance={todayAttendance}
           timeline={timeline}
@@ -341,7 +340,6 @@ function DashboardPage() {
             present: presentToday,
             absent,
             missed,
-            mismatch,
             branchPresentCounts,
             fieldPresent,
             pendingLeaves,
@@ -803,7 +801,7 @@ function ManagerDashboard({
     present: number;
     onLeave: number;
     pendingLeaves: number;
-    mismatch: number;
+    missed: number;
   };
   attendance: AttendanceRecord[];
   timeline: AttendanceTimelineEvent[];
@@ -824,11 +822,11 @@ function ManagerDashboard({
           tone="warning"
         />
         <StatCard
-          label="Branch mismatch alerts"
-          value={data.mismatch}
+          label="Missed punch alerts"
+          value={data.missed}
           icon={AlertTriangle}
           tone="warning"
-          hint="Punch recorded at a branch other than the scheduled branch"
+          hint="Open sessions or missed punch corrections"
         />
       </div>
       <div className="grid gap-3 lg:grid-cols-2">
@@ -924,7 +922,6 @@ function CEODashboard({
     present: number;
     absent: number;
     missed: number;
-    mismatch: number;
     branchPresentCounts: Array<{ branch: Branch; present: number }>;
     fieldPresent: number;
     pendingLeaves: number;
@@ -1009,10 +1006,10 @@ function CEODashboard({
           />
           <StatCard
             label="Attendance exceptions"
-            value={data.missed + data.mismatch}
+            value={data.missed}
             icon={AlertTriangle}
             tone="warning"
-            hint={`${data.missed} missed punch, ${data.mismatch} branch mismatch`}
+            hint={`${data.missed} missed punch`}
           />
           <StatCard
             label="Awaiting attendance"
@@ -1106,7 +1103,6 @@ function CEODashboard({
                   onLeaveToday: data.onLeave,
                   pendingApprovals: data.pendingLeaves,
                   missedPunch: data.missed,
-                  branchMismatch: data.mismatch,
                   branchPresence: data.branchPresentCounts
                     .map(({ branch, present }) => `${branch.name}: ${present}`)
                     .join("; "),

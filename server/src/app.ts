@@ -13,7 +13,6 @@ import {
   EventType,
   FaceEnrollmentStatus,
   FaceVerificationPurpose,
-  LeaveStatus,
   Prisma,
   Role,
   TaskActivityType,
@@ -37,6 +36,7 @@ import {
   recalculateLeaveDateRange,
   startOfDayUtc,
   todayIstDate,
+  istDateParts,
 } from "./attendanceDayRules.js";
 import {
   attendanceDateForEmployee,
@@ -80,7 +80,7 @@ import {
   userDto,
 } from "./mapper.js";
 import { prisma } from "./prisma.js";
-import { getModuleAccessMatrix, MODULE_KEYS, saveModuleAccessMatrix } from "./module-access.js";
+import { getModuleAccessMatrix, MODULE_KEYS, DEFAULT_MODULE_ACCESS, saveModuleAccessMatrix } from "./module-access.js";
 import { reportingHierarchyCycle } from "./organizationRules.js";
 import { isWebPushConfigured, sendPushToAll } from "./push.js";
 import { openNotificationStream, publishNotificationChange } from "./notificationLive.js";
@@ -124,15 +124,14 @@ import {
   departmentUpdateSchema,
   holidaySchema,
   holidayUpdateSchema,
-  leaveDecisionSchema,
   leaveRequestSchema,
   leaveBalanceAdjustmentSchema,
   leaveTypeSchema,
   leaveTypeUpdateSchema,
   medicalDocumentSchema,
   loginSchema,
+  forgotPasswordSchema,
   mobileEventSchema,
-  profileEditSchema,
   pushSubscriptionSchema,
   resetPasswordSchema,
   resetTestDataSchema,
@@ -153,7 +152,6 @@ import {
   leavePolicyDescription,
   LEAVE_CODES,
   medicalDocumentDueAt,
-  projectedLeaveBalance,
   releaseCompOffCredits,
   syncEmployeeLeaveBalances,
   validateLeaveApplication,
@@ -408,17 +406,14 @@ export function createApp() {
       employeeId: string;
       leaveTypeId: string;
       managerId?: string | null;
-      employee?: { name: string; manager?: { name: string } | null } | null;
-      leaveType?: { name: string; code?: string; paid?: boolean } | null;
-      reviewedBy?: { name: string } | null;
       reviewedByUserId?: string | null;
-      reviewNote?: string | null;
-      reviewedAt?: Date | null;
+      employee?: { name: string; manager?: { name: string } | null } | null;
+      leaveType?: { name: string } | null;
       fromDate: Date;
       toDate: Date;
       days: Prisma.Decimal | number;
       reason: string;
-      status: LeaveStatus;
+      status: string;
       createdAt: Date;
       updatedAt?: Date;
       cancelledDates?: unknown;
@@ -427,6 +422,7 @@ export function createApp() {
       medicalDocumentVerifiedAt?: Date | null;
     },
     approverName?: string,
+    reviewedByName?: string,
   ) {
     const cancelledDates = Array.isArray(row.cancelledDates)
       ? row.cancelledDates.filter((date): date is string => typeof date === "string")
@@ -439,11 +435,10 @@ export function createApp() {
       REJECTED: "Rejected",
       CANCELLED: "Cancelled",
     };
-    const reviewerLabel = row.reviewedBy?.name;
-    const decisionLabel = reviewerLabel
+    const decisionLabel = reviewedByName
       ? row.status === "REJECTED"
-        ? `Rejected by ${reviewerLabel}`
-        : `Approved by ${reviewerLabel}`
+        ? `Rejected by ${reviewedByName}`
+        : `Approved by ${reviewedByName}`
       : null;
     const workflowStatusMap: Record<string, string> = {
       PENDING: "Submitted — awaiting organization head",
@@ -458,11 +453,9 @@ export function createApp() {
       employeeId: row.employeeId,
       employeeName: row.employee?.name ?? row.employeeId,
       managerName: row.employee?.manager?.name,
-      approverId: row.managerId ?? undefined,
       approverName,
+      reviewedByName,
       type: row.leaveType?.name ?? "-",
-      leaveCode: row.leaveType?.code,
-      paid: row.leaveType?.paid,
       from: row.fromDate.toISOString().slice(0, 10),
       to: row.toDate.toISOString().slice(0, 10),
       days: Number(row.days),
@@ -479,60 +472,61 @@ export function createApp() {
       medicalDocumentUrl: row.medicalDocumentUrl ?? undefined,
       medicalDocumentDueAt: row.medicalDocumentDueAt?.toISOString(),
       medicalDocumentVerifiedAt: row.medicalDocumentVerifiedAt?.toISOString(),
-      reviewerName: row.reviewedBy?.name ?? undefined,
-      reviewedAt: row.reviewedAt?.toISOString(),
-      decisionNote: row.reviewNote ?? undefined,
     };
   }
 
-  async function leaveRequestDtos<T extends Parameters<typeof leaveRequestDto>[0]>(
-    rows: T[],
-    includeBalances = false,
-  ) {
+  async function leaveRequestDtos<T extends Parameters<typeof leaveRequestDto>[0]>(rows: T[]) {
     if (rows.length === 0) return [];
     const approverIds = [...new Set(rows.map((row) => row.managerId).filter(Boolean))] as string[];
+    const reviewerUserIds = [
+      ...new Set(rows.map((row) => row.reviewedByUserId).filter(Boolean)),
+    ] as string[];
     const employeeIds = [...new Set(rows.map((row) => row.employeeId))];
-    const [approvers, pendingRows] = await Promise.all([
+    const [approvers, reviewers, pendingRows] = await Promise.all([
       prisma.employee.findMany({
         where: { employeeId: { in: approverIds } },
         select: { employeeId: true, name: true },
       }),
-      includeBalances
-        ? prisma.leaveRequest.findMany({
-            where: { employeeId: { in: employeeIds }, status: "PENDING" },
-            select: {
-              leaveRequestId: true,
-              employeeId: true,
-              leaveTypeId: true,
-              days: true,
-            },
+      reviewerUserIds.length
+        ? prisma.user.findMany({
+            where: { id: { in: reviewerUserIds } },
+            select: { id: true, name: true },
           })
         : Promise.resolve([]),
+      prisma.leaveRequest.findMany({
+        where: { employeeId: { in: employeeIds }, status: "PENDING" },
+        select: {
+          leaveRequestId: true,
+          employeeId: true,
+          leaveTypeId: true,
+          days: true,
+          leaveType: { select: { name: true } },
+        },
+      }),
     ]);
     const names = new Map(approvers.map((approver) => [approver.employeeId, approver.name]));
+    const reviewerNames = new Map(reviewers.map((user) => [user.id, user.name]));
     const pendingByEmployee = new Map<string, typeof pendingRows>();
     for (const pending of pendingRows) {
       const list = pendingByEmployee.get(pending.employeeId) ?? [];
       list.push(pending);
       pendingByEmployee.set(pending.employeeId, list);
     }
-    const dtos = rows.map((row) =>
-      leaveRequestDto(row, row.managerId ? names.get(row.managerId) : undefined),
-    );
-    if (!includeBalances) return dtos;
-
     const balancePromises = new Map<string, ReturnType<typeof syncEmployeeLeaveBalances>>();
     return Promise.all(
-      rows.map(async (row, index) => {
-        const dto = dtos[index];
+      rows.map(async (row) => {
+        const dto = leaveRequestDto(
+          row,
+          row.managerId ? names.get(row.managerId) : undefined,
+          row.reviewedByUserId ? reviewerNames.get(row.reviewedByUserId) : undefined,
+        );
         if (!balancePromises.has(row.employeeId)) {
           balancePromises.set(row.employeeId, syncEmployeeLeaveBalances(row.employeeId));
         }
         const balances = await balancePromises.get(row.employeeId)!;
         const balance = balances.find((item) => item.leaveTypeId === row.leaveTypeId);
-        const requestedDays = Math.max(0, Number(row.days) - (dto.cancelledDays ?? 0));
-        const availableBalance =
-          row.leaveType?.code === LEAVE_CODES.LOP ? null : Number(balance?.balance ?? 0);
+        const availableBalance = Number(balance?.balance ?? 0);
+        const requestedDays = Number(row.days);
         const employeePending = pendingByEmployee.get(row.employeeId) ?? [];
         const otherPending = employeePending.filter(
           (item) => item.leaveRequestId !== row.leaveRequestId,
@@ -544,12 +538,8 @@ export function createApp() {
           ...dto,
           availableBalance,
           requestedDays,
-          projectedBalance: projectedLeaveBalance({
-            currentBalance: availableBalance ?? 0,
-            leaveCode: row.leaveType?.code ?? "",
-            status: row.status,
-            requestedDays,
-          }),
+          projectedBalance:
+            row.status === "PENDING" ? availableBalance - requestedDays : availableBalance,
           leaveBalances: balances.map((item) => ({
             type: item.leaveType.name,
             code: item.leaveType.code,
@@ -732,14 +722,12 @@ export function createApp() {
     };
   }
 
-  async function weeklyOffRequestDtos<T extends Parameters<typeof weeklyOffRequestDto>[0]>(
-    rows: T[],
-  ) {
+  async function weeklyOffRequestDtos<
+    T extends Parameters<typeof weeklyOffRequestDto>[0],
+  >(rows: T[]) {
     if (rows.length === 0) return [];
     const approverIds = [...new Set(rows.map((row) => row.approverId).filter(Boolean))];
-    const reviewerUserIds = [
-      ...new Set(rows.map((row) => row.reviewedBy).filter(Boolean)),
-    ] as string[];
+    const reviewerUserIds = [...new Set(rows.map((row) => row.reviewedBy).filter(Boolean))] as string[];
     const [approvers, reviewers] = await Promise.all([
       prisma.employee.findMany({
         where: { employeeId: { in: approverIds } },
@@ -760,19 +748,6 @@ export function createApp() {
         reviewedByName: row.reviewedBy ? reviewerNames.get(row.reviewedBy) : undefined,
       }),
     );
-  }
-
-  function applyLeaveStatusFilter(where: Prisma.LeaveRequestWhereInput, rawStatus: unknown): void {
-    if (typeof rawStatus !== "string" || !rawStatus.trim()) return;
-    const status = rawStatus.trim().toUpperCase();
-    if (status === "PENDING") where.status = "PENDING";
-    else if (status === "APPROVED") {
-      where.status = { in: ["APPROVED", "MANAGER_APPROVED", "HR_VERIFIED"] };
-    } else if (status === "REJECTED") where.status = "REJECTED";
-    else if (status === "CANCELLED") where.status = "CANCELLED";
-    else {
-      throw new HttpError(400, "Leave status must be PENDING, APPROVED, REJECTED, or CANCELLED");
-    }
   }
 
   async function assertWeeklyOffNotConsecutive(employeeId: string, date: Date, excludeId?: string) {
@@ -1451,6 +1426,46 @@ export function createApp() {
         ipAddress: req.ip,
       }).catch((err) => {
         console.error("Failed to write login audit log", err);
+      });
+    }),
+  );
+
+  app.post(
+    "/auth/forgot-password",
+    authLimiter,
+    asyncHandler(async (req, res) => {
+      const body = forgotPasswordSchema.parse(req.body);
+      const email = body.email.toLowerCase();
+      const account = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true, name: true, email: true, status: true },
+      });
+      if (account && account.status !== UserStatus.INACTIVE) {
+        await audit({
+          action: "password reset requested",
+          affectedUserId: account.id,
+          newValue: {
+            email: account.email,
+            name: account.name,
+            requestedAt: new Date().toISOString(),
+          },
+          ipAddress: req.ip,
+        });
+        publishNotificationChange("password-reset-requested", account.id);
+      } else {
+        await audit({
+          action: "password reset requested",
+          newValue: {
+            emailHash: createHash("sha256").update(email).digest("hex"),
+            matched: false,
+          },
+          ipAddress: req.ip,
+        }).catch(() => undefined);
+      }
+      res.json({
+        ok: true,
+        message:
+          "If an account exists for that email, Developer Admin has been notified to reset the password.",
       });
     }),
   );
@@ -4043,7 +4058,7 @@ export function createApp() {
         where.toDate = { lte: to };
       }
       if (typeof req.query.employeeId === "string") where.employeeId = req.query.employeeId;
-      applyLeaveStatusFilter(where, req.query.status);
+      if (typeof req.query.status === "string") where.status = req.query.status as never;
       if (req.user!.role === Role.MANAGER && req.user!.employeeId) {
         where.employee = {
           employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) },
@@ -4051,7 +4066,7 @@ export function createApp() {
       }
       const rows = await prisma.leaveRequest.findMany({
         where,
-        include: { leaveType: true, employee: { include: { manager: true } }, reviewedBy: true },
+        include: { leaveType: true, employee: { include: { manager: true } } },
         orderBy: { createdAt: "desc" },
         skip: listOffset(req),
         take: listLimit(req, 500, 1000),
@@ -4778,14 +4793,21 @@ export function createApp() {
                   employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) },
                 }
               : { employeeId: req.user!.employeeId ?? "__none__" };
-      applyLeaveStatusFilter(where, req.query.status);
+      if (typeof req.query.status === "string") {
+        const status = req.query.status.toUpperCase();
+        if (status === "PENDING") where.status = "PENDING";
+        else if (status === "APPROVED")
+          where.status = { in: ["APPROVED", "MANAGER_APPROVED", "HR_VERIFIED"] };
+        else if (status === "REJECTED") where.status = "REJECTED";
+        else if (status === "CANCELLED") where.status = "CANCELLED";
+      }
       const rows = await prisma.leaveRequest.findMany({
         where,
-        include: { leaveType: true, employee: { include: { manager: true } }, reviewedBy: true },
+        include: { leaveType: true, employee: { include: { manager: true } } },
         orderBy: { createdAt: "desc" },
         take: listLimit(req, 500, 1000),
       });
-      res.json(await leaveRequestDtos(rows, req.query.includeBalances === "true"));
+      res.json(await leaveRequestDtos(rows));
     }),
   );
   app.post(
@@ -4820,7 +4842,7 @@ export function createApp() {
             medicalDocumentDueAt:
               policy.type.code === LEAVE_CODES.SICK ? medicalDocumentDueAt(body.toDate) : undefined,
           },
-          include: { leaveType: true, employee: { include: { manager: true } }, reviewedBy: true },
+          include: { leaveType: true, employee: { include: { manager: true } } },
         });
         if (policy.type.code === LEAVE_CODES.COMP_OFF) {
           await consumeCompOffCredits(
@@ -4848,14 +4870,13 @@ export function createApp() {
         newValue: { leaveRequestId: request.leaveRequestId },
         ipAddress: req.ip,
       });
-      res.status(201).json((await leaveRequestDtos([request]))[0]);
+      res.status(201).json(leaveRequestDto(request, approver?.name ?? "No approval required"));
     }),
   );
   app.post(
     "/leave/requests/:id/approve",
     requireAuth,
     asyncHandler(async (req, res) => {
-      const body = leaveDecisionSchema.parse(req.body ?? {});
       const existing = await prisma.leaveRequest.findUniqueOrThrow({
         where: { leaveRequestId: String(req.params.id) },
         include: { employee: true },
@@ -4866,19 +4887,14 @@ export function createApp() {
       }
       const changed = await prisma.leaveRequest.updateMany({
         where: { leaveRequestId: String(req.params.id), status: "PENDING" },
-        data: {
-          status: "APPROVED",
-          reviewedByUserId: req.user!.id,
-          reviewedAt: new Date(),
-          reviewNote: body.note || null,
-        },
+        data: { status: "APPROVED", reviewedByUserId: req.user!.id },
       });
       if (changed.count !== 1) {
         throw new HttpError(409, "This leave request was already reviewed");
       }
       const leave = await prisma.leaveRequest.findUniqueOrThrow({
         where: { leaveRequestId: String(req.params.id) },
-        include: { leaveType: true, employee: { include: { manager: true } }, reviewedBy: true },
+        include: { leaveType: true, employee: { include: { manager: true } } },
       });
       await syncEmployeeLeaveBalances(leave.employeeId);
       await recalculateLeaveDateRange(
@@ -4890,20 +4906,20 @@ export function createApp() {
       await audit({
         action: "leave approved",
         performedByUserId: req.user!.id,
-        newValue: { leaveRequestId: leave.leaveRequestId, note: body.note || null },
+        newValue: {
+          leaveRequestId: leave.leaveRequestId,
+          reviewedByUserId: req.user!.id,
+          reviewedByName: req.user!.name,
+        },
         ipAddress: req.ip,
       });
-      res.json((await leaveRequestDtos([leave], true))[0]);
+      res.json((await leaveRequestDtos([leave]))[0]);
     }),
   );
   app.post(
     "/leave/requests/:id/reject",
     requireAuth,
     asyncHandler(async (req, res) => {
-      const body = leaveDecisionSchema.parse(req.body ?? {});
-      if (!body.note || body.note.length < 3) {
-        throw new HttpError(400, "Enter a rejection reason with at least 3 characters.");
-      }
       const existing = await prisma.leaveRequest.findUniqueOrThrow({
         where: { leaveRequestId: String(req.params.id) },
         include: { employee: true },
@@ -4914,27 +4930,26 @@ export function createApp() {
       }
       const changed = await prisma.leaveRequest.updateMany({
         where: { leaveRequestId: String(req.params.id), status: "PENDING" },
-        data: {
-          status: "REJECTED",
-          reviewedByUserId: req.user!.id,
-          reviewedAt: new Date(),
-          reviewNote: body.note,
-        },
+        data: { status: "REJECTED", reviewedByUserId: req.user!.id },
       });
       if (changed.count !== 1) {
         throw new HttpError(409, "This leave request was already reviewed");
       }
       const leave = await prisma.leaveRequest.findUniqueOrThrow({
         where: { leaveRequestId: String(req.params.id) },
-        include: { leaveType: true, employee: { include: { manager: true } }, reviewedBy: true },
+        include: { leaveType: true, employee: { include: { manager: true } } },
       });
       await audit({
         action: "leave rejected",
         performedByUserId: req.user!.id,
-        newValue: { leaveRequestId: leave.leaveRequestId, note: body.note },
+        newValue: {
+          leaveRequestId: leave.leaveRequestId,
+          reviewedByUserId: req.user!.id,
+          reviewedByName: req.user!.name,
+        },
         ipAddress: req.ip,
       });
-      res.json((await leaveRequestDtos([leave], true))[0]);
+      res.json((await leaveRequestDtos([leave]))[0]);
     }),
   );
 
@@ -4945,7 +4960,7 @@ export function createApp() {
       if (!req.user!.employeeId) throw new HttpError(400, "No employee profile");
       const existing = await prisma.leaveRequest.findUniqueOrThrow({
         where: { leaveRequestId: String(req.params.id) },
-        include: { leaveType: true, employee: { include: { manager: true } }, reviewedBy: true },
+        include: { leaveType: true, employee: { include: { manager: true } } },
       });
       if (existing.employeeId !== req.user!.employeeId) {
         throw new HttpError(403, "You can only cancel your own leave request.");
@@ -4959,7 +4974,7 @@ export function createApp() {
         leave = await prisma.leaveRequest.update({
           where: { leaveRequestId: existing.leaveRequestId },
           data: { status: "CANCELLED" },
-          include: { leaveType: true, employee: { include: { manager: true } }, reviewedBy: true },
+          include: { leaveType: true, employee: { include: { manager: true } } },
         });
       } else {
         const today = todayIstDate();
@@ -5007,28 +5022,15 @@ export function createApp() {
       if (existing.leaveType.code !== LEAVE_CODES.SICK) {
         throw new HttpError(400, "Medical documents apply only to Sick Leave");
       }
-      if (["REJECTED", "CANCELLED"].includes(existing.status)) {
-        throw new HttpError(400, "A closed leave request cannot accept a medical document");
-      }
-      const linkChanged = existing.medicalDocumentUrl !== body.url;
       const leave = await prisma.leaveRequest.update({
         where: { leaveRequestId: existing.leaveRequestId },
-        data: {
-          medicalDocumentUrl: body.url,
-          ...(linkChanged
-            ? { medicalDocumentVerifiedAt: null, medicalDocumentVerifiedBy: null }
-            : {}),
-        },
-        include: { leaveType: true, employee: { include: { manager: true } }, reviewedBy: true },
+        data: { medicalDocumentUrl: body.url },
+        include: { leaveType: true, employee: { include: { manager: true } } },
       });
       await audit({
         action: "sick leave medical document updated",
         performedByUserId: req.user!.id,
-        newValue: {
-          leaveRequestId: leave.leaveRequestId,
-          documentProvided: true,
-          verificationReset: linkChanged,
-        },
+        newValue: { leaveRequestId: leave.leaveRequestId, documentProvided: true },
         ipAddress: req.ip,
       });
       res.json((await leaveRequestDtos([leave]))[0]);
@@ -5040,42 +5042,10 @@ export function createApp() {
     requireAuth,
     requireRoles(Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN, Role.MANAGER),
     asyncHandler(async (req, res) => {
-      const existing = await prisma.leaveRequest.findUniqueOrThrow({
+      const leave = await prisma.leaveRequest.update({
         where: { leaveRequestId: String(req.params.id) },
-        include: { leaveType: true },
-      });
-      if (existing.leaveType.code !== LEAVE_CODES.SICK) {
-        throw new HttpError(400, "Only Sick Leave medical documents can be verified");
-      }
-      if (!existing.medicalDocumentUrl) {
-        throw new HttpError(400, "The employee has not submitted a medical document link");
-      }
-      if (["REJECTED", "CANCELLED"].includes(existing.status)) {
-        throw new HttpError(400, "A closed leave request cannot have its document verified");
-      }
-      if (existing.medicalDocumentVerifiedAt) {
-        throw new HttpError(409, "This medical document is already verified");
-      }
-      const verifiedAt = new Date();
-      const changed = await prisma.leaveRequest.updateMany({
-        where: {
-          leaveRequestId: existing.leaveRequestId,
-          medicalDocumentVerifiedAt: null,
-        },
-        data: { medicalDocumentVerifiedAt: verifiedAt, medicalDocumentVerifiedBy: req.user!.id },
-      });
-      if (changed.count !== 1) {
-        throw new HttpError(409, "This medical document was already verified");
-      }
-      const leave = await prisma.leaveRequest.findUniqueOrThrow({
-        where: { leaveRequestId: existing.leaveRequestId },
-        include: { leaveType: true, employee: { include: { manager: true } }, reviewedBy: true },
-      });
-      await audit({
-        action: "sick leave medical document verified",
-        performedByUserId: req.user!.id,
-        newValue: { leaveRequestId: leave.leaveRequestId, verifiedAt },
-        ipAddress: req.ip,
+        data: { medicalDocumentVerifiedAt: new Date(), medicalDocumentVerifiedBy: req.user!.id },
+        include: { leaveType: true, employee: { include: { manager: true } } },
       });
       res.json((await leaveRequestDtos([leave]))[0]);
     }),
@@ -5084,13 +5054,12 @@ export function createApp() {
   app.post(
     "/profile/edit-requests",
     requireAuth,
-    asyncHandler(async (req, res) => {
-      if (!req.user!.employeeId) throw new HttpError(400, "No employee profile");
-      const body = profileEditSchema.parse(req.body);
-      const request = await prisma.profileEditRequest.create({
-        data: { employeeId: req.user!.employeeId, requestedData: body.requestedData as never },
-      });
-      res.status(201).json(request);
+    asyncHandler(async (_req, res) => {
+      // Profile-edit approval workflow is intentionally not shipped; employees update via HR.
+      throw new HttpError(
+        501,
+        "Profile edit requests are not available. Only Developer Admin can update employee profiles.",
+      );
     }),
   );
 
@@ -5180,7 +5149,11 @@ export function createApp() {
     requireAuth,
     requireRoles(Role.DEVELOPER_ADMIN),
     asyncHandler(async (_req, res) => {
-      res.json({ modules: MODULE_KEYS, matrix: await getModuleAccessMatrix() });
+      res.json({
+        modules: MODULE_KEYS,
+        matrix: await getModuleAccessMatrix(),
+        defaults: DEFAULT_MODULE_ACCESS,
+      });
     }),
   );
 
@@ -6600,18 +6573,38 @@ export function createApp() {
           orderBy: { createdAt: "desc" },
           take: canSeeTeam && !canSeeOperational ? 16 : 8,
         }),
-        prisma.employee.findMany({
-          where: {
+        (async () => {
+          // Birthdays: self for staff; team for managers; company-wide for HR/leadership.
+          let birthdayWhere: Prisma.EmployeeWhereInput = {
             dateOfBirth: { not: null },
             status: "ACTIVE",
-            ...(req.user!.employeeId ? { employeeId: req.user!.employeeId } : { employeeId: "__none__" }),
-          },
-          select: {
-            employeeId: true,
-            name: true,
-            dateOfBirth: true,
-          },
-        }),
+            employeeId: "__none__",
+          };
+          if (canSeeOperational) {
+            birthdayWhere = { dateOfBirth: { not: null }, status: "ACTIVE" };
+          } else if (canSeeTeam && req.user!.employeeId) {
+            const teamIds = teamEmployeeIds;
+            birthdayWhere = {
+              dateOfBirth: { not: null },
+              status: "ACTIVE",
+              employeeId: { in: [...new Set([req.user!.employeeId, ...teamIds])] },
+            };
+          } else if (req.user!.employeeId) {
+            birthdayWhere = {
+              dateOfBirth: { not: null },
+              status: "ACTIVE",
+              employeeId: req.user!.employeeId,
+            };
+          }
+          return prisma.employee.findMany({
+            where: birthdayWhere,
+            select: {
+              employeeId: true,
+              name: true,
+              dateOfBirth: true,
+            },
+          });
+        })(),
         prisma.user.findMany({
           where: {
             id: req.user!.id,
@@ -6691,16 +6684,54 @@ export function createApp() {
           : Promise.resolve([]),
       ]);
 
-      const today = new Date();
-      const todayMonth = today.getUTCMonth();
-      const todayDate = today.getUTCDate();
+      const canSeeMedicalOverdue =
+        req.user!.role === Role.HR ||
+        req.user!.role === Role.DEVELOPER_ADMIN ||
+        req.user!.role === Role.MAIN_ADMIN;
+      const overdueMedicalLeaves = await prisma.leaveRequest.findMany({
+        where: {
+          status: { in: ["APPROVED", "MANAGER_APPROVED", "HR_VERIFIED"] },
+          medicalDocumentDueAt: { lt: new Date() },
+          OR: [{ medicalDocumentUrl: null }, { medicalDocumentUrl: "" }],
+          leaveType: { code: LEAVE_CODES.SICK },
+          ...(canSeeMedicalOverdue
+            ? {}
+            : req.user!.employeeId
+              ? { employeeId: req.user!.employeeId }
+              : { employeeId: "__none__" }),
+        },
+        include: {
+          employee: { select: { name: true, employeeCode: true } },
+          leaveType: { select: { name: true } },
+        },
+        orderBy: { medicalDocumentDueAt: "asc" },
+        take: 15,
+      });
+      const passwordResetRequests =
+        req.user!.role === Role.DEVELOPER_ADMIN
+          ? await prisma.auditLog.findMany({
+              where: {
+                action: "password reset requested",
+                affectedUserId: { not: null },
+                createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+              },
+              include: { affectedUser: { select: { name: true, email: true } } },
+              orderBy: { createdAt: "desc" },
+              take: 20,
+            })
+          : [];
+
+      const todayIst = istDateParts(new Date());
+      const todayMonth = todayIst.month;
+      const todayDate = todayIst.day;
+      const todayKey = `${todayIst.year}-${String(todayMonth + 1).padStart(2, "0")}-${String(todayDate).padStart(2, "0")}`;
 
       const announcements = await prisma.announcement.findMany({
         where: {
           isActive: true,
-          publishAt: { lte: today },
+          publishAt: { lte: new Date() },
           priority: { in: ["URGENT", "IMPORTANT"] },
-          OR: [{ expiresAt: null }, { expiresAt: { gt: today } }],
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         },
         include: { createdBy: true },
         orderBy: { publishAt: "desc" },
@@ -6712,13 +6743,18 @@ export function createApp() {
           const dob = new Date(emp.dateOfBirth!);
           return dob.getUTCMonth() === todayMonth && dob.getUTCDate() === todayDate;
         })
-        .map((emp) => ({
-          id: `birthday-${emp.employeeId}-${today.toISOString().slice(0, 10)}`,
-          title: "Happy Birthday",
-          desc: `Happy Birthday, ${emp.name}! Wishing you a wonderful year ahead.`,
-          time: new Date(Date.UTC(today.getUTCFullYear(), todayMonth, todayDate)).toISOString(),
-          type: "birthday" as const,
-        }));
+        .map((emp) => {
+          const isSelf = emp.employeeId === req.user!.employeeId;
+          return {
+            id: `birthday-${emp.employeeId}-${todayKey}`,
+            title: isSelf ? "Happy Birthday" : "Team birthday today",
+            desc: isSelf
+              ? `Happy Birthday, ${emp.name}! Wishing you a wonderful year ahead.`
+              : `Today is ${emp.name}'s birthday. Wish them well.`,
+            time: new Date(Date.UTC(todayIst.year, todayMonth, todayDate)).toISOString(),
+            type: "birthday" as const,
+          };
+        });
 
       const actionableLeaves = pendingLeaves.filter((leave) => {
         const isOwn = leave.employeeId === req.user!.employeeId;
@@ -6828,6 +6864,30 @@ export function createApp() {
             .slice(0, 10)} to ${leave.toDate.toISOString().slice(0, 10)}`,
           time: (leave.updatedAt ?? leave.createdAt).toISOString(),
           type: "leave" as const,
+        })),
+        ...overdueMedicalLeaves.map((leave) => ({
+          id: `medical-overdue-${leave.leaveRequestId}`,
+          title:
+            leave.employeeId === req.user!.employeeId
+              ? "Upload your medical report"
+              : "Medical report overdue",
+          desc:
+            leave.employeeId === req.user!.employeeId
+              ? `Your Sick Leave ended ${leave.toDate.toISOString().slice(0, 10)}. Upload the report on Leave History within 2 days of leave end.`
+              : `${leave.employee.name} (${leave.employee.employeeCode}) — Sick Leave ended ${leave.toDate
+                  .toISOString()
+                  .slice(0, 10)}; report was due within 2 days.`,
+          time: (leave.medicalDocumentDueAt ?? leave.updatedAt).toISOString(),
+          type: "leave" as const,
+          href: leave.employeeId === req.user!.employeeId ? "/leave/history" : "/leave/reports",
+        })),
+        ...passwordResetRequests.map((entry) => ({
+          id: `password-reset-${entry.auditId}`,
+          title: "Password reset requested",
+          desc: `${entry.affectedUser?.name ?? "User"} (${entry.affectedUser?.email ?? "unknown"}) asked for a password reset. Open User Logins to reset it.`,
+          time: entry.createdAt.toISOString(),
+          type: "system" as const,
+          href: "/users",
         })),
         ...actionableCorrections.map((request) => ({
           id: `attendance-correction-${request.requestId}-${request.updatedAt.toISOString()}`,

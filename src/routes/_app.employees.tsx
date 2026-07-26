@@ -234,9 +234,11 @@ function EmployeesPage() {
       <PageHeader
         title="Employees"
         description={
-          canSeeCompanyDirectory
-            ? "Directory of employees across branches and organization units."
-            : "Employees in your organization unit and its child teams."
+          canEdit
+            ? "Developer Admin can edit employee profiles. Other roles can view the directory."
+            : canSeeCompanyDirectory
+              ? "Directory of employees across branches and organization units. Only Developer Admin can edit profiles."
+              : "Employees in your organization unit and its child teams. Only Developer Admin can edit profiles."
         }
       />
       {loading && <LoadingState label="Loading employees" />}

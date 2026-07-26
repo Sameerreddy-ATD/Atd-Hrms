@@ -217,6 +217,11 @@ export const authApi = {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }),
+  forgotPassword: (email: string) =>
+    request<{ ok: boolean; message: string }>("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
   me: () => request<{ user: User }>("/auth/me"),
   loginAsRole: (_role: Role) => Promise.reject(new Error("Demo role login is disabled")),
   changePassword: (oldPassword: string, nextPassword: string) =>
@@ -1008,7 +1013,11 @@ export const tasksApi = {
 export const moduleAccessApi = {
   mine: () => request<{ modules: ModuleKey[] }>("/module-access/me"),
   matrix: () =>
-    request<{ modules: ModuleKey[]; matrix: Record<string, ModuleKey[]> }>("/module-access/matrix"),
+    request<{
+      modules: ModuleKey[];
+      matrix: Record<string, ModuleKey[]>;
+      defaults: Record<string, ModuleKey[]>;
+    }>("/module-access/matrix"),
   update: (matrix: Record<string, ModuleKey[]>) =>
     request<{ modules: ModuleKey[]; matrix: Record<string, ModuleKey[]> }>(
       "/module-access/matrix",

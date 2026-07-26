@@ -120,8 +120,8 @@ function ProfilePage() {
         title="My Profile"
         description={
           canSaveDirectly
-            ? "Update your account details directly."
-            : "Your account and employment information."
+            ? "Developer Admin can update profile fields directly. Other users are read-only here."
+            : "Profile details are view-only. Ask Developer Admin to update employment or account fields. You can still change your own password below."
         }
       />
       <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
