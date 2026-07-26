@@ -6688,22 +6688,25 @@ export function createApp() {
         req.user!.role === Role.HR ||
         req.user!.role === Role.DEVELOPER_ADMIN ||
         req.user!.role === Role.MAIN_ADMIN;
-      const overdueMedicalLeaves = canSeeMedicalOverdue
-        ? await prisma.leaveRequest.findMany({
-            where: {
-              status: { in: ["APPROVED", "MANAGER_APPROVED", "HR_VERIFIED"] },
-              medicalDocumentDueAt: { lt: new Date() },
-              OR: [{ medicalDocumentUrl: null }, { medicalDocumentUrl: "" }],
-              leaveType: { code: LEAVE_CODES.SICK },
-            },
-            include: {
-              employee: { select: { name: true, employeeCode: true } },
-              leaveType: { select: { name: true } },
-            },
-            orderBy: { medicalDocumentDueAt: "asc" },
-            take: 15,
-          })
-        : [];
+      const overdueMedicalLeaves = await prisma.leaveRequest.findMany({
+        where: {
+          status: { in: ["APPROVED", "MANAGER_APPROVED", "HR_VERIFIED"] },
+          medicalDocumentDueAt: { lt: new Date() },
+          OR: [{ medicalDocumentUrl: null }, { medicalDocumentUrl: "" }],
+          leaveType: { code: LEAVE_CODES.SICK },
+          ...(canSeeMedicalOverdue
+            ? {}
+            : req.user!.employeeId
+              ? { employeeId: req.user!.employeeId }
+              : { employeeId: "__none__" }),
+        },
+        include: {
+          employee: { select: { name: true, employeeCode: true } },
+          leaveType: { select: { name: true } },
+        },
+        orderBy: { medicalDocumentDueAt: "asc" },
+        take: 15,
+      });
       const passwordResetRequests =
         req.user!.role === Role.DEVELOPER_ADMIN
           ? await prisma.auditLog.findMany({
