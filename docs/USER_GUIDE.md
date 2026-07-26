@@ -18,6 +18,10 @@ This guide explains how Developer Admin, HR, organization heads, employees, fiel
 | Audit logs                     | View                                                           | View                    | No                      | No                    | No                          | No                                      |
 | Asset management               | Full access                                                    | No                      | Full access             | Read-only investment  | No                          | No                                      |
 | Expenses and HR documents      | Review all                                                     | No                      | Review all              | View all              | Own requests                | Own requests                            |
+| Operations reports             | Full                                                           | Full                    | Full                    | Full                  | Team summary                | No                                      |
+| Shift roster / overtime        | Full                                                           | Full                    | Full                    | View                  | Team publish / review       | Own published roster / OT claims        |
+| Checklists / appraisals / ATS  | Full                                                           | Full                    | Full                    | Appraisals view       | Appraisals for team         | Own checklists                          |
+| Document vault / SOP library   | Full                                                           | Full                    | Full                    | View / ack            | View / ack                  | View / ack                              |
 | System settings                | Full access                                                    | As configured           | No                      | No                    | No                          | No                                      |
 
 ## CEO Workspace
@@ -346,9 +350,43 @@ Open **Work Planner** to see every task board available to your account.
 - **Assigned to me** is your personal inbox on the directory. It lists active work assigned to you
   across boards so you can open a task without first finding its board. Use **View all** to expand
   the list or open a board with the Mine filter on.
+- Soft-archive tasks from the detail panel. Attachments (under 1.5 MB) upload from the API/detail
+  flow; `@employeeCode` mentions in progress notes notify mentioned people.
+- Cross-board moves and custom fields are available via task update when you have access to both
+  boards.
 
 Active boards show their access policy and open-task count. Archived boards remain recoverable and
 do not accept new work until their owner restores them.
+
+## Operations Reports
+
+Managers, HR, and leadership open **Operations Reports** for attendance coverage, pending leave,
+planner load by board, and paid claims this month. Managers and above can export Attendance, Leave,
+and Work Planner sheets as Excel. HR/Admin/CEO can also export paid claims as CSV.
+
+Press **Ctrl/Cmd+K** for global search across pages, people, boards, tasks, and announcements.
+
+## Shift Roster And Overtime
+
+**Shift Roster** shows the current week. Managers publish DAY/NIGHT/OFF/CUSTOM assignments for their
+team. Employees submit overtime claims; managers/HR approve or reject them. Roster changes do not
+rewrite biometric punches.
+
+## Employee Requests (Travel / Fuel / Field)
+
+Employee Requests now support claim types **Expense**, **Travel**, **Fuel**, and **Field**, with
+optional distance/litres metadata. HR review and payment remain the same workflow.
+
+## Checklists, Documents, Appraisals, SOP, Recruitment
+
+- **Checklists**: Creating a login auto-starts onboarding; deactivating a login auto-starts
+  offboarding. HR can also start instances manually. Employees tick items from **Checklists**.
+- **Document Vault**: HR publishes policies; employees acknowledge required versions.
+- **Appraisals**: HR creates cycles; managers submit 1–5 ratings with comments.
+- **SOP Library**: published operating procedures with mark-as-read.
+- **Recruitment**: HR manages jobs and candidates; marking Hired can start onboarding.
+
+Payroll/payslips and live biometric device connectors remain out of scope.
 
 ### Open and navigate a board
 
@@ -546,20 +584,29 @@ Common report pages:
 - Leave report
 - Payroll attendance summary
 
-## HR And CEO: Review Company Investment Per Employee
+## Asset Management
 
-Open **Asset Management** and review **Company investment per employee**. This section shows how
-much Anytime Diesel currently invests in each employee through physical assets and online services
-assigned to that person.
+Open **Asset Management**. The page is organized into tabs:
+
+1. **Inventory** — register physical devices, online seats, and shared company-use assets. Filter by
+   status, type, and scope. HR can **Assign** from an available employee-scoped row.
+2. **Assigned** — assets currently with an employee. Use **Return** to complete the checklist and
+   free the item (not working physical returns move to under repair).
+3. **Investment** — how much Anytime Diesel invests in each employee through assigned assets
+   (one-time, monthly, annual, first-year). Shared company-use assets are excluded.
+4. **Returns** (HR / Developer Admin) — completed return checklists.
+
+Workflow for HR: **Add Asset** → **Assign** → later **Return**. You cannot change status to
+Available, Under repair, or Retired while an asset is still assigned — return it first.
 
 - **One-time invested:** purchase values recorded as one-time costs.
 - **Monthly recurring:** monthly subscriptions plus yearly subscriptions normalized to a monthly amount.
 - **Annual recurring:** monthly subscriptions multiplied by 12 plus yearly subscriptions.
 - **First-year investment:** one-time invested plus annual recurring.
 
-HR and Developer Admin can add, assign, edit, and return assets. CEO access is read-only. Shared
-company-use assets such as tables and fans remain in company totals but are not attributed to an
-individual employee.
+HR and Developer Admin can add, assign, edit, and return assets. CEO access is read-only and opens
+on the Investment tab. Shared company-use assets such as tables and fans remain in company totals
+but are not attributed to an individual employee.
 
 ## Mobile Use
 

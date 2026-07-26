@@ -440,6 +440,115 @@ export function BoardFormDialog({
             )}
           </section>
 
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Custom fields</Label>
+                <p className="text-xs text-muted-foreground">Optional text, number, or select fields on tasks.</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setForm((current) => ({
+                    ...current,
+                    customFieldDefs: [
+                      ...current.customFieldDefs,
+                      {
+                        key: `field_${current.customFieldDefs.length + 1}`,
+                        label: "New field",
+                        type: "text",
+                      },
+                    ],
+                  }))
+                }
+              >
+                <Plus className="mr-1 h-3.5 w-3.5" />
+                Add field
+              </Button>
+            </div>
+            {form.customFieldDefs.length === 0 ? (
+              <p className="rounded-lg border border-dashed px-3 py-4 text-sm text-muted-foreground">
+                No custom fields yet.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {form.customFieldDefs.map((field, index) => (
+                  <div
+                    key={`${field.key}-${index}`}
+                    className="grid gap-2 rounded-xl border bg-muted/20 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_120px_auto]"
+                  >
+                    <Input
+                      aria-label="Field key"
+                      value={field.key}
+                      placeholder="key"
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          customFieldDefs: current.customFieldDefs.map((entry, position) =>
+                            position === index ? { ...entry, key: event.target.value } : entry,
+                          ),
+                        }))
+                      }
+                    />
+                    <Input
+                      aria-label="Field label"
+                      value={field.label}
+                      placeholder="Label"
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          customFieldDefs: current.customFieldDefs.map((entry, position) =>
+                            position === index ? { ...entry, label: event.target.value } : entry,
+                          ),
+                        }))
+                      }
+                    />
+                    <Select
+                      value={field.type}
+                      onValueChange={(value) =>
+                        setForm((current) => ({
+                          ...current,
+                          customFieldDefs: current.customFieldDefs.map((entry, position) =>
+                            position === index
+                              ? { ...entry, type: value as "text" | "number" | "select" }
+                              : entry,
+                          ),
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <span className="capitalize">{field.type}</span>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="text">Text</SelectItem>
+                        <SelectItem value="number">Number</SelectItem>
+                        <SelectItem value="select">Select</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Remove field"
+                      onClick={() =>
+                        setForm((current) => ({
+                          ...current,
+                          customFieldDefs: current.customFieldDefs.filter(
+                            (_entry, position) => position !== index,
+                          ),
+                        }))
+                      }
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
           {error && (
             <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
               {error}

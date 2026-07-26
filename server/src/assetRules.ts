@@ -1,5 +1,9 @@
 export type AssetOperationalStatus = "AVAILABLE" | "ASSIGNED" | "UNDER_REPAIR" | "RETIRED";
 
+/**
+ * Assignment wins: if an employee is linked, status is always ASSIGNED.
+ * Clearing the assignee with previous ASSIGNED falls back to AVAILABLE.
+ */
 export function resolveAssetStatus(input: {
   assignedEmployeeId: string | null;
   requestedStatus?: AssetOperationalStatus;

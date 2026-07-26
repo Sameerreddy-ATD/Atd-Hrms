@@ -193,7 +193,7 @@ export async function warmAuthenticatedWorkspace(user: User) {
   if (timeoutId) clearTimeout(timeoutId);
 }
 
-function toQuery(params: Record<string, string | number | undefined>) {
+function toQuery(params: Record<string, string | number | boolean | undefined>) {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined && value !== "" && value !== "all") query.set(key, String(value));
@@ -651,13 +651,19 @@ export const assetsApi = {
 export const employeeServicesApi = {
   expenseClaims: () => request<ExpenseClaim[]>("/expense-claims"),
   submitExpense: (claim: {
-    claimType: "ADVANCE" | "EXPENSE";
+    claimType: "ADVANCE" | "EXPENSE" | "TRAVEL" | "FUEL" | "FIELD";
     employeeId?: string;
     title?: string | null;
     amount: number;
     expenseDate?: string | null;
     description?: string | null;
     remark?: string | null;
+    claimMeta?: {
+      distanceKm?: number;
+      litres?: number;
+      fromLocation?: string;
+      toLocation?: string;
+    } | null;
     receiptUrl?: string | null;
     receiptAccessConfirmed?: boolean;
   }) =>
@@ -863,8 +869,13 @@ export const tasksApi = {
       detail?: "summary" | "full";
       stageId?: string;
       assigneeEmployeeId?: string;
+      parentTaskId?: string;
+      includeArchived?: boolean;
     } = {},
-  ) => request<WorkTask[]>(`/tasks${toQuery({ scope, ...filters })}`),
+  ) =>
+    request<WorkTask[]>(
+      `/tasks${toQuery({ scope, ...filters } as Record<string, string | number | boolean | undefined>)}`,
+    ),
   get: (id: string) => request<WorkTask>(`/tasks/${id}`),
   assignees: (boardId?: string) =>
     request<TaskAssignee[]>(`/tasks/assignees${toQuery({ boardId })}`),
@@ -891,6 +902,9 @@ export const tasksApi = {
       startDate: string | null;
       dueDate: string | null;
       stageId: string | null;
+      boardId: string | null;
+      parentTaskId: string | null;
+      customFields: Record<string, string | number | boolean | null>;
     }>,
   ) => request<WorkTask>(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
   addLog: (
@@ -912,6 +926,7 @@ export const tasksApi = {
     allowedRoles: string[];
     memberEmployeeIds: string[];
     stages: Array<{ id?: string; name: string; color: TaskStage["color"]; status: TaskStatus }>;
+    customFieldDefs?: NonNullable<TaskBoard["customFieldDefs"]>;
   }) => request<TaskBoard>("/task-boards", { method: "POST", body: JSON.stringify(payload) }),
   updateBoard: (
     id: string,
@@ -928,6 +943,7 @@ export const tasksApi = {
         color: TaskStage["color"];
         status: TaskStatus;
       }>;
+      customFieldDefs?: NonNullable<TaskBoard["customFieldDefs"]>;
     },
   ) =>
     request<TaskBoard>(`/task-boards/${id}`, {
@@ -938,6 +954,23 @@ export const tasksApi = {
     request<TaskBoard>(`/task-boards/${id}`, {
       method: "PATCH",
       body: JSON.stringify({ version, archived }),
+    }),
+  archiveTask: (id: string, version: number, archived: boolean) =>
+    request<{ id: string; archivedAt: string | null; version: number }>(`/tasks/${id}/archive`, {
+      method: "POST",
+      body: JSON.stringify({ version, archived }),
+    }),
+  listAttachments: (id: string) =>
+    request<
+      Array<{ id: string; fileName: string; mimeType: string; sizeBytes: number; createdAt: string }>
+    >(`/tasks/${id}/attachments`),
+  addAttachment: (
+    id: string,
+    payload: { fileName: string; mimeType: string; contentBase64: string },
+  ) =>
+    request<{ id: string; fileName: string }>(`/tasks/${id}/attachments`, {
+      method: "POST",
+      body: JSON.stringify(payload),
     }),
 };
 
@@ -965,4 +998,282 @@ export const integrationClientsApi = {
       `/integration-clients/${clientId}`,
       { method: "DELETE" },
     ),
+};
+
+export const searchApi = {
+  query: (q: string) =>
+    request<{
+      employees: Array<{ id: string; type: string; title: string; subtitle?: string; href: string }>;
+      boards: Array<{ id: string; type: string; title: string; href: string }>;
+      tasks: Array<{ id: string; type: string; title: string; href: string }>;
+      announcements: Array<{
+        id: string;
+        type: string;
+        title: string;
+        subtitle?: string;
+        href: string;
+      }>;
+    }>(`/search${toQuery({ q })}`),
+};
+
+export const notificationPreferencesApi = {
+  get: () =>
+    request<{ digestMode: string; categories: Record<string, boolean> }>(
+      "/notification-preferences",
+    ),
+  save: (payload: { digestMode: string; categories: Record<string, boolean> }) =>
+    request<{ digestMode: string; categories: Record<string, boolean> }>(
+      "/notification-preferences",
+      { method: "PUT", body: JSON.stringify(payload) },
+    ),
+};
+
+export const opsReportsApi = {
+  summary: () =>
+    request<{
+      activeEmployees: number;
+      presentToday: number;
+      attendancePct: number;
+      pendingLeave: number;
+      overdueTasks: number;
+      openTasks: number;
+      paidClaimsThisMonth: number;
+      paidClaimsAmount: number;
+      boards: Array<{ id: string; name: string; active: number; overdue: number }>;
+    }>("/reports/ops-summary"),
+  downloadOpsExcel: () => downloadBinary("/reports/ops-export.xlsx", "ops-reports.xlsx"),
+  downloadClaimsCsv: (from?: string, to?: string) =>
+    downloadBinary(`/reports/claims-export${toQuery({ from, to })}`, "paid-claims.csv"),
+};
+
+async function downloadBinary(path: string, filename: string) {
+  const res = await fetch(`${API_BASE}${path}`, { credentials: "include" });
+  if (res.status === 401) {
+    const refreshed = await refreshSession();
+    if (!refreshed) throw new Error("Session expired. Sign in again.");
+    const retry = await fetch(`${API_BASE}${path}`, { credentials: "include" });
+    if (!retry.ok) throw new Error("Unable to download the export.");
+    const retryBlob = await retry.blob();
+    const retryUrl = URL.createObjectURL(retryBlob);
+    const link = document.createElement("a");
+    link.href = retryUrl;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(retryUrl);
+    return;
+  }
+  if (!res.ok) throw new Error("Unable to download the export.");
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+export const rosterApi = {
+  list: (from: string, to: string) =>
+    request<
+      Array<{
+        id: string;
+        employeeId: string;
+        employeeName: string;
+        employeeCode: string;
+        workDate: string;
+        shiftPreset: string;
+        published: boolean;
+        note?: string | null;
+      }>
+    >(`/roster${toQuery({ from, to })}`),
+  upsert: (payload: {
+    employeeId: string;
+    workDate: string;
+    shiftPreset: string;
+    published?: boolean;
+    note?: string | null;
+  }) => request<{ id: string; ok: boolean }>("/roster", { method: "PUT", body: JSON.stringify(payload) }),
+};
+
+export const overtimeApi = {
+  list: () =>
+    request<
+      Array<{
+        id: string;
+        employeeName: string;
+        employeeCode: string;
+        workDate: string;
+        minutes: number;
+        reason: string;
+        status: string;
+      }>
+    >("/overtime-claims"),
+  create: (payload: { workDate: string; minutes: number; reason: string }) =>
+    request<{ id: string; status: string }>("/overtime-claims", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  review: (id: string, status: "APPROVED" | "REJECTED", reviewNotes?: string) =>
+    request<{ id: string; status: string }>(`/overtime-claims/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status, reviewNotes }),
+    }),
+};
+
+export const checklistsApi = {
+  list: () =>
+    request<
+      Array<{
+        id: string;
+        kind: string;
+        status: string;
+        templateName: string;
+        employeeName: string;
+        employeeCode: string;
+        items: Array<{ id: string; title: string; linkPath?: string | null; completed: boolean }>;
+      }>
+    >("/checklists"),
+  start: (employeeId: string, kind: "ONBOARDING" | "OFFBOARDING") =>
+    request<{ id: string }>("/checklists/start", {
+      method: "POST",
+      body: JSON.stringify({ employeeId, kind }),
+    }),
+  toggleItem: (id: string, completed: boolean) =>
+    request<{ id: string; completed: boolean }>(`/checklists/items/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ completed }),
+    }),
+};
+
+export const documentsApi = {
+  list: () =>
+    request<
+      Array<{
+        id: string;
+        title: string;
+        category: string;
+        body?: string | null;
+        version: number;
+        requiresAck: boolean;
+        published: boolean;
+        acknowledged: boolean;
+      }>
+    >("/documents"),
+  create: (payload: {
+    title: string;
+    category?: string;
+    body?: string | null;
+    requiresAck?: boolean;
+    published?: boolean;
+  }) => request<{ id: string }>("/documents", { method: "POST", body: JSON.stringify(payload) }),
+  ack: (id: string) => request<{ ok: boolean }>(`/documents/${id}/ack`, { method: "POST" }),
+};
+
+export const appraisalsApi = {
+  cycles: () =>
+    request<
+      Array<{
+        id: string;
+        name: string;
+        startsOn: string;
+        endsOn: string;
+        status: string;
+        reviewCount: number;
+      }>
+    >("/appraisals/cycles"),
+  createCycle: (payload: { name: string; startsOn: string; endsOn: string }) =>
+    request<{ id: string }>("/appraisals/cycles", { method: "POST", body: JSON.stringify(payload) }),
+  reviews: (cycleId?: string) =>
+    request<
+      Array<{
+        id: string;
+        cycleName: string;
+        employeeName: string;
+        employeeCode: string;
+        rating?: number | null;
+        comments?: string | null;
+        status: string;
+      }>
+    >(`/appraisals/reviews${toQuery({ cycleId })}`),
+  saveReview: (payload: {
+    cycleId: string;
+    employeeId: string;
+    rating?: number;
+    comments?: string | null;
+    status?: "DRAFT" | "SUBMITTED";
+  }) =>
+    request<{ id: string; status: string }>("/appraisals/reviews", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+};
+
+export const sopApi = {
+  list: () =>
+    request<
+      Array<{ id: string; title: string; body: string; published: boolean; updatedAt: string }>
+    >("/sop"),
+  create: (payload: {
+    title: string;
+    body: string;
+    published?: boolean;
+    audienceRoles?: string[];
+  }) => request<{ id: string }>("/sop", { method: "POST", body: JSON.stringify(payload) }),
+  markRead: (id: string) => request<{ ok: boolean }>(`/sop/${id}/read`, { method: "POST" }),
+};
+
+export const recruitmentApi = {
+  jobs: () =>
+    request<
+      Array<{
+        id: string;
+        title: string;
+        departmentName?: string | null;
+        description?: string | null;
+        status: string;
+        candidateCount: number;
+      }>
+    >("/recruitment/jobs"),
+  createJob: (payload: {
+    title: string;
+    departmentName?: string | null;
+    description?: string | null;
+  }) => request<{ id: string }>("/recruitment/jobs", { method: "POST", body: JSON.stringify(payload) }),
+  candidates: (jobId?: string) =>
+    request<
+      Array<{
+        id: string;
+        jobId: string;
+        jobTitle: string;
+        name: string;
+        email?: string | null;
+        phone?: string | null;
+        stage: string;
+        notes?: string | null;
+        hiredEmployeeId?: string | null;
+      }>
+    >(`/recruitment/candidates${toQuery({ jobId })}`),
+  createCandidate: (payload: {
+    jobId: string;
+    name: string;
+    email?: string | null;
+    phone?: string | null;
+    notes?: string | null;
+  }) =>
+    request<{ id: string }>("/recruitment/candidates", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateCandidate: (
+    id: string,
+    payload: {
+      stage?: string;
+      notes?: string | null;
+      hireEmployeeId?: string;
+    },
+  ) =>
+    request<{ id: string; stage: string }>(`/recruitment/candidates/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
 };

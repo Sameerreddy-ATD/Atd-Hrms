@@ -1,5 +1,12 @@
 import { format } from "date-fns";
-import { CalendarDays, MessageSquareText, Search, UserRound } from "lucide-react";
+import {
+  CalendarDays,
+  ListTree,
+  MessageSquareText,
+  Paperclip,
+  Search,
+  UserRound,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { tasksApi } from "@/services/api";
 import type { TaskAssignee, TaskBoard, TaskPriority, WorkTask } from "@/types/domain";
 import {
   dueLabel,
@@ -31,6 +39,7 @@ type TaskDetailDialogProps = {
   onOpenChange: (open: boolean) => void;
   task: WorkTask | null;
   board: TaskBoard | null;
+  boards?: TaskBoard[];
   assignees: TaskAssignee[];
   loading?: boolean;
   saving: boolean;
@@ -43,11 +52,16 @@ type TaskDetailDialogProps = {
       startDate: string | null;
       dueDate: string | null;
       stageId?: string;
+      boardId?: string;
       assigneeEmployeeIds: string[];
+      customFields?: Record<string, string | number | boolean | null>;
     },
   ) => Promise<void>;
+  onArchive?: (task: WorkTask, archived: boolean) => Promise<void>;
   onMove: (task: WorkTask, stageId: string) => Promise<void>;
   onAddUpdate: (task: WorkTask, message: string, progress: number) => Promise<void>;
+  onCreateSubtask?: (parent: WorkTask, title: string) => Promise<unknown>;
+  onOpenTask?: (task: WorkTask) => void;
 };
 
 const ACTIVITY_LABELS: Record<string, string> = {
@@ -64,12 +78,16 @@ export function TaskDetailDialog({
   onOpenChange,
   task,
   board,
+  boards = [],
   assignees,
   loading = false,
   saving,
   onSave,
+  onArchive,
   onMove,
   onAddUpdate,
+  onCreateSubtask,
+  onOpenTask,
 }: TaskDetailDialogProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -77,11 +95,19 @@ export function TaskDetailDialog({
   const [startDate, setStartDate] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [stageId, setStageId] = useState("");
+  const [boardId, setBoardId] = useState("");
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [assigneeQuery, setAssigneeQuery] = useState("");
   const [message, setMessage] = useState("");
   const [progress, setProgress] = useState(0);
   const [formError, setFormError] = useState("");
+  const [customFields, setCustomFields] = useState<Record<string, string>>({});
+  const [subtasks, setSubtasks] = useState<WorkTask[]>([]);
+  const [subtaskTitle, setSubtaskTitle] = useState("");
+  const [attachments, setAttachments] = useState<
+    Array<{ id: string; fileName: string; mimeType: string; sizeBytes: number; createdAt: string }>
+  >([]);
+  const [attachmentBusy, setAttachmentBusy] = useState(false);
 
   useEffect(() => {
     if (!open || !task) return;
@@ -91,19 +117,68 @@ export function TaskDetailDialog({
     setStartDate(task.startDate ?? "");
     setDueDate(task.dueDate ?? "");
     setStageId(task.stageId ?? "");
+    setBoardId(task.boardId ?? "");
     setAssigneeIds(task.assignees.map((person) => person.id));
     setAssigneeQuery("");
     setMessage("");
     setProgress(task.progress);
     setFormError("");
+    setSubtaskTitle("");
+    const nextFields: Record<string, string> = {};
+    for (const def of board?.customFieldDefs ?? []) {
+      const value = task.customFields?.[def.key];
+      nextFields[def.key] = value == null ? "" : String(value);
+    }
+    setCustomFields(nextFields);
+  }, [board?.customFieldDefs, open, task]);
+
+  useEffect(() => {
+    if (!open || !task) {
+      setSubtasks([]);
+      setAttachments([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [childRows, files] = await Promise.all([
+          tasksApi.list("team", {
+            parentTaskId: task.id,
+            boardId: task.boardId,
+            limit: 100,
+            detail: "summary",
+          }),
+          tasksApi.listAttachments(task.id).catch(() => []),
+        ]);
+        if (!cancelled) {
+          setSubtasks(childRows);
+          setAttachments(files);
+        }
+      } catch {
+        if (!cancelled) {
+          setSubtasks([]);
+          setAttachments([]);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [open, task]);
+
+  const activeBoard = useMemo(
+    () => boards.find((entry) => entry.id === boardId) ?? board,
+    [board, boardId, boards],
+  );
 
   const availableAssignees = useMemo(() => {
     const allowed = assignees.filter((person) => {
-      if (!board) return true;
-      if (board.accessType === "MEMBER_GATED") return board.memberEmployeeIds.includes(person.id);
-      if (board.accessType === "ROLE_GATED") {
-        return !!person.role && board.allowedRoles.includes(person.role);
+      if (!activeBoard) return true;
+      if (activeBoard.accessType === "MEMBER_GATED") {
+        return activeBoard.memberEmployeeIds.includes(person.id);
+      }
+      if (activeBoard.accessType === "ROLE_GATED") {
+        return !!person.role && activeBoard.allowedRoles.includes(person.role);
       }
       return true;
     });
@@ -119,7 +194,7 @@ export function TaskDetailDialog({
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(normalized)),
     );
-  }, [assigneeIds, assigneeQuery, assignees, board]);
+  }, [activeBoard, assigneeIds, assigneeQuery, assignees]);
 
   const dirty =
     !!task &&
@@ -129,12 +204,18 @@ export function TaskDetailDialog({
       (startDate || null) !== (task.startDate ?? null) ||
       (dueDate || null) !== (task.dueDate ?? null) ||
       (stageId || "") !== (task.stageId ?? "") ||
+      (boardId || "") !== (task.boardId ?? "") ||
       assigneeIds.slice().sort().join() !==
         task.assignees
           .map((person) => person.id)
           .slice()
           .sort()
-          .join());
+          .join() ||
+      (board?.customFieldDefs ?? []).some((def) => {
+        const previous = task.customFields?.[def.key];
+        const next = customFields[def.key] ?? "";
+        return String(previous ?? "") !== next;
+      }));
 
   async function saveDetails() {
     if (!task) return;
@@ -151,6 +232,15 @@ export function TaskDetailDialog({
       return;
     }
     setFormError("");
+    const nextCustom: Record<string, string | number | boolean | null> = {};
+    for (const def of board?.customFieldDefs ?? []) {
+      const raw = customFields[def.key]?.trim() ?? "";
+      if (!raw) {
+        nextCustom[def.key] = null;
+        continue;
+      }
+      nextCustom[def.key] = def.type === "number" ? Number(raw) : raw;
+    }
     await onSave(task, {
       title: title.trim(),
       description: description.trim() || null,
@@ -158,8 +248,31 @@ export function TaskDetailDialog({
       startDate: startDate || null,
       dueDate: dueDate || null,
       stageId: stageId || undefined,
+      boardId: boardId || undefined,
       assigneeEmployeeIds: assigneeIds,
+      customFields: nextCustom,
     });
+  }
+
+  async function uploadAttachment(file: File) {
+    if (!task) return;
+    setAttachmentBusy(true);
+    try {
+      const buffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      let binary = "";
+      for (const byte of bytes) binary += String.fromCharCode(byte);
+      await tasksApi.addAttachment(task.id, {
+        fileName: file.name,
+        mimeType: file.type || "application/octet-stream",
+        contentBase64: btoa(binary),
+      });
+      setAttachments(await tasksApi.listAttachments(task.id));
+    } catch (cause) {
+      setFormError((cause as Error).message || "Unable to upload attachment.");
+    } finally {
+      setAttachmentBusy(false);
+    }
   }
 
   return (
@@ -178,11 +291,12 @@ export function TaskDetailDialog({
                     {PRIORITY_LABELS[priority]}
                   </Badge>
                   <Badge variant="outline">
-                    {board?.stages.find((stage) => stage.id === stageId)?.name ??
+                    {activeBoard?.stages.find((stage) => stage.id === stageId)?.name ??
                       task.stage?.name ??
                       STATUS_LABELS[task.status]}
                   </Badge>
                   {task.boardName && <Badge variant="secondary">{task.boardName}</Badge>}
+                  {task.parentTaskId && <Badge variant="outline">Subtask</Badge>}
                 </div>
                 <DialogTitle className="sr-only">{task.title}</DialogTitle>
                 <Input
@@ -205,6 +319,142 @@ export function TaskDetailDialog({
                     placeholder="Add context, links, or acceptance criteria"
                     rows={5}
                     className="min-h-[120px] resize-y"
+                  />
+                </section>
+
+                {(board?.customFieldDefs?.length ?? 0) > 0 && (
+                  <section className="space-y-3">
+                    <h3 className="text-sm font-semibold">Custom fields</h3>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {board!.customFieldDefs!.map((field) => (
+                        <div key={field.key} className="space-y-1.5">
+                          <Label htmlFor={`cf-${field.key}`}>{field.label}</Label>
+                          <Input
+                            id={`cf-${field.key}`}
+                            type={field.type === "number" ? "number" : "text"}
+                            value={customFields[field.key] ?? ""}
+                            onChange={(event) =>
+                              setCustomFields((current) => ({
+                                ...current,
+                                [field.key]: event.target.value,
+                              }))
+                            }
+                            placeholder={field.type === "select" ? "Enter a value" : undefined}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {!task.parentTaskId && (
+                  <section className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <ListTree className="h-4 w-4" />
+                      <h3 className="text-sm font-semibold">Subtasks</h3>
+                      <Badge variant="secondary" className="rounded-full">
+                        {subtasks.length || task.subtaskCount || 0}
+                      </Badge>
+                    </div>
+                    <div className="space-y-0 divide-y rounded-lg border">
+                      {subtasks.length === 0 ? (
+                        <p className="px-3 py-4 text-sm text-muted-foreground">No subtasks yet.</p>
+                      ) : (
+                        subtasks.map((child) => (
+                          <button
+                            key={child.id}
+                            type="button"
+                            className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm hover:bg-muted/40"
+                            onClick={() => onOpenTask?.(child)}
+                          >
+                            <span className="truncate font-medium">{child.title}</span>
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                              {STATUS_LABELS[child.status]} · {child.progress}%
+                            </span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                    {onCreateSubtask && (
+                      <div className="flex gap-2">
+                        <Input
+                          value={subtaskTitle}
+                          onChange={(event) => setSubtaskTitle(event.target.value)}
+                          placeholder="Add a subtask"
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" && subtaskTitle.trim()) {
+                              event.preventDefault();
+                              void onCreateSubtask(task, subtaskTitle.trim()).then(() => {
+                                setSubtaskTitle("");
+                                void tasksApi
+                                  .list("team", {
+                                    parentTaskId: task.id,
+                                    boardId: task.boardId,
+                                    limit: 100,
+                                    detail: "summary",
+                                  })
+                                  .then(setSubtasks)
+                                  .catch(() => undefined);
+                              });
+                            }
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={saving || !subtaskTitle.trim()}
+                          onClick={() =>
+                            void onCreateSubtask(task, subtaskTitle.trim()).then(() => {
+                              setSubtaskTitle("");
+                              void tasksApi
+                                .list("team", {
+                                  parentTaskId: task.id,
+                                  boardId: task.boardId,
+                                  limit: 100,
+                                  detail: "summary",
+                                })
+                                .then(setSubtasks)
+                                .catch(() => undefined);
+                            })
+                          }
+                        >
+                          Add
+                        </Button>
+                      </div>
+                    )}
+                  </section>
+                )}
+
+                <section className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Paperclip className="h-4 w-4" />
+                    <h3 className="text-sm font-semibold">Attachments</h3>
+                    <Badge variant="secondary" className="rounded-full">
+                      {attachments.length}
+                    </Badge>
+                  </div>
+                  <div className="space-y-0 divide-y rounded-lg border">
+                    {attachments.length === 0 ? (
+                      <p className="px-3 py-4 text-sm text-muted-foreground">No files attached.</p>
+                    ) : (
+                      attachments.map((file) => (
+                        <div key={file.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
+                          <span className="truncate font-medium">{file.fileName}</span>
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {Math.max(1, Math.round(file.sizeBytes / 1024))} KB
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <Input
+                    type="file"
+                    disabled={attachmentBusy || saving}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) void uploadAttachment(file);
+                      event.target.value = "";
+                    }}
                   />
                 </section>
 
@@ -247,7 +497,7 @@ export function TaskDetailDialog({
                   <Textarea
                     value={message}
                     onChange={(event) => setMessage(event.target.value)}
-                    placeholder="Share progress, a decision, or a blocker"
+                    placeholder="Share progress. Mention people with @employeeCode"
                     rows={3}
                   />
                   <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_100px_auto] sm:items-center">
@@ -276,7 +526,35 @@ export function TaskDetailDialog({
               </div>
 
               <aside className="space-y-5 rounded-xl border bg-muted/20 p-4">
-                {board && (
+                {boards.length > 1 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Board
+                    </p>
+                    <Select
+                      value={boardId}
+                      onValueChange={(value) => {
+                        setBoardId(value);
+                        const next = boards.find((entry) => entry.id === value);
+                        const firstStage = next?.stages[0]?.id ?? "";
+                        setStageId(firstStage);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select board" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {boards.map((entry) => (
+                          <SelectItem key={entry.id} value={entry.id}>
+                            {entry.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {activeBoard && (
                   <div className="space-y-2">
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       Stage
@@ -285,14 +563,16 @@ export function TaskDetailDialog({
                       value={stageId}
                       onValueChange={(value) => {
                         setStageId(value);
-                        if (value !== task.stageId) void onMove(task, value);
+                        if (value !== task.stageId && boardId === (task.boardId ?? "")) {
+                          void onMove(task, value);
+                        }
                       }}
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {board.stages.map((stage) => (
+                        {activeBoard.stages.map((stage) => (
                           <SelectItem key={stage.id} value={stage.id}>
                             <span className="flex items-center gap-2">
                               <span
@@ -431,6 +711,16 @@ export function TaskDetailDialog({
                 >
                   {saving ? "Saving..." : "Save changes"}
                 </Button>
+                {onArchive && (
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    disabled={saving}
+                    onClick={() => void onArchive(task, !task.archivedAt)}
+                  >
+                    {task.archivedAt ? "Restore from archive" : "Archive task"}
+                  </Button>
+                )}
               </aside>
             </div>
           </>

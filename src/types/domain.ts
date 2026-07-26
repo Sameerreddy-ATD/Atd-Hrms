@@ -337,7 +337,7 @@ export interface ExpenseClaim {
   employeeId: string;
   employeeName: string;
   employeeCode: string;
-  claimType: "ADVANCE" | "EXPENSE";
+  claimType: "ADVANCE" | "EXPENSE" | "TRAVEL" | "FUEL" | "FIELD";
   title?: string;
   amount: number;
   expenseDate?: string;
@@ -636,6 +636,7 @@ export interface WorkTask {
   updatedAt: string;
   subtaskCount: number;
   updateCount: number;
+  customFields?: Record<string, unknown>;
   updates: TaskUpdate[];
 }
 
@@ -661,6 +662,7 @@ export interface TaskBoard {
   stages: TaskStage[];
   taskCount: number;
   openTaskCount: number;
+  customFieldDefs?: Array<{ key: string; label: string; type: "text" | "number" | "select" }>;
   createdAt: string;
   updatedAt: string;
 }

@@ -17,9 +17,12 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as VerifyIdEmployeeIdRouteImport } from './routes/verify-id.$employeeId'
 import { Route as AppUsersRouteImport } from './routes/_app.users'
 import { Route as AppTasksRouteImport } from './routes/_app.tasks'
+import { Route as AppSopRouteImport } from './routes/_app.sop'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
+import { Route as AppRosterRouteImport } from './routes/_app.roster'
 import { Route as AppRolesRouteImport } from './routes/_app.roles'
 import { Route as AppReportsRouteImport } from './routes/_app.reports'
+import { Route as AppRecruitmentRouteImport } from './routes/_app.recruitment'
 import { Route as AppProfileRouteImport } from './routes/_app.profile'
 import { Route as AppNotificationsRouteImport } from './routes/_app.notifications'
 import { Route as AppIdCardRouteImport } from './routes/_app.id-card'
@@ -28,14 +31,17 @@ import { Route as AppFaceSecurityRouteImport } from './routes/_app.face-security
 import { Route as AppEmployeesRouteImport } from './routes/_app.employees'
 import { Route as AppEmployeeServicesRouteImport } from './routes/_app.employee-services'
 import { Route as AppEmergencyContactRouteImport } from './routes/_app.emergency-contact'
+import { Route as AppDocumentsRouteImport } from './routes/_app.documents'
 import { Route as AppDevicesRouteImport } from './routes/_app.devices'
 import { Route as AppDepartmentsRouteImport } from './routes/_app.departments'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppCompanySetupRouteImport } from './routes/_app.company-setup'
+import { Route as AppChecklistsRouteImport } from './routes/_app.checklists'
 import { Route as AppBranchesRouteImport } from './routes/_app.branches'
 import { Route as AppAuditRouteImport } from './routes/_app.audit'
 import { Route as AppAttendanceRouteImport } from './routes/_app.attendance'
 import { Route as AppAssetsRouteImport } from './routes/_app.assets'
+import { Route as AppAppraisalsRouteImport } from './routes/_app.appraisals'
 import { Route as AppAnnouncementsRouteImport } from './routes/_app.announcements'
 import { Route as AppAttendanceIndexRouteImport } from './routes/_app.attendance.index'
 import { Route as AppUsersNewRouteImport } from './routes/_app.users.new'
@@ -95,9 +101,19 @@ const AppTasksRoute = AppTasksRouteImport.update({
   path: '/tasks',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSopRoute = AppSopRouteImport.update({
+  id: '/sop',
+  path: '/sop',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRosterRoute = AppRosterRouteImport.update({
+  id: '/roster',
+  path: '/roster',
   getParentRoute: () => AppRoute,
 } as any)
 const AppRolesRoute = AppRolesRouteImport.update({
@@ -108,6 +124,11 @@ const AppRolesRoute = AppRolesRouteImport.update({
 const AppReportsRoute = AppReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRecruitmentRoute = AppRecruitmentRouteImport.update({
+  id: '/recruitment',
+  path: '/recruitment',
   getParentRoute: () => AppRoute,
 } as any)
 const AppProfileRoute = AppProfileRouteImport.update({
@@ -150,6 +171,11 @@ const AppEmergencyContactRoute = AppEmergencyContactRouteImport.update({
   path: '/emergency-contact',
   getParentRoute: () => AppRoute,
 } as any)
+const AppDocumentsRoute = AppDocumentsRouteImport.update({
+  id: '/documents',
+  path: '/documents',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDevicesRoute = AppDevicesRouteImport.update({
   id: '/devices',
   path: '/devices',
@@ -170,6 +196,11 @@ const AppCompanySetupRoute = AppCompanySetupRouteImport.update({
   path: '/company-setup',
   getParentRoute: () => AppRoute,
 } as any)
+const AppChecklistsRoute = AppChecklistsRouteImport.update({
+  id: '/checklists',
+  path: '/checklists',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppBranchesRoute = AppBranchesRouteImport.update({
   id: '/branches',
   path: '/branches',
@@ -188,6 +219,11 @@ const AppAttendanceRoute = AppAttendanceRouteImport.update({
 const AppAssetsRoute = AppAssetsRouteImport.update({
   id: '/assets',
   path: '/assets',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAppraisalsRoute = AppAppraisalsRouteImport.update({
+  id: '/appraisals',
+  path: '/appraisals',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAnnouncementsRoute = AppAnnouncementsRouteImport.update({
@@ -294,14 +330,17 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/announcements': typeof AppAnnouncementsRoute
+  '/appraisals': typeof AppAppraisalsRoute
   '/assets': typeof AppAssetsRoute
   '/attendance': typeof AppAttendanceRouteWithChildren
   '/audit': typeof AppAuditRoute
   '/branches': typeof AppBranchesRoute
+  '/checklists': typeof AppChecklistsRoute
   '/company-setup': typeof AppCompanySetupRoute
   '/dashboard': typeof AppDashboardRoute
   '/departments': typeof AppDepartmentsRoute
   '/devices': typeof AppDevicesRouteWithChildren
+  '/documents': typeof AppDocumentsRoute
   '/emergency-contact': typeof AppEmergencyContactRoute
   '/employee-services': typeof AppEmployeeServicesRoute
   '/employees': typeof AppEmployeesRoute
@@ -310,9 +349,12 @@ export interface FileRoutesByFullPath {
   '/id-card': typeof AppIdCardRoute
   '/notifications': typeof AppNotificationsRoute
   '/profile': typeof AppProfileRoute
+  '/recruitment': typeof AppRecruitmentRoute
   '/reports': typeof AppReportsRouteWithChildren
   '/roles': typeof AppRolesRoute
+  '/roster': typeof AppRosterRoute
   '/settings': typeof AppSettingsRouteWithChildren
+  '/sop': typeof AppSopRoute
   '/tasks': typeof AppTasksRoute
   '/users': typeof AppUsersRouteWithChildren
   '/verify-id/$employeeId': typeof VerifyIdEmployeeIdRoute
@@ -341,13 +383,16 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/announcements': typeof AppAnnouncementsRoute
+  '/appraisals': typeof AppAppraisalsRoute
   '/assets': typeof AppAssetsRoute
   '/audit': typeof AppAuditRoute
   '/branches': typeof AppBranchesRoute
+  '/checklists': typeof AppChecklistsRoute
   '/company-setup': typeof AppCompanySetupRoute
   '/dashboard': typeof AppDashboardRoute
   '/departments': typeof AppDepartmentsRoute
   '/devices': typeof AppDevicesRouteWithChildren
+  '/documents': typeof AppDocumentsRoute
   '/emergency-contact': typeof AppEmergencyContactRoute
   '/employee-services': typeof AppEmployeeServicesRoute
   '/employees': typeof AppEmployeesRoute
@@ -356,9 +401,12 @@ export interface FileRoutesByTo {
   '/id-card': typeof AppIdCardRoute
   '/notifications': typeof AppNotificationsRoute
   '/profile': typeof AppProfileRoute
+  '/recruitment': typeof AppRecruitmentRoute
   '/reports': typeof AppReportsRouteWithChildren
   '/roles': typeof AppRolesRoute
+  '/roster': typeof AppRosterRoute
   '/settings': typeof AppSettingsRouteWithChildren
+  '/sop': typeof AppSopRoute
   '/tasks': typeof AppTasksRoute
   '/users': typeof AppUsersRouteWithChildren
   '/verify-id/$employeeId': typeof VerifyIdEmployeeIdRoute
@@ -389,14 +437,17 @@ export interface FileRoutesById {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/_app/announcements': typeof AppAnnouncementsRoute
+  '/_app/appraisals': typeof AppAppraisalsRoute
   '/_app/assets': typeof AppAssetsRoute
   '/_app/attendance': typeof AppAttendanceRouteWithChildren
   '/_app/audit': typeof AppAuditRoute
   '/_app/branches': typeof AppBranchesRoute
+  '/_app/checklists': typeof AppChecklistsRoute
   '/_app/company-setup': typeof AppCompanySetupRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/departments': typeof AppDepartmentsRoute
   '/_app/devices': typeof AppDevicesRouteWithChildren
+  '/_app/documents': typeof AppDocumentsRoute
   '/_app/emergency-contact': typeof AppEmergencyContactRoute
   '/_app/employee-services': typeof AppEmployeeServicesRoute
   '/_app/employees': typeof AppEmployeesRoute
@@ -405,9 +456,12 @@ export interface FileRoutesById {
   '/_app/id-card': typeof AppIdCardRoute
   '/_app/notifications': typeof AppNotificationsRoute
   '/_app/profile': typeof AppProfileRoute
+  '/_app/recruitment': typeof AppRecruitmentRoute
   '/_app/reports': typeof AppReportsRouteWithChildren
   '/_app/roles': typeof AppRolesRoute
+  '/_app/roster': typeof AppRosterRoute
   '/_app/settings': typeof AppSettingsRouteWithChildren
+  '/_app/sop': typeof AppSopRoute
   '/_app/tasks': typeof AppTasksRoute
   '/_app/users': typeof AppUsersRouteWithChildren
   '/verify-id/$employeeId': typeof VerifyIdEmployeeIdRoute
@@ -438,14 +492,17 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/announcements'
+    | '/appraisals'
     | '/assets'
     | '/attendance'
     | '/audit'
     | '/branches'
+    | '/checklists'
     | '/company-setup'
     | '/dashboard'
     | '/departments'
     | '/devices'
+    | '/documents'
     | '/emergency-contact'
     | '/employee-services'
     | '/employees'
@@ -454,9 +511,12 @@ export interface FileRouteTypes {
     | '/id-card'
     | '/notifications'
     | '/profile'
+    | '/recruitment'
     | '/reports'
     | '/roles'
+    | '/roster'
     | '/settings'
+    | '/sop'
     | '/tasks'
     | '/users'
     | '/verify-id/$employeeId'
@@ -485,13 +545,16 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/announcements'
+    | '/appraisals'
     | '/assets'
     | '/audit'
     | '/branches'
+    | '/checklists'
     | '/company-setup'
     | '/dashboard'
     | '/departments'
     | '/devices'
+    | '/documents'
     | '/emergency-contact'
     | '/employee-services'
     | '/employees'
@@ -500,9 +563,12 @@ export interface FileRouteTypes {
     | '/id-card'
     | '/notifications'
     | '/profile'
+    | '/recruitment'
     | '/reports'
     | '/roles'
+    | '/roster'
     | '/settings'
+    | '/sop'
     | '/tasks'
     | '/users'
     | '/verify-id/$employeeId'
@@ -532,14 +598,17 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/_app/announcements'
+    | '/_app/appraisals'
     | '/_app/assets'
     | '/_app/attendance'
     | '/_app/audit'
     | '/_app/branches'
+    | '/_app/checklists'
     | '/_app/company-setup'
     | '/_app/dashboard'
     | '/_app/departments'
     | '/_app/devices'
+    | '/_app/documents'
     | '/_app/emergency-contact'
     | '/_app/employee-services'
     | '/_app/employees'
@@ -548,9 +617,12 @@ export interface FileRouteTypes {
     | '/_app/id-card'
     | '/_app/notifications'
     | '/_app/profile'
+    | '/_app/recruitment'
     | '/_app/reports'
     | '/_app/roles'
+    | '/_app/roster'
     | '/_app/settings'
+    | '/_app/sop'
     | '/_app/tasks'
     | '/_app/users'
     | '/verify-id/$employeeId'
@@ -641,11 +713,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTasksRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/sop': {
+      id: '/_app/sop'
+      path: '/sop'
+      fullPath: '/sop'
+      preLoaderRoute: typeof AppSopRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/settings': {
       id: '/_app/settings'
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/roster': {
+      id: '/_app/roster'
+      path: '/roster'
+      fullPath: '/roster'
+      preLoaderRoute: typeof AppRosterRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/roles': {
@@ -660,6 +746,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof AppReportsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/recruitment': {
+      id: '/_app/recruitment'
+      path: '/recruitment'
+      fullPath: '/recruitment'
+      preLoaderRoute: typeof AppRecruitmentRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/profile': {
@@ -718,6 +811,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEmergencyContactRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/documents': {
+      id: '/_app/documents'
+      path: '/documents'
+      fullPath: '/documents'
+      preLoaderRoute: typeof AppDocumentsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/devices': {
       id: '/_app/devices'
       path: '/devices'
@@ -746,6 +846,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCompanySetupRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/checklists': {
+      id: '/_app/checklists'
+      path: '/checklists'
+      fullPath: '/checklists'
+      preLoaderRoute: typeof AppChecklistsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/branches': {
       id: '/_app/branches'
       path: '/branches'
@@ -772,6 +879,13 @@ declare module '@tanstack/react-router' {
       path: '/assets'
       fullPath: '/assets'
       preLoaderRoute: typeof AppAssetsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/appraisals': {
+      id: '/_app/appraisals'
+      path: '/appraisals'
+      fullPath: '/appraisals'
+      preLoaderRoute: typeof AppAppraisalsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/announcements': {
@@ -986,14 +1100,17 @@ const AppUsersRouteWithChildren = AppUsersRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppAnnouncementsRoute: typeof AppAnnouncementsRoute
+  AppAppraisalsRoute: typeof AppAppraisalsRoute
   AppAssetsRoute: typeof AppAssetsRoute
   AppAttendanceRoute: typeof AppAttendanceRouteWithChildren
   AppAuditRoute: typeof AppAuditRoute
   AppBranchesRoute: typeof AppBranchesRoute
+  AppChecklistsRoute: typeof AppChecklistsRoute
   AppCompanySetupRoute: typeof AppCompanySetupRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppDepartmentsRoute: typeof AppDepartmentsRoute
   AppDevicesRoute: typeof AppDevicesRouteWithChildren
+  AppDocumentsRoute: typeof AppDocumentsRoute
   AppEmergencyContactRoute: typeof AppEmergencyContactRoute
   AppEmployeeServicesRoute: typeof AppEmployeeServicesRoute
   AppEmployeesRoute: typeof AppEmployeesRoute
@@ -1002,9 +1119,12 @@ interface AppRouteChildren {
   AppIdCardRoute: typeof AppIdCardRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
   AppProfileRoute: typeof AppProfileRoute
+  AppRecruitmentRoute: typeof AppRecruitmentRoute
   AppReportsRoute: typeof AppReportsRouteWithChildren
   AppRolesRoute: typeof AppRolesRoute
+  AppRosterRoute: typeof AppRosterRoute
   AppSettingsRoute: typeof AppSettingsRouteWithChildren
+  AppSopRoute: typeof AppSopRoute
   AppTasksRoute: typeof AppTasksRoute
   AppUsersRoute: typeof AppUsersRouteWithChildren
   AppLeaveApplyRoute: typeof AppLeaveApplyRoute
@@ -1017,14 +1137,17 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAnnouncementsRoute: AppAnnouncementsRoute,
+  AppAppraisalsRoute: AppAppraisalsRoute,
   AppAssetsRoute: AppAssetsRoute,
   AppAttendanceRoute: AppAttendanceRouteWithChildren,
   AppAuditRoute: AppAuditRoute,
   AppBranchesRoute: AppBranchesRoute,
+  AppChecklistsRoute: AppChecklistsRoute,
   AppCompanySetupRoute: AppCompanySetupRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppDepartmentsRoute: AppDepartmentsRoute,
   AppDevicesRoute: AppDevicesRouteWithChildren,
+  AppDocumentsRoute: AppDocumentsRoute,
   AppEmergencyContactRoute: AppEmergencyContactRoute,
   AppEmployeeServicesRoute: AppEmployeeServicesRoute,
   AppEmployeesRoute: AppEmployeesRoute,
@@ -1033,9 +1156,12 @@ const AppRouteChildren: AppRouteChildren = {
   AppIdCardRoute: AppIdCardRoute,
   AppNotificationsRoute: AppNotificationsRoute,
   AppProfileRoute: AppProfileRoute,
+  AppRecruitmentRoute: AppRecruitmentRoute,
   AppReportsRoute: AppReportsRouteWithChildren,
   AppRolesRoute: AppRolesRoute,
+  AppRosterRoute: AppRosterRoute,
   AppSettingsRoute: AppSettingsRouteWithChildren,
+  AppSopRoute: AppSopRoute,
   AppTasksRoute: AppTasksRoute,
   AppUsersRoute: AppUsersRouteWithChildren,
   AppLeaveApplyRoute: AppLeaveApplyRoute,

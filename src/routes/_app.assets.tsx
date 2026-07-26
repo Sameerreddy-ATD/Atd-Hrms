@@ -32,6 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type {
   AssetCatalogItem,
   AssetReturnRecord,
@@ -42,17 +43,16 @@ import type {
 import { assetsApi, branchesApi, employeesApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
 import {
-  IndianRupee,
   Building2,
   CalendarClock,
   Globe2,
+  IndianRupee,
   Package,
   Pencil,
   Plus,
   RotateCcw,
   Search,
   UserPlus,
-  UserRound,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/assets")({ component: AssetsPage });
@@ -73,10 +73,14 @@ const EMPTY_ASSET_FORM = {
 };
 
 const PAGE_SIZE = 100;
+type AssetsTab = "inventory" | "assigned" | "investment" | "returns";
+type ScopeFilter = "all" | "EMPLOYEE" | "COMPANY";
 
 function AssetsPage() {
   const { user } = useAuth();
   const canManage = user?.role === "hr" || user?.role === "developer_admin";
+  const isCeo = user?.role === "ceo";
+  const [tab, setTab] = useState<AssetsTab>(isCeo ? "investment" : "inventory");
   const [assets, setAssets] = useState<CompanyAsset[]>([]);
   const [investments, setInvestments] = useState<EmployeeAssetInvestment[]>([]);
   const [assetNames, setAssetNames] = useState<AssetCatalogItem[]>([]);
@@ -86,6 +90,7 @@ function AssetsPage() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [assetTypeFilter, setAssetTypeFilter] = useState("all");
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>("all");
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -98,10 +103,8 @@ function AssetsPage() {
   const [newAssetName, setNewAssetName] = useState("");
 
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
-  const [assignment, setAssignment] = useState({
-    assetId: "",
-    employeeId: "",
-  });
+  const [assignment, setAssignment] = useState({ assetId: "", employeeId: "" });
+  const [employeeQuery, setEmployeeQuery] = useState("");
   const [returnTarget, setReturnTarget] = useState<CompanyAsset | null>(null);
   const [returnForm, setReturnForm] = useState({
     condition: "GOOD" as AssetReturnRecord["condition"],
@@ -173,6 +176,16 @@ function AssetsPage() {
     [assets],
   );
 
+  const assignedAssets = useMemo(
+    () =>
+      assets.filter(
+        (asset) =>
+          asset.assignmentScope === "EMPLOYEE" &&
+          (asset.status === "ASSIGNED" || !!asset.assignedEmployeeId),
+      ),
+    [assets],
+  );
+
   const assetNamesForType = useMemo(
     () =>
       assetNames.filter(
@@ -188,25 +201,44 @@ function AssetsPage() {
     return assets.filter((asset) => {
       if (statusFilter !== "all" && asset.status !== statusFilter) return false;
       if (assetTypeFilter !== "all" && asset.assetType !== assetTypeFilter) return false;
+      if (scopeFilter !== "all" && asset.assignmentScope !== scopeFilter) return false;
       const text =
         `${asset.assetCode} ${asset.name} ${asset.serialNumber ?? ""} ${asset.assignedEmployeeName ?? ""}`.toLowerCase();
       return !search || text.includes(search);
     });
-  }, [assets, query, statusFilter, assetTypeFilter]);
+  }, [assets, assetTypeFilter, query, scopeFilter, statusFilter]);
+
+  const filteredAssigned = useMemo(() => {
+    const search = query.trim().toLowerCase();
+    return assignedAssets.filter((asset) => {
+      if (assetTypeFilter !== "all" && asset.assetType !== assetTypeFilter) return false;
+      const text =
+        `${asset.assetCode} ${asset.name} ${asset.serialNumber ?? ""} ${asset.assignedEmployeeName ?? ""}`.toLowerCase();
+      return !search || text.includes(search);
+    });
+  }, [assignedAssets, assetTypeFilter, query]);
+
+  const filteredEmployees = useMemo(() => {
+    const search = employeeQuery.trim().toLowerCase();
+    if (!search) return employees;
+    return employees.filter((employee) =>
+      [employee.name, employee.employeeCode, employee.email]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(search)),
+    );
+  }, [employeeQuery, employees]);
 
   const totals = useMemo(
     () => ({
-      count: assets.length,
-      assigned: assets.filter((asset) => asset.status === "ASSIGNED").length,
+      assigned: assignedAssets.length,
       available: availableAssets.length,
-      value: assets.reduce((sum, asset) => sum + asset.purchaseValue, 0),
       physical: assets.filter((asset) => asset.assetType === "PHYSICAL").length,
       online: assets.filter((asset) => asset.assetType === "ONLINE").length,
       companyUse: assets.filter((asset) => asset.assignmentScope === "COMPANY").length,
       monthlyRecurring: assets.reduce((sum, asset) => sum + asset.monthlyEquivalent, 0),
       annualRecurring: assets.reduce((sum, asset) => sum + asset.annualRecurring, 0),
     }),
-    [assets, availableAssets.length],
+    [assets, assignedAssets.length, availableAssets.length],
   );
 
   function openAddAsset() {
@@ -262,7 +294,7 @@ function AssetsPage() {
         costFrequency: assetForm.costFrequency,
         renewalDate: assetForm.costFrequency === "ONE_TIME" ? null : assetForm.renewalDate || null,
         branchId: assetForm.assetType === "ONLINE" ? null : assetForm.branchId || null,
-        status: assetForm.assetType === "ONLINE" ? undefined : assetForm.status,
+        status: assetForm.status,
       };
       const saved = editingAsset
         ? await assetsApi.update(editingAsset.id, payload)
@@ -302,8 +334,9 @@ function AssetsPage() {
     }
   }
 
-  function openAssignAsset() {
-    setAssignment({ assetId: "", employeeId: "" });
+  function openAssignAsset(prefillAssetId?: string) {
+    setAssignment({ assetId: prefillAssetId ?? "", employeeId: "" });
+    setEmployeeQuery("");
     setAssignDialogOpen(true);
   }
 
@@ -322,6 +355,7 @@ function AssetsPage() {
       setAssignDialogOpen(false);
       setInvestments(await assetsApi.investmentSummary());
       toast.success(`Asset assigned to ${saved.assignedEmployeeName}`);
+      setTab("assigned");
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -343,20 +377,27 @@ function AssetsPage() {
 
   async function returnAsset() {
     if (!returnTarget) return;
-    if (returnForm.physicalDamage && !returnForm.damageNotes.trim()) {
+    const isPhysical = returnTarget.assetType === "PHYSICAL";
+    if (isPhysical && returnForm.physicalDamage && !returnForm.damageNotes.trim()) {
       toast.error("Describe the physical damage before completing the return.");
       return;
     }
     setReturning(true);
     try {
       await assetsApi.returnAsset(returnTarget.id, {
-        ...returnForm,
-        damageNotes: returnForm.damageNotes || null,
+        condition: returnForm.condition,
+        accessoriesReturned: isPhysical ? returnForm.accessoriesReturned : false,
+        chargerReturned: isPhysical ? returnForm.chargerReturned : false,
+        dataBackedUp: returnForm.dataBackedUp,
+        dataWiped: returnForm.dataWiped,
+        physicalDamage: isPhysical ? returnForm.physicalDamage : false,
+        damageNotes: isPhysical && returnForm.damageNotes ? returnForm.damageNotes : null,
         remarks: returnForm.remarks || null,
       });
       setReturnTarget(null);
       await load();
       toast.success("Return checklist saved and asset released");
+      setTab("inventory");
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -364,18 +405,28 @@ function AssetsPage() {
     }
   }
 
+  const editingIsAssigned = Boolean(editingAsset?.assignedEmployeeId);
+
   return (
-    <div>
+    <div className="mx-auto max-w-[1440px] space-y-5 px-4 pb-16 sm:px-6">
       <PageHeader
         title="Asset Management"
-        description="Track employee-assigned physical and online assets, plus shared company assets such as furniture and fixtures."
+        description={
+          canManage
+            ? "Register company assets, assign them to people, and record returns. Shared furniture stays company-use."
+            : "Read-only view of company assets and investment per employee."
+        }
         actions={
           canManage ? (
             <div className="flex flex-wrap items-center gap-2">
               <Button size="sm" variant="outline" onClick={openAddAsset}>
                 <Plus className="mr-2 h-4 w-4" /> Add Asset
               </Button>
-              <Button size="sm" onClick={openAssignAsset} disabled={availableAssets.length === 0}>
+              <Button
+                size="sm"
+                onClick={() => openAssignAsset()}
+                disabled={availableAssets.length === 0}
+              >
                 <UserPlus className="mr-2 h-4 w-4" /> Assign Asset
               </Button>
             </div>
@@ -384,9 +435,10 @@ function AssetsPage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Physical assets" value={totals.physical} icon={Package} />
-        <MetricCard label="Online assets" value={totals.online} icon={Globe2} />
-        <MetricCard label="Company-use assets" value={totals.companyUse} icon={Building2} />
+        <MetricCard label="Available to assign" value={totals.available} icon={Package} />
+        <MetricCard label="Currently assigned" value={totals.assigned} icon={UserPlus} />
+        <MetricCard label="Physical / online" value={`${totals.physical} / ${totals.online}`} icon={Globe2} />
+        <MetricCard label="Company-use" value={totals.companyUse} icon={Building2} />
         <MetricCard
           label="Monthly recurring"
           value={formatCurrency(totals.monthlyRecurring)}
@@ -399,372 +451,132 @@ function AssetsPage() {
         />
       </div>
 
-      <section className="mt-5 overflow-hidden rounded-lg border border-border bg-card">
-        <div className="border-b px-4 py-3">
-          <h2 className="text-sm font-semibold">Company investment per employee</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            How much Anytime Diesel invests in each employee through assigned assets and online
-            services.
-          </p>
-        </div>
-        {loading ? (
-          <p className="p-4 text-sm text-muted-foreground">
-            Calculating company investment per employee...
-          </p>
-        ) : investments.length === 0 ? (
-          <p className="p-6 text-center text-sm text-muted-foreground">
-            Assign assets to employees to see how much the company invests in each person.
-          </p>
-        ) : (
-          <>
-            <div className="space-y-2 p-3 md:hidden">
-              {investments.map((item) => (
-                <div key={item.employeeId} className="rounded-md border bg-background p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{item.employeeName}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.employeeCode}
-                        {item.department ? ` - ${item.department}` : ""}
-                      </p>
-                    </div>
-                    <Badge variant="outline">
-                      {item.physicalAssets + item.onlineAssets} assets
-                    </Badge>
-                  </div>
-                  <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
-                    <InvestmentValue label="One-time invested" value={item.oneTimeInvestment} />
-                    <InvestmentValue label="Monthly recurring" value={item.monthlyRecurring} />
-                    <InvestmentValue label="Annual recurring" value={item.annualRecurring} />
-                    <InvestmentValue
-                      label="First-year investment"
-                      value={item.firstYearInvestment}
-                      emphasized
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="hidden overflow-x-auto md:block">
-              <Table className="min-w-[880px]">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Employee</TableHead>
-                    <TableHead>Asset mix</TableHead>
-                    <TableHead className="text-right">One-time invested</TableHead>
-                    <TableHead className="text-right">Monthly recurring</TableHead>
-                    <TableHead className="text-right">Annual recurring</TableHead>
-                    <TableHead className="text-right">First-year investment</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {investments.map((item) => (
-                    <TableRow key={item.employeeId}>
-                      <TableCell>
-                        <div className="font-medium">{item.employeeName}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {item.employeeCode}
-                          {item.department ? ` - ${item.department}` : ""}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm">
-                          {item.physicalAssets} physical - {item.onlineAssets} online
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(item.oneTimeInvestment)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(item.monthlyRecurring)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(item.annualRecurring)}
-                      </TableCell>
-                      <TableCell className="text-right font-semibold">
-                        {formatCurrency(item.firstYearInvestment)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </>
-        )}
-      </section>
+      {loading && <LoadingState label="Loading assets" />}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-        <div className="relative min-w-52 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            className="pl-9"
-            placeholder="Search asset ID, name, serial number, or employee..."
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="sm:w-44">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="AVAILABLE">Available</SelectItem>
-            <SelectItem value="ASSIGNED">Assigned</SelectItem>
-            <SelectItem value="UNDER_REPAIR">Under repair</SelectItem>
-            <SelectItem value="RETIRED">Retired</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={assetTypeFilter} onValueChange={setAssetTypeFilter}>
-          <SelectTrigger className="sm:w-44">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All asset types</SelectItem>
-            <SelectItem value="PHYSICAL">Physical</SelectItem>
-            <SelectItem value="ONLINE">Online</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {loading && <LoadingState label="Loading assets" className="mt-5" />}
-      {error && <p className="mt-5 text-sm text-destructive">{error}</p>}
       {!loading && !error && (
-        <div className="mt-5 overflow-hidden rounded-lg border border-border bg-card">
-          <div className="space-y-2 p-3 md:hidden">
-            {visibleAssets.map((asset) => (
-              <div
-                key={asset.id}
-                className="rounded-lg border bg-background p-3 [content-visibility:auto] [contain-intrinsic-size:230px]"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{asset.name}</p>
-                    {asset.assetType === "PHYSICAL" && (
-                      <p className="mt-0.5 font-mono text-xs text-muted-foreground">
-                        {asset.assetCode}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <AssetTypeBadge type={asset.assetType} />
-                    {asset.assignmentScope === "COMPANY" && (
-                      <Badge variant="outline">Company use</Badge>
-                    )}
-                    {asset.assetType === "PHYSICAL" && <AssetStatus status={asset.status} />}
-                  </div>
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <p className="text-muted-foreground">{costLabel(asset.costFrequency)}</p>
-                    <p className="mt-0.5 font-medium">{formatCurrency(asset.purchaseValue)}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Branch</p>
-                    <p className="mt-0.5 break-words">
-                      {asset.assetType === "ONLINE" ? "Not applicable" : (asset.branchName ?? "-")}
-                    </p>
-                  </div>
-                  <div className="col-span-2">
-                    <p className="text-muted-foreground">Assigned to</p>
-                    <p className="mt-0.5 break-words">
-                      {asset.assignmentScope === "COMPANY"
-                        ? "Shared company asset"
-                        : (asset.assignedEmployeeName ?? "Not assigned")}
-                    </p>
-                  </div>
-                  {asset.costFrequency !== "ONE_TIME" && (
-                    <div className="col-span-2">
-                      <p className="text-muted-foreground">Recurring cost</p>
-                      <p className="mt-0.5">
-                        {formatCurrency(asset.monthlyEquivalent)}/month -{" "}
-                        {formatCurrency(asset.annualRecurring)}/year
-                      </p>
-                    </div>
-                  )}
-                </div>
-                {canManage && (
-                  <div className="mt-3 flex gap-2">
-                    {asset.status === "ASSIGNED" && (
-                      <Button
-                        className="flex-1"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openReturnAsset(asset)}
-                      >
-                        <RotateCcw className="h-4 w-4" /> Return
-                      </Button>
-                    )}
-                    <Button
-                      className="flex-1"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => openEditAsset(asset)}
-                    >
-                      <Pencil className="h-4 w-4" /> Edit
-                    </Button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="hidden overflow-x-auto md:block">
-            <Table className="min-w-[960px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Asset ID</TableHead>
-                  <TableHead>Asset name</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Serial number</TableHead>
-                  <TableHead>Cost</TableHead>
-                  <TableHead>Purchase date</TableHead>
-                  <TableHead>Branch</TableHead>
-                  <TableHead>Assigned employee</TableHead>
-                  <TableHead>Status</TableHead>
-                  {canManage && <TableHead className="text-right">Actions</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visibleAssets.map((asset) => (
-                  <TableRow
-                    key={asset.id}
-                    className="[content-visibility:auto] [contain-intrinsic-size:52px]"
-                  >
-                    <TableCell className="font-mono text-xs font-semibold">
-                      {asset.assetType === "PHYSICAL" ? asset.assetCode : "-"}
-                    </TableCell>
-                    <TableCell className="font-medium">{asset.name}</TableCell>
-                    <TableCell>
-                      <AssetTypeBadge type={asset.assetType} />
-                    </TableCell>
-                    <TableCell>{asset.serialNumber ?? "-"}</TableCell>
-                    <TableCell>
-                      <div>{formatCurrency(asset.purchaseValue)}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {costLabel(asset.costFrequency)}
-                      </div>
-                    </TableCell>
-                    <TableCell>{asset.purchaseDate ?? "-"}</TableCell>
-                    <TableCell>
-                      {asset.assetType === "ONLINE" ? "Not applicable" : (asset.branchName ?? "-")}
-                    </TableCell>
-                    <TableCell>
-                      {asset.assignmentScope === "COMPANY" ? (
-                        <span className="text-muted-foreground">Company use</span>
-                      ) : asset.assignedEmployeeName ? (
-                        <div>
-                          <div className="font-medium">{asset.assignedEmployeeName}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {asset.assignedEmployeeCode}
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">Not assigned</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {asset.assetType === "PHYSICAL" ? (
-                        <AssetStatus status={asset.status} />
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    {canManage && (
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          {asset.status === "ASSIGNED" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openReturnAsset(asset)}
-                            >
-                              <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Return
-                            </Button>
-                          )}
-                          <Button
-                            size="icon"
-                            variant="outline"
-                            title="Edit asset"
-                            onClick={() => openEditAsset(asset)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          {visibleAssets.length === 0 && (
-            <div className="p-8 text-center">
-              <p className="text-sm font-medium">No company assets found</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Use Add Asset to register the company&apos;s existing assets.
-              </p>
-            </div>
-          )}
-          {hasMore && !query && statusFilter === "all" && assetTypeFilter === "all" && (
-            <div className="border-t p-3 text-center">
-              <Button variant="outline" onClick={() => void loadMore()} disabled={loadingMore}>
-                {loadingMore ? "Loading assets..." : "Load more assets"}
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
+        <Tabs value={tab} onValueChange={(value) => setTab(value as AssetsTab)}>
+          <TabsList className="h-auto w-full flex-wrap justify-start gap-1">
+            <TabsTrigger value="inventory" className="min-h-10">
+              Inventory
+            </TabsTrigger>
+            <TabsTrigger value="assigned" className="min-h-10">
+              Assigned ({assignedAssets.length})
+            </TabsTrigger>
+            <TabsTrigger value="investment" className="min-h-10">
+              Investment
+            </TabsTrigger>
+            {canManage && (
+              <TabsTrigger value="returns" className="min-h-10">
+                Returns
+              </TabsTrigger>
+            )}
+          </TabsList>
 
-      {canManage && (
-        <section className="mt-5 overflow-hidden rounded-lg border bg-card">
-          <div className="border-b px-4 py-3">
-            <h2 className="text-sm font-semibold">Return history</h2>
-            <p className="text-xs text-muted-foreground">
-              Completed HR checklists for returned company assets.
+          <TabsContent value="inventory" className="mt-4 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              All company assets. Add new items here, then assign employee-scoped assets from an
+              available row.
             </p>
-          </div>
-          {returnHistory.length === 0 ? (
-            <p className="p-6 text-center text-sm text-muted-foreground">
-              No asset returns recorded.
-            </p>
-          ) : (
-            <div className="divide-y">
-              {returnHistory.slice(0, 20).map((row) => (
-                <div
-                  key={row.id}
-                  className="grid gap-2 p-4 text-sm sm:grid-cols-[1fr_auto] sm:items-center"
-                >
-                  <div>
-                    <p className="font-medium">
-                      {row.assetName}{" "}
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {row.assetCode}
-                      </span>
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Returned by {row.employeeName} ·{" "}
-                      {new Date(row.returnedAt).toLocaleString("en-IN")}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    <Badge variant="outline">{row.condition.replaceAll("_", " ")}</Badge>
-                    {row.dataWiped && <Badge variant="outline">Data wiped</Badge>}
-                    {row.physicalDamage && <Badge variant="destructive">Damage recorded</Badge>}
-                  </div>
+            <FilterBar
+              query={query}
+              onQueryChange={setQuery}
+              statusFilter={statusFilter}
+              onStatusChange={setStatusFilter}
+              assetTypeFilter={assetTypeFilter}
+              onAssetTypeChange={setAssetTypeFilter}
+              scopeFilter={scopeFilter}
+              onScopeChange={setScopeFilter}
+              showStatus
+              showScope
+            />
+            <AssetList
+              assets={visibleAssets}
+              canManage={canManage}
+              mode="inventory"
+              onEdit={openEditAsset}
+              onAssign={(asset) => openAssignAsset(asset.id)}
+              onReturn={openReturnAsset}
+              emptyTitle="No assets match these filters"
+              emptyHint={
+                canManage
+                  ? "Use Add Asset to register a laptop, phone, furniture, or online subscription."
+                  : "Ask HR to register company assets."
+              }
+            />
+            {hasMore &&
+              !query &&
+              statusFilter === "all" &&
+              assetTypeFilter === "all" &&
+              scopeFilter === "all" && (
+                <div className="text-center">
+                  <Button variant="outline" onClick={() => void loadMore()} disabled={loadingMore}>
+                    {loadingMore ? "Loading assets..." : "Load more assets"}
+                  </Button>
                 </div>
-              ))}
-            </div>
+              )}
+          </TabsContent>
+
+          <TabsContent value="assigned" className="mt-4 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Assets currently with an employee. Use Return to complete the checklist and free the
+              item for reassignment.
+            </p>
+            <FilterBar
+              query={query}
+              onQueryChange={setQuery}
+              assetTypeFilter={assetTypeFilter}
+              onAssetTypeChange={setAssetTypeFilter}
+              showStatus={false}
+              showScope={false}
+            />
+            <AssetList
+              assets={filteredAssigned}
+              canManage={canManage}
+              mode="assigned"
+              onEdit={openEditAsset}
+              onAssign={(asset) => openAssignAsset(asset.id)}
+              onReturn={openReturnAsset}
+              emptyTitle="No assets are assigned right now"
+              emptyHint={
+                canManage
+                  ? availableAssets.length
+                    ? "Open Inventory or Assign Asset to give someone a device or license."
+                    : "Add an available employee-scoped asset first, then assign it."
+                  : "Assigned assets will appear here once HR issues them."
+              }
+            />
+          </TabsContent>
+
+          <TabsContent value="investment" className="mt-4 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              How much Anytime Diesel currently invests in each employee through assigned physical
+              devices and online seats. Shared company-use assets are excluded.
+            </p>
+            <InvestmentSection investments={investments} />
+          </TabsContent>
+
+          {canManage && (
+            <TabsContent value="returns" className="mt-4 space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Completed return checklists. Not-working physical returns are marked under repair.
+              </p>
+              <ReturnHistorySection rows={returnHistory} />
+            </TabsContent>
           )}
-        </section>
+        </Tabs>
       )}
 
       <Dialog open={assetDialogOpen} onOpenChange={setAssetDialogOpen}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>{editingAsset ? "Edit Asset" : "Add Asset"}</DialogTitle>
           </DialogHeader>
           <form className="grid gap-4 sm:grid-cols-2" onSubmit={saveAsset}>
-            <FormField label="Asset use">
+            <FormField
+              label="Who uses it"
+              hint="Employee = issued to one person. Company use = shared furniture/fixtures."
+            >
               <Select
                 value={assetForm.assignmentScope}
                 onValueChange={(value) =>
@@ -779,12 +591,15 @@ function AssetsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="EMPLOYEE">Assigned to employee</SelectItem>
+                  <SelectItem value="EMPLOYEE">Employee (can assign)</SelectItem>
                   <SelectItem value="COMPANY">Company use (not assignable)</SelectItem>
                 </SelectContent>
               </Select>
             </FormField>
-            <FormField label="Asset type">
+            <FormField
+              label="Asset type"
+              hint="Physical = laptop/phone/furniture. Online = software seat or subscription."
+            >
               <Select
                 value={assetForm.assetType}
                 onValueChange={(value) =>
@@ -937,28 +752,32 @@ function AssetsPage() {
                 </Select>
               </FormField>
             )}
-            {assetForm.assetType === "PHYSICAL" && (
-              <FormField label="Status">
-                <Select
-                  value={assetForm.status}
-                  onValueChange={(value) =>
-                    setAssetForm({ ...assetForm, status: value as CompanyAsset["status"] })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="AVAILABLE">Available</SelectItem>
-                    {editingAsset?.status === "ASSIGNED" && (
-                      <SelectItem value="ASSIGNED">Assigned</SelectItem>
-                    )}
-                    <SelectItem value="UNDER_REPAIR">Under repair</SelectItem>
-                    <SelectItem value="RETIRED">Retired</SelectItem>
-                  </SelectContent>
-                </Select>
-              </FormField>
-            )}
+            <FormField
+              label="Status"
+              hint={
+                editingIsAssigned
+                  ? "This asset is assigned. Return it before changing status."
+                  : undefined
+              }
+            >
+              <Select
+                value={assetForm.status}
+                onValueChange={(value) =>
+                  setAssetForm({ ...assetForm, status: value as CompanyAsset["status"] })
+                }
+                disabled={editingIsAssigned}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="AVAILABLE">Available</SelectItem>
+                  {editingIsAssigned && <SelectItem value="ASSIGNED">Assigned</SelectItem>}
+                  <SelectItem value="UNDER_REPAIR">Under repair</SelectItem>
+                  <SelectItem value="RETIRED">Retired</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
             <DialogFooter className="sm:col-span-2">
               <Button type="button" variant="outline" onClick={() => setAssetDialogOpen(false)}>
                 Cancel
@@ -986,7 +805,7 @@ function AssetsPage() {
               />
             </FormField>
             <p className="text-xs text-muted-foreground">
-              This name will be saved and available in the Asset Name dropdown next time.
+              Saved names appear in the Asset name dropdown next time.
             </p>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setNewNameDialogOpen(false)}>
@@ -1003,8 +822,8 @@ function AssetsPage() {
           <DialogHeader>
             <DialogTitle>Assign Asset to Employee</DialogTitle>
           </DialogHeader>
-          <form className="grid gap-4 sm:grid-cols-2" onSubmit={assignAsset}>
-            <div className="sm:col-span-2">
+          <form className="grid gap-4" onSubmit={assignAsset}>
+            <div className="space-y-1.5">
               <Label>Available asset</Label>
               <Select
                 value={assignment.assetId}
@@ -1016,15 +835,23 @@ function AssetsPage() {
                 <SelectContent>
                   {availableAssets.map((asset) => (
                     <SelectItem key={asset.id} value={asset.id}>
-                      {asset.assetCode} - {asset.name}
-                      {asset.serialNumber ? ` (${asset.serialNumber})` : ""}
+                      {assetLabel(asset)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="sm:col-span-2">
+            <div className="space-y-1.5">
               <Label>Employee</Label>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="pl-9"
+                  value={employeeQuery}
+                  onChange={(event) => setEmployeeQuery(event.target.value)}
+                  placeholder="Search by name or employee code"
+                />
+              </div>
               <Select
                 value={assignment.employeeId}
                 onValueChange={(employeeId) => setAssignment({ ...assignment, employeeId })}
@@ -1033,7 +860,7 @@ function AssetsPage() {
                   <SelectValue placeholder="Select employee" />
                 </SelectTrigger>
                 <SelectContent>
-                  {employees.map((employee) => (
+                  {filteredEmployees.map((employee) => (
                     <SelectItem key={employee.employeeId!} value={employee.employeeId!}>
                       {employee.name} ({employee.employeeCode ?? employee.employeeId})
                     </SelectItem>
@@ -1041,7 +868,7 @@ function AssetsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <DialogFooter className="sm:col-span-2">
+            <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setAssignDialogOpen(false)}>
                 Cancel
               </Button>
@@ -1054,14 +881,14 @@ function AssetsPage() {
       <Dialog open={Boolean(returnTarget)} onOpenChange={(open) => !open && setReturnTarget(null)}>
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Asset return checklist</DialogTitle>
+            <DialogTitle>
+              {returnTarget?.assetType === "ONLINE" ? "Online seat return" : "Asset return checklist"}
+            </DialogTitle>
           </DialogHeader>
           {returnTarget && (
             <div className="space-y-4">
               <div className="rounded-md border bg-muted/30 p-3 text-sm">
-                <p className="font-semibold">
-                  {returnTarget.name} · {returnTarget.assetCode}
-                </p>
+                <p className="font-semibold">{assetLabel(returnTarget)}</p>
                 <p className="text-muted-foreground">
                   Returning from {returnTarget.assignedEmployeeName}
                 </p>
@@ -1084,36 +911,55 @@ function AssetsPage() {
                   </SelectContent>
                 </Select>
               </FormField>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <ChecklistItem
-                  label="Accessories returned"
-                  checked={returnForm.accessoriesReturned}
-                  onChange={(checked) =>
-                    setReturnForm((v) => ({ ...v, accessoriesReturned: checked }))
-                  }
-                />
-                <ChecklistItem
-                  label="Charger returned"
-                  checked={returnForm.chargerReturned}
-                  onChange={(checked) => setReturnForm((v) => ({ ...v, chargerReturned: checked }))}
-                />
-                <ChecklistItem
-                  label="Company data backed up"
-                  checked={returnForm.dataBackedUp}
-                  onChange={(checked) => setReturnForm((v) => ({ ...v, dataBackedUp: checked }))}
-                />
-                <ChecklistItem
-                  label="Company data wiped"
-                  checked={returnForm.dataWiped}
-                  onChange={(checked) => setReturnForm((v) => ({ ...v, dataWiped: checked }))}
-                />
-                <ChecklistItem
-                  label="Physical damage found"
-                  checked={returnForm.physicalDamage}
-                  onChange={(checked) => setReturnForm((v) => ({ ...v, physicalDamage: checked }))}
-                />
-              </div>
-              {returnForm.physicalDamage && (
+              {returnTarget.assetType === "PHYSICAL" ? (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <ChecklistItem
+                    label="Accessories returned"
+                    checked={returnForm.accessoriesReturned}
+                    onChange={(checked) =>
+                      setReturnForm((v) => ({ ...v, accessoriesReturned: checked }))
+                    }
+                  />
+                  <ChecklistItem
+                    label="Charger returned"
+                    checked={returnForm.chargerReturned}
+                    onChange={(checked) =>
+                      setReturnForm((v) => ({ ...v, chargerReturned: checked }))
+                    }
+                  />
+                  <ChecklistItem
+                    label="Company data backed up"
+                    checked={returnForm.dataBackedUp}
+                    onChange={(checked) => setReturnForm((v) => ({ ...v, dataBackedUp: checked }))}
+                  />
+                  <ChecklistItem
+                    label="Company data wiped"
+                    checked={returnForm.dataWiped}
+                    onChange={(checked) => setReturnForm((v) => ({ ...v, dataWiped: checked }))}
+                  />
+                  <ChecklistItem
+                    label="Physical damage found"
+                    checked={returnForm.physicalDamage}
+                    onChange={(checked) =>
+                      setReturnForm((v) => ({ ...v, physicalDamage: checked }))
+                    }
+                  />
+                </div>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <ChecklistItem
+                    label="Access / seat revoked"
+                    checked={returnForm.dataWiped}
+                    onChange={(checked) => setReturnForm((v) => ({ ...v, dataWiped: checked }))}
+                  />
+                  <ChecklistItem
+                    label="Company data / files recovered"
+                    checked={returnForm.dataBackedUp}
+                    onChange={(checked) => setReturnForm((v) => ({ ...v, dataBackedUp: checked }))}
+                  />
+                </div>
+              )}
+              {returnTarget.assetType === "PHYSICAL" && returnForm.physicalDamage && (
                 <FormField label="Damage details">
                   <Textarea
                     rows={3}
@@ -1152,11 +998,414 @@ function AssetsPage() {
   );
 }
 
-function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+function FilterBar({
+  query,
+  onQueryChange,
+  statusFilter,
+  onStatusChange,
+  assetTypeFilter,
+  onAssetTypeChange,
+  scopeFilter,
+  onScopeChange,
+  showStatus,
+  showScope,
+}: {
+  query: string;
+  onQueryChange: (value: string) => void;
+  statusFilter?: string;
+  onStatusChange?: (value: string) => void;
+  assetTypeFilter: string;
+  onAssetTypeChange: (value: string) => void;
+  scopeFilter?: ScopeFilter;
+  onScopeChange?: (value: ScopeFilter) => void;
+  showStatus: boolean;
+  showScope: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+      <div className="relative min-w-52 flex-1">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          className="pl-9"
+          placeholder="Search name, ID, serial, or employee..."
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+        />
+      </div>
+      {showStatus && statusFilter !== undefined && onStatusChange && (
+        <Select value={statusFilter} onValueChange={onStatusChange}>
+          <SelectTrigger className="sm:w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="AVAILABLE">Available</SelectItem>
+            <SelectItem value="ASSIGNED">Assigned</SelectItem>
+            <SelectItem value="UNDER_REPAIR">Under repair</SelectItem>
+            <SelectItem value="RETIRED">Retired</SelectItem>
+          </SelectContent>
+        </Select>
+      )}
+      <Select value={assetTypeFilter} onValueChange={onAssetTypeChange}>
+        <SelectTrigger className="sm:w-44">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All types</SelectItem>
+          <SelectItem value="PHYSICAL">Physical</SelectItem>
+          <SelectItem value="ONLINE">Online</SelectItem>
+        </SelectContent>
+      </Select>
+      {showScope && scopeFilter !== undefined && onScopeChange && (
+        <Select value={scopeFilter} onValueChange={(value) => onScopeChange(value as ScopeFilter)}>
+          <SelectTrigger className="sm:w-48">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All scopes</SelectItem>
+            <SelectItem value="EMPLOYEE">Employee-assigned</SelectItem>
+            <SelectItem value="COMPANY">Company-use</SelectItem>
+          </SelectContent>
+        </Select>
+      )}
+    </div>
+  );
+}
+
+function AssetList({
+  assets,
+  canManage,
+  mode,
+  onEdit,
+  onAssign,
+  onReturn,
+  emptyTitle,
+  emptyHint,
+}: {
+  assets: CompanyAsset[];
+  canManage: boolean;
+  mode: "inventory" | "assigned";
+  onEdit: (asset: CompanyAsset) => void;
+  onAssign: (asset: CompanyAsset) => void;
+  onReturn: (asset: CompanyAsset) => void;
+  emptyTitle: string;
+  emptyHint: string;
+}) {
+  const canAssign = (asset: CompanyAsset) =>
+    canManage &&
+    mode === "inventory" &&
+    asset.assignmentScope === "EMPLOYEE" &&
+    asset.status === "AVAILABLE" &&
+    !asset.assignedEmployeeId;
+
+  const canReturn = (asset: CompanyAsset) =>
+    canManage &&
+    asset.assignmentScope === "EMPLOYEE" &&
+    (asset.status === "ASSIGNED" || !!asset.assignedEmployeeId);
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="space-y-2 p-3 md:hidden">
+        {assets.map((asset) => (
+          <div key={asset.id} className="rounded-lg border bg-background p-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">{asset.name}</p>
+                <p className="mt-0.5 font-mono text-xs text-muted-foreground">
+                  {asset.assetType === "PHYSICAL" ? asset.assetCode : asset.serialNumber || asset.assetCode}
+                </p>
+              </div>
+              <div className="flex flex-col items-end gap-1">
+                <AssetTypeBadge type={asset.assetType} />
+                {asset.assignmentScope === "COMPANY" && (
+                  <Badge variant="outline">Company use</Badge>
+                )}
+                <AssetStatus status={asset.status} />
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <p className="text-muted-foreground">{costLabel(asset.costFrequency)}</p>
+                <p className="mt-0.5 font-medium">{formatCurrency(asset.purchaseValue)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Branch</p>
+                <p className="mt-0.5 break-words">
+                  {asset.assetType === "ONLINE" ? "Not applicable" : (asset.branchName ?? "-")}
+                </p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-muted-foreground">Assigned to</p>
+                <p className="mt-0.5 break-words">
+                  {asset.assignmentScope === "COMPANY"
+                    ? "Shared company asset"
+                    : (asset.assignedEmployeeName ?? "Not assigned")}
+                </p>
+              </div>
+            </div>
+            {canManage && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {canAssign(asset) && (
+                  <Button className="flex-1" size="sm" onClick={() => onAssign(asset)}>
+                    <UserPlus className="h-4 w-4" /> Assign
+                  </Button>
+                )}
+                {canReturn(asset) && (
+                  <Button
+                    className="flex-1"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onReturn(asset)}
+                  >
+                    <RotateCcw className="h-4 w-4" /> Return
+                  </Button>
+                )}
+                <Button
+                  className="flex-1"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onEdit(asset)}
+                >
+                  <Pencil className="h-4 w-4" /> Edit
+                </Button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="hidden overflow-x-auto md:block">
+        <Table className="min-w-[960px]">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Asset</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Cost</TableHead>
+              <TableHead>Branch</TableHead>
+              <TableHead>Assigned employee</TableHead>
+              <TableHead>Status</TableHead>
+              {canManage && <TableHead className="text-right">Actions</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {assets.map((asset) => (
+              <TableRow key={asset.id}>
+                <TableCell>
+                  <div className="font-medium">{asset.name}</div>
+                  <div className="font-mono text-xs text-muted-foreground">
+                    {asset.assetType === "PHYSICAL"
+                      ? asset.assetCode
+                      : asset.serialNumber || asset.assetCode}
+                    {asset.assetType === "PHYSICAL" && asset.serialNumber
+                      ? ` · ${asset.serialNumber}`
+                      : ""}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-1">
+                    <AssetTypeBadge type={asset.assetType} />
+                    {asset.assignmentScope === "COMPANY" && (
+                      <Badge variant="outline">Company use</Badge>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div>{formatCurrency(asset.purchaseValue)}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {costLabel(asset.costFrequency)}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  {asset.assetType === "ONLINE" ? "Not applicable" : (asset.branchName ?? "-")}
+                </TableCell>
+                <TableCell>
+                  {asset.assignmentScope === "COMPANY" ? (
+                    <span className="text-muted-foreground">Company use</span>
+                  ) : asset.assignedEmployeeName ? (
+                    <div>
+                      <div className="font-medium">{asset.assignedEmployeeName}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {asset.assignedEmployeeCode}
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground">Not assigned</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <AssetStatus status={asset.status} />
+                </TableCell>
+                {canManage && (
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      {canAssign(asset) && (
+                        <Button size="sm" onClick={() => onAssign(asset)}>
+                          <UserPlus className="mr-1.5 h-3.5 w-3.5" /> Assign
+                        </Button>
+                      )}
+                      {canReturn(asset) && (
+                        <Button size="sm" variant="outline" onClick={() => onReturn(asset)}>
+                          <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Return
+                        </Button>
+                      )}
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        title="Edit asset"
+                        onClick={() => onEdit(asset)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                )}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      {assets.length === 0 && (
+        <div className="p-8 text-center">
+          <p className="text-sm font-medium">{emptyTitle}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{emptyHint}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InvestmentSection({ investments }: { investments: EmployeeAssetInvestment[] }) {
+  if (investments.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+        Assign assets to employees to see company investment per person.
+      </div>
+    );
+  }
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="space-y-2 p-3 md:hidden">
+        {investments.map((item) => (
+          <div key={item.employeeId} className="rounded-md border bg-background p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">{item.employeeName}</p>
+                <p className="text-xs text-muted-foreground">
+                  {item.employeeCode}
+                  {item.department ? ` - ${item.department}` : ""}
+                </p>
+              </div>
+              <Badge variant="outline">{item.physicalAssets + item.onlineAssets} assets</Badge>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+              <InvestmentValue label="One-time invested" value={item.oneTimeInvestment} />
+              <InvestmentValue label="Monthly recurring" value={item.monthlyRecurring} />
+              <InvestmentValue label="Annual recurring" value={item.annualRecurring} />
+              <InvestmentValue
+                label="First-year investment"
+                value={item.firstYearInvestment}
+                emphasized
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="hidden overflow-x-auto md:block">
+        <Table className="min-w-[880px]">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Employee</TableHead>
+              <TableHead>Asset mix</TableHead>
+              <TableHead className="text-right">One-time invested</TableHead>
+              <TableHead className="text-right">Monthly recurring</TableHead>
+              <TableHead className="text-right">Annual recurring</TableHead>
+              <TableHead className="text-right">First-year investment</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {investments.map((item) => (
+              <TableRow key={item.employeeId}>
+                <TableCell>
+                  <div className="font-medium">{item.employeeName}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {item.employeeCode}
+                    {item.department ? ` - ${item.department}` : ""}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <span className="text-sm">
+                    {item.physicalAssets} physical · {item.onlineAssets} online
+                  </span>
+                </TableCell>
+                <TableCell className="text-right">
+                  {formatCurrency(item.oneTimeInvestment)}
+                </TableCell>
+                <TableCell className="text-right">
+                  {formatCurrency(item.monthlyRecurring)}
+                </TableCell>
+                <TableCell className="text-right">
+                  {formatCurrency(item.annualRecurring)}
+                </TableCell>
+                <TableCell className="text-right font-semibold">
+                  {formatCurrency(item.firstYearInvestment)}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+function ReturnHistorySection({ rows }: { rows: AssetReturnRecord[] }) {
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+        No asset returns recorded yet.
+      </div>
+    );
+  }
+  return (
+    <div className="divide-y overflow-hidden rounded-lg border bg-card">
+      {rows.slice(0, 50).map((row) => (
+        <div
+          key={row.id}
+          className="grid gap-2 p-4 text-sm sm:grid-cols-[1fr_auto] sm:items-center"
+        >
+          <div>
+            <p className="font-medium">
+              {row.assetName}{" "}
+              <span className="font-mono text-xs text-muted-foreground">{row.assetCode}</span>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Returned by {row.employeeName} · {new Date(row.returnedAt).toLocaleString("en-IN")}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <Badge variant="outline">{row.condition.replaceAll("_", " ")}</Badge>
+            {row.dataWiped && <Badge variant="outline">Data wiped / access revoked</Badge>}
+            {row.physicalDamage && <Badge variant="destructive">Damage recorded</Badge>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FormField({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="space-y-1.5">
       <Label>{label}</Label>
       {children}
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }
@@ -1181,7 +1430,7 @@ function ChecklistItem({
 function AssetStatus({ status }: { status: CompanyAsset["status"] }) {
   const classes =
     status === "AVAILABLE"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-400"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-400"
       : status === "ASSIGNED"
         ? "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/40 dark:text-blue-400"
         : status === "UNDER_REPAIR"
@@ -1228,6 +1477,14 @@ function InvestmentValue({
   );
 }
 
+function assetLabel(asset: CompanyAsset) {
+  const idPart =
+    asset.assetType === "ONLINE"
+      ? asset.serialNumber || asset.assetCode
+      : asset.assetCode;
+  return `${asset.name} · ${idPart}`;
+}
+
 function costLabel(frequency: CompanyAsset["costFrequency"]) {
   if (frequency === "MONTHLY") return "Monthly cost";
   if (frequency === "YEARLY") return "Annual cost";
@@ -1244,7 +1501,7 @@ function MetricCard({
   icon: typeof Package;
 }) {
   return (
-    <Card>
+    <Card className="shadow-none">
       <CardContent className="flex items-center justify-between p-4">
         <div>
           <p className="text-xs font-medium text-muted-foreground">{label}</p>

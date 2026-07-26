@@ -48,6 +48,7 @@ import {
 import { settleExpiredOpenPunches } from "./attendanceSettlement.js";
 import { openAttendanceStream } from "./attendanceLive.js";
 import { config } from "./config.js";
+import { ensureChecklistInstance } from "./checklistService.js";
 import { encryptEmployeeField, lastFour } from "./employeePrivateData.js";
 import { asyncHandler, errorHandler, HttpError } from "./errors.js";
 import { nearestBranch } from "./geofence.js";
@@ -146,6 +147,7 @@ import {
   updateUserSchema,
   weeklyOffRequestSchema,
 } from "./schemas.js";
+import { registerHrmsExtensions } from "./hrms-extensions.js";
 import {
   consumeCompOffCredits,
   leavePolicyDescription,
@@ -195,7 +197,7 @@ export function createApp() {
       message: { error: "Too many requests. Please try again shortly." },
     }),
   );
-  app.use(express.json({ limit: "2mb" }));
+  app.use(express.json({ limit: "8mb" }));
   app.use(express.text({ type: "text/csv", limit: "5mb" }));
   app.use(cookieParser());
   app.use(cors({ origin: config.frontendOrigin, credentials: true }));
@@ -1653,6 +1655,9 @@ export function createApp() {
         newValue: { status: updated.status },
         ipAddress: req.ip,
       });
+      if (existing.employeeId) {
+        await ensureChecklistInstance(existing.employeeId, "OFFBOARDING");
+      }
       res.json(userDto(updated));
     }),
   );
@@ -1723,6 +1728,10 @@ export function createApp() {
           employeeDataRetained: Boolean(employeeId),
         },
       });
+
+      if (employeeId) {
+        await ensureChecklistInstance(employeeId, "OFFBOARDING");
+      }
 
       res.json({ ok: true, user: userDto(updated), dataRetained: true });
     }),
@@ -2056,6 +2065,9 @@ export function createApp() {
         newValue: { role: user.role, email: user.email, employeeId: user.employeeId },
         ipAddress: req.ip,
       });
+      if (user.employeeId) {
+        await ensureChecklistInstance(user.employeeId, "ONBOARDING");
+      }
       res.status(201).json(userDto(user));
     }),
   );
@@ -2598,6 +2610,14 @@ export function createApp() {
           : body.assignedEmployeeId === undefined
             ? existing.assignedEmployeeId
             : body.assignedEmployeeId || null;
+      if (
+        nextAssignedEmployeeId &&
+        body.status &&
+        body.status !== "ASSIGNED" &&
+        ["AVAILABLE", "UNDER_REPAIR", "RETIRED"].includes(body.status)
+      ) {
+        throw new HttpError(400, "Return the asset before changing status");
+      }
       let nextStatus: string;
       try {
         nextStatus = resolveAssetStatus({
@@ -2799,11 +2819,17 @@ export function createApp() {
         select: { employeeId: true },
       });
       if (!activeEmployee) throw new HttpError(400, "Select an active employee");
-      const { employeeId: _requestedEmployeeId, ...claim } = body;
+      const { employeeId: _requestedEmployeeId, claimMeta, ...claim } = body;
       const row = await prisma.expenseClaim.create({
         data: {
           employeeId,
           ...claim,
+          claimMeta:
+            claimMeta === null
+              ? Prisma.JsonNull
+              : claimMeta === undefined
+                ? undefined
+                : (claimMeta as Prisma.InputJsonValue),
           title:
             claim.title ||
             (claim.category
@@ -5233,6 +5259,10 @@ export function createApp() {
       dueDate: task.dueDate?.toISOString().slice(0, 10),
       completedAt: task.completedAt?.toISOString(),
       archivedAt: task.archivedAt?.toISOString(),
+      customFields:
+        task.customFields && typeof task.customFields === "object"
+          ? (task.customFields as Record<string, unknown>)
+          : undefined,
       lastActivityAt: task.lastActivityAt.toISOString(),
       createdAt: task.createdAt.toISOString(),
       updatedAt: task.updatedAt.toISOString(),
@@ -5314,6 +5344,7 @@ export function createApp() {
       accessType: board.accessType,
       archived: board.archived,
       version: board.version,
+      customFieldDefs: Array.isArray(board.customFieldDefs) ? board.customFieldDefs : [],
       allowedRoles: board.roleAccess.map((entry) => entry.role),
       memberEmployeeIds: board.members.map((entry) => entry.employeeId),
       stages: board.stages.map((stage) => ({
@@ -5406,6 +5437,7 @@ export function createApp() {
           name: body.name,
           description: body.description || null,
           accessType: body.accessType,
+          customFieldDefs: body.customFieldDefs ?? [],
           createdByUserId: req.user!.id,
           stages: {
             create: body.stages.map((stage, sortOrder) => ({
@@ -5523,6 +5555,7 @@ export function createApp() {
             name: body.name,
             description: body.description || null,
             accessType: body.accessType,
+            customFieldDefs: body.customFieldDefs ?? [],
             version: { increment: 1 },
           },
         });
@@ -5732,6 +5765,9 @@ export function createApp() {
       const stageId = typeof req.query.stageId === "string" ? req.query.stageId : undefined;
       const assigneeEmployeeId =
         typeof req.query.assigneeEmployeeId === "string" ? req.query.assigneeEmployeeId : undefined;
+      const includeArchived = req.query.includeArchived === "true";
+      const parentTaskId =
+        typeof req.query.parentTaskId === "string" ? req.query.parentTaskId : undefined;
       const scope =
         req.query.scope === "mine" && req.user!.employeeId
           ? [req.user!.employeeId]
@@ -5748,12 +5784,13 @@ export function createApp() {
       if (boardId) await assertBoardAccess(req.user!, boardId);
       const tasks = await prisma.workTask.findMany({
         where: {
-          archivedAt: null,
+          ...(includeArchived ? {} : { archivedAt: null }),
           ...(scope ? { assignments: { some: { employeeId: { in: scope } } } } : {}),
           ...(requestedStatus.success ? { status: requestedStatus.data } : {}),
           ...(requestedPriority.success ? { priority: requestedPriority.data } : {}),
           ...(boardId ? { boardId } : {}),
           ...(stageId ? { stageId } : {}),
+          ...(parentTaskId ? { parentTaskId } : {}),
           ...(assigneeEmployeeId
             ? { assignments: { some: { employeeId: assigneeEmployeeId } } }
             : {}),
@@ -6000,14 +6037,24 @@ export function createApp() {
         }
       }
 
+      let nextBoardId = existing.boardId;
+      if (body.boardId) {
+        const targetBoard = await assertBoardAccess(req.user!, body.boardId);
+        if (targetBoard.archived) {
+          throw new HttpError(409, "Restore this board before moving tasks onto it");
+        }
+        nextBoardId = targetBoard.boardId;
+      }
+
       let nextStageId: string | null | undefined;
       let nextStatus = body.status;
       if (body.stageId) {
         const stage = await prisma.taskStage.findUniqueOrThrow({
           where: { stageId: body.stageId },
         });
-        if (!existing.boardId || stage.boardId !== existing.boardId) {
-          throw new HttpError(400, "Select a stage from the task's current workspace");
+        const boardForStage = nextBoardId ?? existing.boardId;
+        if (!boardForStage || stage.boardId !== boardForStage) {
+          throw new HttpError(400, "Select a stage from the task's target workspace");
         }
         if (body.status && body.status !== stage.status) {
           throw new HttpError(400, "The selected stage and status do not match");
@@ -6080,6 +6127,9 @@ export function createApp() {
             startDate: body.startDate,
             dueDate: body.dueDate,
             stageId: nextStageId,
+            boardId: body.boardId === undefined ? undefined : nextBoardId,
+            customFields: body.customFields as Prisma.InputJsonValue | undefined,
+            parentTaskId: body.parentTaskId,
             completedAt:
               nextStatus === TaskStatus.COMPLETED
                 ? (existing.completedAt ?? new Date())
@@ -6184,6 +6234,21 @@ export function createApp() {
           ? TaskActivityType.PROGRESS_UPDATED
           : TaskActivityType.COMMENT;
       const { version: _version, ...logData } = body;
+      const mentionCodes = [...body.message.matchAll(/@([A-Za-z0-9_-]+)/g)].map((match) => match[1]!);
+      const mentionedEmployees =
+        mentionCodes.length > 0
+          ? await prisma.employee.findMany({
+              where: {
+                OR: [
+                  { employeeCode: { in: mentionCodes } },
+                  { name: { in: mentionCodes } },
+                ],
+                status: "ACTIVE",
+              },
+              select: { employeeId: true, name: true },
+              take: 20,
+            })
+          : [];
       const task = await prisma.$transaction(async (transaction) => {
         const updated = await transaction.workTask.updateMany({
           where: { taskId: existing.taskId, version: body.version },
@@ -6211,6 +6276,10 @@ export function createApp() {
             ...logData,
             progress,
             activityType,
+            metadata: {
+              mentionedEmployeeIds: mentionedEmployees.map((person) => person.employeeId),
+              mentionedNames: mentionedEmployees.map((person) => person.name),
+            },
           },
         });
         return transaction.workTask.findUniqueOrThrow({
@@ -6218,6 +6287,9 @@ export function createApp() {
           include: taskInclude,
         });
       });
+      if (mentionedEmployees.length) {
+        publishNotificationChange("task-mention", existing.taskId);
+      }
       res.status(201).json(taskDto(task));
     }),
   );
@@ -6495,6 +6567,8 @@ export function createApp() {
         assignedTasks,
         expenseNotifications,
         certificateNotifications,
+        mentionUpdates,
+        openChecklistItems,
       ] = await Promise.all([
         prisma.leaveRequest.findMany({
           where: leaveWhere,
@@ -6558,6 +6632,37 @@ export function createApp() {
               include: { employee: { select: { name: true } } },
               orderBy: { updatedAt: "desc" },
               take: 6,
+            })
+          : Promise.resolve([]),
+        req.user!.employeeId
+          ? prisma.taskUpdate.findMany({
+              where: {
+                activityType: TaskActivityType.COMMENT,
+                createdAt: { gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000) },
+                NOT: { authorUserId: req.user!.id },
+              },
+              include: {
+                task: { select: { taskId: true, title: true } },
+                author: { select: { name: true } },
+              },
+              orderBy: { createdAt: "desc" },
+              take: 40,
+            })
+          : Promise.resolve([]),
+        req.user!.employeeId
+          ? prisma.checklistItemState.findMany({
+              where: {
+                completed: false,
+                instance: {
+                  employeeId: req.user!.employeeId,
+                  status: "OPEN",
+                },
+              },
+              include: {
+                instance: { select: { kind: true, instanceId: true } },
+              },
+              orderBy: { sortOrder: "asc" },
+              take: 8,
             })
           : Promise.resolve([]),
       ]);
@@ -6744,6 +6849,35 @@ export function createApp() {
           time: request.updatedAt.toISOString(),
           type: "system" as const,
         })),
+        ...mentionUpdates
+          .filter((update) => {
+            const meta =
+              update.metadata && typeof update.metadata === "object"
+                ? (update.metadata as { mentionedEmployeeIds?: unknown })
+                : null;
+            return (
+              Array.isArray(meta?.mentionedEmployeeIds) &&
+              meta.mentionedEmployeeIds.includes(req.user!.employeeId)
+            );
+          })
+          .slice(0, 8)
+          .map((update) => ({
+            id: `task-mention-${update.updateId}`,
+            title: "You were mentioned on a task",
+            desc: `${update.author.name} on “${update.task.title}”: ${update.message.slice(0, 140)}`,
+            time: update.createdAt.toISOString(),
+            type: "task" as const,
+          })),
+        ...openChecklistItems.map((item) => ({
+          id: `checklist-${item.stateId}`,
+          title:
+            item.instance.kind === "OFFBOARDING"
+              ? "Offboarding step open"
+              : "Onboarding step open",
+          desc: item.title,
+          time: new Date().toISOString(),
+          type: "system" as const,
+        })),
       ]
         .sort((a, b) => +new Date(b.time) - +new Date(a.time))
         .slice(0, 20);
@@ -6884,6 +7018,7 @@ export function createApp() {
     }),
   );
 
+  registerHrmsExtensions(app);
   app.use(errorHandler);
   return app;
 }
