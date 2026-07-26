@@ -120,6 +120,7 @@ function SettingsPage() {
   const [resetting, setResetting] = useState(false);
   const [moduleKeys, setModuleKeys] = useState<ModuleKey[]>([]);
   const [moduleMatrix, setModuleMatrix] = useState<Record<string, ModuleKey[]>>({});
+  const [moduleDefaults, setModuleDefaults] = useState<Record<string, ModuleKey[]>>({});
   const [moduleAccessSaving, setModuleAccessSaving] = useState(false);
   const [integrationClients, setIntegrationClients] = useState<IntegrationClient[]>([]);
   const [integrationName, setIntegrationName] = useState("");
@@ -189,9 +190,10 @@ function SettingsPage() {
     if (!isDeveloperAdmin) return;
     void moduleAccessApi
       .matrix()
-      .then(({ modules, matrix }) => {
+      .then(({ modules, matrix, defaults }) => {
         setModuleKeys(modules);
         setModuleMatrix(matrix);
+        setModuleDefaults(defaults ?? {});
       })
       .catch((err) => toast.error((err as Error).message));
   }, [isDeveloperAdmin]);
@@ -223,19 +225,65 @@ function SettingsPage() {
               <div>
                 <CardTitle className="text-base">Module Access</CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Control which application modules each role can open. These rules are enforced in
-                  both navigation and protected APIs.
+                  Control which application modules each role can open. Rules apply to the sidebar
+                  and protected APIs. Developer Admin always keeps full access. After saving, users
+                  may need to refresh or sign in again to see menu changes.
                 </p>
               </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4 px-4 py-4 sm:px-5">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={moduleAccessSaving || Object.keys(moduleDefaults).length === 0}
+                onClick={() => setModuleMatrix({ ...moduleDefaults })}
+              >
+                Reset to defaults
+              </Button>
+            </div>
             <div className="space-y-3 md:hidden">
               {Object.entries(BACKEND_ROLE_TO_UI).map(([backendRole, uiRole]) => {
                 const immutable = backendRole === "DEVELOPER_ADMIN";
                 return (
                   <div key={backendRole} className="rounded-lg border bg-background p-3">
-                    <p className="text-sm font-semibold">{ROLE_LABELS[uiRole]}</p>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-semibold">{ROLE_LABELS[uiRole]}</p>
+                      {!immutable && (
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            disabled={moduleAccessSaving}
+                            onClick={() =>
+                              setModuleMatrix((current) => ({
+                                ...current,
+                                [backendRole]: [...moduleKeys],
+                              }))
+                            }
+                          >
+                            All
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            disabled={moduleAccessSaving}
+                            onClick={() =>
+                              setModuleMatrix((current) => ({
+                                ...current,
+                                [backendRole]: ["DASHBOARD", "PROFILE"],
+                              }))
+                            }
+                          >
+                            Minimal
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                     <div className="mt-3 space-y-2">
                       {moduleKeys.map((module) => {
                         const enabled =
@@ -279,6 +327,7 @@ function SettingsPage() {
                         {MODULE_LABELS[module]}
                       </th>
                     ))}
+                    <th className="px-2 py-3 text-center text-xs font-semibold">Quick</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -311,12 +360,59 @@ function SettingsPage() {
                           </td>
                         );
                       })}
+                      <td className="px-2 py-3 text-center">
+                        {backendRole === "DEVELOPER_ADMIN" ? (
+                          <span className="text-xs text-muted-foreground">Locked</span>
+                        ) : (
+                          <div className="flex justify-center gap-1">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-xs"
+                              disabled={moduleAccessSaving}
+                              onClick={() =>
+                                setModuleMatrix((current) => ({
+                                  ...current,
+                                  [backendRole]: [...moduleKeys],
+                                }))
+                              }
+                            >
+                              All
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-xs"
+                              disabled={moduleAccessSaving}
+                              onClick={() =>
+                                setModuleMatrix((current) => ({
+                                  ...current,
+                                  [backendRole]: ["DASHBOARD", "PROFILE"],
+                                }))
+                              }
+                            >
+                              Min
+                            </Button>
+                          </div>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div className="mt-4 flex justify-end">
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto"
+                disabled={moduleAccessSaving || Object.keys(moduleDefaults).length === 0}
+                onClick={() => setModuleMatrix({ ...moduleDefaults })}
+              >
+                Reset to defaults
+              </Button>
               <Button
                 className="w-full sm:w-auto"
                 disabled={moduleAccessSaving || moduleKeys.length === 0}

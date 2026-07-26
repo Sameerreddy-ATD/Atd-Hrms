@@ -20,6 +20,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { checklistsApi, employeesApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
 import type { User } from "@/types/domain";
@@ -48,8 +59,7 @@ const LINK_OPTIONS = [
   { value: "/leave/apply", label: "Apply leave" },
   { value: "/attendance/mine", label: "My attendance" },
   { value: "/employee-services", label: "Employee requests" },
-  { value: "/assets", label: "Assets" },
-  { value: "/users", label: "User logins" },
+  { value: "/assets", label: "Assets (offboarding)" },
   { value: "/checklists", label: "Checklists" },
   { value: "/dashboard", label: "Dashboard" },
 ];
@@ -306,13 +316,30 @@ function ChecklistsPage() {
                         <StatusBadge status={row.status} />
                         {canManage && row.status === "OPEN" && (
                           <>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => void setInstanceStatus(row.id, "COMPLETED")}
-                            >
-                              Mark complete
-                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="sm" variant="outline">
+                                  Mark complete
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Mark checklist complete?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Any remaining open items will be marked done automatically. Use
+                                    Reopen later if work was closed too early.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => void setInstanceStatus(row.id, "COMPLETED")}
+                                  >
+                                    Mark complete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                             <Button
                               size="sm"
                               variant="ghost"
@@ -361,7 +388,7 @@ function ChecklistsPage() {
                           <Checkbox
                             className="mt-0.5"
                             checked={item.completed}
-                            disabled={row.status === "CANCELLED"}
+                            disabled={row.status === "CANCELLED" || row.status === "COMPLETED"}
                             onCheckedChange={(checked) =>
                               void toggleItem(item.id, checked === true)
                             }

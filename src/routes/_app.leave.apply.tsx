@@ -276,8 +276,8 @@ function ApplyLeavePage() {
                         onChange={(event) => setMedicalDocumentUrl(event.target.value)}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Set sharing to anyone with the link. It must be submitted within 3 days
-                        after you return from Sick Leave.
+                        Set sharing to anyone with the link. Upload within 2 days after Sick Leave
+                        ends, or HR will be notified that the report is overdue.
                       </p>
                     </div>
                   )}

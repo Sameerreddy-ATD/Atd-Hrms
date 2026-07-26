@@ -25,6 +25,7 @@ in the same commit.
   [Face Registration and Verified Attendance](FACE_ATTENDANCE_SECURITY.md)
 - Security, QA, and release owners:
   [Workflow and Security Audit](WORKFLOW_AND_SECURITY_AUDIT.md)
+- Product QA / UX fix owners: [UX and Workflow Audit](UX_FLOW_AUDIT.md)
 - Legal and receiving-company reviewers: [Third-Party Notices](THIRD_PARTY_NOTICES.md)
 
 ## Document Ownership
@@ -52,6 +53,7 @@ in the same commit.
 | `RESPONSIVE_UI_AUDIT.md`               | Shared responsive rules, audited surfaces, resolved issues, and UI release checklist              |
 | `FACE_ATTENDANCE_SECURITY.md`          | Mandatory enrollment, liveness/GPS flow, encrypted storage, retention, admin, and deployment      |
 | `WORKFLOW_AND_SECURITY_AUDIT.md`       | Provisioning, hierarchy, module, leave, attendance, asset, security, and release acceptance audit |
+| `UX_FLOW_AUDIT.md`                     | Tester/developer register of broken flows, misplaced buttons, stubs, and suggested fix order      |
 | `THIRD_PARTY_NOTICES.md`               | Licences and attribution for bundled third-party runtime/model assets                             |
 
 The repository-level [`SECURITY.md`](../SECURITY.md) defines private vulnerability reporting and

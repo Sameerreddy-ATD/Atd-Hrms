@@ -80,7 +80,7 @@ import {
   userDto,
 } from "./mapper.js";
 import { prisma } from "./prisma.js";
-import { getModuleAccessMatrix, MODULE_KEYS, saveModuleAccessMatrix } from "./module-access.js";
+import { getModuleAccessMatrix, MODULE_KEYS, DEFAULT_MODULE_ACCESS, saveModuleAccessMatrix } from "./module-access.js";
 import { reportingHierarchyCycle } from "./organizationRules.js";
 import { isWebPushConfigured, sendPushToAll } from "./push.js";
 import { openNotificationStream, publishNotificationChange } from "./notificationLive.js";
@@ -130,6 +130,7 @@ import {
   leaveTypeUpdateSchema,
   medicalDocumentSchema,
   loginSchema,
+  forgotPasswordSchema,
   mobileEventSchema,
   pushSubscriptionSchema,
   resetPasswordSchema,
@@ -1425,6 +1426,46 @@ export function createApp() {
         ipAddress: req.ip,
       }).catch((err) => {
         console.error("Failed to write login audit log", err);
+      });
+    }),
+  );
+
+  app.post(
+    "/auth/forgot-password",
+    authLimiter,
+    asyncHandler(async (req, res) => {
+      const body = forgotPasswordSchema.parse(req.body);
+      const email = body.email.toLowerCase();
+      const account = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true, name: true, email: true, status: true },
+      });
+      if (account && account.status !== UserStatus.INACTIVE) {
+        await audit({
+          action: "password reset requested",
+          affectedUserId: account.id,
+          newValue: {
+            email: account.email,
+            name: account.name,
+            requestedAt: new Date().toISOString(),
+          },
+          ipAddress: req.ip,
+        });
+        publishNotificationChange("password-reset-requested", account.id);
+      } else {
+        await audit({
+          action: "password reset requested",
+          newValue: {
+            emailHash: createHash("sha256").update(email).digest("hex"),
+            matched: false,
+          },
+          ipAddress: req.ip,
+        }).catch(() => undefined);
+      }
+      res.json({
+        ok: true,
+        message:
+          "If an account exists for that email, Developer Admin has been notified to reset the password.",
       });
     }),
   );
@@ -5017,7 +5058,7 @@ export function createApp() {
       // Profile-edit approval workflow is intentionally not shipped; employees update via HR.
       throw new HttpError(
         501,
-        "Profile edit requests are not available. Ask HR or Developer Admin to update your profile.",
+        "Profile edit requests are not available. Only Developer Admin can update employee profiles.",
       );
     }),
   );
@@ -5108,7 +5149,11 @@ export function createApp() {
     requireAuth,
     requireRoles(Role.DEVELOPER_ADMIN),
     asyncHandler(async (_req, res) => {
-      res.json({ modules: MODULE_KEYS, matrix: await getModuleAccessMatrix() });
+      res.json({
+        modules: MODULE_KEYS,
+        matrix: await getModuleAccessMatrix(),
+        defaults: DEFAULT_MODULE_ACCESS,
+      });
     }),
   );
 
@@ -6639,6 +6684,40 @@ export function createApp() {
           : Promise.resolve([]),
       ]);
 
+      const canSeeMedicalOverdue =
+        req.user!.role === Role.HR ||
+        req.user!.role === Role.DEVELOPER_ADMIN ||
+        req.user!.role === Role.MAIN_ADMIN;
+      const overdueMedicalLeaves = canSeeMedicalOverdue
+        ? await prisma.leaveRequest.findMany({
+            where: {
+              status: { in: ["APPROVED", "MANAGER_APPROVED", "HR_VERIFIED"] },
+              medicalDocumentDueAt: { lt: new Date() },
+              OR: [{ medicalDocumentUrl: null }, { medicalDocumentUrl: "" }],
+              leaveType: { code: LEAVE_CODES.SICK },
+            },
+            include: {
+              employee: { select: { name: true, employeeCode: true } },
+              leaveType: { select: { name: true } },
+            },
+            orderBy: { medicalDocumentDueAt: "asc" },
+            take: 15,
+          })
+        : [];
+      const passwordResetRequests =
+        req.user!.role === Role.DEVELOPER_ADMIN
+          ? await prisma.auditLog.findMany({
+              where: {
+                action: "password reset requested",
+                affectedUserId: { not: null },
+                createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+              },
+              include: { affectedUser: { select: { name: true, email: true } } },
+              orderBy: { createdAt: "desc" },
+              take: 20,
+            })
+          : [];
+
       const todayIst = istDateParts(new Date());
       const todayMonth = todayIst.month;
       const todayDate = todayIst.day;
@@ -6782,6 +6861,24 @@ export function createApp() {
             .slice(0, 10)} to ${leave.toDate.toISOString().slice(0, 10)}`,
           time: (leave.updatedAt ?? leave.createdAt).toISOString(),
           type: "leave" as const,
+        })),
+        ...overdueMedicalLeaves.map((leave) => ({
+          id: `medical-overdue-${leave.leaveRequestId}`,
+          title: "Medical report overdue",
+          desc: `${leave.employee.name} (${leave.employee.employeeCode}) — Sick Leave ended ${leave.toDate
+            .toISOString()
+            .slice(0, 10)}; report was due within 2 days.`,
+          time: (leave.medicalDocumentDueAt ?? leave.updatedAt).toISOString(),
+          type: "leave" as const,
+          href: "/leave/reports",
+        })),
+        ...passwordResetRequests.map((entry) => ({
+          id: `password-reset-${entry.auditId}`,
+          title: "Password reset requested",
+          desc: `${entry.affectedUser?.name ?? "User"} (${entry.affectedUser?.email ?? "unknown"}) asked for a password reset. Open User Logins to reset it.`,
+          time: entry.createdAt.toISOString(),
+          type: "system" as const,
+          href: "/users",
         })),
         ...actionableCorrections.map((request) => ({
           id: `attendance-correction-${request.requestId}-${request.updatedAt.toISOString()}`,
