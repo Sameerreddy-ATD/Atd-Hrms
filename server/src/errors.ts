@@ -21,7 +21,11 @@ export function asyncHandler<T extends Request>(
 
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
   if (err instanceof ZodError) {
-    return res.status(400).json({ error: "Validation failed", details: err.flatten() });
+    const first = err.issues[0];
+    const field = first?.path?.length ? first.path.join(".") : null;
+    const detail = first?.message ?? "Invalid input";
+    const message = field ? `${field}: ${detail}` : detail;
+    return res.status(400).json({ error: message, details: err.flatten() });
   }
   if (err instanceof HttpError) {
     return res.status(err.status).json({ error: err.message });

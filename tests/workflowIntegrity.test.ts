@@ -3,6 +3,7 @@ import { Role, TaskBoardAccessType } from "@prisma/client";
 import { resolveAssetStatus } from "../server/src/assetRules.js";
 import { reportingHierarchyCycle } from "../server/src/organizationRules.js";
 import {
+  certificateRequestReviewSchema,
   certificateRequestSchema,
   createUserSchema,
   updateEmployeeSchema,
@@ -108,6 +109,35 @@ describe("asset and HR-document persistence integrity", () => {
         deliveryMode: "PRINTED",
       }).deliveryMode,
     ).toBe("PRINTED");
+  });
+
+  it("accepts blank optional required-by dates on HR document requests", () => {
+    expect(
+      certificateRequestSchema.parse({
+        certificateType: "SALARY",
+        purpose: "Bank account opening",
+        deliveryMode: "DIGITAL",
+        requiredBy: "",
+      }).requiredBy,
+    ).toBeNull();
+    expect(
+      certificateRequestSchema.parse({
+        certificateType: "SALARY",
+        purpose: "Bank account opening",
+        deliveryMode: "DIGITAL",
+        requiredBy: null,
+      }).requiredBy,
+    ).toBeNull();
+  });
+
+  it("accepts blank document URLs when HR reviews a request", () => {
+    expect(
+      certificateRequestReviewSchema.parse({
+        status: "IN_PROGRESS",
+        hrNotes: "",
+        documentUrl: "",
+      }),
+    ).toMatchObject({ status: "IN_PROGRESS", hrNotes: null, documentUrl: null });
   });
 
   it("maps secondary workflow endpoints to Developer Admin module controls", () => {

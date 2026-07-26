@@ -116,7 +116,15 @@ async function requestNetwork<T>(path: string, options: RequestInit = {}): Promi
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: "Request failed" }));
-    throw new Error(body.error ?? "Request failed");
+    const details = body.details?.fieldErrors as Record<string, string[]> | undefined;
+    const fieldMessage = details
+      ? Object.entries(details)
+          .flatMap(([field, messages]) =>
+            (messages ?? []).map((message) => (field ? `${field}: ${message}` : message)),
+          )
+          .find(Boolean)
+      : undefined;
+    throw new Error(fieldMessage || body.error || "Request failed");
   }
   return res.json() as Promise<T>;
 }
@@ -700,6 +708,7 @@ export const employeeServicesApi = {
     purpose: string;
     deliveryMode: "DIGITAL" | "PRINTED";
     requiredBy?: string | null;
+    employeeId?: string;
   }) =>
     request<{ id: string; status: string }>("/certificate-requests", {
       method: "POST",
@@ -708,12 +717,16 @@ export const employeeServicesApi = {
   reviewCertificate: (
     id: string,
     status: "IN_PROGRESS" | "READY" | "REJECTED" | "COLLECTED",
-    hrNotes?: string,
-    documentUrl?: string,
+    hrNotes?: string | null,
+    documentUrl?: string | null,
   ) =>
     request<{ id: string; status: string }>(`/certificate-requests/${id}/review`, {
       method: "PATCH",
-      body: JSON.stringify({ status, hrNotes, documentUrl }),
+      body: JSON.stringify({
+        status,
+        hrNotes: hrNotes ?? null,
+        documentUrl: documentUrl ?? null,
+      }),
     }),
 };
 
