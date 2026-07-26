@@ -33,10 +33,11 @@ function LoginPage() {
   const [passwordVisible, setPasswordVisible] = useState(false);
 
   const crewMode: LoginCrewMode = useMemo(() => {
-    if (!passwordFocused && password.length === 0) return "idle";
+    // Eyes close only while the password field is focused; open again on outside tap/click.
+    if (!passwordFocused) return "idle";
     if (passwordVisible) return "peeking";
     return "hiding";
-  }, [password, passwordFocused, passwordVisible]);
+  }, [passwordFocused, passwordVisible]);
 
   useEffect(() => {
     if (user?.mustChangePassword) navigate({ to: "/first-login", replace: true });
