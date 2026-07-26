@@ -31,10 +31,11 @@ function FirstLoginPage() {
   ];
 
   const crewMode: LoginCrewMode = useMemo(() => {
-    if (!passwordFocused && next.length === 0 && confirm.length === 0) return "idle";
+    // Eyes close only while a password field is focused; open again on outside tap/click.
+    if (!passwordFocused) return "idle";
     if (passwordVisible) return "peeking";
     return "hiding";
-  }, [confirm.length, next.length, passwordFocused, passwordVisible]);
+  }, [passwordFocused, passwordVisible]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -66,6 +67,15 @@ function FirstLoginPage() {
               For security, you must change the temporary password issued to you before continuing.
             </p>
             <form onSubmit={submit} className="mt-6 space-y-4">
+              <div
+                className="space-y-4"
+                onFocusCapture={() => setPasswordFocused(true)}
+                onBlurCapture={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                    setPasswordFocused(false);
+                  }
+                }}
+              >
               <div className="space-y-1.5">
                 <Label htmlFor="new">New password</Label>
                 <PasswordInput
@@ -73,8 +83,6 @@ function FirstLoginPage() {
                   autoComplete="new-password"
                   value={next}
                   onChange={(e) => setNext(e.target.value)}
-                  onFocus={() => setPasswordFocused(true)}
-                  onBlur={() => setPasswordFocused(false)}
                   onVisibilityChange={setPasswordVisible}
                 />
               </div>
@@ -85,10 +93,9 @@ function FirstLoginPage() {
                   autoComplete="new-password"
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
-                  onFocus={() => setPasswordFocused(true)}
-                  onBlur={() => setPasswordFocused(false)}
                   onVisibilityChange={setPasswordVisible}
                 />
+              </div>
               </div>
               <ul className="space-y-1 text-xs">
                 {rules.map((r) => (

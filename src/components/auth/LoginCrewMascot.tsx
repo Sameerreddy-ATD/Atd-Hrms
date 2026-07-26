@@ -5,7 +5,8 @@ export type LoginCrewMode = "idle" | "hiding" | "peeking";
 
 /**
  * Anytime Diesel crew mascot for the sign-in screen.
- * Swaps to a closed-eyes / covered-eyes portrait while a password is entered.
+ * Closes eyes while the password field is focused; opens again when focus leaves
+ * (outside tap/click). Peeking mode is used when the password is shown.
  */
 export function LoginCrewMascot({
   mode = "idle",
