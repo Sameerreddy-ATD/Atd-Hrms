@@ -388,11 +388,11 @@ export const assetReturnSchema = z
 
 export const expenseClaimSchema = z
   .object({
-    claimType: z.enum(["ADVANCE", "EXPENSE", "TRAVEL", "FUEL", "FIELD"]).default("EXPENSE"),
+    claimType: z.enum(["ADVANCE", "EXPENSE", "FIELD"]).default("EXPENSE"),
     employeeId: z.string().min(1).optional(),
     title: z.string().trim().min(2).max(160).nullable().optional(),
     category: z
-      .enum(["TRAVEL", "FUEL", "MEALS", "LODGING", "MOBILE_INTERNET", "OFFICE", "OTHER"])
+      .enum(["MEALS", "LODGING", "MOBILE_INTERNET", "OFFICE", "OTHER"])
       .nullable()
       .optional(),
     amount: z.coerce.number().positive().max(10_000_000),
@@ -401,8 +401,6 @@ export const expenseClaimSchema = z
     remark: z.string().trim().min(2).max(2000).nullable().optional(),
     claimMeta: z
       .object({
-        distanceKm: z.number().nonnegative().optional(),
-        litres: z.number().nonnegative().optional(),
         fromLocation: z.string().max(200).optional(),
         toLocation: z.string().max(200).optional(),
       })
@@ -419,7 +417,7 @@ export const expenseClaimSchema = z
         message: "Remark is required",
       });
     }
-    if (value.claimType === "EXPENSE" || value.claimType === "TRAVEL" || value.claimType === "FUEL" || value.claimType === "FIELD") {
+    if (value.claimType === "EXPENSE" || value.claimType === "FIELD") {
       for (const field of ["title", "expenseDate", "description"] as const) {
         if (!value[field] && !(field === "title" && value.category)) {
           context.addIssue({

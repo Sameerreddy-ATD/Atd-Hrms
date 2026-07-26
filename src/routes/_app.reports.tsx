@@ -1,12 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { format, startOfWeek, addDays } from "date-fns";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/common/LoadingState";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { opsReportsApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
 
@@ -19,13 +17,6 @@ function OpsReportsPage() {
   const [summary, setSummary] = useState<Awaited<ReturnType<typeof opsReportsApi.summary>> | null>(
     null,
   );
-  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-  const [from, setFrom] = useState(format(weekStart, "yyyy-MM-dd"));
-  const [to, setTo] = useState(format(addDays(weekStart, 6), "yyyy-MM-dd"));
-  const [variance, setVariance] = useState<Awaited<
-    ReturnType<typeof opsReportsApi.rosterVariance>
-  > | null>(null);
-  const [varianceLoading, setVarianceLoading] = useState(false);
 
   useEffect(() => {
     void opsReportsApi
@@ -33,21 +24,6 @@ function OpsReportsPage() {
       .then(setSummary)
       .catch((error) => toast.error((error as Error).message || "Unable to load reports"))
       .finally(() => setLoading(false));
-  }, []);
-
-  async function loadVariance() {
-    setVarianceLoading(true);
-    try {
-      setVariance(await opsReportsApi.rosterVariance(from, to));
-    } catch (error) {
-      toast.error((error as Error).message || "Unable to load roster variance");
-    } finally {
-      setVarianceLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    void loadVariance();
   }, []);
 
   async function runExport(action: () => Promise<void>, label: string) {
@@ -75,7 +51,7 @@ function OpsReportsPage() {
     <div className="mx-auto max-w-[1440px] space-y-6 px-4 pb-16 sm:px-6">
       <PageHeader
         title="Operations reports"
-        description="Attendance coverage, leave queue, planner load, paid claims, and roster vs attendance."
+        description="Attendance coverage, leave queue, planner load, and paid claims."
         actions={
           ["developer_admin", "main_admin", "hr", "ceo", "manager"].includes(user?.role ?? "") ? (
             <div className="flex flex-wrap gap-2">
@@ -119,42 +95,6 @@ function OpsReportsPage() {
           </Card>
         ))}
       </div>
-
-      <section className="space-y-3">
-        <div className="flex flex-wrap items-end gap-2">
-          <h2 className="mr-auto text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Roster vs attendance
-          </h2>
-          <Input type="date" className="w-auto" value={from} onChange={(e) => setFrom(e.target.value)} />
-          <Input type="date" className="w-auto" value={to} onChange={(e) => setTo(e.target.value)} />
-          <Button variant="outline" disabled={varianceLoading} onClick={() => void loadVariance()}>
-            Refresh
-          </Button>
-        </div>
-        {varianceLoading && !variance ? (
-          <LoadingState label="Loading roster variance" />
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {(variance?.branches ?? []).map((branch) => (
-              <Card key={branch.branch} className="shadow-none">
-                <CardContent className="space-y-1 p-4 text-sm">
-                  <p className="font-semibold">{branch.branch}</p>
-                  <p>Rostered: {branch.rostered}</p>
-                  <p>Present: {branch.present}</p>
-                  <p>Late: {branch.late}</p>
-                  <p>Absent / unmarked: {branch.absent}</p>
-                  <p>Off shifts: {branch.off}</p>
-                </CardContent>
-              </Card>
-            ))}
-            {(variance?.branches.length ?? 0) === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No published roster rows in this date range.
-              </p>
-            )}
-          </div>
-        )}
-      </section>
 
       <section className="space-y-2">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">

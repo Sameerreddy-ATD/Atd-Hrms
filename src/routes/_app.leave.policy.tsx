@@ -5,7 +5,6 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { InfoButton } from "@/components/common/InfoButton";
 import { LoadingState } from "@/components/common/LoadingState";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,9 +22,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { StatCard } from "@/components/common/StatCard";
 import type { LeaveTypeOption, User } from "@/types/domain";
 import { employeesApi, leaveApi } from "@/services/api";
 import { CalendarCheck, ChevronRight, Pencil, Search, UserRound } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/leave/policy")({ component: PolicyPage });
 
@@ -110,6 +111,14 @@ function PolicyPage() {
   const selectedEmployee = employees.find(
     (employee) => (employee.employeeId ?? employee.id) === selectedEmployeeId,
   );
+  const creditTotals = useMemo(() => {
+    if (!balances.length) return null;
+    return {
+      credited: balances.reduce((sum, row) => sum + row.entitled, 0),
+      used: balances.reduce((sum, row) => sum + row.used, 0),
+      available: balances.reduce((sum, row) => sum + row.balance, 0),
+    };
+  }, [balances]);
 
   return (
     <div>
@@ -125,31 +134,30 @@ function PolicyPage() {
         }
       />
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Leave policies">
+      <section
+        className="mb-4 flex gap-2 overflow-x-auto pb-1"
+        aria-label="Leave policies"
+      >
         {types.map((type) => (
-          <Card key={type.id} className="border-border shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-semibold">{type.name}</p>
-                  <p className="mt-0.5 text-xs font-medium text-primary">
-                    {type.paid ? "Credit based" : "Recorded separately"}
-                  </p>
-                </div>
-                <InfoButton title={type.name} className="-mr-1 -mt-1">
-                  {type.description || "This leave type follows the active company policy."}
-                </InfoButton>
-              </div>
-              <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-                <CalendarCheck className="h-4 w-4 text-primary" />
-                Select an employee below to review credits
-              </div>
-            </CardContent>
-          </Card>
+          <div
+            key={type.id}
+            className="min-w-[11rem] shrink-0 rounded-lg border bg-card px-3 py-2.5"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-sm font-semibold">{type.name}</p>
+              <InfoButton title={type.name} className="-mr-1 -mt-0.5">
+                {type.description || "This leave type follows the active company policy."}
+              </InfoButton>
+            </div>
+            <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+              <CalendarCheck className="h-3 w-3 text-primary" />
+              {type.paid ? "Credit based" : "Recorded separately"}
+            </p>
+          </div>
         ))}
       </section>
 
-      <section className="mt-5 overflow-hidden rounded-md border border-border bg-background">
+      <section className="overflow-hidden rounded-md border border-border bg-background">
         <div className="border-b border-border px-4 py-4 sm:px-5">
           <h2 className="font-semibold">Employee leave credits</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -199,23 +207,23 @@ function PolicyPage() {
                       key={employeeId}
                       type="button"
                       onClick={() => selectEmployee(employeeId)}
-                      className={`flex w-full items-center gap-3 rounded-md px-3 py-3 text-left transition-colors ${
-                        selected ? "bg-primary/10 text-foreground" : "hover:bg-muted/70"
-                      }`}
+                      className={cn(
+                        "flex w-full items-center gap-3 rounded-md px-3 py-3 text-left transition-colors",
+                        selected ? "bg-primary/10 text-foreground" : "hover:bg-muted/70",
+                      )}
                     >
                       <span
-                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${
+                        className={cn(
+                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-md",
                           selected
                             ? "bg-primary text-primary-foreground"
-                            : "bg-muted text-muted-foreground"
-                        }`}
+                            : "bg-muted text-muted-foreground",
+                        )}
                       >
                         <UserRound className="h-4 w-4" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold">
-                          {employee.name}
-                        </span>
+                        <span className="block truncate text-sm font-semibold">{employee.name}</span>
                         <span className="block truncate text-xs text-muted-foreground">
                           {employee.employeeCode ?? employee.employeeId} ·{" "}
                           {employee.department ?? "No unit"}
@@ -255,6 +263,18 @@ function PolicyPage() {
                       {selectedEmployee.department ?? "No organization unit"}
                     </p>
                   </div>
+                  {creditTotals && (
+                    <div className="mb-4 grid gap-3 sm:grid-cols-3">
+                      <StatCard label="Credited" value={creditTotals.credited} icon={CalendarCheck} />
+                      <StatCard label="Used" value={creditTotals.used} icon={Pencil} />
+                      <StatCard
+                        label="Available"
+                        value={creditTotals.available}
+                        icon={UserRound}
+                        tone="success"
+                      />
+                    </div>
+                  )}
                   <div className="space-y-3">
                     {balances.map((row) => (
                       <div

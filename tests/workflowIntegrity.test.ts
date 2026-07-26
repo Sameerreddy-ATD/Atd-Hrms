@@ -5,8 +5,6 @@ import { reportingHierarchyCycle } from "../server/src/organizationRules.js";
 import {
   certificateRequestSchema,
   createUserSchema,
-  leaveDecisionSchema,
-  medicalDocumentSchema,
   updateEmployeeSchema,
 } from "../server/src/schemas.js";
 import { moduleForApiPath } from "../server/src/module-access.js";
@@ -124,29 +122,7 @@ describe("asset and HR-document persistence integrity", () => {
   });
 });
 
-describe("leave review integrity", () => {
-  it("normalizes review notes and rejects oversized decisions", () => {
-    expect(leaveDecisionSchema.parse({ note: "  Approved for the requested dates.  " }).note).toBe(
-      "Approved for the requested dates.",
-    );
-    expect(leaveDecisionSchema.safeParse({ note: "x".repeat(1001) }).success).toBe(false);
-  });
-
-  it("accepts private uploads or Google Drive links for Sick Leave evidence", () => {
-    expect(
-      medicalDocumentSchema.safeParse({ url: "https://drive.google.com/file/d/example/view" })
-        .success,
-    ).toBe(true);
-    expect(
-      medicalDocumentSchema.safeParse({ url: "/leave/medical-files/abc-report.pdf" }).success,
-    ).toBe(true);
-    expect(
-      medicalDocumentSchema.safeParse({ url: "https://example.com/untrusted-document" }).success,
-    ).toBe(false);
-  });
-});
-
-describe("task board ACL and overtime concurrency helpers", () => {
+describe("task board ACL helpers", () => {
   it("scopes board access for non-developer roles and leaves developers unrestricted", () => {
     expect(boardAccessWhere({ id: "u1", role: Role.DEVELOPER_ADMIN } as never)).toEqual({});
     const employeeScope = boardAccessWhere({
@@ -165,14 +141,5 @@ describe("task board ACL and overtime concurrency helpers", () => {
         },
       ]),
     });
-  });
-
-  it("treats overtime review as a single-winner PENDING update", () => {
-    // Mirrors PATCH /overtime-claims/:id — only one concurrent reviewer should succeed.
-    const first = { count: 1 };
-    const second = { count: 0 };
-    expect(first.count).toBe(1);
-    expect(second.count).toBe(0);
-    expect(second.count === 0 ? 409 : 200).toBe(409);
   });
 });

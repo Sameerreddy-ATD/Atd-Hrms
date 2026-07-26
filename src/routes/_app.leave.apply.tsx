@@ -9,18 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { leaveApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
 import { indiaDateKey, indiaDateKeyShift } from "@/lib/india-date";
 import type { LeaveBalance, LeaveTypeOption, WeeklyOffRequest } from "@/types/domain";
+import { StatusBadge } from "@/components/common/StatusBadge";
 import { CalendarClock, CalendarDays, CheckCircle2, ShieldCheck, UserRound } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/leave/apply")({
   component: ApplyLeavePage,
@@ -47,7 +42,7 @@ function ApplyLeavePage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [requestKind, setRequestKind] = useState<"leave" | "weekly-off">("leave");
   const todayString = indiaDateKey();
-  const tomorrowString = indiaDateKeyShift(1);
+
   useEffect(() => {
     Promise.all([leaveApi.types(), leaveApi.myBalance(), leaveApi.weeklyOffs()])
       .then(([rows, balanceRows, weeklyRows]) => {
@@ -165,9 +160,10 @@ function ApplyLeavePage() {
         description="Choose the leave type and dates. Approval follows the policy for that leave type."
         actions={
           <InfoButton title="Leave request process">
-            Leave requests go only to your responsible organization head. Comp Off uses an earned
-            holiday-work credit and does not require approval. You can track the result in Leave
-            History and cancel an approved leave when required.
+            Leave requests go to your organization head. Higher heads in the same chain can also
+            approve or reject. Comp Off uses an earned holiday-work credit and does not require
+            approval. You can track the result in Leave History and cancel an approved leave when
+            required.
           </InfoButton>
         }
       />
@@ -198,41 +194,40 @@ function ApplyLeavePage() {
           >
             {types.map((type) => {
               const balance = balances.find((item) => item.code === type.code)?.balance ?? 0;
+              const selected = type.id === typeId;
               return (
-                <Card
+                <button
                   key={type.id}
-                  className={
-                    type.id === typeId ? "border-primary/50 bg-primary/[0.03]" : "border-border/80"
-                  }
+                  type="button"
+                  onClick={() => setTypeId(type.id)}
+                  className={cn(
+                    "rounded-lg border bg-card p-4 text-left transition-colors",
+                    selected
+                      ? "border-primary/50 bg-primary/[0.03] ring-1 ring-primary/30"
+                      : "border-border/80 hover:border-primary/30 hover:bg-muted/30",
+                  )}
                 >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-semibold">{type.name}</p>
-                        <p className="mt-1 text-2xl font-semibold tabular-nums">{balance}</p>
-                        <p className="text-xs text-muted-foreground">available credit</p>
-                      </div>
-                      <InfoButton title={type.name} className="-mr-1 -mt-1">
-                        {type.description || "This leave type follows the company leave policy."}
-                      </InfoButton>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">{type.name}</p>
+                      <p className="mt-1 text-2xl font-semibold tabular-nums">{balance}</p>
+                      <p className="text-xs text-muted-foreground">available credit</p>
                     </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="mt-3 h-8 px-2"
-                      onClick={() => setTypeId(type.id)}
-                    >
-                      {type.id === typeId ? (
-                        <>
-                          <ShieldCheck className="h-4 w-4" /> Selected
-                        </>
-                      ) : (
-                        "Select leave"
-                      )}
-                    </Button>
-                  </CardContent>
-                </Card>
+                    <InfoButton title={type.name} className="-mr-1 -mt-1">
+                      {type.description || "This leave type follows the company leave policy."}
+                    </InfoButton>
+                  </div>
+                  <p className="mt-3 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                    {selected ? (
+                      <>
+                        <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                        Selected
+                      </>
+                    ) : (
+                      "Tap to select"
+                    )}
+                  </p>
+                </button>
               );
             })}
           </section>
@@ -248,7 +243,8 @@ function ApplyLeavePage() {
                 {!approverLoading && requiresApprover && approverName && (
                   <p className="mb-4 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
                     This request will be sent to your organization head:{" "}
-                    <span className="font-medium text-foreground">{approverName}</span>
+                    <span className="font-medium text-foreground">{approverName}</span>. Higher heads
+                    in the same chain can also approve or reject it.
                   </p>
                 )}
                 {selectedType && !requiresApprover && (
@@ -259,22 +255,14 @@ function ApplyLeavePage() {
                   </p>
                 )}
                 <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2" noValidate>
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <Label>Leave type</Label>
-                    <Select value={typeId} onValueChange={setTypeId} disabled={typesLoading}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select leave type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {types.map((t) => (
-                          <SelectItem key={t.id} value={t.id}>
-                            {t.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {errors.type && <p className="text-xs text-destructive">{errors.type}</p>}
-                  </div>
+                  {!typeId && (
+                    <p className="sm:col-span-2 text-sm text-muted-foreground">
+                      Select a leave type above to continue.
+                    </p>
+                  )}
+                  {errors.type && (
+                    <p className="sm:col-span-2 text-xs text-destructive">{errors.type}</p>
+                  )}
                   {selectedType?.requiresMedicalDocument && (
                     <div className="space-y-1.5 sm:col-span-2">
                       <Label htmlFor="medical-document">
@@ -424,7 +412,8 @@ function ApplyLeavePage() {
               {!approverLoading && approverName && (
                 <p className="mb-4 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
                   This request will be sent to your organization head:{" "}
-                  <span className="font-medium text-foreground">{approverName}</span>
+                  <span className="font-medium text-foreground">{approverName}</span>. Higher heads in
+                  the same chain can also approve or reject it.
                 </p>
               )}
               <form onSubmit={submitWeeklyOff} className="grid gap-4 sm:grid-cols-2">
@@ -434,7 +423,8 @@ function ApplyLeavePage() {
                     id="weekly-off-date"
                     type="date"
                     value={weeklyOffDate}
-                    min={tomorrowString}                    onChange={(event) => setWeeklyOffDate(event.target.value)}
+                    min={indiaDateKeyShift(1)}
+                    onChange={(event) => setWeeklyOffDate(event.target.value)}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -461,17 +451,27 @@ function ApplyLeavePage() {
                 </div>
               </form>
               {weeklyOffs.length > 0 && (
-                <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                <div className="mt-5 space-y-2">
+                  <h3 className="text-sm font-semibold">Recent weekly-off requests</h3>
                   {weeklyOffs.slice(0, 6).map((request) => (
                     <div
                       key={request.id}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm"
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-background p-3 text-sm"
                     >
-                      <span className="font-medium">{request.date}</span>
+                      <div className="min-w-0">
+                        <p className="font-medium">{request.date}</p>
+                        {request.reviewedByName && (
+                          <p className="text-xs text-muted-foreground">
+                            {request.status === "REJECTED"
+                              ? `Rejected by ${request.reviewedByName}`
+                              : request.status === "APPROVED"
+                                ? `Approved by ${request.reviewedByName}`
+                                : request.reviewedByName}
+                          </p>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-muted-foreground">
-                          {request.status}
-                        </span>
+                        <StatusBadge status={request.status} />
                         {(request.status === "PENDING" || request.status === "APPROVED") && (
                           <Button
                             type="button"
