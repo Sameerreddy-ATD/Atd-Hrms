@@ -490,6 +490,16 @@ export interface LeaveRequest {
   availableBalance?: number | null;
   requestedDays?: number;
   projectedBalance?: number | null;
+  leaveBalances?: Array<{
+    type: LeaveType;
+    code?: string;
+    entitled: number;
+    used: number;
+    balance: number;
+  }>;
+  otherPendingCount?: number;
+  otherPendingDays?: number;
+  sameTypeOtherPendingDays?: number;
 }
 
 export interface LeaveBalance {
@@ -511,6 +521,8 @@ export interface WeeklyOffRequest {
   status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
   reason?: string;
   approverId: string;
+  assignedApproverName?: string;
+  reviewedByName?: string;
   createdAt: string;
 }
 

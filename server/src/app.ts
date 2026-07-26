@@ -437,12 +437,18 @@ export function createApp() {
       REJECTED: "Rejected",
       CANCELLED: "Cancelled",
     };
+    const reviewerLabel = row.reviewedBy?.name;
+    const decisionLabel = reviewerLabel
+      ? row.status === "REJECTED"
+        ? `Rejected by ${reviewerLabel}`
+        : `Approved by ${reviewerLabel}`
+      : null;
     const workflowStatusMap: Record<string, string> = {
       PENDING: "Submitted — awaiting organization head",
-      MANAGER_APPROVED: "Approved by organization head",
-      HR_VERIFIED: "HR verified",
-      APPROVED: "Approved by organization head",
-      REJECTED: "Rejected by organization head",
+      MANAGER_APPROVED: decisionLabel ?? "Approved by organization head",
+      HR_VERIFIED: decisionLabel ? `${decisionLabel} · HR verified` : "HR verified",
+      APPROVED: decisionLabel ?? "Approved by organization head",
+      REJECTED: decisionLabel ?? "Rejected by organization head",
       CANCELLED: "Cancelled",
     };
     return {
@@ -481,12 +487,33 @@ export function createApp() {
     rows: T[],
     includeBalances = false,
   ) {
+    if (rows.length === 0) return [];
     const approverIds = [...new Set(rows.map((row) => row.managerId).filter(Boolean))] as string[];
-    const approvers = await prisma.employee.findMany({
-      where: { employeeId: { in: approverIds } },
-      select: { employeeId: true, name: true },
-    });
+    const employeeIds = [...new Set(rows.map((row) => row.employeeId))];
+    const [approvers, pendingRows] = await Promise.all([
+      prisma.employee.findMany({
+        where: { employeeId: { in: approverIds } },
+        select: { employeeId: true, name: true },
+      }),
+      includeBalances
+        ? prisma.leaveRequest.findMany({
+            where: { employeeId: { in: employeeIds }, status: "PENDING" },
+            select: {
+              leaveRequestId: true,
+              employeeId: true,
+              leaveTypeId: true,
+              days: true,
+            },
+          })
+        : Promise.resolve([]),
+    ]);
     const names = new Map(approvers.map((approver) => [approver.employeeId, approver.name]));
+    const pendingByEmployee = new Map<string, typeof pendingRows>();
+    for (const pending of pendingRows) {
+      const list = pendingByEmployee.get(pending.employeeId) ?? [];
+      list.push(pending);
+      pendingByEmployee.set(pending.employeeId, list);
+    }
     const dtos = rows.map((row) =>
       leaveRequestDto(row, row.managerId ? names.get(row.managerId) : undefined),
     );
@@ -504,6 +531,13 @@ export function createApp() {
         const requestedDays = Math.max(0, Number(row.days) - (dto.cancelledDays ?? 0));
         const availableBalance =
           row.leaveType?.code === LEAVE_CODES.LOP ? null : Number(balance?.balance ?? 0);
+        const employeePending = pendingByEmployee.get(row.employeeId) ?? [];
+        const otherPending = employeePending.filter(
+          (item) => item.leaveRequestId !== row.leaveRequestId,
+        );
+        const sameTypeOtherPendingDays = otherPending
+          .filter((item) => item.leaveTypeId === row.leaveTypeId)
+          .reduce((total, item) => total + Number(item.days), 0);
         return {
           ...dto,
           availableBalance,
@@ -514,7 +548,214 @@ export function createApp() {
             status: row.status,
             requestedDays,
           }),
+          leaveBalances: balances.map((item) => ({
+            type: item.leaveType.name,
+            code: item.leaveType.code,
+            entitled: Number(item.entitled),
+            used: Number(item.used),
+            balance: Number(item.balance),
+          })),
+          otherPendingCount: otherPending.length,
+          otherPendingDays: otherPending.reduce((total, item) => total + Number(item.days), 0),
+          sameTypeOtherPendingDays,
         };
+      }),
+    );
+  }
+
+  async function assignedLeaveApprovalWhere(
+    employeeId: string | null | undefined,
+  ): Promise<Prisma.LeaveRequestWhereInput> {
+    if (!employeeId) return { employeeId: "__none__" };
+    const teamIds = await getOrganizationTeamEmployeeIds(employeeId);
+    return {
+      OR: [
+        { managerId: employeeId },
+        ...(teamIds.length > 0 ? [{ employeeId: { in: teamIds } }] : []),
+      ],
+    };
+  }
+
+  async function assignedWeeklyOffApprovalWhere(
+    employeeId: string | null | undefined,
+  ): Promise<Prisma.WeeklyOffRequestWhereInput> {
+    if (!employeeId) return { employeeId: "__none__" };
+    const teamIds = await getOrganizationTeamEmployeeIds(employeeId);
+    return {
+      OR: [
+        { approverId: employeeId },
+        ...(teamIds.length > 0 ? [{ employeeId: { in: teamIds } }] : []),
+      ],
+    };
+  }
+
+  async function findLeaveApprover(employeeId: string) {
+    const heads = await listOrganizationHeadApprovers(employeeId);
+    return heads[0] ?? null;
+  }
+
+  /** Immediate unit head first, then parent heads up the organization chart. */
+  async function listOrganizationHeadApprovers(employeeId: string) {
+    const [employee, units] = await Promise.all([
+      prisma.employee.findUnique({ where: { employeeId }, select: { departmentId: true } }),
+      prisma.department.findMany({
+        select: { departmentId: true, parentDepartmentId: true, headEmployeeId: true },
+      }),
+    ]);
+    if (!employee?.departmentId) {
+      const ceo = await prisma.employee.findFirst({
+        where: { status: "ACTIVE", user: { role: Role.CEO } },
+        select: { employeeId: true, name: true },
+      });
+      return ceo ? [ceo] : [];
+    }
+
+    const byId = new Map(units.map((unit) => [unit.departmentId, unit]));
+    const headIds: string[] = [];
+    let unit = byId.get(employee.departmentId);
+    while (unit) {
+      if (unit.headEmployeeId && unit.headEmployeeId !== employeeId) {
+        headIds.push(unit.headEmployeeId);
+      }
+      unit = unit.parentDepartmentId ? byId.get(unit.parentDepartmentId) : undefined;
+    }
+
+    const uniqueHeadIds = [...new Set(headIds)];
+    if (uniqueHeadIds.length === 0) {
+      const ceo = await prisma.employee.findFirst({
+        where: { status: "ACTIVE", user: { role: Role.CEO } },
+        select: { employeeId: true, name: true },
+      });
+      return ceo ? [ceo] : [];
+    }
+
+    const approvers = await prisma.employee.findMany({
+      where: { employeeId: { in: uniqueHeadIds }, status: "ACTIVE" },
+      select: { employeeId: true, name: true },
+    });
+    const byEmployeeId = new Map(approvers.map((row) => [row.employeeId, row]));
+    return uniqueHeadIds
+      .map((id) => byEmployeeId.get(id))
+      .filter((row): row is { employeeId: string; name: string } => Boolean(row));
+  }
+
+  async function assertOrganizationApproverForLeave(
+    user: { employeeId?: string | null },
+    leave: { managerId?: string | null; employeeId: string },
+  ) {
+    if (!user.employeeId) {
+      throw new HttpError(
+        403,
+        "Only an organization head for this employee can approve or reject leave.",
+      );
+    }
+    if (leave.managerId === user.employeeId) return;
+    const teamIds = await getOrganizationTeamEmployeeIds(user.employeeId);
+    if (teamIds.includes(leave.employeeId)) return;
+    const chain = await listOrganizationHeadApprovers(leave.employeeId);
+    if (chain.some((head) => head.employeeId === user.employeeId)) return;
+    throw new HttpError(
+      403,
+      "Only the employee's organization head (or a higher head in their chain) can approve or reject leave.",
+    );
+  }
+
+  async function assertOrganizationApproverForCorrection(
+    user: { employeeId?: string | null },
+    request: { approverId?: string | null; employeeId: string },
+  ) {
+    if (!user.employeeId) {
+      throw new HttpError(
+        403,
+        "Only an organization head for this employee can approve or reject this punch request.",
+      );
+    }
+    if (request.approverId === user.employeeId) return user.employeeId;
+    const teamIds = await getOrganizationTeamEmployeeIds(user.employeeId);
+    if (teamIds.includes(request.employeeId)) return user.employeeId;
+    const chain = await listOrganizationHeadApprovers(request.employeeId);
+    if (chain.some((head) => head.employeeId === user.employeeId)) return user.employeeId;
+    throw new HttpError(
+      403,
+      "Only the employee's organization head (or a higher head in their chain) can approve or reject this punch request.",
+    );
+  }
+
+  async function canActAsOrganizationHeadFor(
+    actorEmployeeId: string | null | undefined,
+    subjectEmployeeId: string,
+    assignedId?: string | null,
+  ) {
+    if (!actorEmployeeId) return false;
+    if (assignedId === actorEmployeeId) return true;
+    const teamIds = await getOrganizationTeamEmployeeIds(actorEmployeeId);
+    if (teamIds.includes(subjectEmployeeId)) return true;
+    const chain = await listOrganizationHeadApprovers(subjectEmployeeId);
+    return chain.some((head) => head.employeeId === actorEmployeeId);
+  }
+
+  function weeklyOffWeekStart(date: Date) {
+    const day = startOfDayUtc(date);
+    const weekday = day.getUTCDay();
+    day.setUTCDate(day.getUTCDate() - (weekday === 0 ? 6 : weekday - 1));
+    return day;
+  }
+
+  function weeklyOffRequestDto(
+    row: {
+      weeklyOffRequestId: string;
+      employeeId: string;
+      date: Date;
+      status: string;
+      reason: string | null;
+      approverId: string;
+      reviewedBy?: string | null;
+      createdAt: Date;
+      employee?: { name: string; employeeCode: string };
+    },
+    names?: { assignedApproverName?: string; reviewedByName?: string },
+  ) {
+    return {
+      id: row.weeklyOffRequestId,
+      employeeId: row.employeeId,
+      employeeName: row.employee?.name,
+      employeeCode: row.employee?.employeeCode,
+      date: row.date.toISOString().slice(0, 10),
+      status: row.status,
+      reason: row.reason ?? undefined,
+      approverId: row.approverId,
+      assignedApproverName: names?.assignedApproverName,
+      reviewedByName: names?.reviewedByName,
+      createdAt: row.createdAt.toISOString(),
+    };
+  }
+
+  async function weeklyOffRequestDtos<T extends Parameters<typeof weeklyOffRequestDto>[0]>(
+    rows: T[],
+  ) {
+    if (rows.length === 0) return [];
+    const approverIds = [...new Set(rows.map((row) => row.approverId).filter(Boolean))];
+    const reviewerUserIds = [
+      ...new Set(rows.map((row) => row.reviewedBy).filter(Boolean)),
+    ] as string[];
+    const [approvers, reviewers] = await Promise.all([
+      prisma.employee.findMany({
+        where: { employeeId: { in: approverIds } },
+        select: { employeeId: true, name: true },
+      }),
+      reviewerUserIds.length
+        ? prisma.user.findMany({
+            where: { id: { in: reviewerUserIds } },
+            select: { id: true, name: true },
+          })
+        : Promise.resolve([]),
+    ]);
+    const approverNames = new Map(approvers.map((row) => [row.employeeId, row.name]));
+    const reviewerNames = new Map(reviewers.map((row) => [row.id, row.name]));
+    return rows.map((row) =>
+      weeklyOffRequestDto(row, {
+        assignedApproverName: approverNames.get(row.approverId),
+        reviewedByName: row.reviewedBy ? reviewerNames.get(row.reviewedBy) : undefined,
       }),
     );
   }
@@ -530,92 +771,6 @@ export function createApp() {
     else {
       throw new HttpError(400, "Leave status must be PENDING, APPROVED, REJECTED, or CANCELLED");
     }
-  }
-
-  async function findLeaveApprover(employeeId: string) {
-    const [employee, units] = await Promise.all([
-      prisma.employee.findUnique({ where: { employeeId }, select: { departmentId: true } }),
-      prisma.department.findMany({
-        select: { departmentId: true, parentDepartmentId: true, headEmployeeId: true },
-      }),
-    ]);
-    if (!employee?.departmentId) return null;
-
-    const byId = new Map(units.map((unit) => [unit.departmentId, unit]));
-    let unit = byId.get(employee.departmentId);
-    while (unit) {
-      if (unit.headEmployeeId && unit.headEmployeeId !== employeeId) {
-        const approver = await prisma.employee.findFirst({
-          where: { employeeId: unit.headEmployeeId, status: "ACTIVE" },
-          select: { employeeId: true, name: true },
-        });
-        if (approver) return approver;
-      }
-      unit = unit.parentDepartmentId ? byId.get(unit.parentDepartmentId) : undefined;
-    }
-    return prisma.employee.findFirst({
-      where: { status: "ACTIVE", user: { role: Role.CEO } },
-      select: { employeeId: true, name: true },
-    });
-  }
-
-  async function assertOrganizationApproverForLeave(
-    user: { employeeId?: string | null },
-    leave: { managerId?: string | null; employeeId: string },
-  ) {
-    const assignedApproverId =
-      leave.managerId ?? (await findLeaveApprover(leave.employeeId))?.employeeId;
-    if (!user.employeeId || assignedApproverId !== user.employeeId) {
-      throw new HttpError(
-        403,
-        "Only the responsible organization head can approve or reject leave.",
-      );
-    }
-  }
-
-  async function assertOrganizationApproverForCorrection(
-    user: { employeeId?: string | null },
-    request: { approverId?: string | null; employeeId: string },
-  ) {
-    const assignedApproverId =
-      request.approverId ?? (await findLeaveApprover(request.employeeId))?.employeeId;
-    if (!user.employeeId || assignedApproverId !== user.employeeId) {
-      throw new HttpError(
-        403,
-        "Only the employee's responsible organization head can approve or reject this punch request.",
-      );
-    }
-    return assignedApproverId;
-  }
-
-  function weeklyOffWeekStart(date: Date) {
-    const day = startOfDayUtc(date);
-    const weekday = day.getUTCDay();
-    day.setUTCDate(day.getUTCDate() - (weekday === 0 ? 6 : weekday - 1));
-    return day;
-  }
-
-  function weeklyOffRequestDto(row: {
-    weeklyOffRequestId: string;
-    employeeId: string;
-    date: Date;
-    status: string;
-    reason: string | null;
-    approverId: string;
-    createdAt: Date;
-    employee?: { name: string; employeeCode: string };
-  }) {
-    return {
-      id: row.weeklyOffRequestId,
-      employeeId: row.employeeId,
-      employeeName: row.employee?.name,
-      employeeCode: row.employee?.employeeCode,
-      date: row.date.toISOString().slice(0, 10),
-      status: row.status,
-      reason: row.reason ?? undefined,
-      approverId: row.approverId,
-      createdAt: row.createdAt.toISOString(),
-    };
   }
 
   async function assertWeeklyOffNotConsecutive(employeeId: string, date: Date, excludeId?: string) {
@@ -4210,13 +4365,18 @@ export function createApp() {
       if (all && !canViewAll) throw new HttpError(403, "HR or admin access is required");
       if (!all && !req.user!.employeeId) return res.json([]);
       const employeeId = req.user!.employeeId!;
+      const where = all
+        ? {}
+        : assigned
+          ? await assignedWeeklyOffApprovalWhere(employeeId)
+          : { employeeId };
       const rows = await prisma.weeklyOffRequest.findMany({
-        where: all ? {} : assigned ? { approverId: employeeId } : { employeeId },
+        where,
         include: { employee: { select: { name: true, employeeCode: true } } },
         orderBy: { date: "desc" },
         take: 100,
       });
-      res.json(rows.map(weeklyOffRequestDto));
+      res.json(await weeklyOffRequestDtos(rows));
     }),
   );
 
@@ -4251,7 +4411,7 @@ export function createApp() {
         ipAddress: req.ip,
       });
       publishNotificationChange("weekly-off-cancelled", row.weeklyOffRequestId);
-      res.json(weeklyOffRequestDto(row));
+      res.json((await weeklyOffRequestDtos([row]))[0]);
     }),
   );
 
@@ -4299,7 +4459,7 @@ export function createApp() {
         include: { employee: { select: { name: true, employeeCode: true } } },
       });
       publishNotificationChange("weekly-off-requested", row.weeklyOffRequestId);
-      res.status(201).json(weeklyOffRequestDto(row));
+      res.status(201).json((await weeklyOffRequestDtos([row]))[0]);
     }),
   );
 
@@ -4310,8 +4470,16 @@ export function createApp() {
       const existing = await prisma.weeklyOffRequest.findUniqueOrThrow({
         where: { weeklyOffRequestId: String(req.params.id) },
       });
-      if (existing.approverId !== req.user!.employeeId) {
-        throw new HttpError(403, "Only the assigned organization head can approve this weekly off");
+      const allowed = await canActAsOrganizationHeadFor(
+        req.user!.employeeId,
+        existing.employeeId,
+        existing.approverId,
+      );
+      if (!allowed) {
+        throw new HttpError(
+          403,
+          "Only the employee's organization head (or a higher head in their chain) can approve this weekly off",
+        );
       }
       if (existing.status !== "PENDING") throw new HttpError(400, "Request is already reviewed");
       await assertWeeklyOffNotConsecutive(
@@ -4332,7 +4500,7 @@ export function createApp() {
       });
       await recalculateDailySummary(row.employeeId, row.date);
       publishNotificationChange("weekly-off-approved", row.weeklyOffRequestId);
-      res.json(weeklyOffRequestDto(row));
+      res.json((await weeklyOffRequestDtos([row]))[0]);
     }),
   );
 
@@ -4343,8 +4511,16 @@ export function createApp() {
       const existing = await prisma.weeklyOffRequest.findUniqueOrThrow({
         where: { weeklyOffRequestId: String(req.params.id) },
       });
-      if (existing.approverId !== req.user!.employeeId) {
-        throw new HttpError(403, "Only the assigned organization head can reject this weekly off");
+      const allowed = await canActAsOrganizationHeadFor(
+        req.user!.employeeId,
+        existing.employeeId,
+        existing.approverId,
+      );
+      if (!allowed) {
+        throw new HttpError(
+          403,
+          "Only the employee's organization head (or a higher head in their chain) can reject this weekly off",
+        );
       }
       if (existing.status !== "PENDING") throw new HttpError(400, "Request is already reviewed");
       const changed = await prisma.weeklyOffRequest.updateMany({
@@ -4359,7 +4535,7 @@ export function createApp() {
         include: { employee: { select: { name: true, employeeCode: true } } },
       });
       publishNotificationChange("weekly-off-rejected", row.weeklyOffRequestId);
-      res.json(weeklyOffRequestDto(row));
+      res.json((await weeklyOffRequestDtos([row]))[0]);
     }),
   );
 
@@ -4544,7 +4720,7 @@ export function createApp() {
       const where: Prisma.LeaveRequestWhereInput = ownOnly
         ? { employeeId: req.user!.employeeId ?? "__none__" }
         : assignedApprovals
-          ? { managerId: req.user!.employeeId ?? "__none__" }
+          ? await assignedLeaveApprovalWhere(req.user!.employeeId)
           : operationalRoles.includes(req.user!.role)
             ? {}
             : req.user!.role === Role.MANAGER && req.user!.employeeId
@@ -6138,13 +6314,18 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       const operationalRoles: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR, Role.CEO];
       const canSeeOperational = operationalRoles.includes(req.user!.role);
-      const canSeeTeam = req.user!.role === Role.MANAGER && !!req.user!.employeeId;
+      const teamEmployeeIds = req.user!.employeeId
+        ? await getOrganizationTeamEmployeeIds(req.user!.employeeId)
+        : [];
+      const canSeeTeam = teamEmployeeIds.length > 0;
       const leaveWhere: Prisma.LeaveRequestWhereInput = canSeeOperational
         ? {}
         : canSeeTeam
           ? {
-              status: "PENDING",
-              employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId!) },
+              OR: [
+                { employeeId: req.user!.employeeId! },
+                { status: "PENDING", employeeId: { in: teamEmployeeIds } },
+              ],
             }
           : req.user!.employeeId
             ? { employeeId: req.user!.employeeId }
@@ -6163,6 +6344,9 @@ export function createApp() {
               OR: [
                 { employeeId: req.user!.employeeId },
                 { approverId: req.user!.employeeId, status: "PENDING" },
+                ...(teamEmployeeIds.length
+                  ? [{ status: "PENDING" as const, employeeId: { in: teamEmployeeIds } }]
+                  : []),
               ],
             },
             include: { employee: { select: { name: true } } },
@@ -6176,6 +6360,9 @@ export function createApp() {
               OR: [
                 { employeeId: req.user!.employeeId },
                 { approverId: req.user!.employeeId, status: "PENDING" },
+                ...(teamEmployeeIds.length
+                  ? [{ status: "PENDING" as const, employeeId: { in: teamEmployeeIds } }]
+                  : []),
               ],
             },
             include: { employee: { select: { name: true } } },
@@ -6206,7 +6393,7 @@ export function createApp() {
           where: leaveWhere,
           include: { employee: true, leaveType: true },
           orderBy: { createdAt: "desc" },
-          take: 8,
+          take: canSeeTeam && !canSeeOperational ? 16 : 8,
         }),
         prisma.employee.findMany({
           where: {
@@ -6313,18 +6500,28 @@ export function createApp() {
 
       const recentDecisionMs = 14 * 24 * 60 * 60 * 1000;
       const actionableCorrections = correctionNotifications.filter((request) => {
-        if (request.approverId === req.user!.employeeId && request.status === "PENDING") return true;
+        if (request.status === "PENDING") {
+          if (request.employeeId === req.user!.employeeId) return true;
+          return (
+            request.approverId === req.user!.employeeId ||
+            teamEmployeeIds.includes(request.employeeId)
+          );
+        }
         if (request.employeeId !== req.user!.employeeId) return false;
-        if (request.status === "PENDING") return true;
         return (
           ["APPROVED", "REJECTED"].includes(request.status) &&
           Date.now() - request.updatedAt.getTime() < recentDecisionMs
         );
       });
       const actionableWeeklyOffs = weeklyOffNotifications.filter((request) => {
-        if (request.approverId === req.user!.employeeId && request.status === "PENDING") return true;
+        if (request.status === "PENDING") {
+          if (request.employeeId === req.user!.employeeId) return true;
+          return (
+            request.approverId === req.user!.employeeId ||
+            teamEmployeeIds.includes(request.employeeId)
+          );
+        }
         if (request.employeeId !== req.user!.employeeId) return false;
-        if (request.status === "PENDING") return true;
         return (
           ["APPROVED", "REJECTED"].includes(request.status) &&
           Date.now() - request.updatedAt.getTime() < recentDecisionMs

@@ -74,7 +74,7 @@ function LeaveApprovalsPage() {
   useEffect(() => {
     if (!canApprove && !canOversee) return;
     Promise.all([
-      canOversee ? leaveApi.approvalQueue() : leaveApi.assignedApprovals(),
+      canApprove ? leaveApi.assignedApprovals() : leaveApi.approvalQueue(),
       leaveApi.weeklyOffs(canApprove, canOversee),
     ])
       .then(([all, weeklyRows]) => {
@@ -117,7 +117,7 @@ function LeaveApprovalsPage() {
   }
 
   function canReview(request: LeaveRequest) {
-    return Boolean(user?.employeeId && request.approverId === user.employeeId);
+    return Boolean(canApprove && request.status === "Pending");
   }
   async function reviewWeeklyOff(id: string, approve: boolean) {
     try {
@@ -138,7 +138,9 @@ function LeaveApprovalsPage() {
   }
 
   const pendingWeeklyOffs = weeklyOffs.filter((request) => request.status === "PENDING");
-  const assignedLeaveCount = rows.filter(canReview).length;
+  const assignedLeaveCount = rows.filter(
+    (request) => request.approverId === user?.employeeId,
+  ).length;
   const approvedCount = history.filter((request) => request.status === "Approved").length;
 
   return (
@@ -146,9 +148,9 @@ function LeaveApprovalsPage() {
       <PageHeader
         title="Leave Approval Queue"
         description={
-          canOversee
-            ? "Review the organization-wide queue and history. Only the assigned organization head can approve or reject each request."
-            : "Approve or reject requests assigned directly to you as the employee's organization head."
+          canApprove
+            ? "Approve leave and weekly-off for your unit and people under heads below you. Each card shows available balance, days requested, projected balance, and who is assigned."
+            : "Monitor weekly-off and leave across the organization. Approval sits with each employee's organization head and higher heads in that chain."
         }
       />
       {loading && <LoadingState label="Loading leave approvals" />}
@@ -172,9 +174,9 @@ function LeaveApprovalsPage() {
       <div className="mb-3">
         <h2 className="text-base font-semibold">Pending leave requests</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          {canOversee
-            ? "Organization-wide visibility. Action buttons appear only on requests assigned to you."
-            : "Requests assigned to you for a decision."}
+          {canApprove
+            ? "Your unit and subordinate units. Primary assigned head is shown on each card; you can still decide as a higher head."
+            : "Organization-wide visibility. Action buttons appear for organization heads only."}
         </p>
       </div>
       <div className="space-y-3 md:hidden">
@@ -205,23 +207,48 @@ function LeaveApprovalsPage() {
                   Unpaid leave — no paid-leave credit is deducted.
                 </p>
               ) : (
-                <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Available</p>
-                    <p className="font-semibold">{leave.availableBalance ?? "—"}</p>
+                <div className="mt-3 space-y-2">
+                  <div className="grid grid-cols-3 gap-2 text-sm">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Available</p>
+                      <p className="font-semibold">{leave.availableBalance ?? "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Applying for</p>
+                      <p className="font-semibold">{leave.requestedDays ?? leave.days}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">After approval</p>
+                      <p className="font-semibold">{leave.projectedBalance ?? "—"}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Requested</p>
-                    <p className="font-semibold">{leave.requestedDays ?? leave.days}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">After approval</p>
-                    <p className="font-semibold">{leave.projectedBalance ?? "—"}</p>
-                  </div>
+                  {(leave.leaveBalances?.length ?? 0) > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {leave.leaveBalances!.map((balance) => (
+                        <span
+                          key={`${balance.type}-${balance.code ?? ""}`}
+                          className={`rounded-md border px-2 py-1 text-xs ${
+                            balance.type === leave.type
+                              ? "border-primary/40 bg-primary/5 font-medium"
+                              : "bg-background"
+                          }`}
+                        >
+                          {balance.type}: {balance.balance} left
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {(leave.otherPendingCount ?? 0) > 0 && (
+                    <p className="text-xs text-amber-800 dark:text-amber-300">
+                      Also has {leave.otherPendingCount} other pending leave request
+                      {leave.otherPendingCount === 1 ? "" : "s"} ({leave.otherPendingDays ?? 0}{" "}
+                      day{(leave.otherPendingDays ?? 0) === 1 ? "" : "s"}).
+                    </p>
+                  )}
                 </div>
               )}
               <div className="mt-3 text-sm">
-                <p className="text-xs text-muted-foreground">Assigned approver</p>
+                <p className="text-xs text-muted-foreground">Assigned / primary head</p>
                 <p className="font-medium">{leave.approverName ?? "Not assigned"}</p>
               </div>
               <div className="mt-3">
@@ -258,7 +285,8 @@ function LeaveApprovalsPage() {
                 </div>
               ) : (
                 <p className="mt-4 rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
-                  Awaiting {leave.approverName ?? "the assigned organization head"}.
+                  Awaiting {leave.approverName ?? "the assigned organization head"} (or a higher
+                  head in their chain).
                 </p>
               )}
             </CardContent>
@@ -448,7 +476,7 @@ function LeaveApprovalsPage() {
         <div className="mb-3">
           <h2 className="text-base font-semibold">Weekly-off requests</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Weekly offs follow the same assigned organization-head approval rule.
+            Weekly offs follow the same chain: primary head or any higher head can decide.
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -461,13 +489,18 @@ function LeaveApprovalsPage() {
                     <p className="text-sm text-muted-foreground">
                       {request.employeeCode} · {request.date}
                     </p>
+                    {request.assignedApproverName && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Primary head: {request.assignedApproverName}
+                      </p>
+                    )}
                   </div>
                   <StatusBadge status={request.status} />
                 </div>
                 {request.reason && (
                   <p className="mt-3 whitespace-pre-wrap break-words text-sm">{request.reason}</p>
                 )}
-                {request.approverId === user?.employeeId ? (
+                {canApprove ? (
                   <div className="mt-4 grid grid-cols-2 gap-2">
                     <Button variant="outline" onClick={() => reviewWeeklyOff(request.id, false)}>
                       Reject
@@ -476,7 +509,7 @@ function LeaveApprovalsPage() {
                   </div>
                 ) : (
                   <p className="mt-4 rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
-                    Read-only HR visibility. The assigned organization head must review this
+                    Read-only visibility. Organization heads in the employee chain review this
                     request.
                   </p>
                 )}
@@ -504,6 +537,17 @@ function LeaveApprovalsPage() {
                       <p className="truncate text-sm font-semibold">{request.employeeName}</p>
                       <p className="text-xs text-muted-foreground">
                         {request.employeeCode} · {request.date}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {request.reviewedByName
+                          ? request.status === "REJECTED"
+                            ? `Rejected by ${request.reviewedByName}`
+                            : request.status === "APPROVED"
+                              ? `Approved by ${request.reviewedByName}`
+                              : `Reviewed by ${request.reviewedByName}`
+                          : request.assignedApproverName
+                            ? `Assigned to ${request.assignedApproverName}`
+                            : null}
                       </p>
                     </div>
                     <StatusBadge status={request.status} />

@@ -322,11 +322,11 @@ Weekly off is selected through this request flow, not while the account is creat
 
 1. Open **Apply Leave** and use **Request weekly off**.
 2. Select a date at least one day in advance.
-3. Submit it to the direct organization head.
+3. Submit it to your organization head (higher heads in the same chain can also approve).
 
 Only one date is allowed in each Monday-Sunday week. It expires unused, does not carry forward, and cannot be consecutive with another weekly off, including Sunday followed by Monday.
 
-The request is assigned to the nearest organization-unit head above the employee. Only that exact head can approve or reject it.
+The request is assigned to the nearest organization-unit head above the employee. That head and any higher head in the same parent chain can approve or reject it. Leave History shows who made the decision.
 
 ```mermaid
 flowchart LR
@@ -406,7 +406,7 @@ current task from one of its assignees.
 
 ## Manager: Review Team Leave And Attendance
 
-Organization heads see employees within their permitted unit hierarchy. Leave actions show only requests assigned directly to that head; a super-head cannot approve or reject a lower head's assigned request.
+Organization heads see employees within their permitted unit hierarchy. Leave and weekly-off actions are available to the employee's nearest head and to higher heads above that unit. Approvals show available balance, days applied for, projected balance, and who decided.
 
 Use:
 

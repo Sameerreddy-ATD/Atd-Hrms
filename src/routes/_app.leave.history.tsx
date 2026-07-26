@@ -105,7 +105,7 @@ function LeaveHistoryPage() {
                   <p className="font-medium">{leave.appliedOn}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Approver</p>
+                  <p className="text-xs text-muted-foreground">Assigned head</p>
                   <p className="break-words font-medium">{leave.approverName ?? "-"}</p>
                 </div>
                 <div>
@@ -126,8 +126,14 @@ function LeaveHistoryPage() {
               )}
               {leave.status !== "Pending" && (
                 <div className="mt-3 border-t pt-3 text-sm">
-                  <p className="text-xs text-muted-foreground">Decision</p>
-                  <p className="font-medium">{leave.reviewerName ?? "System"}</p>
+                  <p className="text-xs text-muted-foreground">Decision by</p>
+                  <p className="font-medium">
+                    {leave.reviewerName
+                      ? leave.status === "Rejected"
+                        ? `Rejected by ${leave.reviewerName}`
+                        : `Approved by ${leave.reviewerName}`
+                      : "System"}
+                  </p>
                   {leave.decisionNote && (
                     <p className="mt-1 whitespace-pre-wrap break-words text-muted-foreground">
                       {leave.decisionNote}
@@ -159,9 +165,9 @@ function LeaveHistoryPage() {
                 <TableHead>To</TableHead>
                 <TableHead>Days</TableHead>
                 <TableHead>Applied</TableHead>
-                <TableHead>Approver</TableHead>
+                <TableHead>Assigned head</TableHead>
                 <TableHead>Approval progress</TableHead>
-                <TableHead>Decision</TableHead>
+                <TableHead>Decision by</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Action</TableHead>
               </TableRow>
@@ -186,7 +192,13 @@ function LeaveHistoryPage() {
                       <span className="text-muted-foreground">Awaiting review</span>
                     ) : (
                       <>
-                        <p className="font-medium">{l.reviewerName ?? "System"}</p>
+                        <p className="font-medium">
+                          {l.reviewerName
+                            ? l.status === "Rejected"
+                              ? `Rejected by ${l.reviewerName}`
+                              : `Approved by ${l.reviewerName}`
+                            : "System"}
+                        </p>
                         {l.decisionNote && (
                           <p className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">
                             {l.decisionNote}
