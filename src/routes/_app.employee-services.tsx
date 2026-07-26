@@ -51,6 +51,7 @@ export const Route = createFileRoute("/_app/employee-services")({
 });
 
 const expenseInitial = {
+  claimType: "EXPENSE",
   title: "",
   amount: "",
   expenseDate: "",
@@ -58,6 +59,8 @@ const expenseInitial = {
   receiptUrl: "",
   receiptAccessConfirmed: false,
   employeeId: "",
+  distanceKm: "",
+  litres: "",
 };
 const advanceInitial = {
   amount: "",
@@ -133,7 +136,7 @@ function EmployeeServicesPage() {
     setSaving(true);
     try {
       await employeeServicesApi.submitExpense({
-        claimType: "EXPENSE",
+        claimType: (expenseForm.claimType as "EXPENSE" | "TRAVEL" | "FUEL" | "FIELD") || "EXPENSE",
         employeeId: expenseForm.employeeId || undefined,
         title: expenseForm.title,
         amount: Number(expenseForm.amount),
@@ -141,6 +144,13 @@ function EmployeeServicesPage() {
         description: expenseForm.description,
         receiptUrl: expenseForm.receiptUrl || null,
         receiptAccessConfirmed: expenseForm.receiptAccessConfirmed,
+        claimMeta:
+          expenseForm.claimType === "FUEL" || expenseForm.claimType === "TRAVEL"
+            ? {
+                distanceKm: expenseForm.distanceKm ? Number(expenseForm.distanceKm) : undefined,
+                litres: expenseForm.litres ? Number(expenseForm.litres) : undefined,
+              }
+            : undefined,
       });
       setExpenseForm(expenseInitial);
       if (intent !== "add-more") setExpenseOpen(false);
@@ -431,6 +441,42 @@ function EmployeeServicesPage() {
                     onChange={(employeeId) => setExpenseForm((v) => ({ ...v, employeeId }))}
                   />
                 </div>
+              )}
+              <Field label="Claim type">
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={expenseForm.claimType}
+                  onChange={(e) =>
+                    setExpenseForm((v) => ({ ...v, claimType: e.target.value }))
+                  }
+                >
+                  <option value="EXPENSE">Expense</option>
+                  <option value="TRAVEL">Travel</option>
+                  <option value="FUEL">Fuel</option>
+                  <option value="FIELD">Field</option>
+                </select>
+              </Field>
+              {(expenseForm.claimType === "TRAVEL" || expenseForm.claimType === "FUEL") && (
+                <>
+                  <Field label="Distance (km)">
+                    <Input
+                      type="number"
+                      min="0"
+                      value={expenseForm.distanceKm}
+                      onChange={(e) =>
+                        setExpenseForm((v) => ({ ...v, distanceKm: e.target.value }))
+                      }
+                    />
+                  </Field>
+                  <Field label="Litres">
+                    <Input
+                      type="number"
+                      min="0"
+                      value={expenseForm.litres}
+                      onChange={(e) => setExpenseForm((v) => ({ ...v, litres: e.target.value }))}
+                    />
+                  </Field>
+                </>
               )}
               <Field label="Title">
                 <Input

@@ -15,9 +15,14 @@ flowchart LR
   Client -->|"Camera/WebGL models"| Face["Local face detection and liveness"]
   Face -->|"Descriptor, scores, one-time nonce"| Backend
   Backend --> Evidence["Private encrypted evidence directory"]
+  Backend --> Attachments["Task attachment directory"]
   Live --> Client
   Push --> Client
 ```
+
+Additional MySQL tables introduced in migration `20260726150000_hrms_remaining_modules` cover task
+attachments, notification preferences, roster/overtime, checklists, documents, appraisals, SOP,
+and recruitment. Task and board rows also store optional JSON custom fields.
 
 The frontend never connects directly to MySQL. Authorization and object-level access are enforced by Express before Prisma queries run.
 

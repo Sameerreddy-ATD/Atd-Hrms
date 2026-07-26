@@ -247,9 +247,23 @@ Required behavior:
 - A non-working returned asset moves to `UNDER_REPAIR`; other completed returns move to `AVAILABLE`.
 - Asset status is visible on the Asset Management inventory. HR and Developer Admin can add, assign, edit, return, or retire assets; CEO access is read-only and includes investment summaries.
 
+## People Operations Modules (MVP)
+
+- Shift roster assignments and overtime claims (no biometric rewrite).
+- Travel/fuel/field claim types on expense claims with optional `claimMeta`.
+- Onboarding/offboarding checklist templates and per-employee instances.
+- Document vault with acknowledgement versions.
+- Appraisal cycles and manager reviews (1–5 rating).
+- SOP articles with mark-as-read.
+- Recruitment jobs/candidates; Hired can start onboarding checklist.
+- Global `/search`, notification digest preferences, `/reports/ops-summary`, paid-claims CSV.
+- Work Planner Phase 2: soft-archive, attachments, mentions metadata, cross-board move, custom fields.
+
 ## Future Employee Modules
 
-Payslips, promotion requests, and performance reviews are planned for a later version. They are not currently available and must not be represented to employees as active workflows. Future implementation must define exact approval ownership, document access, payroll privacy, review visibility, audit history, retention, and notifications before release.
+Payslips/payroll deductions and live biometric device connectors remain out of scope. WhatsApp
+digest delivery is reserved until an approved messaging provider is configured (daily digest
+preference rows are stored today; SMTP email delivery is not wired yet).
 
 ## Performance and Large Lists
 

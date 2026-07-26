@@ -10,11 +10,11 @@ import {
 } from "@/components/ui/command";
 import { useAuth } from "@/lib/auth";
 import { menuForRole } from "@/lib/menu";
-import { employeesApi } from "@/services/api";
+import { employeesApi, searchApi } from "@/services/api";
 
 /**
  * Global quick-navigation palette. Opens with Ctrl/Cmd+K or the header
- * search button, lists every page the signed-in role can access.
+ * search button, lists pages plus live employee/board/task/announcement hits.
  */
 export function CommandPalette({
   open,
@@ -26,6 +26,10 @@ export function CommandPalette({
   const { user } = useAuth();
   const navigate = useNavigate();
   const [isReportingManager, setIsReportingManager] = useState(false);
+  const [query, setQuery] = useState("");
+  const [hits, setHits] = useState<
+    Array<{ id: string; type: string; title: string; subtitle?: string; href: string }>
+  >([]);
 
   useEffect(() => {
     if (!user?.employeeId) {
@@ -49,15 +53,66 @@ export function CommandPalette({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open, onOpenChange]);
 
+  useEffect(() => {
+    if (!open) {
+      setQuery("");
+      setHits([]);
+      return;
+    }
+    if (query.trim().length < 2) {
+      setHits([]);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void searchApi
+        .query(query.trim())
+        .then((result) =>
+          setHits([
+            ...result.employees,
+            ...result.boards,
+            ...result.tasks,
+            ...result.announcements,
+          ]),
+        )
+        .catch(() => setHits([]));
+    }, 200);
+    return () => window.clearTimeout(timer);
+  }, [open, query]);
+
   if (!user) return null;
 
   const groups = menuForRole(user.role, { isReportingManager });
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
-      <CommandInput placeholder="Search pages... (e.g. leave, attendance, holidays)" />
+      <CommandInput
+        placeholder="Search pages, people, boards, tasks..."
+        value={query}
+        onValueChange={setQuery}
+      />
       <CommandList>
-        <CommandEmpty>No pages found.</CommandEmpty>
+        <CommandEmpty>No matches found.</CommandEmpty>
+        {hits.length > 0 && (
+          <CommandGroup heading="Results">
+            {hits.map((hit) => (
+              <CommandItem
+                key={`${hit.type}-${hit.id}`}
+                value={`${hit.type} ${hit.title} ${hit.subtitle ?? ""}`}
+                className="cursor-pointer gap-3"
+                onSelect={() => {
+                  onOpenChange(false);
+                  navigate({ to: hit.href });
+                }}
+              >
+                <span className="text-xs uppercase text-muted-foreground">{hit.type}</span>
+                <span>{hit.title}</span>
+                {hit.subtitle && (
+                  <span className="text-xs text-muted-foreground">{hit.subtitle}</span>
+                )}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
         {groups.map((group) => (
           <CommandGroup key={group.label} heading={group.label}>
             {group.items.map((item) => (

@@ -71,6 +71,7 @@ export type BoardForm = {
   allowedRoles: string[];
   memberEmployeeIds: string[];
   stages: BoardFormStage[];
+  customFieldDefs: Array<{ key: string; label: string; type: "text" | "number" | "select" }>;
 };
 
 export const DEFAULT_BOARD_FORM: BoardForm = {
@@ -85,6 +86,7 @@ export const DEFAULT_BOARD_FORM: BoardForm = {
     { name: "In review", color: "BLUE", status: "REVIEW" },
     { name: "Completed", color: "EMERALD", status: "COMPLETED" },
   ],
+  customFieldDefs: [],
 };
 
 export function boardToForm(board: TaskBoard): BoardForm {
@@ -100,6 +102,7 @@ export function boardToForm(board: TaskBoard): BoardForm {
       color: stage.color,
       status: stage.status,
     })),
+    customFieldDefs: (board.customFieldDefs ?? []).map((field) => ({ ...field })),
   };
 }
 

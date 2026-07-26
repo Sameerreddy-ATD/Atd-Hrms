@@ -150,7 +150,9 @@ For screens changed in a release, verify:
 - keyboard focus, accessible names, and dialog close/cancel behavior;
 - no document-level horizontal overflow at 320 px and 390 px;
 - API failures produce a clear message and do not create duplicate writes; and
-- role-restricted controls remain enforced by the backend.
+- role-restricted controls remain enforced by the backend;
+- new MVP modules: reports, roster/OT, checklists, documents, appraisals, SOP, recruitment,
+  notification preferences, and Work Planner archive/attachment flows.
 
 ## Commit Hygiene
 

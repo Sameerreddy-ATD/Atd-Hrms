@@ -71,9 +71,28 @@ describe("organization hierarchy integrity", () => {
 describe("asset and HR-document persistence integrity", () => {
   it("keeps assignment and asset status synchronized", () => {
     expect(resolveAssetStatus({ assignedEmployeeId: "employee-1" })).toBe("ASSIGNED");
+    expect(
+      resolveAssetStatus({
+        assignedEmployeeId: "employee-1",
+        requestedStatus: "AVAILABLE",
+      }),
+    ).toBe("ASSIGNED");
+    expect(
+      resolveAssetStatus({
+        assignedEmployeeId: "employee-1",
+        requestedStatus: "RETIRED",
+      }),
+    ).toBe("ASSIGNED");
     expect(resolveAssetStatus({ assignedEmployeeId: null, previousStatus: "ASSIGNED" })).toBe(
       "AVAILABLE",
     );
+    expect(
+      resolveAssetStatus({
+        assignedEmployeeId: null,
+        requestedStatus: "UNDER_REPAIR",
+        previousStatus: "AVAILABLE",
+      }),
+    ).toBe("UNDER_REPAIR");
     expect(() =>
       resolveAssetStatus({ assignedEmployeeId: null, requestedStatus: "ASSIGNED" }),
     ).toThrow("without an employee");

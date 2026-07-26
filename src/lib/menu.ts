@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Users,
   Building2,
+  Briefcase,
   Fingerprint,
   Settings,
   ScrollText,
@@ -15,13 +16,19 @@ import {
   IdCard,
   BellRing,
   History,
-  Briefcase,
   Package,
   ListTodo,
   FileClock,
   Megaphone,
   HandCoins,
   ScanFace,
+  BarChart3,
+  CalendarRange,
+  ListChecks,
+  FolderOpen,
+  Star,
+  BookOpen,
+  UserPlus,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -54,7 +61,15 @@ const ALL: Role[] = [
 export const menuGroups: MenuGroup[] = [
   {
     label: "Overview",
-    items: [{ label: "Dashboard", to: "/dashboard", icon: LayoutDashboard, roles: ALL }],
+    items: [
+      { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard, roles: ALL },
+      {
+        label: "Operations Reports",
+        to: "/reports",
+        icon: BarChart3,
+        roles: ["developer_admin", "main_admin", "ceo", "hr", "manager"],
+      },
+    ],
   },
   {
     label: "People",
@@ -122,6 +137,30 @@ export const menuGroups: MenuGroup[] = [
           "field_staff",
         ],
       },
+      {
+        label: "Shift Roster",
+        to: "/roster",
+        icon: CalendarRange,
+        roles: ALL,
+      },
+      {
+        label: "Checklists",
+        to: "/checklists",
+        icon: ListChecks,
+        roles: ALL,
+      },
+      {
+        label: "Appraisals",
+        to: "/appraisals",
+        icon: Star,
+        roles: ["developer_admin", "main_admin", "hr", "manager", "ceo"],
+      },
+      {
+        label: "Recruitment",
+        to: "/recruitment",
+        icon: UserPlus,
+        roles: ["developer_admin", "main_admin", "hr"],
+      },
     ],
   },
   {
@@ -186,6 +225,18 @@ export const menuGroups: MenuGroup[] = [
         to: "/assets",
         icon: Package,
         roles: ["hr", "developer_admin", "ceo"],
+      },
+      {
+        label: "Document Vault",
+        to: "/documents",
+        icon: FolderOpen,
+        roles: ALL,
+      },
+      {
+        label: "SOP Library",
+        to: "/sop",
+        icon: BookOpen,
+        roles: ALL,
       },
     ],
   },
@@ -252,7 +303,7 @@ export function menuForRole(
             "/attendance/locations": "Attendance Overview",
             "/tasks": "Work Planner",
             "/leave/reports": "Leave Overview",
-            "/assets": "Company Investment",
+            "/assets": "Asset Management",
           };
           return { ...item, label: executiveLabels[item.to] ?? item.label };
         }),
@@ -288,14 +339,20 @@ function groupOrderForRole(role: Role): string[] {
 }
 
 export function moduleForRoute(path: string): ModuleKey {
-  if (path === "/dashboard") return "DASHBOARD";
-  if (["/employees", "/users", "/departments"].includes(path)) return "PEOPLE";
-  if (path.startsWith("/attendance") || path === "/devices") return "ATTENDANCE";
-  if (path === "/tasks") return "TASKS";
+  if (path === "/dashboard" || path.startsWith("/reports")) return "DASHBOARD";
+  if (
+    ["/employees", "/users", "/departments", "/checklists", "/appraisals", "/recruitment"].some(
+      (entry) => path === entry || path.startsWith(`${entry}/`),
+    )
+  )
+    return "PEOPLE";
+  if (path.startsWith("/attendance") || path === "/devices" || path.startsWith("/roster"))
+    return "ATTENDANCE";
+  if (path === "/tasks" || path.startsWith("/tasks/")) return "TASKS";
   if (path === "/employee-services") return "EMPLOYEE_REQUESTS";
   if (path.startsWith("/leave")) return "LEAVE";
-  if (["/branches", "/holidays", "/assets"].includes(path)) return "COMPANY";
+  if (["/branches", "/holidays", "/assets", "/documents"].includes(path)) return "COMPANY";
   if (["/profile", "/id-card"].includes(path)) return "PROFILE";
-  if (["/notifications", "/announcements"].includes(path)) return "COMMUNICATIONS";
+  if (["/notifications", "/announcements", "/sop"].includes(path)) return "COMMUNICATIONS";
   return "SYSTEM";
 }

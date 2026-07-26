@@ -7,7 +7,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { notificationsApi } from "@/services/api";
+import { notificationsApi, notificationPreferencesApi } from "@/services/api";
 import type { NotificationItem } from "@/types/domain";
 import {
   clearNotifications,
@@ -41,6 +41,82 @@ import {
 export const Route = createFileRoute("/_app/notifications")({
   component: NotificationsPage,
 });
+
+function NotificationPreferencesCard() {
+  const [digestMode, setDigestMode] = useState("immediate");
+  const [categories, setCategories] = useState<Record<string, boolean>>({
+    leave: true,
+    tasks: true,
+    claims: true,
+    checklists: true,
+    corrections: true,
+  });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    void notificationPreferencesApi
+      .get()
+      .then((pref) => {
+        setDigestMode(pref.digestMode || "immediate");
+        if (pref.categories && typeof pref.categories === "object") {
+          setCategories((current) => ({ ...current, ...pref.categories }));
+        }
+      })
+      .catch(() => undefined);
+  }, []);
+
+  return (
+    <Card className="mb-4 border-border/80 shadow-none">
+      <CardContent className="space-y-3 p-4">
+        <h2 className="text-sm font-semibold">Digest preferences</h2>
+        <p className="text-xs text-muted-foreground">
+          Choose immediate actionable alerts or a daily digest mode. Push still only sends for
+          urgent/important announcements.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {["off", "immediate", "daily"].map((mode) => (
+            <Button
+              key={mode}
+              size="sm"
+              variant={digestMode === mode ? "default" : "outline"}
+              onClick={() => setDigestMode(mode)}
+            >
+              {mode}
+            </Button>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-3 text-sm">
+          {Object.entries(categories).map(([key, enabled]) => (
+            <label key={key} className="flex items-center gap-2 capitalize">
+              <input
+                type="checkbox"
+                checked={enabled}
+                onChange={(event) =>
+                  setCategories((current) => ({ ...current, [key]: event.target.checked }))
+                }
+              />
+              {key}
+            </label>
+          ))}
+        </div>
+        <Button
+          size="sm"
+          disabled={saving}
+          onClick={() => {
+            setSaving(true);
+            void notificationPreferencesApi
+              .save({ digestMode, categories })
+              .then(() => toast.success("Preferences saved"))
+              .catch((error) => toast.error((error as Error).message))
+              .finally(() => setSaving(false));
+          }}
+        >
+          Save preferences
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
 
 function NotificationsPage() {
   const [items, setItems] = useState<NotificationItem[]>([]);
@@ -286,6 +362,8 @@ function NotificationsPage() {
           </p>
         </div>
       )}
+
+      <NotificationPreferencesCard />
 
       {loading && <LoadingState label="Loading notifications" />}
       {error && <p className="text-sm text-destructive">{error}</p>}

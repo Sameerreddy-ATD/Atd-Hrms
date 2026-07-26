@@ -23,7 +23,7 @@ import {
   UserRound,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type MutableRefObject, type PointerEvent as ReactPointerEvent } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -70,6 +70,10 @@ type BoardWorkspaceProps = {
   onEditBoard: () => void;
   onOpenTask: (task: WorkTask) => void;
   onMoveTask: (task: WorkTask, stageId: string) => Promise<void>;
+  onRescheduleTask?: (
+    task: WorkTask,
+    dates: { startDate: string | null; dueDate: string | null },
+  ) => Promise<void>;
 };
 
 function TaskAvatars({ task }: { task: WorkTask }) {
@@ -121,6 +125,7 @@ export function BoardWorkspace({
   onEditBoard,
   onOpenTask,
   onMoveTask,
+  onRescheduleTask,
 }: BoardWorkspaceProps) {
   const [view, setView] = useState<BoardView>("list");
   const [query, setQuery] = useState("");
@@ -409,7 +414,11 @@ export function BoardWorkspace({
           onMoveTask={onMoveTask}
         />
       ) : (
-        <TimelineView tasks={visibleTasks} onOpenTask={onOpenTask} />
+        <TimelineView
+          tasks={visibleTasks}
+          onOpenTask={onOpenTask}
+          onRescheduleTask={onRescheduleTask}
+        />
       )}
     </div>
   );
@@ -686,9 +695,14 @@ function KanbanView({
 function TimelineView({
   tasks,
   onOpenTask,
+  onRescheduleTask,
 }: {
   tasks: WorkTask[];
   onOpenTask: (task: WorkTask) => void;
+  onRescheduleTask?: (
+    task: WorkTask,
+    dates: { startDate: string | null; dueDate: string | null },
+  ) => Promise<void>;
 }) {
   const today = startOfToday();
   const rangeStart = startOfMonth(subMonths(today, 1));
@@ -697,6 +711,14 @@ function TimelineView({
   const datedTasks = tasks.filter((task) => task.startDate || task.dueDate);
   const undatedTasks = tasks.filter((task) => !task.startDate && !task.dueDate);
   const groups = new Map<string, { name: string; tasks: WorkTask[] }>();
+  const dragOriginRef = useRef<{ taskId: string; clientX: number; start: Date; end: Date } | null>(
+    null,
+  );
+  const [dragPreview, setDragPreview] = useState<{
+    taskId: string;
+    left: number;
+    width: number;
+  } | null>(null);
 
   for (const task of datedTasks) {
     const person = task.assignees[0];
@@ -711,6 +733,85 @@ function TimelineView({
     100,
     Math.max(0, (differenceInCalendarDays(today, rangeStart) / totalDays) * 100),
   );
+
+  function dayFromClientX(clientX: number, rect: DOMRect) {
+    const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / Math.max(rect.width, 1)));
+    return Math.round(ratio * (totalDays - 1));
+  }
+
+  function handleBarPointerDown(
+    event: ReactPointerEvent<HTMLButtonElement>,
+    task: WorkTask,
+    track: HTMLDivElement | null,
+  ) {
+    if (!onRescheduleTask || !track) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const start = dateValue(task.startDate || task.dueDate!);
+    const end = dateValue(task.dueDate || task.startDate!);
+    dragOriginRef.current = { taskId: task.id, clientX: event.clientX, start, end };
+    const left = Math.min(
+      98,
+      Math.max(0, (differenceInCalendarDays(start, rangeStart) / totalDays) * 100),
+    );
+    const width = Math.max(
+      4,
+      Math.min(100 - left, ((differenceInCalendarDays(end, start) + 1) / totalDays) * 100),
+    );
+    setDragPreview({ taskId: task.id, left, width });
+    const target = event.currentTarget;
+    target.setPointerCapture(event.pointerId);
+
+    function onMove(moveEvent: PointerEvent) {
+      const origin = dragOriginRef.current;
+      if (!origin || origin.taskId !== task.id || !track) return;
+      const rect = track.getBoundingClientRect();
+      const deltaDays = dayFromClientX(moveEvent.clientX, rect) - dayFromClientX(origin.clientX, rect);
+      const nextStart = new Date(origin.start);
+      nextStart.setDate(nextStart.getDate() + deltaDays);
+      const nextEnd = new Date(origin.end);
+      nextEnd.setDate(nextEnd.getDate() + deltaDays);
+      const nextLeft = Math.min(
+        98,
+        Math.max(0, (differenceInCalendarDays(nextStart, rangeStart) / totalDays) * 100),
+      );
+      const nextWidth = Math.max(
+        4,
+        Math.min(
+          100 - nextLeft,
+          ((differenceInCalendarDays(nextEnd, nextStart) + 1) / totalDays) * 100,
+        ),
+      );
+      setDragPreview({ taskId: task.id, left: nextLeft, width: nextWidth });
+    }
+
+    async function onUp(upEvent: PointerEvent) {
+      target.releasePointerCapture(upEvent.pointerId);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      const origin = dragOriginRef.current;
+      dragOriginRef.current = null;
+      setDragPreview(null);
+      if (!origin || origin.taskId !== task.id || !track) return;
+      const rect = track.getBoundingClientRect();
+      const deltaDays = dayFromClientX(upEvent.clientX, rect) - dayFromClientX(origin.clientX, rect);
+      if (deltaDays === 0) {
+        onOpenTask(task);
+        return;
+      }
+      const nextStart = new Date(origin.start);
+      nextStart.setDate(nextStart.getDate() + deltaDays);
+      const nextEnd = new Date(origin.end);
+      nextEnd.setDate(nextEnd.getDate() + deltaDays);
+      await onRescheduleTask?.(task, {
+        startDate: format(nextStart, "yyyy-MM-dd"),
+        dueDate: format(nextEnd, "yyyy-MM-dd"),
+      });
+    }
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
 
   return (
     <>
@@ -801,25 +902,43 @@ function TimelineView({
                   {group.tasks.map((task, index) => {
                     const start = dateValue(task.startDate || task.dueDate!);
                     const end = dateValue(task.dueDate || task.startDate!);
-                    const left = Math.min(
-                      98,
-                      Math.max(0, (differenceInCalendarDays(start, rangeStart) / totalDays) * 100),
-                    );
-                    const width = Math.max(
-                      4,
-                      Math.min(
-                        100 - left,
-                        ((differenceInCalendarDays(end, start) + 1) / totalDays) * 100,
-                      ),
-                    );
+                    const left =
+                      dragPreview?.taskId === task.id
+                        ? dragPreview.left
+                        : Math.min(
+                            98,
+                            Math.max(
+                              0,
+                              (differenceInCalendarDays(start, rangeStart) / totalDays) * 100,
+                            ),
+                          );
+                    const width =
+                      dragPreview?.taskId === task.id
+                        ? dragPreview.width
+                        : Math.max(
+                            4,
+                            Math.min(
+                              100 - left,
+                              ((differenceInCalendarDays(end, start) + 1) / totalDays) * 100,
+                            ),
+                          );
                     return (
                       <button
                         key={task.id}
                         type="button"
-                        onClick={() => onOpenTask(task)}
-                        title={`${task.title}: ${dueLabel(task.dueDate, task.status === "COMPLETED")}`}
+                        onClick={() => {
+                          if (!onRescheduleTask) onOpenTask(task);
+                        }}
+                        onPointerDown={(event) => {
+                          const track = event.currentTarget.parentElement as HTMLDivElement | null;
+                          handleBarPointerDown(event, task, track);
+                        }}
+                        title={`${task.title}: ${dueLabel(task.dueDate, task.status === "COMPLETED")}${
+                          onRescheduleTask ? " · drag to move dates" : ""
+                        }`}
                         className={cn(
                           "absolute z-20 truncate rounded-md border px-2 py-1 text-left text-xs font-medium shadow-sm transition hover:ring-2 hover:ring-primary/30",
+                          onRescheduleTask && "cursor-grab active:cursor-grabbing",
                           PRIORITY_STYLES[task.priority],
                         )}
                         style={{ left: `${left}%`, width: `${width}%`, top: 10 + index * 34 }}

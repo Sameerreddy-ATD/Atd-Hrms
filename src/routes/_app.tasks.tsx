@@ -133,6 +133,7 @@ function TaskBoardsPage() {
         allowedRoles: form.allowedRoles,
         memberEmployeeIds: form.memberEmployeeIds,
         stages: form.stages,
+        customFieldDefs: form.customFieldDefs,
       };
       const saved = editingBoard
         ? await tasksApi.updateBoard(editingBoard.id, {
@@ -242,7 +243,9 @@ function TaskBoardsPage() {
       startDate: string | null;
       dueDate: string | null;
       stageId?: string;
+      boardId?: string;
       assigneeEmployeeIds: string[];
+      customFields?: Record<string, string | number | boolean | null>;
     },
   ) {
     setTaskSaving(true);
@@ -256,8 +259,13 @@ function TaskBoardsPage() {
         dueDate: patch.dueDate,
         assigneeEmployeeIds: patch.assigneeEmployeeIds,
         ...(patch.stageId ? { stageId: patch.stageId } : {}),
+        ...(patch.boardId ? { boardId: patch.boardId } : {}),
+        ...(patch.customFields ? { customFields: patch.customFields } : {}),
       });
       applyTaskUpdate(updated);
+      if (patch.boardId && patch.boardId !== task.boardId) {
+        setSelectedBoardId(patch.boardId);
+      }
       toast.success("Task updated");
     } catch (cause) {
       const message = (cause as Error).message || "Unable to update the task.";
@@ -273,6 +281,47 @@ function TaskBoardsPage() {
       } catch {
         /* keep current */
       }
+    } finally {
+      setTaskSaving(false);
+    }
+  }
+
+  async function rescheduleTask(
+    task: WorkTask,
+    dates: { startDate: string | null; dueDate: string | null },
+  ) {
+    try {
+      const updated = await tasksApi.update(task.id, {
+        version: task.version,
+        startDate: dates.startDate,
+        dueDate: dates.dueDate,
+      });
+      applyTaskUpdate(updated);
+      toast.success("Dates updated");
+    } catch (cause) {
+      toast.error((cause as Error).message || "Unable to move the task on the timeline.");
+      if (selectedBoardId) await loadBoardTasks(selectedBoardId);
+    }
+  }
+
+  async function createSubtask(parent: WorkTask, title: string) {
+    setTaskSaving(true);
+    try {
+      const created = await tasksApi.create({
+        title,
+        assigneeEmployeeIds: parent.assignees.map((person) => person.id),
+        parentTaskId: parent.id,
+        boardId: parent.boardId ?? null,
+        stageId: parent.stageId ?? null,
+        priority: parent.priority,
+      });
+      applyTaskUpdate({ ...parent, subtaskCount: (parent.subtaskCount ?? 0) + 1 });
+      if (selectedBoardId) await loadBoardTasks(selectedBoardId);
+      toast.success("Subtask created");
+      return created;
+    } catch (cause) {
+      toast.error((cause as Error).message || "Unable to create the subtask.");
+      throw cause;
     } finally {
       setTaskSaving(false);
     }
@@ -351,6 +400,7 @@ function TaskBoardsPage() {
           }}
           onOpenTask={openTask}
           onMoveTask={moveTask}
+          onRescheduleTask={rescheduleTask}
           initialMineOnly={directoryMineOnly}
         />
       ) : (
@@ -404,6 +454,7 @@ function TaskBoardsPage() {
         onOpenChange={setTaskDetailOpen}
         task={selectedTask}
         board={selectedTaskBoard}
+        boards={boards}
         assignees={
           selectedTaskBoard
             ? boardAssignees.length
@@ -414,8 +465,27 @@ function TaskBoardsPage() {
         loading={detailLoading}
         saving={taskSaving}
         onSave={updateTask}
+        onArchive={async (task, archived) => {
+          setTaskSaving(true);
+          try {
+            const result = await tasksApi.archiveTask(task.id, task.version, archived);
+            applyTaskUpdate({
+              ...task,
+              version: result.version,
+              archivedAt: result.archivedAt ?? undefined,
+            });
+            toast.success(archived ? "Task archived" : "Task restored");
+            if (selectedBoardId) await loadBoardTasks(selectedBoardId);
+          } catch (cause) {
+            toast.error((cause as Error).message || "Unable to archive the task.");
+          } finally {
+            setTaskSaving(false);
+          }
+        }}
         onMove={moveTask}
         onAddUpdate={addTaskUpdate}
+        onCreateSubtask={createSubtask}
+        onOpenTask={openTask}
       />
     </>
   );

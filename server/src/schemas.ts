@@ -228,6 +228,9 @@ export const taskUpdateSchema = z.object({
   startDate: z.coerce.date().nullable().optional(),
   dueDate: z.coerce.date().nullable().optional(),
   stageId: z.string().nullable().optional(),
+  boardId: z.string().nullable().optional(),
+  customFields: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional(),
+  parentTaskId: z.string().nullable().optional(),
 });
 
 const taskBoardStageSchema = z.object({
@@ -286,6 +289,17 @@ function validateTaskBoardConfiguration(
   }
 }
 
+const customFieldDefSchema = z.object({
+  key: z
+    .string()
+    .trim()
+    .min(1)
+    .max(40)
+    .regex(/^[a-z][a-z0-9_]*$/i, "Use a short key like project_code"),
+  label: z.string().trim().min(1).max(80),
+  type: z.enum(["text", "number", "select"]),
+});
+
 const taskBoardConfigurationSchema = z.object({
   name: z.string().trim().min(2).max(120),
   description: z.string().trim().max(1000).nullable().optional(),
@@ -293,6 +307,7 @@ const taskBoardConfigurationSchema = z.object({
   allowedRoles: z.array(z.nativeEnum(Role)).max(20).default([]),
   memberEmployeeIds: z.array(z.string().min(1)).max(500).default([]),
   stages: z.array(taskBoardStageSchema).min(2).max(12),
+  customFieldDefs: z.array(customFieldDefSchema).max(20).optional(),
 });
 
 export const taskBoardSchema = taskBoardConfigurationSchema.superRefine(
@@ -370,7 +385,7 @@ export const assetReturnSchema = z
 
 export const expenseClaimSchema = z
   .object({
-    claimType: z.enum(["ADVANCE", "EXPENSE"]).default("EXPENSE"),
+    claimType: z.enum(["ADVANCE", "EXPENSE", "TRAVEL", "FUEL", "FIELD"]).default("EXPENSE"),
     employeeId: z.string().min(1).optional(),
     title: z.string().trim().min(2).max(160).nullable().optional(),
     category: z
@@ -381,6 +396,15 @@ export const expenseClaimSchema = z
     expenseDate: z.coerce.date().nullable().optional(),
     description: z.string().trim().min(5).max(3000).nullable().optional(),
     remark: z.string().trim().min(2).max(2000).nullable().optional(),
+    claimMeta: z
+      .object({
+        distanceKm: z.number().nonnegative().optional(),
+        litres: z.number().nonnegative().optional(),
+        fromLocation: z.string().max(200).optional(),
+        toLocation: z.string().max(200).optional(),
+      })
+      .nullable()
+      .optional(),
     receiptUrl: z.string().url().max(2000).nullable().optional(),
     receiptAccessConfirmed: z.boolean().default(false),
   })
@@ -392,7 +416,7 @@ export const expenseClaimSchema = z
         message: "Remark is required",
       });
     }
-    if (value.claimType === "EXPENSE") {
+    if (value.claimType === "EXPENSE" || value.claimType === "TRAVEL" || value.claimType === "FUEL" || value.claimType === "FIELD") {
       for (const field of ["title", "expenseDate", "description"] as const) {
         if (!value[field] && !(field === "title" && value.category)) {
           context.addIssue({
