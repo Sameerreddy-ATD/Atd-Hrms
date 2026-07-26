@@ -145,7 +145,7 @@ export async function cancelLeaveDates(leaveRequestId: string, dates: Array<stri
       cancelledDates,
       ...(fullyCancelled ? { status: "CANCELLED" } : {}),
     },
-    include: { leaveType: true, employee: { include: { manager: true } }, reviewedBy: true },
+    include: { leaveType: true, employee: { include: { manager: true } } },
   });
 }
 
