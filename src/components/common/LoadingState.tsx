@@ -1,4 +1,3 @@
-import { DieselTruckLoader } from "@/components/common/DieselTruckLoader";
 import { Logo } from "@/components/common/Logo";
 import { cn } from "@/lib/utils";
 
@@ -17,65 +16,83 @@ export function LoadingState({
     <div
       role="status"
       aria-live="polite"
+      aria-busy="true"
       className={cn(
-        "flex w-full items-center justify-center overflow-hidden",
-        compact ? "min-h-20 py-4" : "min-h-40 py-8 sm:min-h-48 sm:py-10",
+        "relative flex w-full items-center justify-center overflow-hidden",
+        showBrandStory && "atd-boot",
+        compact ? "min-h-16 py-3" : showBrandStory ? "min-h-[100dvh] py-10" : "min-h-36 py-8",
         className,
       )}
     >
+      {showBrandStory && (
+        <>
+          <div className="atd-boot__glow atd-boot__glow--primary" aria-hidden="true" />
+          <div className="atd-boot__glow atd-boot__glow--soft" aria-hidden="true" />
+          <div className="atd-boot__grid" aria-hidden="true" />
+        </>
+      )}
+
       <div
         className={cn(
-          "flex min-w-0 flex-col items-center gap-4 text-center animate-in fade-in zoom-in-95 duration-500",
-          showBrandStory ? "w-full max-w-3xl px-1 sm:px-0" : "max-w-xs",
+          "relative z-[1] flex min-w-0 flex-col items-center text-center animate-in fade-in duration-500",
+          showBrandStory ? "w-full max-w-sm gap-8 px-6" : "max-w-[14rem] gap-4",
+          compact && "gap-2.5",
         )}
       >
-        {showBrandStory ? (
-          <DieselTruckLoader compact={compact} />
-        ) : (
-          <div
+        <div
+          className={cn(
+            "atd-loader-mark",
+            showBrandStory && "atd-loader-mark--hero",
+            compact && "atd-loader-mark--compact",
+            !showBrandStory && !compact && "atd-loader-mark--module",
+          )}
+          aria-hidden="true"
+        >
+          <span className="atd-loader-mark__ring" />
+          <Logo
             className={cn(
-              "module-logo-loader",
-              compact ? "module-logo-loader--compact" : "module-logo-loader--standard",
+              "h-auto",
+              showBrandStory ? "w-[9.5rem] sm:w-44" : compact ? "w-24" : "w-32",
             )}
-            aria-hidden="true"
-          >
-            <Logo className="h-auto w-full" />
-          </div>
-        )}
+          />
+        </div>
 
-        <div className="space-y-2">
+        <div className={cn("w-full space-y-3", compact && "space-y-2")}>
           {showBrandStory && (
-            <>
-              <p className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+            <div className="space-y-1.5">
+              <p className="text-[1.65rem] font-semibold tracking-tight text-foreground sm:text-3xl">
                 Anytime Diesel
               </p>
-              <p className="mx-auto max-w-[19rem] text-sm font-medium leading-5 text-primary sm:max-w-none sm:text-base">
+              <p className="text-sm font-medium text-primary sm:text-[0.95rem]">
                 Powering India&apos;s Growth, One Litre at a Time.
               </p>
-              <p className="mx-auto hidden max-w-xl text-xs leading-5 text-muted-foreground min-[390px]:block sm:text-sm">
-                India&apos;s trusted doorstep diesel delivery company serving businesses and
-                individuals across multiple cities.
-              </p>
-            </>
+            </div>
           )}
-          <p
-            className={cn(
-              "text-sm font-medium tracking-tight text-foreground sm:text-base",
-              showBrandStory && "pt-1",
-            )}
-          >
-            {label}
-          </p>
-          <div className="loading-progress mx-auto" aria-hidden="true">
-            <span className="loading-progress__bar" />
-          </div>
-          <div className="loading-dots justify-center" aria-hidden="true">
-            <span />
-            <span />
-            <span />
+
+          <div className={cn("space-y-2.5", compact && "space-y-2")}>
+            <p
+              className={cn(
+                "font-medium tracking-tight text-muted-foreground",
+                showBrandStory ? "text-sm sm:text-[0.95rem]" : "text-sm",
+                compact && "text-xs",
+              )}
+            >
+              {label}
+            </p>
+            <div
+              className={cn(
+                "loading-progress mx-auto",
+                showBrandStory && "loading-progress--hero",
+                compact && "loading-progress--compact",
+              )}
+              aria-hidden="true"
+            >
+              <span className="loading-progress__bar" />
+            </div>
           </div>
         </div>
       </div>
+
       <span className="sr-only">Please wait.</span>
     </div>
   );

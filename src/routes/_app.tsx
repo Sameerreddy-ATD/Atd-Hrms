@@ -98,26 +98,24 @@ function AppLayout() {
 
   if (loading || !user || user.mustChangePassword) {
     return (
-      <div className="flex min-h-[100dvh] items-center justify-center bg-gradient-to-b from-muted/40 via-background to-background px-3 py-[env(safe-area-inset-top)] sm:px-4">
-        <LoadingState
-          label="Preparing your workspace"
-          showBrandStory
-          className="min-h-screen min-h-[100dvh]"
-        />
-      </div>
+      <LoadingState
+        label="Preparing your workspace"
+        showBrandStory
+        className="min-h-[100dvh]"
+      />
     );
   }
 
   if (faceRequired === null) {
     return (
-      <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 bg-gradient-to-b from-muted/40 via-background to-background px-4 py-[env(safe-area-inset-top)]">
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 px-4 py-[env(safe-area-inset-top)]">
         <LoadingState
           label={facePolicyError ? "Security policy unavailable" : "Checking security policy"}
           showBrandStory
-          className="min-h-0"
+          className="min-h-0 flex-1"
         />
         {facePolicyError && (
-          <div className="max-w-md space-y-3 text-center">
+          <div className="max-w-md space-y-3 pb-8 text-center">
             <p className="text-sm text-destructive">{facePolicyError}</p>
             <Button
               variant="outline"
@@ -150,13 +148,11 @@ function AppLayout() {
 
   if (allowedModules === null) {
     return (
-      <div className="flex min-h-[100dvh] items-center justify-center bg-gradient-to-b from-muted/40 via-background to-background px-3 py-[env(safe-area-inset-top)] sm:px-4">
-        <LoadingState
-          label="Loading module access"
-          showBrandStory
-          className="min-h-screen min-h-[100dvh]"
-        />
-      </div>
+      <LoadingState
+        label="Loading module access"
+        showBrandStory
+        className="min-h-[100dvh]"
+      />
     );
   }
 
