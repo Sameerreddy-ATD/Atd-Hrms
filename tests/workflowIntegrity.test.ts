@@ -122,7 +122,7 @@ describe("asset and HR-document persistence integrity", () => {
   });
 });
 
-describe("task board ACL and overtime concurrency helpers", () => {
+describe("task board ACL helpers", () => {
   it("scopes board access for non-developer roles and leaves developers unrestricted", () => {
     expect(boardAccessWhere({ id: "u1", role: Role.DEVELOPER_ADMIN } as never)).toEqual({});
     const employeeScope = boardAccessWhere({
@@ -141,14 +141,5 @@ describe("task board ACL and overtime concurrency helpers", () => {
         },
       ]),
     });
-  });
-
-  it("treats overtime review as a single-winner PENDING update", () => {
-    // Mirrors PATCH /overtime-claims/:id — only one concurrent reviewer should succeed.
-    const first = { count: 1 };
-    const second = { count: 0 };
-    expect(first.count).toBe(1);
-    expect(second.count).toBe(0);
-    expect(second.count === 0 ? 409 : 200).toBe(409);
   });
 });

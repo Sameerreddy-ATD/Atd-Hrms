@@ -19,8 +19,7 @@ This guide explains how Developer Admin, HR, organization heads, employees, fiel
 | Asset management               | Full access                                                    | No                      | Full access             | Read-only investment  | No                          | No                                      |
 | Expenses and HR documents      | Review all                                                     | No                      | Review all              | View all              | Own requests                | Own requests                            |
 | Operations reports             | Full                                                           | Full                    | Full                    | Full                  | Team summary                | No                                      |
-| Shift roster / overtime        | Full                                                           | Full                    | Full                    | View                  | Team publish / review       | Own published roster / OT claims        |
-| Checklists / appraisals / ATS  | Full                                                           | Full                    | Full                    | Appraisals view       | Appraisals for team         | Own checklists                          |
+| Checklists                     | Full                                                           | Full                    | Full                    | View                  | View                        | Own checklists                          |
 | Document vault / SOP library   | Full                                                           | Full                    | Full                    | View / ack            | View / ack                  | View / ack                              |
 | System settings                | Full access                                                    | As configured           | No                      | No                    | No                          | No                                      |
 
@@ -371,25 +370,17 @@ and Work Planner sheets as Excel. HR/Admin/CEO can also export paid claims as CS
 
 Press **Ctrl/Cmd+K** for global search across pages, people, boards, tasks, and announcements.
 
-## Shift Roster And Overtime
+## Employee Requests
 
-**Shift Roster** shows the current week. Managers publish DAY/NIGHT/OFF/CUSTOM assignments for their
-team. Employees submit overtime claims; managers/HR approve or reject them. Roster changes do not
-rewrite biometric punches.
+Employee Requests support claim types **Expense**, **Advance**, and **Field**. HR review and
+payment remain the same workflow. Travel and fuel claim types are deferred for a later release.
 
-## Employee Requests (Travel / Fuel / Field)
-
-Employee Requests now support claim types **Expense**, **Travel**, **Fuel**, and **Field**, with
-optional distance/litres metadata. HR review and payment remain the same workflow.
-
-## Checklists, Documents, Appraisals, SOP, Recruitment
+## Checklists, Documents, SOP
 
 - **Checklists**: Creating a login auto-starts onboarding; deactivating a login auto-starts
   offboarding. HR can also start instances manually. Employees tick items from **Checklists**.
 - **Document Vault**: HR publishes policies; employees acknowledge required versions.
-- **Appraisals**: HR creates cycles; managers submit 1–5 ratings with comments.
 - **SOP Library**: published operating procedures with mark-as-read.
-- **Recruitment**: HR manages jobs and candidates; marking Hired can start onboarding.
 
 Payroll/payslips and live biometric device connectors remain out of scope.
 

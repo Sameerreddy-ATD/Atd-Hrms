@@ -249,13 +249,10 @@ Required behavior:
 
 ## People Operations Modules (MVP)
 
-- Shift roster assignments and overtime claims (no biometric rewrite).
-- Travel/fuel/field claim types on expense claims with optional `claimMeta`.
+- Field expense claim types on expense claims with optional `claimMeta`.
 - Onboarding/offboarding checklist templates and per-employee instances.
 - Document vault with acknowledgement versions.
-- Appraisal cycles and manager reviews (1–5 rating).
 - SOP articles with mark-as-read.
-- Recruitment jobs/candidates; Hired can start onboarding checklist.
 - Global `/search`, notification digest preferences, `/reports/ops-summary`, paid-claims CSV.
 - Work Planner Phase 2: soft-archive, attachments, mentions metadata, cross-board move, custom fields.
 

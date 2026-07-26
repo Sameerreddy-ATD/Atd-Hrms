@@ -153,9 +153,7 @@ export function moduleForApiPath(path: string, method = "GET"): ModuleKey | null
   if (path.startsWith("/search") || path.startsWith("/notification-preferences")) return null;
   if (path.startsWith("/reports/ops-summary") || path.startsWith("/reports/claims-export"))
     return "DASHBOARD";
-  if (path.startsWith("/roster") || path.startsWith("/overtime-claims")) return "ATTENDANCE";
-  if (path.startsWith("/checklists") || path.startsWith("/appraisals") || path.startsWith("/recruitment"))
-    return "PEOPLE";
+  if (path.startsWith("/checklists")) return "PEOPLE";
   if (path.startsWith("/documents")) return "COMPANY";
   if (path.startsWith("/sop")) return "COMMUNICATIONS";
   if (

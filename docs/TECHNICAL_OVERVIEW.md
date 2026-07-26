@@ -21,8 +21,9 @@ flowchart LR
 ```
 
 Additional MySQL tables introduced in migration `20260726150000_hrms_remaining_modules` cover task
-attachments, notification preferences, roster/overtime, checklists, documents, appraisals, SOP,
-and recruitment. Task and board rows also store optional JSON custom fields. Migration
+attachments, notification preferences, checklists, documents, and SOP (plus dormant roster/OT/
+appraisal/recruitment tables retained for a later release). Task and board rows also store optional
+JSON custom fields. Migration
 `20260726180000_vehicle_assets_and_checklist_links` adds optional vehicle registration/insurance/
 fitness fields on company assets and corrects face onboarding checklist links.
 
@@ -134,12 +135,9 @@ Lockout or suspension does not delete or disable the employee record, allowing h
 | `/integration-clients`  | Developer Admin credential creation, listing, expiry and revocation                         |
 | `/expense-claims`       | Employee-scoped advances/expenses, private receipt upload, and HR review/payment workflow |
 | `/certificate-requests` | Employee-scoped HR document requests and HR fulfilment                                      |
-| `/roster`               | Published shift roster assignments for managers and staff                                   |
-| `/overtime-claims`      | Manual OT claims, concurrent-safe review, and roster overrun suggestions                    |
 | `/checklists`           | Onboarding/offboarding checklist instances                                                  |
 | `/documents`            | Company document vault with optional private file upload                                    |
-| `/reports/ops-summary`  | Manager/HR ops summary; `/reports/roster-variance` for roster vs attendance                 |
-| `/settings/travel-rates`| INR/km and diesel litre rate card for travel/fuel claim suggestions                         |
+| `/reports/ops-summary`  | Manager/HR ops summary                                                                      |
 | `/announcements`        | Publishing, activation, expiry, and permanent announcement deletion                         |
 | `/notifications`        | User-scoped notification feed and live stream                                               |
 | `/push`                 | VAPID key and browser subscription management                                               |

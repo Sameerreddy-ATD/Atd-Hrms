@@ -23,12 +23,9 @@ import {
   HandCoins,
   ScanFace,
   BarChart3,
-  CalendarRange,
   ListChecks,
   FolderOpen,
-  Star,
   BookOpen,
-  UserPlus,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -138,28 +135,10 @@ export const menuGroups: MenuGroup[] = [
         ],
       },
       {
-        label: "Shift Roster",
-        to: "/roster",
-        icon: CalendarRange,
-        roles: ALL,
-      },
-      {
         label: "Checklists",
         to: "/checklists",
         icon: ListChecks,
         roles: ALL,
-      },
-      {
-        label: "Appraisals",
-        to: "/appraisals",
-        icon: Star,
-        roles: ["developer_admin", "main_admin", "hr", "manager", "ceo"],
-      },
-      {
-        label: "Recruitment",
-        to: "/recruitment",
-        icon: UserPlus,
-        roles: ["developer_admin", "main_admin", "hr"],
       },
     ],
   },
@@ -284,6 +263,7 @@ export function menuForRole(
   options?: { isReportingManager?: boolean; allowedModules?: ModuleKey[] },
 ): MenuGroup[] {
   const groupOrder = groupOrderForRole(role);
+  const itemOrder = itemOrderForRole(role);
   return menuGroups
     .map((g) => ({
       ...g,
@@ -306,6 +286,11 @@ export function menuForRole(
             "/assets": "Asset Management",
           };
           return { ...item, label: executiveLabels[item.to] ?? item.label };
+        })
+        .sort((a, b) => {
+          const aIndex = itemOrder.indexOf(a.to);
+          const bIndex = itemOrder.indexOf(b.to);
+          return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
         }),
     }))
     .filter((g) => g.items.length > 0)
@@ -316,6 +301,7 @@ export function menuForRole(
     });
 }
 
+/** Sidebar section order for each login role — daily work first. */
 function groupOrderForRole(role: Role): string[] {
   switch (role) {
     case "employee":
@@ -326,7 +312,7 @@ function groupOrderForRole(role: Role): string[] {
     case "manager":
       return ["Overview", "Attendance", "Leave", "Work", "People", "Me", "Company", "System"];
     case "hr":
-      return ["Overview", "People", "Leave", "Attendance", "Company", "Work", "Me", "System"];
+      return ["Overview", "People", "Leave", "Attendance", "Work", "Company", "Me", "System"];
     case "ceo":
       return ["Overview", "People", "Attendance", "Leave", "Work", "Company", "Me", "System"];
     case "main_admin":
@@ -338,16 +324,156 @@ function groupOrderForRole(role: Role): string[] {
   }
 }
 
+/** Item order within sections for each login role — matches everyday shortcuts. */
+function itemOrderForRole(role: Role): string[] {
+  switch (role) {
+    case "employee":
+    case "sales":
+    case "driver":
+    case "field_staff":
+      return [
+        "/dashboard",
+        "/attendance/mine",
+        "/leave/apply",
+        "/leave/history",
+        "/tasks",
+        "/employee-services",
+        "/checklists",
+        "/announcements",
+        "/notifications",
+        "/profile",
+        "/id-card",
+        "/documents",
+        "/sop",
+      ];
+    case "manager":
+      return [
+        "/dashboard",
+        "/reports",
+        "/attendance/mine",
+        "/attendance/locations",
+        "/attendance/corrections",
+        "/leave/apply",
+        "/leave/history",
+        "/leave/approvals",
+        "/tasks",
+        "/employee-services",
+        "/checklists",
+        "/employees",
+        "/announcements",
+        "/notifications",
+        "/profile",
+        "/id-card",
+        "/documents",
+        "/sop",
+      ];
+    case "hr":
+      return [
+        "/dashboard",
+        "/reports",
+        "/employees",
+        "/leave/approvals",
+        "/leave/reports",
+        "/leave/policy",
+        "/leave/apply",
+        "/leave/history",
+        "/attendance/mine",
+        "/attendance/locations",
+        "/attendance/corrections",
+        "/tasks",
+        "/employee-services",
+        "/checklists",
+        "/branches",
+        "/devices",
+        "/holidays",
+        "/assets",
+        "/documents",
+        "/sop",
+        "/announcements",
+        "/notifications",
+        "/profile",
+        "/id-card",
+      ];
+    case "ceo":
+      return [
+        "/dashboard",
+        "/reports",
+        "/employees",
+        "/attendance/locations",
+        "/leave/reports",
+        "/tasks",
+        "/employee-services",
+        "/checklists",
+        "/assets",
+        "/documents",
+        "/sop",
+        "/announcements",
+        "/notifications",
+        "/profile",
+      ];
+    case "main_admin":
+      return [
+        "/dashboard",
+        "/reports",
+        "/employees",
+        "/attendance/locations",
+        "/attendance/corrections",
+        "/leave/approvals",
+        "/leave/reports",
+        "/leave/policy",
+        "/branches",
+        "/devices",
+        "/holidays",
+        "/documents",
+        "/sop",
+        "/settings",
+        "/audit",
+        "/tasks",
+        "/checklists",
+        "/announcements",
+        "/notifications",
+        "/profile",
+      ];
+    case "developer_admin":
+      return [
+        "/dashboard",
+        "/reports",
+        "/users",
+        "/employees",
+        "/departments",
+        "/face-security",
+        "/settings",
+        "/audit",
+        "/branches",
+        "/devices",
+        "/holidays",
+        "/assets",
+        "/documents",
+        "/sop",
+        "/attendance/corrections",
+        "/leave/approvals",
+        "/leave/policy",
+        "/tasks",
+        "/employee-services",
+        "/checklists",
+        "/announcements",
+        "/notifications",
+        "/profile",
+      ];
+    default:
+      return [];
+  }
+}
+
 export function moduleForRoute(path: string): ModuleKey {
   if (path === "/dashboard" || path.startsWith("/reports")) return "DASHBOARD";
   if (
-    ["/employees", "/users", "/departments", "/checklists", "/appraisals", "/recruitment"].some(
+    ["/employees", "/users", "/departments", "/checklists"].some(
       (entry) => path === entry || path.startsWith(`${entry}/`),
     )
   )
     return "PEOPLE";
-  if (path.startsWith("/attendance") || path === "/devices" || path.startsWith("/roster"))
-    return "ATTENDANCE";
+  if (path.startsWith("/attendance") || path === "/devices") return "ATTENDANCE";
   if (path === "/tasks" || path.startsWith("/tasks/")) return "TASKS";
   if (path === "/employee-services") return "EMPLOYEE_REQUESTS";
   if (path.startsWith("/leave")) return "LEAVE";

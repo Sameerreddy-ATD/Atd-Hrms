@@ -44,7 +44,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
 import type { CertificateRequest, ExpenseClaim, User } from "@/types/domain";
-import { employeeServicesApi, employeesApi, travelRatesApi } from "@/services/api";
+import { employeeServicesApi, employeesApi } from "@/services/api";
 
 export const Route = createFileRoute("/_app/employee-services")({
   component: EmployeeServicesPage,
@@ -59,8 +59,6 @@ const expenseInitial = {
   receiptUrl: "",
   receiptAccessConfirmed: false,
   employeeId: "",
-  distanceKm: "",
-  litres: "",
 };
 const advanceInitial = {
   amount: "",
@@ -136,7 +134,7 @@ function EmployeeServicesPage() {
     setSaving(true);
     try {
       await employeeServicesApi.submitExpense({
-        claimType: (expenseForm.claimType as "EXPENSE" | "TRAVEL" | "FUEL" | "FIELD") || "EXPENSE",
+        claimType: (expenseForm.claimType as "EXPENSE" | "FIELD") || "EXPENSE",
         employeeId: expenseForm.employeeId || undefined,
         title: expenseForm.title,
         amount: Number(expenseForm.amount),
@@ -144,13 +142,6 @@ function EmployeeServicesPage() {
         description: expenseForm.description,
         receiptUrl: expenseForm.receiptUrl || null,
         receiptAccessConfirmed: expenseForm.receiptAccessConfirmed,
-        claimMeta:
-          expenseForm.claimType === "FUEL" || expenseForm.claimType === "TRAVEL"
-            ? {
-                distanceKm: expenseForm.distanceKm ? Number(expenseForm.distanceKm) : undefined,
-                litres: expenseForm.litres ? Number(expenseForm.litres) : undefined,
-              }
-            : undefined,
       });
       setExpenseForm(expenseInitial);
       if (intent !== "add-more") setExpenseOpen(false);
@@ -246,9 +237,6 @@ function EmployeeServicesPage() {
             : "Submit expenses and request official documents from HR."
         }
       />
-      <div className="mb-4">
-        <TravelRatesAdminCard />
-      </div>
       {error && (
         <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
           {error}
@@ -458,41 +446,9 @@ function EmployeeServicesPage() {
                   }
                 >
                   <option value="EXPENSE">Expense</option>
-                  <option value="TRAVEL">Travel</option>
-                  <option value="FUEL">Fuel</option>
                   <option value="FIELD">Field</option>
                 </select>
               </Field>
-              {(expenseForm.claimType === "TRAVEL" || expenseForm.claimType === "FUEL") && (
-                <>
-                  <Field label="Distance (km)">
-                    <Input
-                      type="number"
-                      min="0"
-                      value={expenseForm.distanceKm}
-                      onChange={(e) =>
-                        setExpenseForm((v) => ({ ...v, distanceKm: e.target.value }))
-                      }
-                    />
-                  </Field>
-                  <Field label="Litres">
-                    <Input
-                      type="number"
-                      min="0"
-                      value={expenseForm.litres}
-                      onChange={(e) => setExpenseForm((v) => ({ ...v, litres: e.target.value }))}
-                    />
-                  </Field>
-                  <TravelRateHint
-                    claimType={expenseForm.claimType}
-                    distanceKm={expenseForm.distanceKm}
-                    litres={expenseForm.litres}
-                    onSuggestedAmount={(amount) =>
-                      setExpenseForm((v) => ({ ...v, amount: String(amount) }))
-                    }
-                  />
-                </>
-              )}
               <Field label="Title">
                 <Input
                   maxLength={160}
@@ -784,103 +740,6 @@ function Field({ label: text, children }: { label: string; children: React.React
   );
 }
 
-function TravelRateHint({
-  claimType,
-  distanceKm,
-  litres,
-  onSuggestedAmount,
-}: {
-  claimType: string;
-  distanceKm: string;
-  litres: string;
-  onSuggestedAmount: (amount: number) => void;
-}) {
-  const [rates, setRates] = useState<{ inrPerKm: number; fuelInrPerLitre: number } | null>(null);
-  useEffect(() => {
-    void travelRatesApi
-      .get()
-      .then(setRates)
-      .catch(() => setRates({ inrPerKm: 12, fuelInrPerLitre: 100 }));
-  }, []);
-  if (!rates) return null;
-  const distance = Number(distanceKm) || 0;
-  const fuelLitres = Number(litres) || 0;
-  const suggested =
-    claimType === "FUEL"
-      ? Math.round(fuelLitres * rates.fuelInrPerLitre + distance * rates.inrPerKm)
-      : Math.round(distance * rates.inrPerKm);
-  if (suggested <= 0) {
-    return (
-      <p className="sm:col-span-2 text-xs text-muted-foreground">
-        Rate card: INR {rates.inrPerKm}/km · diesel INR {rates.fuelInrPerLitre}/L
-      </p>
-    );
-  }
-  return (
-    <div className="sm:col-span-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-      <span>
-        Suggested from rate card: INR {suggested.toLocaleString("en-IN")} (INR {rates.inrPerKm}/km
-        · INR {rates.fuelInrPerLitre}/L)
-      </span>
-      <Button type="button" size="sm" variant="outline" onClick={() => onSuggestedAmount(suggested)}>
-        Use suggested amount
-      </Button>
-    </div>
-  );
-}
-
-function TravelRatesAdminCard() {
-  const { user } = useAuth();
-  const canEdit = ["developer_admin", "main_admin", "hr"].includes(user?.role ?? "");
-  const [inrPerKm, setInrPerKm] = useState("12");
-  const [fuelInrPerLitre, setFuelInrPerLitre] = useState("100");
-  const [saving, setSaving] = useState(false);
-  useEffect(() => {
-    void travelRatesApi
-      .get()
-      .then((rates) => {
-        setInrPerKm(String(rates.inrPerKm));
-        setFuelInrPerLitre(String(rates.fuelInrPerLitre));
-      })
-      .catch(() => undefined);
-  }, []);
-  if (!canEdit) return null;
-  return (
-    <Card className="shadow-none">
-      <CardContent className="grid gap-3 p-4 sm:grid-cols-3">
-        <div className="sm:col-span-3">
-          <h2 className="text-sm font-semibold">Travel / fuel rate card</h2>
-          <p className="text-xs text-muted-foreground">
-            Used to suggest claim amounts from km and litres.
-          </p>
-        </div>
-        <Field label="INR per km">
-          <Input value={inrPerKm} onChange={(e) => setInrPerKm(e.target.value)} />
-        </Field>
-        <Field label="INR per litre">
-          <Input value={fuelInrPerLitre} onChange={(e) => setFuelInrPerLitre(e.target.value)} />
-        </Field>
-        <Button
-          className="self-end"
-          disabled={saving}
-          onClick={() => {
-            setSaving(true);
-            void travelRatesApi
-              .save({
-                inrPerKm: Number(inrPerKm) || 12,
-                fuelInrPerLitre: Number(fuelInrPerLitre) || 100,
-              })
-              .then(() => toast.success("Rate card saved"))
-              .catch((error) => toast.error((error as Error).message))
-              .finally(() => setSaving(false));
-          }}
-        >
-          Save rates
-        </Button>
-      </CardContent>
-    </Card>
-  );
-}
 function EmployeeSelect({
   employees,
   value,

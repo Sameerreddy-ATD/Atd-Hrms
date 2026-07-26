@@ -19,10 +19,8 @@ import { Route as AppUsersRouteImport } from './routes/_app.users'
 import { Route as AppTasksRouteImport } from './routes/_app.tasks'
 import { Route as AppSopRouteImport } from './routes/_app.sop'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
-import { Route as AppRosterRouteImport } from './routes/_app.roster'
 import { Route as AppRolesRouteImport } from './routes/_app.roles'
 import { Route as AppReportsRouteImport } from './routes/_app.reports'
-import { Route as AppRecruitmentRouteImport } from './routes/_app.recruitment'
 import { Route as AppProfileRouteImport } from './routes/_app.profile'
 import { Route as AppNotificationsRouteImport } from './routes/_app.notifications'
 import { Route as AppIdCardRouteImport } from './routes/_app.id-card'
@@ -42,7 +40,6 @@ import { Route as AppBranchesRouteImport } from './routes/_app.branches'
 import { Route as AppAuditRouteImport } from './routes/_app.audit'
 import { Route as AppAttendanceRouteImport } from './routes/_app.attendance'
 import { Route as AppAssetsRouteImport } from './routes/_app.assets'
-import { Route as AppAppraisalsRouteImport } from './routes/_app.appraisals'
 import { Route as AppAnnouncementsRouteImport } from './routes/_app.announcements'
 import { Route as AppAttendanceIndexRouteImport } from './routes/_app.attendance.index'
 import { Route as AppUsersNewRouteImport } from './routes/_app.users.new'
@@ -66,268 +63,253 @@ import { Route as AppAttendanceBranchRouteImport } from './routes/_app.attendanc
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => rootRouteImport
 } as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => rootRouteImport
 } as any)
 const FirstLoginRoute = FirstLoginRouteImport.update({
   id: '/first-login',
   path: '/first-login',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => rootRouteImport
 } as any)
 const AppRoute = AppRouteImport.update({
   id: '/_app',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => rootRouteImport
 } as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => rootRouteImport
 } as any)
 const VerifyIdEmployeeIdRoute = VerifyIdEmployeeIdRouteImport.update({
   id: '/verify-id/$employeeId',
   path: '/verify-id/$employeeId',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => rootRouteImport
 } as any)
 const AppUsersRoute = AppUsersRouteImport.update({
   id: '/users',
   path: '/users',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppTasksRoute = AppTasksRouteImport.update({
   id: '/tasks',
   path: '/tasks',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppSopRoute = AppSopRouteImport.update({
   id: '/sop',
   path: '/sop',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppRosterRoute = AppRosterRouteImport.update({
-  id: '/roster',
-  path: '/roster',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppRolesRoute = AppRolesRouteImport.update({
   id: '/roles',
   path: '/roles',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppReportsRoute = AppReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppRecruitmentRoute = AppRecruitmentRouteImport.update({
-  id: '/recruitment',
-  path: '/recruitment',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppProfileRoute = AppProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppNotificationsRoute = AppNotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppIdCardRoute = AppIdCardRouteImport.update({
   id: '/id-card',
   path: '/id-card',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppHolidaysRoute = AppHolidaysRouteImport.update({
   id: '/holidays',
   path: '/holidays',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppFaceSecurityRoute = AppFaceSecurityRouteImport.update({
   id: '/face-security',
   path: '/face-security',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppFaceEnrollmentRoute = AppFaceEnrollmentRouteImport.update({
   id: '/face-enrollment',
   path: '/face-enrollment',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppEmployeesRoute = AppEmployeesRouteImport.update({
   id: '/employees',
   path: '/employees',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppEmployeeServicesRoute = AppEmployeeServicesRouteImport.update({
   id: '/employee-services',
   path: '/employee-services',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppEmergencyContactRoute = AppEmergencyContactRouteImport.update({
   id: '/emergency-contact',
   path: '/emergency-contact',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppDocumentsRoute = AppDocumentsRouteImport.update({
   id: '/documents',
   path: '/documents',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppDevicesRoute = AppDevicesRouteImport.update({
   id: '/devices',
   path: '/devices',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppDepartmentsRoute = AppDepartmentsRouteImport.update({
   id: '/departments',
   path: '/departments',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppCompanySetupRoute = AppCompanySetupRouteImport.update({
   id: '/company-setup',
   path: '/company-setup',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppChecklistsRoute = AppChecklistsRouteImport.update({
   id: '/checklists',
   path: '/checklists',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppBranchesRoute = AppBranchesRouteImport.update({
   id: '/branches',
   path: '/branches',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppAuditRoute = AppAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppAttendanceRoute = AppAttendanceRouteImport.update({
   id: '/attendance',
   path: '/attendance',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppAssetsRoute = AppAssetsRouteImport.update({
   id: '/assets',
   path: '/assets',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppAppraisalsRoute = AppAppraisalsRouteImport.update({
-  id: '/appraisals',
-  path: '/appraisals',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppAnnouncementsRoute = AppAnnouncementsRouteImport.update({
   id: '/announcements',
   path: '/announcements',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppAttendanceIndexRoute = AppAttendanceIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AppAttendanceRoute,
+  getParentRoute: () => AppAttendanceRoute
 } as any)
 const AppUsersNewRoute = AppUsersNewRouteImport.update({
   id: '/new',
   path: '/new',
-  getParentRoute: () => AppUsersRoute,
+  getParentRoute: () => AppUsersRoute
 } as any)
 const AppSettingsDevicesRoute = AppSettingsDevicesRouteImport.update({
   id: '/devices',
   path: '/devices',
-  getParentRoute: () => AppSettingsRoute,
+  getParentRoute: () => AppSettingsRoute
 } as any)
 const AppReportsPayrollRoute = AppReportsPayrollRouteImport.update({
   id: '/payroll',
   path: '/payroll',
-  getParentRoute: () => AppReportsRoute,
+  getParentRoute: () => AppReportsRoute
 } as any)
 const AppLeaveReportsRoute = AppLeaveReportsRouteImport.update({
   id: '/leave/reports',
   path: '/leave/reports',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppLeavePolicyRoute = AppLeavePolicyRouteImport.update({
   id: '/leave/policy',
   path: '/leave/policy',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppLeaveHistoryRoute = AppLeaveHistoryRouteImport.update({
   id: '/leave/history',
   path: '/leave/history',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppLeaveBalanceRoute = AppLeaveBalanceRouteImport.update({
   id: '/leave/balance',
   path: '/leave/balance',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppLeaveApprovalsRoute = AppLeaveApprovalsRouteImport.update({
   id: '/leave/approvals',
   path: '/leave/approvals',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppLeaveApplyRoute = AppLeaveApplyRouteImport.update({
   id: '/leave/apply',
   path: '/leave/apply',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRoute
 } as any)
 const AppDevicesMappingRoute = AppDevicesMappingRouteImport.update({
   id: '/mapping',
   path: '/mapping',
-  getParentRoute: () => AppDevicesRoute,
+  getParentRoute: () => AppDevicesRoute
 } as any)
 const AppAttendanceMissedPunchRoute =
   AppAttendanceMissedPunchRouteImport.update({
     id: '/missed-punch',
     path: '/missed-punch',
-    getParentRoute: () => AppAttendanceRoute,
+    getParentRoute: () => AppAttendanceRoute
   } as any)
 const AppAttendanceMismatchRoute = AppAttendanceMismatchRouteImport.update({
   id: '/mismatch',
   path: '/mismatch',
-  getParentRoute: () => AppAttendanceRoute,
+  getParentRoute: () => AppAttendanceRoute
 } as any)
 const AppAttendanceMineRoute = AppAttendanceMineRouteImport.update({
   id: '/mine',
   path: '/mine',
-  getParentRoute: () => AppAttendanceRoute,
+  getParentRoute: () => AppAttendanceRoute
 } as any)
 const AppAttendanceLocationsRoute = AppAttendanceLocationsRouteImport.update({
   id: '/locations',
   path: '/locations',
-  getParentRoute: () => AppAttendanceRoute,
+  getParentRoute: () => AppAttendanceRoute
 } as any)
 const AppAttendanceFieldRoute = AppAttendanceFieldRouteImport.update({
   id: '/field',
   path: '/field',
-  getParentRoute: () => AppAttendanceRoute,
+  getParentRoute: () => AppAttendanceRoute
 } as any)
 const AppAttendanceCorrectionsRoute =
   AppAttendanceCorrectionsRouteImport.update({
     id: '/corrections',
     path: '/corrections',
-    getParentRoute: () => AppAttendanceRoute,
+    getParentRoute: () => AppAttendanceRoute
   } as any)
 const AppAttendanceBranchRoute = AppAttendanceBranchRouteImport.update({
   id: '/branch',
   path: '/branch',
-  getParentRoute: () => AppAttendanceRoute,
+  getParentRoute: () => AppAttendanceRoute
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -336,7 +318,6 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/announcements': typeof AppAnnouncementsRoute
-  '/appraisals': typeof AppAppraisalsRoute
   '/assets': typeof AppAssetsRoute
   '/attendance': typeof AppAttendanceRouteWithChildren
   '/audit': typeof AppAuditRoute
@@ -356,10 +337,8 @@ export interface FileRoutesByFullPath {
   '/id-card': typeof AppIdCardRoute
   '/notifications': typeof AppNotificationsRoute
   '/profile': typeof AppProfileRoute
-  '/recruitment': typeof AppRecruitmentRoute
   '/reports': typeof AppReportsRouteWithChildren
   '/roles': typeof AppRolesRoute
-  '/roster': typeof AppRosterRoute
   '/settings': typeof AppSettingsRouteWithChildren
   '/sop': typeof AppSopRoute
   '/tasks': typeof AppTasksRoute
@@ -390,7 +369,6 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/announcements': typeof AppAnnouncementsRoute
-  '/appraisals': typeof AppAppraisalsRoute
   '/assets': typeof AppAssetsRoute
   '/audit': typeof AppAuditRoute
   '/branches': typeof AppBranchesRoute
@@ -409,10 +387,8 @@ export interface FileRoutesByTo {
   '/id-card': typeof AppIdCardRoute
   '/notifications': typeof AppNotificationsRoute
   '/profile': typeof AppProfileRoute
-  '/recruitment': typeof AppRecruitmentRoute
   '/reports': typeof AppReportsRouteWithChildren
   '/roles': typeof AppRolesRoute
-  '/roster': typeof AppRosterRoute
   '/settings': typeof AppSettingsRouteWithChildren
   '/sop': typeof AppSopRoute
   '/tasks': typeof AppTasksRoute
@@ -445,7 +421,6 @@ export interface FileRoutesById {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/_app/announcements': typeof AppAnnouncementsRoute
-  '/_app/appraisals': typeof AppAppraisalsRoute
   '/_app/assets': typeof AppAssetsRoute
   '/_app/attendance': typeof AppAttendanceRouteWithChildren
   '/_app/audit': typeof AppAuditRoute
@@ -465,10 +440,8 @@ export interface FileRoutesById {
   '/_app/id-card': typeof AppIdCardRoute
   '/_app/notifications': typeof AppNotificationsRoute
   '/_app/profile': typeof AppProfileRoute
-  '/_app/recruitment': typeof AppRecruitmentRoute
   '/_app/reports': typeof AppReportsRouteWithChildren
   '/_app/roles': typeof AppRolesRoute
-  '/_app/roster': typeof AppRosterRoute
   '/_app/settings': typeof AppSettingsRouteWithChildren
   '/_app/sop': typeof AppSopRoute
   '/_app/tasks': typeof AppTasksRoute
@@ -501,7 +474,6 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/announcements'
-    | '/appraisals'
     | '/assets'
     | '/attendance'
     | '/audit'
@@ -521,10 +493,8 @@ export interface FileRouteTypes {
     | '/id-card'
     | '/notifications'
     | '/profile'
-    | '/recruitment'
     | '/reports'
     | '/roles'
-    | '/roster'
     | '/settings'
     | '/sop'
     | '/tasks'
@@ -555,7 +525,6 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/announcements'
-    | '/appraisals'
     | '/assets'
     | '/audit'
     | '/branches'
@@ -574,10 +543,8 @@ export interface FileRouteTypes {
     | '/id-card'
     | '/notifications'
     | '/profile'
-    | '/recruitment'
     | '/reports'
     | '/roles'
-    | '/roster'
     | '/settings'
     | '/sop'
     | '/tasks'
@@ -609,7 +576,6 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/_app/announcements'
-    | '/_app/appraisals'
     | '/_app/assets'
     | '/_app/attendance'
     | '/_app/audit'
@@ -629,10 +595,8 @@ export interface FileRouteTypes {
     | '/_app/id-card'
     | '/_app/notifications'
     | '/_app/profile'
-    | '/_app/recruitment'
     | '/_app/reports'
     | '/_app/roles'
-    | '/_app/roster'
     | '/_app/settings'
     | '/_app/sop'
     | '/_app/tasks'
@@ -739,13 +703,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/roster': {
-      id: '/_app/roster'
-      path: '/roster'
-      fullPath: '/roster'
-      preLoaderRoute: typeof AppRosterRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/roles': {
       id: '/_app/roles'
       path: '/roles'
@@ -758,13 +715,6 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof AppReportsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/recruitment': {
-      id: '/_app/recruitment'
-      path: '/recruitment'
-      fullPath: '/recruitment'
-      preLoaderRoute: typeof AppRecruitmentRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/profile': {
@@ -898,13 +848,6 @@ declare module '@tanstack/react-router' {
       path: '/assets'
       fullPath: '/assets'
       preLoaderRoute: typeof AppAssetsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/appraisals': {
-      id: '/_app/appraisals'
-      path: '/appraisals'
-      fullPath: '/appraisals'
-      preLoaderRoute: typeof AppAppraisalsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/announcements': {
@@ -1062,7 +1005,7 @@ const AppAttendanceRouteChildren: AppAttendanceRouteChildren = {
   AppAttendanceMineRoute: AppAttendanceMineRoute,
   AppAttendanceMismatchRoute: AppAttendanceMismatchRoute,
   AppAttendanceMissedPunchRoute: AppAttendanceMissedPunchRoute,
-  AppAttendanceIndexRoute: AppAttendanceIndexRoute,
+  AppAttendanceIndexRoute: AppAttendanceIndexRoute
 }
 
 const AppAttendanceRouteWithChildren = AppAttendanceRoute._addFileChildren(
@@ -1074,7 +1017,7 @@ interface AppDevicesRouteChildren {
 }
 
 const AppDevicesRouteChildren: AppDevicesRouteChildren = {
-  AppDevicesMappingRoute: AppDevicesMappingRoute,
+  AppDevicesMappingRoute: AppDevicesMappingRoute
 }
 
 const AppDevicesRouteWithChildren = AppDevicesRoute._addFileChildren(
@@ -1086,7 +1029,7 @@ interface AppReportsRouteChildren {
 }
 
 const AppReportsRouteChildren: AppReportsRouteChildren = {
-  AppReportsPayrollRoute: AppReportsPayrollRoute,
+  AppReportsPayrollRoute: AppReportsPayrollRoute
 }
 
 const AppReportsRouteWithChildren = AppReportsRoute._addFileChildren(
@@ -1098,7 +1041,7 @@ interface AppSettingsRouteChildren {
 }
 
 const AppSettingsRouteChildren: AppSettingsRouteChildren = {
-  AppSettingsDevicesRoute: AppSettingsDevicesRoute,
+  AppSettingsDevicesRoute: AppSettingsDevicesRoute
 }
 
 const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
@@ -1110,7 +1053,7 @@ interface AppUsersRouteChildren {
 }
 
 const AppUsersRouteChildren: AppUsersRouteChildren = {
-  AppUsersNewRoute: AppUsersNewRoute,
+  AppUsersNewRoute: AppUsersNewRoute
 }
 
 const AppUsersRouteWithChildren = AppUsersRoute._addFileChildren(
@@ -1119,7 +1062,6 @@ const AppUsersRouteWithChildren = AppUsersRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppAnnouncementsRoute: typeof AppAnnouncementsRoute
-  AppAppraisalsRoute: typeof AppAppraisalsRoute
   AppAssetsRoute: typeof AppAssetsRoute
   AppAttendanceRoute: typeof AppAttendanceRouteWithChildren
   AppAuditRoute: typeof AppAuditRoute
@@ -1139,10 +1081,8 @@ interface AppRouteChildren {
   AppIdCardRoute: typeof AppIdCardRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
   AppProfileRoute: typeof AppProfileRoute
-  AppRecruitmentRoute: typeof AppRecruitmentRoute
   AppReportsRoute: typeof AppReportsRouteWithChildren
   AppRolesRoute: typeof AppRolesRoute
-  AppRosterRoute: typeof AppRosterRoute
   AppSettingsRoute: typeof AppSettingsRouteWithChildren
   AppSopRoute: typeof AppSopRoute
   AppTasksRoute: typeof AppTasksRoute
@@ -1157,7 +1097,6 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAnnouncementsRoute: AppAnnouncementsRoute,
-  AppAppraisalsRoute: AppAppraisalsRoute,
   AppAssetsRoute: AppAssetsRoute,
   AppAttendanceRoute: AppAttendanceRouteWithChildren,
   AppAuditRoute: AppAuditRoute,
@@ -1177,10 +1116,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppIdCardRoute: AppIdCardRoute,
   AppNotificationsRoute: AppNotificationsRoute,
   AppProfileRoute: AppProfileRoute,
-  AppRecruitmentRoute: AppRecruitmentRoute,
   AppReportsRoute: AppReportsRouteWithChildren,
   AppRolesRoute: AppRolesRoute,
-  AppRosterRoute: AppRosterRoute,
   AppSettingsRoute: AppSettingsRouteWithChildren,
   AppSopRoute: AppSopRoute,
   AppTasksRoute: AppTasksRoute,
@@ -1190,7 +1127,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppLeaveBalanceRoute: AppLeaveBalanceRoute,
   AppLeaveHistoryRoute: AppLeaveHistoryRoute,
   AppLeavePolicyRoute: AppLeavePolicyRoute,
-  AppLeaveReportsRoute: AppLeaveReportsRoute,
+  AppLeaveReportsRoute: AppLeaveReportsRoute
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
@@ -1201,7 +1138,7 @@ const rootRouteChildren: RootRouteChildren = {
   FirstLoginRoute: FirstLoginRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
-  VerifyIdEmployeeIdRoute: VerifyIdEmployeeIdRoute,
+  VerifyIdEmployeeIdRoute: VerifyIdEmployeeIdRoute
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

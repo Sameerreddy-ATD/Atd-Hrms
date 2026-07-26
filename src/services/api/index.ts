@@ -654,7 +654,7 @@ export const assetsApi = {
 export const employeeServicesApi = {
   expenseClaims: () => request<ExpenseClaim[]>("/expense-claims"),
   submitExpense: (claim: {
-    claimType: "ADVANCE" | "EXPENSE" | "TRAVEL" | "FUEL" | "FIELD";
+    claimType: "ADVANCE" | "EXPENSE" | "FIELD";
     employeeId?: string;
     title?: string | null;
     amount: number;
@@ -662,8 +662,6 @@ export const employeeServicesApi = {
     description?: string | null;
     remark?: string | null;
     claimMeta?: {
-      distanceKm?: number;
-      litres?: number;
       fromLocation?: string;
       toLocation?: string;
     } | null;
@@ -1054,36 +1052,6 @@ export const opsReportsApi = {
   downloadOpsExcel: () => downloadBinary("/reports/ops-export.xlsx", "ops-reports.xlsx"),
   downloadClaimsCsv: (from?: string, to?: string) =>
     downloadBinary(`/reports/claims-export${toQuery({ from, to })}`, "paid-claims.csv"),
-  rosterVariance: (from: string, to: string) =>
-    request<{
-      from: string;
-      to: string;
-      branches: Array<{
-        branch: string;
-        rostered: number;
-        present: number;
-        absent: number;
-        late: number;
-        off: number;
-      }>;
-      rows: Array<{
-        employeeName: string;
-        employeeCode: string;
-        branch: string;
-        workDate: string;
-        shift: string;
-        attendance: string;
-      }>;
-    }>(`/reports/roster-variance${toQuery({ from, to })}`),
-};
-
-export const travelRatesApi = {
-  get: () => request<{ inrPerKm: number; fuelInrPerLitre: number }>("/settings/travel-rates"),
-  save: (payload: { inrPerKm: number; fuelInrPerLitre: number }) =>
-    request<{ inrPerKm: number; fuelInrPerLitre: number }>("/settings/travel-rates", {
-      method: "PUT",
-      body: JSON.stringify(payload),
-    }),
 };
 
 async function downloadBinary(path: string, filename: string) {
@@ -1111,65 +1079,6 @@ async function downloadBinary(path: string, filename: string) {
   link.click();
   URL.revokeObjectURL(url);
 }
-
-export const rosterApi = {
-  list: (from: string, to: string) =>
-    request<
-      Array<{
-        id: string;
-        employeeId: string;
-        employeeName: string;
-        employeeCode: string;
-        workDate: string;
-        shiftPreset: string;
-        published: boolean;
-        note?: string | null;
-      }>
-    >(`/roster${toQuery({ from, to })}`),
-  upsert: (payload: {
-    employeeId: string;
-    workDate: string;
-    shiftPreset: string;
-    published?: boolean;
-    note?: string | null;
-  }) => request<{ id: string; ok: boolean }>("/roster", { method: "PUT", body: JSON.stringify(payload) }),
-};
-
-export const overtimeApi = {
-  list: () =>
-    request<
-      Array<{
-        id: string;
-        employeeName: string;
-        employeeCode: string;
-        workDate: string;
-        minutes: number;
-        reason: string;
-        status: string;
-      }>
-    >("/overtime-claims"),
-  create: (payload: { workDate: string; minutes: number; reason: string }) =>
-    request<{ id: string; status: string }>("/overtime-claims", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }),
-  review: (id: string, status: "APPROVED" | "REJECTED", reviewNotes?: string) =>
-    request<{ id: string; status: string }>(`/overtime-claims/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ status, reviewNotes }),
-    }),
-  suggestions: () =>
-    request<
-      Array<{
-        workDate: string;
-        shiftPreset: string;
-        suggestedMinutes: number;
-        workedMinutes: number;
-        expectedMinutes: number;
-        reason: string;
-      }>
-    >("/overtime-claims/suggestions"),
-};
 
 export const checklistsApi = {
   list: () =>
@@ -1227,45 +1136,6 @@ export const documentsApi = {
   ack: (id: string) => request<{ ok: boolean }>(`/documents/${id}/ack`, { method: "POST" }),
 };
 
-export const appraisalsApi = {
-  cycles: () =>
-    request<
-      Array<{
-        id: string;
-        name: string;
-        startsOn: string;
-        endsOn: string;
-        status: string;
-        reviewCount: number;
-      }>
-    >("/appraisals/cycles"),
-  createCycle: (payload: { name: string; startsOn: string; endsOn: string }) =>
-    request<{ id: string }>("/appraisals/cycles", { method: "POST", body: JSON.stringify(payload) }),
-  reviews: (cycleId?: string) =>
-    request<
-      Array<{
-        id: string;
-        cycleName: string;
-        employeeName: string;
-        employeeCode: string;
-        rating?: number | null;
-        comments?: string | null;
-        status: string;
-      }>
-    >(`/appraisals/reviews${toQuery({ cycleId })}`),
-  saveReview: (payload: {
-    cycleId: string;
-    employeeId: string;
-    rating?: number;
-    comments?: string | null;
-    status?: "DRAFT" | "SUBMITTED";
-  }) =>
-    request<{ id: string; status: string }>("/appraisals/reviews", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }),
-};
-
 export const sopApi = {
   list: () =>
     request<
@@ -1278,60 +1148,4 @@ export const sopApi = {
     audienceRoles?: string[];
   }) => request<{ id: string }>("/sop", { method: "POST", body: JSON.stringify(payload) }),
   markRead: (id: string) => request<{ ok: boolean }>(`/sop/${id}/read`, { method: "POST" }),
-};
-
-export const recruitmentApi = {
-  jobs: () =>
-    request<
-      Array<{
-        id: string;
-        title: string;
-        departmentName?: string | null;
-        description?: string | null;
-        status: string;
-        candidateCount: number;
-      }>
-    >("/recruitment/jobs"),
-  createJob: (payload: {
-    title: string;
-    departmentName?: string | null;
-    description?: string | null;
-  }) => request<{ id: string }>("/recruitment/jobs", { method: "POST", body: JSON.stringify(payload) }),
-  candidates: (jobId?: string) =>
-    request<
-      Array<{
-        id: string;
-        jobId: string;
-        jobTitle: string;
-        name: string;
-        email?: string | null;
-        phone?: string | null;
-        stage: string;
-        notes?: string | null;
-        hiredEmployeeId?: string | null;
-      }>
-    >(`/recruitment/candidates${toQuery({ jobId })}`),
-  createCandidate: (payload: {
-    jobId: string;
-    name: string;
-    email?: string | null;
-    phone?: string | null;
-    notes?: string | null;
-  }) =>
-    request<{ id: string }>("/recruitment/candidates", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }),
-  updateCandidate: (
-    id: string,
-    payload: {
-      stage?: string;
-      notes?: string | null;
-      hireEmployeeId?: string;
-    },
-  ) =>
-    request<{ id: string; stage: string }>(`/recruitment/candidates/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify(payload),
-    }),
 };

@@ -340,7 +340,7 @@ export interface ExpenseClaim {
   employeeId: string;
   employeeName: string;
   employeeCode: string;
-  claimType: "ADVANCE" | "EXPENSE" | "TRAVEL" | "FUEL" | "FIELD";
+  claimType: "ADVANCE" | "EXPENSE" | "FIELD";
   title?: string;
   amount: number;
   expenseDate?: string;

@@ -18,10 +18,9 @@ The 26 July 2026 Wave A–C release audit notes:
 - all **38** ordered migration directories are present and the Prisma schema validates;
 - MySQL now contains **58** application tables (HRMS modules plus vehicle asset columns);
 - ACL fixes cover task attachment/archive access and scoped global search boards;
-- overtime review uses conditional `PENDING` updates (HTTP 409 on concurrent conflict);
 - private upload paths exist for company documents, expense receipts, and sick-leave medical files;
-- roster vs attendance variance, travel/fuel rate cards, OT suggestions from roster, and offline
-  punch queueing are available for daily ops.
+- offline punch queueing is available for daily ops. Roster/OT/travel-fuel/appraisals/recruitment
+  tables may still exist in MySQL but product handlers for those surfaces are retired for now.
 
 The previous 25 July 2026 code and workflow audit produced these results:
 
@@ -57,7 +56,7 @@ MySQL 8.0 contains 58 application tables grouped as follows:
 | Employee services     | `expense_claims`, `certificate_requests`                                                                                                                                                                                 | Expense and HR-document workflow state is retained with reviewer and completion timestamps |
 | Assets                | `asset_catalog_items`, `company_assets` (incl. optional vehicle registration/insurance/fitness), `asset_returns` | Current assignment is on the asset; every completed return is a separate historical row |
 | Work Planner          | `task_boards`, `task_stages`, `task_board_roles`, `task_board_members`, `work_tasks`, `task_assignments`, `task_updates`, `task_attachments` | Stage status is canonical for board tasks; assignments and activity are relational history |
-| HRMS extensions       | `roster_assignments`, `overtime_claims`, `checklist_*`, `company_documents`, `document_acks`, `appraisal_*`, `recruitment_jobs`, `candidates`, `sop_*`, `notification_preferences` | Thin ops modules for roster, OT, onboarding, docs, ATS, appraisals, SOP, and alert prefs |
+| HRMS extensions       | `checklist_*`, `company_documents`, `document_acks`, `sop_*`, `notification_preferences` (plus dormant `roster_assignments`, `overtime_claims`, `appraisal_*`, `recruitment_jobs`, `candidates`) | Active: onboarding, docs, SOP, alert prefs; roster/OT/ATS/appraisals tables retained unused |
 
 The physical table `certificate_requests` keeps its historical name for migration safety. The UI and
 documentation call this feature **HR Documents**.

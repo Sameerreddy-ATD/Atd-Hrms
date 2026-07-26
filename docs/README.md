@@ -89,5 +89,5 @@ connectors, WhatsApp messaging providers, and full LMS/ATS enterprise suites.
 
 Recently added MVP modules (July 2026): Work Planner Phase 2 (archive, attachments, mentions,
 cross-board move, custom fields), global search, notification digest preferences, operations
-reports + paid-claims CSV export, shift roster + overtime, travel/fuel/field claims, onboarding
-checklists, document vault, appraisals, SOP library, and recruitment ATS.
+reports + paid-claims CSV export, field claims, onboarding checklists, document vault, and SOP
+library.
