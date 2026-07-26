@@ -208,15 +208,23 @@ control.
 
 ### Project recommendation
 
-1. **Current production:** keep the existing EC2 deployment until a tested replacement is ready.
-2. **If reducing cost is the primary goal:** evaluate Hostinger KVM 2 in a suitable nearby region.
-3. **If month-to-month flexibility is more important than latency:** evaluate Hetzner CX23.
-4. **If staying inside AWS:** migrate to Lightsail 4 GB or right-size EC2 after measuring usage.
-5. **Do not use free hosting for the only copy of employee, banking, PAN, Aadhaar, or UAN data.**
+1. **Current testing / early production:** keep the existing VPS or EC2 deployment until a tested
+   company AWS replacement is ready.
+2. **When the company moves this app onto AWS with existing RDS (and later S3):** follow the
+   phased path in [AWS Deployment Patterns § Company AWS Migration Path](AWS_DEPLOYMENT_PATTERNS.md#0-company-aws-migration-path-vps-test--production) —
+   dedicated MySQL database on RDS (do not merge into a legacy ~190-table schema), EC2 app tier
+   first, S3 after a storage adapter, CI/CD with production approval gates.
+3. **If reducing cost is the primary goal outside company AWS:** evaluate Hostinger KVM 2 in a
+   suitable nearby region.
+4. **If month-to-month flexibility is more important than latency:** evaluate Hetzner CX23.
+5. **If staying inside AWS without a large platform team:** Lightsail 4 GB or right-sized EC2 + RDS.
+6. **Do not use free hosting for the only copy of employee, banking, PAN, Aadhaar, or UAN data.**
 
 The engineering time and downtime risk of migration can cost more than a small monthly saving.
 Run the new environment in parallel, restore a recent backup, complete acceptance testing, and
-switch DNS only after verification.
+switch DNS only after verification. Host install commands:
+[Linux and AWS Deployment](LINUX_LOCAL_DEPLOYMENT.md). Release and maintenance cadence:
+[Upgrade and Maintenance](UPGRADE_AND_MAINTENANCE.md).
 
 ## 6. Estimated Complete Monthly Budget
 

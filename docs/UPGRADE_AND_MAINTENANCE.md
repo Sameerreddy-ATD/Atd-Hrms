@@ -8,6 +8,9 @@
 - Server checkout: `/opt/anytime-crew-hub`
 - Server remote: `git@github-atd-ems:Sameerreddy-ATD/Employee-Management-System.git`
 
+Company AWS migration (RDS, S3, CI/CD): [AWS Deployment Patterns](AWS_DEPLOYMENT_PATTERNS.md).
+Host and RDS install commands: [Linux and AWS Deployment](LINUX_LOCAL_DEPLOYMENT.md).
+
 The production server uses a read-only GitHub deploy key. Do not copy a personal GitHub token into `.env` or the repository.
 
 ## Before Every Release
@@ -207,6 +210,38 @@ Restore MySQL only if a migration or data operation is incompatible. Database re
 - Renew TLS automatically and test with `sudo certbot renew --dry-run`.
 - Review dependency audit findings; upgrade high-risk packages in a tested development release.
 - The current single backend process supports in-memory SSE. Introduce Redis pub/sub before horizontal backend scaling.
+
+## Ongoing Maintenance Cadence
+
+Production is not “set and forget.” After go-live, use at least this schedule. Company AWS details
+(RDS snapshots, S3 growth, CloudWatch) are also summarized in
+[AWS Deployment Patterns § Post-Deploy Maintenance](AWS_DEPLOYMENT_PATTERNS.md#16-post-deploy-maintenance-on-aws).
+
+| Cadence | Work |
+| ------- | ---- |
+| Daily | Confirm PM2/ECS healthy; hit `/health` and `/health/db`; skim error logs; watch disk (or S3) growth |
+| Weekly | Confirm backups completed; review alarms; glance at dependency/security notices |
+| Every release | Backup/snapshot → `db:deploy` → restart → smoke login, attendance, leave, checklists |
+| Monthly | Apply OS security updates; review RDS storage and connections; rotate secrets if policy requires; prune old logs/backups; check TLS renewal |
+| Quarterly | Restore a backup into a throwaway database; review IAM/security groups; revisit CPU/RAM/storage |
+
+Named ownership must include one person who can restore the database and redeploy the last
+known-good Git commit.
+
+## CI/CD And Releases
+
+Automated checks and gated deploys are recommended once the company AWS environment exists:
+
+1. **CI on every PR / `main` push:** validate, typecheck, lint, test, build frontend and backend.
+2. **CD to staging** from a green `main` SHA (or release tag).
+3. **CD to production** only with GitHub Environment approval (or equivalent), after RDS
+   snapshot/backup, using the same SHA that passed staging.
+
+Illustrative workflow shapes and OIDC notes:
+[AWS Deployment Patterns § GitHub Actions CI/CD](AWS_DEPLOYMENT_PATTERNS.md#15-github-actions-cicd-recommended-shape).
+
+Until CD exists, continue the manual production update section above. Do not auto-apply production
+migrations without a human gate.
 
 ## Versioning
 

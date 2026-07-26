@@ -9,9 +9,9 @@ Read this document first, then follow:
 
 1. [Technical Overview](TECHNICAL_OVERVIEW.md) for application architecture.
 2. [Cloud Deployment Options and Costs](CLOUD_DEPLOYMENT_OPTIONS.md) for hosting models.
-3. [AWS Deployment Patterns](AWS_DEPLOYMENT_PATTERNS.md) for AWS-specific choices.
-4. [Linux and AWS Deployment](LINUX_LOCAL_DEPLOYMENT.md) for EC2/VPS commands.
-5. [Upgrade and Maintenance](UPGRADE_AND_MAINTENANCE.md) for releases and rollback.
+3. [AWS Deployment Patterns](AWS_DEPLOYMENT_PATTERNS.md) for VPS→company AWS, RDS, S3, CI/CD, and maintenance.
+4. [Linux and AWS Deployment](LINUX_LOCAL_DEPLOYMENT.md) for EC2/VPS commands and company RDS wiring.
+5. [Upgrade and Maintenance](UPGRADE_AND_MAINTENANCE.md) for releases, rollback, and ops cadence.
 6. [Database Integrity Audit](DATABASE_INTEGRITY_AUDIT.md) and
    [Employee Data and Integration API](EMPLOYEE_DATA_AND_INTEGRATION_API.md) for data assurance.
 
@@ -74,7 +74,10 @@ The current single-server deployment uses:
 - PM2 for both Node.js processes.
 
 AWS may replace Nginx with an Application Load Balancer and may replace local MySQL with RDS. The
-application contract remains the same.
+application contract remains the same. Prefer a **dedicated MySQL database** for this application
+even when the company already runs a large RDS with many unrelated tables. Private uploads are
+local-disk today; S3 is a follow-on engineering phase. Full path:
+[AWS Deployment Patterns § Company AWS Migration Path](AWS_DEPLOYMENT_PATTERNS.md#0-company-aws-migration-path-vps-test--production).
 
 ## 4. Repository Contents
 

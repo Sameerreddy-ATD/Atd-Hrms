@@ -17,9 +17,9 @@ in the same commit.
 - Go-live owners: [Reset and Go-Live](RESET_AND_GO_LIVE.md)
 - Receiving companies: [Third-Party Technical Handover](THIRD_PARTY_HANDOVER.md)
 - Infrastructure owners: [Cloud Deployment Options and Costs](CLOUD_DEPLOYMENT_OPTIONS.md)
-- AWS/DevOps teams: [AWS Deployment Patterns](AWS_DEPLOYMENT_PATTERNS.md)
-- Server administrators: [Linux and AWS Deployment](LINUX_LOCAL_DEPLOYMENT.md)
-- Release owners: [Upgrade and Maintenance](UPGRADE_AND_MAINTENANCE.md)
+- AWS/DevOps teams: [AWS Deployment Patterns](AWS_DEPLOYMENT_PATTERNS.md) (VPS→company AWS, RDS, S3, CI/CD, maintenance)
+- Server administrators: [Linux and AWS Deployment](LINUX_LOCAL_DEPLOYMENT.md) (includes company RDS wiring)
+- Release owners: [Upgrade and Maintenance](UPGRADE_AND_MAINTENANCE.md) (releases, CI/CD, ops cadence)
 - Mobile QA/support: [Device Compatibility](DEVICE_COMPATIBILITY.md)
 - Security, HR, and attendance owners:
   [Face Registration and Verified Attendance](FACE_ATTENDANCE_SECURITY.md)
@@ -45,9 +45,9 @@ in the same commit.
 | `RESET_AND_GO_LIVE.md`                 | Safe test-data reset, verification, and step-by-step real-company setup                           |
 | `THIRD_PARTY_HANDOVER.md`              | Transfer inventory, environment contract, acceptance, ownership, and handover definition          |
 | `CLOUD_DEPLOYMENT_OPTIONS.md`          | Hosting methods, current INR cost comparison, capacity, security, and provider selection          |
-| `AWS_DEPLOYMENT_PATTERNS.md`           | EC2, Lightsail, RDS, ECS, App Runner, Beanstalk, EKS, IAM, secrets, and AWS go-live choices       |
-| `LINUX_LOCAL_DEPLOYMENT.md`            | Fresh Linux/AWS installation, private Git access, domain, TLS, Nginx, and PM2                     |
-| `UPGRADE_AND_MAINTENANCE.md`           | Production updates, backups, verification, rollback, and long-term operations                     |
+| `AWS_DEPLOYMENT_PATTERNS.md`           | VPS→company AWS path, EC2/RDS/S3, ECS, CI/CD, secrets, go-live, and post-deploy maintenance       |
+| `LINUX_LOCAL_DEPLOYMENT.md`            | Fresh Linux/AWS installation, company RDS wiring, Nginx, TLS, PM2, and optional containers        |
+| `UPGRADE_AND_MAINTENANCE.md`           | Production updates, backups, verification, rollback, CI/CD gates, and maintenance cadence         |
 | `DEVICE_COMPATIBILITY.md`              | Supported browsers, PWA permissions, low-network behavior, and QA matrix                          |
 | `RESPONSIVE_UI_AUDIT.md`               | Shared responsive rules, audited surfaces, resolved issues, and UI release checklist              |
 | `FACE_ATTENDANCE_SECURITY.md`          | Mandatory enrollment, liveness/GPS flow, encrypted storage, retention, admin, and deployment      |
@@ -91,4 +91,3 @@ Recently added MVP modules (July 2026): Work Planner Phase 2 (archive, attachmen
 cross-board move, custom fields), global search, notification digest preferences, operations
 reports + paid-claims CSV export, field claims, and onboarding checklists. Document vault and SOP
 are deferred.
-library.

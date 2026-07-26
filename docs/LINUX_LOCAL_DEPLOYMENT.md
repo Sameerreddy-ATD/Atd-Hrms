@@ -4,8 +4,10 @@ This guide covers a fresh Ubuntu 24.04 deployment for approximately 200-300 empl
 
 For provider selection, deployment-model trade-offs, current INR estimates, and the recommended
 low-cost architecture, read [Cloud Deployment Options and Costs](CLOUD_DEPLOYMENT_OPTIONS.md)
-before purchasing infrastructure. New installations should use `main`. The existing production
-server can continue tracking `version-1` until a deliberate branch switch is scheduled.
+before purchasing infrastructure. For company AWS (RDS, S3, CI/CD, and the VPS→AWS migration path),
+read [AWS Deployment Patterns](AWS_DEPLOYMENT_PATTERNS.md) first, then use this guide for host
+commands. New installations should use `main`. The existing production server can continue tracking
+`version-1` until a deliberate branch switch is scheduled.
 
 Commands use `hrms.example.com` as a placeholder. Replace it with the receiving company's approved
 hostname everywhere, including DNS, `.env`, the frontend build, Nginx, TLS, and acceptance tests.
@@ -312,3 +314,87 @@ git pull --ff-only origin main
 ## 12. Routine Update
 
 Follow [Upgrade and Maintenance](UPGRADE_AND_MAINTENANCE.md). Never delete or overwrite `.env` during `git pull`; it is ignored and remains server-local.
+
+## 13. Deploying With Company RDS
+
+Use this when the company provides **AWS RDS MySQL** and the application runs on EC2 (or a similar
+VM) without local MySQL. Pattern overview:
+[AWS Deployment Patterns — Pattern C and company migration path](AWS_DEPLOYMENT_PATTERNS.md).
+
+### Prerequisites from the company
+
+- RDS MySQL 8 endpoint in a **private** subnet (not publicly accessible)
+- Security group allowing TCP `3306` **only** from the application host security group
+- Database name reserved for this app only (example `anytimediesel_hrms`) — do not reuse a legacy
+  190-table schema for this Prisma migration history
+- App DB username/password stored in Secrets Manager or delivered into server `.env` securely
+- Staging and production endpoints separated
+
+### Application host changes vs local MySQL
+
+1. Skip or disable local MySQL on the EC2 host if unused.
+2. Install Node.js 22, Nginx, Certbot, PM2, and Git as in sections 2–7.
+3. Set `DATABASE_URL` to the RDS endpoint (URL-encode special characters in the password):
+
+```text
+DATABASE_URL=mysql://atd_hrms:URL_ENCODED_PASSWORD@your-rds-endpoint.region.rds.amazonaws.com:3306/anytimediesel_hrms
+```
+
+4. Keep all other secrets (`JWT_*`, `EMPLOYEE_DATA_ENCRYPTION_KEY`, VAPID, `FRONTEND_ORIGIN`, etc.)
+   on the host or inject from Secrets Manager at process start.
+5. From `/opt/anytime-crew-hub` on `main` (or the approved release branch):
+
+```bash
+npm ci
+npx prisma generate
+npm run db:deploy
+npm run build
+npm run build:backend
+npm run db:verify
+npm run db:audit
+pm2 restart atd-backend --update-env
+pm2 restart atd-frontend --update-env
+pm2 save
+```
+
+6. Confirm:
+
+```bash
+curl -fsS http://127.0.0.1:4000/health
+curl -fsS http://127.0.0.1:4000/health/db
+```
+
+### File storage until S3 is ready
+
+Private uploads still use local directories. Create durable paths on encrypted EBS and set
+environment variables (at least `FACE_EVIDENCE_DIR`). Include those directories in backup runbooks.
+When the company requires S3, follow
+[AWS Deployment Patterns § S3 Plan](AWS_DEPLOYMENT_PATTERNS.md#14-s3-plan-for-private-uploads).
+
+### TLS and proxy when using ALB
+
+If an Application Load Balancer terminates TLS in front of Nginx or Node:
+
+- set `TRUST_PROXY` to match the real hop count (`1` when ALB talks directly to Express);
+- set `COOKIE_SECURE=true`;
+- use ACM on the ALB; and
+- raise ALB idle timeout enough for Server-Sent Events.
+
+### Cutover from the current VPS / test EC2
+
+1. Leave the test host running until staging acceptance passes on company AWS.
+2. Do not merge this app into an unrelated RDS database that already holds ~190 legacy tables;
+   create a dedicated database (or instance).
+3. Switch DNS only after HTTPS, login, attendance, leave, and checklist smoke tests pass.
+4. Keep the old host recoverable for the approved rollback window.
+
+CI/CD and ongoing maintenance: [AWS Deployment Patterns §§ 15–16](AWS_DEPLOYMENT_PATTERNS.md#15-github-actions-cicd-recommended-shape)
+and [Upgrade and Maintenance](UPGRADE_AND_MAINTENANCE.md).
+
+## 14. Deploying Containers (Optional)
+
+When the company standardizes on containers, build the repository `Dockerfile` targets `frontend`
+and `backend`, push immutable Git-SHA tags to ECR, and follow
+[AWS Deployment Patterns — Pattern D](AWS_DEPLOYMENT_PATTERNS.md#6-pattern-d-ecs-fargate--alb--rds).
+Run `npm run db:deploy` as a one-off migration task before updating the backend service. Keep a
+single backend replica until shared SSE pub/sub exists.
