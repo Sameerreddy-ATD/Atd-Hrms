@@ -263,7 +263,7 @@ function LeaveApprovalsPage() {
                   {leave.medicalDocumentUrl ? (
                     <a
                       className="font-medium text-primary underline"
-                      href={leave.medicalDocumentUrl}
+                      href={leaveApi.medicalFileUrl(leave.medicalDocumentUrl)}
                       target="_blank"
                       rel="noreferrer"
                     >
@@ -273,6 +273,38 @@ function LeaveApprovalsPage() {
                     <p className="font-medium text-amber-700 dark:text-amber-400">
                       Awaiting employee link
                     </p>
+                  )}
+                  {leave.medicalDocumentUrl &&
+                    !leave.medicalDocumentVerifiedAt &&
+                    (canApprove || canOversee) && (
+                      <Button
+                        size="sm"
+                        className="mt-2"
+                        variant="outline"
+                        onClick={() =>
+                          void leaveApi
+                            .verifyMedicalDocument(leave.id)
+                            .then(() => {
+                              toast.success("Medical report verified");
+                              setRows((current) =>
+                                current.map((row) =>
+                                  row.id === leave.id
+                                    ? {
+                                        ...row,
+                                        medicalDocumentVerifiedAt: new Date().toISOString(),
+                                      }
+                                    : row,
+                                ),
+                              );
+                            })
+                            .catch((error) => toast.error((error as Error).message))
+                        }
+                      >
+                        Verify medical
+                      </Button>
+                    )}
+                  {leave.medicalDocumentVerifiedAt && (
+                    <p className="mt-1 text-xs text-muted-foreground">Verified</p>
                   )}
                 </div>
               )}
@@ -346,22 +378,63 @@ function LeaveApprovalsPage() {
                     <StatusBadge status={l.status} />
                   </TableCell>
                   <TableCell className="text-right">
-                    {canReview(l) ? (
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openDecision(l, "Rejected")}
-                        >
-                          Reject
-                        </Button>
-                        <Button size="sm" onClick={() => openDecision(l, "Approved")}>
-                          Approve
-                        </Button>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Read only</span>
-                    )}
+                    <div className="flex flex-col items-end gap-2">
+                      {l.type === "Sick Leave" && l.medicalDocumentUrl && (
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <Button size="sm" variant="outline" asChild>
+                            <a
+                              href={leaveApi.medicalFileUrl(l.medicalDocumentUrl)}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Medical
+                            </a>
+                          </Button>
+                          {!l.medicalDocumentVerifiedAt && (canApprove || canOversee) && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                void leaveApi
+                                  .verifyMedicalDocument(l.id)
+                                  .then(() => {
+                                    toast.success("Medical report verified");
+                                    setRows((current) =>
+                                      current.map((row) =>
+                                        row.id === l.id
+                                          ? {
+                                              ...row,
+                                              medicalDocumentVerifiedAt: new Date().toISOString(),
+                                            }
+                                          : row,
+                                      ),
+                                    );
+                                  })
+                                  .catch((error) => toast.error((error as Error).message))
+                              }
+                            >
+                              Verify
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                      {canReview(l) ? (
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openDecision(l, "Rejected")}
+                          >
+                            Reject
+                          </Button>
+                          <Button size="sm" onClick={() => openDecision(l, "Approved")}>
+                            Approve
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Read only</span>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
