@@ -32,3 +32,40 @@ export async function ensureChecklistInstance(
     select: { instanceId: true },
   });
 }
+
+/** Marks open onboarding face-registration checklist items complete after enrollment approval. */
+export async function completeFaceEnrollmentChecklistItems(employeeId: string) {
+  const open = await prisma.checklistInstance.findMany({
+    where: { employeeId, kind: "ONBOARDING", status: "OPEN" },
+    include: { items: true },
+  });
+  const faceItemIds = open.flatMap((instance) =>
+    instance.items
+      .filter(
+        (item) =>
+          !item.completed &&
+          (/face/i.test(item.title) ||
+            item.linkPath === "/dashboard" ||
+            item.linkPath === "/face-enrollment"),
+      )
+      .map((item) => item.stateId),
+  );
+  if (faceItemIds.length === 0) return 0;
+  await prisma.checklistItemState.updateMany({
+    where: { stateId: { in: faceItemIds } },
+    data: { completed: true, completedAt: new Date() },
+  });
+
+  for (const instance of open) {
+    const remaining = await prisma.checklistItemState.count({
+      where: { instanceId: instance.instanceId, completed: false },
+    });
+    if (remaining === 0) {
+      await prisma.checklistInstance.update({
+        where: { instanceId: instance.instanceId },
+        data: { status: "COMPLETED" },
+      });
+    }
+  }
+  return faceItemIds.length;
+}

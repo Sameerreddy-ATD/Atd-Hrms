@@ -48,7 +48,7 @@ import {
 import { settleExpiredOpenPunches } from "./attendanceSettlement.js";
 import { openAttendanceStream } from "./attendanceLive.js";
 import { config } from "./config.js";
-import { ensureChecklistInstance } from "./checklistService.js";
+import { ensureChecklistInstance, completeFaceEnrollmentChecklistItems } from "./checklistService.js";
 import { encryptEmployeeField, lastFour } from "./employeePrivateData.js";
 import { asyncHandler, errorHandler, HttpError } from "./errors.js";
 import { nearestBranch } from "./geofence.js";
@@ -1193,6 +1193,13 @@ export function createApp() {
         },
       });
       invalidateFaceStatusCache(userId);
+      const approvedUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { employeeId: true },
+      });
+      if (approvedUser?.employeeId) {
+        await completeFaceEnrollmentChecklistItems(approvedUser.employeeId);
+      }
       await audit({
         action: "FACE_ENROLLMENT_APPROVED",
         performedByUserId: req.user!.id,
@@ -5014,7 +5021,7 @@ export function createApp() {
   app.post(
     "/leave/requests/:id/medical-document/verify",
     requireAuth,
-    requireRoles(Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN),
+    requireRoles(Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN, Role.MANAGER),
     asyncHandler(async (req, res) => {
       const existing = await prisma.leaveRequest.findUniqueOrThrow({
         where: { leaveRequestId: String(req.params.id) },

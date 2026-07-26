@@ -451,6 +451,9 @@ export function companyAssetDto(
     branchName: asset.branch?.branchName,
     location: asset.location ?? undefined,
     notes: asset.notes ?? undefined,
+    vehicleRegistration: asset.vehicleRegistration ?? undefined,
+    insuranceExpiry: asset.insuranceExpiry?.toISOString().slice(0, 10),
+    fitnessExpiry: asset.fitnessExpiry?.toISOString().slice(0, 10),
   };
 }
 

@@ -44,7 +44,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
 import type { CertificateRequest, ExpenseClaim, User } from "@/types/domain";
-import { employeeServicesApi, employeesApi } from "@/services/api";
+import { employeeServicesApi, employeesApi, travelRatesApi } from "@/services/api";
 
 export const Route = createFileRoute("/_app/employee-services")({
   component: EmployeeServicesPage,
@@ -246,6 +246,9 @@ function EmployeeServicesPage() {
             : "Submit expenses and request official documents from HR."
         }
       />
+      <div className="mb-4">
+        <TravelRatesAdminCard />
+      </div>
       {error && (
         <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
           {error}
@@ -323,7 +326,11 @@ function EmployeeServicesPage() {
                   date={row.expenseDate ?? new Date(row.createdAt).toLocaleDateString("en-IN")}
                   status={row.status}
                   description={row.description ?? row.remark ?? ""}
-                  link={row.receiptUrl}
+                  link={
+                    row.receiptUrl
+                      ? employeeServicesApi.receiptUrl(row.receiptUrl)
+                      : undefined
+                  }
                   notes={row.reviewNotes}
                   action={isHr ? <ExpenseActions row={row} onReview={setReview} /> : undefined}
                 />
@@ -476,6 +483,14 @@ function EmployeeServicesPage() {
                       onChange={(e) => setExpenseForm((v) => ({ ...v, litres: e.target.value }))}
                     />
                   </Field>
+                  <TravelRateHint
+                    claimType={expenseForm.claimType}
+                    distanceKm={expenseForm.distanceKm}
+                    litres={expenseForm.litres}
+                    onSuggestedAmount={(amount) =>
+                      setExpenseForm((v) => ({ ...v, amount: String(amount) }))
+                    }
+                  />
                 </>
               )}
               <Field label="Title">
@@ -518,38 +533,76 @@ function EmployeeServicesPage() {
               </div>
               <div className="sm:col-span-2">
                 <div className="flex items-center gap-1">
-                  <Label>Attachment (Google Drive link)</Label>
-                  <InfoButton title="Google Drive sharing">
+                  <Label>Receipt attachment</Label>
+                  <InfoButton title="Receipt upload">
                     <p>
-                      Before submitting, open the file's sharing settings and change General access
-                      to <strong>Anyone with the link</strong> can view.
+                      Prefer a private file upload. Google Drive links still work if General access
+                      is <strong>Anyone with the link</strong>.
                     </p>
                   </InfoButton>
                 </div>
                 <Input
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg,.webp"
+                  className="mb-2"
+                  onChange={(event) => {
+                    const next = event.target.files?.[0] ?? null;
+                    void (async () => {
+                      if (!next) return;
+                      try {
+                        const { fileToBase64 } = await import("@/lib/file-upload");
+                        const upload = await fileToBase64(next);
+                        const stored = await employeeServicesApi.uploadReceipt(upload);
+                        setExpenseForm((value) => ({
+                          ...value,
+                          receiptUrl: stored.url,
+                          receiptAccessConfirmed: true,
+                        }));
+                        toast.success("Receipt uploaded");
+                      } catch (error) {
+                        toast.error((error as Error).message);
+                      }
+                    })();
+                  }}
+                />
+                <Input
                   type="url"
-                  placeholder="https://drive.google.com/..."
-                  value={expenseForm.receiptUrl}
-                  onChange={(e) => setExpenseForm((v) => ({ ...v, receiptUrl: e.target.value }))}
+                  placeholder="Or paste https://drive.google.com/..."
+                  value={
+                    expenseForm.receiptUrl.startsWith("/expense-claims/receipts/")
+                      ? "(private upload attached)"
+                      : expenseForm.receiptUrl
+                  }
+                  onChange={(e) =>
+                    setExpenseForm((v) => ({
+                      ...v,
+                      receiptUrl: e.target.value.startsWith("(") ? v.receiptUrl : e.target.value,
+                      receiptAccessConfirmed: e.target.value.startsWith("/expense-claims/")
+                        ? true
+                        : v.receiptAccessConfirmed,
+                    }))
+                  }
                   required
                 />
-                <label className="mt-3 flex items-start gap-2 rounded-md border bg-muted/20 p-3 text-sm">
-                  <Checkbox
-                    className="mt-0.5"
-                    checked={expenseForm.receiptAccessConfirmed}
-                    onCheckedChange={(checked) =>
-                      setExpenseForm((value) => ({
-                        ...value,
-                        receiptAccessConfirmed: checked === true,
-                      }))
-                    }
-                    required
-                  />
-                  <span>
-                    I confirmed that Google Drive General access is set to
-                    <strong> Anyone with the link</strong> and the Viewer role.
-                  </span>
-                </label>
+                {!expenseForm.receiptUrl.startsWith("/expense-claims/receipts/") && (
+                  <label className="mt-3 flex items-start gap-2 rounded-md border bg-muted/20 p-3 text-sm">
+                    <Checkbox
+                      className="mt-0.5"
+                      checked={expenseForm.receiptAccessConfirmed}
+                      onCheckedChange={(checked) =>
+                        setExpenseForm((value) => ({
+                          ...value,
+                          receiptAccessConfirmed: checked === true,
+                        }))
+                      }
+                      required
+                    />
+                    <span>
+                      I confirmed that Google Drive General access is set to
+                      <strong> Anyone with the link</strong> and the Viewer role.
+                    </span>
+                  </label>
+                )}
               </div>
             </div>
             <DialogFooter>
@@ -728,6 +781,104 @@ function Field({ label: text, children }: { label: string; children: React.React
       <Label>{text}</Label>
       {children}
     </div>
+  );
+}
+
+function TravelRateHint({
+  claimType,
+  distanceKm,
+  litres,
+  onSuggestedAmount,
+}: {
+  claimType: string;
+  distanceKm: string;
+  litres: string;
+  onSuggestedAmount: (amount: number) => void;
+}) {
+  const [rates, setRates] = useState<{ inrPerKm: number; fuelInrPerLitre: number } | null>(null);
+  useEffect(() => {
+    void travelRatesApi
+      .get()
+      .then(setRates)
+      .catch(() => setRates({ inrPerKm: 12, fuelInrPerLitre: 100 }));
+  }, []);
+  if (!rates) return null;
+  const distance = Number(distanceKm) || 0;
+  const fuelLitres = Number(litres) || 0;
+  const suggested =
+    claimType === "FUEL"
+      ? Math.round(fuelLitres * rates.fuelInrPerLitre + distance * rates.inrPerKm)
+      : Math.round(distance * rates.inrPerKm);
+  if (suggested <= 0) {
+    return (
+      <p className="sm:col-span-2 text-xs text-muted-foreground">
+        Rate card: INR {rates.inrPerKm}/km · diesel INR {rates.fuelInrPerLitre}/L
+      </p>
+    );
+  }
+  return (
+    <div className="sm:col-span-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      <span>
+        Suggested from rate card: INR {suggested.toLocaleString("en-IN")} (INR {rates.inrPerKm}/km
+        · INR {rates.fuelInrPerLitre}/L)
+      </span>
+      <Button type="button" size="sm" variant="outline" onClick={() => onSuggestedAmount(suggested)}>
+        Use suggested amount
+      </Button>
+    </div>
+  );
+}
+
+function TravelRatesAdminCard() {
+  const { user } = useAuth();
+  const canEdit = ["developer_admin", "main_admin", "hr"].includes(user?.role ?? "");
+  const [inrPerKm, setInrPerKm] = useState("12");
+  const [fuelInrPerLitre, setFuelInrPerLitre] = useState("100");
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    void travelRatesApi
+      .get()
+      .then((rates) => {
+        setInrPerKm(String(rates.inrPerKm));
+        setFuelInrPerLitre(String(rates.fuelInrPerLitre));
+      })
+      .catch(() => undefined);
+  }, []);
+  if (!canEdit) return null;
+  return (
+    <Card className="shadow-none">
+      <CardContent className="grid gap-3 p-4 sm:grid-cols-3">
+        <div className="sm:col-span-3">
+          <h2 className="text-sm font-semibold">Travel / fuel rate card</h2>
+          <p className="text-xs text-muted-foreground">
+            Used to suggest claim amounts from km and litres.
+          </p>
+        </div>
+        <Field label="INR per km">
+          <Input value={inrPerKm} onChange={(e) => setInrPerKm(e.target.value)} />
+        </Field>
+        <Field label="INR per litre">
+          <Input value={fuelInrPerLitre} onChange={(e) => setFuelInrPerLitre(e.target.value)} />
+        </Field>
+        <Button
+          className="self-end"
+          disabled={saving}
+          onClick={() => {
+            setSaving(true);
+            void travelRatesApi
+              .save({
+                inrPerKm: Number(inrPerKm) || 12,
+                fuelInrPerLitre: Number(fuelInrPerLitre) || 100,
+              })
+              .then(() => toast.success("Rate card saved"))
+              .catch((error) => toast.error((error as Error).message))
+              .finally(() => setSaving(false));
+          }}
+        >
+          Save rates
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 function EmployeeSelect({

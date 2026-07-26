@@ -358,6 +358,9 @@ export const companyAssetSchema = z.object({
   branchId: z.string().min(1).nullable().optional(),
   location: z.string().max(160).nullable().optional(),
   notes: z.string().max(1000).nullable().optional(),
+  vehicleRegistration: z.string().trim().max(64).nullable().optional(),
+  insuranceExpiry: z.coerce.date().nullable().optional(),
+  fitnessExpiry: z.coerce.date().nullable().optional(),
 });
 
 export const companyAssetUpdateSchema = companyAssetSchema.partial();
@@ -405,7 +408,7 @@ export const expenseClaimSchema = z
       })
       .nullable()
       .optional(),
-    receiptUrl: z.string().url().max(2000).nullable().optional(),
+    receiptUrl: z.string().trim().min(1).max(2000).nullable().optional(),
     receiptAccessConfirmed: z.boolean().default(false),
   })
   .superRefine((value, context) => {
@@ -430,25 +433,35 @@ export const expenseClaimSchema = z
         context.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["receiptUrl"],
-          message: "Google Drive attachment is required",
+          message: "Receipt attachment is required",
         });
       }
     }
     if (value.receiptUrl) {
-      const host = new URL(value.receiptUrl).hostname.toLowerCase();
-      if (host !== "drive.google.com" && host !== "docs.google.com") {
-        context.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["receiptUrl"],
-          message: "Attachment must be a Google Drive link",
-        });
-      }
-      if (!value.receiptAccessConfirmed) {
-        context.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["receiptAccessConfirmed"],
-          message: "Confirm that anyone with the link can view the attachment",
-        });
+      const privateReceipt = value.receiptUrl.startsWith("/expense-claims/receipts/");
+      if (!privateReceipt) {
+        try {
+          const host = new URL(value.receiptUrl).hostname.toLowerCase();
+          if (host !== "drive.google.com" && host !== "docs.google.com") {
+            context.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["receiptUrl"],
+              message: "Use a private upload or a Google Drive link",
+            });
+          } else if (!value.receiptAccessConfirmed) {
+            context.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["receiptAccessConfirmed"],
+              message: "Confirm that anyone with the link can view the attachment",
+            });
+          }
+        } catch {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["receiptUrl"],
+            message: "Invalid receipt URL",
+          });
+        }
       }
     }
   });
@@ -557,10 +570,12 @@ export const clientEventSchema = mobileEventSchema.extend({
 
 const medicalDocumentUrlSchema = z
   .string()
-  .url()
+  .trim()
+  .min(1)
   .max(2000)
   .refine(
     (value) => {
+      if (value.startsWith("/leave/medical-files/")) return true;
       try {
         const host = new URL(value).hostname.toLowerCase();
         return host === "drive.google.com" || host === "docs.google.com";
@@ -568,7 +583,7 @@ const medicalDocumentUrlSchema = z
         return false;
       }
     },
-    { message: "Use a Google Drive link shared with anyone who has the link" },
+    { message: "Use a private upload or a Google Drive link shared with anyone who has the link" },
   );
 
 export const leaveRequestSchema = z.object({

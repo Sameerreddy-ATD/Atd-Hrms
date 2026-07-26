@@ -437,7 +437,7 @@ VALUES
 
 INSERT IGNORE INTO `checklist_template_items` (`item_id`, `template_id`, `title`, `link_path`, `sort_order`) VALUES
   ('tmpl_on_item_1', 'tmpl_onboarding_default', 'Complete My Profile', '/profile', 0),
-  ('tmpl_on_item_2', 'tmpl_onboarding_default', 'Register face verification', '/dashboard', 1),
+  ('tmpl_on_item_2', 'tmpl_onboarding_default', 'Register face verification', '/face-enrollment', 1),
   ('tmpl_on_item_3', 'tmpl_onboarding_default', 'View ID card', '/id-card', 2),
   ('tmpl_on_item_4', 'tmpl_onboarding_default', 'Acknowledge company documents', '/documents', 3),
   ('tmpl_off_item_1', 'tmpl_offboarding_default', 'Return assigned assets', '/assets', 0),

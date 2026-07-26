@@ -60,7 +60,7 @@ returned separately as `userId`.
 
 ## 3. Table Catalog
 
-The schema contains 42 application tables and 32 ordered MySQL migrations in this release.
+The schema contains 58 application tables and 38 ordered MySQL migrations in this release.
 
 ### Identity, security, and configuration
 

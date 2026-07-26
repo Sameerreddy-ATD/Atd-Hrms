@@ -420,6 +420,13 @@ export const leaveApi = {
       method: "PATCH",
       body: JSON.stringify({ url }),
     }),
+  uploadMedicalFile: (payload: { fileName: string; mimeType: string; contentBase64: string }) =>
+    request<{ url: string; fileName: string }>("/leave/medical-files", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  medicalFileUrl: (path: string) =>
+    path.startsWith("http") ? path : `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`,
   verifyMedicalDocument: (id: string) =>
     request<LeaveRequest>(`/leave/requests/${id}/medical-document/verify`, {
       method: "POST",
@@ -593,6 +600,9 @@ type CompanyAssetPayload = Omit<
   | "catalogId"
   | "assetCode"
   | "status"
+  | "vehicleRegistration"
+  | "insuranceExpiry"
+  | "fitnessExpiry"
 > & {
   assetCode?: string;
   status?: CompanyAsset["status"];
@@ -604,6 +614,9 @@ type CompanyAssetPayload = Omit<
   branchId?: string | null;
   location?: string | null;
   notes?: string | null;
+  vehicleRegistration?: string | null;
+  insuranceExpiry?: string | null;
+  fitnessExpiry?: string | null;
 };
 
 export const assetsApi = {
@@ -676,6 +689,13 @@ export const employeeServicesApi = {
       method: "PATCH",
       body: JSON.stringify({ status, reviewNotes }),
     }),
+  uploadReceipt: (payload: { fileName: string; mimeType: string; contentBase64: string }) =>
+    request<{ url: string; fileName: string }>("/expense-claims/receipts", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  receiptUrl: (path: string) =>
+    path.startsWith("http") ? path : `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`,
   certificateRequests: () => request<CertificateRequest[]>("/certificate-requests"),
   submitCertificate: (requestBody: {
     certificateType: string;
@@ -1044,6 +1064,36 @@ export const opsReportsApi = {
   downloadOpsExcel: () => downloadBinary("/reports/ops-export.xlsx", "ops-reports.xlsx"),
   downloadClaimsCsv: (from?: string, to?: string) =>
     downloadBinary(`/reports/claims-export${toQuery({ from, to })}`, "paid-claims.csv"),
+  rosterVariance: (from: string, to: string) =>
+    request<{
+      from: string;
+      to: string;
+      branches: Array<{
+        branch: string;
+        rostered: number;
+        present: number;
+        absent: number;
+        late: number;
+        off: number;
+      }>;
+      rows: Array<{
+        employeeName: string;
+        employeeCode: string;
+        branch: string;
+        workDate: string;
+        shift: string;
+        attendance: string;
+      }>;
+    }>(`/reports/roster-variance${toQuery({ from, to })}`),
+};
+
+export const travelRatesApi = {
+  get: () => request<{ inrPerKm: number; fuelInrPerLitre: number }>("/settings/travel-rates"),
+  save: (payload: { inrPerKm: number; fuelInrPerLitre: number }) =>
+    request<{ inrPerKm: number; fuelInrPerLitre: number }>("/settings/travel-rates", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
 };
 
 async function downloadBinary(path: string, filename: string) {
@@ -1118,6 +1168,17 @@ export const overtimeApi = {
       method: "PATCH",
       body: JSON.stringify({ status, reviewNotes }),
     }),
+  suggestions: () =>
+    request<
+      Array<{
+        workDate: string;
+        shiftPreset: string;
+        suggestedMinutes: number;
+        workedMinutes: number;
+        expectedMinutes: number;
+        reason: string;
+      }>
+    >("/overtime-claims/suggestions"),
 };
 
 export const checklistsApi = {
@@ -1156,6 +1217,9 @@ export const documentsApi = {
         version: number;
         requiresAck: boolean;
         published: boolean;
+        fileName?: string | null;
+        mimeType?: string | null;
+        hasFile?: boolean;
         acknowledged: boolean;
       }>
     >("/documents"),
@@ -1165,7 +1229,11 @@ export const documentsApi = {
     body?: string | null;
     requiresAck?: boolean;
     published?: boolean;
+    fileName?: string;
+    mimeType?: string;
+    contentBase64?: string;
   }) => request<{ id: string }>("/documents", { method: "POST", body: JSON.stringify(payload) }),
+  fileUrl: (id: string) => `${API_BASE}/documents/${id}/file`,
   ack: (id: string) => request<{ ok: boolean }>(`/documents/${id}/ack`, { method: "POST" }),
 };
 
