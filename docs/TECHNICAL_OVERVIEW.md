@@ -21,7 +21,7 @@ flowchart LR
 ```
 
 Additional MySQL tables introduced in migration `20260726150000_hrms_remaining_modules` cover task
-attachments, notification preferences, checklists, documents, and SOP (plus dormant roster/OT/
+attachments, notification preferences, and checklists (plus dormant documents/SOP/roster/OT/
 appraisal/recruitment tables retained for a later release). Task and board rows also store optional
 JSON custom fields. Migration
 `20260726180000_vehicle_assets_and_checklist_links` adds optional vehicle registration/insurance/
@@ -65,7 +65,7 @@ Supported AWS patterns and their scaling constraints are documented in
 | `server/src/push.ts`               | VAPID Web Push delivery and stale subscription cleanup                   |
 | `server/src/mapper.ts`             | Safe API DTOs and status mapping                                         |
 | `server/src/integration-api.ts`    | Versioned Employee API, service credentials, concurrency and change feed |
-| `server/src/hrms-extensions.ts`    | Roster, OT, checklists, documents, ATS, search, ops reports, private uploads |
+| `server/src/hrms-extensions.ts`    | Checklists (instances + templates), search, ops reports, private uploads (dormant docs/SOP/ATS handlers removed) |
 | `server/src/taskBoardAccess.ts`    | Shared board/task ACL helpers for planner and attachment routes              |
 | `server/src/checklistService.ts`   | Onboarding/offboarding instance creation and face-item auto-complete         |
 | `server/src/privateFiles.ts`       | Base64 private-file storage helpers                                          |
@@ -136,7 +136,7 @@ Lockout or suspension does not delete or disable the employee record, allowing h
 | `/expense-claims`       | Employee-scoped advances/expenses, private receipt upload, and HR review/payment workflow |
 | `/certificate-requests` | Employee-scoped HR document requests and HR fulfilment                                      |
 | `/checklists`           | Onboarding/offboarding checklist instances                                                  |
-| `/documents`            | Company document vault with optional private file upload                                    |
+| `/checklists`           | Onboarding/offboarding instances, progress, and HR template editing                         |
 | `/reports/ops-summary`  | Manager/HR ops summary                                                                      |
 | `/announcements`        | Publishing, activation, expiry, and permanent announcement deletion                         |
 | `/notifications`        | User-scoped notification feed and live stream                                               |

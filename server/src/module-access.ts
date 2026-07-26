@@ -154,8 +154,6 @@ export function moduleForApiPath(path: string, method = "GET"): ModuleKey | null
   if (path.startsWith("/reports/ops-summary") || path.startsWith("/reports/claims-export"))
     return "DASHBOARD";
   if (path.startsWith("/checklists")) return "PEOPLE";
-  if (path.startsWith("/documents")) return "COMPANY";
-  if (path.startsWith("/sop")) return "COMMUNICATIONS";
   if (
     path.startsWith("/leave/") ||
     path.startsWith("/weekly-offs") ||

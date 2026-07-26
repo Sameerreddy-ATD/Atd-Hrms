@@ -1091,71 +1091,66 @@ async function downloadBinary(path: string, filename: string) {
 }
 
 export const checklistsApi = {
-  list: () =>
+  list: (filters: { status?: string; kind?: string } = {}) =>
     request<
       Array<{
         id: string;
         kind: string;
         status: string;
         templateName: string;
+        employeeId: string;
         employeeName: string;
         employeeCode: string;
-        items: Array<{ id: string; title: string; linkPath?: string | null; completed: boolean }>;
+        createdAt: string;
+        updatedAt: string;
+        completedCount: number;
+        totalCount: number;
+        items: Array<{
+          id: string;
+          title: string;
+          linkPath?: string | null;
+          completed: boolean;
+          completedAt?: string | null;
+          sortOrder: number;
+        }>;
       }>
-    >("/checklists"),
+    >(`/checklists${toQuery(filters)}`),
   start: (employeeId: string, kind: "ONBOARDING" | "OFFBOARDING") =>
     request<{ id: string }>("/checklists/start", {
       method: "POST",
       body: JSON.stringify({ employeeId, kind }),
     }),
   toggleItem: (id: string, completed: boolean) =>
-    request<{ id: string; completed: boolean }>(`/checklists/items/${id}`, {
+    request<{ id: string; completed: boolean; instanceStatus: string }>(`/checklists/items/${id}`, {
       method: "PATCH",
       body: JSON.stringify({ completed }),
     }),
-};
-
-export const documentsApi = {
-  list: () =>
+  setStatus: (id: string, status: "OPEN" | "COMPLETED" | "CANCELLED") =>
+    request<{ id: string; status: string }>(`/checklists/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    }),
+  templates: () =>
     request<
       Array<{
         id: string;
-        title: string;
-        category: string;
-        body?: string | null;
-        version: number;
-        requiresAck: boolean;
-        published: boolean;
-        fileName?: string | null;
-        mimeType?: string | null;
-        hasFile?: boolean;
-        acknowledged: boolean;
+        name: string;
+        kind: string;
+        isActive: boolean;
+        instanceCount: number;
+        items: Array<{ id: string; title: string; linkPath?: string | null; sortOrder: number }>;
       }>
-    >("/documents"),
-  create: (payload: {
-    title: string;
-    category?: string;
-    body?: string | null;
-    requiresAck?: boolean;
-    published?: boolean;
-    fileName?: string;
-    mimeType?: string;
-    contentBase64?: string;
-  }) => request<{ id: string }>("/documents", { method: "POST", body: JSON.stringify(payload) }),
-  fileUrl: (id: string) => `${API_BASE}/documents/${id}/file`,
-  ack: (id: string) => request<{ ok: boolean }>(`/documents/${id}/ack`, { method: "POST" }),
-};
-
-export const sopApi = {
-  list: () =>
-    request<
-      Array<{ id: string; title: string; body: string; published: boolean; updatedAt: string }>
-    >("/sop"),
-  create: (payload: {
-    title: string;
-    body: string;
-    published?: boolean;
-    audienceRoles?: string[];
-  }) => request<{ id: string }>("/sop", { method: "POST", body: JSON.stringify(payload) }),
-  markRead: (id: string) => request<{ ok: boolean }>(`/sop/${id}/read`, { method: "POST" }),
+    >("/checklists/templates"),
+  saveTemplate: (
+    id: string,
+    payload: {
+      name: string;
+      isActive: boolean;
+      items: Array<{ title: string; linkPath?: string | null }>;
+    },
+  ) =>
+    request<{ id: string; ok: boolean }>(`/checklists/templates/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
 };

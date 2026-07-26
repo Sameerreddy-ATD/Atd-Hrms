@@ -56,7 +56,7 @@ MySQL 8.0 contains 58 application tables grouped as follows:
 | Employee services     | `expense_claims`, `certificate_requests`                                                                                                                                                                                 | Expense and HR-document workflow state is retained with reviewer and completion timestamps |
 | Assets                | `asset_catalog_items`, `company_assets` (incl. optional vehicle registration/insurance/fitness), `asset_returns` | Current assignment is on the asset; every completed return is a separate historical row |
 | Work Planner          | `task_boards`, `task_stages`, `task_board_roles`, `task_board_members`, `work_tasks`, `task_assignments`, `task_updates`, `task_attachments` | Stage status is canonical for board tasks; assignments and activity are relational history |
-| HRMS extensions       | `checklist_*`, `company_documents`, `document_acks`, `sop_*`, `notification_preferences` (plus dormant `roster_assignments`, `overtime_claims`, `appraisal_*`, `recruitment_jobs`, `candidates`) | Active: onboarding, docs, SOP, alert prefs; roster/OT/ATS/appraisals tables retained unused |
+| HRMS extensions       | `checklist_*`, dormant `company_documents`/`document_acks`/`sop_*`/`notification_preferences` (plus dormant `roster_assignments`, `overtime_claims`, `appraisal_*`, `recruitment_jobs`, `candidates`) | Active: onboarding checklists + alert prefs; docs/SOP/roster/OT/ATS/appraisals tables retained unused |
 
 The physical table `certificate_requests` keeps its historical name for migration safety. The UI and
 documentation call this feature **HR Documents**.
