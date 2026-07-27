@@ -239,7 +239,10 @@ export async function recalculateDailySummary(employeeId: string, date: string |
 
   const firstCheckIn = realCheckIns[0]?.eventTime ?? events.find((e) => inTypes.has(e.eventType))?.eventTime;
   const lastRealOut = realCheckOuts.at(-1)?.eventTime;
-  const lastOut = lastRealOut ?? systemCheckOut?.eventTime ?? undefined;
+  // Prefer the chronologically latest out (real or system) so missed-checkout provisional times show in HR views.
+  const lastOut =
+    [lastRealOut, systemCheckOut?.eventTime].filter(Boolean).sort((a, b) => a!.getTime() - b!.getTime()).at(-1) ??
+    undefined;
   const { hasOpenPunch } = openPunchState(events);
 
   let officeHours = 0;
@@ -269,15 +272,19 @@ export async function recalculateDailySummary(employeeId: string, date: string |
     }
   }
 
-  const isMissedCheckout = Boolean(systemCheckOut && !lastRealOut);
-  const hasMissingOutEvent = hasOpenPunch || isMissedCheckout;
+  const isMissedCheckout = Boolean(
+    systemCheckOut &&
+      (!lastRealOut || systemCheckOut.eventTime.getTime() >= lastRealOut.getTime()),
+  );
+  const hasMissingOutEvent = hasOpenPunch || (isMissedCheckout && !lastRealOut);
   const isLate = Boolean(firstCheckIn && isLateCheckIn(firstCheckIn, bounds.graceEnd));
 
   const checkInEvent = realCheckIns[0] ?? events.find((e) => inTypes.has(e.eventType));
-  const checkOutEvent =
-    realCheckOuts.at(-1) ??
-    systemCheckOut ??
-    [...events].reverse().find((e) => outTypes.has(e.eventType));
+  const latestOutEvent = [...events]
+    .filter((e) => outTypes.has(e.eventType))
+    .sort((a, b) => a.eventTime.getTime() - b.eventTime.getTime())
+    .at(-1);
+  const checkOutEvent = latestOutEvent ?? undefined;
   const checkInSource = checkInEvent ? eventLocationSource(checkInEvent) : null;
   const checkOutSource = checkOutEvent ? eventLocationSource(checkOutEvent) : null;
   const matchedBranchId = checkInEvent?.branchId ?? branches[0] ?? null;
