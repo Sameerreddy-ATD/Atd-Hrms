@@ -314,19 +314,19 @@ Managers/HR can approve or reject corrections from **Attendance Corrections**.
 4. Enter the number of days and reason.
 5. Submit.
 
-The screen shows the current balance and full rules for Casual Leave, Sick Leave, Unpaid Leave / LOP, and Comp Off. Sick Leave accepts a shareable Google Drive report link. If it is not available when applying, add it from **Leave History** within three days after returning; the countdown is shown there.
+The screen shows the current balance and full rules for Casual Leave, Sick Leave, Unpaid Leave / LOP, and Comp Off. Sick Leave requires a private medical certificate upload (PDF or image) from **Leave History** within 48 hours after returning; public Drive links are not accepted. Reminders are sent at 24 hours and 2 hours before the deadline.
 
-Comp Off credits are valid only until December 31 of the year they are earned. Unused credits expire and cannot be requested in a later year.
+Comp Off requires Reporting Head approval and is consumed only when approved. Credits are valid only until December 31 of the year they are earned. Unused credits expire and cannot be requested in a later year.
 
 ### Request a weekly off
 
 Weekly off is selected through this request flow, not while the account is created or edited.
 
 1. Open **Apply Leave** and use **Request weekly off**.
-2. Select a date at least one day in advance.
-3. Submit it to your organization head (higher heads in the same chain can also approve).
+2. Select a date. Non-Sunday dates need at least one day advance approval. Sundays auto-confirm for today or a future Sunday.
+3. Submit it to your organization head when approval is required (higher heads in the same chain can also approve).
 
-Only one date is allowed in each Monday-Sunday week. It expires unused, does not carry forward, and cannot be consecutive with another weekly off, including Sunday followed by Monday.
+Only one date is allowed in each Monday–Sunday week. It expires unused, does not carry forward, and cannot be consecutive with another weekly off, including Sunday followed by Monday. Company holidays cannot be selected as weekly offs.
 
 The request is assigned to the nearest organization-unit head above the employee. That head and any higher head in the same parent chain can approve or reject it. Leave History shows who made the decision.
 
@@ -505,24 +505,25 @@ When eSSL integration is added in the next version, imported device punches shou
 ## Holiday Management
 
 1. Open **Holidays**.
-2. Add the holiday name, date, classification, and branch scope.
-3. Use **All branches** for a company-wide holiday or select one branch.
+2. Add the holiday name, date, classification, and optional description.
+3. Holidays are always company-wide.
 4. Edit or deactivate the entry when the calendar changes.
 
-Every active entry visible in the Holiday list counts as a holiday for attendance. Public, Optional, and Restricted are classification labels only. At 10:00 AM IST a no-punch employee is marked Holiday; a later punch changes the day to Present. A completed holiday punch-in/out session automatically earns one Comp Off credit. Holiday changes recalculate existing summaries for the affected date and branch.
+Every active entry visible in the Holiday list counts as a holiday for attendance. Public, Optional, and Restricted are classification labels only. A completed Full Day (≥9 hours) on a holiday earns one Comp Off credit (subject to Reporting Head approval when used). Holiday changes recalculate existing summaries for the affected date.
 
 ## Developer Admin: Review Face Registrations
 
 1. Open **Face Security**.
 2. Use **Employee verification** to enable or pause face checks. Pausing keeps precise GPS required
    and retains existing encrypted registrations.
-3. Review pending users, the encrypted evidence image, scores, time, and any GPS details.
-4. A red **Another face detected** alert means a check-in was blocked because the captured face did
+3. Set registration approval to **Manual** (HR/Dev Admin review) or **Automatic** (approve on successful enroll).
+4. Review pending users, the encrypted evidence image, scores, time, and any GPS details.
+5. A red **Another face detected** alert means a check-in was blocked because the captured face did
    not match that employee.
-5. Select **Approve**, or select **Reject** and give a clear correction reason.
-6. Use **Reset** when another employee must register again. The account is blocked immediately only
+6. Select **Approve**, or select **Reject** and give a clear correction reason.
+7. Use **Reset** when another employee must register again. The account is blocked immediately only
    while verification is enabled.
-7. Use the privacy policy card to set capture retention (default five days), match threshold, and
+8. Use the privacy policy card to set capture retention (default five days), match threshold, and
    maximum accepted GPS error.
 
 The evidence dialog lists retained registration and check-in captures. At most the latest five

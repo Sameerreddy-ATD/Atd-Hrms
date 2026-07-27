@@ -29,15 +29,16 @@ function movementPlaceLabel(eventType?: string, eventSource?: string, branchName
     return `${branchName ?? "Branch"} - biometric`;
   }
   if (eventSource === "MOBILE_GPS" && branchName) {
-    return `Mobile - ${branchName}`;
+    return `Branch-Mobile · ${branchName}`;
   }
   if (eventSource === "MOBILE_GPS") {
     return "Mobile";
   }
+  if (eventSource === "SYSTEM") return "System";
 
   const meta = PUNCH_TYPE_META[eventType?.toUpperCase() ?? ""];
   if (meta?.place === "Branch") {
-    return `Mobile - ${branchName ?? "Branch"}`;
+    return `Branch-Mobile · ${branchName ?? "Branch"}`;
   }
   return "Mobile";
 }
@@ -82,7 +83,8 @@ export function movementStatusLabel(row: AttendanceTimelineEvent) {
 export function captureSourceLabel(row: AttendanceTimelineEvent) {
   const source = row.source?.toUpperCase() ?? "";
   if (source === "THUMB_SCANNER") return `Biometric - ${row.branchName ?? "Branch"}`;
-  if (source === "MOBILE_GPS") return row.branchName ? `Mobile - ${row.branchName}` : "Mobile";
+  if (source === "MOBILE_GPS") return row.branchName ? `Branch-Mobile · ${row.branchName}` : "Mobile";
+  if (source === "SYSTEM") return "System";
   return row.source || "-";
 }
 
@@ -91,8 +93,13 @@ export function attendanceSourceLabel(
   branches: Array<{ id: string; name: string }>,
 ) {
   const branch = branchNameFromMap(branches, row.actualBranchId);
-  if (row.source === "Thumb Scanner") return `${branch ?? "Branch"} - biometric`;
-  if (row.source === "Mobile GPS" && row.actualBranchId) return `Mobile - ${branch ?? "Branch"}`;
+  if (typeof row.source === "string" && row.source.startsWith("Branch-Mobile")) return row.source;
+  if (row.source === "Mobile" || row.source === "Thumb Scanner" || row.source === "System") {
+    return row.source === "Thumb Scanner" ? `${branch ?? "Branch"} - biometric` : row.source;
+  }
+  if (row.source === "Mobile GPS" && row.actualBranchId) {
+    return `Branch-Mobile · ${branch ?? "Branch"}`;
+  }
   if (row.source === "Mobile GPS") return "Mobile";
   return row.source;
 }
@@ -104,6 +111,32 @@ export function punchSourceLabel(
 ) {
   const branch = branchNameFromMap(branches, branchId);
   if (source === "Thumb Scanner") return `Biometric - ${branch ?? "Branch"}`;
-  if (source === "Mobile GPS") return branch ? `Mobile - ${branch}` : "Mobile";
+  if (source === "Mobile GPS" || source === "BRANCH_MOBILE") {
+    return branch ? `Branch-Mobile · ${branch}` : "Mobile";
+  }
+  if (source === "MOBILE" || source === "Mobile") return "Mobile";
   return source ?? "-";
+}
+
+export function isMobileAttendanceSource(source?: string | null) {
+  if (!source) return false;
+  return (
+    source === "Mobile GPS" ||
+    source === "Mobile" ||
+    source === "MOBILE" ||
+    source === "BRANCH_MOBILE" ||
+    source.startsWith("Branch-Mobile")
+  );
+}
+
+export function attendanceStatusWithFlags(row: {
+  status: string;
+  isLate?: boolean;
+  hasMissedCheckout?: boolean;
+  hasMissingOutEvent?: boolean;
+}) {
+  const flags: string[] = [];
+  if (row.isLate) flags.push("Late");
+  if (row.hasMissedCheckout || row.hasMissingOutEvent) flags.push("Missed Checkout");
+  return flags.length ? `${row.status} · ${flags.join(" · ")}` : row.status;
 }

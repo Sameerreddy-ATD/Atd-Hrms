@@ -1,12 +1,31 @@
-import { EventSource, EventType, Prisma, WorkType } from "@prisma/client";
+import {
+  AttendanceLocationSource,
+  AttendanceResult,
+  EventSource,
+  EventType,
+  Prisma,
+  WorkType,
+} from "@prisma/client";
 import { prisma } from "./prisma.js";
 import { publishAttendanceChange } from "./attendanceLive.js";
 import {
   cancelApprovedLeaveForDay,
   findApprovedLeaveForDay,
+  findHolidayForEmployee,
   resolveNoEventStatus,
   startOfDayUtc,
 } from "./attendanceDayRules.js";
+import {
+  attendanceResultFromHours,
+  attendanceResultLabel,
+  classifyMobileSource,
+  correctionDeadlineFor,
+  decimalHours,
+  hoursBetween,
+  isLateCheckIn,
+  resolveEmployeeShift,
+  shiftWindowBounds,
+} from "./attendancePolicy.js";
 
 const outTypes = new Set<EventType>([
   EventType.OFFICE_OUT,
@@ -51,15 +70,11 @@ export function attendanceDateForShift(
 }
 
 export async function attendanceDateForEmployee(employeeId: string, eventTime: Date) {
-  const employee = await prisma.employee.findUniqueOrThrow({
-    where: { employeeId },
-    select: { shiftType: true, shiftEndMinutes: true },
-  });
-  return attendanceDateForShift(eventTime, employee);
-}
-
-function hoursBetween(a: Date, b: Date) {
-  return Math.max(0, (b.getTime() - a.getTime()) / 36e5);
+  const shift = await resolveEmployeeShift(
+    employeeId,
+    indiaCalendarDate(eventTime),
+  );
+  return attendanceDateForShift(eventTime, shift);
 }
 
 export function openPunchState(
@@ -68,10 +83,7 @@ export function openPunchState(
 ) {
   const latestEvent = events.at(-1);
   const hasOpenPunch = Boolean(latestEvent && inTypes.has(latestEvent.eventType));
-  const expired = Boolean(
-    hasOpenPunch && latestEvent && now - latestEvent.eventTime.getTime() >= 9 * 60 * 60 * 1000,
-  );
-  return { hasOpenPunch, expired };
+  return { hasOpenPunch, expired: false, latestEvent };
 }
 
 export function attendanceTransitionIssue(
@@ -99,41 +111,16 @@ export function attendanceTransitionIssue(
   return undefined;
 }
 
-const officeGeofences = [
-  { names: ["Banjara", "Hills"], latitude: 17.4131417, longitude: 78.423295 },
-  { names: ["Madhapur"], latitude: 17.4391592, longitude: 78.3947783 },
-];
-const branchDetectionRadiusKm = 0.3;
-
-function distanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const radius = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
-  return radius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-async function branchForCoordinates(latitude?: number, longitude?: number) {
-  if (latitude === undefined || longitude === undefined) return undefined;
-  for (const geofence of officeGeofences) {
-    if (
-      distanceKm(latitude, longitude, geofence.latitude, geofence.longitude) >
-      branchDetectionRadiusKm
-    )
-      continue;
-    const branch = await prisma.branch.findFirst({
-      where: {
-        status: "ACTIVE",
-        OR: geofence.names.map((name) => ({
-          branchName: { contains: name },
-        })),
-      },
-    });
-    if (branch) return branch.branchId;
+function eventLocationSource(
+  event: { eventSource: EventSource; branchId?: string | null },
+): AttendanceLocationSource {
+  if (event.eventSource === EventSource.THUMB_SCANNER) return AttendanceLocationSource.THUMB_SCANNER;
+  if (event.eventSource === EventSource.MANUAL_CORRECTION) return AttendanceLocationSource.MANUAL;
+  if (event.eventSource === EventSource.SYSTEM) return AttendanceLocationSource.SYSTEM;
+  if (event.eventSource === EventSource.MOBILE_GPS) {
+    return classifyMobileSource(event.branchId);
   }
-  return undefined;
+  return AttendanceLocationSource.SYSTEM;
 }
 
 export async function inferThumbEventType(employeeId: string, branchId: string, eventTime: Date) {
@@ -173,10 +160,9 @@ export async function createAttendanceEvent(input: {
       ? await inferThumbEventType(input.employeeId, input.branchId, eventTime)
       : EventType.FIELD_CHECK_IN);
 
-  let branchId = input.branchId;
+  const branchId = input.branchId;
 
   if (input.eventSource === EventSource.MOBILE_GPS) {
-    branchId = branchId ?? (await branchForCoordinates(input.latitude, input.longitude));
     if (branchId && eventType === EventType.FIELD_CHECK_IN) eventType = EventType.OFFICE_IN;
     if (branchId && eventType === EventType.FIELD_CHECK_OUT) eventType = EventType.OFFICE_OUT;
   }
@@ -213,7 +199,7 @@ export async function createAttendanceEvent(input: {
 
 export async function recalculateDailySummary(employeeId: string, date: string | Date) {
   const eventDate = startOfDay(date);
-  const [employee, schedule, events] = await Promise.all([
+  const [employee, schedule, events, shift, existing] = await Promise.all([
     prisma.employee.findUniqueOrThrow({ where: { employeeId } }),
     prisma.employeeBranchSchedule.findUnique({
       where: { employeeId_date: { employeeId, date: eventDate } },
@@ -223,8 +209,13 @@ export async function recalculateDailySummary(employeeId: string, date: string |
       orderBy: { eventTime: "asc" },
       include: { branch: true },
     }),
+    resolveEmployeeShift(employeeId, eventDate),
+    prisma.attendanceDailySummary.findUnique({
+      where: { employeeId_date: { employeeId, date: eventDate } },
+    }),
   ]);
 
+  const bounds = shiftWindowBounds(eventDate, shift);
   const branches = [...new Set(events.map((e) => e.branchId).filter(Boolean))] as string[];
   const visitedLocations = events
     .filter((e) => e.latitude && e.longitude)
@@ -235,23 +226,21 @@ export async function recalculateDailySummary(employeeId: string, date: string |
       clientName: e.clientName,
       time: e.eventTime.toISOString(),
     }));
-  const sourceSet = new Set(events.map((e) => e.eventSource));
-  const hasThumb = sourceSet.has(EventSource.THUMB_SCANNER);
-  const hasGps = sourceSet.has(EventSource.MOBILE_GPS);
-  const sourceSummary =
-    hasThumb && hasGps
-      ? "OFFICE_PLUS_FIELD"
-      : hasThumb
-        ? "THUMB_SCANNER"
-        : hasGps
-          ? "MOBILE_GPS"
-          : "SYSTEM";
-  const lastOut = [...events].reverse().find((e) => outTypes.has(e.eventType));
-  const { hasOpenPunch, expired } = openPunchState(events);
-  // Open sessions remain active until an explicit checkout. The scheduler sends
-  // a reminder after nine hours without changing attendance status or stopping time.
-  const hasMissingOutEvent = hasOpenPunch;
-  const hasMissedCheckout = expired;
+
+  const realCheckIns = events.filter(
+    (e) => inTypes.has(e.eventType) && e.eventSource !== EventSource.SYSTEM,
+  );
+  const realCheckOuts = events.filter(
+    (e) => outTypes.has(e.eventType) && e.eventSource !== EventSource.SYSTEM,
+  );
+  const systemCheckOut = [...events]
+    .reverse()
+    .find((e) => outTypes.has(e.eventType) && e.eventSource === EventSource.SYSTEM);
+
+  const firstCheckIn = realCheckIns[0]?.eventTime ?? events.find((e) => inTypes.has(e.eventType))?.eventTime;
+  const lastRealOut = realCheckOuts.at(-1)?.eventTime;
+  const lastOut = lastRealOut ?? systemCheckOut?.eventTime ?? undefined;
+  const { hasOpenPunch } = openPunchState(events);
 
   let officeHours = 0;
   let fieldHours = 0;
@@ -265,7 +254,6 @@ export async function recalculateDailySummary(employeeId: string, date: string |
       totalWorkedHours += hoursBetween(activeWorkStart, event.eventTime);
       activeWorkStart = undefined;
     }
-
     const key = event.eventType.includes("CLIENT")
       ? "client"
       : event.eventType.includes("FIELD")
@@ -281,11 +269,39 @@ export async function recalculateDailySummary(employeeId: string, date: string |
     }
   }
 
-  const firstCheckIn = events.find((event) => inTypes.has(event.eventType))?.eventTime;
+  const isMissedCheckout = Boolean(systemCheckOut && !lastRealOut);
+  const hasMissingOutEvent = hasOpenPunch || isMissedCheckout;
+  const isLate = Boolean(firstCheckIn && isLateCheckIn(firstCheckIn, bounds.graceEnd));
+
+  const checkInEvent = realCheckIns[0] ?? events.find((e) => inTypes.has(e.eventType));
+  const checkOutEvent =
+    realCheckOuts.at(-1) ??
+    systemCheckOut ??
+    [...events].reverse().find((e) => outTypes.has(e.eventType));
+  const checkInSource = checkInEvent ? eventLocationSource(checkInEvent) : null;
+  const checkOutSource = checkOutEvent ? eventLocationSource(checkOutEvent) : null;
+  const matchedBranchId = checkInEvent?.branchId ?? branches[0] ?? null;
+
+  const sourceSet = new Set(events.map((e) => e.eventSource));
+  const hasThumb = sourceSet.has(EventSource.THUMB_SCANNER);
+  const hasGps = sourceSet.has(EventSource.MOBILE_GPS);
+  const attendanceSourceSummary =
+    checkInSource === AttendanceLocationSource.BRANCH_MOBILE
+      ? "BRANCH_MOBILE"
+      : checkInSource === AttendanceLocationSource.MOBILE
+        ? "MOBILE"
+        : hasThumb && hasGps
+          ? "OFFICE_PLUS_FIELD"
+          : hasThumb
+            ? "THUMB_SCANNER"
+            : hasGps
+              ? "MOBILE_GPS"
+              : "SYSTEM";
+
   const isBranchMismatch = Boolean(
     schedule?.scheduledBranchId &&
-    branches.length &&
-    !branches.includes(schedule.scheduledBranchId),
+      branches.length &&
+      !branches.includes(schedule.scheduledBranchId),
   );
   const fieldIn = events.find(
     (e) => e.eventType === EventType.FIELD_CHECK_IN || e.eventType === EventType.CLIENT_CHECK_IN,
@@ -297,15 +313,45 @@ export async function recalculateDailySummary(employeeId: string, date: string |
         e.eventType === EventType.FIELD_CHECK_OUT || e.eventType === EventType.CLIENT_CHECK_OUT,
     );
 
-  let status = "Absent";
-  if (events.length) {
-    if (hasThumb && hasGps) status = "Present - Office + Field";
-    else if (branches.length > 1) status = "Present - Multi Branch";
-    else if (hasGps && !branches.length) status = "Present - Field";
-    else if (isBranchMismatch) status = "Present - Other Branch";
-    else status = "Present";
+  let attendanceResult: AttendanceResult = AttendanceResult.PENDING;
+  let status = "Pending attendance";
+  let holidayName: string | undefined;
+
+  if (events.length && (firstCheckIn || lastOut)) {
+    if (isMissedCheckout && !lastRealOut) {
+      attendanceResult = attendanceResultFromHours(totalWorkedHours);
+      status = attendanceResultLabel(attendanceResult);
+    } else if (lastOut || !hasOpenPunch) {
+      attendanceResult = attendanceResultFromHours(totalWorkedHours);
+      status = attendanceResultLabel(attendanceResult);
+    } else {
+      attendanceResult = AttendanceResult.PENDING;
+      status = "Pending attendance";
+    }
   } else {
-    status = await resolveNoEventStatus(employeeId, eventDate);
+    const noEvent = await resolveNoEventStatus(employeeId, eventDate);
+    status = noEvent;
+    if (noEvent.startsWith("Holiday")) {
+      attendanceResult = AttendanceResult.HOLIDAY;
+      holidayName = noEvent.replace(/^Holiday - /, "");
+    } else if (noEvent.startsWith("Week Off")) attendanceResult = AttendanceResult.WEEKLY_OFF;
+    else if (noEvent === "Paid Leave") attendanceResult = AttendanceResult.PAID_LEAVE;
+    else if (noEvent.startsWith("Unpaid")) attendanceResult = AttendanceResult.UNPAID_LEAVE;
+    else if (noEvent === "Absent") attendanceResult = AttendanceResult.ABSENT;
+    else attendanceResult = AttendanceResult.PENDING;
+  }
+
+  const provisionalCheckOutAt = systemCheckOut?.eventTime ?? existing?.provisionalCheckOutAt ?? null;
+  let correctionDeadlineAt = existing?.correctionDeadlineAt ?? null;
+  let isLocked = existing?.isLocked ?? false;
+  if (isMissedCheckout) {
+    correctionDeadlineAt =
+      correctionDeadlineAt ?? correctionDeadlineFor(eventDate, bounds.end);
+    if (correctionDeadlineAt && Date.now() > correctionDeadlineAt.getTime() && !lastRealOut) {
+      isLocked = true;
+    }
+  } else if (lastRealOut) {
+    isLocked = false;
   }
 
   const summary = await prisma.attendanceDailySummary.upsert({
@@ -314,12 +360,21 @@ export async function recalculateDailySummary(employeeId: string, date: string |
       employeeId,
       date: eventDate,
       firstCheckIn,
-      lastCheckOut: lastOut?.eventTime,
-      totalHours: new Prisma.Decimal(totalWorkedHours),
-      officeHours: new Prisma.Decimal(officeHours),
-      fieldHours: new Prisma.Decimal(fieldHours),
-      clientVisitHours: new Prisma.Decimal(clientVisitHours),
-      attendanceSourceSummary: sourceSummary,
+      lastCheckOut: lastOut,
+      totalHours: decimalHours(totalWorkedHours),
+      officeHours: decimalHours(officeHours),
+      fieldHours: decimalHours(fieldHours),
+      clientVisitHours: decimalHours(clientVisitHours),
+      attendanceSourceSummary,
+      attendanceResult,
+      checkInSource,
+      checkOutSource,
+      matchedBranchId,
+      isLate,
+      isMissedCheckout,
+      isLocked,
+      provisionalCheckOutAt,
+      correctionDeadlineAt,
       status,
       homeBranchId: employee.homeBranchId,
       scheduledBranchId: schedule?.scheduledBranchId,
@@ -337,16 +392,25 @@ export async function recalculateDailySummary(employeeId: string, date: string |
       isBranchMismatch,
       hasOfficeAndField: hasThumb && hasGps,
       hasMissingOutEvent,
-      hasMissedCheckout,
+      hasMissedCheckout: isMissedCheckout,
     },
     update: {
       firstCheckIn,
-      lastCheckOut: lastOut?.eventTime,
-      totalHours: new Prisma.Decimal(totalWorkedHours),
-      officeHours: new Prisma.Decimal(officeHours),
-      fieldHours: new Prisma.Decimal(fieldHours),
-      clientVisitHours: new Prisma.Decimal(clientVisitHours),
-      attendanceSourceSummary: sourceSummary,
+      lastCheckOut: lastOut,
+      totalHours: decimalHours(totalWorkedHours),
+      officeHours: decimalHours(officeHours),
+      fieldHours: decimalHours(fieldHours),
+      clientVisitHours: decimalHours(clientVisitHours),
+      attendanceSourceSummary,
+      attendanceResult,
+      checkInSource,
+      checkOutSource,
+      matchedBranchId,
+      isLate,
+      isMissedCheckout,
+      isLocked,
+      provisionalCheckOutAt,
+      correctionDeadlineAt,
       status,
       homeBranchId: employee.homeBranchId,
       scheduledBranchId: schedule?.scheduledBranchId,
@@ -364,34 +428,56 @@ export async function recalculateDailySummary(employeeId: string, date: string |
       isBranchMismatch,
       hasOfficeAndField: hasThumb && hasGps,
       hasMissingOutEvent,
-      hasMissedCheckout,
+      hasMissedCheckout: isMissedCheckout,
     },
   });
-  if (!hasOpenPunch) {
+
+  if (!hasOpenPunch && !isMissedCheckout) {
     await prisma.attendanceReminder.updateMany({
       where: { employeeId, eventDate, resolvedAt: null },
       data: { resolvedAt: new Date() },
     });
   }
-  if (firstCheckIn && lastOut) {
-    const holiday = await prisma.holiday.findFirst({
-      where: {
-        status: "ACTIVE",
-        date: eventDate,
-        OR: [
-          { branchId: null },
-          ...(employee.homeBranchId ? [{ branchId: employee.homeBranchId }] : []),
-        ],
+
+  // Comp Off: only full ≥9h holiday sessions earn one credit; revoke invalid demo credits.
+  const holiday = await findHolidayForEmployee(employeeId, eventDate);
+  if (holiday && firstCheckIn && lastOut && totalWorkedHours >= 9 && !isMissedCheckout) {
+    await prisma.compOffCredit.upsert({
+      where: { employeeId_earnedDate: { employeeId, earnedDate: eventDate } },
+      create: { employeeId, earnedDate: eventDate, holidayId: holiday.holidayId },
+      update: {
+        holidayId: holiday.holidayId,
+        revokedAt: null,
+        revokeReason: null,
       },
-      orderBy: { branchId: "desc" },
     });
-    if (holiday) {
-      await prisma.compOffCredit.upsert({
-        where: { employeeId_earnedDate: { employeeId, earnedDate: eventDate } },
-        create: { employeeId, earnedDate: eventDate, holidayId: holiday.holidayId },
-        update: { holidayId: holiday.holidayId },
-      });
+  } else if (holiday) {
+    const existingCredit = await prisma.compOffCredit.findUnique({
+      where: { employeeId_earnedDate: { employeeId, earnedDate: eventDate } },
+    });
+    if (existingCredit && !existingCredit.consumedByLeaveRequestId && !existingCredit.revokedAt) {
+      if (!firstCheckIn || !lastOut || totalWorkedHours < 9 || isMissedCheckout) {
+        await prisma.compOffCredit.update({
+          where: { compOffCreditId: existingCredit.compOffCreditId },
+          data: {
+            revokedAt: new Date(),
+            revokeReason: "Holiday work below nine hours — Comp Off revoked under updated policy",
+          },
+        });
+        await prisma.auditLog.create({
+          data: {
+            action: "comp_off_credit_revoked",
+            newValue: {
+              employeeId,
+              earnedDate: eventDate.toISOString().slice(0, 10),
+              totalHours: totalWorkedHours,
+              reason: "Holiday work below nine hours",
+            },
+          },
+        });
+      }
     }
   }
+
   return summary;
 }

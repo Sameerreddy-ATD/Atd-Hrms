@@ -69,6 +69,41 @@ enum ShiftType {
   NIGHT
 }
 
+enum AttendanceResult {
+  FULL_DAY
+  HALF_DAY
+  ABSENT
+  HOLIDAY
+  WEEKLY_OFF
+  PAID_LEAVE
+  UNPAID_LEAVE
+  PENDING
+}
+
+enum AttendanceLocationSource {
+  BRANCH_MOBILE
+  MOBILE
+  THUMB_SCANNER
+  MANUAL
+  SYSTEM
+}
+
+enum LeaveSession {
+  FULL
+  FIRST_HALF
+  SECOND_HALF
+}
+
+enum LeaveLedgerEntryType {
+  ACCRUAL
+  USAGE
+  ADJUSTMENT
+  CARRY_FORWARD
+  EXPIRY
+  REVERSAL
+  REVOKE
+}
+
 enum WorkType {
   BRANCH
   FIELD
@@ -361,8 +396,42 @@ model Employee {
   sopReads                   SopRead[]
   appraisalReviews           AppraisalReview[]
   candidatesHired            Candidate[]                 @relation("HiredEmployee")
+  shiftAssignments           EmployeeShiftAssignment[]
+  leaveLedgerEntries         LeaveLedgerEntry[]
 
   @@map("employees")
+}
+
+model ShiftDefinition {
+  shiftId      String                   @id @default(cuid()) @map("shift_id")
+  name         String                   @unique
+  code         String                   @unique
+  shiftType    ShiftType                @default(DAY) @map("shift_type")
+  startMinutes Int                      @map("start_minutes")
+  endMinutes   Int                      @map("end_minutes")
+  active       Boolean                  @default(true)
+  createdAt    DateTime                 @default(now()) @map("created_at")
+  updatedAt    DateTime                 @updatedAt @map("updated_at")
+  assignments  EmployeeShiftAssignment[]
+
+  @@map("shift_definitions")
+}
+
+model EmployeeShiftAssignment {
+  assignmentId  String          @id @default(cuid()) @map("assignment_id")
+  employeeId    String          @map("employee_id")
+  employee      Employee        @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  shiftId       String          @map("shift_id")
+  shift         ShiftDefinition @relation(fields: [shiftId], references: [shiftId], onDelete: Restrict)
+  effectiveFrom DateTime        @map("effective_from") @db.Date
+  effectiveTo   DateTime?       @map("effective_to") @db.Date
+  assignedBy    String?         @map("assigned_by")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+
+  @@index([employeeId, effectiveFrom])
+  @@index([shiftId])
+  @@map("employee_shift_assignments")
 }
 
 model Department {
@@ -397,7 +466,6 @@ model Branch {
   employees              Employee[]
   schedules              EmployeeBranchSchedule[]
   events                 AttendanceEvent[]
-  holidays               Holiday[]
   assets                 CompanyAsset[]
 
   @@map("branches")
@@ -526,17 +594,17 @@ model AssetCatalogItem {
 }
 
 model Holiday {
-  holidayId String   @id @default(cuid()) @map("holiday_id")
-  name      String
-  date      DateTime @db.Date
-  branchId  String?  @map("branch_id")
-  branch    Branch?  @relation(fields: [branchId], references: [branchId])
-  type      String
-  status    String   @default("ACTIVE")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  holidayId   String   @id @default(cuid()) @map("holiday_id")
+  name        String
+  date        DateTime @db.Date
+  description String?  @db.Text
+  type        String
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  @@index([date])
+  @@unique([date, name])
+  @@index([date, status])
   @@map("holidays")
 }
 
@@ -692,43 +760,54 @@ model FaceEvidence {
 }
 
 model AttendanceDailySummary {
-  attendanceId            String         @id @default(cuid()) @map("attendance_id")
-  employeeId              String         @map("employee_id")
-  employee                Employee       @relation(fields: [employeeId], references: [employeeId])
-  date                    DateTime       @db.Date
-  firstCheckIn            DateTime?      @map("first_check_in")
-  lastCheckOut            DateTime?      @map("last_check_out")
-  totalHours              Decimal        @default(0) @map("total_hours") @db.Decimal(12, 6)
-  officeHours             Decimal        @default(0) @map("office_hours") @db.Decimal(12, 6)
-  fieldHours              Decimal        @default(0) @map("field_hours") @db.Decimal(12, 6)
-  clientVisitHours        Decimal        @default(0) @map("client_visit_hours") @db.Decimal(12, 6)
-  attendanceSourceSummary String         @map("attendance_source_summary")
+  attendanceId            String                    @id @default(cuid()) @map("attendance_id")
+  employeeId              String                    @map("employee_id")
+  employee                Employee                  @relation(fields: [employeeId], references: [employeeId])
+  date                    DateTime                  @db.Date
+  firstCheckIn            DateTime?                 @map("first_check_in")
+  lastCheckOut            DateTime?                 @map("last_check_out")
+  totalHours              Decimal                   @default(0) @map("total_hours") @db.Decimal(12, 6)
+  officeHours             Decimal                   @default(0) @map("office_hours") @db.Decimal(12, 6)
+  fieldHours              Decimal                   @default(0) @map("field_hours") @db.Decimal(12, 6)
+  clientVisitHours        Decimal                   @default(0) @map("client_visit_hours") @db.Decimal(12, 6)
+  attendanceSourceSummary String                    @map("attendance_source_summary")
+  attendanceResult        AttendanceResult          @default(PENDING) @map("attendance_result")
+  checkInSource           AttendanceLocationSource? @map("check_in_source")
+  checkOutSource          AttendanceLocationSource? @map("check_out_source")
+  matchedBranchId         String?                   @map("matched_branch_id")
+  isLate                  Boolean                   @default(false) @map("is_late")
+  isMissedCheckout        Boolean                   @default(false) @map("is_missed_checkout")
+  isLocked                Boolean                   @default(false) @map("is_locked")
+  provisionalCheckOutAt   DateTime?                 @map("provisional_check_out_at")
+  correctionDeadlineAt    DateTime?                 @map("correction_deadline_at")
   status                  String
-  homeBranchId            String?        @map("home_branch_id")
-  scheduledBranchId       String?        @map("scheduled_branch_id")
-  primaryAttendedBranchId String?        @map("primary_attended_branch_id")
-  actualAttendedBranchIds Json           @map("actual_attended_branch_ids")
-  visitedBranchIds        Json           @map("visited_branch_ids")
-  visitedLocations        Json           @map("visited_locations")
-  branchMovementCount     Int            @default(0) @map("branch_movement_count")
-  fieldVisitCount         Int            @default(0) @map("field_visit_count")
-  clientVisitCount        Int            @default(0) @map("client_visit_count")
-  fieldCheckInLatitude    Decimal?       @map("field_check_in_latitude") @db.Decimal(10, 7)
-  fieldCheckInLongitude   Decimal?       @map("field_check_in_longitude") @db.Decimal(10, 7)
-  fieldCheckOutLatitude   Decimal?       @map("field_check_out_latitude") @db.Decimal(10, 7)
-  fieldCheckOutLongitude  Decimal?       @map("field_check_out_longitude") @db.Decimal(10, 7)
-  isBranchMismatch        Boolean        @default(false) @map("is_branch_mismatch")
-  isLocationFlagged       Boolean        @default(false) @map("is_location_flagged")
-  hasOfficeAndField       Boolean        @default(false) @map("has_office_and_field")
-  hasMissingOutEvent      Boolean        @default(false) @map("has_missing_out_event")
-  hasMissedCheckout       Boolean        @default(false) @map("has_missed_checkout")
-  approvalStatus          ApprovalStatus @default(APPROVED) @map("approval_status")
-  createdAt               DateTime       @default(now()) @map("created_at")
-  updatedAt               DateTime       @updatedAt @map("updated_at")
+  homeBranchId            String?                   @map("home_branch_id")
+  scheduledBranchId       String?                   @map("scheduled_branch_id")
+  primaryAttendedBranchId String?                   @map("primary_attended_branch_id")
+  actualAttendedBranchIds Json                      @map("actual_attended_branch_ids")
+  visitedBranchIds        Json                      @map("visited_branch_ids")
+  visitedLocations        Json                      @map("visited_locations")
+  branchMovementCount     Int                       @default(0) @map("branch_movement_count")
+  fieldVisitCount         Int                       @default(0) @map("field_visit_count")
+  clientVisitCount        Int                       @default(0) @map("client_visit_count")
+  fieldCheckInLatitude    Decimal?                  @map("field_check_in_latitude") @db.Decimal(10, 7)
+  fieldCheckInLongitude   Decimal?                  @map("field_check_in_longitude") @db.Decimal(10, 7)
+  fieldCheckOutLatitude   Decimal?                  @map("field_check_out_latitude") @db.Decimal(10, 7)
+  fieldCheckOutLongitude  Decimal?                  @map("field_check_out_longitude") @db.Decimal(10, 7)
+  isBranchMismatch        Boolean                   @default(false) @map("is_branch_mismatch")
+  isLocationFlagged       Boolean                   @default(false) @map("is_location_flagged")
+  hasOfficeAndField       Boolean                   @default(false) @map("has_office_and_field")
+  hasMissingOutEvent      Boolean                   @default(false) @map("has_missing_out_event")
+  hasMissedCheckout       Boolean                   @default(false) @map("has_missed_checkout")
+  approvalStatus          ApprovalStatus            @default(APPROVED) @map("approval_status")
+  createdAt               DateTime                  @default(now()) @map("created_at")
+  updatedAt               DateTime                  @updatedAt @map("updated_at")
 
   @@unique([employeeId, date])
   @@index([date, status])
+  @@index([date, attendanceResult])
   @@index([primaryAttendedBranchId, date])
+  @@index([isLocked, correctionDeadlineAt])
   @@map("attendance_daily_summary")
 }
 
@@ -789,6 +868,7 @@ model LeaveType {
   approvalRequired        Boolean        @default(true) @map("approval_required")
   balances                LeaveBalance[]
   requests                LeaveRequest[]
+  ledgerEntries           LeaveLedgerEntry[]
 
   @@map("leave_types")
 }
@@ -811,34 +891,60 @@ model LeaveBalance {
 }
 
 model LeaveRequest {
-  leaveRequestId            String      @id @default(cuid()) @map("leave_request_id")
-  employeeId                String      @map("employee_id")
-  employee                  Employee    @relation(fields: [employeeId], references: [employeeId])
-  leaveTypeId               String      @map("leave_type_id")
-  leaveType                 LeaveType   @relation(fields: [leaveTypeId], references: [leaveTypeId])
-  fromDate                  DateTime    @map("from_date") @db.Date
-  toDate                    DateTime    @map("to_date") @db.Date
-  days                      Decimal     @db.Decimal(8, 2)
-  reason                    String      @db.Text
-  status                    LeaveStatus @default(PENDING)
-  managerId                 String?     @map("manager_id")
-  reviewedByUserId          String?     @map("reviewed_by_user_id")
-  reviewedBy                User?       @relation("LeaveReviewer", fields: [reviewedByUserId], references: [id], onDelete: Restrict)
-  reviewNote                String?     @map("review_note") @db.Text
-  reviewedAt                DateTime?   @map("reviewed_at")
-  hrVerifiedBy              String?     @map("hr_verified_by")
-  cancelledDates            Json?       @map("cancelled_dates")
-  medicalDocumentUrl        String?     @map("medical_document_url") @db.Text
-  medicalDocumentDueAt      DateTime?   @map("medical_document_due_at")
-  medicalDocumentVerifiedAt DateTime?   @map("medical_document_verified_at")
-  medicalDocumentVerifiedBy String?     @map("medical_document_verified_by")
-  createdAt                 DateTime    @default(now()) @map("created_at")
-  updatedAt                 DateTime    @updatedAt @map("updated_at")
+  leaveRequestId            String       @id @default(cuid()) @map("leave_request_id")
+  employeeId                String       @map("employee_id")
+  employee                  Employee     @relation(fields: [employeeId], references: [employeeId])
+  leaveTypeId               String       @map("leave_type_id")
+  leaveType                 LeaveType    @relation(fields: [leaveTypeId], references: [leaveTypeId])
+  fromDate                  DateTime     @map("from_date") @db.Date
+  toDate                    DateTime     @map("to_date") @db.Date
+  days                      Decimal      @db.Decimal(8, 2)
+  session                   LeaveSession @default(FULL)
+  reason                    String       @db.Text
+  status                    LeaveStatus  @default(PENDING)
+  managerId                 String?      @map("manager_id")
+  reviewedByUserId          String?      @map("reviewed_by_user_id")
+  reviewedByUser            User?        @relation("LeaveReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reviewNote                String?      @map("review_note") @db.Text
+  reviewedAt                DateTime?    @map("reviewed_at")
+  hrVerifiedBy              String?      @map("hr_verified_by")
+  cancelledDates            Json?        @map("cancelled_dates")
+  medicalDocumentUrl        String?      @map("medical_document_url") @db.Text
+  medicalDocumentDueAt      DateTime?    @map("medical_document_due_at")
+  medicalDocumentVerifiedAt DateTime?    @map("medical_document_verified_at")
+  medicalDocumentVerifiedBy String?      @map("medical_document_verified_by")
+  medicalReminder24hSentAt  DateTime?    @map("medical_reminder_24h_sent_at")
+  medicalReminder2hSentAt   DateTime?    @map("medical_reminder_2h_sent_at")
+  medicalOverdueNotifiedAt  DateTime?    @map("medical_overdue_notified_at")
+  createdAt                 DateTime     @default(now()) @map("created_at")
+  updatedAt                 DateTime     @updatedAt @map("updated_at")
 
   @@index([employeeId, createdAt])
   @@index([managerId, status, createdAt])
   @@index([reviewedByUserId])
   @@map("leave_requests")
+}
+
+model LeaveLedgerEntry {
+  entryId          String              @id @default(cuid()) @map("entry_id")
+  employeeId       String              @map("employee_id")
+  employee         Employee            @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  leaveTypeId      String              @map("leave_type_id")
+  leaveType        LeaveType           @relation(fields: [leaveTypeId], references: [leaveTypeId], onDelete: Cascade)
+  entryType        LeaveLedgerEntryType @map("entry_type")
+  amount           Decimal             @db.Decimal(8, 2)
+  balanceAfter     Decimal             @map("balance_after") @db.Decimal(8, 2)
+  effectiveDate    DateTime            @map("effective_date") @db.Date
+  referenceType    String?             @map("reference_type") @db.VarChar(80)
+  referenceId      String?             @map("reference_id") @db.VarChar(191)
+  note             String?             @db.Text
+  createdByUserId  String?             @map("created_by_user_id")
+  createdAt        DateTime            @default(now()) @map("created_at")
+
+  @@unique([employeeId, leaveTypeId, entryType, effectiveDate, referenceId])
+  @@index([employeeId, leaveTypeId, createdAt])
+  @@index([referenceType, referenceId])
+  @@map("leave_ledger_entries")
 }
 
 model WeeklyOffRequest {
@@ -860,16 +966,20 @@ model WeeklyOffRequest {
 }
 
 model CompOffCredit {
-  compOffCreditId          String   @id @default(cuid()) @map("comp_off_credit_id")
-  employeeId               String   @map("employee_id")
-  employee                 Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
-  earnedDate               DateTime @map("earned_date") @db.Date
-  holidayId                String?  @map("holiday_id")
-  consumedByLeaveRequestId String?  @map("consumed_by_leave_request_id")
-  createdAt                DateTime @default(now()) @map("created_at")
+  compOffCreditId          String    @id @default(cuid()) @map("comp_off_credit_id")
+  employeeId               String    @map("employee_id")
+  employee                 Employee  @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  earnedDate               DateTime  @map("earned_date") @db.Date
+  holidayId                String?   @map("holiday_id")
+  consumedByLeaveRequestId String?   @map("consumed_by_leave_request_id")
+  revokedAt                DateTime? @map("revoked_at")
+  revokeReason             String?   @map("revoke_reason") @db.VarChar(500)
+  expiredAt                DateTime? @map("expired_at")
+  createdAt                DateTime  @default(now()) @map("created_at")
 
   @@unique([employeeId, earnedDate])
   @@index([employeeId, consumedByLeaveRequestId])
+  @@index([employeeId, revokedAt, expiredAt])
   @@map("comp_off_credits")
 }
 
@@ -1065,18 +1175,21 @@ model TaskUpdate {
 }
 
 model AttendanceCorrectionRequest {
-  requestId  String         @id @default(cuid()) @map("request_id")
-  employeeId String         @map("employee_id")
-  employee   Employee       @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
-  date       DateTime       @db.Date
-  punchTime  DateTime       @map("punch_time")
-  eventType  EventType      @map("event_type")
-  remarks    String
-  status     ApprovalStatus @default(PENDING)
-  approverId String?        @map("approver_id")
-  reviewedBy String?        @map("reviewed_by")
-  createdAt  DateTime       @default(now()) @map("created_at")
-  updatedAt  DateTime       @updatedAt @map("updated_at")
+  requestId            String         @id @default(cuid()) @map("request_id")
+  employeeId           String         @map("employee_id")
+  employee             Employee       @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  date                 DateTime       @db.Date
+  punchTime            DateTime       @map("punch_time")
+  eventType            EventType      @map("event_type")
+  remarks              String
+  status               ApprovalStatus @default(PENDING)
+  approverId           String?        @map("approver_id")
+  reviewedBy           String?        @map("reviewed_by")
+  decisionNote         String?        @map("decision_note") @db.Text
+  employeeWindowEndsAt DateTime?      @map("employee_window_ends_at")
+  isHrOnly             Boolean        @default(false) @map("is_hr_only")
+  createdAt            DateTime       @default(now()) @map("created_at")
+  updatedAt            DateTime       @updatedAt @map("updated_at")
 
   @@index([employeeId, createdAt])
   @@index([approverId, status, createdAt])

@@ -40,6 +40,7 @@ function ApplyLeavePage() {
   const [loading, setLoading] = useState(false);
   const [typesLoading, setTypesLoading] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [session, setSession] = useState<"FULL" | "FIRST_HALF" | "SECOND_HALF">("FULL");
   const [requestKind, setRequestKind] = useState<"leave" | "weekly-off">("leave");
   const todayString = indiaDateKey();
 
@@ -96,7 +97,15 @@ function ApplyLeavePage() {
     setErrors(errs);
     if (Object.keys(errs).length) return;
 
-    const days = Math.max(1, Math.round((+new Date(to) - +new Date(from)) / 86400000) + 1);
+    const calendarDays = Math.max(
+      1,
+      Math.round((+new Date(to) - +new Date(from)) / 86400000) + 1,
+    );
+    const days = session === "FULL" ? calendarDays : 0.5;
+    if (session !== "FULL" && from !== to) {
+      setErrors({ to: "Half-day leave must be a single date" });
+      return;
+    }
     setLoading(true);
     try {
       await leaveApi.apply({
@@ -104,12 +113,13 @@ function ApplyLeavePage() {
         fromDate: from,
         toDate: to,
         days,
+        session,
         reason: reason.trim(),
         medicalDocumentUrl: medicalDocumentUrl.trim() || undefined,
       });
       toast.success(
         selectedType?.code === "COMP_OFF"
-          ? "Comp Off booked successfully"
+          ? "Comp Off request submitted for approval"
           : "Leave request submitted",
       );
       navigate({ to: "/leave/history" });
@@ -132,7 +142,11 @@ function ApplyLeavePage() {
       setWeeklyOffs((current) => [request, ...current]);
       setWeeklyOffDate("");
       setWeeklyOffReason("");
-      toast.success("Weekly-off request sent to your organization head");
+      toast.success(
+        request.status === "APPROVED"
+          ? "Sunday weekly off confirmed"
+          : "Weekly-off request sent to your organization head",
+      );
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -161,9 +175,9 @@ function ApplyLeavePage() {
         actions={
           <InfoButton title="Leave request process">
             Leave requests go to your organization head. Higher heads in the same chain can also
-            approve or reject. Comp Off uses an earned holiday-work credit and does not require
-            approval. You can track the result in Leave History and cancel an approved leave when
-            required.
+            approve or reject. Comp Off usage also requires Reporting Head approval and is consumed
+            only when approved. You can track the result in Leave History and cancel an approved
+            leave when required.
           </InfoButton>
         }
       />
@@ -247,11 +261,11 @@ function ApplyLeavePage() {
                     in the same chain can also approve or reject it.
                   </p>
                 )}
-                {selectedType && !requiresApprover && (
-                  <p className="mb-4 flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/25 dark:text-emerald-300">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-                    Comp Off uses an earned holiday-work credit and is confirmed immediately. No
-                    organization-head approval is required.
+                {selectedType?.code === "COMP_OFF" && (
+                  <p className="mb-4 flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                    <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+                    Comp Off requires Reporting Head approval. The credit is reserved only when the
+                    request is approved.
                   </p>
                 )}
                 <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2" noValidate>
@@ -266,19 +280,39 @@ function ApplyLeavePage() {
                   {selectedType?.requiresMedicalDocument && (
                     <div className="space-y-1.5 sm:col-span-2">
                       <Label htmlFor="medical-document">
-                        Medical report Drive link (optional now)
+                        Medical certificate (optional now — private upload later from Leave History)
                       </Label>
                       <Input
                         id="medical-document"
-                        type="url"
                         value={medicalDocumentUrl}
-                        placeholder="https://drive.google.com/..."
+                        placeholder="/leave/medical-files/..."
                         onChange={(event) => setMedicalDocumentUrl(event.target.value)}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Set sharing to anyone with the link. Upload within 2 days after Sick Leave
-                        ends, or HR will be notified that the report is overdue.
+                        Use the secure private upload from Leave History. Public Drive links are not
+                        accepted. Deadline is 48 hours after you return to work.
                       </p>
+                    </div>
+                  )}
+                  {(selectedType?.code === "CASUAL" ||
+                    selectedType?.code === "SICK" ||
+                    selectedType?.code === "LOP") && (
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label htmlFor="session">Day length</Label>
+                      <select
+                        id="session"
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                        value={session}
+                        onChange={(event) => {
+                          const next = event.target.value as typeof session;
+                          setSession(next);
+                          if (next !== "FULL" && from) setTo(from);
+                        }}
+                      >
+                        <option value="FULL">Full day</option>
+                        <option value="FIRST_HALF">First half (0.5)</option>
+                        <option value="SECOND_HALF">Second half (0.5)</option>
+                      </select>
                     </div>
                   )}
                   <div className="space-y-1.5">
@@ -292,7 +326,8 @@ function ApplyLeavePage() {
                       onChange={(e) => {
                         const nextFrom = e.target.value;
                         setFrom(nextFrom);
-                        if (to && nextFrom && to < nextFrom) setTo(nextFrom);
+                        if (session !== "FULL") setTo(nextFrom);
+                        else if (to && nextFrom && to < nextFrom) setTo(nextFrom);
                       }}
                     />
                     {errors.from && <p className="text-xs text-destructive">{errors.from}</p>}
@@ -304,6 +339,9 @@ function ApplyLeavePage() {
                       type="date"
                       value={to}
                       min={from || todayString}
+                      disabled={session !== "FULL"}
+                      onChange={(e) => setTo(e.target.value)}
+                    />
                       onChange={(e) => setTo(e.target.value)}
                     />
                     {errors.to && <p className="text-xs text-destructive">{errors.to}</p>}
@@ -403,9 +441,9 @@ function ApplyLeavePage() {
                 <div>
                   <h2 className="font-semibold">Request weekly off</h2>
                   <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                    Request at least one day earlier. One weekly off is allowed per Monday-Sunday
-                    week, unused weekly offs expire, and consecutive weekly-off dates are not
-                    allowed.
+                    Non-Sunday weekly offs need at least one day advance approval from your
+                    organization head. Sundays auto-confirm for today or a future Sunday. One weekly
+                    off per Monday–Sunday week; consecutive weekly-off dates are not allowed.
                   </p>
                 </div>
               </div>
@@ -423,7 +461,7 @@ function ApplyLeavePage() {
                     id="weekly-off-date"
                     type="date"
                     value={weeklyOffDate}
-                    min={indiaDateKeyShift(1)}
+                    min={indiaDateKeyShift(0)}
                     onChange={(event) => setWeeklyOffDate(event.target.value)}
                   />
                 </div>

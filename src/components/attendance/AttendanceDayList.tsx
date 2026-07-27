@@ -17,6 +17,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import type { AttendanceRecord } from "@/types/domain";
+import { attendanceStatusWithFlags } from "@/lib/attendance-labels";
 import { formatStoredWorkedTime, formatWorkedTime } from "@/lib/worked-time";
 import { indiaDateKey } from "@/lib/india-date";
 
@@ -91,7 +92,7 @@ function DayRecordSummary({
       <div>
         <p className="text-xs text-muted-foreground">Status</p>
         <div className="mt-0.5">
-          <StatusBadge status={record.status} />
+          <StatusBadge status={attendanceStatusWithFlags(record)} />
         </div>
       </div>
       <div>

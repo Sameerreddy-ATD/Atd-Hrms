@@ -1,4 +1,4 @@
-import { LeaveStatus, Prisma } from "@prisma/client";
+import { LeaveLedgerEntryType, LeaveStatus, Prisma } from "@prisma/client";
 import { HttpError } from "./errors.js";
 import { prisma } from "./prisma.js";
 import {
@@ -7,6 +7,8 @@ import {
   startOfDayUtc,
   todayIstDate,
 } from "./attendanceDayRules.js";
+import { medicalDocumentDueAt48h, monthEndIst } from "./attendancePolicy.js";
+import { activeEmployeeIdsExcludingDeveloperAdmin } from "./attendanceDayRules.js";
 
 export const LEAVE_CODES = {
   CASUAL: "CASUAL",
@@ -39,17 +41,77 @@ function effectiveDays(request: { days: Prisma.Decimal; cancelledDates: unknown 
   const cancelled = Array.isArray(request.cancelledDates)
     ? request.cancelledDates.filter((value) => typeof value === "string").length
     : 0;
+  // Half-day requests store days=0.5 with a single calendar date — cancelled dates wipe the whole request day.
+  if (Number(request.days) < 1) {
+    return cancelled > 0 ? 0 : Number(request.days);
+  }
   return Math.max(0, Number(request.days) - cancelled);
 }
 
-export function monthsCredited(joiningDate: Date | null, now: Date) {
+/**
+ * Casual Leave credits earned under joining-date + month-end rules.
+ * Join on/before the 5th → first credit at end of joining month.
+ * Join after the 5th → first credit at end of the following month.
+ * Up to 12 new credits per calendar year; carry-forward is preserved via balance sync.
+ */
+export function casualLeaveCreditsEarned(joiningDate: Date | null, now: Date) {
   if (!joiningDate) return 0;
   const joined = startOfDayUtc(joiningDate);
-  const current = istDateParts(now);
-  return Math.max(
-    0,
-    (current.year - joined.getUTCFullYear()) * 12 + (current.month - joined.getUTCMonth()),
-  );
+  const joinDay = joined.getUTCDate();
+  let firstYear = joined.getUTCFullYear();
+  let firstMonth = joined.getUTCMonth();
+  if (joinDay > 5) {
+    firstMonth += 1;
+    if (firstMonth > 11) {
+      firstMonth = 0;
+      firstYear += 1;
+    }
+  }
+
+  const parts = istDateParts(now);
+  const lastDay = new Date(Date.UTC(parts.year, parts.month + 1, 0)).getUTCDate();
+  const includeCurrent = parts.day >= lastDay;
+  let endYear = parts.year;
+  let endMonth = parts.month;
+  if (!includeCurrent) {
+    endMonth -= 1;
+    if (endMonth < 0) {
+      endMonth = 11;
+      endYear -= 1;
+    }
+  }
+
+  return cappedCreditsByYear(firstYear, firstMonth, endYear, endMonth);
+}
+
+function cappedCreditsByYear(
+  firstYear: number,
+  firstMonth: number,
+  endYear: number,
+  endMonth: number,
+) {
+  let total = 0;
+  let year = firstYear;
+  let month = firstMonth;
+  const yearCounts = new Map<number, number>();
+  while (year < endYear || (year === endYear && month <= endMonth)) {
+    const used = yearCounts.get(year) ?? 0;
+    if (used < 12) {
+      yearCounts.set(year, used + 1);
+      total += 1;
+    }
+    month += 1;
+    if (month > 11) {
+      month = 0;
+      year += 1;
+    }
+  }
+  return total;
+}
+
+/** @deprecated use casualLeaveCreditsEarned */
+export function monthsCredited(joiningDate: Date | null, now: Date) {
+  return casualLeaveCreditsEarned(joiningDate, now);
 }
 
 export function calendarYearRange(date: Date) {
@@ -59,6 +121,46 @@ export function calendarYearRange(date: Date) {
     start: new Date(Date.UTC(year, 0, 1)),
     end: new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999)),
   };
+}
+
+export async function appendLeaveLedger(input: {
+  employeeId: string;
+  leaveTypeId: string;
+  entryType: LeaveLedgerEntryType;
+  amount: number;
+  balanceAfter: number;
+  effectiveDate: Date;
+  referenceType?: string;
+  referenceId?: string;
+  note?: string;
+  createdByUserId?: string;
+  client?: Prisma.TransactionClient;
+}) {
+  const client = input.client ?? prisma;
+  try {
+    await client.leaveLedgerEntry.create({
+      data: {
+        employeeId: input.employeeId,
+        leaveTypeId: input.leaveTypeId,
+        entryType: input.entryType,
+        amount: input.amount,
+        balanceAfter: input.balanceAfter,
+        effectiveDate: startOfDayUtc(input.effectiveDate),
+        referenceType: input.referenceType,
+        referenceId: input.referenceId ?? `${input.entryType}-${dateKey(input.effectiveDate)}`,
+        note: input.note,
+        createdByUserId: input.createdByUserId,
+      },
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return; // idempotent
+    }
+    throw error;
+  }
 }
 
 export async function syncEmployeeLeaveBalances(employeeId: string, now = new Date()) {
@@ -82,6 +184,8 @@ export async function syncEmployeeLeaveBalances(employeeId: string, now = new Da
       where: {
         employeeId,
         consumedByLeaveRequestId: null,
+        revokedAt: null,
+        expiredAt: null,
         earnedDate: { gte: yearStart, lte: yearEnd },
       },
     }),
@@ -101,7 +205,7 @@ export async function syncEmployeeLeaveBalances(employeeId: string, now = new Da
       const used = relevant.reduce((total, request) => total + effectiveDays(request), 0);
       let entitled = 0;
       if (type.code === LEAVE_CODES.CASUAL) {
-        entitled = monthsCredited(employee.joiningDate, now) * Number(type.monthlyCredit ?? 1);
+        entitled = casualLeaveCreditsEarned(employee.joiningDate, now) * Number(type.monthlyCredit ?? 1);
       } else if (type.code === LEAVE_CODES.SICK) {
         entitled = Number(type.annualAllowance ?? 6);
       } else if (type.code === LEAVE_CODES.COMP_OFF) {
@@ -145,7 +249,7 @@ function cancelledDateSet(cancelledDates: unknown) {
 }
 
 function requestOverlapsDates(
-  request: { fromDate: Date; toDate: Date; cancelledDates: unknown },
+  request: { fromDate: Date; toDate: Date; cancelledDates: unknown; days: Prisma.Decimal },
   dates: Date[],
 ) {
   const cancelled = cancelledDateSet(request.cancelledDates);
@@ -162,18 +266,36 @@ export async function validateLeaveApplication(input: {
   fromDate: Date;
   toDate: Date;
   days: number;
+  session?: "FULL" | "FIRST_HALF" | "SECOND_HALF";
 }) {
   const type = await prisma.leaveType.findFirst({
     where: { leaveTypeId: input.leaveTypeId, active: true },
   });
   if (!type) throw new HttpError(400, "Select a valid leave type");
+  const session = input.session ?? "FULL";
   const dates = eachDateInRange(input.fromDate, input.toDate);
-  if (!dates.length || dates.length !== input.days) {
+  if (!dates.length) throw new HttpError(400, "Select a valid date range");
+
+  if (session !== "FULL") {
+    if (dates.length !== 1 || input.days !== 0.5) {
+      throw new HttpError(400, "Half-day leave must be a single date for 0.5 days");
+    }
+  } else if (dates.length !== input.days) {
     throw new HttpError(400, "Leave days do not match the selected date range");
   }
+
   const today = todayIstDate();
-  if (startOfDayUtc(input.fromDate) < today)
-    throw new HttpError(400, "Leave cannot start in the past");
+  if (type.code === LEAVE_CODES.SICK) {
+    if (startOfDayUtc(input.fromDate) < today) {
+      throw new HttpError(400, "Sick Leave cannot start in the past");
+    }
+  } else {
+    const tomorrow = new Date(today);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    if (startOfDayUtc(input.fromDate) < tomorrow) {
+      throw new HttpError(400, "This leave type must be requested at least one day in advance");
+    }
+  }
 
   const overlappingCandidates = await prisma.leaveRequest.findMany({
     where: {
@@ -182,7 +304,7 @@ export async function validateLeaveApplication(input: {
       fromDate: { lte: startOfDayUtc(input.toDate) },
       toDate: { gte: startOfDayUtc(input.fromDate) },
     },
-    select: { fromDate: true, toDate: true, cancelledDates: true },
+    select: { fromDate: true, toDate: true, cancelledDates: true, days: true },
   });
   if (overlappingCandidates.some((request) => requestOverlapsDates(request, dates))) {
     throw new HttpError(400, "Another active leave request overlaps these dates");
@@ -197,6 +319,7 @@ export async function validateLeaveApplication(input: {
 
   const balances = await syncEmployeeLeaveBalances(input.employeeId);
   const balance = balances.find((row) => row.leaveTypeId === type.leaveTypeId);
+
   if (type.code === LEAVE_CODES.SICK) {
     if (input.fromDate.getUTCMonth() !== input.toDate.getUTCMonth()) {
       throw new HttpError(400, "Sick Leave must be requested within one calendar month");
@@ -220,28 +343,27 @@ export async function validateLeaveApplication(input: {
     if (monthUsed + input.days > Number(type.maxPerMonth ?? 2)) {
       throw new HttpError(400, "A maximum of 2 Sick Leave days may be used in one month");
     }
-    const { start: yearStart, end: yearEnd } = calendarYearRange(input.fromDate);
-    const pendingYear = await prisma.leaveRequest.findMany({
+  }
+
+  if (type.code !== LEAVE_CODES.LOP) {
+    const pendingSameType = await prisma.leaveRequest.findMany({
       where: {
         employeeId: input.employeeId,
         leaveTypeId: type.leaveTypeId,
         status: "PENDING",
-        fromDate: { gte: yearStart, lte: yearEnd },
       },
       select: { days: true, cancelledDates: true },
     });
-    const pendingDays = pendingYear.reduce((total, request) => total + effectiveDays(request), 0);
+    const pendingDays = pendingSameType.reduce((total, request) => total + effectiveDays(request), 0);
     if (input.days > Number(balance?.balance ?? 0) - pendingDays) {
-      throw new HttpError(400, "Sick Leave cannot exceed the available balance");
+      throw new HttpError(400, "This request would exceed the available paid leave balance");
     }
   }
-  if (type.code === LEAVE_CODES.COMP_OFF && input.days > Number(balance?.balance ?? 0)) {
-    throw new HttpError(400, "Comp Off cannot exceed earned credits");
-  }
+
   if (type.code === LEAVE_CODES.COMP_OFF && input.days !== 1) {
     throw new HttpError(400, "Use one Comp Off credit per request");
   }
-  return { type, balances, dates };
+  return { type, balances, dates, session };
 }
 
 export async function consumeCompOffCredits(
@@ -253,7 +375,13 @@ export async function consumeCompOffCredits(
 ) {
   const { start, end } = calendarYearRange(leaveDate);
   const credits = await client.compOffCredit.findMany({
-    where: { employeeId, consumedByLeaveRequestId: null, earnedDate: { gte: start, lte: end } },
+    where: {
+      employeeId,
+      consumedByLeaveRequestId: null,
+      revokedAt: null,
+      expiredAt: null,
+      earnedDate: { gte: start, lte: end },
+    },
     orderBy: { earnedDate: "asc" },
     take: days,
   });
@@ -263,6 +391,7 @@ export async function consumeCompOffCredits(
     where: {
       compOffCreditId: { in: credits.map((credit) => credit.compOffCreditId) },
       consumedByLeaveRequestId: null,
+      revokedAt: null,
     },
     data: { consumedByLeaveRequestId: leaveRequestId },
   });
@@ -279,18 +408,124 @@ export async function releaseCompOffCredits(leaveRequestId: string) {
 }
 
 export function medicalDocumentDueAt(toDate: Date) {
-  const due = new Date(toDate);
-  due.setUTCDate(due.getUTCDate() + 2);
-  due.setUTCHours(18, 29, 59, 999);
-  return due;
+  return medicalDocumentDueAt48h(toDate);
 }
 
 export function leavePolicyDescription(code: string) {
   if (code === LEAVE_CODES.CASUAL)
-    return "1 day is credited on the first of every month beginning with the month after joining. Up to 12 days accrue yearly, unused credits carry forward, and the balance may become negative.";
+    return "1 day is credited at month-end. Joining on or before the 5th earns credit for the joining month; joining after the 5th starts the following month. Up to 12 days accrue yearly and unused credits carry forward with no cap.";
   if (code === LEAVE_CODES.SICK)
-    return "6 days are available each calendar year, with a maximum of 2 days per month. A medical report must be uploaded within 2 days after the leave ends; HR is notified if it is overdue.";
+    return "6 days are available each calendar year (including mid-year joiners), with a maximum of 2 days per month. Upload a medical certificate to the secure vault within 48 hours after returning; reminders are sent at 24 hours and 2 hours before the deadline.";
   if (code === LEAVE_CODES.LOP)
     return "Unpaid Leave / LOP is recorded separately from paid leave credits.";
-  return "Earned automatically after a completed work session on a listed company holiday. Use it by December 31 of the year earned; it expires at year end. Usage does not require approval.";
+  return "Earned after a completed holiday work session of at least nine hours. One credit per holiday. Usage requires Reporting Head approval and expires on December 31 of the year earned.";
+}
+
+export async function runMonthEndCasualLeaveAccrual(now = new Date()) {
+  const parts = istDateParts(now);
+  const effective = startOfDayUtc(monthEndIst(parts.year, parts.month));
+  const casual = await prisma.leaveType.findFirst({ where: { code: LEAVE_CODES.CASUAL } });
+  if (!casual) return 0;
+  const employeeIds = await activeEmployeeIdsExcludingDeveloperAdmin();
+  let written = 0;
+  for (const employeeId of employeeIds) {
+    const before = await prisma.leaveBalance.findUnique({
+      where: { employeeId_leaveTypeId: { employeeId, leaveTypeId: casual.leaveTypeId } },
+    });
+    const balances = await syncEmployeeLeaveBalances(employeeId, now);
+    const after = balances.find((row) => row.leaveTypeId === casual.leaveTypeId);
+    const delta = Number(after?.entitled ?? 0) - Number(before?.entitled ?? 0);
+    if (delta > 0) {
+      await appendLeaveLedger({
+        employeeId,
+        leaveTypeId: casual.leaveTypeId,
+        entryType: LeaveLedgerEntryType.ACCRUAL,
+        amount: delta,
+        balanceAfter: Number(after?.balance ?? 0),
+        effectiveDate: effective,
+        referenceType: "MONTH_END_ACCRUAL",
+        referenceId: `${parts.year}-${parts.month + 1}`,
+        note: "Month-end Casual Leave accrual",
+      });
+      written += 1;
+    }
+  }
+  return written;
+}
+
+export async function runYearEndLeaveExpiry(year: number) {
+  const { start, end } = calendarYearRange(new Date(Date.UTC(year, 6, 1)));
+  const sick = await prisma.leaveType.findFirst({ where: { code: LEAVE_CODES.SICK } });
+  const comp = await prisma.leaveType.findFirst({ where: { code: LEAVE_CODES.COMP_OFF } });
+  let count = 0;
+
+  const expiredCredits = await prisma.compOffCredit.updateMany({
+    where: {
+      earnedDate: { gte: start, lte: end },
+      consumedByLeaveRequestId: null,
+      revokedAt: null,
+      expiredAt: null,
+    },
+    data: { expiredAt: end },
+  });
+  count += expiredCredits.count;
+
+  if (comp) {
+    await prisma.auditLog.create({
+      data: {
+        action: "comp_off_year_end_expiry",
+        newValue: { year, expired: expiredCredits.count },
+      },
+    });
+  }
+
+  if (sick) {
+    const employeeIds = await activeEmployeeIdsExcludingDeveloperAdmin();
+    for (const employeeId of employeeIds) {
+      const balances = await syncEmployeeLeaveBalances(employeeId, end);
+      const row = balances.find((balance) => balance.leaveTypeId === sick.leaveTypeId);
+      const remaining = Number(row?.balance ?? 0);
+      if (remaining > 0) {
+        await appendLeaveLedger({
+          employeeId,
+          leaveTypeId: sick.leaveTypeId,
+          entryType: LeaveLedgerEntryType.EXPIRY,
+          amount: -remaining,
+          balanceAfter: 0,
+          effectiveDate: end,
+          referenceType: "YEAR_END_EXPIRY",
+          referenceId: `SICK-${year}`,
+          note: "Unused Sick Leave expired on December 31",
+        });
+        // Zero remaining by recording usage-equivalent through calculationYear rollover on next sync
+        count += 1;
+      }
+    }
+  }
+
+  // Casual Leave carry-forward is automatic (no expiry); record a ledger snapshot for audit
+  const casual = await prisma.leaveType.findFirst({ where: { code: LEAVE_CODES.CASUAL } });
+  if (casual) {
+    const employeeIds = await activeEmployeeIdsExcludingDeveloperAdmin();
+    for (const employeeId of employeeIds) {
+      const balances = await syncEmployeeLeaveBalances(employeeId, end);
+      const row = balances.find((balance) => balance.leaveTypeId === casual.leaveTypeId);
+      const remaining = Number(row?.balance ?? 0);
+      if (remaining !== 0) {
+        await appendLeaveLedger({
+          employeeId,
+          leaveTypeId: casual.leaveTypeId,
+          entryType: LeaveLedgerEntryType.CARRY_FORWARD,
+          amount: remaining,
+          balanceAfter: remaining,
+          effectiveDate: new Date(Date.UTC(year + 1, 0, 1)),
+          referenceType: "YEAR_CARRY_FORWARD",
+          referenceId: `CL-${year}`,
+          note: "Casual Leave carried forward with no cap",
+        });
+      }
+    }
+  }
+
+  return count;
 }

@@ -40,7 +40,7 @@ function classify(status: string): keyof typeof map {
   if (s.includes("holiday") || s.includes("week off")) return "holiday";
   if (s.includes("holiday") || s.includes("week off") || s.includes("sunday")) return "holiday";
   if (s.includes("leave") || s.includes("lop")) return "leave";
-  if (s.includes("present")) return "present";
+  if (s.includes("present") || s === "full day" || s === "half day") return "present";
   return "neutral";
 }
 

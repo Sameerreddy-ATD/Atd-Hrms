@@ -78,7 +78,13 @@ export function averageWorkedSeconds(totalWorkedSeconds: number, presentDays: nu
 }
 
 export function isPresentAttendanceDay(status: string, workedSeconds: number) {
-  return status.trim().toLowerCase().startsWith("present") || workedSeconds > 0;
+  const normalized = status.trim().toLowerCase();
+  return (
+    normalized === "full day" ||
+    normalized === "half day" ||
+    normalized.startsWith("present") ||
+    workedSeconds > 0
+  );
 }
 
 export function downloadAttendanceExcel(

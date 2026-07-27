@@ -92,7 +92,7 @@ export const Route = createFileRoute("/_app/dashboard")({
 });
 
 function isPresentStatus(status: string) {
-  return status.startsWith("Present");
+  return status === "Full Day" || status === "Half Day" || status.startsWith("Present");
 }
 
 function countUniquePresent(rows: AttendanceRecord[]) {
@@ -1431,7 +1431,10 @@ function TeamAttendanceCard({
 
 function AttendanceAnalyticsCard({ rows }: { rows: AttendanceRecord[] }) {
   const total = Math.max(rows.length, 1);
-  const present = rows.filter((row) => row.status.startsWith("Present")).length;
+  const present = rows.filter(
+    (row) =>
+      row.status === "Full Day" || row.status === "Half Day" || row.status.startsWith("Present"),
+  ).length;
   const leave = rows.filter((row) => row.status.includes("Leave")).length;
   const missed = rows.filter((row) => row.status.includes("Missed")).length;
 

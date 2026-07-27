@@ -25,6 +25,8 @@ import { useAuth } from "@/lib/auth";
 import { subscribeToAttendanceChanges } from "@/lib/attendance-live";
 import {
   MISSED_PUNCH_TYPE_OPTIONS,
+  attendanceStatusWithFlags,
+  isMobileAttendanceSource,
   punchSourceLabel,
   punchTypeLabel,
 } from "@/lib/attendance-labels";
@@ -343,14 +345,14 @@ function MyAttendancePage() {
                             </TableCell>
                             <TableCell className="text-xs">
                               <div>{a.source}</div>
-                              {a.source === "Mobile GPS" && a.actualBranchId && (
+                              {isMobileAttendanceSource(a.source) && a.actualBranchId && (
                                 <div className="text-[10px] text-muted-foreground font-semibold mt-0.5">
                                   Near:{" "}
                                   {branches.find((b) => b.id === a.actualBranchId)?.name ||
                                     "Branch"}
                                 </div>
                               )}
-                              {a.source === "Mobile GPS" &&
+                              {isMobileAttendanceSource(a.source) &&
                                 a.fieldCheckInLatitude &&
                                 a.fieldCheckOutLatitude &&
                                 (() => {
@@ -384,7 +386,7 @@ function MyAttendancePage() {
                               <div className="mt-0.5 text-[10px] font-semibold text-muted-foreground">
                                 {punchSourceLabel(a.punchInSource, a.punchInBranchId, branches)}
                               </div>
-                              {a.punchInSource === "Mobile GPS" &&
+                              {isMobileAttendanceSource(a.punchInSource) &&
                                 a.fieldCheckInLatitude &&
                                 a.fieldCheckInLongitude && (
                                   <a
@@ -404,7 +406,7 @@ function MyAttendancePage() {
                               <div className="mt-0.5 text-[10px] font-semibold text-muted-foreground">
                                 {punchSourceLabel(a.punchOutSource, a.punchOutBranchId, branches)}
                               </div>
-                              {a.punchOutSource === "Mobile GPS" &&
+                              {isMobileAttendanceSource(a.punchOutSource) &&
                                 a.fieldCheckOutLatitude &&
                                 a.fieldCheckOutLongitude && (
                                   <a
@@ -423,7 +425,7 @@ function MyAttendancePage() {
                               {formatStoredWorkedTime(a.totalHours, a.workedMinutes)}
                             </TableCell>
                             <TableCell>
-                              <StatusBadge status={a.status} />
+                              <StatusBadge status={attendanceStatusWithFlags(a)} />
                             </TableCell>
                           </TableRow>
                         ))

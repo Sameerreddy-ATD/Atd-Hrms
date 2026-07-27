@@ -329,6 +329,26 @@ function movementLabel(event: AttendanceEvent & { branch?: Branch | null }) {
 export function attendanceRecordDto(
   summary: AttendanceDailySummary & { employee: Employee; primaryBranch?: Branch | null },
 ) {
+  const matchedBranchName = summary.primaryBranch?.branchName;
+  const sourceLabel =
+    summary.attendanceSourceSummary === "BRANCH_MOBILE" ||
+    summary.checkInSource === "BRANCH_MOBILE"
+      ? matchedBranchName
+        ? `Branch-Mobile · ${matchedBranchName}`
+        : "Branch-Mobile"
+      : summary.attendanceSourceSummary === "MOBILE" || summary.checkInSource === "MOBILE"
+        ? "Mobile"
+        : summary.attendanceSourceSummary === "THUMB_SCANNER" ||
+            summary.checkInSource === "THUMB_SCANNER"
+          ? "Thumb Scanner"
+          : summary.attendanceSourceSummary === "MOBILE_GPS"
+            ? summary.matchedBranchId || summary.primaryAttendedBranchId
+              ? matchedBranchName
+                ? `Branch-Mobile · ${matchedBranchName}`
+                : "Branch-Mobile"
+              : "Mobile"
+            : "System";
+
   return {
     id: summary.attendanceId,
     employeeId: summary.employeeId,
@@ -345,19 +365,21 @@ export function attendanceRecordDto(
     totalHours: Number(summary.totalHours),
     workedMinutes: Math.round(Number(summary.totalHours) * 60),
     hasMissingOutEvent: summary.hasMissingOutEvent,
-    hasMissedCheckout: summary.hasMissedCheckout,
+    hasMissedCheckout: summary.hasMissedCheckout || summary.isMissedCheckout,
+    isLate: summary.isLate,
+    isLocked: summary.isLocked,
+    attendanceResult: summary.attendanceResult,
+    correctionDeadlineAt: summary.correctionDeadlineAt?.toISOString(),
+    provisionalCheckOutAt: summary.provisionalCheckOutAt?.toISOString(),
     officeHours: Number(summary.officeHours),
     fieldHours: Number(summary.fieldHours),
     clientVisitHours: Number(summary.clientVisitHours),
     punchIn: formatToIstTime(summary.firstCheckIn),
     punchOut: formatToIstTime(summary.lastCheckOut),
     status: summary.status,
-    source:
-      summary.attendanceSourceSummary === "MOBILE_GPS"
-        ? "Mobile GPS"
-        : summary.attendanceSourceSummary === "THUMB_SCANNER"
-          ? "Thumb Scanner"
-          : "System",
+    source: sourceLabel,
+    checkInSource: summary.checkInSource ?? undefined,
+    checkOutSource: summary.checkOutSource ?? undefined,
     branchMismatch: summary.isBranchMismatch,
     fieldCheckInLatitude: summary.fieldCheckInLatitude
       ? Number(summary.fieldCheckInLatitude)
@@ -406,7 +428,7 @@ export function holidayDto(holiday: Holiday) {
     id: holiday.holidayId,
     name: holiday.name,
     date: holiday.date.toISOString().slice(0, 10),
-    branchId: holiday.branchId ?? undefined,
+    description: (holiday as { description?: string | null }).description ?? undefined,
     type: holiday.type,
     status: holiday.status,
   };
