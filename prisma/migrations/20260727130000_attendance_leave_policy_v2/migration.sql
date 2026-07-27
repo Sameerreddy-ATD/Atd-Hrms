@@ -103,13 +103,13 @@ CREATE TABLE `leave_ledger_entries` (
   `created_by_user_id` VARCHAR(191) NULL,
   `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (`entry_id`),
-  UNIQUE INDEX `leave_ledger_entries_employee_id_leave_type_id_entry_type_effective_date_reference_id_key`
+  UNIQUE INDEX `leave_ledger_uniq`
     (`employee_id`, `leave_type_id`, `entry_type`, `effective_date`, `reference_id`),
-  INDEX `leave_ledger_entries_employee_id_leave_type_id_created_at_idx`(`employee_id`, `leave_type_id`, `created_at`),
-  INDEX `leave_ledger_entries_reference_type_reference_id_idx`(`reference_type`, `reference_id`),
-  CONSTRAINT `leave_ledger_entries_employee_id_fkey`
+  INDEX `leave_ledger_emp_type_created_idx`(`employee_id`, `leave_type_id`, `created_at`),
+  INDEX `leave_ledger_ref_idx`(`reference_type`, `reference_id`),
+  CONSTRAINT `leave_ledger_employee_fkey`
     FOREIGN KEY (`employee_id`) REFERENCES `employees`(`employee_id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `leave_ledger_entries_leave_type_id_fkey`
+  CONSTRAINT `leave_ledger_type_fkey`
     FOREIGN KEY (`leave_type_id`) REFERENCES `leave_types`(`leave_type_id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
