@@ -1,16 +1,27 @@
-import { EventType, Prisma } from "@prisma/client";
-import { recalculateDailySummary } from "./attendanceEngine.js";
-import { activeEmployeeIdsExcludingDeveloperAdmin, startOfDayUtc } from "./attendanceDayRules.js";
+import { EventSource, EventType } from "@prisma/client";
+import {
+  createAttendanceEvent,
+  recalculateDailySummary,
+  attendanceDateForEmployee,
+} from "./attendanceEngine.js";
+import {
+  activeEmployeeIdsExcludingDeveloperAdmin,
+  startOfDayUtc,
+  todayIstDate,
+} from "./attendanceDayRules.js";
+import {
+  resolveEmployeeShift,
+  shiftWindowBounds,
+} from "./attendancePolicy.js";
 import { prisma } from "./prisma.js";
 import { publishNotificationChange } from "./notificationLive.js";
 import { sendPushToUsers } from "./push.js";
-function todayIstDate(): Date {
-  const now = new Date();
-  const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
-  return startOfDayUtc(
-    new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate())),
-  );
-}
+import {
+  syncEmployeeLeaveBalances,
+  runMonthEndCasualLeaveAccrual,
+  runYearEndLeaveExpiry,
+} from "./leavePolicy.js";
+import { processMedicalCertificateReminders } from "./leaveJobs.js";
 
 export async function settleAttendanceForDate(date: Date) {
   const eventDate = startOfDayUtc(date);
@@ -22,6 +33,7 @@ export async function settleAttendanceForDate(date: Date) {
 }
 
 let lastSettledDateKey = "";
+let lastLeaveJobKey = "";
 
 export async function runDailyAttendanceSettlement(force = false) {
   const target = todayIstDate();
@@ -39,101 +51,276 @@ export async function runDailyAttendanceSettlement(force = false) {
   return { skipped: false, ...result };
 }
 
-export function startAttendanceSettlementScheduler() {
-  const tick = () => {
-    void Promise.all([runDailyAttendanceSettlement(), settleExpiredOpenPunches()]).catch(
-      (error) => {
-        console.error("Attendance settlement failed", error);
-      },
-    );
-  };
-
-  // Let health checks and returning user sessions complete before this
-  // database-heavy maintenance pass starts after a deployment or restart.
-  setTimeout(tick, 30_000).unref();
-  setInterval(tick, 60 * 60 * 1000).unref();
-}
-
-export async function settleExpiredOpenPunches(employeeId?: string) {
-  const cutoff = new Date(Date.now() - 9 * 60 * 60 * 1000);
-  const lookback = new Date(cutoff.getTime() - 31 * 24 * 60 * 60 * 1000);
-  const employeeClause = employeeId
-    ? Prisma.sql`AND latest.employee_id = ${employeeId}`
-    : Prisma.empty;
-  const openTypes = [
-    EventType.OFFICE_IN,
-    EventType.BRANCH_IN,
-    EventType.FIELD_CHECK_IN,
-    EventType.CLIENT_CHECK_IN,
-    EventType.BREAK_IN,
-  ];
-  const candidates = await prisma.$queryRaw<
-    Array<{ employeeId: string; eventDate: Date; eventId: string; eventTime: Date }>
-  >(
-    Prisma.sql`
-      SELECT DISTINCT latest.employee_id AS employeeId, latest.event_date AS eventDate,
-        latest.event_id AS eventId, latest.event_time AS eventTime
-      FROM attendance_events latest
-      INNER JOIN (
-        SELECT employee_id, event_date, MAX(event_time) AS latest_time
-        FROM attendance_events
-        WHERE event_date >= ${lookback}
-        GROUP BY employee_id, event_date
-      ) final_event
-        ON final_event.employee_id = latest.employee_id
-       AND final_event.event_date = latest.event_date
-       AND final_event.latest_time = latest.event_time
-      INNER JOIN employees employee ON employee.employee_id = latest.employee_id
-      WHERE latest.event_time <= ${cutoff}
-        AND latest.event_type IN (${Prisma.join(openTypes)})
-        AND employee.attendance_required = true
-        AND employee.status = 'ACTIVE'
-        ${employeeClause}
-    `,
-  );
-  if (candidates.length === 0) return 0;
-  await Promise.all(
-    candidates.map((candidate) =>
-      prisma.attendanceDailySummary.updateMany({
-        where: { employeeId: candidate.employeeId, date: candidate.eventDate },
-        data: { hasMissingOutEvent: true, hasMissedCheckout: true },
-      }),
-    ),
-  );
-  const existing = await prisma.attendanceReminder.findMany({
-    where: { eventId: { in: candidates.map((candidate) => candidate.eventId) } },
-    select: { eventId: true },
-  });
-  const existingIds = new Set(existing.map((row) => row.eventId));
-  const newReminders = candidates.filter((candidate) => !existingIds.has(candidate.eventId));
-  if (newReminders.length === 0) return 0;
-
-  await prisma.attendanceReminder.createMany({
-    data: newReminders.map((candidate) => ({
-      employeeId: candidate.employeeId,
-      eventId: candidate.eventId,
-      eventDate: candidate.eventDate,
-      eventTime: candidate.eventTime,
-    })),
-    skipDuplicates: true,
-  });
+async function employeeUserMap(employeeIds: string[]) {
   const users = await prisma.user.findMany({
-    where: { employeeId: { in: newReminders.map((candidate) => candidate.employeeId) } },
+    where: { employeeId: { in: employeeIds } },
     select: { id: true, employeeId: true },
   });
-  await Promise.all(
-    newReminders.map(async (reminder) => {
-      const userId = users.find((user) => user.employeeId === reminder.employeeId)?.id;
-      publishNotificationChange("attendance-checkout-reminder", reminder.eventId);
-      if (userId) {
-        await sendPushToUsers([userId], {
-          title: "Attendance is still running",
-          body: "You have been checked in for more than 9 hours. Check out when your work is complete.",
-          href: "/dashboard",
-          tag: `attendance-${reminder.eventId}`,
-        });
-      }
-    }),
-  );
-  return newReminders.length;
+  return new Map(users.map((user) => [user.employeeId!, user.id]));
+}
+
+/** Missed check-in notification at shift start + 30 minutes. */
+export async function processMissedCheckInNotifications(now = new Date()) {
+  const employeeIds = await activeEmployeeIdsExcludingDeveloperAdmin();
+  const users = await employeeUserMap(employeeIds);
+  let created = 0;
+  for (const employeeId of employeeIds) {
+    const attendanceDate = await attendanceDateForEmployee(employeeId, now);
+    const shift = await resolveEmployeeShift(employeeId, attendanceDate);
+    const bounds = shiftWindowBounds(attendanceDate, shift);
+    if (now.getTime() < bounds.missedCheckInAt.getTime()) continue;
+    if (now.getTime() > bounds.end.getTime()) continue;
+
+    const events = await prisma.attendanceEvent.count({
+      where: {
+        employeeId,
+        eventDate: attendanceDate,
+        eventType: {
+          in: [
+            EventType.OFFICE_IN,
+            EventType.BRANCH_IN,
+            EventType.FIELD_CHECK_IN,
+            EventType.CLIENT_CHECK_IN,
+            EventType.BREAK_IN,
+          ],
+        },
+      },
+    });
+    if (events > 0) continue;
+
+    const tag = `missed-checkin-${employeeId}-${attendanceDate.toISOString().slice(0, 10)}`;
+    const existing = await prisma.attendanceReminder.findFirst({
+      where: { employeeId, eventDate: attendanceDate, eventId: tag },
+    });
+    if (existing) continue;
+
+    // Use reminder table with synthetic eventId key for idempotency
+    await prisma.attendanceReminder.create({
+      data: {
+        employeeId,
+        eventId: tag,
+        eventDate: attendanceDate,
+        eventTime: bounds.missedCheckInAt,
+      },
+    }).catch(async () => {
+      // unique conflict = already notified
+    });
+
+    const userId = users.get(employeeId);
+    publishNotificationChange("attendance-missed-checkin", tag);
+    if (userId) {
+      await sendPushToUsers([userId], {
+        title: "Missed check-in",
+        body: "You have not checked in within 30 minutes of your shift start. Submit a correction within two days if needed.",
+        href: "/attendance/missed-punch",
+        tag,
+      });
+    }
+    created += 1;
+  }
+  return created;
+}
+
+/** At shift end + 30: notify, system checkout, mark Missed Checkout. */
+export async function processMissedCheckouts(now = new Date()) {
+  const employeeIds = await activeEmployeeIdsExcludingDeveloperAdmin();
+  const users = await employeeUserMap(employeeIds);
+  let processed = 0;
+
+  for (const employeeId of employeeIds) {
+    const open = await prisma.attendanceEvent.findFirst({
+      where: {
+        employeeId,
+        eventType: {
+          in: [
+            EventType.OFFICE_IN,
+            EventType.BRANCH_IN,
+            EventType.FIELD_CHECK_IN,
+            EventType.CLIENT_CHECK_IN,
+            EventType.BREAK_IN,
+          ],
+        },
+      },
+      orderBy: { eventTime: "desc" },
+    });
+    if (!open) continue;
+
+    // Confirm still open (latest event is an IN)
+    const latest = await prisma.attendanceEvent.findFirst({
+      where: {
+        employeeId,
+        eventType: {
+          in: [
+            EventType.OFFICE_IN,
+            EventType.OFFICE_OUT,
+            EventType.BRANCH_IN,
+            EventType.BRANCH_OUT,
+            EventType.FIELD_CHECK_IN,
+            EventType.FIELD_CHECK_OUT,
+            EventType.CLIENT_CHECK_IN,
+            EventType.CLIENT_CHECK_OUT,
+            EventType.BREAK_IN,
+            EventType.BREAK_OUT,
+          ],
+        },
+      },
+      orderBy: { eventTime: "desc" },
+    });
+    const openTypes = new Set<EventType>([
+      EventType.OFFICE_IN,
+      EventType.BRANCH_IN,
+      EventType.FIELD_CHECK_IN,
+      EventType.CLIENT_CHECK_IN,
+      EventType.BREAK_IN,
+    ]);
+    if (!latest || !openTypes.has(latest.eventType)) continue;
+
+    const shift = await resolveEmployeeShift(employeeId, latest.eventDate);
+    const bounds = shiftWindowBounds(latest.eventDate, shift);
+    if (now.getTime() < bounds.missedCheckOutAt.getTime()) continue;
+
+    const alreadySystem = await prisma.attendanceEvent.findFirst({
+      where: {
+        employeeId,
+        eventDate: latest.eventDate,
+        eventSource: EventSource.SYSTEM,
+        eventType: {
+          in: [
+            EventType.OFFICE_OUT,
+            EventType.BRANCH_OUT,
+            EventType.FIELD_CHECK_OUT,
+            EventType.CLIENT_CHECK_OUT,
+            EventType.BREAK_OUT,
+          ],
+        },
+      },
+    });
+    if (alreadySystem) {
+      await recalculateDailySummary(employeeId, latest.eventDate);
+      continue;
+    }
+
+    const outType =
+      latest.eventType === EventType.OFFICE_IN || latest.eventType === EventType.BRANCH_IN
+        ? EventType.OFFICE_OUT
+        : latest.eventType === EventType.CLIENT_CHECK_IN
+          ? EventType.CLIENT_CHECK_OUT
+          : latest.eventType === EventType.BREAK_IN
+            ? EventType.BREAK_OUT
+            : EventType.FIELD_CHECK_OUT;
+
+    await createAttendanceEvent({
+      employeeId,
+      eventTime: bounds.missedCheckOutAt,
+      eventSource: EventSource.SYSTEM,
+      eventType: outType,
+      branchId: latest.branchId ?? undefined,
+      remarks: "System checkout after shift end + 30 minutes (Missed Checkout)",
+      rawPayload: { reason: "MISSED_CHECKOUT_AUTO_STOP", shiftEnd: bounds.end.toISOString() },
+    });
+
+    // Force event onto the open attendance date
+    await prisma.attendanceEvent.updateMany({
+      where: {
+        employeeId,
+        eventSource: EventSource.SYSTEM,
+        eventTime: bounds.missedCheckOutAt,
+      },
+      data: { eventDate: latest.eventDate },
+    });
+    await recalculateDailySummary(employeeId, latest.eventDate);
+
+    const tag = `missed-checkout-${employeeId}-${latest.eventDate.toISOString().slice(0, 10)}`;
+    await prisma.attendanceReminder
+      .create({
+        data: {
+          employeeId,
+          eventId: tag,
+          eventDate: latest.eventDate,
+          eventTime: bounds.missedCheckOutAt,
+        },
+      })
+      .catch(() => undefined);
+
+    const userId = users.get(employeeId);
+    publishNotificationChange("attendance-missed-checkout", tag);
+    if (userId) {
+      await sendPushToUsers([userId], {
+        title: "Missed checkout",
+        body: "Your shift ended 30 minutes ago without checkout. The timer was stopped. Submit your actual checkout within two days.",
+        href: "/attendance/missed-punch",
+        tag,
+      });
+    }
+    processed += 1;
+  }
+  return processed;
+}
+
+export async function lockExpiredMissedCheckouts(now = new Date()) {
+  const due = await prisma.attendanceDailySummary.findMany({
+    where: {
+      isMissedCheckout: true,
+      isLocked: false,
+      correctionDeadlineAt: { lte: now },
+    },
+    select: { attendanceId: true },
+  });
+  if (!due.length) return 0;
+  await prisma.attendanceDailySummary.updateMany({
+    where: { attendanceId: { in: due.map((row) => row.attendanceId) } },
+    data: { isLocked: true },
+  });
+  return due.length;
+}
+
+export async function runPolicyMaintenanceJobs(force = false) {
+  const istNow = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+  const key = `${istNow.getUTCFullYear()}-${istNow.getUTCMonth()}-${istNow.getUTCDate()}-${istNow.getUTCHours()}`;
+  if (!force && lastLeaveJobKey === key) return { skipped: true };
+  lastLeaveJobKey = key;
+
+  const missedIn = await processMissedCheckInNotifications();
+  const missedOut = await processMissedCheckouts();
+  const locked = await lockExpiredMissedCheckouts();
+  const medical = await processMedicalCertificateReminders();
+
+  // Month-end / year-end leave jobs (idempotent)
+  const day = istNow.getUTCDate();
+  const lastDay = new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth() + 1, 0)).getUTCDate();
+  let leaveAccrual = 0;
+  let leaveExpiry = 0;
+  if (day === lastDay || force) {
+    leaveAccrual = await runMonthEndCasualLeaveAccrual(new Date());
+  }
+  if ((istNow.getUTCMonth() === 11 && day === 31) || force) {
+    leaveExpiry = await runYearEndLeaveExpiry(istNow.getUTCFullYear());
+  }
+
+  // Keep balances in sync periodically
+  const employeeIds = await activeEmployeeIdsExcludingDeveloperAdmin();
+  for (const employeeId of employeeIds.slice(0, 50)) {
+    await syncEmployeeLeaveBalances(employeeId).catch(() => undefined);
+  }
+
+  return { missedIn, missedOut, locked, medical, leaveAccrual, leaveExpiry };
+}
+
+export function startAttendanceSettlementScheduler() {
+  const tick = () => {
+    void Promise.all([
+      runDailyAttendanceSettlement(),
+      runPolicyMaintenanceJobs(),
+    ]).catch((error) => {
+      console.error("Attendance settlement failed", error);
+    });
+  };
+
+  setTimeout(tick, 30_000).unref();
+  setInterval(tick, 5 * 60 * 1000).unref();
+}
+
+/** @deprecated — replaced by shift-end + 30 system checkout */
+export async function settleExpiredOpenPunches(_employeeId?: string) {
+  return processMissedCheckouts();
 }

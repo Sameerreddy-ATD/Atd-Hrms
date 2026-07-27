@@ -178,20 +178,22 @@ flowchart LR
 
 ### Company leave policies
 
-- **Casual Leave:** one credit is added on the first of each month, beginning with the month after joining. A July 16 joiner receives the first credit on August 1. Twelve credits accrue per year, unused credits carry forward, and approved usage may make the balance negative. Payroll handling remains manual for HR.
-- **Sick Leave:** six credits are available per calendar year and expire at year end. At most two Sick Leave days may be used in one month, and usage cannot exceed the available balance. A Google Drive medical-report link shared with anyone who has the link is due within three calendar days after the leave ends.
+- **Casual Leave:** join on or before the 5th → first credit at that month-end; join after the 5th → first credit at the next month-end. Then one credit each month-end. Twelve credits accrue per year; unused credits carry forward. Approvals that would leave an invalid negative balance are blocked. Payroll handling remains manual for HR.
+- **Sick Leave:** six credits are available per calendar year and expire at year end. At most two Sick Leave days may be used in one month, and usage cannot exceed the available balance. A private medical certificate upload (PDF/image; no public Drive links) is due within 48 hours after return-to-work; reminders are sent at 24 hours and 2 hours before the deadline.
 - **Unpaid Leave / LOP:** has no credit balance. The direct head approves the request and HR handles salary deductions manually.
-- **Comp Off:** one credit is earned automatically after a completed punch-in/out work session on an active portal holiday. One credit is used per request and no approval is required. A credit expires on December 31 of the year it was earned and never carries into the next year.
-- The employee and direct head see available credit, requested days, and projected balance. HR can make audited manual credit adjustments.
+- **Comp Off:** one credit is earned after a completed Full Day (≥9 hours) work session on an active company holiday. Reporting Head approval is required; balance is consumed only on approval. A credit expires on December 31 of the year it was earned and never carries into the next year.
+- Leave balance changes are recorded in an explicit ledger (accrual, usage, carry-forward, expiry, revoke).
+- The employee and Reporting Head see available credit, requested days, and projected balance. HR can make audited manual credit adjustments.
 
 ### Weekly-off policy
 
 - Weekly off is not fixed during account creation or employee editing. The approved date request is the only source of truth.
-- An employee chooses one date in a Monday-Sunday week and submits it at least one calendar day in advance.
-- The organization head (nearest unit head) and higher heads in the same parent chain approve or reject the request.
-- Only one weekly off may be used in a week. Unused entitlement expires and never carries forward.
+- Non-Sunday weekly offs must be requested at least one calendar day in advance and go to the organization head for approval.
+- Sunday weekly offs auto-confirm for today or a future Sunday (past Sundays are blocked).
+- Only one weekly off may be used in a Monday–Sunday week. Unused entitlement expires and never carries forward.
 - Weekly offs cannot be on consecutive dates, including Sunday followed by Monday in the next week.
-- A punch on an approved weekly off changes attendance to Present automatically.
+- Weekly offs cannot fall on a company holiday; choose another day in the same week.
+- A punch on an approved weekly off recalculates attendance from the worked hours (Full Day / Half Day / Absent).
 
 ## Holiday Management
 
@@ -199,10 +201,17 @@ Developer Admin, Main Admin, and HR can add, edit, and deactivate holidays.
 
 Required behavior:
 
-- Name, date, classification, and optional branch scope are stored.
-- Duplicate active entries for the same date and branch are rejected.
+- Name, date, classification, and optional description are stored. Holidays are company-wide (not branch-scoped).
+- Duplicate active entries for the same date and name are rejected.
 - Every active holiday-list entry is counted as a holiday for attendance.
 - Deactivation preserves audit history and removes its attendance effect during recalculation.
+
+## Attendance results
+
+- Primary day results are **Full Day** (≥9h), **Half Day** (4–&lt;9h), and **Absent** (&lt;4h).
+- **Late** and **Missed Checkout** are flags, not primary results. Missed checkout uses a system provisional checkout at shift end + 30 minutes; employees have a two-day correction window, then HR lock.
+- Mobile location sources are labeled **Branch-Mobile** (inside branch radius) or **Mobile**.
+- Employees must have an assigned shift for the attendance date (catalog assignment; profile times are used to backfill).
 
 ## Work Planner
 

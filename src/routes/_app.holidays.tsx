@@ -41,8 +41,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Branch, Holiday } from "@/types/domain";
-import { branchesApi, reportsApi } from "@/services/api";
+import type { Holiday } from "@/types/domain";
+import { reportsApi } from "@/services/api";
 import { CalendarDays, Pencil, Plus, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/holidays")({
@@ -51,40 +51,35 @@ export const Route = createFileRoute("/_app/holidays")({
 
 function HolidaysPage() {
   const [holidays, setHolidays] = useState<Holiday[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Holiday | null>(null);
   const [deleteHolidayTarget, setDeleteHolidayTarget] = useState<Holiday | null>(null);
   const [form, setForm] = useState({
     name: "",
     date: "",
+    description: "",
     type: "Public" as Holiday["type"],
-    branchId: "all",
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    Promise.all([reportsApi.holidays(), branchesApi.list()])
-      .then(([holidayRows, branchRows]) => {
-        setHolidays(holidayRows);
-        setBranches(branchRows);
-      })
+    reportsApi
+      .holidays()
+      .then(setHolidays)
       .catch((err) => setError((err as Error).message))
       .finally(() => setLoading(false));
   }, []);
 
-  const branchName = (id?: string) => branches.find((b) => b.id === id)?.name ?? "All branches";
-
   function resetForm() {
     setEditing(null);
-    setForm({ name: "", date: "", type: "Public", branchId: "all" });
+    setForm({ name: "", date: "", description: "", type: "Public" });
     setShowForm(false);
   }
 
   function openCreateDialog() {
     setEditing(null);
-    setForm({ name: "", date: "", type: "Public", branchId: "all" });
+    setForm({ name: "", date: "", description: "", type: "Public" });
     setShowForm(true);
   }
 
@@ -93,8 +88,8 @@ function HolidaysPage() {
     setForm({
       name: holiday.name,
       date: holiday.date,
+      description: holiday.description ?? "",
       type: holiday.type,
-      branchId: holiday.branchId ?? "all",
     });
     setShowForm(true);
   }
@@ -108,8 +103,8 @@ function HolidaysPage() {
     const payload = {
       name: form.name,
       date: form.date,
+      description: form.description || undefined,
       type: form.type,
-      branchId: form.branchId === "all" ? undefined : form.branchId,
       status: "ACTIVE",
     };
     try {
@@ -140,7 +135,7 @@ function HolidaysPage() {
     <div>
       <PageHeader
         title="Holidays"
-        description="Every active holiday listed here counts in attendance for its selected branch scope."
+        description="Company-wide holiday calendar. Active holidays apply to every attendance-enabled employee."
         actions={
           <Button size="sm" onClick={openCreateDialog}>
             <Plus className="mr-2 h-4 w-4" /> Add holiday
@@ -159,12 +154,11 @@ function HolidaysPage() {
                   <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
                     <CalendarDays className="h-4 w-4" /> {holiday.date}
                   </p>
+                  {holiday.description && (
+                    <p className="mt-2 text-sm text-muted-foreground">{holiday.description}</p>
+                  )}
                 </div>
                 <Badge variant="outline">{holiday.type}</Badge>
-              </div>
-              <div className="mt-3 rounded-md bg-muted/40 p-3">
-                <p className="text-xs text-muted-foreground">Applies to</p>
-                <p className="text-sm font-medium">{branchName(holiday.branchId)}</p>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <Button variant="outline" onClick={() => openEditDialog(holiday)}>
@@ -194,7 +188,7 @@ function HolidaysPage() {
                 <TableHead>Date</TableHead>
                 <TableHead>Holiday</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead>Applies to</TableHead>
+                <TableHead>Description</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -206,7 +200,9 @@ function HolidaysPage() {
                   <TableCell>
                     <Badge variant="outline">{h.type}</Badge>
                   </TableCell>
-                  <TableCell>{branchName(h.branchId)}</TableCell>
+                  <TableCell className="max-w-xs truncate text-muted-foreground">
+                    {h.description || "—"}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button size="sm" variant="outline" onClick={() => openEditDialog(h)}>
@@ -236,8 +232,7 @@ function HolidaysPage() {
           <DialogHeader>
             <DialogTitle>{editing ? "Edit holiday" : "Add holiday"}</DialogTitle>
             <DialogDescription>
-              Every active entry counts as a holiday. Type is a classification label; branch scope
-              controls which employees are affected.
+              Holidays are company-wide. Nine hours of holiday work earns one Comp Off credit.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={saveHoliday} className="grid gap-3 sm:grid-cols-2">
@@ -274,24 +269,14 @@ function HolidaysPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label>Branch</Label>
-              <Select
-                value={form.branchId}
-                onValueChange={(branchId) => setForm((current) => ({ ...current, branchId }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All branches</SelectItem>
-                  {branches.map((branch) => (
-                    <SelectItem key={branch.id} value={branch.id}>
-                      {branch.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Description (optional)</Label>
+              <Input
+                value={form.description}
+                onChange={(e) =>
+                  setForm((current) => ({ ...current, description: e.target.value }))
+                }
+              />
             </div>
             <DialogFooter className="sm:col-span-2">
               <Button type="button" variant="outline" onClick={resetForm}>

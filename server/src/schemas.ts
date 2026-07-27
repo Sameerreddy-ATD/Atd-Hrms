@@ -350,12 +350,32 @@ export const taskLogSchema = z.object({
 export const holidaySchema = z.object({
   name: z.string().min(2).max(160),
   date: z.coerce.date(),
-  branchId: z.string().nullable().optional(),
+  description: z.string().trim().max(1000).optional(),
   type: z.enum(["Public", "Optional", "Restricted"]),
   status: z.string().max(40).optional(),
 });
 
 export const holidayUpdateSchema = holidaySchema.partial();
+
+export const shiftDefinitionSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  code: z
+    .string()
+    .trim()
+    .min(2)
+    .max(40)
+    .regex(/^[A-Z0-9_]+$/, "Use uppercase letters, numbers, and underscores"),
+  shiftType: z.nativeEnum(ShiftType).default(ShiftType.DAY),
+  startMinutes: z.coerce.number().int().min(0).max(1439),
+  endMinutes: z.coerce.number().int().min(0).max(1439),
+  active: z.boolean().optional(),
+});
+
+export const employeeShiftAssignmentSchema = z.object({
+  shiftId: z.string().min(1),
+  effectiveFrom: z.coerce.date(),
+  effectiveTo: z.coerce.date().nullable().optional(),
+});
 
 export const companyAssetSchema = z.object({
   catalogId: z.string().min(1).nullable().optional(),
@@ -592,6 +612,7 @@ export const leaveRequestSchema = z.object({
   fromDate: z.coerce.date(),
   toDate: z.coerce.date(),
   days: z.number().positive().max(365),
+  session: z.enum(["FULL", "FIRST_HALF", "SECOND_HALF"]).optional(),
   reason: z.string().trim().min(3).max(1000),
   medicalDocumentUrl: z
     .string()
@@ -599,11 +620,8 @@ export const leaveRequestSchema = z.object({
     .max(2000)
     .optional()
     .refine(
-      (value) =>
-        !value ||
-        value.startsWith("/leave/medical-files/") ||
-        /^https?:\/\//i.test(value),
-      "Invalid medical document URL",
+      (value) => !value || value.startsWith("/leave/medical-files/"),
+      "Medical documents must be uploaded through the secure private vault",
     ),
 });
 
@@ -614,8 +632,8 @@ export const medicalDocumentSchema = z.object({
     .min(1)
     .max(2000)
     .refine(
-      (value) => value.startsWith("/leave/medical-files/") || /^https?:\/\//i.test(value),
-      "Invalid medical document URL",
+      (value) => value.startsWith("/leave/medical-files/"),
+      "Medical documents must be uploaded through the secure private vault",
     ),
 });
 

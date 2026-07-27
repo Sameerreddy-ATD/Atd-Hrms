@@ -20,6 +20,7 @@ const MAX_RETAINED_IMAGES_PER_USER = 5;
 
 export const faceSettingsSchema = z.object({
   verificationEnabled: z.boolean().default(true),
+  registrationApprovalMode: z.enum(["MANUAL", "AUTOMATIC"]).default("MANUAL"),
   retentionDays: z.number().int().min(1).max(30).default(5),
   matchThreshold: z.number().min(0.4).max(0.9).default(0.5),
   minFaceConfidence: z.number().min(0.4).max(1).default(0.6),
@@ -469,6 +470,7 @@ export async function submitFaceEnrollment(input: {
     capture: input.capture,
   });
   const now = new Date();
+  const autoApprove = settings.registrationApprovalMode === "AUTOMATIC";
   const template = {
     version: 2 as const,
     centroid: input.capture.descriptor,
@@ -481,21 +483,21 @@ export async function submitFaceEnrollment(input: {
     create: {
       userId: input.userId,
       descriptorEncrypted: encryptEmployeeField(JSON.stringify(template))!,
-      status: FaceEnrollmentStatus.PENDING,
+      status: autoApprove ? FaceEnrollmentStatus.APPROVED : FaceEnrollmentStatus.PENDING,
       consentVersion: FACE_CONSENT_VERSION,
       consentedAt: now,
       submittedAt: now,
-      approvedByUserId: null,
-      approvedAt: null,
+      approvedByUserId: autoApprove ? input.userId : null,
+      approvedAt: autoApprove ? now : null,
     },
     update: {
       descriptorEncrypted: encryptEmployeeField(JSON.stringify(template))!,
-      status: FaceEnrollmentStatus.PENDING,
+      status: autoApprove ? FaceEnrollmentStatus.APPROVED : FaceEnrollmentStatus.PENDING,
       consentVersion: FACE_CONSENT_VERSION,
       consentedAt: now,
       submittedAt: now,
-      approvedByUserId: null,
-      approvedAt: null,
+      approvedByUserId: autoApprove ? input.userId : null,
+      approvedAt: autoApprove ? now : null,
       rejectedAt: null,
       rejectionReason: null,
       disabledAt: null,
@@ -504,7 +506,7 @@ export async function submitFaceEnrollment(input: {
   invalidateFaceStatusCache(input.userId);
   return {
     status: profile.status,
-    autoApproved: false,
+    autoApproved: autoApprove,
     consentVersion: FACE_CONSENT_VERSION,
   };
 }

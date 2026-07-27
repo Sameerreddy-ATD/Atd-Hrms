@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/table";
 import type { BankAccountType, Branch, CompanyEntity, Department, User } from "@/types/domain";
 import { COMPANY_LABELS, ROLE_LABELS } from "@/types/domain";
-import { branchesApi, employeesApi } from "@/services/api";
+import { branchesApi, employeesApi, shiftsApi } from "@/services/api";
 import { Search, Pencil } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
@@ -47,6 +47,16 @@ function EmployeesPage() {
   const [employees, setEmployees] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [shiftCatalog, setShiftCatalog] = useState<
+    Array<{
+      id: string;
+      name: string;
+      code: string;
+      shiftType: "DAY" | "NIGHT";
+      startMinutes: number;
+      endMinutes: number;
+    }>
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [hasMore, setHasMore] = useState(false);
@@ -93,12 +103,14 @@ function EmployeesPage() {
       employeesApi.list({ limit: PAGE_SIZE, offset: 0 }),
       branchesApi.list(),
       branchesApi.departments(),
+      shiftsApi.list().catch(() => []),
     ])
-      .then(([employeeRows, branchRows, departmentRows]) => {
+      .then(([employeeRows, branchRows, departmentRows, shiftRows]) => {
         setEmployees(employeeRows);
         setHasMore(employeeRows.length === PAGE_SIZE);
         setBranches(branchRows);
         setDepartments(departmentRows);
+        setShiftCatalog(shiftRows);
       })
       .catch((err) => setError((err as Error).message))
       .finally(() => setLoading(false));
@@ -660,6 +672,44 @@ function EmployeesPage() {
                 <div className="border-t border-border pt-4 sm:col-span-2">
                   <h3 className="text-sm font-semibold">Attendance configuration</h3>
                 </div>
+                {shiftCatalog.length > 0 && (
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label>Shift catalog</Label>
+                    <Select
+                      value={
+                        shiftCatalog.find(
+                          (shift) =>
+                            shift.shiftType === editForm.shiftType &&
+                            shift.startMinutes === editForm.shiftStartMinutes &&
+                            shift.endMinutes === editForm.shiftEndMinutes,
+                        )?.id ?? "custom"
+                      }
+                      onValueChange={(value) => {
+                        if (value === "custom") return;
+                        const shift = shiftCatalog.find((row) => row.id === value);
+                        if (!shift) return;
+                        setEditForm((current) => ({
+                          ...current,
+                          shiftType: shift.shiftType,
+                          shiftStartMinutes: shift.startMinutes,
+                          shiftEndMinutes: shift.endMinutes,
+                        }));
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a catalog shift" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {shiftCatalog.map((shift) => (
+                          <SelectItem key={shift.id} value={shift.id}>
+                            {shift.name}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="custom">Custom times</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   <Label>Shift</Label>
                   <Select

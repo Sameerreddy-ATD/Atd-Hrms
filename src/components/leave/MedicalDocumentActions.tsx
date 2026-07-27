@@ -101,22 +101,22 @@ export function MedicalDocumentUploadCard({
   async function save() {
     setSaving(true);
     try {
-      let nextUrl = url.trim();
-      if (file) {
-        const { fileToBase64 } = await import("@/lib/file-upload");
-        const upload = await fileToBase64(file);
-        const stored = await leaveApi.uploadMedicalFile(upload);
-        nextUrl = stored.url;
-        setUrl(stored.url);
-      }
-      if (!nextUrl) {
-        toast.error("Upload a medical report or paste a Drive link");
+      if (!file) {
+        toast.error("Upload a medical certificate file (PDF or image)");
         return;
       }
-      const updated = await leaveApi.updateMedicalDocument(leave.id, nextUrl);
+      if (file.size > 1_500_000) {
+        toast.error("File must be under 1.5 MB");
+        return;
+      }
+      const { fileToBase64 } = await import("@/lib/file-upload");
+      const upload = await fileToBase64(file);
+      const stored = await leaveApi.uploadMedicalFile(upload);
+      const updated = await leaveApi.updateMedicalDocument(leave.id, stored.url);
       onUpdated(updated);
       setFile(null);
-      toast.success("Medical document saved");
+      setUrl(stored.url);
+      toast.success("Medical certificate saved securely");
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -129,10 +129,10 @@ export function MedicalDocumentUploadCard({
       <CardContent className="p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="font-semibold">Sick leave medical report</p>
+            <p className="font-semibold">Sick leave medical certificate</p>
             <p className="text-sm text-muted-foreground">
-              {leave.from} to {leave.to}. Upload within 2 days after leave ends; HR is notified if
-              overdue.
+              {leave.from} to {leave.to}. Upload a private PDF or image within 48 hours after
+              returning to work. Reminders are sent at 24 hours and 2 hours before the deadline.
             </p>
           </div>
           <div className="rounded-md bg-amber-50 px-3 py-2 text-right dark:bg-amber-950/30">
@@ -147,18 +147,12 @@ export function MedicalDocumentUploadCard({
         <div className="mt-3 space-y-2">
           <Input
             type="file"
-            accept=".pdf,.png,.jpg,.jpeg"
+            accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
           />
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Input
-              type="url"
-              value={url}
-              placeholder="Or paste a Google Drive link"
-              onChange={(event) => setUrl(event.target.value)}
-            />
-            <Button onClick={() => void save()} disabled={saving} className="sm:shrink-0">
-              {saving ? "Saving..." : "Save"}
+            <Button onClick={() => void save()} disabled={saving || !file} className="sm:shrink-0">
+              {saving ? "Saving..." : "Upload securely"}
             </Button>
             {leave.medicalDocumentUrl && (
               <Button asChild variant="outline" size="icon" title="Open medical document">
@@ -174,7 +168,8 @@ export function MedicalDocumentUploadCard({
           </div>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          Prefer a private upload. Drive links still work if anyone with the link can view.
+          Public or shareable Drive links are not accepted. Authorized roles only can open this
+          file.
         </p>
       </CardContent>
     </Card>

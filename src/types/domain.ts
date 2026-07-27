@@ -203,6 +203,7 @@ export interface FaceEvidenceRecord {
 
 export interface FaceSettings {
   verificationEnabled: boolean;
+  registrationApprovalMode: "MANUAL" | "AUTOMATIC";
   retentionDays: number;
   matchThreshold: number;
   minFaceConfidence: number;
@@ -372,6 +373,17 @@ export interface CertificateRequest {
 }
 
 export type AttendanceStatus =
+  | "Full Day"
+  | "Half Day"
+  | "Absent"
+  | "Late"
+  | "Holiday"
+  | "Week Off"
+  | "Paid Leave"
+  | "Unpaid Leave"
+  | "Unpaid Leave / LOP"
+  | "Missed Checkout"
+  | "Pending attendance"
   | "Present"
   | "Present - Home Branch"
   | "Present - Other Branch"
@@ -379,23 +391,22 @@ export type AttendanceStatus =
   | "Present - Branch Mismatch"
   | "Present - Field"
   | "Present - Office + Field"
-  | "Late"
   | "Early Exit"
-  | "Half Day"
-  | "Absent"
   | "On Leave"
-  | "Paid Leave"
-  | "Unpaid Leave"
-  | "Holiday"
-  | "Week Off"
   | "Missed Punch"
-  | "Missed Checkout"
   | "Manual Correction"
   | "Location Flagged"
   | "Pending Approval"
-  | "Rejected Attendance";
+  | "Rejected Attendance"
+  | string;
 
-export type AttendanceSource = "Thumb Scanner" | "Mobile GPS" | "Manual Entry" | "System";
+export type AttendanceSource =
+  | "Branch-Mobile"
+  | "Mobile"
+  | "Thumb Scanner"
+  | "Manual Entry"
+  | "System"
+  | string;
 
 export interface AttendanceRecord {
   id: string;
@@ -413,7 +424,10 @@ export interface AttendanceRecord {
   punchOutSource?: AttendanceSource;
   punchOutBranchId?: string;
   status: AttendanceStatus;
+  attendanceResult?: string;
   source: AttendanceSource;
+  checkInSource?: string;
+  checkOutSource?: string;
   latitude?: number;
   longitude?: number;
   fieldCheckInLatitude?: number;
@@ -431,6 +445,10 @@ export interface AttendanceRecord {
   workedMinutes?: number;
   hasMissingOutEvent?: boolean;
   hasMissedCheckout?: boolean;
+  isLate?: boolean;
+  isLocked?: boolean;
+  correctionDeadlineAt?: string;
+  provisionalCheckOutAt?: string;
   latestOpenPunchAt?: string;
   officeHours?: number;
   fieldHours?: number;
@@ -528,7 +546,7 @@ export interface Holiday {
   id: string;
   name: string;
   date: string;
-  branchId?: string;
+  description?: string;
   type: "Public" | "Optional" | "Restricted";
   status?: string;
 }

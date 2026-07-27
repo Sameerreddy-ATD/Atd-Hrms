@@ -273,6 +273,47 @@ function FaceSecurityPage() {
 
       {settings && (
         <Card>
+          <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <div>
+              <div className="font-semibold">Face registration approval</div>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                Manual keeps new registrations pending until you approve them. Automatic approves
+                valid liveness registrations immediately and records them in auto-approved history.
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-3 rounded-xl border bg-background px-4 py-3">
+              <Label htmlFor="registrationApprovalMode">Mode</Label>
+              <select
+                id="registrationApprovalMode"
+                className="h-9 rounded-md border bg-background px-3 text-sm"
+                value={settings.registrationApprovalMode ?? "MANUAL"}
+                disabled={saving}
+                onChange={(event) => {
+                  const registrationApprovalMode = event.target.value as "MANUAL" | "AUTOMATIC";
+                  const next = { ...settings, registrationApprovalMode };
+                  setSettings(next);
+                  void faceApi
+                    .updateSettings(next)
+                    .then(() =>
+                      toast.success(
+                        registrationApprovalMode === "AUTOMATIC"
+                          ? "Automatic face approval enabled"
+                          : "Manual face approval enabled",
+                      ),
+                    )
+                    .catch((error) => toast.error((error as Error).message));
+                }}
+              >
+                <option value="MANUAL">Manual</option>
+                <option value="AUTOMATIC">Automatic</option>
+              </select>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {settings && (
+        <Card>
           <CardHeader>
             <CardTitle className="text-base">Privacy and verification policy</CardTitle>
           </CardHeader>

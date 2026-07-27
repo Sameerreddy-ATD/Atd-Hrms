@@ -70,18 +70,13 @@ export function eachDateInRange(from: string | Date, to: string | Date) {
 }
 
 export async function findHolidayForEmployee(employeeId: string, eventDate: Date) {
-  const employee = await prisma.employee.findUnique({
-    where: { employeeId },
-    select: { homeBranchId: true },
-  });
-  const branchId = employee?.homeBranchId ?? null;
+  void employeeId;
   return prisma.holiday.findFirst({
     where: {
       status: "ACTIVE",
       date: eventDate,
-      OR: [{ branchId: null }, ...(branchId ? [{ branchId }] : [])],
     },
-    orderBy: { branchId: "desc" },
+    orderBy: { createdAt: "asc" },
   });
 }
 

@@ -315,6 +315,65 @@ export const employeesApi = {
         message: string;
       }>
     >("/employees/birthdays"),
+  getShiftAssignment: (id: string) =>
+    request<{
+      id: string;
+      employeeId: string;
+      shiftId: string;
+      shiftName: string;
+      shiftType: string;
+      startMinutes: number;
+      endMinutes: number;
+      effectiveFrom: string;
+      effectiveTo: string | null;
+    }>(`/employees/${id}/shift-assignment`),
+  assignShift: (
+    id: string,
+    body: { shiftId: string; effectiveFrom: string; effectiveTo?: string | null },
+  ) =>
+    request<{
+      id: string;
+      employeeId: string;
+      shiftId: string;
+      shiftName: string;
+      effectiveFrom: string;
+      effectiveTo: string | null;
+    }>(`/employees/${id}/shift-assignment`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+};
+
+export const shiftsApi = {
+  list: (includeInactive = false) =>
+    request<
+      Array<{
+        id: string;
+        name: string;
+        code: string;
+        shiftType: "DAY" | "NIGHT";
+        startMinutes: number;
+        endMinutes: number;
+        active: boolean;
+      }>
+    >(`/shifts${toQuery({ includeInactive: includeInactive ? "true" : undefined })}`),
+  create: (body: {
+    name: string;
+    code: string;
+    shiftType: "DAY" | "NIGHT";
+    startMinutes: number;
+    endMinutes: number;
+    active?: boolean;
+  }) =>
+    request<{
+      id: string;
+      name: string;
+      code: string;
+      shiftType: "DAY" | "NIGHT";
+      startMinutes: number;
+      endMinutes: number;
+      active: boolean;
+    }>("/shifts", { method: "POST", body: JSON.stringify(body) }),
 };
 
 export const faceApi = {
@@ -411,6 +470,7 @@ export const leaveApi = {
     fromDate: string;
     toDate: string;
     days: number;
+    session?: "FULL" | "FIRST_HALF" | "SECOND_HALF";
     reason: string;
     medicalDocumentUrl?: string;
   }) => request<LeaveRequest>("/leave/requests", { method: "POST", body: JSON.stringify(req) }),

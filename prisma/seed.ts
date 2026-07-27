@@ -365,7 +365,7 @@ async function main() {
       monthlyCredit: null,
       carryForward: false,
       requiresMedicalDocument: false,
-      approvalRequired: false,
+      approvalRequired: true,
     },
   ]) {
     const { leaveTypeId, ...data } = policy;
@@ -373,6 +373,37 @@ async function main() {
       where: { code: policy.code },
       update: data,
       create: { leaveTypeId, ...data },
+    });
+  }
+
+  for (const shift of [
+    {
+      shiftId: "shift-morning-0900",
+      name: "Morning 09:00–18:00",
+      code: "MORNING_0900",
+      shiftType: "DAY" as const,
+      startMinutes: 540,
+      endMinutes: 1080,
+    },
+    {
+      shiftId: "shift-morning-0930",
+      name: "Morning 09:30–18:30",
+      code: "MORNING_0930",
+      shiftType: "DAY" as const,
+      startMinutes: 570,
+      endMinutes: 1110,
+    },
+  ]) {
+    await prisma.shiftDefinition.upsert({
+      where: { code: shift.code },
+      update: {
+        name: shift.name,
+        shiftType: shift.shiftType,
+        startMinutes: shift.startMinutes,
+        endMinutes: shift.endMinutes,
+        active: true,
+      },
+      create: shift,
     });
   }
 

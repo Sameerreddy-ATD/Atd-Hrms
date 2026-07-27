@@ -28,6 +28,7 @@ import { resolveAssetStatus } from "./assetRules.js";
 import { birthdayMessage } from "./birthdayMessages.js";
 import { isUpcomingBirthday } from "./birthdays.js";
 import {
+  activeEmployeeIdsExcludingDeveloperAdmin,
   cancelApprovedLeaveForDay,
   cancelLeaveDates,
   eachDateInRange,
@@ -45,6 +46,7 @@ import {
   createAttendanceEvent,
   recalculateDailySummary,
 } from "./attendanceEngine.js";
+import { ensureEmployeeShiftAssignment } from "./attendancePolicy.js";
 import { settleExpiredOpenPunches } from "./attendanceSettlement.js";
 import { openAttendanceStream } from "./attendanceLive.js";
 import { config } from "./config.js";
@@ -124,6 +126,8 @@ import {
   departmentUpdateSchema,
   holidaySchema,
   holidayUpdateSchema,
+  shiftDefinitionSchema,
+  employeeShiftAssignmentSchema,
   leaveRequestSchema,
   leaveBalanceAdjustmentSchema,
   leaveTypeSchema,
@@ -653,9 +657,24 @@ export function createApp() {
   }
 
   async function assertOrganizationApproverForCorrection(
-    user: { employeeId?: string | null },
-    request: { approverId?: string | null; employeeId: string },
+    user: { id: string; employeeId?: string | null; role: Role },
+    request: {
+      approverId?: string | null;
+      employeeId: string;
+      isHrOnly?: boolean;
+    },
   ) {
+    const isHr = ([Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR] as Role[]).includes(user.role);
+    if (request.isHrOnly) {
+      if (!isHr) {
+        throw new HttpError(
+          403,
+          "This correction is locked for HR only after the employee window expired.",
+        );
+      }
+      return user.employeeId ?? user.id;
+    }
+    if (isHr) return user.employeeId ?? user.id;
     if (!user.employeeId) {
       throw new HttpError(
         403,
@@ -2335,6 +2354,39 @@ export function createApp() {
           ipAddress: req.ip,
         });
       }
+      if (
+        body.shiftType !== undefined ||
+        body.shiftStartMinutes !== undefined ||
+        body.shiftEndMinutes !== undefined
+      ) {
+        const today = todayIstDate();
+        const active = await prisma.employeeShiftAssignment.findFirst({
+          where: {
+            employeeId,
+            effectiveFrom: { lte: today },
+            OR: [{ effectiveTo: null }, { effectiveTo: { gte: today } }],
+          },
+          include: { shift: true },
+          orderBy: { effectiveFrom: "desc" },
+        });
+        const nextType = employee.shiftType;
+        const nextStart = employee.shiftStartMinutes;
+        const nextEnd = employee.shiftEndMinutes;
+        const matches =
+          active?.shift &&
+          active.shift.shiftType === nextType &&
+          active.shift.startMinutes === nextStart &&
+          active.shift.endMinutes === nextEnd;
+        if (!matches) {
+          if (active) {
+            await prisma.employeeShiftAssignment.update({
+              where: { assignmentId: active.assignmentId },
+              data: { effectiveTo: new Date(today.getTime() - 24 * 60 * 60 * 1000) },
+            });
+          }
+          await ensureEmployeeShiftAssignment(employeeId, today, req.user!.employeeId);
+        }
+      }
       res.json(employeeDto(employee, req.user!, true));
     }),
   );
@@ -3614,6 +3666,7 @@ export function createApp() {
     }
     const eventDate = await attendanceDateForEmployee(employeeId, body.eventTime ?? new Date());
     if (!isCheckOut) {
+      await ensureEmployeeShiftAssignment(employeeId, eventDate, req.user!.employeeId);
       const unresolvedPreviousDay = await prisma.attendanceDailySummary.findFirst({
         where: {
           employeeId,
@@ -4165,8 +4218,47 @@ export function createApp() {
         );
       }
 
-      const approver = await findLeaveApprover(body.employeeId);
-      if (!approver) {
+      const summary = await prisma.attendanceDailySummary.findUnique({
+        where: {
+          employeeId_date: { employeeId: body.employeeId, date: startOfDayUtc(body.date) },
+        },
+      });
+      const isHr = ([Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR] as Role[]).includes(
+        req.user!.role,
+      );
+      if (summary?.isLocked && !isHr) {
+        throw new HttpError(
+          403,
+          "This attendance record is locked after the two-day correction window. Only HR can resolve it.",
+        );
+      }
+      if (
+        !isHr &&
+        summary?.correctionDeadlineAt &&
+        Date.now() > summary.correctionDeadlineAt.getTime()
+      ) {
+        throw new HttpError(
+          400,
+          "The two-day employee correction window has expired. Contact HR to resolve this attendance record.",
+        );
+      }
+      // Default window: attendance date + 2 days when summary has no deadline yet
+      if (!isHr && !summary?.correctionDeadlineAt) {
+        const windowEnd = startOfDayUtc(body.date);
+        windowEnd.setUTCDate(windowEnd.getUTCDate() + 2);
+        windowEnd.setUTCHours(18, 29, 59, 999);
+        // convert rough IST end — use +2 calendar days from date
+        const deadline = new Date(startOfDayUtc(body.date).getTime() + 2 * 24 * 60 * 60 * 1000);
+        if (Date.now() > deadline.getTime()) {
+          throw new HttpError(
+            400,
+            "The two-day employee correction window has expired. Contact HR to resolve this attendance record.",
+          );
+        }
+      }
+
+      const approver = isHr ? null : await findLeaveApprover(body.employeeId);
+      if (!isHr && !approver) {
         throw new HttpError(
           400,
           "No organization head is available for this punch request. Contact HR to complete the organization chart.",
@@ -4181,7 +4273,9 @@ export function createApp() {
           eventType: body.eventType,
           remarks: body.remarks,
           status: "PENDING",
-          approverId: approver.employeeId,
+          approverId: approver?.employeeId ?? null,
+          isHrOnly: Boolean(summary?.isLocked || isHr),
+          employeeWindowEndsAt: summary?.correctionDeadlineAt ?? null,
         },
       });
 
@@ -4197,7 +4291,7 @@ export function createApp() {
         ok: true,
         requestId: request.requestId,
         status: request.status,
-        approverName: approver.name,
+        approverName: approver?.name ?? "HR",
       });
     }),
   );
@@ -4490,10 +4584,24 @@ export function createApp() {
       const today = todayIstDate();
       const tomorrow = new Date(today);
       tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-      if (date < tomorrow) {
+      const sundayAuto = istDateParts(date).weekday === 0;
+      if (!sundayAuto && date < tomorrow) {
         throw new HttpError(400, "A weekly off must be requested at least one day in advance");
       }
+      if (sundayAuto && date < today) {
+        throw new HttpError(400, "A Sunday weekly off cannot be selected in the past");
+      }
       await assertWeeklyOffNotConsecutive(req.user!.employeeId, date);
+      const holiday = await prisma.holiday.findFirst({
+        where: { status: "ACTIVE", date },
+      });
+      // Holiday overlap: allow selecting another day in the same week (caller retries); block same holiday date
+      if (holiday) {
+        throw new HttpError(
+          400,
+          `This date is a company holiday (${holiday.name}). Choose another weekly off day in the same Monday–Sunday week.`,
+        );
+      }
       const approver = await findLeaveApprover(req.user!.employeeId);
       if (!approver) throw new HttpError(400, "No organization head is available for approval");
       const weekStart = weeklyOffWeekStart(date);
@@ -4513,17 +4621,23 @@ export function createApp() {
           weekStart,
           approverId: approver.employeeId,
           reason: body.reason,
+          status: sundayAuto ? "APPROVED" : "PENDING",
+          reviewedBy: sundayAuto ? req.user!.id : null,
         },
         update: {
           date,
           approverId: approver.employeeId,
           reason: body.reason,
-          status: "PENDING",
-          reviewedBy: null,
+          status: sundayAuto ? "APPROVED" : "PENDING",
+          reviewedBy: sundayAuto ? req.user!.id : null,
         },
         include: { employee: { select: { name: true, employeeCode: true } } },
       });
-      publishNotificationChange("weekly-off-requested", row.weeklyOffRequestId);
+      if (sundayAuto) await recalculateDailySummary(row.employeeId, row.date);
+      publishNotificationChange(
+        sundayAuto ? "weekly-off-approved" : "weekly-off-requested",
+        row.weeklyOffRequestId,
+      );
       res.status(201).json((await weeklyOffRequestDtos([row]))[0]);
     }),
   );
@@ -4822,47 +4936,44 @@ export function createApp() {
         fromDate: body.fromDate,
         toDate: body.toDate,
         days: body.days,
+        session: body.session,
       });
-      const approver = policy.type.approvalRequired
-        ? await findLeaveApprover(req.user!.employeeId)
-        : null;
-      if (policy.type.approvalRequired && !approver) {
+      // Comp Off always requires Reporting Head approval and must not consume on submit.
+      const requiresApproval =
+        policy.type.approvalRequired || policy.type.code === LEAVE_CODES.COMP_OFF;
+      const approver = requiresApproval ? await findLeaveApprover(req.user!.employeeId) : null;
+      if (requiresApproval && !approver) {
         throw new HttpError(
           400,
           "No organization head is available for this leave request. Contact HR to complete the organization chart.",
         );
       }
-      const request = await prisma.$transaction(async (tx) => {
-        const created = await tx.leaveRequest.create({
-          data: {
-            ...body,
-            employeeId: req.user!.employeeId!,
-            managerId: approver?.employeeId,
-            status: policy.type.approvalRequired ? "PENDING" : "APPROVED",
-            medicalDocumentDueAt:
-              policy.type.code === LEAVE_CODES.SICK ? medicalDocumentDueAt(body.toDate) : undefined,
-          },
-          include: { leaveType: true, employee: { include: { manager: true } } },
-        });
-        if (policy.type.code === LEAVE_CODES.COMP_OFF) {
-          await consumeCompOffCredits(
-            req.user!.employeeId!,
-            created.leaveRequestId,
-            body.days,
-            created.fromDate,
-            tx,
-          );
-        }
-        return created;
-      });
-      if (policy.type.code === LEAVE_CODES.COMP_OFF) {
-        await recalculateLeaveDateRange(
-          request.employeeId,
-          request.fromDate,
-          request.toDate,
-          recalculateDailySummary,
+      if (
+        body.medicalDocumentUrl &&
+        !body.medicalDocumentUrl.startsWith("/leave/medical-files/")
+      ) {
+        throw new HttpError(
+          400,
+          "Medical documents must be uploaded through the secure private vault",
         );
       }
+      const request = await prisma.leaveRequest.create({
+        data: {
+          leaveTypeId: body.leaveTypeId,
+          fromDate: body.fromDate,
+          toDate: body.toDate,
+          days: body.days,
+          session: policy.session,
+          reason: body.reason,
+          medicalDocumentUrl: body.medicalDocumentUrl,
+          employeeId: req.user!.employeeId!,
+          managerId: approver?.employeeId,
+          status: requiresApproval ? "PENDING" : "APPROVED",
+          medicalDocumentDueAt:
+            policy.type.code === LEAVE_CODES.SICK ? medicalDocumentDueAt(body.toDate) : undefined,
+        },
+        include: { leaveType: true, employee: { include: { manager: true } } },
+      });
       await syncEmployeeLeaveBalances(req.user!.employeeId);
       await audit({
         action: "leave requested",
@@ -4885,13 +4996,27 @@ export function createApp() {
       if (existing.status !== "PENDING") {
         throw new HttpError(400, "Only pending leave requests can be approved.");
       }
-      const changed = await prisma.leaveRequest.updateMany({
-        where: { leaveRequestId: String(req.params.id), status: "PENDING" },
-        data: { status: "APPROVED", reviewedByUserId: req.user!.id },
+      const leaveType = await prisma.leaveType.findUniqueOrThrow({
+        where: { leaveTypeId: existing.leaveTypeId },
       });
-      if (changed.count !== 1) {
-        throw new HttpError(409, "This leave request was already reviewed");
-      }
+      await prisma.$transaction(async (tx) => {
+        const changed = await tx.leaveRequest.updateMany({
+          where: { leaveRequestId: String(req.params.id), status: "PENDING" },
+          data: { status: "APPROVED", reviewedByUserId: req.user!.id },
+        });
+        if (changed.count !== 1) {
+          throw new HttpError(409, "This leave request was already reviewed");
+        }
+        if (leaveType.code === LEAVE_CODES.COMP_OFF) {
+          await consumeCompOffCredits(
+            existing.employeeId,
+            existing.leaveRequestId,
+            Number(existing.days),
+            existing.fromDate,
+            tx,
+          );
+        }
+      });
       const leave = await prisma.leaveRequest.findUniqueOrThrow({
         where: { leaveRequestId: String(req.params.id) },
         include: { leaveType: true, employee: { include: { manager: true } } },
@@ -6982,29 +7107,174 @@ export function createApp() {
     }),
   );
 
-  async function recalculateHolidayImpact(date: Date, branchId: string | null) {
+  app.get(
+    "/shifts",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const activeOnly = req.query.includeInactive !== "true";
+      const shifts = await prisma.shiftDefinition.findMany({
+        where: activeOnly ? { active: true } : {},
+        orderBy: [{ shiftType: "asc" }, { startMinutes: "asc" }],
+      });
+      res.json(
+        shifts.map((shift) => ({
+          id: shift.shiftId,
+          name: shift.name,
+          code: shift.code,
+          shiftType: shift.shiftType,
+          startMinutes: shift.startMinutes,
+          endMinutes: shift.endMinutes,
+          active: shift.active,
+        })),
+      );
+    }),
+  );
+
+  app.post(
+    "/shifts",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN, Role.HR, Role.MAIN_ADMIN),
+    asyncHandler(async (req, res) => {
+      const body = shiftDefinitionSchema.parse(req.body);
+      const shift = await prisma.shiftDefinition.create({
+        data: {
+          name: body.name,
+          code: body.code,
+          shiftType: body.shiftType,
+          startMinutes: body.startMinutes,
+          endMinutes: body.endMinutes,
+          active: body.active ?? true,
+        },
+      });
+      await audit({
+        action: "shift definition created",
+        performedByUserId: req.user!.id,
+        newValue: shift as never,
+        ipAddress: req.ip,
+      });
+      res.status(201).json({
+        id: shift.shiftId,
+        name: shift.name,
+        code: shift.code,
+        shiftType: shift.shiftType,
+        startMinutes: shift.startMinutes,
+        endMinutes: shift.endMinutes,
+        active: shift.active,
+      });
+    }),
+  );
+
+  app.post(
+    "/employees/:id/shift-assignment",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN, Role.HR, Role.MAIN_ADMIN),
+    asyncHandler(async (req, res) => {
+      const employeeId = String(req.params.id);
+      const body = employeeShiftAssignmentSchema.parse(req.body);
+      await prisma.employee.findUniqueOrThrow({ where: { employeeId } });
+      const shift = await prisma.shiftDefinition.findUniqueOrThrow({
+        where: { shiftId: body.shiftId },
+      });
+      const effectiveFrom = startOfDayUtc(body.effectiveFrom);
+      const effectiveTo = body.effectiveTo ? startOfDayUtc(body.effectiveTo) : null;
+      if (effectiveTo && effectiveTo < effectiveFrom) {
+        throw new HttpError(400, "Shift assignment end date must be on or after the start date");
+      }
+      await prisma.employeeShiftAssignment.updateMany({
+        where: {
+          employeeId,
+          effectiveFrom: { lte: effectiveFrom },
+          OR: [{ effectiveTo: null }, { effectiveTo: { gte: effectiveFrom } }],
+        },
+        data: {
+          effectiveTo: new Date(effectiveFrom.getTime() - 24 * 60 * 60 * 1000),
+        },
+      });
+      const assignment = await prisma.employeeShiftAssignment.create({
+        data: {
+          employeeId,
+          shiftId: shift.shiftId,
+          effectiveFrom,
+          effectiveTo,
+          assignedBy: req.user!.employeeId ?? req.user!.id,
+        },
+        include: { shift: true },
+      });
+      await prisma.employee.update({
+        where: { employeeId },
+        data: {
+          shiftType: shift.shiftType,
+          shiftStartMinutes: shift.startMinutes,
+          shiftEndMinutes: shift.endMinutes,
+        },
+      });
+      await audit({
+        action: "employee shift assigned",
+        performedByUserId: req.user!.id,
+        newValue: {
+          employeeId,
+          shiftId: shift.shiftId,
+          effectiveFrom,
+          effectiveTo,
+        } as never,
+        ipAddress: req.ip,
+      });
+      res.status(201).json({
+        id: assignment.assignmentId,
+        employeeId: assignment.employeeId,
+        shiftId: assignment.shiftId,
+        shiftName: assignment.shift.name,
+        effectiveFrom: assignment.effectiveFrom.toISOString().slice(0, 10),
+        effectiveTo: assignment.effectiveTo?.toISOString().slice(0, 10) ?? null,
+      });
+    }),
+  );
+
+  app.get(
+    "/employees/:id/shift-assignment",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const employeeId = String(req.params.id);
+      await assertEmployeeAccess(req.user, employeeId);
+      const assignment = await ensureEmployeeShiftAssignment(employeeId, todayIstDate());
+      res.json({
+        id: assignment.assignmentId,
+        employeeId: assignment.employeeId,
+        shiftId: assignment.shiftId,
+        shiftName: assignment.shift.name,
+        shiftType: assignment.shift.shiftType,
+        startMinutes: assignment.shift.startMinutes,
+        endMinutes: assignment.shift.endMinutes,
+        effectiveFrom: assignment.effectiveFrom.toISOString().slice(0, 10),
+        effectiveTo: assignment.effectiveTo?.toISOString().slice(0, 10) ?? null,
+      });
+    }),
+  );
+
+  async function recalculateHolidayImpact(date: Date) {
     const summaries = await prisma.attendanceDailySummary.findMany({
-      where: {
-        date: startOfDayUtc(date),
-        ...(branchId ? { employee: { homeBranchId: branchId } } : {}),
-      },
+      where: { date: startOfDayUtc(date) },
       select: { employeeId: true },
     });
-    for (const summary of summaries) {
-      await recalculateDailySummary(summary.employeeId, date);
+    const employeeIds = await activeEmployeeIdsExcludingDeveloperAdmin();
+    const targets = summaries.length
+      ? summaries.map((row) => row.employeeId)
+      : employeeIds;
+    for (const employeeId of targets) {
+      await recalculateDailySummary(employeeId, date);
     }
   }
 
   async function assertNoDuplicateHoliday(input: {
     date: Date;
-    branchId?: string | null;
+    name?: string;
     excludeHolidayId?: string;
   }) {
     const duplicate = await prisma.holiday.findFirst({
       where: {
         date: startOfDayUtc(input.date),
-        branchId: input.branchId || null,
         status: "ACTIVE",
+        ...(input.name ? { name: input.name } : {}),
         ...(input.excludeHolidayId ? { holidayId: { not: input.excludeHolidayId } } : {}),
       },
       select: { name: true },
@@ -7012,7 +7282,7 @@ export function createApp() {
     if (duplicate) {
       throw new HttpError(
         409,
-        `A holiday named ${duplicate.name} already exists for this date and branch.`,
+        `An active company holiday already exists for this date (${duplicate.name}).`,
       );
     }
   }
@@ -7023,11 +7293,17 @@ export function createApp() {
     requireRoles(Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const body = holidaySchema.parse(req.body);
-      await assertNoDuplicateHoliday({ date: body.date, branchId: body.branchId });
+      await assertNoDuplicateHoliday({ date: body.date, name: body.name });
       const holiday = await prisma.holiday.create({
-        data: { ...body, branchId: body.branchId || null },
+        data: {
+          name: body.name,
+          date: body.date,
+          description: body.description,
+          type: body.type,
+          status: body.status ?? "ACTIVE",
+        },
       });
-      await recalculateHolidayImpact(holiday.date, holiday.branchId);
+      await recalculateHolidayImpact(holiday.date);
       await audit({
         action: "holiday created",
         performedByUserId: req.user!.id,
@@ -7049,22 +7325,22 @@ export function createApp() {
       });
       await assertNoDuplicateHoliday({
         date: body.date ?? existing.date,
-        branchId: body.branchId === undefined ? existing.branchId : body.branchId,
+        name: body.name ?? existing.name,
         excludeHolidayId: existing.holidayId,
       });
       const holiday = await prisma.holiday.update({
         where: { holidayId: String(req.params.id) },
         data: {
-          ...body,
-          branchId: body.branchId === undefined ? undefined : body.branchId || null,
+          name: body.name,
+          date: body.date,
+          description: body.description,
+          type: body.type,
+          status: body.status,
         },
       });
-      await recalculateHolidayImpact(existing.date, existing.branchId);
-      if (
-        holiday.date.getTime() !== existing.date.getTime() ||
-        holiday.branchId !== existing.branchId
-      ) {
-        await recalculateHolidayImpact(holiday.date, holiday.branchId);
+      await recalculateHolidayImpact(existing.date);
+      if (holiday.date.getTime() !== existing.date.getTime()) {
+        await recalculateHolidayImpact(holiday.date);
       }
       await audit({
         action: "holiday updated",
@@ -7089,7 +7365,7 @@ export function createApp() {
         where: { holidayId: String(req.params.id) },
         data: { status: "INACTIVE" },
       });
-      await recalculateHolidayImpact(existing.date, existing.branchId);
+      await recalculateHolidayImpact(existing.date);
       await audit({
         action: "holiday deactivated",
         performedByUserId: req.user!.id,
