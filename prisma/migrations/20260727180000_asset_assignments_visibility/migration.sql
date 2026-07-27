@@ -12,9 +12,9 @@ CREATE TABLE IF NOT EXISTS `asset_assignments` (
   `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   `updated_at` DATETIME(3) NOT NULL,
   PRIMARY KEY (`assignment_id`),
-  INDEX `asset_assignments_asset_id_returned_at_idx` (`asset_id`, `returned_at`),
-  INDEX `asset_assignments_employee_id_returned_at_idx` (`employee_id`, `returned_at`),
-  INDEX `asset_assignments_employee_id_visible_to_employee_returned_at_idx` (`employee_id`, `visible_to_employee`, `returned_at`),
+  INDEX `asset_asgn_asset_ret_idx` (`asset_id`, `returned_at`),
+  INDEX `asset_asgn_emp_ret_idx` (`employee_id`, `returned_at`),
+  INDEX `asset_asgn_emp_vis_ret_idx` (`employee_id`, `visible_to_employee`, `returned_at`),
   CONSTRAINT `asset_assignments_asset_id_fkey` FOREIGN KEY (`asset_id`) REFERENCES `company_assets`(`asset_id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `asset_assignments_employee_id_fkey` FOREIGN KEY (`employee_id`) REFERENCES `employees`(`employee_id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

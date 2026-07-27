@@ -521,9 +521,9 @@ model AssetAssignment {
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
 
-  @@index([assetId, returnedAt])
-  @@index([employeeId, returnedAt])
-  @@index([employeeId, visibleToEmployee, returnedAt])
+  @@index([assetId, returnedAt], map: "asset_asgn_asset_ret_idx")
+  @@index([employeeId, returnedAt], map: "asset_asgn_emp_ret_idx")
+  @@index([employeeId, visibleToEmployee, returnedAt], map: "asset_asgn_emp_vis_ret_idx")
   @@map("asset_assignments")
 }
 
