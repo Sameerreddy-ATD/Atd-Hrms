@@ -40,6 +40,7 @@ import type {
   EmployeeAssetInvestment,
   User,
 } from "@/types/domain";
+import { BulkAssetImport } from "@/components/assets/BulkAssetImport";
 import { assetsApi, branchesApi, employeesApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
 import {
@@ -428,6 +429,13 @@ function AssetsPage() {
         actions={
           canManage ? (
             <div className="flex flex-wrap items-center gap-2">
+              <BulkAssetImport
+                branches={branches}
+                catalog={assetNames}
+                employees={employees}
+                existingAssets={assets}
+                onImported={load}
+              />
               <Button size="sm" variant="outline" onClick={openAddAsset}>
                 <Plus className="mr-2 h-4 w-4" /> Add Asset
               </Button>
