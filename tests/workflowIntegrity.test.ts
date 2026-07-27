@@ -144,6 +144,8 @@ describe("asset and HR-document persistence integrity", () => {
     expect(moduleForApiPath("/weekly-offs")).toBe("LEAVE");
     expect(moduleForApiPath("/biometric/devices")).toBe("ATTENDANCE");
     expect(moduleForApiPath("/holidays")).toBe("COMPANY");
+    expect(moduleForApiPath("/assets")).toBe("COMPANY");
+    expect(moduleForApiPath("/assets/mine")).toBe("PROFILE");
     expect(moduleForApiPath("/branches", "PATCH")).toBe("COMPANY");
     expect(moduleForApiPath("/branches", "GET")).toBeNull();
     expect(moduleForApiPath("/employees/employee-1", "PATCH")).toBe("PEOPLE");

@@ -174,6 +174,8 @@ export function moduleForApiPath(path: string, method = "GET"): ModuleKey | null
     path.startsWith("/reports/movement")
   )
     return "ATTENDANCE";
+  // Employee "My Assets" is a profile self-service surface; admin asset APIs stay COMPANY.
+  if (path === "/assets/mine") return "PROFILE";
   if (path.startsWith("/assets")) return "COMPANY";
   if (path.startsWith("/holidays")) return "COMPANY";
   if (path.startsWith("/profile/") || path.startsWith("/id-card/")) return "PROFILE";
