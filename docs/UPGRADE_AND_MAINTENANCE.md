@@ -126,11 +126,13 @@ git status
 git fetch origin
 # Existing production currently tracks version-1. Use main only after a planned branch switch.
 git pull --ff-only origin version-1
-npm ci
+# Install with development so Vite and other build tools are present when .env has NODE_ENV=production.
+NODE_ENV=development npm ci
 npx prisma generate
 npm run db:deploy
-npm run build
-npm run build:backend
+# Always build with production — development mode embeds jsxDEV and SSR returns HTTP 500 ("This page didn't load").
+NODE_ENV=production npm run build
+NODE_ENV=production npm run build:backend
 npm run db:audit
 pm2 restart atd-backend --update-env
 pm2 restart atd-frontend --update-env

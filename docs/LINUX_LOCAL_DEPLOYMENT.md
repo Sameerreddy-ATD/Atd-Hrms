@@ -157,14 +157,18 @@ the same stable encryption key. Losing or changing the key makes them unreadable
 
 ```bash
 cd /opt/anytime-crew-hub
-npm ci
+# If production .env sets NODE_ENV=production, install with development so build tools are available.
+NODE_ENV=development npm ci
 npm run repo:audit
 npx prisma generate
 npm run db:deploy
 npm run db:audit
-npm run build
-npm run build:backend
+NODE_ENV=production npm run build
+NODE_ENV=production npm run build:backend
 ```
+
+Never run `vite build` with `NODE_ENV=development` on the server. That embeds the development JSX
+runtime (`jsxDEV`) into the SSR bundle and the site returns HTTP 500 with “This page didn't load”.
 
 For a brand-new installation only:
 
