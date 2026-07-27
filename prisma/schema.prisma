@@ -941,9 +941,9 @@ model LeaveLedgerEntry {
   createdByUserId  String?             @map("created_by_user_id")
   createdAt        DateTime            @default(now()) @map("created_at")
 
-  @@unique([employeeId, leaveTypeId, entryType, effectiveDate, referenceId])
-  @@index([employeeId, leaveTypeId, createdAt])
-  @@index([referenceType, referenceId])
+  @@unique([employeeId, leaveTypeId, entryType, effectiveDate, referenceId], map: "leave_ledger_uniq")
+  @@index([employeeId, leaveTypeId, createdAt], map: "leave_ledger_emp_type_created_idx")
+  @@index([referenceType, referenceId], map: "leave_ledger_ref_idx")
   @@map("leave_ledger_entries")
 }
 
