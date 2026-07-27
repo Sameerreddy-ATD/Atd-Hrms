@@ -188,6 +188,16 @@ export const updateEmployeeSchema = z
   .superRefine(validateEmploymentDates)
   .refine((value) => Object.keys(value).length > 0, "At least one field is required");
 
+export const emergencyContactSchema = z.object({
+  contactName: z.string().trim().min(2).max(120),
+  relationship: z.string().trim().min(2).max(80),
+  phone: z.string().trim().min(7).max(30),
+  alternatePhone: z.string().trim().max(30).nullable().optional(),
+  address: z.string().trim().max(500).nullable().optional(),
+  bloodGroup: bloodGroupSchema.nullable().optional(),
+  medicalNotes: z.string().trim().max(1000).nullable().optional(),
+});
+
 export const branchSchema = z.object({
   name: z.string().min(2).max(160),
   code: z.string().min(1).max(40),

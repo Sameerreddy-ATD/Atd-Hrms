@@ -49,7 +49,6 @@ import { Route as AppLeaveApprovalsRouteImport } from './routes/_app.leave.appro
 import { Route as AppLeaveApplyRouteImport } from './routes/_app.leave.apply'
 import { Route as AppDevicesMappingRouteImport } from './routes/_app.devices.mapping'
 import { Route as AppAttendanceMissedPunchRouteImport } from './routes/_app.attendance.missed-punch'
-import { Route as AppAttendanceMismatchRouteImport } from './routes/_app.attendance.mismatch'
 import { Route as AppAttendanceMineRouteImport } from './routes/_app.attendance.mine'
 import { Route as AppAttendanceLocationsRouteImport } from './routes/_app.attendance.locations'
 import { Route as AppAttendanceFieldRouteImport } from './routes/_app.attendance.field'
@@ -59,233 +58,228 @@ import { Route as AppAttendanceBranchRouteImport } from './routes/_app.attendanc
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
-  getParentRoute: () => rootRouteImport
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
-  getParentRoute: () => rootRouteImport
+  getParentRoute: () => rootRouteImport,
 } as any)
 const FirstLoginRoute = FirstLoginRouteImport.update({
   id: '/first-login',
   path: '/first-login',
-  getParentRoute: () => rootRouteImport
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppRoute = AppRouteImport.update({
   id: '/_app',
-  getParentRoute: () => rootRouteImport
+  getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport
+  getParentRoute: () => rootRouteImport,
 } as any)
 const VerifyIdEmployeeIdRoute = VerifyIdEmployeeIdRouteImport.update({
   id: '/verify-id/$employeeId',
   path: '/verify-id/$employeeId',
-  getParentRoute: () => rootRouteImport
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppUsersRoute = AppUsersRouteImport.update({
   id: '/users',
   path: '/users',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppTasksRoute = AppTasksRouteImport.update({
   id: '/tasks',
   path: '/tasks',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppRolesRoute = AppRolesRouteImport.update({
   id: '/roles',
   path: '/roles',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppProfileRoute = AppProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppNotificationsRoute = AppNotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppIdCardRoute = AppIdCardRouteImport.update({
   id: '/id-card',
   path: '/id-card',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppHolidaysRoute = AppHolidaysRouteImport.update({
   id: '/holidays',
   path: '/holidays',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppFaceSecurityRoute = AppFaceSecurityRouteImport.update({
   id: '/face-security',
   path: '/face-security',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppFaceEnrollmentRoute = AppFaceEnrollmentRouteImport.update({
   id: '/face-enrollment',
   path: '/face-enrollment',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppEmployeesRoute = AppEmployeesRouteImport.update({
   id: '/employees',
   path: '/employees',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppEmployeeServicesRoute = AppEmployeeServicesRouteImport.update({
   id: '/employee-services',
   path: '/employee-services',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppEmergencyContactRoute = AppEmergencyContactRouteImport.update({
   id: '/emergency-contact',
   path: '/emergency-contact',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppDevicesRoute = AppDevicesRouteImport.update({
   id: '/devices',
   path: '/devices',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppDepartmentsRoute = AppDepartmentsRouteImport.update({
   id: '/departments',
   path: '/departments',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppCompanySetupRoute = AppCompanySetupRouteImport.update({
   id: '/company-setup',
   path: '/company-setup',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppChecklistsRoute = AppChecklistsRouteImport.update({
   id: '/checklists',
   path: '/checklists',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppBranchesRoute = AppBranchesRouteImport.update({
   id: '/branches',
   path: '/branches',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppAuditRoute = AppAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppAttendanceRoute = AppAttendanceRouteImport.update({
   id: '/attendance',
   path: '/attendance',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppAssetsRoute = AppAssetsRouteImport.update({
   id: '/assets',
   path: '/assets',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppAnnouncementsRoute = AppAnnouncementsRouteImport.update({
   id: '/announcements',
   path: '/announcements',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppAttendanceIndexRoute = AppAttendanceIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AppAttendanceRoute
+  getParentRoute: () => AppAttendanceRoute,
 } as any)
 const AppUsersNewRoute = AppUsersNewRouteImport.update({
   id: '/new',
   path: '/new',
-  getParentRoute: () => AppUsersRoute
+  getParentRoute: () => AppUsersRoute,
 } as any)
 const AppSettingsDevicesRoute = AppSettingsDevicesRouteImport.update({
   id: '/devices',
   path: '/devices',
-  getParentRoute: () => AppSettingsRoute
+  getParentRoute: () => AppSettingsRoute,
 } as any)
 const AppLeaveReportsRoute = AppLeaveReportsRouteImport.update({
   id: '/leave/reports',
   path: '/leave/reports',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppLeavePolicyRoute = AppLeavePolicyRouteImport.update({
   id: '/leave/policy',
   path: '/leave/policy',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppLeaveHistoryRoute = AppLeaveHistoryRouteImport.update({
   id: '/leave/history',
   path: '/leave/history',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppLeaveBalanceRoute = AppLeaveBalanceRouteImport.update({
   id: '/leave/balance',
   path: '/leave/balance',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppLeaveApprovalsRoute = AppLeaveApprovalsRouteImport.update({
   id: '/leave/approvals',
   path: '/leave/approvals',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppLeaveApplyRoute = AppLeaveApplyRouteImport.update({
   id: '/leave/apply',
   path: '/leave/apply',
-  getParentRoute: () => AppRoute
+  getParentRoute: () => AppRoute,
 } as any)
 const AppDevicesMappingRoute = AppDevicesMappingRouteImport.update({
   id: '/mapping',
   path: '/mapping',
-  getParentRoute: () => AppDevicesRoute
+  getParentRoute: () => AppDevicesRoute,
 } as any)
 const AppAttendanceMissedPunchRoute =
   AppAttendanceMissedPunchRouteImport.update({
     id: '/missed-punch',
     path: '/missed-punch',
-    getParentRoute: () => AppAttendanceRoute
+    getParentRoute: () => AppAttendanceRoute,
   } as any)
-const AppAttendanceMismatchRoute = AppAttendanceMismatchRouteImport.update({
-  id: '/mismatch',
-  path: '/mismatch',
-  getParentRoute: () => AppAttendanceRoute
-} as any)
 const AppAttendanceMineRoute = AppAttendanceMineRouteImport.update({
   id: '/mine',
   path: '/mine',
-  getParentRoute: () => AppAttendanceRoute
+  getParentRoute: () => AppAttendanceRoute,
 } as any)
 const AppAttendanceLocationsRoute = AppAttendanceLocationsRouteImport.update({
   id: '/locations',
   path: '/locations',
-  getParentRoute: () => AppAttendanceRoute
+  getParentRoute: () => AppAttendanceRoute,
 } as any)
 const AppAttendanceFieldRoute = AppAttendanceFieldRouteImport.update({
   id: '/field',
   path: '/field',
-  getParentRoute: () => AppAttendanceRoute
+  getParentRoute: () => AppAttendanceRoute,
 } as any)
 const AppAttendanceCorrectionsRoute =
   AppAttendanceCorrectionsRouteImport.update({
     id: '/corrections',
     path: '/corrections',
-    getParentRoute: () => AppAttendanceRoute
+    getParentRoute: () => AppAttendanceRoute,
   } as any)
 const AppAttendanceBranchRoute = AppAttendanceBranchRouteImport.update({
   id: '/branch',
   path: '/branch',
-  getParentRoute: () => AppAttendanceRoute
+  getParentRoute: () => AppAttendanceRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -322,7 +316,6 @@ export interface FileRoutesByFullPath {
   '/attendance/field': typeof AppAttendanceFieldRoute
   '/attendance/locations': typeof AppAttendanceLocationsRoute
   '/attendance/mine': typeof AppAttendanceMineRoute
-  '/attendance/mismatch': typeof AppAttendanceMismatchRoute
   '/attendance/missed-punch': typeof AppAttendanceMissedPunchRoute
   '/devices/mapping': typeof AppDevicesMappingRoute
   '/leave/apply': typeof AppLeaveApplyRoute
@@ -368,7 +361,6 @@ export interface FileRoutesByTo {
   '/attendance/field': typeof AppAttendanceFieldRoute
   '/attendance/locations': typeof AppAttendanceLocationsRoute
   '/attendance/mine': typeof AppAttendanceMineRoute
-  '/attendance/mismatch': typeof AppAttendanceMismatchRoute
   '/attendance/missed-punch': typeof AppAttendanceMissedPunchRoute
   '/devices/mapping': typeof AppDevicesMappingRoute
   '/leave/apply': typeof AppLeaveApplyRoute
@@ -417,7 +409,6 @@ export interface FileRoutesById {
   '/_app/attendance/field': typeof AppAttendanceFieldRoute
   '/_app/attendance/locations': typeof AppAttendanceLocationsRoute
   '/_app/attendance/mine': typeof AppAttendanceMineRoute
-  '/_app/attendance/mismatch': typeof AppAttendanceMismatchRoute
   '/_app/attendance/missed-punch': typeof AppAttendanceMissedPunchRoute
   '/_app/devices/mapping': typeof AppDevicesMappingRoute
   '/_app/leave/apply': typeof AppLeaveApplyRoute
@@ -466,7 +457,6 @@ export interface FileRouteTypes {
     | '/attendance/field'
     | '/attendance/locations'
     | '/attendance/mine'
-    | '/attendance/mismatch'
     | '/attendance/missed-punch'
     | '/devices/mapping'
     | '/leave/apply'
@@ -512,7 +502,6 @@ export interface FileRouteTypes {
     | '/attendance/field'
     | '/attendance/locations'
     | '/attendance/mine'
-    | '/attendance/mismatch'
     | '/attendance/missed-punch'
     | '/devices/mapping'
     | '/leave/apply'
@@ -560,7 +549,6 @@ export interface FileRouteTypes {
     | '/_app/attendance/field'
     | '/_app/attendance/locations'
     | '/_app/attendance/mine'
-    | '/_app/attendance/mismatch'
     | '/_app/attendance/missed-punch'
     | '/_app/devices/mapping'
     | '/_app/leave/apply'
@@ -865,13 +853,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAttendanceMissedPunchRouteImport
       parentRoute: typeof AppAttendanceRoute
     }
-    '/_app/attendance/mismatch': {
-      id: '/_app/attendance/mismatch'
-      path: '/mismatch'
-      fullPath: '/attendance/mismatch'
-      preLoaderRoute: typeof AppAttendanceMismatchRouteImport
-      parentRoute: typeof AppAttendanceRoute
-    }
     '/_app/attendance/mine': {
       id: '/_app/attendance/mine'
       path: '/mine'
@@ -916,7 +897,6 @@ interface AppAttendanceRouteChildren {
   AppAttendanceFieldRoute: typeof AppAttendanceFieldRoute
   AppAttendanceLocationsRoute: typeof AppAttendanceLocationsRoute
   AppAttendanceMineRoute: typeof AppAttendanceMineRoute
-  AppAttendanceMismatchRoute: typeof AppAttendanceMismatchRoute
   AppAttendanceMissedPunchRoute: typeof AppAttendanceMissedPunchRoute
   AppAttendanceIndexRoute: typeof AppAttendanceIndexRoute
 }
@@ -927,9 +907,8 @@ const AppAttendanceRouteChildren: AppAttendanceRouteChildren = {
   AppAttendanceFieldRoute: AppAttendanceFieldRoute,
   AppAttendanceLocationsRoute: AppAttendanceLocationsRoute,
   AppAttendanceMineRoute: AppAttendanceMineRoute,
-  AppAttendanceMismatchRoute: AppAttendanceMismatchRoute,
   AppAttendanceMissedPunchRoute: AppAttendanceMissedPunchRoute,
-  AppAttendanceIndexRoute: AppAttendanceIndexRoute
+  AppAttendanceIndexRoute: AppAttendanceIndexRoute,
 }
 
 const AppAttendanceRouteWithChildren = AppAttendanceRoute._addFileChildren(
@@ -941,20 +920,19 @@ interface AppDevicesRouteChildren {
 }
 
 const AppDevicesRouteChildren: AppDevicesRouteChildren = {
-  AppDevicesMappingRoute: AppDevicesMappingRoute
+  AppDevicesMappingRoute: AppDevicesMappingRoute,
 }
 
 const AppDevicesRouteWithChildren = AppDevicesRoute._addFileChildren(
   AppDevicesRouteChildren,
 )
 
-
 interface AppSettingsRouteChildren {
   AppSettingsDevicesRoute: typeof AppSettingsDevicesRoute
 }
 
 const AppSettingsRouteChildren: AppSettingsRouteChildren = {
-  AppSettingsDevicesRoute: AppSettingsDevicesRoute
+  AppSettingsDevicesRoute: AppSettingsDevicesRoute,
 }
 
 const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
@@ -966,7 +944,7 @@ interface AppUsersRouteChildren {
 }
 
 const AppUsersRouteChildren: AppUsersRouteChildren = {
-  AppUsersNewRoute: AppUsersNewRoute
+  AppUsersNewRoute: AppUsersNewRoute,
 }
 
 const AppUsersRouteWithChildren = AppUsersRoute._addFileChildren(
@@ -1034,7 +1012,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppLeaveBalanceRoute: AppLeaveBalanceRoute,
   AppLeaveHistoryRoute: AppLeaveHistoryRoute,
   AppLeavePolicyRoute: AppLeavePolicyRoute,
-  AppLeaveReportsRoute: AppLeaveReportsRoute
+  AppLeaveReportsRoute: AppLeaveReportsRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
@@ -1045,7 +1023,7 @@ const rootRouteChildren: RootRouteChildren = {
   FirstLoginRoute: FirstLoginRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
-  VerifyIdEmployeeIdRoute: VerifyIdEmployeeIdRoute
+  VerifyIdEmployeeIdRoute: VerifyIdEmployeeIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -159,9 +159,11 @@ access to it and permanently delete local/email copies after confirming a succes
 ## Employee: Review My Profile And ID Card
 
 **My Profile** displays identity/contact information first, employment and company information
-second, followed by banking and statutory details. Sensitive identifiers are masked until the
-employee selects the show icon. Attendance access, shift, work assignment, account status, and
-attendance location are intentionally kept out of this personal profile.
+second, followed by banking and statutory details and an **Emergency contact** section. Employees
+can view their emergency contact; HR and Developer Admin can edit it (employees cannot self-edit
+pending an approval workflow decision). Sensitive identifiers are masked until the employee selects
+the show icon. Attendance access, shift, work assignment, account status, and attendance location
+are intentionally kept out of this personal profile.
 
 **Employee ID Card** displays the selected employer and Royal Petro Park Private Limited group,
 employee code, designation, department, role, joining date, blood group, and company contact

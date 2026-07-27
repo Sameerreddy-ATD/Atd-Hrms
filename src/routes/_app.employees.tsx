@@ -25,7 +25,7 @@ import {
 import type { BankAccountType, Branch, CompanyEntity, Department, User } from "@/types/domain";
 import { COMPANY_LABELS, ROLE_LABELS } from "@/types/domain";
 import { branchesApi, employeesApi, shiftsApi } from "@/services/api";
-import { Search, Pencil } from "lucide-react";
+import { Search, Pencil, UserCog } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
   Dialog,
@@ -33,8 +33,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { EmergencyContactSection } from "@/components/profile/EmergencyContactSection";
 
 export const Route = createFileRoute("/_app/employees")({
   component: EmployeesPage,
@@ -66,6 +68,9 @@ function EmployeesPage() {
   const [dept, setDept] = useState("all");
 
   const [editingEmployee, setEditingEmployee] = useState<User | null>(null);
+  const [hrManagingEmployee, setHrManagingEmployee] = useState<User | null>(null);
+  const [hrManagerId, setHrManagerId] = useState("");
+  const [hrSaving, setHrSaving] = useState(false);
   const [editForm, setEditForm] = useState({
     name: "",
     email: "",
@@ -94,6 +99,8 @@ function EmployeesPage() {
   });
 
   const canEdit = currentUser?.role === "developer_admin";
+  const canHrManage = currentUser?.role === "hr";
+  const canOpenEmployeeActions = canEdit || canHrManage;
   const canSeeCompanyDirectory = Boolean(
     currentUser && ["developer_admin", "main_admin", "ceo", "hr"].includes(currentUser.role),
   );
@@ -134,6 +141,43 @@ function EmployeesPage() {
       toast.error((err as Error).message);
     } finally {
       setLoadingMore(false);
+    }
+  }
+
+  async function openHrManageDialog(emp: User) {
+    let fullEmployee = emp;
+    try {
+      fullEmployee = (await employeesApi.get(emp.employeeId ?? emp.id)) ?? emp;
+    } catch (error) {
+      toast.error((error as Error).message);
+      return;
+    }
+    setHrManagingEmployee(fullEmployee);
+    setHrManagerId(fullEmployee.managerId ?? "");
+  }
+
+  async function saveHrManager(event: React.FormEvent) {
+    event.preventDefault();
+    if (!hrManagingEmployee) return;
+    setHrSaving(true);
+    try {
+      const updated = await employeesApi.update(
+        hrManagingEmployee.employeeId ?? hrManagingEmployee.id,
+        { managerId: hrManagerId },
+      );
+      setEmployees((current) =>
+        current.map((row) =>
+          (row.employeeId ?? row.id) === (updated.employeeId ?? updated.id)
+            ? { ...row, ...updated }
+            : row,
+        ),
+      );
+      setHrManagingEmployee((current) => (current ? { ...current, ...updated } : current));
+      toast.success("Reporting manager updated");
+    } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setHrSaving(false);
     }
   }
 
@@ -247,10 +291,12 @@ function EmployeesPage() {
         title="Employees"
         description={
           canEdit
-            ? "Developer Admin can edit employee profiles. Other roles can view the directory."
-            : canSeeCompanyDirectory
-              ? "Directory of employees across branches and organization units. Only Developer Admin can edit profiles."
-              : "Employees in your organization unit and its child teams. Only Developer Admin can edit profiles."
+            ? "Developer Admin can edit full employee profiles and emergency contacts."
+            : canHrManage
+              ? "HR can set reporting managers and update emergency contacts for employees in scope. Full profile edits remain with Developer Admin."
+              : canSeeCompanyDirectory
+                ? "Directory of employees across branches and organization units."
+                : "Employees in your organization unit and its child teams."
         }
       />
       {loading && <LoadingState label="Loading employees" />}
@@ -329,14 +375,24 @@ function EmployeesPage() {
                   </p>
                 </div>
               </div>
-              {canEdit && (
+              {canOpenEmployeeActions && (
                 <Button
                   className="mt-3 w-full"
                   size="sm"
                   variant="outline"
-                  onClick={() => openEditDialog(employee)}
+                  onClick={() =>
+                    canEdit ? void openEditDialog(employee) : void openHrManageDialog(employee)
+                  }
                 >
-                  <Pencil className="h-4 w-4" /> Edit details
+                  {canEdit ? (
+                    <>
+                      <Pencil className="h-4 w-4" /> Edit details
+                    </>
+                  ) : (
+                    <>
+                      <UserCog className="h-4 w-4" /> Manager & emergency
+                    </>
+                  )}
                 </Button>
               )}
             </div>
@@ -353,7 +409,7 @@ function EmployeesPage() {
                 <TableHead>Home Branch</TableHead>
                 <TableHead>Phone</TableHead>
                 <TableHead>Status</TableHead>
-                {canEdit && <TableHead className="w-[80px]">Actions</TableHead>}
+                {canOpenEmployeeActions && <TableHead className="w-[80px]">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -378,15 +434,17 @@ function EmployeesPage() {
                   <TableCell>
                     <EmployeeAccountStatus employee={u} />
                   </TableCell>
-                  {canEdit && (
+                  {canOpenEmployeeActions && (
                     <TableCell>
                       <Button
                         size="icon"
                         variant="ghost"
-                        onClick={() => openEditDialog(u)}
-                        title="Edit Details"
+                        onClick={() =>
+                          canEdit ? void openEditDialog(u) : void openHrManageDialog(u)
+                        }
+                        title={canEdit ? "Edit details" : "Manager and emergency contact"}
                       >
-                        <Pencil className="h-4 w-4" />
+                        {canEdit ? <Pencil className="h-4 w-4" /> : <UserCog className="h-4 w-4" />}
                       </Button>
                     </TableCell>
                   )}
@@ -762,6 +820,18 @@ function EmployeesPage() {
                     />
                   </div>
                 </div>
+                <div className="rounded-md border border-border p-3 sm:col-span-2">
+                  <EmergencyContactSection
+                    employeeId={editingEmployee.employeeId ?? editingEmployee.id}
+                    value={editingEmployee.emergencyContact}
+                    canEdit
+                    onSaved={(next) =>
+                      setEditingEmployee((current) =>
+                        current ? { ...current, emergencyContact: next } : current,
+                      )
+                    }
+                  />
+                </div>
                 <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900/50 dark:bg-emerald-950/30 sm:col-span-2">
                   <p className="text-sm font-medium text-emerald-900 dark:text-emerald-200">
                     Flexible attendance enabled
@@ -779,6 +849,76 @@ function EmployeesPage() {
                 <Button type="submit">Save Changes</Button>
               </DialogFooter>
             </form>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {hrManagingEmployee && (
+        <Dialog
+          open={!!hrManagingEmployee}
+          onOpenChange={(open) => !open && setHrManagingEmployee(null)}
+        >
+          <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-h-[92dvh]">
+            <DialogHeader className="border-b border-border px-5 py-4 sm:px-6">
+              <DialogTitle>HR employee update</DialogTitle>
+              <DialogDescription>
+                {hrManagingEmployee.name} · reporting manager and emergency contact only.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4 sm:px-6">
+              <form onSubmit={(event) => void saveHrManager(event)} className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label>Reporting manager</Label>
+                  <Select
+                    value={hrManagerId || "none"}
+                    onValueChange={(value) => setHrManagerId(value === "none" ? "" : value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select manager" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No reporting manager</SelectItem>
+                      {employees
+                        .filter(
+                          (candidate) =>
+                            (candidate.employeeId ?? candidate.id) !==
+                            (hrManagingEmployee.employeeId ?? hrManagingEmployee.id),
+                        )
+                        .map((candidate) => (
+                          <SelectItem
+                            key={candidate.employeeId ?? candidate.id}
+                            value={candidate.employeeId ?? candidate.id}
+                          >
+                            {candidate.name}
+                            {candidate.employeeCode ? ` (${candidate.employeeCode})` : ""}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Current: {hrManagingEmployee.managerName ?? "Not assigned"}
+                  </p>
+                </div>
+                <Button type="submit" disabled={hrSaving} className="w-full sm:w-auto">
+                  {hrSaving ? "Saving…" : "Save reporting manager"}
+                </Button>
+              </form>
+              <EmergencyContactSection
+                employeeId={hrManagingEmployee.employeeId ?? hrManagingEmployee.id}
+                value={hrManagingEmployee.emergencyContact}
+                canEdit
+                onSaved={(next) =>
+                  setHrManagingEmployee((current) =>
+                    current ? { ...current, emergencyContact: next } : current,
+                  )
+                }
+              />
+            </div>
+            <DialogFooter className="border-t border-border bg-background px-5 py-4 sm:px-6">
+              <Button type="button" variant="outline" onClick={() => setHrManagingEmployee(null)}>
+                Close
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
