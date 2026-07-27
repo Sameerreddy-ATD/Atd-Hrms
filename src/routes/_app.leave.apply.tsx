@@ -342,8 +342,6 @@ function ApplyLeavePage() {
                       disabled={session !== "FULL"}
                       onChange={(e) => setTo(e.target.value)}
                     />
-                      onChange={(e) => setTo(e.target.value)}
-                    />
                     {errors.to && <p className="text-xs text-destructive">{errors.to}</p>}
                   </div>
                   <div className="space-y-1.5 sm:col-span-2">
