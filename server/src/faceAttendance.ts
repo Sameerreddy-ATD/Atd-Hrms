@@ -16,7 +16,7 @@ import { prisma } from "./prisma.js";
 const FACE_SETTING_KEY = "face_attendance_settings";
 const FACE_CONSENT_VERSION = "2026-07";
 const CHALLENGES = ["TURN_LEFT", "TURN_RIGHT"] as const;
-const MAX_RETAINED_IMAGES_PER_USER = 5;
+const MAX_RETAINED_IMAGES_PER_USER = 6;
 
 export const faceSettingsSchema = z.object({
   verificationEnabled: z.boolean().default(true),
@@ -37,19 +37,32 @@ export const faceSessionSchema = z.object({
   deviceId: z.string().trim().min(3).max(200).optional(),
 });
 
-export const faceCaptureSchema = z.object({
+const faceDescriptorSchema = z.array(z.number().finite().min(-10).max(10)).min(128).max(2048);
+
+export const faceCaptureObjectSchema = z.object({
   sessionId: z.string().min(10).max(191),
   nonce: z.string().min(32).max(200),
-  descriptor: z.array(z.number().finite().min(-10).max(10)).min(128).max(2048),
-  descriptorSamples: z
-    .array(z.array(z.number().finite().min(-10).max(10)).min(128).max(2048))
-    .min(3)
-    .max(5)
-    .optional(),
+  descriptor: faceDescriptorSchema,
+  descriptorSamples: z.array(faceDescriptorSchema).min(3).max(9).optional(),
   imageData: z
     .string()
     .max(950_000)
-    .regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/, "A JPEG camera image is required"),
+    .regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/, "A JPEG camera image is required")
+    .optional(),
+  enrollmentViews: z
+    .array(
+      z.object({
+        direction: z.enum(["CENTER", "LEFT", "RIGHT"]),
+        imageData: z
+          .string()
+          .max(950_000)
+          .regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/, "A JPEG camera image is required"),
+        descriptor: faceDescriptorSchema,
+      }),
+    )
+    .min(3)
+    .max(3)
+    .optional(),
   faceConfidence: z.number().min(0).max(1),
   livenessScore: z.number().min(0).max(1),
   antiSpoofScore: z.number().min(0).max(1),
@@ -61,7 +74,31 @@ export const faceCaptureSchema = z.object({
   consentVersion: z.string().max(40).optional(),
 });
 
-export type FaceCaptureInput = z.infer<typeof faceCaptureSchema>;
+export const faceCaptureSchema = faceCaptureObjectSchema.superRefine((value, ctx) => {
+  // Enrollment keeps directional photos. Attendance verify never needs a stored image.
+  const isEnrollment = Boolean(value.enrollmentViews?.length);
+  if (isEnrollment) {
+    if (!value.imageData) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["imageData"],
+        message: "Enrollment requires a centre face photo",
+      });
+    }
+    const directions = new Set(value.enrollmentViews?.map((view) => view.direction) ?? []);
+    for (const required of ["CENTER", "LEFT", "RIGHT"] as const) {
+      if (!directions.has(required)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["enrollmentViews"],
+          message: `Enrollment requires a ${required.toLowerCase()} face photo`,
+        });
+      }
+    }
+  }
+});
+
+export type FaceCaptureInput = z.infer<typeof faceCaptureObjectSchema>;
 
 const defaultSettings: FaceSettings = faceSettingsSchema.parse({});
 
@@ -244,6 +281,7 @@ export async function createFaceVerificationSession(
     sessionId: session.sessionId,
     nonce,
     challenge,
+    purpose: input.purpose,
     expiresAt: expiresAt.toISOString(),
     settings: {
       minFaceConfidence: settings.minFaceConfidence,
@@ -255,11 +293,11 @@ export async function createFaceVerificationSession(
 }
 
 const storedFaceTemplateSchema = z.union([
-  faceCaptureSchema.shape.descriptor,
+  faceDescriptorSchema,
   z.object({
     version: z.literal(2),
-    centroid: faceCaptureSchema.shape.descriptor,
-    samples: z.array(faceCaptureSchema.shape.descriptor).min(1).max(5),
+    centroid: faceDescriptorSchema,
+    samples: z.array(faceDescriptorSchema).min(1).max(12),
   }),
 ]);
 
@@ -360,10 +398,23 @@ export async function verifyFaceCapture(input: {
   let failureReason: string | null = null;
   let similarityScore: number | null = null;
 
-  try {
-    imageKey = await saveEncryptedEvidence(capture.imageData, evidenceId, capturedAt);
-  } catch (error) {
-    failureReason = error instanceof Error ? error.message : "Evidence image could not be stored";
+  const isAttendance =
+    input.expectedPurpose === FaceVerificationPurpose.ATTENDANCE_CHECK_IN ||
+    input.expectedPurpose === FaceVerificationPurpose.ATTENDANCE_CHECK_OUT;
+  const isEnrollment = input.expectedPurpose === FaceVerificationPurpose.ENROLLMENT;
+
+  // Registration keeps directional photos. Daily verify only matches descriptors — no photo storage.
+  if (isEnrollment) {
+    if (!capture.imageData) {
+      failureReason = "Enrollment requires a centre face photo.";
+    } else {
+      try {
+        imageKey = await saveEncryptedEvidence(capture.imageData, evidenceId, capturedAt);
+      } catch (error) {
+        failureReason =
+          error instanceof Error ? error.message : "Evidence image could not be stored";
+      }
+    }
   }
 
   if (!failureReason && capture.faceConfidence < settings.minFaceConfidence) {
@@ -379,9 +430,6 @@ export async function verifyFaceCapture(input: {
     failureReason = "The requested face movement was not completed.";
   }
 
-  const isAttendance =
-    input.expectedPurpose === FaceVerificationPurpose.ATTENDANCE_CHECK_IN ||
-    input.expectedPurpose === FaceVerificationPurpose.ATTENDANCE_CHECK_OUT;
   if (!failureReason && isAttendance) {
     if (
       capture.latitude === undefined ||
@@ -401,9 +449,12 @@ export async function verifyFaceCapture(input: {
     }
   }
 
-  if (!failureReason && input.expectedPurpose === FaceVerificationPurpose.ENROLLMENT) {
+  if (!failureReason && isEnrollment) {
     if (!capture.consentAccepted || capture.consentVersion !== FACE_CONSENT_VERSION) {
       failureReason = "Biometric consent is required before face registration.";
+    } else if (!capture.enrollmentViews || capture.enrollmentViews.length < 3) {
+      failureReason =
+        "Enrollment requires centre, left, and right face photos for reliable matching.";
     } else {
       const duplicateSimilarity = await duplicateEnrollmentSimilarity(
         input.userId,
@@ -438,7 +489,38 @@ export async function verifyFaceCapture(input: {
       deletedAt: imageKey ? null : capturedAt,
     },
   });
-  await enforceEvidenceImageLimit(input.userId);
+
+  if (!failureReason && isEnrollment && capture.enrollmentViews) {
+    for (const view of capture.enrollmentViews) {
+      if (view.direction === "CENTER" && view.imageData === capture.imageData) continue;
+      const viewEvidenceId = randomUUID();
+      try {
+        const viewKey = await saveEncryptedEvidence(view.imageData, viewEvidenceId, capturedAt);
+        await prisma.faceEvidence.create({
+          data: {
+            evidenceId: viewEvidenceId,
+            userId: input.userId,
+            employeeId: input.employeeId ?? null,
+            sessionId: session.sessionId,
+            purpose: FaceVerificationPurpose.ENROLLMENT,
+            outcome: FaceVerificationOutcome.PASSED,
+            imageKey: viewKey,
+            faceConfidence: capture.faceConfidence,
+            livenessScore: capture.livenessScore,
+            antiSpoofScore: capture.antiSpoofScore,
+            similarityScore: null,
+            failureReason: null,
+            capturedAt,
+            expiresAt,
+          },
+        });
+      } catch (error) {
+        console.error(`Failed to store enrollment view ${view.direction}`, error);
+      }
+    }
+  }
+
+  if (isEnrollment) await enforceEvidenceImageLimit(input.userId);
   if (failureReason) throw new HttpError(422, failureReason);
   return { evidence, settings };
 }
@@ -474,9 +556,11 @@ export async function submitFaceEnrollment(input: {
   const template = {
     version: 2 as const,
     centroid: input.capture.descriptor,
-    samples: input.capture.descriptorSamples?.length
-      ? input.capture.descriptorSamples
-      : [input.capture.descriptor],
+    samples: [
+      ...(input.capture.descriptorSamples ?? []),
+      ...(input.capture.enrollmentViews?.map((view) => view.descriptor) ?? []),
+      input.capture.descriptor,
+    ].slice(0, 12),
   };
   const profile = await prisma.faceProfile.upsert({
     where: { userId: input.userId },
@@ -566,7 +650,7 @@ export async function cleanupExpiredFaceEvidence() {
   await prisma.faceVerificationSession.deleteMany({
     where: {
       expiresAt: { lt: new Date(Date.now() - 86_400_000) },
-      evidence: { is: null },
+      evidence: { none: {} },
     },
   });
   return rows.length + trimmedImages;
@@ -589,5 +673,5 @@ export function startFaceEvidenceCleanupScheduler() {
 
 export const FACE_CONSENT = {
   version: FACE_CONSENT_VERSION,
-  text: "I consent to the encrypted storage and processing of my face template for identity verification and attendance. Verification images are retained for the configured short retention period.",
+  text: "I consent to the encrypted storage of my face template and registration photos (centre, left, and right). Attendance check-in only verifies my live face against that template and does not store new photos.",
 };

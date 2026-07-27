@@ -78,6 +78,40 @@ const challengeCopy: Record<FaceChallenge, { title: string; hint: string }> = {
   },
 };
 
+type EnrollmentDirection = "CENTER" | "LEFT" | "RIGHT";
+
+const enrollmentStepCopy: Record<
+  EnrollmentDirection,
+  { title: string; hint: string; gesture: string }
+> = {
+  CENTER: {
+    title: "Look straight ahead",
+    hint: "Centre your face and hold still for the registration photo.",
+    gesture: "facing center",
+  },
+  LEFT: {
+    title: "Turn left",
+    hint: "Turn your head slowly to your left and hold.",
+    gesture: "facing left",
+  },
+  RIGHT: {
+    title: "Turn right",
+    hint: "Turn your head slowly to your right and hold.",
+    gesture: "facing right",
+  },
+};
+
+function snapshotFromVideo(video: HTMLVideoElement) {
+  const canvas = document.createElement("canvas");
+  const scale = Math.min(1, 720 / video.videoWidth);
+  canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+  canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Camera capture is unavailable.");
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", 0.86);
+}
+
 export function FaceCapture({
   session,
   onComplete,
@@ -90,12 +124,16 @@ export function FaceCapture({
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const completeRef = useRef(onComplete);
+  const isEnrollment = session.purpose === "ENROLLMENT";
   const [phase, setPhase] = useState<"loading" | "camera" | "verifying" | "done" | "error">(
     "loading",
   );
-  const [message, setMessage] = useState("Loading secure face verification…");
+  const [message, setMessage] = useState(
+    isEnrollment ? "Loading face registration…" : "Loading secure face verification…",
+  );
   const [quality, setQuality] = useState(0);
   const [challengeDone, setChallengeDone] = useState(false);
+  const [enrollmentStep, setEnrollmentStep] = useState<EnrollmentDirection>("CENTER");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -111,6 +149,13 @@ export function FaceCapture({
     let stableFrames = 0;
     let stableEmbeddings: number[][] = [];
     let lastSampleAt = 0;
+    let enrollmentIndex = 0;
+    const enrollmentOrder: EnrollmentDirection[] = ["CENTER", "LEFT", "RIGHT"];
+    const enrollmentViews: Array<{
+      direction: EnrollmentDirection;
+      imageData: string;
+      descriptor: number[];
+    }> = [];
 
     const stop = () => {
       active = false;
@@ -146,7 +191,11 @@ export function FaceCapture({
         video.srcObject = stream;
         await video.play();
         setPhase("camera");
-        setMessage("Centre your face inside the oval.");
+        setMessage(
+          isEnrollment
+            ? enrollmentStepCopy.CENTER.hint
+            : "Centre your face inside the oval.",
+        );
 
         const detect = async () => {
           if (!active) return;
@@ -176,23 +225,122 @@ export function FaceCapture({
               .map((gesture) => gesture.gesture);
             const facingCentre = gestures.includes("facing center");
             if (facingCentre) centreObserved = true;
-            if (centreObserved) {
-              if (
-                (session.challenge === "BLINK" &&
-                  gestures.some((gesture) => gesture.startsWith("blink "))) ||
-                (session.challenge === "TURN_LEFT" && gestures.includes("facing left")) ||
-                (session.challenge === "TURN_RIGHT" && gestures.includes("facing right"))
-              ) {
-                challengeObserved = true;
-                setChallengeDone(true);
-              }
-            }
 
             const faceScore = Math.min(face.faceScore ?? face.score, face.boxScore ?? face.score);
             const live = face.live ?? 0;
             const real = face.real ?? 0;
             const largeEnough = Math.min(...face.size) >= 180;
             const hasDescriptor = Boolean(face.embedding && face.embedding.length >= 128);
+
+            if (isEnrollment) {
+              const step = enrollmentOrder[enrollmentIndex] ?? "CENTER";
+              setEnrollmentStep(step);
+              const stepMeta = enrollmentStepCopy[step];
+              const facingStep = gestures.includes(stepMeta.gesture);
+              const scoreProgress = Math.round(
+                Math.min(1, faceScore) * 25 +
+                  Math.min(1, live) * 25 +
+                  Math.min(1, real) * 25 +
+                  (largeEnough ? 15 : 0) +
+                  (facingStep ? 10 : 0),
+              );
+              setQuality(scoreProgress);
+
+              if (!largeEnough) {
+                stableFrames = 0;
+                stableEmbeddings = [];
+                setMessage("Move a little closer to the camera.");
+              } else if (faceScore < session.settings.minFaceConfidence) {
+                stableFrames = 0;
+                stableEmbeddings = [];
+                setMessage("Use brighter, even lighting on your face.");
+              } else if (real < session.settings.minAntiSpoofScore) {
+                stableFrames = 0;
+                stableEmbeddings = [];
+                setMessage("A real face is required—photos and screens are not accepted.");
+              } else if (live < session.settings.minLivenessScore) {
+                stableFrames = 0;
+                stableEmbeddings = [];
+                setMessage("Keep your face visible and follow the movement prompt.");
+              } else if (!facingStep) {
+                stableFrames = 0;
+                stableEmbeddings = [];
+                setMessage(stepMeta.hint);
+              } else if (!hasDescriptor) {
+                stableFrames = 0;
+                stableEmbeddings = [];
+                setMessage("Hold still while this angle is captured…");
+              } else {
+                const sampleTime = performance.now();
+                if (sampleTime - lastSampleAt >= 140) {
+                  lastSampleAt = sampleTime;
+                  stableEmbeddings.push([...(face.embedding ?? [])]);
+                  stableEmbeddings = stableEmbeddings.slice(-3);
+                  stableFrames = stableEmbeddings.length;
+                }
+                setMessage(
+                  `${stepMeta.title}: capturing ${Math.min(stableFrames, 3)}/3… (${enrollmentIndex + 1}/3 angles)`,
+                );
+              }
+
+              if (stableFrames >= 3 && stableEmbeddings.length === 3 && face.embedding) {
+                const averaged = stableEmbeddings[0].map(
+                  (_, index) =>
+                    stableEmbeddings.reduce((sum, embedding) => sum + embedding[index], 0) /
+                    stableEmbeddings.length,
+                );
+                enrollmentViews.push({
+                  direction: step,
+                  imageData: snapshotFromVideo(video),
+                  descriptor: averaged,
+                });
+                stableFrames = 0;
+                stableEmbeddings = [];
+                lastSampleAt = 0;
+                enrollmentIndex += 1;
+                setChallengeDone(enrollmentIndex >= enrollmentOrder.length);
+                if (enrollmentIndex < enrollmentOrder.length) {
+                  const next = enrollmentOrder[enrollmentIndex];
+                  setEnrollmentStep(next);
+                  setMessage(enrollmentStepCopy[next].hint);
+                } else {
+                  setPhase("verifying");
+                  setMessage("Saving your registration photos securely…");
+                  const center = enrollmentViews.find((view) => view.direction === "CENTER");
+                  if (!center) throw new Error("Centre enrollment photo is required.");
+                  stop();
+                  await completeRef.current({
+                    sessionId: session.sessionId,
+                    nonce: session.nonce,
+                    descriptor: center.descriptor,
+                    descriptorSamples: enrollmentViews.map((view) => view.descriptor),
+                    imageData: center.imageData,
+                    enrollmentViews,
+                    faceConfidence: faceScore,
+                    livenessScore: live,
+                    antiSpoofScore: real,
+                    challengeCompleted: true,
+                  });
+                  setPhase("done");
+                  setMessage("Face registration complete.");
+                }
+              }
+              return;
+            }
+
+            // Attendance verify: live match only — no photo is captured or stored.
+            if (
+              (session.challenge === "BLINK" &&
+                gestures.some((gesture) => gesture.startsWith("blink "))) ||
+              (session.challenge === "TURN_LEFT" && gestures.includes("facing left")) ||
+              (session.challenge === "TURN_RIGHT" && gestures.includes("facing right"))
+            ) {
+              if (centreObserved) {
+                challengeObserved = true;
+                setChallengeDone(true);
+              }
+            }
+
             const scoreProgress = Math.round(
               Math.min(1, faceScore) * 25 +
                 Math.min(1, live) * 25 +
@@ -229,7 +377,7 @@ export function FaceCapture({
             } else if (!hasDescriptor) {
               stableFrames = 0;
               stableEmbeddings = [];
-              setMessage("Hold still while your face template is prepared.");
+              setMessage("Hold still while your face is verified…");
             } else {
               const sampleTime = performance.now();
               if (sampleTime - lastSampleAt >= 120) {
@@ -238,7 +386,7 @@ export function FaceCapture({
                 stableEmbeddings = stableEmbeddings.slice(-5);
                 stableFrames = stableEmbeddings.length;
               }
-              setMessage(`Building accurate face match ${Math.min(stableFrames, 5)}/5…`);
+              setMessage(`Verifying live match ${Math.min(stableFrames, 5)}/5…`);
             }
 
             if (stableFrames >= 5 && stableEmbeddings.length === 5 && face.embedding) {
@@ -249,20 +397,12 @@ export function FaceCapture({
                   stableEmbeddings.reduce((sum, embedding) => sum + embedding[index], 0) /
                   stableEmbeddings.length,
               );
-              const canvas = document.createElement("canvas");
-              const scale = Math.min(1, 720 / video.videoWidth);
-              canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-              canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
-              const context = canvas.getContext("2d");
-              if (!context) throw new Error("Camera capture is unavailable.");
-              context.drawImage(video, 0, 0, canvas.width, canvas.height);
               stop();
               await completeRef.current({
                 sessionId: session.sessionId,
                 nonce: session.nonce,
                 descriptor: averagedDescriptor,
                 descriptorSamples: stableEmbeddings,
-                imageData: canvas.toDataURL("image/jpeg", 0.86),
                 faceConfidence: faceScore,
                 livenessScore: live,
                 antiSpoofScore: real,
@@ -298,7 +438,7 @@ export function FaceCapture({
 
     void start();
     return stop;
-  }, [session]);
+  }, [session, isEnrollment]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -353,29 +493,32 @@ export function FaceCapture({
         >
           <div className="flex items-center gap-2 text-sm font-semibold">
             <Camera className="size-4 text-primary" />
-            {challengeCopy[session.challenge].title}
+            {isEnrollment
+              ? enrollmentStepCopy[enrollmentStep].title
+              : challengeCopy[session.challenge].title}
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">{challengeCopy[session.challenge].hint}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {isEnrollment
+              ? enrollmentStepCopy[enrollmentStep].hint
+              : challengeCopy[session.challenge].hint}
+          </p>
         </div>
         <div className="rounded-xl border border-border/80 bg-muted/40 p-3 text-foreground">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <ShieldCheck className="size-4 text-primary" />
-            Private and protected
+            {isEnrollment ? "Photos saved once" : "No photo stored"}
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Spectacles are supported. Reduce screen glare if it covers your eyes.
+            {isEnrollment
+              ? "Centre, left, and right registration photos are encrypted for matching."
+              : "Check-in only verifies your live face. No new photo is saved."}
           </p>
         </div>
       </div>
 
-      {error && (
-        <div className="mx-auto mt-4 w-full max-w-md rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+      {phase === "error" && (
+        <div className="mx-auto mt-4 w-full max-w-md rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
           {error}
-          {onCancel && (
-            <Button type="button" variant="outline" className="mt-3 w-full" onClick={onCancel}>
-              Close and try again
-            </Button>
-          )}
         </div>
       )}
     </div>

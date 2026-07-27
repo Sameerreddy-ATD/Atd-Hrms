@@ -47,7 +47,7 @@ import {
   recalculateDailySummary,
 } from "./attendanceEngine.js";
 import { ensureEmployeeShiftAssignment } from "./attendancePolicy.js";
-import { settleExpiredOpenPunches } from "./attendanceSettlement.js";
+import { settleExpiredOpenPunches, closePriorOpenPunchForNewDay } from "./attendanceSettlement.js";
 import { openAttendanceStream } from "./attendanceLive.js";
 import { config } from "./config.js";
 import { ensureChecklistInstance, completeFaceEnrollmentChecklistItems } from "./checklistService.js";
@@ -3667,21 +3667,8 @@ export function createApp() {
     const eventDate = await attendanceDateForEmployee(employeeId, body.eventTime ?? new Date());
     if (!isCheckOut) {
       await ensureEmployeeShiftAssignment(employeeId, eventDate, req.user!.employeeId);
-      const unresolvedPreviousDay = await prisma.attendanceDailySummary.findFirst({
-        where: {
-          employeeId,
-          date: { lt: eventDate },
-          hasMissingOutEvent: true,
-        },
-        orderBy: { date: "desc" },
-        select: { date: true },
-      });
-      if (unresolvedPreviousDay) {
-        throw new HttpError(
-          409,
-          `Your attendance for ${unresolvedPreviousDay.date.toISOString().slice(0, 10)} has a missing checkout. Submit a missed-punch correction before checking in again.`,
-        );
-      }
+      // Missed Checkout is a flag + correction window — never a gate on the next day's check-in.
+      await closePriorOpenPunchForNewDay(employeeId, eventDate);
     }
     const latestEvent = await prisma.attendanceEvent.findFirst({
       where: { employeeId, eventType: { in: attendancePunchEventTypes } },
@@ -3759,6 +3746,19 @@ export function createApp() {
         photoUrl: clientBody.photoUrl,
         createdByUserId: req.user!.id,
       });
+      // Real GPS checkout of a prior-day open punch must stay on that attendance date.
+      if (
+        isCheckOut &&
+        latestEvent &&
+        latestEvent.eventDate.getTime() !== event.eventDate.getTime()
+      ) {
+        event = await prisma.attendanceEvent.update({
+          where: { eventId: event.eventId },
+          data: { eventDate: latestEvent.eventDate },
+        });
+        await recalculateDailySummary(employeeId, latestEvent.eventDate);
+        await recalculateDailySummary(employeeId, eventDate).catch(() => undefined);
+      }
       if (verifiedFace) {
         await prisma.faceEvidence.update({
           where: { evidenceId: verifiedFace.evidence.evidenceId },

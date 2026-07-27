@@ -134,7 +134,13 @@ export interface FaceCapturePayload {
   nonce: string;
   descriptor: number[];
   descriptorSamples?: number[][];
-  imageData: string;
+  /** Required for enrollment; omitted on attendance verify (photo is not stored). */
+  imageData?: string;
+  enrollmentViews?: Array<{
+    direction: "CENTER" | "LEFT" | "RIGHT";
+    imageData: string;
+    descriptor: number[];
+  }>;
   faceConfidence: number;
   livenessScore: number;
   antiSpoofScore: number;
@@ -145,6 +151,7 @@ export interface FaceVerificationSession {
   sessionId: string;
   nonce: string;
   challenge: FaceChallenge;
+  purpose: FaceVerificationPurpose;
   expiresAt: string;
   settings: {
     minFaceConfidence: number;

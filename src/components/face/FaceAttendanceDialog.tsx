@@ -137,7 +137,7 @@ export function FaceAttendanceDialog({
           </DialogTitle>
           <DialogDescription>
             {action === "check-in"
-              ? "Complete the quick live-face movement. Your precise location is attached to this check-in."
+              ? "Complete the quick live-face movement. Your face is matched live—no new photo is saved. Precise location is attached to this check-in."
               : "No camera is used for check-out. Your precise location is being verified."}
           </DialogDescription>
         </DialogHeader>

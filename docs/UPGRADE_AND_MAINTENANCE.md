@@ -91,10 +91,12 @@ and logout then revoke older cookies immediately.
 
 Migration `20260725170000_precise_attendance_durations` increases attendance-hour precision and
 rebuilds existing daily duration totals from the immutable punch ledger. It also flags historical
-days whose latest punch is an unmatched check-in. The updated backend blocks a new attendance day
-until that earlier session is resolved through a missed-punch correction, preventing overlapping
-cross-day sessions. The migration does not invent checkout times or count an open interval as
-worked time.
+days whose latest punch is an unmatched check-in. **Current policy:** a prior missed checkout or
+open prior-day punch does **not** block the next day’s check-in. The backend auto-closes a still-open
+prior day as Missed Checkout (system provisional out) when the employee checks in on a new day, and
+the settlement job also closes open punches at shift end + 30 minutes. Employees may submit a
+missed-punch correction within two days; after that window only HR can unlock. The migration does
+not invent checkout times for historical rows beyond what settlement/policy later applies.
 
 ### Task Workspace v2 migration warning
 

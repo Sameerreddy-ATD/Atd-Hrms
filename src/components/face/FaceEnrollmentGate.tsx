@@ -109,16 +109,16 @@ export function FaceEnrollmentGate() {
                 Register your face to continue
               </h1>
               <p className="mt-3 max-w-md text-sm leading-6 text-background/70">
-                This one-time setup protects your account and makes every mobile attendance punch
-                verifiable.
+                Photos are saved once during registration (centre, left, and right). Later check-ins
+                only verify your live face—no new photos are stored.
               </p>
 
               <div className="mt-8 space-y-4 text-sm">
                 {[
                   {
                     icon: Camera,
-                    title: "Five-sample live scan",
-                    body: "A guided head-turn and five clear frames improve matching across days.",
+                    title: "Three-direction photos",
+                    body: "Centre, left, and right registration photos improve matching from different angles.",
                   },
                   {
                     icon: MapPin,
@@ -128,12 +128,12 @@ export function FaceEnrollmentGate() {
                   {
                     icon: LockKeyhole,
                     title: "Encrypted storage",
-                    body: "Face templates and short-lived captures are encrypted.",
+                    body: "Your face template and registration photos are encrypted at rest.",
                   },
                   {
                     icon: Clock3,
-                    title: "Automatic deletion",
-                    body: "Verification captures expire after the configured retention period.",
+                    title: "Verify without saving",
+                    body: "Daily check-in matches your live face only. No attendance photos are kept.",
                   },
                 ].map(({ icon: Icon, title, body }) => (
                   <div key={title} className="flex gap-3">
@@ -155,10 +155,10 @@ export function FaceEnrollmentGate() {
               <>
                 <div className="mb-4">
                   <p className="text-xs font-semibold uppercase tracking-[.16em] text-primary">
-                    Live verification
+                    Registration photos
                   </p>
                   <h2 className="mt-1 text-xl font-bold tracking-tight text-foreground">
-                    Follow the camera prompt
+                    Capture centre, left, then right
                   </h2>
                 </div>
                 <FaceCapture

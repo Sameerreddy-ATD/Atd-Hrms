@@ -151,7 +151,9 @@ export function AttendanceDayEvents({
             {session.punchIn && !session.punchOut && (
               <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300 sm:px-4">
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                Checkout missing — submit a missed-punch correction before your next check-in.
+                Checkout missing — system will stop the timer at shift end + 30 minutes (Missed
+                Checkout). You can still check in tomorrow; submit a correction within two days if
+                needed.
               </div>
             )}
             <div className="grid grid-cols-2 divide-x border-b bg-muted/25">

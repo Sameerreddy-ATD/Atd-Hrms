@@ -22,12 +22,12 @@ import {
   Menu,
   Sun,
   Moon,
-  Monitor,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { CommandPalette } from "@/components/layout/CommandPalette";
 import { ROLE_LABELS } from "@/types/domain";
 import { getTheme, setTheme, type Theme } from "@/lib/system-theme";
+import { Switch } from "@/components/ui/switch";
 import { notificationsApi } from "@/services/api";
 import {
   filterVisibleNotifications,
@@ -40,18 +40,12 @@ function toTitle(pathname: string) {
   return seg.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-const THEME_OPTIONS: Array<{ value: Theme; label: string; icon: typeof Sun }> = [
-  { value: "light", label: "Light", icon: Sun },
-  { value: "dark", label: "Dark", icon: Moon },
-  { value: "system", label: "Auto", icon: Monitor },
-];
-
 export function AppHeader() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const { toggleSidebar } = useSidebar();
-  const [activeTheme, setActiveTheme] = useState<Theme>("system");
+  const [activeTheme, setActiveTheme] = useState<Theme>("light");
   const [notificationCount, setNotificationCount] = useState(0);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
@@ -85,9 +79,12 @@ export function AppHeader() {
     };
   }, [user]);
 
-  const handleThemeChange = (t: Theme) => {
-    setTheme(t);
-    setActiveTheme(t);
+  const darkMode = activeTheme === "dark";
+
+  const handleDarkModeToggle = (enabled: boolean) => {
+    const next: Theme = enabled ? "dark" : "light";
+    setTheme(next);
+    setActiveTheme(next);
   };
 
   const initials = user?.name
@@ -255,39 +252,34 @@ export function AppHeader() {
               <p className="mb-2 px-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 Appearance
               </p>
-              <div
-                className="grid grid-cols-3 gap-1 rounded-xl border border-border/80 bg-muted/60 p-1"
-                role="group"
-                aria-label="Theme"
-              >
-                {THEME_OPTIONS.map((option) => {
-                  const Icon = option.icon;
-                  const selected = activeTheme === option.value;
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => handleThemeChange(option.value)}
-                      className={cn(
-                        "flex flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-semibold transition",
-                        selected
-                          ? "bg-background text-foreground shadow-sm ring-1 ring-border"
-                          : "text-muted-foreground hover:bg-background/70 hover:text-foreground",
-                      )}
-                      aria-pressed={selected}
-                    >
-                      <Icon
-                        className={cn(
-                          "h-3.5 w-3.5",
-                          selected && option.value === "light" && "text-amber-500",
-                          selected && option.value === "dark" && "text-sky-400",
-                          selected && option.value === "system" && "text-primary",
-                        )}
-                      />
-                      {option.label}
-                    </button>
-                  );
-                })}
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-border/80 bg-muted/50 px-3 py-2.5">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <span
+                    className={cn(
+                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                      darkMode
+                        ? "bg-sky-500/15 text-sky-400"
+                        : "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+                    )}
+                    aria-hidden
+                  >
+                    {darkMode ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">
+                      {darkMode ? "Dark mode" : "Light mode"}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {darkMode ? "Easier on the eyes at night" : "Bright and clear for daytime"}
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={darkMode}
+                  onCheckedChange={handleDarkModeToggle}
+                  aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+                  className="data-[state=checked]:bg-sky-500 data-[state=unchecked]:bg-amber-500/80"
+                />
               </div>
             </div>
 

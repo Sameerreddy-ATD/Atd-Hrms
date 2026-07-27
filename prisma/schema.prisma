@@ -721,7 +721,7 @@ model FaceVerificationSession {
   expiresAt DateTime                @map("expires_at")
   usedAt    DateTime?               @map("used_at")
   createdAt DateTime                @default(now()) @map("created_at")
-  evidence  FaceEvidence?
+  evidence  FaceEvidence[]
 
   @@index([userId, expiresAt])
   @@map("face_verification_sessions")
@@ -733,7 +733,7 @@ model FaceEvidence {
   user              User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   employeeId        String?                 @map("employee_id")
   employee          Employee?               @relation(fields: [employeeId], references: [employeeId], onDelete: SetNull)
-  sessionId         String                  @unique @map("session_id")
+  sessionId         String                  @map("session_id")
   session           FaceVerificationSession @relation(fields: [sessionId], references: [sessionId], onDelete: Cascade)
   attendanceEventId String?                 @unique @map("attendance_event_id")
   attendanceEvent   AttendanceEvent?        @relation(fields: [attendanceEventId], references: [eventId], onDelete: SetNull)
@@ -754,6 +754,7 @@ model FaceEvidence {
   createdAt         DateTime                @default(now()) @map("created_at")
 
   @@index([userId, capturedAt])
+  @@index([sessionId])
   @@index([expiresAt, deletedAt])
   @@index([employeeId, capturedAt])
   @@map("face_evidence")

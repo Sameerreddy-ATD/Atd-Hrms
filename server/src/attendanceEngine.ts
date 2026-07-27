@@ -93,21 +93,16 @@ export function attendanceTransitionIssue(
 ) {
   const latestIsOpen = Boolean(latestEvent && inTypes.has(latestEvent.eventType));
   if (!isCheckOut && latestIsOpen) {
+    // Prior-day open punches are auto-closed before check-in; same-day double check-in is blocked.
     if (latestEvent!.eventDate.getTime() !== requestedEventDate.getTime()) {
-      return "Your previous attendance day still has a missing checkout. Submit a missed-punch correction before checking in again.";
+      return undefined;
     }
     return "You are already checked in. Refresh to see the latest punch.";
   }
   if (isCheckOut && !latestIsOpen) {
     return "No active check-in was found. Refresh to see the latest punch.";
   }
-  if (
-    isCheckOut &&
-    latestEvent &&
-    latestEvent.eventDate.getTime() !== requestedEventDate.getTime()
-  ) {
-    return "Your previous attendance day has a missing checkout. Submit a missed-punch correction for that date.";
-  }
+  // Checkout may close an open punch from the prior attendance date (real GPS out).
   return undefined;
 }
 

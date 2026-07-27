@@ -209,9 +209,17 @@ Required behavior:
 ## Attendance results
 
 - Primary day results are **Full Day** (≥9h), **Half Day** (4–&lt;9h), and **Absent** (&lt;4h).
-- **Late** and **Missed Checkout** are flags, not primary results. Missed checkout uses a system provisional checkout at shift end + 30 minutes; employees have a two-day correction window, then HR lock.
+- **Late** and **Missed Checkout** are flags, not primary results. Missed checkout uses a system
+  provisional checkout at shift end + 30 minutes; employees have a two-day correction window, then
+  HR lock.
+- **Missed Checkout never blocks the next day’s check-in.** If a prior day is still open when the
+  employee checks in again, the system auto-closes that prior day as Missed Checkout and accepts
+  today’s punch. Corrections remain optional within the two-day window.
 - Mobile location sources are labeled **Branch-Mobile** (inside branch radius) or **Mobile**.
-- Employees must have an assigned shift for the attendance date (catalog assignment; profile times are used to backfill).
+- Employees must have an assigned shift for the attendance date (catalog assignment; profile times
+  are used to backfill).
+- Face registration stores centre/left/right photos once; daily check-in verifies live and does not
+  store new photos. See [Attendance, Leave, and Face Policy](ATTENDANCE_LEAVE_AND_FACE_POLICY.md).
 
 ## Work Planner
 
