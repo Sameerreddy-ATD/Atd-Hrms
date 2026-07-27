@@ -135,8 +135,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
-// Runs before first paint so a stored/system dark preference never flashes white.
-const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem("theme");var d=t==="dark"||((!t||t==="system")&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);document.documentElement.style.colorScheme=d?"dark":"light";}catch(e){}})();`;
+// Runs before first paint so a stored dark preference never flashes white.
+const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem("theme");var d=t==="dark"||(t!=="light"&&(!t||t==="system")&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(t!=="light"&&t!=="dark"){try{localStorage.setItem("theme",d?"dark":"light");}catch(e){}}document.documentElement.classList.toggle("dark",d);document.documentElement.style.colorScheme=d?"dark":"light";}catch(e){}})();`;
 
 function RootShell({ children }: { children: ReactNode }) {
   return (

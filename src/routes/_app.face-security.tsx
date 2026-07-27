@@ -251,7 +251,8 @@ function FaceSecurityPage() {
                 </div>
                 <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
                   {settings.verificationEnabled
-                    ? "Employees must have an approved face profile and complete a live five-sample scan at check-in."
+                    ? "Employees must have an approved face profile and complete a live face match at check-in. Registration
+                    photos are saved once; daily check-in does not store new photos."
                     : "Employees can open the application and check in without a camera. Precise GPS is still required; existing face profiles and evidence are retained."}
                 </p>
               </div>
@@ -558,8 +559,8 @@ function FaceSecurityPage() {
           <DialogHeader className="border-b px-4 py-4 pr-14 text-left sm:px-6 sm:py-5">
             <DialogTitle>Face evidence history</DialogTitle>
             <DialogDescription>
-              {evidence?.name} · Up to five encrypted captures are retained and automatically
-              removed under the active policy.
+              {evidence?.name} · Registration photos (centre/left/right) are retained for review.
+              Check-in verification does not store new photos.
             </DialogDescription>
           </DialogHeader>
           {evidenceLoading ? (

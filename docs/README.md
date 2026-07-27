@@ -22,7 +22,8 @@ in the same commit.
 - Release owners: [Upgrade and Maintenance](UPGRADE_AND_MAINTENANCE.md)
 - Mobile QA/support: [Device Compatibility](DEVICE_COMPATIBILITY.md)
 - Security, HR, and attendance owners:
-  [Face Registration and Verified Attendance](FACE_ATTENDANCE_SECURITY.md)
+  [Face Registration and Verified Attendance](FACE_ATTENDANCE_SECURITY.md) and
+  [Attendance, Leave, and Face Policy](ATTENDANCE_LEAVE_AND_FACE_POLICY.md)
 - Security, QA, and release owners:
   [Workflow and Security Audit](WORKFLOW_AND_SECURITY_AUDIT.md)
 - Product QA / UX fix owners: [UX and Workflow Audit](UX_FLOW_AUDIT.md)
@@ -52,6 +53,7 @@ in the same commit.
 | `DEVICE_COMPATIBILITY.md`              | Supported browsers, PWA permissions, low-network behavior, and QA matrix                          |
 | `RESPONSIVE_UI_AUDIT.md`               | Shared responsive rules, audited surfaces, resolved issues, and UI release checklist              |
 | `FACE_ATTENDANCE_SECURITY.md`          | Mandatory enrollment, liveness/GPS flow, encrypted storage, retention, admin, and deployment      |
+| `ATTENDANCE_LEAVE_AND_FACE_POLICY.md`  | Authoritative Full Day/Half Day/Absent, Missed Checkout, leave, Comp Off, and face photo rules    |
 | `WORKFLOW_AND_SECURITY_AUDIT.md`       | Provisioning, hierarchy, module, leave, attendance, asset, security, and release acceptance audit |
 | `UX_FLOW_AUDIT.md`                     | Tester/developer register of broken flows, misplaced buttons, stubs, and suggested fix order      |
 | `THIRD_PARTY_NOTICES.md`               | Licences and attribution for bundled third-party runtime/model assets                             |
@@ -85,6 +87,18 @@ This package is intended for internal Anytime Diesel use. Final review changes i
 - No automatic “Add to Home Screen” / install banner on laptop or desktop browsers.
 - Attendance/leave calendar helpers use Asia/Kolkata dates consistently.
 - Documentation updated for go-live owners (`USER_GUIDE`, `TECHNICAL_OVERVIEW`, `RESET_AND_GO_LIVE`).
+
+### Policy release (late July 2026)
+
+- Attendance results: Full Day (≥9h) / Half Day (4–&lt;9h) / Absent (&lt;4h); Late and Missed Checkout
+  as flags; Branch-Mobile vs Mobile labels; shift catalog assignments.
+- Missed Checkout at shift end + 30 with two-day employee correction window then HR lock; **does not
+  block next-day check-in** (prior open day auto-closes when needed).
+- Leave: Casual / Sick / Unpaid / Comp Off; medical upload 48h; Comp Off on holiday Full Day with
+  approval-on-consume; company-wide holidays; Sunday weekly-off auto-confirm.
+- Face: centre/left/right registration photos once; daily check-in verifies live without storing
+  photos. See `ATTENDANCE_LEAVE_AND_FACE_POLICY.md`.
+- Appearance: light/dark toggle only (no Auto).
 
 Still out of scope for this release: automated payslips/payroll deductions, live biometric device
 connectors, WhatsApp messaging providers, and full LMS/ATS enterprise suites.

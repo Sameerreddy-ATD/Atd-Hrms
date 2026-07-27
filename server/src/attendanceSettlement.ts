@@ -324,3 +324,107 @@ export function startAttendanceSettlementScheduler() {
 export async function settleExpiredOpenPunches(_employeeId?: string) {
   return processMissedCheckouts();
 }
+
+const openInTypes = new Set<EventType>([
+  EventType.OFFICE_IN,
+  EventType.BRANCH_IN,
+  EventType.FIELD_CHECK_IN,
+  EventType.CLIENT_CHECK_IN,
+  EventType.BREAK_IN,
+]);
+
+function matchingSystemOutType(checkInType: EventType): EventType {
+  switch (checkInType) {
+    case EventType.OFFICE_IN:
+    case EventType.BRANCH_IN:
+      return EventType.OFFICE_OUT;
+    case EventType.CLIENT_CHECK_IN:
+      return EventType.CLIENT_CHECK_OUT;
+    case EventType.BREAK_IN:
+      return EventType.BREAK_OUT;
+    default:
+      return EventType.FIELD_CHECK_OUT;
+  }
+}
+
+/**
+ * When an employee starts a new attendance day while a prior day is still open,
+ * close that prior day with the Missed Checkout system out so today's check-in
+ * is never blocked. Correction remains available for two days; it is not a gate.
+ */
+export async function closePriorOpenPunchForNewDay(
+  employeeId: string,
+  currentEventDate: Date,
+  now = new Date(),
+) {
+  const latest = await prisma.attendanceEvent.findFirst({
+    where: {
+      employeeId,
+      eventType: {
+        in: [
+          EventType.OFFICE_IN,
+          EventType.OFFICE_OUT,
+          EventType.BRANCH_IN,
+          EventType.BRANCH_OUT,
+          EventType.FIELD_CHECK_IN,
+          EventType.FIELD_CHECK_OUT,
+          EventType.CLIENT_CHECK_IN,
+          EventType.CLIENT_CHECK_OUT,
+          EventType.BREAK_IN,
+          EventType.BREAK_OUT,
+        ],
+      },
+    },
+    orderBy: { eventTime: "desc" },
+  });
+  if (!latest || !openInTypes.has(latest.eventType)) return null;
+  if (latest.eventDate.getTime() >= currentEventDate.getTime()) return null;
+
+  const shift = await resolveEmployeeShift(employeeId, latest.eventDate);
+  const bounds = shiftWindowBounds(latest.eventDate, shift);
+  const eventTime =
+    now.getTime() < bounds.missedCheckOutAt.getTime() ? now : bounds.missedCheckOutAt;
+
+  const alreadySystem = await prisma.attendanceEvent.findFirst({
+    where: {
+      employeeId,
+      eventDate: latest.eventDate,
+      eventSource: EventSource.SYSTEM,
+      eventType: {
+        in: [
+          EventType.OFFICE_OUT,
+          EventType.BRANCH_OUT,
+          EventType.FIELD_CHECK_OUT,
+          EventType.CLIENT_CHECK_OUT,
+          EventType.BREAK_OUT,
+        ],
+      },
+    },
+  });
+  if (alreadySystem) {
+    await recalculateDailySummary(employeeId, latest.eventDate);
+    return alreadySystem;
+  }
+
+  const created = await createAttendanceEvent({
+    employeeId,
+    eventTime,
+    eventSource: EventSource.SYSTEM,
+    eventType: matchingSystemOutType(latest.eventType),
+    branchId: latest.branchId ?? undefined,
+    remarks: "System checkout before next-day check-in (Missed Checkout)",
+    rawPayload: {
+      reason: "PRIOR_DAY_AUTO_CLOSE_ON_CHECK_IN",
+      openEventId: latest.eventId,
+      shiftEnd: bounds.end.toISOString(),
+    },
+  });
+
+  await prisma.attendanceEvent.update({
+    where: { eventId: created.eventId },
+    data: { eventDate: latest.eventDate },
+  });
+  await recalculateDailySummary(employeeId, latest.eventDate);
+  await recalculateDailySummary(employeeId, created.eventDate).catch(() => undefined);
+  return created;
+}

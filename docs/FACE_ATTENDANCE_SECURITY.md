@@ -9,6 +9,9 @@ template match, and precise location. When paused, enrollment gating and check-i
 verification are disabled at both frontend and backend, but precise GPS remains required. Check-out
 is always camera-free and location-verified.
 
+**Storage rule:** encrypted registration photos (centre, left, right) are saved **once** per person.
+Daily check-in **verifies only** and does **not** store a new photo.
+
 This implementation is self-hosted and has no per-check cloud charge. It uses the MIT-licensed
 `@vladmandic/human` browser library and models bundled during the frontend build. AWS Rekognition
 Face Liveness is not used.
@@ -20,19 +23,19 @@ Face Liveness is not used.
 3. The frontend displays a full-screen, non-dismissible face-registration gate.
 4. The backend blocks every protected API except password, logout, session status, and face
    enrollment endpoints until the profile is approved.
-5. The user accepts the versioned biometric-consent statement.
-6. The server creates a two-minute, single-use session with a cryptographically random nonce and a
-   randomized `TURN_LEFT` or `TURN_RIGHT` challenge. Head turns are reliable when clear spectacles
-   make blink detection difficult.
-7. The camera verifies that exactly one face is present, the face is large and clear enough, the
-   anti-spoof and liveness scores pass, and the requested movement is completed.
-8. The browser captures five spaced, stable descriptors and submits their centroid, the sample set,
-   encrypted-evidence candidate, scores, session ID, and nonce.
+5. The user accepts the versioned biometric-consent statement (registration photos only; check-in
+   does not store photos).
+6. The server creates a two-minute, single-use enrollment session with a cryptographically random
+   nonce. Attendance sessions use a randomized `TURN_LEFT` or `TURN_RIGHT` challenge.
+7. Enrollment captures three directions in order: **centre**, **left**, **right**. Each angle must
+   show exactly one face, pass size/lighting/anti-spoof/liveness checks, and hold stable descriptors.
+8. The browser submits the centre image as the primary evidence image, left/right images as
+   additional enrollment evidence, and descriptors from all angles as the multi-sample template.
 9. The backend consumes the session once, enforces thresholds, rejects a face already assigned to
-   another approved account, encrypts the descriptor, encrypts the JPEG, and creates an evidence
-   record.
+   another approved account, encrypts the template, encrypts the three JPEGs, and creates evidence
+   rows linked to the same session.
 10. Normal accounts enter `PENDING`; the application remains blocked.
-11. Developer Admin reviews the image and scores under **Face Security**, then approves or rejects.
+11. Developer Admin reviews the images and scores under **Face Security**, then approves or rejects.
 12. Approval changes the profile to `APPROVED`; the waiting screen refreshes automatically and opens
     the workspace.
 
@@ -58,13 +61,13 @@ accounts that do not already have an approved registration.
 ## Attendance Flow
 
 1. For **Check In**, the browser requests the front-facing camera and fresh, high-accuracy GPS.
-2. The face models are preloaded after the dashboard opens. Five stable centred descriptors are
-   sampled over time. The backend compares the strongest three valid sample pairs instead of
-   trusting one frame, improving recognition across days, clear spectacles, lighting, and small
-   pose changes.
+2. Live descriptors are sampled after the head-turn challenge. The backend compares the strongest
+   sample pairs against the approved multi-angle template. **No JPEG is uploaded or stored** for
+   attendance verify.
 3. The server issues a single-use head-turn challenge and verifies session ownership, liveness,
    anti-spoofing, the approved encrypted template, similarity, GPS coordinates, and accuracy.
-4. A matching face creates the `attendance_events` row and links the `face_evidence` row.
+4. A matching face creates the `attendance_events` row and links a photo-less `face_evidence` audit
+   row (scores only).
 5. A mismatch displays **Another face detected**, stores a short-lived blocked security event for
    Developer Admin, and never creates attendance.
 6. For **Check Out**, the browser does not request or open the camera. It obtains fresh precise GPS,
@@ -78,6 +81,8 @@ accounts that do not already have an approved registration.
    attendance.
 10. If Developer Admin pauses verification, check-in follows the same precise-GPS validation but
     skips camera capture, face evidence, and face-session creation.
+11. A prior-day missed checkout or open punch does not block check-in. See
+    [Attendance, Leave, and Face Policy](ATTENDANCE_LEAVE_AND_FACE_POLICY.md).
 
 Mobile face attendance is always self-service. A privileged user cannot use their own face to create
 a mobile punch for another employee. Biometric-device imports and approved HR correction workflows
@@ -93,7 +98,8 @@ One row per login account:
 
 - `user_id` is unique and references `users.id`;
 - `descriptor_encrypted` contains only an AES-256-GCM encrypted versioned numeric template with a
-  centroid and up to five samples, never a JPEG or plaintext descriptor;
+  centroid and multi-angle samples (centre/left/right plus live samples), never a JPEG or plaintext
+  descriptor;
 - `status`, consent version/time, submission time, approval actor/time, and rejection details form
   the auditable enrollment state;
 - deleting a login cascades its profile, but normal account removal is deactivation and retains
@@ -116,9 +122,11 @@ One row per submitted registration or attendance verification:
 - stores purpose, outcome, confidence, liveness, anti-spoof, match score, coordinates, GPS accuracy,
   failure reason, capture time, expiry, and deletion time;
 - `image_key` references a private encrypted binary file; image bytes are not stored in MySQL and
-  are never served from the public frontend directory;
-- passed check-in evidence has a unique one-to-one relationship with `attendance_events`;
-- no more than the five newest encrypted pictures are retained for one user.
+  are never served from the public frontend directory. Attendance verify may create scores-only
+  rows with `image_key` null (no daily photo storage);
+- passed check-in evidence has a unique one-to-one relationship with `attendance_events` when linked;
+- registration may store multiple evidence rows per session (centre/left/right);
+- no more than the newest encrypted registration pictures are retained per user (default cap six).
 
 The Employee Integration API intentionally excludes face templates, evidence, consent, and
 verification sessions. A future application must integrate employee master data through `/api/v1`,
@@ -141,13 +149,12 @@ not read biometric tables or MySQL directly.
 
 ## Retention
 
-The default capture retention is five days. Developer Admin can select 1–30 days in **Face
-Security**. A second limit retains only the five newest encrypted pictures per person. When a sixth
-picture arrives, the oldest encrypted picture is deleted immediately even if it is less than five
-days old. Changing the time policy recalculates active evidence expiry times. The backend runs
-cleanup at startup and hourly:
+The default retention for **registration photos** is five days. Developer Admin can select 1–30 days
+in **Face Security**. A second limit retains only the newest encrypted pictures per person (default
+cap six, covering multi-angle enrollment). Daily check-in does not add pictures. Changing the time
+policy recalculates active evidence expiry times. The backend runs cleanup at startup and hourly:
 
-1. finds evidence older than the current retention period or outside a user's latest five;
+1. finds evidence older than the current retention period or outside a user's latest retained set;
 2. deletes the encrypted file;
 3. clears `image_key`;
 4. records `deleted_at`;
@@ -155,7 +162,7 @@ cleanup at startup and hourly:
 
 The metadata row remains for auditability without retaining the picture. The approved face template
 remains until registration is reset or the account lifecycle removes it; otherwise attendance could
-not match after the five-day evidence window.
+not match after the photo retention window.
 
 ## Developer Admin Operations
 

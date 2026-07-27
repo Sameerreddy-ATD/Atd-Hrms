@@ -37,17 +37,20 @@ describe("attendance movement summary rules", () => {
     });
   });
 
-  it("blocks a new day while the previous attendance day remains open", () => {
+  it("does not block a new day check-in when the previous day is still open", () => {
     const previousDate = new Date("2026-07-24T00:00:00.000Z");
     const currentDate = new Date("2026-07-25T00:00:00.000Z");
     const latestEvent = { eventType: EventType.FIELD_CHECK_IN, eventDate: previousDate };
 
-    expect(attendanceTransitionIssue(latestEvent, currentDate, false)).toContain(
-      "previous attendance day",
-    );
-    expect(attendanceTransitionIssue(latestEvent, currentDate, true)).toContain(
-      "missed-punch correction",
-    );
+    // Prior-day open punches are auto-closed before check-in; transition itself allows the new day.
+    expect(attendanceTransitionIssue(latestEvent, currentDate, false)).toBeUndefined();
+    expect(attendanceTransitionIssue(latestEvent, currentDate, true)).toBeUndefined();
+  });
+
+  it("still blocks a second check-in on the same open attendance day", () => {
+    const day = new Date("2026-07-25T00:00:00.000Z");
+    const latestEvent = { eventType: EventType.FIELD_CHECK_IN, eventDate: day };
+    expect(attendanceTransitionIssue(latestEvent, day, false)).toContain("already checked in");
   });
 
   it("classifies worked duration into Full Day / Half Day / Absent", () => {

@@ -78,8 +78,8 @@ not shown in the CEO login.
 7. If the account requires a first password change, enter a new password.
 8. After changing the password, the face-registration screen opens for normal accounts when
    Developer Admin has enabled employee face verification.
-9. Accept the biometric-consent statement, allow the camera, centre one uncovered face, and complete
-   the blink or head-turn prompt.
+9. Accept the biometric-consent statement, allow the camera, and capture **centre, left, and right**
+   registration photos (saved once). Later check-ins only verify live and do not store new photos.
 10. Developer Admin is exempt from face authentication. Normal accounts wait on the blocking
     approval screen until Developer Admin approves them in **Face Security**.
 11. A rejected registration displays the reason and allows a new capture.
@@ -232,7 +232,7 @@ Employees can use mobile attendance in the current version. Biometric/eSSL atten
 1. Open the Dashboard or **My Attendance** and review today's timeline.
 2. For **Check In**, allow the front camera and precise location.
 3. Keep exactly one face inside the oval, complete the head-turn prompt, return to the centre, and
-   hold still while five stable frames are securely compared.
+   hold still while your live face is matched. **No new photo is saved** on check-in.
 4. Clear spectacles are supported. Reduce glare if it covers the eyes; remove masks and
    dark/tinted glasses.
 5. A different person produces an **Another face detected** popup, is visible in Developer Admin
@@ -240,7 +240,9 @@ Employees can use mobile attendance in the current version. Biometric/eSSL atten
 6. For **Check Out**, only precise location is requested; the camera does not open.
 7. The operation cannot continue when required permission is denied or GPS accuracy is outside
    policy.
-8. Future eSSL/fingerprint imports can appear in the same daily timeline through the separate
+8. A missed checkout from a previous day does **not** block today’s check-in. The system marks
+   Missed Checkout and you may submit a correction within two days if needed.
+9. Future eSSL/fingerprint imports can appear in the same daily timeline through the separate
    biometric integration workflow.
 
 When Developer Admin pauses face verification, check-in does not open the camera and requires only
@@ -296,7 +298,9 @@ sequenceDiagram
 
 ## Employee: Request Missed Punch Correction
 
-An unmatched check-in remains active until the employee checks out. After nine hours, the employee receives one reminder that attendance is still running; the timer and session continue normally.
+If you forget to check out, at **shift end + 30 minutes** the system stops the timer with a
+provisional checkout and marks **Missed Checkout**. You can still check in the next day. Use a
+correction within **two days** if the provisional time is wrong; after that only HR can unlock it.
 
 1. Open **Missed Punch Request**.
 2. Select the date and punch time.
@@ -305,6 +309,9 @@ An unmatched check-in remains active until the employee checks out. After nine h
 5. Submit.
 
 Managers/HR can approve or reject corrections from **Attendance Corrections**.
+
+Full Day / Half Day / Absent, Late, Comp Off, holidays, and face rules are summarized in
+[Attendance, Leave, and Face Policy](ATTENDANCE_LEAVE_AND_FACE_POLICY.md).
 
 ## Employee: Apply For Leave
 
@@ -517,17 +524,17 @@ Every active entry visible in the Holiday list counts as a holiday for attendanc
 2. Use **Employee verification** to enable or pause face checks. Pausing keeps precise GPS required
    and retains existing encrypted registrations.
 3. Set registration approval to **Manual** (HR/Dev Admin review) or **Automatic** (approve on successful enroll).
-4. Review pending users, the encrypted evidence image, scores, time, and any GPS details.
-5. A red **Another face detected** alert means a check-in was blocked because the captured face did
-   not match that employee.
+4. Review pending users, the encrypted registration photos (centre/left/right), scores, time, and
+   any GPS details.
+5. A red **Another face detected** alert means a check-in was blocked because the live face did
+   not match that employee (no check-in photo is stored).
 6. Select **Approve**, or select **Reject** and give a clear correction reason.
 7. Use **Reset** when another employee must register again. The account is blocked immediately only
    while verification is enabled.
-8. Use the privacy policy card to set capture retention (default five days), match threshold, and
-   maximum accepted GPS error.
+8. Use the privacy policy card to set registration-photo retention (default five days), match
+   threshold, and maximum accepted GPS error.
 
-The evidence dialog lists retained registration and check-in captures. At most the latest five
-pictures per person remain available, and none remain longer than the configured retention.
+The evidence dialog lists retained **registration** photos. Daily check-in does not add photos.
 Expired pictures are automatically deleted while non-image audit metadata remains. See
 [Face Registration and Verified Attendance](FACE_ATTENDANCE_SECURITY.md).
 

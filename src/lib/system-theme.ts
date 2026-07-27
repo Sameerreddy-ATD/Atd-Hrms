@@ -1,17 +1,27 @@
-export type Theme = "light" | "dark" | "system";
+export type Theme = "light" | "dark";
+
+function resolveLegacyTheme(stored: string | null): Theme {
+  if (stored === "dark") return "dark";
+  if (stored === "light") return "light";
+  // Migrate old "system"/missing values to an explicit choice once.
+  if (typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+    return "dark";
+  }
+  return "light";
+}
 
 export function getTheme(): Theme {
-  if (typeof localStorage === "undefined") return "system";
-  return (localStorage.getItem("theme") as Theme) || "system";
+  if (typeof localStorage === "undefined") return "light";
+  return resolveLegacyTheme(localStorage.getItem("theme"));
+}
+
+export function isDarkTheme(theme: Theme = getTheme()) {
+  return theme === "dark";
 }
 
 export function applyTheme() {
   if (typeof document === "undefined") return;
-  const theme = getTheme();
-  const isDark =
-    theme === "dark" ||
-    (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-
+  const isDark = isDarkTheme();
   document.documentElement.classList.toggle("dark", isDark);
   document.documentElement.style.colorScheme = isDark ? "dark" : "light";
   const meta = document.querySelector('meta[name="theme-color"]');
@@ -25,26 +35,14 @@ export function setTheme(theme: Theme) {
 }
 
 export function toggleTheme() {
-  const current = getTheme();
-  if (current === "light") {
-    setTheme("dark");
-  } else if (current === "dark") {
-    setTheme("system");
-  } else {
-    setTheme("light");
-  }
+  setTheme(getTheme() === "dark" ? "light" : "dark");
 }
 
+/** Keeps document classes in sync; no longer follows OS theme changes. */
 export function watchSystemTheme() {
   if (typeof window === "undefined") return () => undefined;
-  const media = window.matchMedia("(prefers-color-scheme: dark)");
-  const handler = () => {
-    const theme = getTheme();
-    if (theme === "system") {
-      applyTheme();
-    }
-  };
-  applyTheme();
-  media.addEventListener("change", handler);
-  return () => media.removeEventListener("change", handler);
+  const current = getTheme();
+  // Persist an explicit light/dark if the user still had "system" stored.
+  setTheme(current);
+  return () => undefined;
 }

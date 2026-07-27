@@ -587,12 +587,14 @@ export const mobileEventSchema = z.object({
       descriptorSamples: z
         .array(z.array(z.number().finite().min(-10).max(10)).min(128).max(2048))
         .min(3)
-        .max(5)
+        .max(9)
         .optional(),
+      // Attendance verify matches descriptors only; photos are not accepted/stored here.
       imageData: z
         .string()
         .max(950_000)
-        .regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/),
+        .regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/)
+        .optional(),
       faceConfidence: z.number().min(0).max(1),
       livenessScore: z.number().min(0).max(1),
       antiSpoofScore: z.number().min(0).max(1),
