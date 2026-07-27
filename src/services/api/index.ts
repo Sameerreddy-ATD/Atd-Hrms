@@ -291,6 +291,15 @@ export const employeesApi = {
       joiningDate?: string;
       bloodGroup?: string;
       status: string;
+      emergencyContact?: {
+        contactName: string;
+        relationship: string;
+        phone: string;
+        alternatePhone?: string | null;
+        address?: string | null;
+        bloodGroup?: string | null;
+        medicalNotes?: string | null;
+      } | null;
     }>(`/id-card/${id}`),
   update: (id: string, patch: Partial<EmployeeProfile>) =>
     request<EmployeeProfile>(`/employees/${id}`, {
@@ -300,6 +309,22 @@ export const employeesApi = {
         attendanceMode: patch.attendanceMode,
         ...(patch.managerId !== undefined ? { managerId: patch.managerId || null } : {}),
       }),
+    }),
+  upsertEmergencyContact: (
+    id: string,
+    body: {
+      contactName: string;
+      relationship: string;
+      phone: string;
+      alternatePhone?: string | null;
+      address?: string | null;
+      bloodGroup?: string | null;
+      medicalNotes?: string | null;
+    },
+  ) =>
+    request<EmployeeProfile["emergencyContact"]>(`/employees/${id}/emergency-contact`, {
+      method: "PUT",
+      body: JSON.stringify(body),
     }),
   birthdays: () =>
     request<
@@ -1048,7 +1073,13 @@ export const tasksApi = {
     }),
   listAttachments: (id: string) =>
     request<
-      Array<{ id: string; fileName: string; mimeType: string; sizeBytes: number; createdAt: string }>
+      Array<{
+        id: string;
+        fileName: string;
+        mimeType: string;
+        sizeBytes: number;
+        createdAt: string;
+      }>
     >(`/tasks/${id}/attachments`),
   addAttachment: (
     id: string,
@@ -1093,7 +1124,13 @@ export const integrationClientsApi = {
 export const searchApi = {
   query: (q: string) =>
     request<{
-      employees: Array<{ id: string; type: string; title: string; subtitle?: string; href: string }>;
+      employees: Array<{
+        id: string;
+        type: string;
+        title: string;
+        subtitle?: string;
+        href: string;
+      }>;
       boards: Array<{ id: string; type: string; title: string; href: string }>;
       tasks: Array<{ id: string; type: string; title: string; href: string }>;
       announcements: Array<{

@@ -28,8 +28,8 @@ The app is usable for core attendance and leave for employees with an org head, 
 
 1. **Expense HR review UI cannot mark claims PAID** (status options contradict the API).
 2. **People maintenance is a dead end** for employees and HR (edit-requests return 501; only Developer Admin has Edit on Employees).
-3. **Emergency contact** has a route and database model but **no UI**.
-4. Several attendance screens (**field**, **branch**, **mismatch**) exist or are stubbed but are **not in the sidebar**, while the dashboard still surfaces related stats.
+3. **Emergency contact** UI now lives on Profile (P0); employee self-edit still deferred.
+4. Field and Branch attendance are in role menus for ops roles (P0); `/attendance/mismatch` was removed.
 5. Multiple **redirect stubs** (`/leave/balance`, `/forgot-password`, `/roles`) look like real features but dump the user somewhere else.
 
 Fix Critical/High items before treating the build as company-ready for HR ops and payroll-adjacent expense payment.
@@ -61,9 +61,9 @@ Fix Critical/High items before treating the build as company-ready for HR ops an
 
 | ID | Area | Where | Problem | Expected | Flow break | Misplaced? |
 | -- | ---- | ----- | ------- | -------- | ---------- | ---------- |
-| H1 | Emergency contact | `/emergency-contact` → redirects to `/profile`; Prisma `EmergencyContact` unused in UI | Stub redirect; profile has no emergency-contact section. | Dedicated form or Profile section that reads/writes emergency contacts. | Checklist / product promises “emergency contact”; user lands on Profile with nothing to fill. | Yes — route exists, UI lives nowhere |
+| H1 | Emergency contact | **Done (P0)** — Profile section + HR/Dev Admin write; `/emergency-contact` → `/profile#emergency-contact` | Employee self-edit still deferred (no approval workflow). | Decide direct self-edit vs profile-edit-request. | — | Resolved for view + HR/Dev Admin edit |
 | H2 | Attendance | `/attendance/field`, `/attendance/branch` — real pages, **absent from** `src/lib/menu.ts` | Field and branch attendance only reachable by URL (or accidental deep link). | Menu entries for HR/CEO/main_admin (and managers if scoped), or dashboard cards that navigate there. | Field/branch ops workflows are undiscoverable. | Yes — pages exist, navigation missing |
-| H3 | Attendance | `/attendance/mismatch` → redirects to `/attendance/branch` | Stub while dashboard can surface mismatch-style counts. | Real mismatch review **or** remove/rename dashboard cues. | User expects mismatch handling; gets branch page. | Yes — named route implies feature |
+| H3 | Attendance | **Done (P0)** — `/attendance/mismatch` removed (no redirect stub) | Face mismatch remains under Face Security; corrections cover missed punches. | — | — | Resolved |
 | H4 | Auth | `/forgot-password` · `src/routes/forgot-password.tsx` | “Need help?” opens static “contact HR” card — no reset form. | Self-serve reset **or** rename link to “Contact admin” and stop implying recovery. | Users believe password reset is broken. | Yes — login CTA implies recovery |
 | H5 | Leave medical | `/leave/history` · medical upload cards + `MedicalDocumentActions` | Cards stay after URL upload / verify; due date is not cleared; Save remains the primary action. | Hide or switch to “Submitted / Verified” state after success. | Sick-leave medical flow feels permanently overdue. | — |
 | H6 | Leave medical | `/leave/apply` vs History | Apply: Drive URL only. History: file upload + Drive. | Same attach options at apply time. | Employee must apply first, then return to History to upload a file. | Yes — upload control only on History |
@@ -212,7 +212,7 @@ Mismatch route stubs to Branch (H3)
 | Route | Behaviour today | Risk |
 | ----- | --------------- | ---- |
 | `/emergency-contact` | → `/profile` | High — EC data unused |
-| `/attendance/mismatch` | → `/attendance/branch` | High — false feature name |
+| `/attendance/mismatch` | **Removed (P0)** | Was a false feature name |
 | `/leave/balance` | → `/leave/history` | Medium — balances not on History |
 | `/reports/payroll` | Removed | Resolved |
 | `/forgot-password` | Static help card | High — UX expectation |

@@ -111,6 +111,7 @@ export interface User {
   shiftType?: "DAY" | "NIGHT";
   shiftStartMinutes?: number;
   shiftEndMinutes?: number;
+  emergencyContact?: EmergencyContact | null;
   mustChangePassword?: boolean;
   faceEnrollmentStatus?: FaceEnrollmentStatus;
   faceEnrollmentRequired?: boolean;
@@ -408,12 +409,7 @@ export type AttendanceStatus =
   | string;
 
 export type AttendanceSource =
-  | "Branch-Mobile"
-  | "Mobile"
-  | "Thumb Scanner"
-  | "Manual Entry"
-  | "System"
-  | string;
+  "Branch-Mobile" | "Mobile" | "Thumb Scanner" | "Manual Entry" | "System" | string;
 
 export interface AttendanceRecord {
   id: string;
@@ -700,8 +696,11 @@ export interface TaskAssignee {
 }
 
 export interface EmergencyContact {
-  name: string;
-  relation: string;
+  contactName: string;
+  relationship: string;
   phone: string;
+  alternatePhone?: string;
   address?: string;
+  bloodGroup?: string;
+  medicalNotes?: string;
 }

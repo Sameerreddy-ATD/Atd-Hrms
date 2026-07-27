@@ -27,6 +27,7 @@ in the same commit.
 - Security, QA, and release owners:
   [Workflow and Security Audit](WORKFLOW_AND_SECURITY_AUDIT.md)
 - Product QA / UX fix owners: [UX and Workflow Audit](UX_FLOW_AUDIT.md)
+- Full-stack completeness owners: [Application Audit](APPLICATION_AUDIT.md) (frontend, backend, DB, stubs, deferred modules)
 - Legal and receiving-company reviewers: [Third-Party Notices](THIRD_PARTY_NOTICES.md)
 
 ## Document Ownership
@@ -56,6 +57,7 @@ in the same commit.
 | `ATTENDANCE_LEAVE_AND_FACE_POLICY.md`  | Authoritative Full Day/Half Day/Absent, Missed Checkout, leave, Comp Off, and face photo rules    |
 | `WORKFLOW_AND_SECURITY_AUDIT.md`       | Provisioning, hierarchy, module, leave, attendance, asset, security, and release acceptance audit |
 | `UX_FLOW_AUDIT.md`                     | Tester/developer register of broken flows, misplaced buttons, stubs, and suggested fix order      |
+| `APPLICATION_AUDIT.md`                 | Full-stack completeness: working flows, half-built features, deferred DB modules, fix priority    |
 | `THIRD_PARTY_NOTICES.md`               | Licences and attribution for bundled third-party runtime/model assets                             |
 
 The repository-level [`SECURITY.md`](../SECURITY.md) defines private vulnerability reporting and

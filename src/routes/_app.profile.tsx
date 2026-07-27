@@ -19,6 +19,7 @@ import { employeesApi, usersApi } from "@/services/api";
 import { Eye, EyeOff, Key, Loader2 } from "lucide-react";
 import { PasswordInput } from "@/components/common/PasswordInput";
 import { PasswordMatchHint } from "@/components/common/PasswordMatchHint";
+import { EmergencyContactSection } from "@/components/profile/EmergencyContactSection";
 
 export const Route = createFileRoute("/_app/profile")({
   component: ProfilePage,
@@ -74,8 +75,20 @@ function ProfilePage() {
     setDob(user.dateOfBirth ?? "");
   }, [user]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash !== "#emergency-contact") return;
+    const frame = window.requestAnimationFrame(() => {
+      document
+        .getElementById("emergency-contact")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [employee?.emergencyContact, user?.employeeId]);
+
   if (!user) return null;
   const canSaveDirectly = user.role === "developer_admin";
+  const canEditEmergencyContact = canSaveDirectly || user.role === "hr";
   const profile = employee ?? user;
   const initials = user.name
     .split(" ")
@@ -120,8 +133,8 @@ function ProfilePage() {
         title="My Profile"
         description={
           canSaveDirectly
-            ? "Developer Admin can update profile fields directly. Other users are read-only here."
-            : "Profile details are view-only. Ask Developer Admin to update employment or account fields. You can still change your own password below."
+            ? "Developer Admin can update profile fields and emergency contact directly."
+            : "Profile details are view-only. Ask Developer Admin to update employment or account fields. Emergency contact is shown below; HR or Developer Admin can update it. You can still change your own password."
         }
       />
       <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
@@ -362,6 +375,23 @@ function ProfilePage() {
             </form>
           </CardContent>
         </Card>
+
+        {user.employeeId && (
+          <Card className="h-fit lg:col-span-2 lg:col-start-2">
+            <CardContent className="p-4 sm:p-6">
+              <EmergencyContactSection
+                employeeId={user.employeeId}
+                value={employee?.emergencyContact}
+                canEdit={canEditEmergencyContact}
+                onSaved={(next) =>
+                  setEmployee((current) =>
+                    current ? { ...current, emergencyContact: next } : current,
+                  )
+                }
+              />
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

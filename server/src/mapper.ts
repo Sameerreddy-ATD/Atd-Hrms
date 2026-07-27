@@ -111,6 +111,15 @@ export function employeeDto(
     department?: { name: string } | null;
     homeBranch?: Branch | null;
     manager?: Pick<Employee, "employeeId" | "name"> | null;
+    emergencyContact?: {
+      contactName: string;
+      relationship: string;
+      phone: string;
+      alternatePhone: string | null;
+      address: string | null;
+      bloodGroup: string | null;
+      medicalNotes: string | null;
+    } | null;
   },
   reqUser?: { id: string; role: string; employeeId?: string | null },
   includePrivateDetails = false,
@@ -207,6 +216,20 @@ export function employeeDto(
     terminatedAt: employee.terminatedAt?.toISOString() ?? null,
     createdAt: employee.createdAt.toISOString(),
     updatedAt: employee.updatedAt.toISOString(),
+    emergencyContact:
+      showPrivateDetails && employee.emergencyContact
+        ? {
+            contactName: employee.emergencyContact.contactName,
+            relationship: employee.emergencyContact.relationship,
+            phone: employee.emergencyContact.phone,
+            alternatePhone: employee.emergencyContact.alternatePhone ?? undefined,
+            address: employee.emergencyContact.address ?? undefined,
+            bloodGroup: employee.emergencyContact.bloodGroup ?? undefined,
+            medicalNotes: employee.emergencyContact.medicalNotes ?? undefined,
+          }
+        : showPrivateDetails
+          ? null
+          : undefined,
   };
 }
 
@@ -333,8 +356,7 @@ export function attendanceRecordDto(
 ) {
   const matchedBranchName = summary.primaryBranch?.branchName;
   const sourceLabel =
-    summary.attendanceSourceSummary === "BRANCH_MOBILE" ||
-    summary.checkInSource === "BRANCH_MOBILE"
+    summary.attendanceSourceSummary === "BRANCH_MOBILE" || summary.checkInSource === "BRANCH_MOBILE"
       ? matchedBranchName
         ? `Branch-Mobile · ${matchedBranchName}`
         : "Branch-Mobile"

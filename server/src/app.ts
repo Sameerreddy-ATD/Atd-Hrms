@@ -147,6 +147,7 @@ import {
   taskUpdateSchema,
   thumbEventSchema,
   updateEmployeeSchema,
+  emergencyContactSchema,
   updateUserSchema,
   weeklyOffRequestSchema,
 } from "./schemas.js";
@@ -2223,9 +2224,67 @@ export function createApp() {
       await assertEmployeeAccess(req.user, employeeId);
       const employee = await prisma.employee.findUniqueOrThrow({
         where: { employeeId },
-        include: { user: true, department: true, homeBranch: true, manager: true },
+        include: {
+          user: true,
+          department: true,
+          homeBranch: true,
+          manager: true,
+          emergencyContact: true,
+        },
       });
       res.json(employeeDto(employee, req.user!, true));
+    }),
+  );
+
+
+  app.put(
+    "/employees/:id/emergency-contact",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN, Role.HR),
+    asyncHandler(async (req, res) => {
+      const employeeId = String(req.params.id);
+      await assertEmployeeAccess(req.user, employeeId);
+      const body = emergencyContactSchema.parse(req.body);
+      const employee = await prisma.employee.findUnique({ where: { employeeId } });
+      if (!employee) throw new HttpError(404, "Employee not found");
+      const contact = await prisma.emergencyContact.upsert({
+        where: { employeeId },
+        create: {
+          employeeId,
+          contactName: body.contactName,
+          relationship: body.relationship,
+          phone: body.phone,
+          alternatePhone: body.alternatePhone ?? null,
+          address: body.address ?? null,
+          bloodGroup: body.bloodGroup ?? null,
+          medicalNotes: body.medicalNotes ?? null,
+        },
+        update: {
+          contactName: body.contactName,
+          relationship: body.relationship,
+          phone: body.phone,
+          alternatePhone: body.alternatePhone ?? null,
+          address: body.address ?? null,
+          bloodGroup: body.bloodGroup ?? null,
+          medicalNotes: body.medicalNotes ?? null,
+        },
+      });
+      await audit({
+        action: "employee emergency contact updated",
+        performedByUserId: req.user!.id,
+        affectedUserId: undefined,
+        newValue: { employeeId, contactName: contact.contactName },
+        ipAddress: req.ip,
+      });
+      res.json({
+        contactName: contact.contactName,
+        relationship: contact.relationship,
+        phone: contact.phone,
+        alternatePhone: contact.alternatePhone ?? undefined,
+        address: contact.address ?? undefined,
+        bloodGroup: contact.bloodGroup ?? undefined,
+        medicalNotes: contact.medicalNotes ?? undefined,
+      });
     }),
   );
 
@@ -2235,6 +2294,7 @@ export function createApp() {
     requireRoles(Role.DEVELOPER_ADMIN, Role.HR),
     asyncHandler(async (req, res) => {
       const employeeId = String(req.params.id);
+      await assertEmployeeAccess(req.user, employeeId);
       const body = updateEmployeeSchema.parse(req.body);
       const { bankAccountNumber, panNumber, aadhaarNumber, uanNumber, ...employeeUpdate } = body;
       if (
