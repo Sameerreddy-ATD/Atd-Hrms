@@ -103,6 +103,13 @@ function styleHeader(sheet: Worksheet) {
   });
 }
 
+function styleReferenceSheet(sheet: Worksheet) {
+  styleHeader(sheet);
+}
+
+const ASSET_COLUMN_WIDTHS = [20, 28, 18, 20, 18, 20, 20, 18, 24, 24, 16, 24, 20, 32, 22, 18, 18];
+const IMPORT_ROW_COUNT = 500;
+
 export function BulkAssetImport({
   branches,
   catalog,
@@ -132,72 +139,33 @@ export function BulkAssetImport({
     workbook.creator = "Anytime Diesel Employee Management System";
     workbook.created = new Date();
 
-    const sheet = workbook.addWorksheet("Assets");
-    sheet.addRow([...HEADERS]);
-    styleHeader(sheet);
-    sheet.addRow([
-      "ATD-LAP-001",
-      "Laptop",
-      "PHYSICAL",
-      "EMPLOYEE",
-      "ONE_TIME",
-      45000,
-      new Date().toISOString().slice(0, 10),
-      "",
-      "SN-SAMPLE-001",
-      branches[0]?.name || "Head Office",
-      "AVAILABLE",
-      "",
-      "IT Store",
-      "Sample row — replace or delete before import",
-      "",
-      "",
-      "",
-    ]);
-    sheet.addRow([
-      "",
-      "Microsoft 365",
-      "ONLINE",
-      "COMPANY",
-      "YEARLY",
-      12000,
-      new Date().toISOString().slice(0, 10),
-      "",
-      "tenant-sample@anytimediesel.com",
-      "",
-      "AVAILABLE",
-      "",
-      "",
-      "Online license sample — Asset Code can be blank for ONLINE",
-      "",
-      "",
-      "",
-    ]);
-
     const instructions = workbook.addWorksheet("Instructions");
-    instructions.addRow(["Field", "Rules"]);
-    styleHeader(instructions);
-    [
-      ["Asset Code*", "Required for PHYSICAL. Unique. Leave blank for ONLINE (auto-generated)."],
-      ["Asset Name*", "Required. Prefer an existing catalog name when possible."],
-      ["Asset Type*", "PHYSICAL or ONLINE"],
-      ["Assignment Scope*", "EMPLOYEE (can be assigned to people) or COMPANY (shared use)"],
-      ["Cost Frequency*", "ONE_TIME, MONTHLY, or YEARLY"],
-      ["Purchase Value (INR)*", "Number >= 0"],
-      ["Purchase / Start Date", "YYYY-MM-DD"],
-      ["Renewal Date", "YYYY-MM-DD — mainly for MONTHLY/YEARLY online subscriptions"],
-      ["Branch Name", "Match a branch from the Branches sheet (PHYSICAL assets)"],
-      ["Status", "AVAILABLE, ASSIGNED, UNDER_REPAIR, or RETIRED (default AVAILABLE)"],
-      ["Assigned Employee Code", "Required only when Status is ASSIGNED; must match Employees sheet"],
-      ["Vehicle fields", "Optional for bowsers/vehicles: registration, insurance expiry, fitness expiry"],
-      ["Import limit", "Up to 500 rows per file. Delete sample rows before importing."],
-    ].forEach((row) => instructions.addRow(row));
-    instructions.getColumn(1).width = 28;
-    instructions.getColumn(2).width = 90;
+    instructions.addRow(["Anytime Diesel Asset Import"]);
+    instructions.addRow([
+      "1. Enter assets only in the Assets sheet. Do not rename the column headers.",
+    ]);
+    instructions.addRow([
+      "2. Use the dropdowns for asset name, type, scope, frequency, branch, status, and employee code.",
+    ]);
+    instructions.addRow([
+      "3. Asset Code is required for PHYSICAL assets. Leave blank for ONLINE (auto-generated).",
+    ]);
+    instructions.addRow([
+      "4. Assigned Employee Code is required only when Status is ASSIGNED.",
+    ]);
+    instructions.addRow([
+      "5. Rows 2 and 3 are examples. Replace them with real asset details or delete them before upload.",
+    ]);
+    instructions.addRow([
+      "6. Download a fresh template whenever branches, employees, or catalog names change.",
+    ]);
+    instructions.addRow(["7. Import limit: up to 500 assets per file."]);
+    instructions.getColumn(1).width = 100;
+    instructions.getRow(1).font = { bold: true, size: 16, color: { argb: "FFD92D20" } };
 
     const enums = workbook.addWorksheet("Allowed Values");
     enums.addRow(["Asset Type", "Assignment Scope", "Cost Frequency", "Status"]);
-    styleHeader(enums);
+    styleReferenceSheet(enums);
     const max = Math.max(ASSET_TYPES.length, SCOPES.length, FREQUENCIES.length, STATUSES.length);
     for (let index = 0; index < max; index += 1) {
       enums.addRow([
@@ -210,24 +178,188 @@ export function BulkAssetImport({
 
     const branchSheet = workbook.addWorksheet("Branches");
     branchSheet.addRow(["Branch Name", "Branch ID"]);
-    styleHeader(branchSheet);
+    styleReferenceSheet(branchSheet);
     branches.forEach((branch) => branchSheet.addRow([branch.name, branch.id]));
 
+    const activeEmployees = employees.filter(
+      (person) => person.active && person.employeeId && (person.employeeCode || person.employeeId),
+    );
     const employeeSheet = workbook.addWorksheet("Employees");
     employeeSheet.addRow(["Employee Code", "Name", "Employee ID"]);
-    styleHeader(employeeSheet);
-    employees
-      .filter((person) => person.active && person.employeeId)
-      .forEach((person) =>
-        employeeSheet.addRow([person.employeeCode || "", person.name, person.employeeId]),
-      );
+    styleReferenceSheet(employeeSheet);
+    activeEmployees.forEach((person) =>
+      employeeSheet.addRow([
+        person.employeeCode || person.employeeId || "",
+        person.name,
+        person.employeeId,
+      ]),
+    );
 
     const catalogSheet = workbook.addWorksheet("Catalog Names");
     catalogSheet.addRow(["Catalog Name", "Category", "Default Value"]);
-    styleHeader(catalogSheet);
+    styleReferenceSheet(catalogSheet);
     catalog.forEach((item) =>
       catalogSheet.addRow([item.name, item.category, item.defaultValue ?? ""]),
     );
+
+    const sheet = workbook.addWorksheet("Assets");
+    sheet.addRow([...HEADERS]);
+    for (let row = 0; row < IMPORT_ROW_COUNT; row += 1) sheet.addRow([]);
+    styleHeader(sheet);
+    sheet.properties.defaultRowHeight = 20;
+    sheet.autoFilter = `A1:${sheet.getColumn(HEADERS.length).letter}1`;
+    sheet.columns = ASSET_COLUMN_WIDTHS.map((width) => ({ width }));
+    [1, 9, 12, 15].forEach((column) => {
+      sheet.getColumn(column).numFmt = "@";
+    });
+    [7, 8, 16, 17].forEach((column) => {
+      sheet.getColumn(column).numFmt = "yyyy-mm-dd";
+    });
+
+    const sampleRows = [
+      [
+        "ATD-LAP-001",
+        catalog.find((item) => item.category === "PHYSICAL")?.name || "Laptop",
+        "PHYSICAL",
+        "EMPLOYEE",
+        "ONE_TIME",
+        45000,
+        new Date(),
+        "",
+        "SN-SAMPLE-001",
+        branches[0]?.name || "",
+        "AVAILABLE",
+        "",
+        "IT Store",
+        "Sample row — replace or delete before import",
+        "",
+        "",
+        "",
+      ],
+      [
+        "",
+        catalog.find((item) => item.category === "ONLINE")?.name || "Microsoft 365",
+        "ONLINE",
+        "COMPANY",
+        "YEARLY",
+        12000,
+        new Date(),
+        "",
+        "tenant-sample@anytimediesel.com",
+        "",
+        "AVAILABLE",
+        "",
+        "",
+        "Online license sample — Asset Code can be blank for ONLINE",
+        "",
+        "",
+        "",
+      ],
+    ];
+    sampleRows.forEach((values, index) => {
+      const sampleRow = sheet.getRow(index + 2);
+      sampleRow.values = values;
+      sampleRow.eachCell({ includeEmpty: true }, (cell) => {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF4CC" } };
+      });
+      sampleRow.getCell(1).note = "EXAMPLE ROW: replace with real details or delete before upload.";
+    });
+
+    const catalogEnd = Math.max(2, catalog.length + 1);
+    const branchEnd = Math.max(2, branches.length + 1);
+    const employeeEnd = Math.max(2, activeEmployees.length + 1);
+
+    for (let row = 2; row <= IMPORT_ROW_COUNT + 1; row += 1) {
+      if (catalog.length > 0) {
+        sheet.getCell(`B${row}`).dataValidation = {
+          type: "list",
+          allowBlank: false,
+          showErrorMessage: true,
+          errorTitle: "Select an asset name",
+          error: "Choose an asset name from the catalog dropdown.",
+          formulae: [`'Catalog Names'!$A$2:$A$${catalogEnd}`],
+        };
+      }
+      sheet.getCell(`C${row}`).dataValidation = {
+        type: "list",
+        allowBlank: false,
+        showErrorMessage: true,
+        errorTitle: "Select an asset type",
+        error: "Choose PHYSICAL or ONLINE from the dropdown.",
+        formulae: [`'Allowed Values'!$A$2:$A$${ASSET_TYPES.length + 1}`],
+      };
+      sheet.getCell(`D${row}`).dataValidation = {
+        type: "list",
+        allowBlank: false,
+        showErrorMessage: true,
+        errorTitle: "Select an assignment scope",
+        error: "Choose EMPLOYEE or COMPANY from the dropdown.",
+        formulae: [`'Allowed Values'!$B$2:$B$${SCOPES.length + 1}`],
+      };
+      sheet.getCell(`E${row}`).dataValidation = {
+        type: "list",
+        allowBlank: false,
+        showErrorMessage: true,
+        errorTitle: "Select a cost frequency",
+        error: "Choose ONE_TIME, MONTHLY, or YEARLY from the dropdown.",
+        formulae: [`'Allowed Values'!$C$2:$C$${FREQUENCIES.length + 1}`],
+      };
+      if (branches.length > 0) {
+        sheet.getCell(`J${row}`).dataValidation = {
+          type: "list",
+          allowBlank: true,
+          showErrorMessage: true,
+          errorTitle: "Select a branch",
+          error: "Choose a branch from the dropdown or leave blank for ONLINE assets.",
+          formulae: [`Branches!$A$2:$A$${branchEnd}`],
+        };
+      }
+      sheet.getCell(`K${row}`).dataValidation = {
+        type: "list",
+        allowBlank: true,
+        showErrorMessage: true,
+        errorTitle: "Select a status",
+        error: "Choose a status from the dropdown.",
+        formulae: [`'Allowed Values'!$D$2:$D$${STATUSES.length + 1}`],
+      };
+      if (activeEmployees.length > 0) {
+        sheet.getCell(`L${row}`).dataValidation = {
+          type: "list",
+          allowBlank: true,
+          showErrorMessage: true,
+          errorTitle: "Select an employee",
+          error: "Choose an employee code from the dropdown or leave blank.",
+          formulae: [`Employees!$A$2:$A$${employeeEnd}`],
+        };
+      }
+      for (const column of ["G", "H", "P", "Q"]) {
+        sheet.getCell(`${column}${row}`).dataValidation = {
+          type: "date",
+          operator: "between",
+          allowBlank: true,
+          showErrorMessage: true,
+          errorTitle: "Invalid date",
+          error: "Enter a valid date between 1900-01-01 and 2100-12-31.",
+          formulae: [new Date(1900, 0, 1), new Date(2100, 11, 31)],
+        };
+      }
+      sheet.getCell(`L${row}`).note =
+        "Required only when Status is ASSIGNED. Pick from Employees sheet values.";
+      if (row <= 81) {
+        sheet.getRow(row).eachCell({ includeEmpty: true }, (cell) => {
+          cell.border = {
+            bottom: { style: "hair", color: { argb: "FFD9DEE5" } },
+          };
+        });
+      }
+    }
+
+    await Promise.all([
+      enums.protect("", { selectLockedCells: true }),
+      branchSheet.protect("", { selectLockedCells: true }),
+      employeeSheet.protect("", { selectLockedCells: true }),
+      catalogSheet.protect("", { selectLockedCells: true }),
+    ]);
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
@@ -490,8 +622,8 @@ export function BulkAssetImport({
           <DialogHeader>
             <DialogTitle>Bulk import assets</DialogTitle>
             <DialogDescription>
-              Download the Excel template, fill one row per asset, then upload it for validation
-              before anything is saved.
+              Download the Excel template with dropdowns for catalog names, branches, employees,
+              and allowed values, then upload it for validation before anything is saved.
             </DialogDescription>
           </DialogHeader>
 
@@ -506,7 +638,7 @@ export function BulkAssetImport({
               <span className="text-left">
                 <span className="block font-medium">Download Excel template</span>
                 <span className="block text-xs text-muted-foreground">
-                  Includes sample rows, branches, employees, and catalog names
+                  Dropdowns for catalog, branches, employees, and enum values
                 </span>
               </span>
             </Button>
