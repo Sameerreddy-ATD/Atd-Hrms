@@ -251,8 +251,7 @@ function FaceSecurityPage() {
                 </div>
                 <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
                   {settings.verificationEnabled
-                    ? "Employees must have an approved face profile and complete a live face match at check-in. Registration
-                    photos are saved once; daily check-in does not store new photos."
+                    ? "Employees must have an approved face profile and complete a live face match at check-in. Registration photos are saved once; daily check-in does not store new photos."
                     : "Employees can open the application and check in without a camera. Precise GPS is still required; existing face profiles and evidence are retained."}
                 </p>
               </div>
