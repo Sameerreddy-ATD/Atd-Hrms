@@ -295,13 +295,41 @@ export interface CompanyAsset {
   assignedEmployeeId?: string;
   assignedEmployeeName?: string;
   assignedEmployeeCode?: string;
+  activeSeatCount?: number;
+  costSharePerSeat?: number;
   branchId?: string;
   branchName?: string;
   location?: string;
   notes?: string;
-  vehicleRegistration?: string;
-  insuranceExpiry?: string;
-  fitnessExpiry?: string;
+  assignments?: AssetSeat[];
+}
+
+export interface AssetSeat {
+  id: string;
+  employeeId: string;
+  employeeName?: string;
+  employeeCode?: string;
+  visibleToEmployee: boolean;
+  assignedAt: string;
+  costShareAmount?: number;
+  costShareFrequency?: "ONE_TIME" | "MONTHLY" | "YEARLY";
+}
+
+export interface MyAssignedAsset {
+  id: string;
+  assetId: string;
+  assetCode: string;
+  name: string;
+  category: string;
+  serialNumber?: string;
+  assetType: "PHYSICAL" | "ONLINE";
+  assignmentScope: "EMPLOYEE" | "COMPANY";
+  costFrequency: "ONE_TIME" | "MONTHLY" | "YEARLY";
+  renewalDate?: string;
+  status: string;
+  location?: string;
+  branchName?: string;
+  assignedAt: string;
 }
 
 export interface EmployeeAssetInvestment {
@@ -315,6 +343,7 @@ export interface EmployeeAssetInvestment {
   monthlyRecurring: number;
   annualRecurring: number;
   firstYearInvestment: number;
+  lifetimeInvestment: number;
 }
 
 export interface AssetCatalogItem {

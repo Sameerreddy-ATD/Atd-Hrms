@@ -71,20 +71,18 @@ const EMPTY_ASSET_FORM = {
   renewalDate: "",
   branchId: "",
   status: "AVAILABLE" as CompanyAsset["status"],
-  vehicleRegistration: "",
-  insuranceExpiry: "",
-  fitnessExpiry: "",
+  visibleToEmployee: true,
 };
 
 const PAGE_SIZE = 100;
-type AssetsTab = "inventory" | "assigned" | "investment" | "returns";
+type AssetsTab = "equipment" | "premises" | "online" | "investment" | "returns";
 type ScopeFilter = "all" | "EMPLOYEE" | "COMPANY";
 
 function AssetsPage() {
   const { user } = useAuth();
   const canManage = user?.role === "hr" || user?.role === "developer_admin";
   const isCeo = user?.role === "ceo";
-  const [tab, setTab] = useState<AssetsTab>(isCeo ? "investment" : "inventory");
+  const [tab, setTab] = useState<AssetsTab>(isCeo ? "investment" : "equipment");
   const [assets, setAssets] = useState<CompanyAsset[]>([]);
   const [investments, setInvestments] = useState<EmployeeAssetInvestment[]>([]);
   const [assetNames, setAssetNames] = useState<AssetCatalogItem[]>([]);
@@ -171,12 +169,12 @@ function AssetsPage() {
 
   const availableAssets = useMemo(
     () =>
-      assets.filter(
-        (asset) =>
-          asset.assignmentScope === "EMPLOYEE" &&
-          asset.status === "AVAILABLE" &&
-          !asset.assignedEmployeeId,
-      ),
+      assets.filter((asset) => {
+        if (asset.assignmentScope !== "EMPLOYEE") return false;
+        if (asset.status === "RETIRED" || asset.status === "UNDER_REPAIR") return false;
+        if (asset.assetType === "ONLINE") return true;
+        return asset.status === "AVAILABLE" && !(asset.activeSeatCount ?? 0);
+      }),
     [assets],
   );
 
@@ -266,9 +264,7 @@ function AssetsPage() {
       renewalDate: asset.renewalDate ?? "",
       branchId: asset.branchId ?? "",
       status: asset.status,
-      vehicleRegistration: asset.vehicleRegistration ?? "",
-      insuranceExpiry: asset.insuranceExpiry ?? "",
-      fitnessExpiry: asset.fitnessExpiry ?? "",
+      visibleToEmployee: true,
     });
     setAssetDialogOpen(true);
   }
@@ -302,9 +298,7 @@ function AssetsPage() {
         renewalDate: assetForm.costFrequency === "ONE_TIME" ? null : assetForm.renewalDate || null,
         branchId: assetForm.assetType === "ONLINE" ? null : assetForm.branchId || null,
         status: assetForm.status,
-        vehicleRegistration: assetForm.vehicleRegistration.trim() || null,
-        insuranceExpiry: assetForm.insuranceExpiry || null,
-        fitnessExpiry: assetForm.fitnessExpiry || null,
+        visibleToEmployee: assetForm.visibleToEmployee,
       };
       const saved = editingAsset
         ? await assetsApi.update(editingAsset.id, payload)
@@ -357,15 +351,15 @@ function AssetsPage() {
       return;
     }
     try {
-      const saved = await assetsApi.update(assignment.assetId, {
-        assignedEmployeeId: assignment.employeeId,
-        status: "ASSIGNED",
+      const saved = await assetsApi.assign(assignment.assetId, {
+        employeeId: assignment.employeeId,
+        visibleToEmployee: assetForm.visibleToEmployee,
       });
       setAssets((current) => current.map((asset) => (asset.id === saved.id ? saved : asset)));
       setAssignDialogOpen(false);
       setInvestments(await assetsApi.investmentSummary());
-      toast.success(`Asset assigned to ${saved.assignedEmployeeName}`);
-      setTab("assigned");
+      toast.success("Asset assigned");
+      setTab(saved.assetType === "ONLINE" ? "online" : "equipment");
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -407,7 +401,7 @@ function AssetsPage() {
       setReturnTarget(null);
       await load();
       toast.success("Return checklist saved and asset released");
-      setTab("inventory");
+      setTab("equipment");
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -474,11 +468,14 @@ function AssetsPage() {
       {!loading && !error && (
         <Tabs value={tab} onValueChange={(value) => setTab(value as AssetsTab)}>
           <TabsList className="h-auto w-full flex-wrap justify-start gap-1">
-            <TabsTrigger value="inventory" className="min-h-10">
-              Inventory
+            <TabsTrigger value="equipment" className="min-h-10">
+              Employee equipment
             </TabsTrigger>
-            <TabsTrigger value="assigned" className="min-h-10">
-              Assigned ({assignedAssets.length})
+            <TabsTrigger value="premises" className="min-h-10">
+              Company premises
+            </TabsTrigger>
+            <TabsTrigger value="online" className="min-h-10">
+              Online / subscriptions
             </TabsTrigger>
             <TabsTrigger value="investment" className="min-h-10">
               Investment
@@ -490,10 +487,10 @@ function AssetsPage() {
             )}
           </TabsList>
 
-          <TabsContent value="inventory" className="mt-4 space-y-4">
+          <TabsContent value="equipment" className="mt-4 space-y-4">
             <p className="text-sm text-muted-foreground">
-              All company assets. Add new items here, then assign employee-scoped assets from an
-              available row.
+              SIMs, mobiles, laptops, powerbanks and other gear assigned to people. Tick “Show to
+              employee” when assigning so it appears under My Assets.
             </p>
             <FilterBar
               query={query}
@@ -505,70 +502,74 @@ function AssetsPage() {
               scopeFilter={scopeFilter}
               onScopeChange={setScopeFilter}
               showStatus
-              showScope
+              showScope={false}
             />
             <AssetList
-              assets={visibleAssets}
+              assets={visibleAssets.filter(
+                (asset) => asset.assetType === "PHYSICAL" && asset.assignmentScope === "EMPLOYEE",
+              )}
               canManage={canManage}
               mode="inventory"
               onEdit={openEditAsset}
               onAssign={(asset) => openAssignAsset(asset.id)}
               onReturn={openReturnAsset}
-              emptyTitle="No assets match these filters"
+              emptyTitle="No employee equipment yet"
               emptyHint={
                 canManage
-                  ? "Use Add Asset to register a laptop, phone, furniture, or online subscription."
-                  : "Ask HR to register company assets."
+                  ? "Add a physical asset with Employee assignment scope."
+                  : "Ask HR to register employee equipment."
               }
             />
-            {hasMore &&
-              !query &&
-              statusFilter === "all" &&
-              assetTypeFilter === "all" &&
-              scopeFilter === "all" && (
-                <div className="text-center">
-                  <Button variant="outline" onClick={() => void loadMore()} disabled={loadingMore}>
-                    {loadingMore ? "Loading assets..." : "Load more assets"}
-                  </Button>
-                </div>
-              )}
           </TabsContent>
 
-          <TabsContent value="assigned" className="mt-4 space-y-4">
+          <TabsContent value="premises" className="mt-4 space-y-4">
             <p className="text-sm text-muted-foreground">
-              Assets currently with an employee. Use Return to complete the checklist and free the
-              item for reassignment.
+              Fans, TVs, tables, chairs and other company premises assets. These stay with the
+              branch/location and are not assigned to employees.
             </p>
-            <FilterBar
-              query={query}
-              onQueryChange={setQuery}
-              assetTypeFilter={assetTypeFilter}
-              onAssetTypeChange={setAssetTypeFilter}
-              showStatus={false}
-              showScope={false}
-            />
             <AssetList
-              assets={filteredAssigned}
+              assets={visibleAssets.filter(
+                (asset) => asset.assetType === "PHYSICAL" && asset.assignmentScope === "COMPANY",
+              )}
               canManage={canManage}
-              mode="assigned"
+              mode="inventory"
+              onEdit={openEditAsset}
+              onAssign={() => undefined}
+              onReturn={() => undefined}
+              emptyTitle="No company premises assets yet"
+              emptyHint={
+                canManage
+                  ? "Add a physical asset with Company premises scope."
+                  : "Ask HR to register premises assets."
+              }
+            />
+          </TabsContent>
+
+          <TabsContent value="online" className="mt-4 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Shared subscriptions such as Canva. Enter the full monthly/yearly cost once; cost is
+              divided equally across assigned seats for investment tracking.
+            </p>
+            <AssetList
+              assets={visibleAssets.filter((asset) => asset.assetType === "ONLINE")}
+              canManage={canManage}
+              mode="inventory"
               onEdit={openEditAsset}
               onAssign={(asset) => openAssignAsset(asset.id)}
               onReturn={openReturnAsset}
-              emptyTitle="No assets are assigned right now"
+              emptyTitle="No online assets yet"
               emptyHint={
                 canManage
-                  ? availableAssets.length
-                    ? "Open Inventory or Assign Asset to give someone a device or license."
-                    : "Add an available employee-scoped asset first, then assign it."
-                  : "Assigned assets will appear here once HR issues them."
+                  ? "Add an online asset with the full subscription cost, then assign seats."
+                  : "Ask HR to register online seats."
               }
             />
           </TabsContent>
 
           <TabsContent value="investment" className="mt-4 space-y-4">
             <p className="text-sm text-muted-foreground">
-              How much Anytime Diesel currently invests in each employee through assigned physical
-              devices and online seats. Shared company-use assets are excluded.
+              Current monthly/yearly share per employee (shared online costs are divided by active
+              seats) plus lifetime investment including returned assignments.
             </p>
             <InvestmentSection investments={investments} />
           </TabsContent>
@@ -716,37 +717,6 @@ function AssetsPage() {
                 }
               />
             </FormField>
-            {assetForm.assetType === "PHYSICAL" && (
-              <>
-                <FormField label="Vehicle registration (optional)">
-                  <Input
-                    value={assetForm.vehicleRegistration}
-                    placeholder="e.g. TS09AB1234"
-                    onChange={(event) =>
-                      setAssetForm({ ...assetForm, vehicleRegistration: event.target.value })
-                    }
-                  />
-                </FormField>
-                <FormField label="Insurance expiry">
-                  <Input
-                    type="date"
-                    value={assetForm.insuranceExpiry}
-                    onChange={(event) =>
-                      setAssetForm({ ...assetForm, insuranceExpiry: event.target.value })
-                    }
-                  />
-                </FormField>
-                <FormField label="Fitness expiry">
-                  <Input
-                    type="date"
-                    value={assetForm.fitnessExpiry}
-                    onChange={(event) =>
-                      setAssetForm({ ...assetForm, fitnessExpiry: event.target.value })
-                    }
-                  />
-                </FormField>
-              </>
-            )}
             <FormField label={`${costLabel(assetForm.costFrequency)} (INR)`}>
               <Input
                 type="number"
@@ -915,6 +885,25 @@ function AssetsPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="flex items-start gap-3 rounded-md border p-3">
+              <Checkbox
+                id="assign-visible"
+                checked={assetForm.visibleToEmployee}
+                onCheckedChange={(checked) =>
+                  setAssetForm((current) => ({
+                    ...current,
+                    visibleToEmployee: checked === true,
+                  }))
+                }
+              />
+              <div className="space-y-1">
+                <Label htmlFor="assign-visible">Show to employee</Label>
+                <p className="text-xs text-muted-foreground">
+                  When ticked, this assignment appears under that employee’s My Assets (without
+                  cost).
+                </p>
+              </div>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setAssignDialogOpen(false)}>
@@ -1349,8 +1338,8 @@ function InvestmentSection({ investments }: { investments: EmployeeAssetInvestme
               <InvestmentValue label="Monthly recurring" value={item.monthlyRecurring} />
               <InvestmentValue label="Annual recurring" value={item.annualRecurring} />
               <InvestmentValue
-                label="First-year investment"
-                value={item.firstYearInvestment}
+                label="Lifetime investment"
+                value={item.lifetimeInvestment}
                 emphasized
               />
             </div>
@@ -1358,7 +1347,7 @@ function InvestmentSection({ investments }: { investments: EmployeeAssetInvestme
         ))}
       </div>
       <div className="hidden overflow-x-auto md:block">
-        <Table className="min-w-[880px]">
+        <Table className="min-w-[980px]">
           <TableHeader>
             <TableRow>
               <TableHead>Employee</TableHead>
@@ -1366,7 +1355,7 @@ function InvestmentSection({ investments }: { investments: EmployeeAssetInvestme
               <TableHead className="text-right">One-time invested</TableHead>
               <TableHead className="text-right">Monthly recurring</TableHead>
               <TableHead className="text-right">Annual recurring</TableHead>
-              <TableHead className="text-right">First-year investment</TableHead>
+              <TableHead className="text-right">Lifetime investment</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1394,7 +1383,7 @@ function InvestmentSection({ investments }: { investments: EmployeeAssetInvestme
                   {formatCurrency(item.annualRecurring)}
                 </TableCell>
                 <TableCell className="text-right font-semibold">
-                  {formatCurrency(item.firstYearInvestment)}
+                  {formatCurrency(item.lifetimeInvestment)}
                 </TableCell>
               </TableRow>
             ))}

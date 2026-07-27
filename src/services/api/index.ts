@@ -18,6 +18,7 @@ import type {
   LeaveBalance,
   LeaveRequest,
   LeaveTypeOption,
+  MyAssignedAsset,
   NotificationItem,
   Announcement,
   Role,
@@ -698,9 +699,9 @@ type CompanyAssetPayload = Omit<
   | "catalogId"
   | "assetCode"
   | "status"
-  | "vehicleRegistration"
-  | "insuranceExpiry"
-  | "fitnessExpiry"
+  | "activeSeatCount"
+  | "costSharePerSeat"
+  | "assignments"
 > & {
   assetCode?: string;
   status?: CompanyAsset["status"];
@@ -709,26 +710,33 @@ type CompanyAssetPayload = Omit<
   purchaseDate?: string | null;
   renewalDate?: string | null;
   assignedEmployeeId?: string | null;
+  visibleToEmployee?: boolean;
   branchId?: string | null;
   location?: string | null;
   notes?: string | null;
-  vehicleRegistration?: string | null;
-  insuranceExpiry?: string | null;
-  fitnessExpiry?: string | null;
 };
 
 export const assetsApi = {
   list: (filters: Record<string, string | number | undefined> = {}) =>
     request<CompanyAsset[]>(`/assets${toQuery(filters)}`),
+  mine: () => request<MyAssignedAsset[]>("/assets/mine"),
   investmentSummary: () => request<EmployeeAssetInvestment[]>("/assets/investment-summary"),
   create: (asset: CompanyAssetPayload) =>
     request<CompanyAsset>("/assets", { method: "POST", body: JSON.stringify(asset) }),
   update: (id: string, asset: Partial<CompanyAssetPayload>) =>
     request<CompanyAsset>(`/assets/${id}`, { method: "PATCH", body: JSON.stringify(asset) }),
+  assign: (id: string, body: { employeeId: string; visibleToEmployee?: boolean }) =>
+    request<CompanyAsset>(`/assets/${id}/assign`, { method: "POST", body: JSON.stringify(body) }),
+  assignMany: (id: string, body: { employeeIds: string[]; visibleToEmployee?: boolean }) =>
+    request<CompanyAsset>(`/assets/${id}/assign-many`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   returnHistory: () => request<AssetReturnRecord[]>("/assets/returns/history"),
   returnAsset: (
     id: string,
     checklist: {
+      employeeId?: string;
       condition: AssetReturnRecord["condition"];
       accessoriesReturned: boolean;
       chargerReturned: boolean;

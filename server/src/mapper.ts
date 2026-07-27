@@ -460,16 +460,44 @@ export function companyAssetDto(
   asset: CompanyAsset & {
     assignedEmployee?: Pick<Employee, "employeeId" | "employeeCode" | "name"> | null;
     branch?: Pick<Branch, "branchId" | "branchName"> | null;
+    assignments?: Array<{
+      assignmentId: string;
+      employeeId: string;
+      visibleToEmployee: boolean;
+      assignedAt: Date;
+      returnedAt: Date | null;
+      costShareAmount: { toString(): string } | number;
+      costShareFrequency: "ONE_TIME" | "MONTHLY" | "YEARLY";
+      employee?: Pick<Employee, "employeeId" | "employeeCode" | "name"> | null;
+    }>;
   },
+  options?: { hideCosts?: boolean },
 ) {
-  return {
+  const purchaseValue = Number(asset.purchaseValue);
+  const activeAssignments = (asset.assignments ?? []).filter((row) => !row.returnedAt);
+  const seatCount = activeAssignments.length;
+  const share =
+    seatCount > 0
+      ? Number(activeAssignments[0]?.costShareAmount ?? purchaseValue / seatCount)
+      : purchaseValue;
+  const assignments = activeAssignments.map((row) => ({
+    id: row.assignmentId,
+    employeeId: row.employeeId,
+    employeeName: row.employee?.name,
+    employeeCode: row.employee?.employeeCode,
+    visibleToEmployee: row.visibleToEmployee,
+    assignedAt: row.assignedAt.toISOString(),
+    costShareAmount: Number(row.costShareAmount),
+    costShareFrequency: row.costShareFrequency,
+  }));
+  const dto = {
     id: asset.assetId,
     assetCode: asset.assetCode,
     name: asset.name,
     category: asset.category,
     catalogId: asset.catalogId ?? undefined,
     serialNumber: asset.serialNumber ?? undefined,
-    purchaseValue: Number(asset.purchaseValue),
+    purchaseValue,
     purchaseDate: asset.purchaseDate?.toISOString().slice(0, 10),
     assetType: asset.assetType,
     assignmentScope: asset.assignmentScope,
@@ -477,27 +505,63 @@ export function companyAssetDto(
     renewalDate: asset.renewalDate?.toISOString().slice(0, 10),
     monthlyEquivalent:
       asset.costFrequency === "MONTHLY"
-        ? Number(asset.purchaseValue)
+        ? purchaseValue
         : asset.costFrequency === "YEARLY"
-          ? Number(asset.purchaseValue) / 12
+          ? purchaseValue / 12
           : 0,
     annualRecurring:
       asset.costFrequency === "MONTHLY"
-        ? Number(asset.purchaseValue) * 12
+        ? purchaseValue * 12
         : asset.costFrequency === "YEARLY"
-          ? Number(asset.purchaseValue)
+          ? purchaseValue
           : 0,
     status: asset.status,
     assignedEmployeeId: asset.assignedEmployeeId ?? undefined,
     assignedEmployeeName: asset.assignedEmployee?.name,
     assignedEmployeeCode: asset.assignedEmployee?.employeeCode,
+    activeSeatCount: seatCount,
+    costSharePerSeat: seatCount > 0 ? share : undefined,
     branchId: asset.branchId ?? undefined,
     branchName: asset.branch?.branchName,
     location: asset.location ?? undefined,
     notes: asset.notes ?? undefined,
-    vehicleRegistration: asset.vehicleRegistration ?? undefined,
-    insuranceExpiry: asset.insuranceExpiry?.toISOString().slice(0, 10),
-    fitnessExpiry: asset.fitnessExpiry?.toISOString().slice(0, 10),
+    assignments,
+  };
+  if (options?.hideCosts) {
+    return {
+      ...dto,
+      purchaseValue: undefined,
+      monthlyEquivalent: undefined,
+      annualRecurring: undefined,
+      costSharePerSeat: undefined,
+      assignments: assignments.map(({ costShareAmount: _a, costShareFrequency: _f, ...seat }) => seat),
+    };
+  }
+  return dto;
+}
+
+export function employeeVisibleAssetDto(
+  assignment: {
+    assignmentId: string;
+    assignedAt: Date;
+    asset: CompanyAsset & { branch?: Pick<Branch, "branchName"> | null };
+  },
+) {
+  return {
+    id: assignment.assignmentId,
+    assetId: assignment.asset.assetId,
+    assetCode: assignment.asset.assetCode,
+    name: assignment.asset.name,
+    category: assignment.asset.category,
+    serialNumber: assignment.asset.serialNumber ?? undefined,
+    assetType: assignment.asset.assetType,
+    assignmentScope: assignment.asset.assignmentScope,
+    costFrequency: assignment.asset.costFrequency,
+    renewalDate: assignment.asset.renewalDate?.toISOString().slice(0, 10),
+    status: assignment.asset.status,
+    location: assignment.asset.location ?? undefined,
+    branchName: assignment.asset.branch?.branchName,
+    assignedAt: assignment.assignedAt.toISOString(),
   };
 }
 

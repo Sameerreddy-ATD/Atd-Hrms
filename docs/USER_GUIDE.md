@@ -584,25 +584,25 @@ Common report pages:
 
 Open **Asset Management**. The page is organized into tabs:
 
-1. **Inventory** — register physical devices, online seats, and shared company-use assets. Filter by
-   status, type, and scope. HR can **Assign** from an available employee-scoped row.
-2. **Assigned** — assets currently with an employee. Use **Return** to complete the checklist and
-   free the item (not working physical returns move to under repair).
-3. **Investment** — how much Anytime Diesel invests in each employee through assigned assets
-   (one-time, monthly, annual, first-year). Shared company-use assets are excluded.
-4. **Returns** (HR / Developer Admin) — completed return checklists.
+1. **Employee equipment** — SIMs, mobiles, laptops, powerbanks, and similar items assigned to people.
+2. **Company premises** — fans, TVs, tables, chairs, and other branch/location assets (not assigned to
+   employees).
+3. **Online / subscriptions** — shared seats such as Canva. Enter the full monthly/yearly cost once;
+   investment is divided equally across active seats.
+4. **Investment** — current monthly/yearly share per employee plus **lifetime** investment (includes
+   returned assignments). Company premises assets are excluded from per-employee totals.
+5. **Returns** (HR / Developer Admin) — completed return checklists.
 
-Workflow for HR: **Add Asset** → **Assign** → later **Return**. You cannot change status to
-Available, Under repair, or Retired while an asset is still assigned — return it first.
+When assigning, tick **Show to employee** so that person can see the item under **My Assets** (name,
+serial/license, dates — **not** cost). Unticked assignments stay admin-only.
 
-- **One-time invested:** purchase values recorded as one-time costs.
-- **Monthly recurring:** monthly subscriptions plus yearly subscriptions normalized to a monthly amount.
-- **Annual recurring:** monthly subscriptions multiplied by 12 plus yearly subscriptions.
-- **First-year investment:** one-time invested plus annual recurring.
+Vehicle registration / insurance / fitness fields are not used in Assets.
+
+Workflow for HR: **Add Asset** → **Assign** (with visibility) → later **Return**. Physical assets
+support one assignee; online assets support many seats.
 
 HR and Developer Admin can add, assign, edit, and return assets. CEO access is read-only and opens
-on the Investment tab. Shared company-use assets such as tables and fans remain in company totals
-but are not attributed to an individual employee.
+on the Investment tab. Every employee can open **My Assets** for visible assignments.
 
 ## Mobile Use
 
@@ -614,7 +614,7 @@ shared layout and accessibility standards.
 Recommended mobile workflows:
 
 - Install the app to the Home Screen / desktop for the fastest daily use and alert delivery.
-- Employees: My Attendance, Apply Leave, Leave History, Notifications, My Profile.
+- Employees: My Attendance, Apply Leave, Leave History, Notifications, My Assets, My Profile.
 - Field staff: My Attendance with GPS check-in/check-out and client visit details.
 - Managers: Leave Approvals and team attendance review (card summaries on phones).
 - HR / Admin: Attendance overview and corrections, leave tracking, employee lists — use the menu
