@@ -401,15 +401,23 @@ export const companyAssetSchema = z.object({
   renewalDate: z.coerce.date().nullable().optional(),
   status: z.enum(["AVAILABLE", "ASSIGNED", "UNDER_REPAIR", "RETIRED"]).optional(),
   assignedEmployeeId: z.string().nullable().optional(),
+  visibleToEmployee: z.boolean().optional(),
   branchId: z.string().min(1).nullable().optional(),
   location: z.string().max(160).nullable().optional(),
   notes: z.string().max(1000).nullable().optional(),
-  vehicleRegistration: z.string().trim().max(64).nullable().optional(),
-  insuranceExpiry: z.coerce.date().nullable().optional(),
-  fitnessExpiry: z.coerce.date().nullable().optional(),
 });
 
 export const companyAssetUpdateSchema = companyAssetSchema.partial();
+
+export const assetAssignSchema = z.object({
+  employeeId: z.string().min(1),
+  visibleToEmployee: z.boolean().default(true),
+});
+
+export const assetAssignManySchema = z.object({
+  employeeIds: z.array(z.string().min(1)).min(1).max(500),
+  visibleToEmployee: z.boolean().default(true),
+});
 
 export const assetReturnSchema = z
   .object({

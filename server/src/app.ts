@@ -24,7 +24,6 @@ import {
 } from "@prisma/client";
 import { parse } from "csv-parse/sync";
 import { audit } from "./audit.js";
-import { resolveAssetStatus } from "./assetRules.js";
 import { birthdayMessage } from "./birthdayMessages.js";
 import { isUpcomingBirthday } from "./birthdays.js";
 import {
@@ -68,13 +67,12 @@ import {
   userHasApprovedFace,
   verifyFaceCapture,
 } from "./faceAttendance.js";
+import { registerAssetRoutes } from "./assetRoutes.js";
 import { registerIntegrationRoutes } from "./integration-api.js";
 import {
-  assetCatalogItemDto,
   attendanceRecordDto,
   biometricMappingDto,
   branchDto,
-  companyAssetDto,
   deviceDto,
   employeeDto,
   eventDto,
@@ -103,9 +101,6 @@ import {
 import {
   announcementSchema,
   announcementUpdateSchema,
-  assetCatalogItemSchema,
-  assetCatalogItemUpdateSchema,
-  assetReturnSchema,
   biometricMappingSchema,
   biometricMappingUpdateSchema,
   biometricDeviceSchema,
@@ -114,8 +109,6 @@ import {
   branchUpdateSchema,
   changePasswordSchema,
   clientEventSchema,
-  companyAssetSchema,
-  companyAssetUpdateSchema,
   certificateRequestReviewSchema,
   certificateRequestSchema,
   correctionSchema,
@@ -874,6 +867,7 @@ export function createApp() {
           await tx.integrationClient.deleteMany();
           await tx.employeeChangeEvent.deleteMany();
           await tx.assetReturn.deleteMany();
+          await tx.assetAssignment.deleteMany();
           await tx.companyAsset.deleteMany();
           await tx.assetCatalogItem.deleteMany();
           await tx.taskUpdate.deleteMany();
@@ -2463,431 +2457,7 @@ export function createApp() {
     }),
   );
 
-  app.get(
-    "/assets",
-    requireAuth,
-    requireRoles(Role.HR, Role.DEVELOPER_ADMIN, Role.CEO),
-    asyncHandler(async (req, res) => {
-      const query = String(req.query.q ?? "").trim();
-      const status = typeof req.query.status === "string" ? req.query.status : undefined;
-      const assets = await prisma.companyAsset.findMany({
-        where: {
-          ...(status && status !== "all" ? { status } : {}),
-          ...(query
-            ? {
-                OR: [
-                  { assetCode: { contains: query } },
-                  { name: { contains: query } },
-                  { category: { contains: query } },
-                  { serialNumber: { contains: query } },
-                  { assignedEmployee: { name: { contains: query } } },
-                ],
-              }
-            : {}),
-        },
-        include: { assignedEmployee: true, branch: true },
-        orderBy: [{ status: "asc" }, { name: "asc" }],
-        skip: listOffset(req),
-        take: listLimit(req, 500, 1000),
-      });
-      res.json(assets.map(companyAssetDto));
-    }),
-  );
-
-  app.get(
-    "/assets/investment-summary",
-    requireAuth,
-    requireRoles(Role.HR, Role.DEVELOPER_ADMIN, Role.CEO),
-    asyncHandler(async (_req, res) => {
-      const assets = await prisma.companyAsset.findMany({
-        where: { assignedEmployeeId: { not: null }, status: { not: "RETIRED" } },
-        include: { assignedEmployee: { include: { department: true } } },
-      });
-      const summary = new Map<
-        string,
-        {
-          employeeId: string;
-          employeeName: string;
-          employeeCode: string;
-          department?: string;
-          physicalAssets: number;
-          onlineAssets: number;
-          oneTimeInvestment: number;
-          monthlyRecurring: number;
-          annualRecurring: number;
-          firstYearInvestment: number;
-        }
-      >();
-      for (const asset of assets) {
-        const employee = asset.assignedEmployee;
-        if (!employee) continue;
-        const value = Number(asset.purchaseValue);
-        const monthly =
-          asset.costFrequency === "MONTHLY"
-            ? value
-            : asset.costFrequency === "YEARLY"
-              ? value / 12
-              : 0;
-        const annual =
-          asset.costFrequency === "MONTHLY"
-            ? value * 12
-            : asset.costFrequency === "YEARLY"
-              ? value
-              : 0;
-        const row = summary.get(employee.employeeId) ?? {
-          employeeId: employee.employeeId,
-          employeeName: employee.name,
-          employeeCode: employee.employeeCode,
-          department: employee.department?.name,
-          physicalAssets: 0,
-          onlineAssets: 0,
-          oneTimeInvestment: 0,
-          monthlyRecurring: 0,
-          annualRecurring: 0,
-          firstYearInvestment: 0,
-        };
-        if (asset.assetType === "PHYSICAL") row.physicalAssets += 1;
-        else row.onlineAssets += 1;
-        if (asset.costFrequency === "ONE_TIME") row.oneTimeInvestment += value;
-        row.monthlyRecurring += monthly;
-        row.annualRecurring += annual;
-        row.firstYearInvestment = row.oneTimeInvestment + row.annualRecurring;
-        summary.set(employee.employeeId, row);
-      }
-      res.json([...summary.values()].sort((a, b) => b.firstYearInvestment - a.firstYearInvestment));
-    }),
-  );
-
-  app.get(
-    "/assets/catalog",
-    requireAuth,
-    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
-    asyncHandler(async (req, res) => {
-      const includeInactive = req.query.includeInactive === "true";
-      const items = await prisma.assetCatalogItem.findMany({
-        where: includeInactive ? {} : { status: "ACTIVE" },
-        orderBy: [{ category: "asc" }, { name: "asc" }],
-      });
-      res.json(items.map(assetCatalogItemDto));
-    }),
-  );
-
-  app.post(
-    "/assets/catalog",
-    requireAuth,
-    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
-    asyncHandler(async (req, res) => {
-      const body = assetCatalogItemSchema.parse(req.body);
-      const item = await prisma.assetCatalogItem.create({ data: body });
-      await audit({
-        action: "asset catalog item created",
-        performedByUserId: req.user!.id,
-        newValue: { catalogId: item.catalogId, name: item.name },
-        ipAddress: req.ip,
-      });
-      res.status(201).json(assetCatalogItemDto(item));
-    }),
-  );
-
-  app.patch(
-    "/assets/catalog/:id",
-    requireAuth,
-    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
-    asyncHandler(async (req, res) => {
-      const body = assetCatalogItemUpdateSchema.parse(req.body);
-      const existing = await prisma.assetCatalogItem.findUniqueOrThrow({
-        where: { catalogId: String(req.params.id) },
-      });
-      const item = await prisma.assetCatalogItem.update({
-        where: { catalogId: existing.catalogId },
-        data: body,
-      });
-      await audit({
-        action: "asset catalog item updated",
-        performedByUserId: req.user!.id,
-        oldValue: { name: existing.name, category: existing.category },
-        newValue: { catalogId: item.catalogId, name: item.name, category: item.category },
-        ipAddress: req.ip,
-      });
-      res.json(assetCatalogItemDto(item));
-    }),
-  );
-
-  app.delete(
-    "/assets/catalog/:id",
-    requireAuth,
-    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
-    asyncHandler(async (req, res) => {
-      const item = await prisma.assetCatalogItem.update({
-        where: { catalogId: String(req.params.id) },
-        data: { status: "INACTIVE" },
-      });
-      await audit({
-        action: "asset catalog item deactivated",
-        performedByUserId: req.user!.id,
-        newValue: { catalogId: item.catalogId, status: item.status },
-        ipAddress: req.ip,
-      });
-      res.json(assetCatalogItemDto(item));
-    }),
-  );
-
-  app.post(
-    "/assets",
-    requireAuth,
-    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
-    asyncHandler(async (req, res) => {
-      const body = companyAssetSchema.parse(req.body);
-      if (body.assetType !== "ONLINE" && !body.assetCode) {
-        throw new HttpError(400, "Asset ID is required for physical assets");
-      }
-      const catalogItem = body.catalogId
-        ? await prisma.assetCatalogItem.findFirst({
-            where: { catalogId: body.catalogId, status: "ACTIVE" },
-          })
-        : undefined;
-      if (body.catalogId && !catalogItem) {
-        throw new HttpError(400, "Select an active item from Asset Catalog");
-      }
-      const assetType = body.assetType ?? "PHYSICAL";
-      const assignmentScope = body.assignmentScope ?? "EMPLOYEE";
-      const catalogType =
-        catalogItem?.category === "Company Asset" ? "PHYSICAL" : catalogItem?.category;
-      if (catalogType && catalogType !== assetType) {
-        throw new HttpError(400, "Asset name does not match the selected asset type");
-      }
-      if (assignmentScope === "COMPANY" && body.assignedEmployeeId) {
-        throw new HttpError(400, "Company-use assets cannot be assigned to an employee");
-      }
-      if (body.assignedEmployeeId) {
-        const employee = await prisma.employee.findFirst({
-          where: { employeeId: body.assignedEmployeeId, status: "ACTIVE" },
-        });
-        if (!employee) throw new HttpError(400, "Assigned employee must be active");
-      }
-      let status: string;
-      try {
-        status = resolveAssetStatus({
-          assignedEmployeeId:
-            assignmentScope === "COMPANY" ? null : (body.assignedEmployeeId ?? null),
-          requestedStatus: body.status,
-        });
-      } catch (error) {
-        throw new HttpError(400, (error as Error).message);
-      }
-      const asset = await prisma.companyAsset.create({
-        data: {
-          ...body,
-          assetCode: body.assetCode ?? `ATD-ONL-${randomUUID().slice(0, 8).toUpperCase()}`,
-          name: catalogItem?.name ?? body.name,
-          category: assetType,
-          assignmentScope,
-          catalogId: body.catalogId || null,
-          serialNumber: body.serialNumber || null,
-          assignedEmployeeId:
-            assignmentScope === "COMPANY" ? null : body.assignedEmployeeId || null,
-          branchId: assetType === "ONLINE" ? null : body.branchId || null,
-          status,
-        },
-        include: { assignedEmployee: true, branch: true },
-      });
-      await audit({
-        action: "company asset created",
-        performedByUserId: req.user!.id,
-        newValue: { assetId: asset.assetId, assetCode: asset.assetCode },
-        ipAddress: req.ip,
-      });
-      res.status(201).json(companyAssetDto(asset));
-    }),
-  );
-
-  app.patch(
-    "/assets/:id",
-    requireAuth,
-    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
-    asyncHandler(async (req, res) => {
-      const body = companyAssetUpdateSchema.parse(req.body);
-      const existing = await prisma.companyAsset.findUniqueOrThrow({
-        where: { assetId: String(req.params.id) },
-      });
-      const catalogItem = body.catalogId
-        ? await prisma.assetCatalogItem.findFirst({
-            where: { catalogId: body.catalogId, status: "ACTIVE" },
-          })
-        : body.catalogId === undefined && existing.catalogId
-          ? await prisma.assetCatalogItem.findUnique({
-              where: { catalogId: existing.catalogId },
-            })
-          : undefined;
-      if (body.catalogId && !catalogItem) {
-        throw new HttpError(400, "Select an active item from Asset Catalog");
-      }
-      const nextAssetType = body.assetType ?? existing.assetType;
-      const catalogType =
-        catalogItem?.category === "Company Asset" ? "PHYSICAL" : catalogItem?.category;
-      if (catalogType && catalogType !== nextAssetType) {
-        throw new HttpError(400, "Asset name does not match the selected asset type");
-      }
-      if (body.assignedEmployeeId) {
-        const employee = await prisma.employee.findFirst({
-          where: { employeeId: body.assignedEmployeeId, status: "ACTIVE" },
-        });
-        if (!employee) throw new HttpError(400, "Assigned employee must be active");
-      }
-      const nextAssignmentScope = body.assignmentScope ?? existing.assignmentScope;
-      if (nextAssignmentScope === "COMPANY" && body.assignedEmployeeId) {
-        throw new HttpError(400, "Company-use assets cannot be assigned to an employee");
-      }
-      const nextAssignedEmployeeId =
-        nextAssignmentScope === "COMPANY"
-          ? null
-          : body.assignedEmployeeId === undefined
-            ? existing.assignedEmployeeId
-            : body.assignedEmployeeId || null;
-      if (
-        nextAssignedEmployeeId &&
-        body.status &&
-        body.status !== "ASSIGNED" &&
-        ["AVAILABLE", "UNDER_REPAIR", "RETIRED"].includes(body.status)
-      ) {
-        throw new HttpError(400, "Return the asset before changing status");
-      }
-      let nextStatus: string;
-      try {
-        nextStatus = resolveAssetStatus({
-          assignedEmployeeId: nextAssignedEmployeeId,
-          requestedStatus: body.status,
-          previousStatus: existing.status,
-        });
-      } catch (error) {
-        throw new HttpError(400, (error as Error).message);
-      }
-      const asset = await prisma.companyAsset.update({
-        where: { assetId: existing.assetId },
-        data: {
-          ...body,
-          name: catalogItem?.name,
-          category:
-            body.assetType !== undefined || body.catalogId !== undefined
-              ? nextAssetType
-              : undefined,
-          serialNumber: body.serialNumber === undefined ? undefined : body.serialNumber || null,
-          assignedEmployeeId: nextAssignedEmployeeId,
-          branchId:
-            nextAssetType === "ONLINE"
-              ? null
-              : body.branchId === undefined
-                ? undefined
-                : body.branchId || null,
-          status: nextStatus,
-        },
-        include: { assignedEmployee: true, branch: true },
-      });
-      await audit({
-        action: "company asset updated",
-        performedByUserId: req.user!.id,
-        oldValue: { assignedEmployeeId: existing.assignedEmployeeId, status: existing.status },
-        newValue: {
-          assetId: asset.assetId,
-          assignedEmployeeId: asset.assignedEmployeeId,
-          status: asset.status,
-        },
-        ipAddress: req.ip,
-      });
-      res.json(companyAssetDto(asset));
-    }),
-  );
-
-  app.get(
-    "/assets/returns/history",
-    requireAuth,
-    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
-    asyncHandler(async (_req, res) => {
-      const rows = await prisma.assetReturn.findMany({
-        include: { asset: true, employee: true },
-        orderBy: { returnedAt: "desc" },
-        take: 500,
-      });
-      res.json(
-        rows.map((row) => ({
-          id: row.returnId,
-          assetId: row.assetId,
-          assetCode: row.asset.assetCode,
-          assetName: row.asset.name,
-          employeeId: row.employeeId,
-          employeeCode: row.employee.employeeCode,
-          employeeName: row.employee.name,
-          condition: row.condition,
-          accessoriesReturned: row.accessoriesReturned,
-          chargerReturned: row.chargerReturned,
-          dataBackedUp: row.dataBackedUp,
-          dataWiped: row.dataWiped,
-          physicalDamage: row.physicalDamage,
-          damageNotes: row.damageNotes,
-          remarks: row.remarks,
-          returnedAt: row.returnedAt.toISOString(),
-        })),
-      );
-    }),
-  );
-
-  app.post(
-    "/assets/:id/return",
-    requireAuth,
-    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
-    asyncHandler(async (req, res) => {
-      const body = assetReturnSchema.parse(req.body);
-      const existing = await prisma.companyAsset.findUniqueOrThrow({
-        where: { assetId: String(req.params.id) },
-      });
-      if (!existing.assignedEmployeeId || existing.status !== "ASSIGNED") {
-        throw new HttpError(409, "Only an assigned asset can be returned");
-      }
-      const result = await prisma.$transaction(async (tx) => {
-        const claimed = await tx.companyAsset.updateMany({
-          where: {
-            assetId: existing.assetId,
-            assignedEmployeeId: existing.assignedEmployeeId,
-            status: "ASSIGNED",
-          },
-          data: {
-            assignedEmployeeId: null,
-            status: body.condition === "NOT_WORKING" ? "UNDER_REPAIR" : "AVAILABLE",
-          },
-        });
-        if (claimed.count !== 1) {
-          throw new HttpError(409, "This asset was already returned or reassigned");
-        }
-        const returned = await tx.assetReturn.create({
-          data: {
-            assetId: existing.assetId,
-            employeeId: existing.assignedEmployeeId!,
-            receivedByUserId: req.user!.id,
-            ...body,
-            damageNotes: body.damageNotes || null,
-            remarks: body.remarks || null,
-          },
-          include: { asset: true, employee: true },
-        });
-        const asset = await tx.companyAsset.findUniqueOrThrow({
-          where: { assetId: existing.assetId },
-          include: { assignedEmployee: true, branch: true },
-        });
-        return { returned, asset };
-      });
-      await audit({
-        action: "company asset returned",
-        performedByUserId: req.user!.id,
-        oldValue: { assignedEmployeeId: existing.assignedEmployeeId, status: existing.status },
-        newValue: { returnId: result.returned.returnId, condition: body.condition },
-        ipAddress: req.ip,
-      });
-      res.status(201).json({
-        asset: companyAssetDto(result.asset),
-        returnId: result.returned.returnId,
-      });
-    }),
-  );
+  registerAssetRoutes(app);
 
   app.get(
     "/expense-claims",

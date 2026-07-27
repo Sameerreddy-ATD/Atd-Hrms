@@ -32,9 +32,6 @@ interface ImportRow {
   employeeCode: string;
   location?: string;
   notes?: string;
-  vehicleRegistration?: string;
-  insuranceExpiry?: string;
-  fitnessExpiry?: string;
   catalogId?: string;
   errors: string[];
 }
@@ -54,9 +51,6 @@ const HEADERS = [
   "Assigned Employee Code",
   "Location",
   "Notes",
-  "Vehicle Registration",
-  "Insurance Expiry",
-  "Fitness Expiry",
 ] as const;
 
 const ASSET_TYPES = ["PHYSICAL", "ONLINE"] as const;
@@ -519,9 +513,6 @@ export function BulkAssetImport({
           employeeCode,
           location: cellText(get("Location")) || undefined,
           notes: cellText(get("Notes")) || undefined,
-          vehicleRegistration: cellText(get("Vehicle Registration")) || undefined,
-          insuranceExpiry: normalizeDate(get("Insurance Expiry")),
-          fitnessExpiry: normalizeDate(get("Fitness Expiry")),
           catalogId: catalogItem?.id,
           errors,
         });
@@ -579,9 +570,6 @@ export function BulkAssetImport({
           branchId: row.assetType === "ONLINE" ? null : row.branchId || null,
           location: row.location || null,
           notes: row.notes || null,
-          vehicleRegistration: row.vehicleRegistration || null,
-          insuranceExpiry: row.insuranceExpiry || null,
-          fitnessExpiry: row.fitnessExpiry || null,
         });
       } catch (error) {
         failures.push({ row: row.rowNumber, message: (error as Error).message });

@@ -215,6 +215,7 @@ export const menuGroups: MenuGroup[] = [
     items: [
       { label: "Announcements", to: "/announcements", icon: Megaphone, roles: ALL },
       { label: "Notifications", to: "/notifications", icon: BellRing, roles: ALL },
+      { label: "My Assets", to: "/my-assets", icon: Package, roles: ALL },
       { label: "My Profile", to: "/profile", icon: UserCog, roles: ALL },
       {
         label: "ID Card",
@@ -331,6 +332,7 @@ function itemOrderForRole(role: Role): string[] {
         "/employee-services",
         "/announcements",
         "/notifications",
+        "/my-assets",
         "/profile",
         "/id-card",
       ];
@@ -350,6 +352,7 @@ function itemOrderForRole(role: Role): string[] {
         "/employees",
         "/announcements",
         "/notifications",
+        "/my-assets",
         "/profile",
         "/id-card",
       ];
@@ -376,6 +379,7 @@ function itemOrderForRole(role: Role): string[] {
         "/assets",
         "/announcements",
         "/notifications",
+        "/my-assets",
         "/profile",
         "/id-card",
       ];
@@ -392,6 +396,7 @@ function itemOrderForRole(role: Role): string[] {
         "/assets",
         "/announcements",
         "/notifications",
+        "/my-assets",
         "/profile",
       ];
     case "main_admin":
@@ -413,6 +418,7 @@ function itemOrderForRole(role: Role): string[] {
         "/tasks",
         "/announcements",
         "/notifications",
+        "/my-assets",
         "/profile",
       ];
     case "developer_admin":
@@ -439,6 +445,7 @@ function itemOrderForRole(role: Role): string[] {
         "/employee-services",
         "/announcements",
         "/notifications",
+        "/my-assets",
         "/profile",
       ];
     default:
@@ -459,7 +466,7 @@ export function moduleForRoute(path: string): ModuleKey {
   if (path === "/employee-services") return "EMPLOYEE_REQUESTS";
   if (path.startsWith("/leave")) return "LEAVE";
   if (["/branches", "/holidays", "/assets"].includes(path)) return "COMPANY";
-  if (["/profile", "/id-card"].includes(path)) return "PROFILE";
+  if (["/profile", "/id-card", "/my-assets"].includes(path)) return "PROFILE";
   if (["/notifications", "/announcements"].includes(path)) return "COMMUNICATIONS";
   return "SYSTEM";
 }

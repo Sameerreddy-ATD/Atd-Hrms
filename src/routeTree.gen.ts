@@ -21,6 +21,7 @@ import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppRolesRouteImport } from './routes/_app.roles'
 import { Route as AppProfileRouteImport } from './routes/_app.profile'
 import { Route as AppNotificationsRouteImport } from './routes/_app.notifications'
+import { Route as AppMyAssetsRouteImport } from './routes/_app.my-assets'
 import { Route as AppIdCardRouteImport } from './routes/_app.id-card'
 import { Route as AppHolidaysRouteImport } from './routes/_app.holidays'
 import { Route as AppFaceSecurityRouteImport } from './routes/_app.face-security'
@@ -112,6 +113,11 @@ const AppProfileRoute = AppProfileRouteImport.update({
 const AppNotificationsRoute = AppNotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMyAssetsRoute = AppMyAssetsRouteImport.update({
+  id: '/my-assets',
+  path: '/my-assets',
   getParentRoute: () => AppRoute,
 } as any)
 const AppIdCardRoute = AppIdCardRouteImport.update({
@@ -304,6 +310,7 @@ export interface FileRoutesByFullPath {
   '/face-security': typeof AppFaceSecurityRoute
   '/holidays': typeof AppHolidaysRoute
   '/id-card': typeof AppIdCardRoute
+  '/my-assets': typeof AppMyAssetsRoute
   '/notifications': typeof AppNotificationsRoute
   '/profile': typeof AppProfileRoute
   '/roles': typeof AppRolesRoute
@@ -349,6 +356,7 @@ export interface FileRoutesByTo {
   '/face-security': typeof AppFaceSecurityRoute
   '/holidays': typeof AppHolidaysRoute
   '/id-card': typeof AppIdCardRoute
+  '/my-assets': typeof AppMyAssetsRoute
   '/notifications': typeof AppNotificationsRoute
   '/profile': typeof AppProfileRoute
   '/roles': typeof AppRolesRoute
@@ -397,6 +405,7 @@ export interface FileRoutesById {
   '/_app/face-security': typeof AppFaceSecurityRoute
   '/_app/holidays': typeof AppHolidaysRoute
   '/_app/id-card': typeof AppIdCardRoute
+  '/_app/my-assets': typeof AppMyAssetsRoute
   '/_app/notifications': typeof AppNotificationsRoute
   '/_app/profile': typeof AppProfileRoute
   '/_app/roles': typeof AppRolesRoute
@@ -445,6 +454,7 @@ export interface FileRouteTypes {
     | '/face-security'
     | '/holidays'
     | '/id-card'
+    | '/my-assets'
     | '/notifications'
     | '/profile'
     | '/roles'
@@ -490,6 +500,7 @@ export interface FileRouteTypes {
     | '/face-security'
     | '/holidays'
     | '/id-card'
+    | '/my-assets'
     | '/notifications'
     | '/profile'
     | '/roles'
@@ -537,6 +548,7 @@ export interface FileRouteTypes {
     | '/_app/face-security'
     | '/_app/holidays'
     | '/_app/id-card'
+    | '/_app/my-assets'
     | '/_app/notifications'
     | '/_app/profile'
     | '/_app/roles'
@@ -655,6 +667,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof AppNotificationsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/my-assets': {
+      id: '/_app/my-assets'
+      path: '/my-assets'
+      fullPath: '/my-assets'
+      preLoaderRoute: typeof AppMyAssetsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/id-card': {
@@ -969,6 +988,7 @@ interface AppRouteChildren {
   AppFaceSecurityRoute: typeof AppFaceSecurityRoute
   AppHolidaysRoute: typeof AppHolidaysRoute
   AppIdCardRoute: typeof AppIdCardRoute
+  AppMyAssetsRoute: typeof AppMyAssetsRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
   AppProfileRoute: typeof AppProfileRoute
   AppRolesRoute: typeof AppRolesRoute
@@ -1001,6 +1021,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppFaceSecurityRoute: AppFaceSecurityRoute,
   AppHolidaysRoute: AppHolidaysRoute,
   AppIdCardRoute: AppIdCardRoute,
+  AppMyAssetsRoute: AppMyAssetsRoute,
   AppNotificationsRoute: AppNotificationsRoute,
   AppProfileRoute: AppProfileRoute,
   AppRolesRoute: AppRolesRoute,
