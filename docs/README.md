@@ -17,6 +17,7 @@ in the same commit.
 - Go-live owners: [Reset and Go-Live](RESET_AND_GO_LIVE.md)
 - Receiving companies: [Third-Party Technical Handover](THIRD_PARTY_HANDOVER.md)
 - Infrastructure owners: [Cloud Deployment Options and Costs](CLOUD_DEPLOYMENT_OPTIONS.md)
+  (includes the ~150-employee VPS and storage plan)
 - AWS/DevOps teams: [AWS Deployment Patterns](AWS_DEPLOYMENT_PATTERNS.md) (VPS→company AWS, RDS, S3, CI/CD, maintenance)
 - Server administrators: [Linux and AWS Deployment](LINUX_LOCAL_DEPLOYMENT.md) (includes company RDS wiring)
 - Release owners: [Upgrade and Maintenance](UPGRADE_AND_MAINTENANCE.md) (releases, CI/CD, ops cadence)
@@ -47,7 +48,7 @@ in the same commit.
 | `PRODUCT_NAMING.md`                    | Recommended product name and professional interface terminology                                   |
 | `RESET_AND_GO_LIVE.md`                 | Safe test-data reset, verification, and step-by-step real-company setup                           |
 | `THIRD_PARTY_HANDOVER.md`              | Transfer inventory, environment contract, acceptance, ownership, and handover definition          |
-| `CLOUD_DEPLOYMENT_OPTIONS.md`          | Hosting methods, current INR cost comparison, capacity, security, and provider selection          |
+| `CLOUD_DEPLOYMENT_OPTIONS.md`          | Hosting methods, INR costs, **~150-employee VPS/storage capacity**, security, provider selection  |
 | `AWS_DEPLOYMENT_PATTERNS.md`           | VPS→company AWS path, EC2/RDS/S3, ECS, CI/CD, secrets, go-live, and post-deploy maintenance       |
 | `LINUX_LOCAL_DEPLOYMENT.md`            | Fresh Linux/AWS installation, company RDS wiring, Nginx, TLS, PM2, and optional containers        |
 | `UPGRADE_AND_MAINTENANCE.md`           | Production updates, backups, verification, rollback, CI/CD gates, and maintenance cadence         |

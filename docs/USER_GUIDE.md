@@ -244,8 +244,8 @@ Employees can use mobile attendance in the current version. Biometric/eSSL atten
 6. For **Check Out**, only precise location is requested; the camera does not open.
 7. The operation cannot continue when required permission is denied or GPS accuracy is outside
    policy.
-8. A missed checkout from a previous day does **not** block today’s check-in. The system marks
-   Missed Checkout and you may submit a correction within two days if needed.
+8. If you forget to punch out, you must submit your punch-out time within **two days**. This does
+   **not** block tomorrow’s check-in or check-out.
 9. Future eSSL/fingerprint imports can appear in the same daily timeline through the separate
    biometric integration workflow.
 
@@ -302,9 +302,9 @@ sequenceDiagram
 
 ## Employee: Request Missed Punch Correction
 
-If you forget to check out, at **shift end + 30 minutes** the system stops the timer with a
-provisional checkout and marks **Missed Checkout**. You can still check in the next day. Use a
-correction within **two days** if the provisional time is wrong; after that only HR can unlock it.
+Punch-out is **mandatory**. If you forget to check out, submit your actual punch-out time within
+**two days** from **Missed Punch Request**. Tomorrow’s check-in and check-out are **not** blocked.
+After the two-day window, only HR can unlock and correct the day.
 
 1. Open **Missed Punch Request**.
 2. Select the date and punch time.

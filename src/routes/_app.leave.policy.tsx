@@ -44,10 +44,16 @@ function PolicyPage() {
   const [adjustment, setAdjustment] = useState("0");
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
+  const [newTypeName, setNewTypeName] = useState("");
+  const [newTypePaid, setNewTypePaid] = useState(true);
+  const [creatingType, setCreatingType] = useState(false);
+  const [compOffCredits, setCompOffCredits] = useState<
+    Awaited<ReturnType<typeof leaveApi.compOffCredits>>
+  >([]);
 
   useEffect(() => {
     let active = true;
-    Promise.all([leaveApi.types(), employeesApi.list()])
+    Promise.all([leaveApi.types(true), employeesApi.list()])
       .then(([policyRows, employeeRows]) => {
         if (!active) return;
         const available = employeeRows.filter(
@@ -67,11 +73,41 @@ function PolicyPage() {
     if (!employeeId) return;
     if (showLoading) setBalancesLoading(true);
     try {
-      setBalances(await leaveApi.listAllBalances(employeeId));
+      const [balanceRows, creditRows] = await Promise.all([
+        leaveApi.listAllBalances(employeeId),
+        leaveApi.compOffCredits(employeeId).catch(() => []),
+      ]);
+      setBalances(balanceRows);
+      setCompOffCredits(creditRows);
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
       if (showLoading) setBalancesLoading(false);
+    }
+  }
+
+  async function createCustomType() {
+    if (newTypeName.trim().length < 2) return toast.error("Enter a leave type name");
+    setCreatingType(true);
+    try {
+      const created = await leaveApi.createType({ name: newTypeName.trim(), paid: newTypePaid });
+      setTypes((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
+      setNewTypeName("");
+      toast.success("Custom leave type created");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setCreatingType(false);
+    }
+  }
+
+  async function toggleTypeActive(type: LeaveTypeOption) {
+    try {
+      const updated = await leaveApi.updateType(type.id, { active: !type.active });
+      setTypes((current) => current.map((row) => (row.id === type.id ? updated : row)));
+      toast.success(updated.active ? "Leave type activated" : "Leave type deactivated");
+    } catch (err) {
+      toast.error((err as Error).message);
     }
   }
 
@@ -135,26 +171,67 @@ function PolicyPage() {
       />
 
       <section
-        className="mb-4 flex gap-2 overflow-x-auto pb-1"
+        className="mb-4 space-y-3"
         aria-label="Leave policies"
       >
-        {types.map((type) => (
-          <div
-            key={type.id}
-            className="min-w-[11rem] shrink-0 rounded-lg border bg-card px-3 py-2.5"
-          >
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-sm font-semibold">{type.name}</p>
-              <InfoButton title={type.name} className="-mr-1 -mt-0.5">
-                {type.description || "This leave type follows the active company policy."}
-              </InfoButton>
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {types.map((type) => (
+            <div
+              key={type.id}
+              className="min-w-[12rem] shrink-0 rounded-lg border bg-card px-3 py-2.5"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-semibold">{type.name}</p>
+                <InfoButton title={type.name} className="-mr-1 -mt-0.5">
+                  {type.description || "This leave type follows the active company policy."}
+                </InfoButton>
+              </div>
+              <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+                <CalendarCheck className="h-3 w-3 text-primary" />
+                {type.paid ? "Credit based" : "Recorded separately"}
+                {!type.active ? " · Inactive" : ""}
+              </p>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="mt-2 h-7 px-2 text-xs"
+                onClick={() => void toggleTypeActive(type)}
+              >
+                {type.active ? "Deactivate" : "Activate"}
+              </Button>
             </div>
-            <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
-              <CalendarCheck className="h-3 w-3 text-primary" />
-              {type.paid ? "Credit based" : "Recorded separately"}
-            </p>
+          ))}
+        </div>
+        <div className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-end">
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <Label htmlFor="new-leave-type">Add custom leave type</Label>
+            <Input
+              id="new-leave-type"
+              value={newTypeName}
+              onChange={(event) => setNewTypeName(event.target.value)}
+              placeholder="e.g. Marriage Leave"
+            />
           </div>
-        ))}
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={newTypePaid}
+              onChange={(event) => setNewTypePaid(event.target.checked)}
+            />
+            Paid / credit based
+          </label>
+          <Button
+            type="button"
+            disabled={creatingType}
+            onClick={() => void createCustomType()}
+          >
+            {creatingType ? "Creating..." : "Create type"}
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Casual, Sick, Comp Off, and Unpaid codes stay system-protected. Custom types can be added
+          or deactivated.
+        </p>
       </section>
 
       <section className="overflow-hidden rounded-md border border-border bg-background">
@@ -310,6 +387,20 @@ function PolicyPage() {
                       </p>
                     )}
                   </div>
+                  {compOffCredits.length > 0 && (
+                    <div className="mt-6 space-y-2">
+                      <h4 className="text-sm font-semibold">Comp Off credit ledger</h4>
+                      {compOffCredits.slice(0, 12).map((credit) => (
+                        <div
+                          key={credit.id}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
+                        >
+                          <span className="tabular-nums">{credit.earnedDate}</span>
+                          <span className="text-muted-foreground">{credit.status}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

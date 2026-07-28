@@ -1,9 +1,13 @@
 # Linux and AWS Deployment Guide
 
-This guide covers a fresh Ubuntu 24.04 deployment for approximately 200-300 employees. The current AWS installation uses one EC2 instance, local MySQL, Nginx, and two PM2 processes.
+This guide covers a fresh Ubuntu 24.04 deployment for approximately **150 active employees**
+(with headroom toward 200–300). The current AWS installation uses one EC2 instance, local MySQL,
+Nginx, and two PM2 processes.
 
-For provider selection, deployment-model trade-offs, current INR estimates, and the recommended
-low-cost architecture, read [Cloud Deployment Options and Costs](CLOUD_DEPLOYMENT_OPTIONS.md)
+For provider selection, deployment-model trade-offs, current INR estimates, the recommended
+low-cost architecture, and the **~150-employee VPS/storage capacity plan**, read
+[Cloud Deployment Options and Costs](CLOUD_DEPLOYMENT_OPTIONS.md)
+(especially [§1.1 Capacity for ~150 employees](CLOUD_DEPLOYMENT_OPTIONS.md#11-capacity-for-150-employees))
 before purchasing infrastructure. For company AWS (RDS, S3, CI/CD, and the VPS→AWS migration path),
 read [AWS Deployment Patterns](AWS_DEPLOYMENT_PATTERNS.md) first, then use this guide for host
 commands. New installations should use `main`. The existing production server can continue tracking
@@ -12,16 +16,20 @@ commands. New installations should use `main`. The existing production server ca
 Commands use `hrms.example.com` as a placeholder. Replace it with the receiving company's approved
 hostname everywhere, including DNS, `.env`, the frontend build, Nginx, TLS, and acceptance tests.
 
-## Recommended Starting Capacity
+## Recommended Starting Capacity (~150 employees)
 
-| Resource | Minimum starting point                                          |
-| -------- | --------------------------------------------------------------- |
-| CPU      | 2 vCPU for light use; 4 vCPU preferred for builds and reporting |
-| RAM      | 4 GB minimum; 8 GB preferred                                    |
-| Storage  | 50-100 GB gp3/SSD with backups                                  |
-| OS       | Ubuntu Server 24.04 LTS                                         |
+| Resource | Absolute minimum (go-live floor) | Recommended (no lag for ~150) |
+| -------- | -------------------------------- | ----------------------------- |
+| CPU      | 2 vCPU                           | 2–4 vCPU                      |
+| RAM      | 4 GB                             | **8 GB**                      |
+| Storage  | 50 GB SSD/NVMe                   | **80–100 GB** SSD/NVMe        |
+| Swap     | 1–2 GB safety net                | 2 GB                          |
+| OS       | Ubuntu Server 24.04 LTS          | Ubuntu Server 24.04 LTS       |
 
-A `t3.small` can run an early deployment but may use burst CPU during `npm ci` and builds. Monitor CPU credits, memory, disk, MySQL latency, and PM2 restarts.
+A `t3.small` (2 vCPU / 2 GB) can run early UAT but is **not** sized for ~150 daily users. Prefer
+`t3.large` / `t4g.large` (or any 2–4 vCPU / 8 GB VPS) in an India region. Monitor CPU credits (if
+burstable), memory, disk, MySQL latency, and PM2 restarts. Keep MySQL backups off the application
+disk. Full storage breakdown is in the cloud capacity section linked above.
 
 ## 1. Network and Security Group
 

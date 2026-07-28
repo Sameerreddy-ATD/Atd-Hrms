@@ -2,10 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
-import { StatusBadge } from "@/components/common/StatusBadge";
-import { AttendanceTimelineSheet } from "@/components/common/AttendanceTimelineSheet";
 import { AttendanceDayList } from "@/components/attendance/AttendanceDayList";
-import { TableToolbar } from "@/components/common/TableToolbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,35 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import type { AttendanceRecord, AttendanceTimelineEvent, Branch, User } from "@/types/domain";
+import type { AttendanceRecord, Branch, User } from "@/types/domain";
 import { attendanceApi, branchesApi, employeesApi } from "@/services/api";
-import { downloadCsv, downloadAttendanceExcel } from "@/lib/csv";
-import {
-  movementEventLabel,
-  captureSourceLabel,
-  movementSourceLabel,
-  movementDirectionLabel,
-  punchSourceLabel,
-} from "@/lib/attendance-labels";
-import { formatStoredWorkedTime } from "@/lib/worked-time";
+import { downloadAttendanceExcel } from "@/lib/csv";
+import { punchSourceLabel } from "@/lib/attendance-labels";
 import { indiaDateKey } from "@/lib/india-date";
-import {
-  ArrowRight,
-  CalendarRange,
-  Compass,
-  MapPin,
-  Route as RouteIcon,
-  Smartphone,
-  Fingerprint,
-} from "lucide-react";
+import { CalendarRange } from "lucide-react";
 
 export const Route = createFileRoute("/_app/attendance/locations")({
   component: DayLogsPage,
@@ -92,17 +66,8 @@ function DayLogsPage() {
   });
   const [branchId, setBranchId] = useState("all");
   const [employeeRows, setEmployeeRows] = useState<AttendanceRecord[]>([]);
-  const [movementRows, setMovementRows] = useState<AttendanceTimelineEvent[]>([]);
   const [loadingEmployeeRows, setLoadingEmployeeRows] = useState(true);
-  const [loadingMovementRows, setLoadingMovementRows] = useState(true);
   const [employeeError, setEmployeeError] = useState("");
-  const [movementError, setMovementError] = useState("");
-  const [selectedTimelineEmp, setSelectedTimelineEmp] = useState<{
-    id: string;
-    name: string;
-    date: string;
-  } | null>(null);
-
   useEffect(() => {
     Promise.all([employeesApi.list(), branchesApi.list()])
       .then(([employeeRows, branchRows]) => {
@@ -187,15 +152,6 @@ function DayLogsPage() {
 
   function clearRange() {
     setToday();
-  }
-
-  function openTimeline(
-    employeeId: string | undefined,
-    employeeName: string | undefined,
-    date: string | undefined,
-  ) {
-    if (!employeeId || !date) return;
-    setSelectedTimelineEmp({ id: employeeId, name: employeeName ?? "Employee", date });
   }
 
   const branchName = (id?: string) => branches.find((branch) => branch.id === id)?.name ?? "-";
@@ -364,292 +320,11 @@ function DayLogsPage() {
                 showEmployee={selectedEmployeeId === "all"}
                 emptyText="No day-wise attendance records found."
               />
-              <div className="hidden">
-                <div className="overflow-x-auto">
-                  <Table className="min-w-[920px]">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Home Branch</TableHead>
-                        <TableHead>Actual Branch</TableHead>
-                        <TableHead>Punch In</TableHead>
-                        <TableHead>Punch Out</TableHead>
-                        <TableHead>Worked Time</TableHead>
-                        <TableHead className="text-right">Navigation</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {employeeRows.map((row) => (
-                        <TableRow
-                          key={row.id}
-                          className={
-                            row.status.toLowerCase().includes("leave")
-                              ? "bg-red-50/80 dark:bg-red-950/20"
-                              : undefined
-                          }
-                        >
-                          <TableCell>{row.date}</TableCell>
-                          <TableCell>
-                            <StatusBadge status={row.status} />
-                          </TableCell>
-                          <TableCell>{branchName(row.homeBranchId)}</TableCell>
-                          <TableCell>{branchName(row.actualBranchId)}</TableCell>
-                          <TableCell>
-                            <div>{row.punchIn ?? "-"}</div>
-                            <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
-                              {punchSourceLabel(
-                                row.punchInSource,
-                                row.punchInBranchId ?? row.actualBranchId,
-                                branches,
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div>{row.punchOut ?? "-"}</div>
-                            <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
-                              {punchSourceLabel(
-                                row.punchOutSource,
-                                row.punchOutBranchId ?? row.actualBranchId,
-                                branches,
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-medium tabular-nums">
-                            {formatStoredWorkedTime(row.totalHours, row.workedMinutes)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() =>
-                                openTimeline(row.employeeId, row.employeeName, row.date)
-                              }
-                            >
-                              View Timeline <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                {!employeeRows.length && (
-                  <div className="p-6 text-sm text-muted-foreground">
-                    No day-wise records found for this employee.
-                  </div>
-                )}
-              </div>
             </>
           )}
         </CardContent>
       </Card>
 
-      <Card className="hidden">
-        <CardHeader>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <CardTitle className="text-sm">Movement Logs</CardTitle>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={movementRows.length === 0}
-              onClick={() =>
-                downloadCsv(
-                  `attendance-movements-${from}-to-${to}.csv`,
-                  movementRows.map((row) => ({
-                    employee: row.employeeName ?? "",
-                    employeeId:
-                      employees.find(
-                        (employee) => (employee.employeeId || employee.id) === row.employeeId,
-                      )?.employeeCode ??
-                      row.employeeId ??
-                      "",
-                    date: row.date ?? "",
-                    time: new Date(row.time).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    }),
-                    movement: movementEventLabel(row),
-                    captureSource: captureSourceLabel(row),
-                    branch: row.branchName ?? "",
-                    location: row.clientName ?? row.clientLocationName ?? "",
-                    address: row.address ?? "",
-                  })),
-                )
-              }
-            >
-              Export All Employees
-            </Button>
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Date-wise movements across mobile GPS, biometric devices, and branch or field locations.
-          </p>
-        </CardHeader>
-        <CardContent>
-          <TableToolbar>
-            <div className="text-xs text-muted-foreground">
-              Filters above apply to both employee day-wise logs and detailed movement logs.
-            </div>
-          </TableToolbar>
-
-          {loadingMovementRows && <LoadingState label="Loading movement logs" compact />}
-          {movementError && <p className="text-sm text-destructive">{movementError}</p>}
-          {!loadingMovementRows && !movementError && (
-            <div className="overflow-hidden rounded-lg border border-border">
-              <div className="overflow-x-auto">
-                <Table className="min-w-[1160px]">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Employee</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Time</TableHead>
-                      <TableHead>Movement</TableHead>
-                      <TableHead>Source</TableHead>
-                      <TableHead>Branch</TableHead>
-                      <TableHead>Address</TableHead>
-                      <TableHead className="text-right">Navigation</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {movementRows.map((row, index) => (
-                      <TableRow
-                        key={`${row.employeeId ?? "emp"}-${row.time}-${row.type}-${index}`}
-                        className="[content-visibility:auto] [contain-intrinsic-size:52px]"
-                      >
-                        <TableCell className="font-medium">
-                          <div>{row.employeeName ?? "-"}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {employees.find(
-                              (employee) => (employee.employeeId || employee.id) === row.employeeId,
-                            )?.employeeCode ??
-                              row.employeeId ??
-                              "-"}
-                          </div>
-                        </TableCell>
-                        <TableCell>{row.date ?? row.time.slice(0, 10)}</TableCell>
-                        <TableCell>
-                          {new Date(row.time).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </TableCell>
-                        <TableCell>
-                          {(() => {
-                            const dir = movementDirectionLabel(row.type);
-                            const label = movementEventLabel(row);
-                            const badgeColor =
-                              dir === "In"
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-800/30"
-                                : dir === "Out"
-                                  ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-800/30"
-                                  : "bg-muted text-muted-foreground border-border";
-                            return (
-                              <span
-                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${badgeColor}`}
-                              >
-                                <RouteIcon className="h-3 w-3" />
-                                {label}
-                              </span>
-                            );
-                          })()}
-                        </TableCell>
-                        <TableCell>
-                          {(() => {
-                            const src = captureSourceLabel(row);
-                            if (src.includes("Biometric") || src.startsWith("Biometric")) {
-                              return (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-purple-50 text-purple-700 border border-purple-100 dark:bg-purple-950/20 dark:text-purple-400 dark:border-purple-900/30">
-                                  <Fingerprint className="h-3.5 w-3.5" />
-                                  {src}
-                                </span>
-                              );
-                            }
-                            if (
-                              src.includes(" · Mobile") ||
-                              src.startsWith("Mobile") ||
-                              src.startsWith("Branch-Mobile")
-                            ) {
-                              return (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-900/30">
-                                  <Smartphone className="h-3.5 w-3.5" />
-                                  {src}
-                                </span>
-                              );
-                            }
-                            return <span className="text-xs text-muted-foreground">{src}</span>;
-                          })()}
-                        </TableCell>
-                        <TableCell>{row.branchName ?? "-"}</TableCell>
-                        <TableCell className="max-w-[320px]">
-                          <div className="space-y-1">
-                            {row.clientName && (
-                              <div
-                                className="font-semibold text-xs text-foreground truncate"
-                                title={row.clientName}
-                              >
-                                {row.clientName}
-                              </div>
-                            )}
-                            {row.clientLocationName && (
-                              <div
-                                className="text-[11px] text-muted-foreground truncate"
-                                title={row.clientLocationName}
-                              >
-                                {row.clientLocationName}
-                              </div>
-                            )}
-                            {row.address && (
-                              <div
-                                className="text-[11px] text-muted-foreground/80 line-clamp-2"
-                                title={row.address}
-                              >
-                                {row.address}
-                              </div>
-                            )}
-                            {row.latitude && row.longitude && (
-                              <a
-                                href={`https://www.google.com/maps/search/?api=1&query=${row.latitude},${row.longitude}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline font-medium"
-                              >
-                                <MapPin className="h-3 w-3 text-red-500" />
-                                View GPS Map
-                              </a>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openTimeline(row.employeeId, row.employeeName, row.date)}
-                          >
-                            <Compass className="mr-1.5 h-3.5 w-3.5" /> Timeline
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              {!movementRows.length && (
-                <div className="p-6 text-sm text-muted-foreground">
-                  No movements found for the selected filters.
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <AttendanceTimelineSheet
-        employeeId={selectedTimelineEmp?.id ?? ""}
-        employeeName={selectedTimelineEmp?.name ?? ""}
-        date={selectedTimelineEmp?.date ?? ""}
-        open={!!selectedTimelineEmp}
-        onOpenChange={(open) => !open && setSelectedTimelineEmp(null)}
-      />
     </div>
   );
 }

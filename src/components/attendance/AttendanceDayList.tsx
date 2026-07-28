@@ -46,8 +46,8 @@ function WorkedTime({ record }: { record: AttendanceRecord }) {
     return (
       <span className="flex items-center gap-1 text-amber-700 dark:text-amber-400">
         <AlertTriangle className="h-3.5 w-3.5" />
-        Missing checkout
-      </span>
+        Punch-out required
+    </span>
     );
   }
 
@@ -106,7 +106,7 @@ function DayRecordSummary({
         <p className="text-xs text-muted-foreground">Last out</p>
         <p className="mt-0.5 flex items-center gap-1 text-sm font-medium tabular-nums">
           <LogOut className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-          {record.hasMissingOutEvent ? "Open session" : (record.punchOut ?? "-")}
+          {record.hasMissingOutEvent ? "Punch-out required" : (record.punchOut ?? "-")}
         </p>
       </div>
       <div>

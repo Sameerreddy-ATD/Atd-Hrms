@@ -149,11 +149,12 @@ export function AttendanceDayEvents({
           <span className="absolute -left-[18px] top-[23px] h-3 w-3 rounded-full border-2 border-background bg-primary sm:-left-[26px]" />
           <div className="overflow-hidden rounded-md border bg-background">
             {session.punchIn && !session.punchOut && (
-              <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300 sm:px-4">
-                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                Checkout missing — system will stop the timer at shift end + 30 minutes (Missed
-                Checkout). You can still check in tomorrow; submit a correction within two days if
-                needed.
+              <div className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300 sm:px-4">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  Punch-out is mandatory. Check out when you finish work, or submit your punch-out
+                  time within two days. Tomorrow’s check-in and check-out are not affected.
+                </span>
               </div>
             )}
             <div className="grid grid-cols-2 divide-x border-b bg-muted/25">
@@ -171,7 +172,7 @@ export function AttendanceDayEvents({
                 </p>
                 <time className="mt-1 block text-sm font-semibold tabular-nums sm:text-base">
                   {session.punchIn && !session.punchOut
-                    ? "Missing checkout"
+                    ? "Punch-out required"
                     : formatTime(session.punchOut)}
                 </time>
               </div>

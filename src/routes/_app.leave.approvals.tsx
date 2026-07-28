@@ -17,7 +17,6 @@ import {
 } from "@/components/common/ResponsiveList";
 import {
   MedicalOpenLink,
-  MedicalVerifyButton,
   decisionLabel,
 } from "@/components/leave/MedicalDocumentActions";
 import { Button } from "@/components/ui/button";
@@ -114,7 +113,6 @@ function LeaveApprovalsPage() {
   const [error, setError] = useState("");
   const [accessChecked, setAccessChecked] = useState(false);
   const [canApprove, setCanApprove] = useState(false);
-  const canOversee = ["hr", "developer_admin", "main_admin"].includes(user?.role ?? "");
 
   useEffect(() => {
     if (!user) return;
@@ -123,23 +121,23 @@ function LeaveApprovalsPage() {
       .then((result) => {
         setCanApprove(result.isReportingManager);
         setAccessChecked(true);
-        if (!result.isReportingManager && !canOversee) {
-          void navigate({ to: "/dashboard", replace: true });
+        if (!result.isReportingManager) {
+          void navigate({ to: "/leave/reports", replace: true });
         }
       })
       .catch(() => {
         setAccessChecked(true);
         setCanApprove(false);
-        if (!canOversee) void navigate({ to: "/dashboard", replace: true });
+        void navigate({ to: "/leave/reports", replace: true });
       });
-  }, [canOversee, navigate, user]);
+  }, [navigate, user]);
 
   useEffect(() => {
-    if (!canApprove && !canOversee) return;
+    if (!canApprove) return;
     Promise.all([
-      canApprove ? leaveApi.assignedApprovals("PENDING") : Promise.resolve([]),
-      canApprove ? leaveApi.assignedApprovals() : Promise.resolve([]),
-      leaveApi.weeklyOffs(canApprove, canOversee),
+      leaveApi.assignedApprovals("PENDING"),
+      leaveApi.assignedApprovals(),
+      leaveApi.weeklyOffs(true, false),
     ])
       .then(([pending, all, weeklyRows]) => {
         setRows(pending);
@@ -148,7 +146,7 @@ function LeaveApprovalsPage() {
       })
       .catch((err) => setError((err as Error).message))
       .finally(() => setLoading(false));
-  }, [canApprove, canOversee]);
+  }, [canApprove]);
 
   const pendingWeekly = useMemo(
     () => weeklyOffs.filter((request) => request.status === "PENDING"),
@@ -188,7 +186,7 @@ function LeaveApprovalsPage() {
 
   const confirmLeave = confirm ? rows.find((leave) => leave.id === confirm.id) : undefined;
 
-  if (!accessChecked || (!canApprove && !canOversee)) {
+  if (!accessChecked || !canApprove) {
     return (
       <div className="text-sm text-muted-foreground">Checking organization approval access...</div>
     );
@@ -198,11 +196,7 @@ function LeaveApprovalsPage() {
     <div>
       <PageHeader
         title="Leave Approvals"
-        description={
-          canApprove
-            ? "Approve leave and weekly-off for your unit and people under heads below you."
-            : "Monitor weekly-off requests. Approval sits with each employee's organization head."
-        }
+        description="Approve leave and weekly-off for your unit and people under heads below you. HR monitors company-wide leave in Leave Tracking."
       />
       {loading && <LoadingState label="Loading leave approvals" />}
       {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
@@ -266,19 +260,11 @@ function LeaveApprovalsPage() {
                         <div className="space-y-2 rounded-md border p-3 text-sm">
                           <MedicalOpenLink url={leave.medicalDocumentUrl} />
                           {leave.medicalDocumentVerifiedAt ? (
-                            <p className="text-xs text-muted-foreground">Verified</p>
+                            <p className="text-xs text-muted-foreground">Verified by HR</p>
                           ) : (
-                            leave.medicalDocumentUrl &&
-                            (canApprove || canOversee) && (
-                              <MedicalVerifyButton
-                                leaveId={leave.id}
-                                onVerified={(updated) =>
-                                  setRows((current) =>
-                                    current.map((row) => (row.id === leave.id ? updated : row)),
-                                  )
-                                }
-                              />
-                            )
+                            <p className="text-xs text-muted-foreground">
+                              Medical verification is completed by HR in Leave Tracking.
+                            </p>
                           )}
                         </div>
                       )}

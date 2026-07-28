@@ -246,8 +246,8 @@ export async function processMissedCheckouts(now = new Date()) {
     publishNotificationChange("attendance-missed-checkout", tag);
     if (userId) {
       await sendPushToUsers([userId], {
-        title: "Missed checkout",
-        body: "Your shift ended 30 minutes ago without checkout. The timer was stopped. Submit your actual checkout within two days.",
+        title: "Punch-out required",
+        body: "You did not check out. Submit your actual punch-out time within two days. Tomorrow’s check-in and check-out are not affected.",
         href: "/attendance/missed-punch",
         tag,
       });

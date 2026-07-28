@@ -30,6 +30,7 @@ function ApplyLeavePage() {
   const [to, setTo] = useState("");
   const [reason, setReason] = useState("");
   const [medicalDocumentUrl, setMedicalDocumentUrl] = useState("");
+  const [medicalFile, setMedicalFile] = useState<File | null>(null);
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
   const [weeklyOffs, setWeeklyOffs] = useState<WeeklyOffRequest[]>([]);
   const [weeklyOffDate, setWeeklyOffDate] = useState("");
@@ -56,12 +57,22 @@ function ApplyLeavePage() {
       .finally(() => setTypesLoading(false));
   }, []);
   const selectedType = types.find((type) => type.id === typeId);
+  const isCompOff = selectedType?.code === "COMP_OFF";
   const requiresApprover = selectedType?.approvalRequired !== false;
   const selectedBalance = balances.find((item) => item.code === selectedType?.code)?.balance ?? 0;
   const requestedDays =
     from && to && from <= to
-      ? Math.max(1, Math.round((+new Date(to) - +new Date(from)) / 86400000) + 1)
+      ? session === "FULL"
+        ? Math.max(1, Math.round((+new Date(to) - +new Date(from)) / 86400000) + 1)
+        : 0.5
       : 0;
+
+  useEffect(() => {
+    if (!isCompOff || !from) return;
+    if (to !== from) setTo(from);
+    if (session !== "FULL") setSession("FULL");
+  }, [isCompOff, from, to, session]);
+
 
   useEffect(() => {
     if (!user?.employeeId) {
@@ -92,6 +103,9 @@ function ApplyLeavePage() {
       errs.to = "End date cannot be in the past";
     }
     if (from && to && from > to) errs.to = "End date must be after start";
+    if (isCompOff && from && to && from !== to) {
+      errs.to = "Comp Off can only be taken for a single day";
+    }
     if (reason.trim().length < 3) errs.reason = "Enter at least 3 characters";
     if (reason.length > 1000) errs.reason = "Reason cannot exceed 1,000 characters";
     setErrors(errs);
@@ -101,21 +115,33 @@ function ApplyLeavePage() {
       1,
       Math.round((+new Date(to) - +new Date(from)) / 86400000) + 1,
     );
-    const days = session === "FULL" ? calendarDays : 0.5;
+    const days = isCompOff ? 1 : session === "FULL" ? calendarDays : 0.5;
     if (session !== "FULL" && from !== to) {
       setErrors({ to: "Half-day leave must be a single date" });
       return;
     }
     setLoading(true);
     try {
+      let medicalUrl = medicalDocumentUrl.trim() || undefined;
+      if (selectedType?.requiresMedicalDocument && medicalFile) {
+        if (medicalFile.size > 1_500_000) {
+          toast.error("Medical file must be under 1.5 MB");
+          setLoading(false);
+          return;
+        }
+        const { fileToBase64 } = await import("@/lib/file-upload");
+        const upload = await fileToBase64(medicalFile);
+        const stored = await leaveApi.uploadMedicalFile(upload);
+        medicalUrl = stored.url;
+      }
       await leaveApi.apply({
         leaveTypeId: typeId,
         fromDate: from,
-        toDate: to,
+        toDate: isCompOff ? from : to,
         days,
-        session,
+        session: isCompOff ? "FULL" : session,
         reason: reason.trim(),
-        medicalDocumentUrl: medicalDocumentUrl.trim() || undefined,
+        medicalDocumentUrl: medicalUrl,
       });
       toast.success(
         selectedType?.code === "COMP_OFF"
@@ -279,18 +305,21 @@ function ApplyLeavePage() {
                   )}
                   {selectedType?.requiresMedicalDocument && (
                     <div className="space-y-1.5 sm:col-span-2">
-                      <Label htmlFor="medical-document">
-                        Medical certificate (optional now — private upload later from Leave History)
+                      <Label htmlFor="medical-document-file">
+                        Medical certificate (optional now — required within 48 hours after return)
                       </Label>
                       <Input
-                        id="medical-document"
-                        value={medicalDocumentUrl}
-                        placeholder="/leave/medical-files/..."
-                        onChange={(event) => setMedicalDocumentUrl(event.target.value)}
+                        id="medical-document-file"
+                        type="file"
+                        accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+                        onChange={(event) => {
+                          setMedicalFile(event.target.files?.[0] ?? null);
+                          setMedicalDocumentUrl("");
+                        }}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Use the secure private upload from Leave History. Public Drive links are not
-                        accepted. Deadline is 48 hours after you return to work.
+                        Upload a private PDF or image here, or later from Leave History. Public Drive
+                        links are not accepted.
                       </p>
                     </div>
                   )}
@@ -326,23 +355,28 @@ function ApplyLeavePage() {
                       onChange={(e) => {
                         const nextFrom = e.target.value;
                         setFrom(nextFrom);
-                        if (session !== "FULL") setTo(nextFrom);
+                        if (isCompOff || session !== "FULL") setTo(nextFrom);
                         else if (to && nextFrom && to < nextFrom) setTo(nextFrom);
                       }}
                     />
                     {errors.from && <p className="text-xs text-destructive">{errors.from}</p>}
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="to">To</Label>
+                    <Label htmlFor="to">{isCompOff ? "Date" : "To"}</Label>
                     <Input
                       id="to"
                       type="date"
                       value={to}
                       min={from || todayString}
-                      disabled={session !== "FULL"}
+                      disabled={isCompOff || session !== "FULL"}
                       onChange={(e) => setTo(e.target.value)}
                     />
                     {errors.to && <p className="text-xs text-destructive">{errors.to}</p>}
+                    {isCompOff && (
+                      <p className="text-xs text-muted-foreground">
+                        Comp Off is limited to one full day per request.
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-1.5 sm:col-span-2">
                     <Label htmlFor="reason">Reason</Label>
