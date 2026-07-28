@@ -146,7 +146,11 @@ function BranchAttendancePage() {
                     <>
                       <span>{r.punchIn ?? "-"}</span>
                       <span className="mt-0.5 block text-[11px] font-semibold text-muted-foreground">
-                        {punchSourceLabel(r.punchInSource, r.punchInBranchId, branches)}
+                        {punchSourceLabel(
+                          r.punchInSource,
+                          r.punchInBranchId ?? r.actualBranchId,
+                          branches,
+                        )}
                       </span>
                     </>
                   }
@@ -157,7 +161,11 @@ function BranchAttendancePage() {
                     <>
                       <span>{r.punchOut ?? "-"}</span>
                       <span className="mt-0.5 block text-[11px] font-semibold text-muted-foreground">
-                        {punchSourceLabel(r.punchOutSource, r.punchOutBranchId, branches)}
+                        {punchSourceLabel(
+                          r.punchOutSource,
+                          r.punchOutBranchId ?? r.actualBranchId,
+                          branches,
+                        )}
                       </span>
                     </>
                   }
@@ -206,13 +214,21 @@ function BranchAttendancePage() {
                   <TableCell>
                     <div>{r.punchIn ?? "-"}</div>
                     <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
-                      {punchSourceLabel(r.punchInSource, r.punchInBranchId, branches)}
+                      {punchSourceLabel(
+                        r.punchInSource,
+                        r.punchInBranchId ?? r.actualBranchId,
+                        branches,
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
                     <div>{r.punchOut ?? "-"}</div>
                     <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
-                      {punchSourceLabel(r.punchOutSource, r.punchOutBranchId, branches)}
+                      {punchSourceLabel(
+                        r.punchOutSource,
+                        r.punchOutBranchId ?? r.actualBranchId,
+                        branches,
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="font-medium tabular-nums">

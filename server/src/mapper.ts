@@ -322,10 +322,10 @@ function movementPlaceLabel(
   branchName?: string | null,
 ): string {
   if (eventSource === "THUMB_SCANNER") {
-    return `${branchName ?? "Branch"} - biometric`;
+    return branchName ? `${branchName} · Biometric` : "Thumb Scanner";
   }
   if (eventSource === "MOBILE_GPS" && branchName) {
-    return `Mobile - ${branchName}`;
+    return `${branchName} · Mobile`;
   }
   if (eventSource === "MOBILE_GPS") {
     return "Mobile";
@@ -333,7 +333,7 @@ function movementPlaceLabel(
 
   const upper = eventType.toUpperCase();
   if (upper === "OFFICE_IN" || upper === "OFFICE_OUT" || upper.includes("BRANCH")) {
-    return `Mobile - ${branchName ?? "Branch"}`;
+    return branchName ? `${branchName} · Mobile` : "Branch-Mobile";
   }
   if (upper.includes("CLIENT") || upper.includes("FIELD") || upper.includes("BREAK")) {
     return "Mobile";
@@ -351,22 +351,29 @@ function movementLabel(event: AttendanceEvent & { branch?: Branch | null }) {
 
 export function attendanceRecordDto(
   summary: AttendanceDailySummary & { employee: Employee; primaryBranch?: Branch | null },
+  options?: { branchNameById?: Record<string, string> },
 ) {
-  const matchedBranchName = summary.primaryBranch?.branchName;
+  const branchId =
+    summary.matchedBranchId ?? summary.primaryAttendedBranchId ?? summary.homeBranchId ?? undefined;
+  const matchedBranchName =
+    summary.primaryBranch?.branchName ??
+    (branchId ? options?.branchNameById?.[branchId] : undefined);
   const sourceLabel =
     summary.attendanceSourceSummary === "BRANCH_MOBILE" || summary.checkInSource === "BRANCH_MOBILE"
       ? matchedBranchName
-        ? `Branch-Mobile · ${matchedBranchName}`
+        ? `${matchedBranchName} · Mobile`
         : "Branch-Mobile"
       : summary.attendanceSourceSummary === "MOBILE" || summary.checkInSource === "MOBILE"
         ? "Mobile"
         : summary.attendanceSourceSummary === "THUMB_SCANNER" ||
             summary.checkInSource === "THUMB_SCANNER"
-          ? "Thumb Scanner"
+          ? matchedBranchName
+            ? `${matchedBranchName} · Biometric`
+            : "Thumb Scanner"
           : summary.attendanceSourceSummary === "MOBILE_GPS"
             ? summary.matchedBranchId || summary.primaryAttendedBranchId
               ? matchedBranchName
-                ? `Branch-Mobile · ${matchedBranchName}`
+                ? `${matchedBranchName} · Mobile`
                 : "Branch-Mobile"
               : "Mobile"
             : "System";

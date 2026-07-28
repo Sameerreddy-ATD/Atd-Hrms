@@ -221,7 +221,8 @@ Required behavior:
 - **Missed Checkout never blocks the next day’s check-in.** If a prior day is still open when the
   employee checks in again, the system auto-closes that prior day as Missed Checkout and accepts
   today’s punch. Corrections remain optional within the two-day window.
-- Mobile location sources are labeled **Branch-Mobile** (inside branch radius) or **Mobile**.
+- Mobile location sources are labeled **`{Branch name} · Mobile`** (inside branch radius) or
+  **Mobile** (outside). Biometric punches use **`{Branch name} · Biometric`**.
 - Employees must have an assigned shift for the attendance date (catalog assignment; profile times
   are used to backfill).
 - Face registration stores centre/left/right photos once; daily check-in verifies live and does not

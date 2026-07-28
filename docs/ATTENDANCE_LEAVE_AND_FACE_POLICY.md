@@ -23,12 +23,13 @@ Day / Half Day / Absent.
 
 ## Mobile location labels
 
-| Label            | Meaning                                      |
-| ---------------- | -------------------------------------------- |
-| **Branch-Mobile**| Mobile GPS punch inside the branch geofence  |
-| **Mobile**       | Mobile GPS punch outside branch radius       |
+| Label | Meaning |
+| --- | --- |
+| **`{Branch name} · Mobile`** | Mobile GPS punch inside that branch’s geofence |
+| **Mobile** | Mobile GPS punch outside any branch radius |
 
-Biometric / thumb punches remain labeled by device source (not Branch-Mobile).
+Biometric / thumb punches remain labeled as **`{Branch name} · Biometric`** (not as Mobile).
+When a geofence match has no resolvable branch name, the UI may fall back to **Branch-Mobile**.
 
 ## Missed checkout (does not block next-day attendance)
 
