@@ -9,7 +9,7 @@ assertSecureConfig();
 
 const server = createApp().listen(config.port, () => {
   console.log(
-    `Anytime Diesel Employee Management API listening on http://localhost:${config.port}`,
+    `Anytime Workforce API listening on http://localhost:${config.port}`,
   );
   startAttendanceSettlementScheduler();
   startFaceEvidenceCleanupScheduler();

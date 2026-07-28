@@ -18,7 +18,7 @@ later host it on their AWS account (often with existing **RDS MySQL** and **S3**
 
 ### What this application is vs a legacy company database
 
-| Item | This Employee Management System | Typical company legacy stack |
+| Item | Anytime Workforce | Typical company legacy stack |
 | ---- | ------------------------------- | ---------------------------- |
 | Database | MySQL 8 via Prisma; about **58** application tables today | Often a large RDS with ~**190** tables for other products |
 | Files | Local private directories (face evidence, receipts, task attachments, medical uploads) | Usually S3 |

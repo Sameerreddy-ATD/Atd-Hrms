@@ -54,13 +54,13 @@ export function LoadingState({
           {showBrandStory && (
             <div className="atd-boot__copy space-y-2">
               <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-primary">
-                Employee Management
+                Workforce and Operations
               </p>
               <p className="text-[1.75rem] font-semibold leading-none tracking-[-0.03em] text-foreground sm:text-[2rem]">
-                Anytime Diesel
+                Anytime Workforce
               </p>
               <p className="mx-auto max-w-[18rem] text-sm font-medium leading-snug text-muted-foreground">
-                Powering India&apos;s Growth, One Litre at a Time.
+                People, attendance, and day-to-day operations in one place.
               </p>
             </div>
           )}

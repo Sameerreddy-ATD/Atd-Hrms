@@ -380,7 +380,7 @@ export function registerIntegrationRoutes(app: Express) {
 
   app.get("/api/v1", (_req, res) => {
     res.json({
-      name: "Anytime Diesel Employee Integration API",
+      name: "Anytime Workforce Employee Integration API",
       version: "1.0.0",
       authentication: "Bearer API key",
       openapi: "/api/v1/openapi.yaml",

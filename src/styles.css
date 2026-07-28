@@ -96,6 +96,11 @@
   --sidebar-accent-foreground: oklch(0.28 0.025 255);
   --sidebar-border: oklch(0.9 0.01 255);
   --sidebar-ring: oklch(0.55 0.2 29);
+  --motion-fast: 150ms;
+  --motion-ui: 220ms;
+  --motion-enter: 280ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .dark {
@@ -222,6 +227,13 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+
+  .aw-enter,
+  .aw-enter-delayed {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }
 
 @keyframes atd-progress {
@@ -242,6 +254,50 @@
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+@keyframes aw-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.aw-enter {
+  animation: aw-fade-up var(--motion-enter) var(--ease-out) both;
+}
+
+.aw-enter-delayed {
+  animation: aw-fade-up var(--motion-enter) var(--ease-out) 80ms both;
+}
+
+.aw-shell-canvas {
+  background:
+    radial-gradient(ellipse 90% 55% at 0% -10%, color-mix(in oklab, var(--primary) 8%, transparent), transparent 55%),
+    radial-gradient(ellipse 70% 45% at 100% 0%, color-mix(in oklab, var(--primary) 5%, transparent), transparent 50%),
+    var(--color-background);
+}
+
+.dark .aw-shell-canvas {
+  background:
+    radial-gradient(ellipse 90% 55% at 0% -10%, color-mix(in oklab, var(--primary) 12%, transparent), transparent 55%),
+    var(--color-background);
+}
+
+.aw-auth-canvas {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -15%, color-mix(in oklab, var(--primary) 16%, transparent), transparent 58%),
+    linear-gradient(180deg, color-mix(in oklab, var(--muted) 70%, transparent), var(--color-background) 48%);
+}
+
+.dark .aw-auth-canvas {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -15%, color-mix(in oklab, var(--primary) 20%, transparent), transparent 58%),
+    linear-gradient(180deg, color-mix(in oklab, var(--card) 80%, transparent), var(--color-background) 55%);
 }
 
 .atd-boot {

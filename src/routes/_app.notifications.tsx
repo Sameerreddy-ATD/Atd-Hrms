@@ -310,7 +310,7 @@ function NotificationsPage() {
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {installed
-                    ? "You’re using the full-screen Anytime Diesel Employees app."
+                    ? "You’re using the full-screen Anytime Workforce app."
                     : "Install from your phone browser menu if you want a home-screen icon. This is optional."}
                 </p>
                 {!installed && (

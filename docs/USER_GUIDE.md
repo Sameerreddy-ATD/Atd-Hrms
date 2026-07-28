@@ -1,6 +1,6 @@
-# Anytime Diesel Employee Management System User Guide
+# Anytime Workforce User Guide
 
-This guide explains how Developer Admin, HR, organization heads, employees, field staff, and leadership use the Anytime Diesel Employee Management System.
+This guide explains how Developer Admin, HR, organization heads, employees, field staff, and leadership use Anytime Workforce.
 
 ## Who Can Do What
 
@@ -62,7 +62,7 @@ login.
   does not widen.
 - Work Planner filters stack on phones; timeline view shows assignee groups as cards on phones
   and the full timeline from tablet size upward.
-- After sign-in on a phone, you can optionally install Anytime Diesel Employees from
+- After sign-in on a phone, you can optionally install Anytime Workforce from
   **Notifications**. Laptop and desktop browsers are not prompted to add the app to the home screen.
 - The same permissions apply on mobile, tablet, laptop, and installed PWA displays.
 
@@ -283,7 +283,7 @@ sequenceDiagram
   participant Branch1 as Branch 1 Device Next Version
   participant Branch2 as Branch 2 Device Next Version
   participant Mobile as Mobile App
-  participant EMS as Employee Management Backend
+  participant EMS as Anytime Workforce Backend
 
   Employee->>Branch1: Thumb in
   Branch1->>EMS: Branch in event

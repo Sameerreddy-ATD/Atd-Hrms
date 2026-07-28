@@ -17,9 +17,9 @@ import { Toaster } from "@/components/ui/sonner";
 import { registerAppServiceWorker } from "@/lib/browser-notifications";
 import { detectPwaPlatform } from "@/lib/pwa-install";
 
-const SITE_TITLE = "Anytime Diesel Employee Management System";
+const SITE_TITLE = "Anytime Workforce";
 const SITE_DESCRIPTION =
-  "Anytime Diesel Employee Management System for employee records, attendance, leave, tasks, assets, branches, and company operations.";
+  "Anytime Workforce — workforce and operations platform for employee records, attendance, leave, tasks, assets, branches, and company operations.";
 const SITE_IMAGE = "/atd-logo.png";
 
 function NotFoundComponent() {
@@ -89,10 +89,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "keywords",
         content:
-          "Anytime Diesel, employee management system, attendance management, leave management, biometric attendance, GPS attendance, tasks, assets",
+          "Anytime Workforce, Anytime Diesel, workforce operations, attendance management, leave management, biometric attendance, GPS attendance, tasks, assets",
       },
-      { name: "application-name", content: "ATD Employees" },
-      { name: "apple-mobile-web-app-title", content: "ATD Employees" },
+      { name: "application-name", content: "Workforce" },
+      { name: "apple-mobile-web-app-title", content: "Workforce" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       { name: "mobile-web-app-capable", content: "yes" },

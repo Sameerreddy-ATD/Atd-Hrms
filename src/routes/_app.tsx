@@ -174,14 +174,14 @@ function AppLayout() {
       </a>
       <AppSidebar />
       <PermissionSetup />
-      <SidebarInset className="flex h-[100dvh] min-w-0 flex-col overflow-hidden bg-muted/35 dark:bg-background">
+      <SidebarInset className="aw-shell-canvas flex h-[100dvh] min-w-0 flex-col overflow-hidden bg-muted/35 dark:bg-background">
         <AppHeader />
         <main
           id="main-content"
           tabIndex={-1}
           className="flex flex-1 flex-col overflow-y-auto overscroll-y-contain p-0 pb-[env(safe-area-inset-bottom)] outline-none sm:p-3 lg:p-4"
         >
-          <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden bg-background p-4 text-card-foreground sm:rounded-xl sm:border sm:border-border/80 sm:p-5 sm:shadow-sm lg:p-6">
+          <div className="aw-enter flex min-w-0 flex-1 flex-col overflow-x-hidden bg-background/95 p-4 text-card-foreground sm:rounded-xl sm:border sm:border-border/80 sm:bg-background sm:p-5 sm:shadow-sm lg:p-6">
             {moduleBlocked ? (
               <div className="m-auto flex max-w-md flex-col items-center px-4 py-12 text-center">
                 <span className="grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">

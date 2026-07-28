@@ -1,6 +1,6 @@
 # Cloud Deployment Options and Cost Guide
 
-This guide explains the supported hosting models for the Employee Management System, compares
+This guide explains the supported hosting models for Anytime Workforce, compares
 representative providers in Indian rupees, and defines the recommended low-cost production
 architecture. It complements the command-level
 [Linux and AWS Deployment Guide](LINUX_LOCAL_DEPLOYMENT.md) and the

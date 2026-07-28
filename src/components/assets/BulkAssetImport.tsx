@@ -130,7 +130,7 @@ export function BulkAssetImport({
   async function downloadTemplate() {
     const { Workbook } = await import("exceljs");
     const workbook = new Workbook();
-    workbook.creator = "Anytime Diesel Employee Management System";
+    workbook.creator = "Anytime Workforce";
     workbook.created = new Date();
 
     const instructions = workbook.addWorksheet("Instructions");

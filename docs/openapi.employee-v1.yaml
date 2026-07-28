@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: Anytime Diesel Employee Integration API
+  title: Anytime Workforce Employee Integration API
   version: 1.0.0
   description: |
     Versioned server-to-server API for employee master-data synchronization.

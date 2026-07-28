@@ -45,7 +45,7 @@ in the same commit.
 | `EMPLOYEE_PROFILE_AND_ID_CARD.md`      | Profile field order, company hierarchy, encrypted identifiers, permissions, and ID-card contract  |
 | `DATABASE_INTEGRITY_AUDIT.md`          | Full storage assurance, automated integrity checks, Task v2 rules, and repair policy              |
 | `openapi.employee-v1.yaml`             | Machine-readable Employee API v1 contract                                                         |
-| `PRODUCT_NAMING.md`                    | Recommended product name and professional interface terminology                                   |
+| `PRODUCT_NAMING.md`                    | Canonical **Anytime Workforce** product name and professional interface terminology           |
 | `RESET_AND_GO_LIVE.md`                 | Safe test-data reset, verification, and step-by-step real-company setup                           |
 | `THIRD_PARTY_HANDOVER.md`              | Transfer inventory, environment contract, acceptance, ownership, and handover definition          |
 | `CLOUD_DEPLOYMENT_OPTIONS.md`          | Hosting methods, INR costs, **~150-employee VPS/storage capacity**, security, provider selection  |

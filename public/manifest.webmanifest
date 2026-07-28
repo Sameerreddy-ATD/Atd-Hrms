@@ -1,7 +1,7 @@
 {
-  "name": "Anytime Diesel Employee Management System",
-  "short_name": "ATD Employees",
-  "description": "Employee records, attendance, leave, tasks, assets, branches, and company operations for Anytime Diesel.",
+  "name": "Anytime Workforce",
+  "short_name": "Workforce",
+  "description": "Workforce and operations platform for employee records, attendance, leave, tasks, assets, branches, and company operations.",
   "id": "/",
   "lang": "en-IN",
   "dir": "ltr",
@@ -48,29 +48,15 @@
     {
       "name": "Dashboard",
       "short_name": "Home",
-      "description": "Open your workplace dashboard",
+      "description": "Open your Anytime Workforce dashboard",
       "url": "/dashboard",
       "icons": [{ "src": "/pwa-192.png", "sizes": "192x192" }]
     },
     {
       "name": "My Attendance",
       "short_name": "Attendance",
-      "description": "Mark or review your attendance",
+      "description": "Check in or review your attendance",
       "url": "/attendance/mine",
-      "icons": [{ "src": "/pwa-192.png", "sizes": "192x192" }]
-    },
-    {
-      "name": "Notifications",
-      "short_name": "Alerts",
-      "description": "Open company notifications",
-      "url": "/notifications",
-      "icons": [{ "src": "/pwa-192.png", "sizes": "192x192" }]
-    },
-    {
-      "name": "Apply Leave",
-      "short_name": "Leave",
-      "description": "Submit a leave request",
-      "url": "/leave/apply",
       "icons": [{ "src": "/pwa-192.png", "sizes": "192x192" }]
     }
   ]

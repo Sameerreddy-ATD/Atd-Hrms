@@ -103,7 +103,7 @@ export function installInstructionCopy(platform: PwaPlatform) {
       };
     default:
       return {
-        title: "Install Anytime Diesel Employees",
+        title: "Install Anytime Workforce",
         steps: [
           "Use your browser’s Install or Add to Home Screen option",
           "Open the installed app for the full-screen workplace experience",

@@ -1,4 +1,4 @@
-# Anytime Diesel Employee Management System: Operations And Workflows
+# Anytime Workforce: Operations And Workflows
 
 This manual describes the behavior implemented in the current version. Permissions are enforced by the backend, not only by hidden buttons.
 
