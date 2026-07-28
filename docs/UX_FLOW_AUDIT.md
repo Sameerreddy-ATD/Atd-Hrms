@@ -1,4 +1,4 @@
-# UX and Workflow Audit — Employee Management System
+# UX and Workflow Audit — Anytime Workforce
 
 **Date:** 26 July 2026  
 **Scope:** Live product on `main` / `version-1` (post Document Vault–SOP removal and HR-document validation fixes)  

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Package } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
+import { EmptyState } from "@/components/common/EmptyState";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { assetsApi } from "@/services/api";
@@ -35,15 +36,11 @@ function MyAssetsPage() {
       />
       {error && <p className="text-sm text-destructive">{error}</p>}
       {!rows.length && !error ? (
-        <Card>
-          <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
-            <Package className="size-8 text-muted-foreground" />
-            <p className="text-sm font-medium">No assets to show</p>
-            <p className="max-w-sm text-xs text-muted-foreground">
-              Assigned equipment and online seats will show up here when available.
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Package}
+          title="No assets to show"
+          description="Assigned equipment and online seats will show up here when available."
+        />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {rows.map((asset) => (

@@ -225,7 +225,7 @@ Restore MySQL only if a migration or data operation is incompatible. Database re
 Use annotated release tags after a verified production deployment:
 
 ```bash
-git tag -a v1.1.0 -m "Anytime Diesel Employee Management System v1.1.0"
+git tag -a v1.1.0 -m "Anytime Workforce v1.1.0"
 git push origin v1.1.0
 ```
 

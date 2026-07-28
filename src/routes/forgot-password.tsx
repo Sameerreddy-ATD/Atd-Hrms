@@ -37,10 +37,13 @@ function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
-      <Card className="w-full max-w-md border-border shadow-sm">
+    <div className="aw-auth-canvas flex min-h-screen items-center justify-center px-4 py-8">
+      <Card className="aw-enter w-full max-w-md border-border/70 bg-card/95 shadow-sm backdrop-blur-sm">
         <CardContent className="p-6 sm:p-8">
-          <Logo className="mb-6 h-9 w-auto" />
+          <div className="mb-6 flex flex-col items-center gap-2 text-center">
+            <Logo className="h-9 w-auto" />
+            <p className="text-sm font-semibold tracking-tight text-foreground">Anytime Workforce</p>
+          </div>
           <h1 className="text-lg font-semibold">Password assistance</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Submit your work email. Developer Admin will reset your password from User Logins and

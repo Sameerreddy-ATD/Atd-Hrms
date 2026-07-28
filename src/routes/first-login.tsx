@@ -56,13 +56,16 @@ function FirstLoginPage() {
   }
 
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-muted/30 px-4 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))]">
-      <div className="w-full max-w-md space-y-5">
+    <div className="aw-auth-canvas flex min-h-[100dvh] items-center justify-center px-4 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))]">
+      <div className="aw-enter w-full max-w-md space-y-5">
+        <div className="flex flex-col items-center gap-2 text-center">
+          <Logo className="h-9 w-auto" />
+          <h1 className="text-xl font-semibold tracking-tight">Anytime Workforce</h1>
+        </div>
         <LoginCrewMascot mode={crewMode} className="mx-auto w-full max-w-[11rem] sm:max-w-[12.5rem]" />
-        <Card className="border-border shadow-sm">
+        <Card className="aw-enter-delayed border-border/70 bg-card/95 shadow-sm backdrop-blur-sm">
           <CardContent className="p-6 sm:p-8">
-            <Logo className="mb-6 h-9 w-auto" />
-            <h1 className="text-lg font-semibold">Set a new password</h1>
+            <h2 className="text-lg font-semibold">Set a new password</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               For security, you must change the temporary password issued to you before continuing.
             </p>

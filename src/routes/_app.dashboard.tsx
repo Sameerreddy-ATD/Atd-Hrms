@@ -240,6 +240,7 @@ function DashboardPage() {
     return (
       <div>
         <PageHeader
+          eyebrow="Anytime Workforce"
           title={`Welcome, ${user.name.split(" ")[0]}`}
           description={`${ROLE_LABELS[user.role]} · Loading today's workspace`}
         />
@@ -271,8 +272,9 @@ function DashboardPage() {
   }));
 
   return (
-    <div>
+    <div className="aw-enter space-y-1">
       <PageHeader
+        eyebrow="Anytime Workforce"
         title={`Welcome, ${user.name.split(" ")[0]}`}
         description={`${ROLE_LABELS[user.role]} · ${new Date().toLocaleDateString(undefined, {
           weekday: "long",
@@ -813,7 +815,7 @@ function ManagerDashboard({
 }) {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="aw-enter-delayed grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Team present" value={data.present} icon={UserCheck} tone="success" />
         <StatCard label="On leave" value={data.onLeave} icon={PlaneTakeoff} tone="info" />
         <StatCard
@@ -877,7 +879,7 @@ function HRDashboard({
 }) {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 min-[480px]:grid-cols-3 lg:grid-cols-5">
+      <div className="aw-enter-delayed grid grid-cols-2 gap-3 min-[480px]:grid-cols-3 lg:grid-cols-5">
         <StatCard label="Total employees" value={data.total} icon={Users} />
         <StatCard
           label="Present today"
@@ -984,10 +986,10 @@ function CEODashboard({
       <section aria-labelledby="executive-summary-title">
         <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 id="executive-summary-title" className="text-base font-semibold">
+            <h2 id="executive-summary-title" className="text-base font-semibold tracking-tight">
               Executive summary
             </h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="mt-0.5 text-sm text-muted-foreground">
               Workforce health and decisions requiring attention today.
             </p>
           </div>
@@ -995,7 +997,7 @@ function CEODashboard({
             {attendanceCoverage}% attendance accounted for
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-3 min-[480px]:grid-cols-3 xl:grid-cols-6">
+        <div className="aw-enter-delayed grid grid-cols-2 gap-3 min-[480px]:grid-cols-3 xl:grid-cols-6">
           <StatCard label="Total workforce" value={data.total} icon={Users} />
           <StatCard label="Present today" value={data.present} icon={UserCheck} tone="success" />
           <StatCard label="On leave today" value={data.onLeave} icon={PlaneTakeoff} tone="info" />

@@ -33,7 +33,6 @@ function LoginPage() {
   const [passwordVisible, setPasswordVisible] = useState(false);
 
   const crewMode: LoginCrewMode = useMemo(() => {
-    // Eyes close only while the password field is focused; open again on outside tap/click.
     if (!passwordFocused) return "idle";
     if (passwordVisible) return "peeking";
     return "hiding";
@@ -69,15 +68,23 @@ function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-gradient-to-b from-muted/40 via-background to-background px-4 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))]">
-      <div className="mx-auto flex w-full max-w-md flex-col justify-center space-y-5">
-        <div className="flex justify-center overflow-hidden">
+    <div className="aw-auth-canvas flex min-h-[100dvh] items-center justify-center px-4 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))]">
+      <div className="aw-enter mx-auto flex w-full max-w-md flex-col justify-center space-y-5">
+        <div className="flex flex-col items-center gap-3 text-center">
           <Logo className="h-auto w-36 sm:w-40" />
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-[1.75rem]">
+              Anytime Workforce
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Workforce and operations platform
+            </p>
+          </div>
         </div>
 
         <LoginCrewMascot mode={crewMode} className="mx-auto w-full max-w-[11rem] sm:max-w-[12.5rem]" />
 
-        <Card className="border-border/80 shadow-sm">
+        <Card className="aw-enter-delayed border-border/70 bg-card/95 shadow-sm backdrop-blur-sm">
           <CardContent className="p-6 sm:p-8">
             <h2 className="text-lg font-semibold tracking-tight text-foreground">Sign in</h2>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -96,6 +103,7 @@ function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   onFocus={() => setPasswordFocused(false)}
                   placeholder="name@anytimediesel.com"
+                  className="h-11 transition-[box-shadow,border-color] duration-[var(--motion-fast)]"
                   aria-invalid={!!errors.email}
                 />
                 {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
@@ -118,6 +126,7 @@ function LoginPage() {
                   onFocus={() => setPasswordFocused(true)}
                   onBlur={() => setPasswordFocused(false)}
                   onVisibilityChange={setPasswordVisible}
+                  className="h-11 transition-[box-shadow,border-color] duration-[var(--motion-fast)]"
                   aria-invalid={!!errors.password}
                 />
                 {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
@@ -127,13 +136,15 @@ function LoginPage() {
                   <AlertDescription>{loginError}</AlertDescription>
                 </Alert>
               )}
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="h-11 w-full" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Sign in
               </Button>
             </form>
 
-            <p className="mt-6 text-center text-[11px] text-muted-foreground/70">Version 1.0</p>
+            <p className="mt-6 text-center text-[11px] text-muted-foreground/70">
+              Anytime Diesel · Anytime Workforce
+            </p>
           </CardContent>
         </Card>
       </div>

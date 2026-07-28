@@ -2,29 +2,29 @@
 
 ## Recommended Product Name
 
-**Anytime PeopleOps** is the recommended long-term product name.
+**Anytime Workforce** is the canonical product name.
 
 It is short, professional, easy to say, and broad enough for employee records, attendance,
-leave, tasks, expenses, HR documents, assets, reporting, and future integrations. It also
-avoids limiting the product to only “HRMS” or “employee management” as operational workflows
-continue to grow.
+leave, tasks, expenses, HR documents, assets, reporting, and future integrations. It avoids
+limiting the product to only “HRMS” or “employee management” as operational workflows continue
+to grow.
 
 Recommended presentation:
 
-- Product: **Anytime PeopleOps**
+- Product: **Anytime Workforce**
 - Descriptive subtitle: **Workforce and Operations Platform**
-- Browser title: **Anytime PeopleOps | Workforce and Operations**
-- API name: **Anytime PeopleOps Employee API**
+- Browser title: **Anytime Workforce**
+- PWA short name: **Workforce**
+- API name: **Anytime Workforce Employee API**
 
-The current **Anytime Diesel Employee Management System** name remains valid and is retained
-in this version to avoid an unapproved brand change. A future branding release can adopt the
-recommended name without changing database or API identifiers.
+The company mark **Anytime Diesel** remains the employer brand and legal entity label where
+needed. Product chrome, PWA identity, and documentation refer to **Anytime Workforce**.
 
 ## Other Suitable Names
 
 | Name                       | Best use                                 | Trade-off                                |
 | -------------------------- | ---------------------------------------- | ---------------------------------------- |
-| **Anytime Workforce Hub**  | Formal company-wide portal               | Clear but less distinctive               |
+| **Anytime PeopleOps**      | Broader people + ops framing             | Slightly less plain than Workforce       |
 | **Anytime Crew Hub**       | Friendly operations-focused product      | “Crew” may sound field-team specific     |
 | **Anytime Operations Hub** | Tasks, field work, assets, and workforce | HR capabilities are less obvious         |
 | **Anytime One**            | Broad internal super-app                 | Requires a strong subtitle to explain it |

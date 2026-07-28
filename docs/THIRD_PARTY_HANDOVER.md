@@ -1,7 +1,7 @@
 # Third-Party Technical Handover
 
 This is the starting document for a new company, engineering team, DevOps provider, or AWS partner
-taking ownership of the Employee Management System. It explains what is being transferred, what is
+taking ownership of Anytime Workforce. It explains what is being transferred, what is
 not stored in Git, how the application runs, which decisions the receiving team must make, and how
 to prove that a new deployment is correct.
 

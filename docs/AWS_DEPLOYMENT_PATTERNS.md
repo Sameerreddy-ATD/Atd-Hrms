@@ -4,6 +4,89 @@ This guide helps an AWS/DevOps team select a deployment type without changing ap
 It does not assume that the final choice will match the current VPS. For the current scale, start
 with the simplest pattern that meets availability, backup, security, and ownership requirements.
 
+Related guides:
+
+- [Linux and AWS Deployment](LINUX_LOCAL_DEPLOYMENT.md) — install commands for EC2/VPS and RDS wiring
+- [Cloud Deployment Options and Costs](CLOUD_DEPLOYMENT_OPTIONS.md) — capacity and provider cost
+- [Upgrade and Maintenance](UPGRADE_AND_MAINTENANCE.md) — releases, backups, rollback, ops cadence
+- [Third-Party Technical Handover](THIRD_PARTY_HANDOVER.md) — ownership transfer checklist
+
+## 0. Company AWS Migration Path (VPS Test → Production)
+
+Use this path when the application is already running on a VPS/EC2 for testing and the company will
+later host it on their AWS account (often with existing **RDS MySQL** and **S3** standards).
+
+### What this application is vs a legacy company database
+
+| Item | Anytime Workforce | Typical company legacy stack |
+| ---- | ------------------------------- | ---------------------------- |
+| Database | MySQL 8 via Prisma; about **58** application tables today | Often a large RDS with ~**190** tables for other products |
+| Files | Local private directories (face evidence, receipts, task attachments, medical uploads) | Usually S3 |
+| Runtime | Node.js 22 frontend + Express backend behind Nginx or ALB | EC2, ECS, or similar |
+| Schema ownership | `prisma/schema.prisma` + ordered `prisma/migrations/` | Separate legacy schemas |
+
+**Do not merge this schema into an existing 190-table database.** Give this application its own
+MySQL database name on RDS (for example `anytimediesel_hrms`), or its own RDS instance. Shared
+instance is acceptable; shared tables are not. Treat any future “single data warehouse” effort as a
+separate integration project, not a go-live prerequisite.
+
+### Phased target architecture
+
+```text
+Users
+  → Route 53 / ACM
+  → ALB (or Nginx on EC2)
+       ├─ frontend :8081
+       └─ /api/* → backend :4000
+                      ├─ RDS MySQL 8 (private subnet, this app DB only)
+                      └─ S3 private bucket (phase 2; EBS/local disk until then)
+Secrets Manager / SSM → app runtime
+CloudWatch logs, alarms, billing budget
+Nightly RDS snapshots + tested restore
+```
+
+### Recommended phases
+
+| Phase | Goal | Infrastructure | Notes |
+| ----- | ---- | -------------- | ----- |
+| 0 | UAT / demo | Current VPS or single EC2 + local MySQL | Keep testing here until acceptance passes |
+| 1 | Company staging/production-like | **EC2 + RDS MySQL** + Secrets Manager | Closest to today; lowest migration risk |
+| 2 | Company file standard | Add **private S3** for uploads | Requires a backend storage adapter (not plug-and-play today) |
+| 3 | Company container standard (optional) | ECS Fargate + ALB + RDS (+ S3) | Only if DevOps already runs ECS |
+| Later | Horizontal backend scale | Add Redis (or equivalent) for SSE fan-out | Do not run multiple backend replicas before this |
+
+Avoid Lambda/API Gateway for the current Express API without redesign (SSE, sessions, long-lived
+Node processes).
+
+### Questions to ask the company before cutover
+
+1. Approved AWS region and data-residency rules for employee identity/banking data
+2. Existing VPC, private subnets, and who owns security groups
+3. Whether they already operate ALB, ECS, or only EC2
+4. DNS and certificate ownership (Route 53 / ACM)
+5. Secrets store (Secrets Manager vs SSM)
+6. Separate staging AWS account or at least separate VPC/resources
+7. Who approves production deploys and database restores
+8. Whether S3 is mandatory at day one or can follow after EC2+RDS is stable
+
+### Cutover sequence (VPS → company AWS)
+
+1. Provision company staging: EC2 (or ECS), empty RDS database, security groups, secrets.
+2. Point staging `DATABASE_URL` at the new RDS database and run `npm run db:deploy` (never seed
+   production-like data from `prisma/seed.ts` unless explicitly approved for a demo DB).
+3. Restore a recent UAT dump into staging RDS only if you need production-shaped data for UAT; scrub
+   or restrict PII per company policy.
+4. Complete acceptance on a temporary hostname.
+5. Repeat for production with empty or approved go-live data; follow
+   [Reset and Go-Live](RESET_AND_GO_LIVE.md) when leaving test data behind.
+6. Lower DNS TTL, switch the public hostname, monitor both environments.
+7. Keep the previous VPS/EC2 stopped but recoverable for the agreed rollback window.
+8. Only then decommission the old host and chargeable resources deliberately.
+
+Exact EC2 install steps remain in [Linux and AWS Deployment](LINUX_LOCAL_DEPLOYMENT.md). RDS and
+S3 specifics are in sections **5**, **14**, and **15** below. CI/CD is in section **12** and
+**16**. Ongoing maintenance is in [Upgrade and Maintenance](UPGRADE_AND_MAINTENANCE.md).
+
 ## 1. Quick Recommendation
 
 | Requirement                       | Recommended AWS pattern                                         |
@@ -167,6 +250,39 @@ actual request path instead of copying this value blindly.
 
 Multi-AZ improves availability but approximately doubles the database instance component of cost.
 
+### Creating the application database on company RDS
+
+Prefer a dedicated database on the company RDS instance (or a dedicated instance). Example SQL
+run by an RDS admin (adjust host access so only the app security group can connect):
+
+```sql
+CREATE DATABASE anytimediesel_hrms CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'atd_hrms'@'%' IDENTIFIED BY 'REPLACE_WITH_A_STRONG_PASSWORD';
+GRANT ALL PRIVILEGES ON anytimediesel_hrms.* TO 'atd_hrms'@'%';
+FLUSH PRIVILEGES;
+```
+
+On the application host:
+
+```text
+DATABASE_URL=mysql://atd_hrms:URL_ENCODED_PASSWORD@your-rds-endpoint.region.rds.amazonaws.com:3306/anytimediesel_hrms
+```
+
+Then from the app checkout (after secrets are loaded):
+
+```bash
+npx prisma generate
+npm run db:deploy
+npm run db:verify
+npm run db:audit
+```
+
+Never point this application at a legacy schema that already contains unrelated tables expecting to
+“share” employee rows. Use the Employee Integration API if another system must exchange data.
+
+Step-by-step EC2 wiring against RDS (no local MySQL) is in
+[Linux and AWS Deployment § Deploying With Company RDS](LINUX_LOCAL_DEPLOYMENT.md#13-deploying-with-company-rds).
+
 ## 6. Pattern D: ECS Fargate + ALB + RDS
 
 ```mermaid
@@ -328,3 +444,158 @@ Never run `prisma migrate dev`, `npm audit fix --force`, or the seed against pro
 - [ ] Migrations, `db:verify`, and `db:audit` pass.
 - [ ] Role, workflow, integration, and mobile acceptance pass.
 - [ ] Previous environment remains recoverable during the rollback window.
+- [ ] This app uses its own MySQL database (not merged into unrelated legacy tables).
+- [ ] File storage plan recorded (EBS/local now, S3 later, or S3 day one after adapter).
+- [ ] CI green on `main`; production CD requires human approval.
+
+## 14. S3 Plan For Private Uploads
+
+Today the backend writes private files to local directories (for example face evidence, expense
+receipts, sick-leave medical files, and task attachments). Company AWS often requires **S3**. That
+is supported as a deliberate engineering phase, not a configuration-only switch.
+
+### Target S3 design
+
+- One private bucket (or one bucket with environment prefixes), **Block Public Access** on.
+- Server-side encryption (SSE-S3 or SSE-KMS per company policy).
+- Access only via the EC2/ECS **IAM task/instance role** (prefer no long-lived access keys in `.env`).
+- Key prefixes such as `face/`, `medical/`, `expenses/`, `tasks/`.
+- Lifecycle rules for retention (especially face evidence) aligned with
+  [Face Registration and Verified Attendance](FACE_ATTENDANCE_SECURITY.md).
+- Application serves downloads only through authenticated API routes or short-lived signed URLs.
+
+### Interim (phase 1 without S3 code)
+
+Keep files on encrypted EBS attached to the application host. Document the path variables
+(`FACE_EVIDENCE_DIR`, task attachment directory, and any medical/upload dirs). Include those paths
+in backup/restore runbooks. Move to S3 in phase 2.
+
+### Implementation checklist (phase 2)
+
+- [ ] Add a storage adapter interface (local disk vs S3) used by upload/download paths.
+- [ ] Persist object key (and bucket if needed) instead of assuming a local absolute path forever.
+- [ ] Migrate existing files with a one-off copy job; verify checksums; keep local copy until cutover.
+- [ ] Update IAM policy to least privilege (`s3:GetObject`, `PutObject`, `DeleteObject` on prefix).
+- [ ] Confirm Nginx/ALB never expose the bucket publicly.
+- [ ] Re-test enrollment evidence, expense receipts, medical leave files, and task attachments.
+
+Until the adapter ships, do not claim “S3 ready” in go-live sign-off.
+
+## 15. GitHub Actions CI/CD (Recommended Shape)
+
+There is no required workflow checked into the repository yet. The company (or this team) can add
+GitHub Actions as follows.
+
+### Continuous integration (every PR and push to `main`)
+
+Jobs should run on Node.js 22:
+
+```bash
+npm ci
+npx prisma validate
+npm run repo:audit
+npm run typecheck
+npm run lint
+npm test
+npm run build
+npm run build:backend
+npm run audit:deps
+```
+
+Optional: Playwright smoke against an ephemeral MySQL service when the team can maintain it.
+
+### Continuous deployment (staging automatic; production gated)
+
+Prefer:
+
+1. CI must pass on the release SHA.
+2. Deploy to **staging** (EC2 via SSM, or ECS rolling update).
+3. Run `npm run db:deploy` against staging RDS, then health checks.
+4. **Required reviewers** approve production.
+5. Take/confirm RDS snapshot (or approved backup).
+6. Deploy the **same SHA** to production; migrate; restart; smoke test.
+7. On failure, roll back application to the previous SHA; restore RDS only if a migration is unsafe.
+
+Suggested first implementation: **GitHub Actions → AWS SSM Run Command** on the EC2 app host,
+mirroring [Upgrade and Maintenance](UPGRADE_AND_MAINTENANCE.md) commands. Move to ECS deploy
+actions only after containers are the company standard.
+
+Do **not** auto-run production migrations without a human gate until the process is trusted.
+
+Example high-level workflow layout (illustrative — adapt names, OIDC roles, and hosts):
+
+```yaml
+# .github/workflows/ci.yml (illustrative)
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npx prisma validate
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - run: npm run build:backend
+```
+
+```yaml
+# .github/workflows/deploy-production.yml (illustrative)
+name: Deploy production
+on:
+  workflow_dispatch:
+    inputs:
+      git_sha:
+        description: Immutable commit SHA already verified by CI
+        required: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production   # require reviewers in GitHub Environments
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_sha }}
+      # Assume role via OIDC, then SSM Run Command / ECS update using the same SHA
+      # 1) snapshot/confirm RDS backup
+      # 2) pull SHA on host, npm ci, build, db:deploy, pm2 restart
+      # 3) curl /health and /health/db
+```
+
+Wire AWS credentials with **OIDC federation** to an IAM role; avoid storing long-lived AWS keys in
+GitHub secrets when the company supports OIDC.
+
+## 16. Post-Deploy Maintenance On AWS
+
+Yes — production needs ongoing maintenance. Minimum cadence:
+
+| Cadence | Work |
+| ------- | ---- |
+| Daily | Process health (PM2/ECS), `/health` and `/health/db`, error logs, disk or S3 growth, failed jobs |
+| Weekly | Spot-check staging restore or backup completeness; review CloudWatch alarms; dependency glance |
+| Every release | Snapshot/backup → migrate → restart → smoke login, attendance, leave, checklists |
+| Monthly | OS patches on EC2; RDS engine minor updates in maintenance window; secret rotation if policy requires; prune old logs/backups; billing review |
+| Quarterly | Full restore drill to a throwaway database; review IAM and security groups; revisit capacity |
+
+Also keep:
+
+- one named owner who can restore RDS and redeploy the last known-good Git SHA;
+- off-instance (or cross-account) backup copies where policy requires;
+- documented rollback window after each release; and
+- CloudWatch billing alarms so surprise S3/RDS growth is visible.
+
+Full command-level update and rollback steps remain in
+[Upgrade and Maintenance](UPGRADE_AND_MAINTENANCE.md).
