@@ -33,12 +33,14 @@ export function EmergencyContactSection({
   canEdit,
   onSaved,
   className,
+  hideHeader = false,
 }: {
   employeeId: string;
   value?: EmergencyContact | null;
   canEdit: boolean;
   onSaved?: (next: EmergencyContact) => void;
   className?: string;
+  hideHeader?: boolean;
 }) {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -84,17 +86,19 @@ export function EmergencyContactSection({
 
   return (
     <section id="emergency-contact" className={className}>
-      <div className="mb-4 border-b pb-3">
-        <h3 className="flex items-center gap-2 text-sm font-semibold">
-          <ShieldAlert className="size-4 text-primary" />
-          Emergency contact
-        </h3>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {canEdit
-            ? "Used for workplace emergencies and the employee ID card."
-            : "View-only. Ask HR or Developer Admin to update these details."}
-        </p>
-      </div>
+      {!hideHeader && (
+        <div className="mb-4 border-b pb-3">
+          <h3 className="flex items-center gap-2 text-sm font-semibold">
+            <ShieldAlert className="size-4 text-primary" />
+            Emergency contact
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {canEdit
+              ? "Used for workplace emergencies and the employee ID card."
+              : "View-only. Ask HR or Developer Admin to update these details."}
+          </p>
+        </div>
+      )}
       <form onSubmit={(event) => void save(event)} className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor={`ec-name-${employeeId}`}>Contact name</Label>

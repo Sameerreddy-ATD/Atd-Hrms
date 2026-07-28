@@ -89,7 +89,7 @@ export const menuGroups: MenuGroup[] = [
         label: "My Attendance",
         to: "/attendance/mine",
         icon: CalendarCheck,
-        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff"],
+        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "ceo"],
       },
       {
         label: "Day Logs",
@@ -152,26 +152,32 @@ export const menuGroups: MenuGroup[] = [
         label: "Apply Leave",
         to: "/leave/apply",
         icon: PlaneTakeoff,
-        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff"],
+        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "ceo"],
       },
       {
         label: "Leave History",
         to: "/leave/history",
         icon: History,
-        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff"],
+        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "ceo"],
+      },
+      {
+        label: "My Leave Balance",
+        to: "/leave/balance",
+        icon: CalendarCheck,
+        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "ceo"],
       },
       {
         label: "Leave Approvals",
         to: "/leave/approvals",
         icon: BadgeCheck,
-        roles: ["hr", "developer_admin", "main_admin"],
+        roles: ["manager"],
         requiresReportingManager: true,
       },
       {
         label: "Leave Tracking",
         to: "/leave/reports",
         icon: FileText,
-        roles: ["developer_admin", "hr", "ceo", "main_admin"],
+        roles: ["hr", "ceo", "main_admin", "developer_admin"],
       },
       {
         label: "Leave Policies",
@@ -262,7 +268,7 @@ export function menuForRole(
       items: g.items
         .filter((i) => {
           const roleAllowed = i.requiresReportingManager
-            ? options?.isReportingManager === true || i.roles.includes(role)
+            ? options?.isReportingManager === true
             : i.roles.includes(role) || (i.allowReportingManager && options?.isReportingManager);
           const module = moduleForRoute(i.to);
           const moduleAllowed = !options?.allowedModules || options.allowedModules.includes(module);
@@ -328,6 +334,7 @@ function itemOrderForRole(role: Role): string[] {
         "/attendance/mine",
         "/leave/apply",
         "/leave/history",
+        "/leave/balance",
         "/tasks",
         "/employee-services",
         "/announcements",
@@ -346,6 +353,7 @@ function itemOrderForRole(role: Role): string[] {
         "/attendance/corrections",
         "/leave/apply",
         "/leave/history",
+        "/leave/balance",
         "/leave/approvals",
         "/tasks",
         "/employee-services",
@@ -361,11 +369,11 @@ function itemOrderForRole(role: Role): string[] {
         "/dashboard",
         "/employees",
         "/checklists",
-        "/leave/approvals",
         "/leave/reports",
         "/leave/policy",
         "/leave/apply",
         "/leave/history",
+        "/leave/balance",
         "/attendance/mine",
         "/attendance/locations",
         "/attendance/field",
@@ -387,9 +395,13 @@ function itemOrderForRole(role: Role): string[] {
       return [
         "/dashboard",
         "/employees",
+        "/attendance/mine",
         "/attendance/locations",
         "/attendance/field",
         "/attendance/branch",
+        "/leave/apply",
+        "/leave/history",
+        "/leave/balance",
         "/leave/reports",
         "/tasks",
         "/employee-services",

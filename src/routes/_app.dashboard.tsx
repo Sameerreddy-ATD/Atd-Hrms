@@ -165,7 +165,7 @@ function DashboardPage() {
     [user?.role],
   );
   const selfPunchRoles = Boolean(
-    user?.employeeId && !["ceo", "developer_admin"].includes(user.role),
+    user?.employeeId && !["developer_admin"].includes(user.role),
   );
 
   const refreshDashboard = useCallback(() => {
@@ -256,7 +256,7 @@ function DashboardPage() {
     (person) =>
       person.employeeId &&
       person.active !== false &&
-      !["ceo", "developer_admin"].includes(person.role),
+      !["developer_admin"].includes(person.role),
   ).length;
   const presentToday = countUniquePresent(todayAttendance);
   const absent = countStatus(todayAttendance, "Absent");

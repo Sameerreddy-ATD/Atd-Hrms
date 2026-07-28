@@ -28,9 +28,109 @@ The current application requires:
 - 8 GB RAM when builds run on the production server or reporting usage grows; and
 - 50 GB or more SSD/NVMe storage with independent backups.
 
-The expected initial workforce is approximately 200-300 employees. This does not require
-Kubernetes or a multi-server cluster. A single properly secured VPS is sufficient, provided that
-the database is backed up to a different failure domain.
+The immediate production target is approximately **150 active employees**, with headroom toward
+200-300. This does not require Kubernetes or a multi-server cluster. A single properly secured VPS
+is sufficient, provided that the database is backed up to a different failure domain. See
+[§1.1 Capacity for ~150 employees](#11-capacity-for-150-employees) for the minimum VPS and storage
+plan sized for that workforce without lag.
+
+## 1.1 Capacity for ~150 employees
+
+Use this section when sizing or upgrading the VPS for Anytime Diesel (or a similar company) with
+about **150 employees** using the app daily for attendance, leave, tasks, and HR workflows.
+
+### What drives load
+
+| Load | Why it matters |
+| --- | --- |
+| Morning check-in burst | Many employees open the PWA and punch within the same 15–30 minutes (face verify + GPS + MySQL writes + live SSE). This is the peak that must stay snappy. |
+| Concurrent browsing | Managers/HR open dashboards, day logs, and reports while punches continue. |
+| MySQL on the same host | Attendance summaries, events, leave, and tasks share RAM with Node. Under-sized RAM causes swap and lag. |
+| On-server builds | `npm ci` / `NODE_ENV=production npm run build` need temporary CPU and RAM; prefer building off-box or upgrading before running builds during office hours. |
+| Face evidence files | Registration stores encrypted centre/left/right photos (not daily punch photos). Retention defaults to a few days and must live on durable disk. |
+
+Face matching models (~11 MB) are served as static files and run in the employee’s browser; they do
+not require a GPU on the VPS.
+
+### Minimum VPS (no lag for ~150)
+
+| Resource | Absolute minimum | Recommended for ~150 (no lag) | Prefer when doing on-server builds / growth to 200–300 |
+| --- | ---: | ---: | ---: |
+| **vCPU** | 2 | **2–4** | **4** |
+| **RAM** | 4 GB | **8 GB** | **8–16 GB** |
+| **Disk (SSD/NVMe)** | 50 GB | **80–100 GB** | **100–150 GB** |
+| **Swap** | 1–2 GB safety net | 2 GB | 2–4 GB (never a substitute for RAM) |
+| **OS** | Ubuntu 24.04 LTS | Ubuntu 24.04 LTS | Ubuntu 24.04 LTS |
+| **MySQL** | Same host OK | Same host OK | Separate RDS/managed MySQL when reports or uptime targets grow |
+
+**Do not run ~150 employees on 2 GB RAM.** A 2 vCPU / 2 GB host (for example the current early
+`t3.small`-class box) can demo the product, but concurrent morning punches plus MySQL will push it
+into swap and feel laggy. Treat **4 GB as the floor** and **8 GB as the comfortable production
+shape** for this workforce.
+
+Representative shapes that match the recommendation:
+
+| Shape | Notes |
+| --- | --- |
+| **2 vCPU / 8 GB / 80–100 GB SSD** | Best single-VPS starting point for ~150 employees |
+| AWS Lightsail 2 vCPU / 4 GB or DigitalOcean 2 vCPU / 4 GB | Acceptable **minimum** if you cannot take 8 GB yet; monitor memory and morning latency |
+| AWS EC2 `t3.medium` (2 vCPU / 4 GB) or `t3.large` (2 vCPU / 8 GB) | Prefer `t3.large` / `t4g.large` for Mumbai; watch burstable CPU credits or use fixed-performance if punches stall |
+| Hostinger KVM 2 (2 vCPU / 8 GB) | Cost-effective commercial VPS when India latency and policy allow |
+
+### Storage plan (~150 employees)
+
+Plan disk as **usable SSD**, not “marketing GB after OS.” Keep **independent backups off the same
+disk** (object storage or another region).
+
+| Component | Approx. first-year size | Notes |
+| --- | ---: | --- |
+| Ubuntu + packages + logs (rotated) | 8–15 GB | Enable `logrotate`; prune PM2 / Nginx logs |
+| App tree (`/opt/anytime-crew-hub`, `node_modules`, builds) | 1.5–3 GB | Face models under `public/face-models` are ~11 MB |
+| MySQL data (attendance, leave, tasks, assets, audit) | 2–8 GB | ~150 people, daily punches, and audit history stay modest for years if indexes stay healthy |
+| Face evidence (`FACE_EVIDENCE_DIR`) | 0.5–3 GB | Three registration photos per person; retention (default days, not years) keeps this bounded |
+| Local dump scratch (temporary) | 2–5 GB | For `mysqldump` before copy-off; delete after upload |
+| Free headroom | ≥20% of disk | Required so MySQL and builds do not fill the volume |
+
+**Practical recommendation:** start at **80–100 GB SSD**. Alert when disk use exceeds **70%**. Do
+not rely on the early 20 GB root volume for full workforce go-live.
+
+### Network and concurrency assumptions
+
+- Public ports: **80/443 only**; MySQL `3306`, backend `4000`, and frontend `8081` stay private.
+- Expect brief peaks of tens of concurrent API requests during check-in, not hundreds of sustained
+  WebSocket servers.
+- Long-lived SSE connections scale with open dashboards; 8 GB RAM leaves room for Node + MySQL
+  buffer pool without thrashing.
+- Prefer an **India region** (for example AWS Mumbai / DigitalOcean Bangalore) so mobile GPS and
+  face-check round-trips stay low.
+
+### Upgrade triggers (before users feel lag)
+
+Upgrade CPU/RAM/disk (or move MySQL off-box) when any of these appear:
+
+- Available RAM regularly under ~500 MB or swap used during office hours
+- API `/health` or check-in p95 latency climbing under the morning burst
+- MySQL slow-query log showing lock waits on attendance writes
+- Disk above 70% used
+- PM2 restart loops or OOM kills on `atd-backend` / `atd-frontend`
+- On-server production builds starving the live app
+
+### Current early production note
+
+The existing public host has historically been a **2 vCPU / ~2 GB RAM / ~20 GB disk** class machine.
+That is fine for limited UAT. Before ~150 employees punch every day, resize to at least the
+**minimum** row above, preferably the **recommended** 2–4 vCPU / 8 GB / 80–100 GB shape, and confirm
+off-box MySQL backups.
+
+### Recommended capacity stages
+
+| Stage | CPU | RAM | Storage | Comment |
+| --- | ---: | ---: | ---: | --- |
+| Test/demo | 1–2 shared vCPU | 2 GB | 25–40 GB | Not for irreplaceable employee data |
+| **~150 employees — minimum** | **2 vCPU** | **4 GB** | **50 GB** | Floor for go-live without chronic lag |
+| **~150 employees — recommended** | **2–4 vCPU** | **8 GB** | **80–100 GB** | Comfortable punches, reports, MySQL cache |
+| Growth toward 200–300 / heavy reports | 4 vCPU | 8–16 GB | 100–150 GB | Consider managed MySQL (RDS) |
+| Separated data tier | 2–4 vCPU app | 4–8 GB app | App 40 GB+; DB separate | VPS/EC2 app + RDS MySQL |
 
 ## 2. Recommended Low-Cost Architecture
 
@@ -54,14 +154,8 @@ Weekly provider snapshot   -> server recovery
 Only ports 80 and 443 are public. SSH port 22 is restricted to administrator IP addresses.
 MySQL, the backend, and the frontend preview port must never be exposed directly to the internet.
 
-### Recommended capacity
-
-| Stage                |           CPU |     RAM |   Storage | Comment                                 |
-| -------------------- | ------------: | ------: | --------: | --------------------------------------- |
-| Test/demo            | 1 shared vCPU |    2 GB |  25-40 GB | Not for irreplaceable employee data     |
-| Low-cost production  | 2 shared vCPU |    4 GB |     50 GB | Minimum recommended production shape    |
-| Preferred production |        2 vCPU |    8 GB | 80-100 GB | Better builds, reports, and MySQL cache |
-| Growth               |        4 vCPU | 8-16 GB |   100+ GB | Consider separating MySQL at this stage |
+For ~150 employees, size the single VPS using [§1.1](#11-capacity-for-150-employees)
+(**prefer 2–4 vCPU / 8 GB / 80–100 GB SSD**).
 
 ## 3. Provider Cost Comparison in INR
 
@@ -75,7 +169,7 @@ MySQL, the backend, and the frontend preview port must never be exposed directly
 | DigitalOcean Basic, 1 vCPU/2 GB                   |                     About ₹1,160 |         About ₹1,369 | Simple but below preferred production capacity                   |
 | DigitalOcean Basic, 2 vCPU/4 GB                   |                     About ₹2,318 |         About ₹2,736 | Good predictable VPS; prefer a nearby region                     |
 | AWS Lightsail, 2 vCPU/4 GB                        |                     About ₹2,318 |         About ₹2,736 | Best simple AWS starting shape                                   |
-| Existing AWS EC2 `t3.small`, 50 GB gp3, IPv4      |                     About ₹2,200 |         About ₹2,600 | Already deployed; only 2 GB RAM                                  |
+| Existing AWS EC2 `t3.small`, ~20–50 GB gp3, IPv4  |                     About ₹2,200 |         About ₹2,600 | Early UAT only; **2 GB RAM is below the ~150-employee floor**     |
 | Railway application plus MySQL                    |              About ₹2,400-₹3,900 |        ₹2,830-₹4,600 | Convenient but usage-based and storage-limited on Hobby          |
 | Fly.io application plus external MySQL            |                    About ₹3,000+ |              ₹3,540+ | More components and no cost advantage                            |
 | Managed application plus production managed MySQL |                  ₹8,000-₹12,000+ |      ₹9,400-₹14,200+ | Lower operations burden, substantially higher cost               |

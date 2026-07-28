@@ -40,7 +40,7 @@ function MyAssetsPage() {
             <Package className="size-8 text-muted-foreground" />
             <p className="text-sm font-medium">No assets to show</p>
             <p className="max-w-sm text-xs text-muted-foreground">
-              When HR assigns something and marks it visible to you, it will appear here.
+              Assigned equipment and online seats will show up here when available.
             </p>
           </CardContent>
         </Card>

@@ -668,6 +668,20 @@ export const weeklyOffRequestSchema = z.object({
 export const leaveTypeSchema = z.object({
   name: z.string().min(2).max(120),
   paid: z.boolean().optional(),
+  code: z
+    .string()
+    .trim()
+    .min(2)
+    .max(40)
+    .regex(/^[A-Z][A-Z0-9_]*$/, "Code must be uppercase letters, numbers, or underscores")
+    .optional(),
+  active: z.boolean().optional(),
+  annualAllowance: z.number().finite().nonnegative().nullable().optional(),
+  monthlyCredit: z.number().finite().nonnegative().nullable().optional(),
+  maxPerMonth: z.number().finite().nonnegative().nullable().optional(),
+  carryForward: z.boolean().optional(),
+  requiresMedicalDocument: z.boolean().optional(),
+  approvalRequired: z.boolean().optional(),
 });
 
 export const leaveTypeUpdateSchema = leaveTypeSchema.partial();

@@ -109,7 +109,8 @@ function MyAttendancePage() {
   );
   const detectedMissedPunches = records.filter(
     (record) =>
-      record.status === "Missed Punch" && !requestedCorrectionDates.has(record.date.slice(0, 10)),
+      Boolean(record.hasMissedCheckout || record.hasMissingOutEvent) &&
+      !requestedCorrectionDates.has(record.date.slice(0, 10)),
   );
 
   function prepareMissedCheckout(record: AttendanceRecord) {

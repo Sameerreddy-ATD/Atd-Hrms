@@ -46,6 +46,7 @@ function ProfilePage() {
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
   const [pwSaving, setPwSaving] = useState(false);
+  const [openSections, setOpenSections] = useState<string[]>(["identity"]);
 
   useEffect(() => {
     (user?.employeeId ? employeesApi.get(user.employeeId) : Promise.resolve(null))
@@ -78,6 +79,9 @@ function ProfilePage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (window.location.hash !== "#emergency-contact") return;
+    setOpenSections((current) =>
+      current.includes("emergency-contact") ? current : [...current, "emergency-contact"],
+    );
     const frame = window.requestAnimationFrame(() => {
       document
         .getElementById("emergency-contact")
@@ -227,10 +231,10 @@ function ProfilePage() {
 
         <Card className="h-fit lg:col-span-2">
           <CardContent className="p-4 sm:p-6">
-            <div className="mb-5 border-b pb-4">
+            <div className="mb-4 border-b pb-4">
               <h2 className="font-semibold">Personal and employment details</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Information connected to your employee account.
+                Open a section below to view your details.
               </p>
             </div>
             <form
@@ -272,101 +276,191 @@ function ProfilePage() {
                   setSaving(false);
                 }
               }}
-              className="grid gap-3 sm:grid-cols-2"
             >
-              <SectionTitle title="Identity and contact" />
-              <Field label="Full name" value={name} onChange={setName} editable={canSaveDirectly} />
-              <Field label="Employee code" value={profile.employeeCode ?? "-"} />
-              <Field label="Email" value={email} onChange={setEmail} editable={canSaveDirectly} />
-              <Field
-                label="Personal phone number"
-                value={phone}
-                onChange={setPhone}
-                editable={canSaveDirectly}
-              />
-              <Field
-                label="Company phone number"
-                value={canSaveDirectly ? companyPhone : companyPhone || "Not provided"}
-                onChange={setCompanyPhone}
-                editable={canSaveDirectly}
-              />
-              <Field
-                label="Date of Birth"
-                value={dob}
-                onChange={setDob}
-                editable={canSaveDirectly}
-                type="date"
-              />
-              <Field label="Gender" value={formatGender(profile.gender)} />
-              <Field label="Blood group" value={profile.bloodGroup ?? "Not provided"} />
+              <Accordion
+                type="multiple"
+                value={openSections}
+                onValueChange={setOpenSections}
+                className="w-full"
+              >
+                <AccordionItem value="identity">
+                  <AccordionTrigger className="text-sm hover:no-underline">
+                    Identity and contact
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field
+                        label="Full name"
+                        value={name}
+                        onChange={setName}
+                        editable={canSaveDirectly}
+                      />
+                      <Field label="Employee code" value={profile.employeeCode ?? "-"} />
+                      <Field
+                        label="Email"
+                        value={email}
+                        onChange={setEmail}
+                        editable={canSaveDirectly}
+                      />
+                      <Field
+                        label="Personal phone number"
+                        value={phone}
+                        onChange={setPhone}
+                        editable={canSaveDirectly}
+                      />
+                      <Field
+                        label="Company phone number"
+                        value={canSaveDirectly ? companyPhone : companyPhone || "Not provided"}
+                        onChange={setCompanyPhone}
+                        editable={canSaveDirectly}
+                      />
+                      <Field
+                        label="Date of Birth"
+                        value={dob}
+                        onChange={setDob}
+                        editable={canSaveDirectly}
+                        type="date"
+                      />
+                      <Field label="Gender" value={formatGender(profile.gender)} />
+                      <Field label="Blood group" value={profile.bloodGroup ?? "Not provided"} />
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
 
-              <SectionTitle title="Employment" />
-              <Field
-                label="Employer company"
-                value={
-                  profile.companyEntity ? COMPANY_LABELS[profile.companyEntity] : "Not assigned"
-                }
-              />
-              <Field label="Parent group" value={PARENT_COMPANY_NAME} />
-              <Field label="Role" value={ROLE_LABELS[user.role]} />
-              <Field label="Employment type" value={formatEmployment(profile.employmentType)} />
-              <Field
-                label="Organization level"
-                value={formatOrganizationLevel(profile.organizationLevel)}
-              />
-              <Field label="Department" value={profile.department ?? "-"} />
-              <Field label="Designation" value={profile.designation ?? "-"} />
-              <Field label="Reporting manager" value={profile.managerName ?? "Not assigned"} />
-              <Field label="Joining date" value={profile.joiningDate ?? "-"} />
+                <AccordionItem value="employment">
+                  <AccordionTrigger className="text-sm hover:no-underline">
+                    Employment
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field
+                        label="Employer company"
+                        value={
+                          profile.companyEntity
+                            ? COMPANY_LABELS[profile.companyEntity]
+                            : "Not assigned"
+                        }
+                      />
+                      <Field label="Parent group" value={PARENT_COMPANY_NAME} />
+                      <Field label="Role" value={ROLE_LABELS[user.role]} />
+                      <Field
+                        label="Employment type"
+                        value={formatEmployment(profile.employmentType)}
+                      />
+                      <Field
+                        label="Organization level"
+                        value={formatOrganizationLevel(profile.organizationLevel)}
+                      />
+                      <Field label="Department" value={profile.department ?? "-"} />
+                      <Field label="Designation" value={profile.designation ?? "-"} />
+                      <Field
+                        label="Reporting manager"
+                        value={profile.managerName ?? "Not assigned"}
+                      />
+                      <Field label="Joining date" value={profile.joiningDate ?? "-"} />
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
 
-              <SectionTitle title="Banking details" />
-              <Field
-                label="Account holder name"
-                value={
-                  canSaveDirectly ? bankAccountHolderName : bankAccountHolderName || "Not provided"
-                }
-                onChange={setBankAccountHolderName}
-                editable={canSaveDirectly}
-              />
-              <Field label="Account type" value={formatLabel(profile.bankAccountType)} />
-              {canSaveDirectly ? (
-                <Field
-                  label="Account number"
-                  value={bankAccountNumber}
-                  onChange={setBankAccountNumber}
-                  editable
-                />
-              ) : (
-                <SensitiveField label="Account number" value={bankAccountNumber} />
-              )}
-              <Field
-                label="IFSC code"
-                value={canSaveDirectly ? bankIfscCode : bankIfscCode || "Not provided"}
-                onChange={setBankIfscCode}
-                editable={canSaveDirectly}
-              />
+                <AccordionItem value="banking">
+                  <AccordionTrigger className="text-sm hover:no-underline">
+                    Banking details
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field
+                        label="Account holder name"
+                        value={
+                          canSaveDirectly
+                            ? bankAccountHolderName
+                            : bankAccountHolderName || "Not provided"
+                        }
+                        onChange={setBankAccountHolderName}
+                        editable={canSaveDirectly}
+                      />
+                      <Field label="Account type" value={formatLabel(profile.bankAccountType)} />
+                      {canSaveDirectly ? (
+                        <Field
+                          label="Account number"
+                          value={bankAccountNumber}
+                          onChange={setBankAccountNumber}
+                          editable
+                        />
+                      ) : (
+                        <SensitiveField label="Account number" value={bankAccountNumber} />
+                      )}
+                      <Field
+                        label="IFSC code"
+                        value={canSaveDirectly ? bankIfscCode : bankIfscCode || "Not provided"}
+                        onChange={setBankIfscCode}
+                        editable={canSaveDirectly}
+                      />
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
 
-              <SectionTitle title="Statutory details" />
-              {canSaveDirectly ? (
-                <>
-                  <Field label="PAN" value={panNumber} onChange={setPanNumber} editable />
-                  <Field
-                    label="Aadhaar number"
-                    value={aadhaarNumber}
-                    onChange={setAadhaarNumber}
-                    editable
-                  />
-                  <Field label="UAN number" value={uanNumber} onChange={setUanNumber} editable />
-                </>
-              ) : (
-                <>
-                  <SensitiveField label="PAN" value={panNumber} />
-                  <SensitiveField label="Aadhaar number" value={aadhaarNumber} />
-                  <SensitiveField label="UAN number" value={uanNumber} />
-                </>
-              )}
+                <AccordionItem value="statutory">
+                  <AccordionTrigger className="text-sm hover:no-underline">
+                    Statutory details
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {canSaveDirectly ? (
+                        <>
+                          <Field label="PAN" value={panNumber} onChange={setPanNumber} editable />
+                          <Field
+                            label="Aadhaar number"
+                            value={aadhaarNumber}
+                            onChange={setAadhaarNumber}
+                            editable
+                          />
+                          <Field
+                            label="UAN number"
+                            value={uanNumber}
+                            onChange={setUanNumber}
+                            editable
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <SensitiveField label="PAN" value={panNumber} />
+                          <SensitiveField label="Aadhaar number" value={aadhaarNumber} />
+                          <SensitiveField label="UAN number" value={uanNumber} />
+                        </>
+                      )}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                {user.employeeId && (
+                  <AccordionItem value="emergency-contact" className="border-b-0">
+                    <AccordionTrigger className="text-sm hover:no-underline">
+                      Emergency contact
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <p className="mb-3 text-xs text-muted-foreground">
+                        {canEditEmergencyContact
+                          ? "Used for workplace emergencies and the employee ID card."
+                          : "View-only. Ask HR or Developer Admin to update these details."}
+                      </p>
+                      <EmergencyContactSection
+                        employeeId={user.employeeId}
+                        value={employee?.emergencyContact}
+                        canEdit={canEditEmergencyContact}
+                        hideHeader
+                        onSaved={(next) =>
+                          setEmployee((current) =>
+                            current ? { ...current, emergencyContact: next } : current,
+                          )
+                        }
+                      />
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
+              </Accordion>
+
               {canSaveDirectly && (
-                <div className="flex justify-end border-t border-border pt-4 sm:col-span-2">
+                <div className="mt-4 flex justify-end border-t border-border pt-4">
                   <Button type="submit" disabled={saving}>
                     Save profile
                   </Button>
@@ -375,23 +469,6 @@ function ProfilePage() {
             </form>
           </CardContent>
         </Card>
-
-        {user.employeeId && (
-          <Card className="h-fit lg:col-span-2 lg:col-start-2">
-            <CardContent className="p-4 sm:p-6">
-              <EmergencyContactSection
-                employeeId={user.employeeId}
-                value={employee?.emergencyContact}
-                canEdit={canEditEmergencyContact}
-                onSaved={(next) =>
-                  setEmployee((current) =>
-                    current ? { ...current, emergencyContact: next } : current,
-                  )
-                }
-              />
-            </CardContent>
-          </Card>
-        )}
       </div>
     </div>
   );
@@ -422,14 +499,6 @@ function formatLabel(value?: string) {
     .replaceAll("_", " ")
     .toLowerCase()
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function SectionTitle({ title }: { title: string }) {
-  return (
-    <div className="border-b pb-2 pt-3 sm:col-span-2">
-      <h3 className="text-sm font-semibold">{title}</h3>
-    </div>
-  );
 }
 
 function SensitiveField({ label, value }: { label: string; value: string }) {

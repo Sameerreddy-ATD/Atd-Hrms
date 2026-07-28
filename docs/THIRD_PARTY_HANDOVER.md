@@ -9,10 +9,12 @@ Read this document first, then follow:
 
 1. [Technical Overview](TECHNICAL_OVERVIEW.md) for application architecture.
 2. [Cloud Deployment Options and Costs](CLOUD_DEPLOYMENT_OPTIONS.md) for hosting models.
-3. [AWS Deployment Patterns](AWS_DEPLOYMENT_PATTERNS.md) for AWS-specific choices.
-4. [Linux and AWS Deployment](LINUX_LOCAL_DEPLOYMENT.md) for EC2/VPS commands.
-5. [Upgrade and Maintenance](UPGRADE_AND_MAINTENANCE.md) for releases and rollback.
-6. [Database Integrity Audit](DATABASE_INTEGRITY_AUDIT.md) and
+3. [AWS Deployment Patterns](AWS_DEPLOYMENT_PATTERNS.md) for VPS→company AWS, RDS, S3, CI/CD, and maintenance.
+4. [Linux and AWS Deployment](LINUX_LOCAL_DEPLOYMENT.md) for EC2/VPS commands and company RDS wiring.
+5. [Cloud Deployment Options §1.1](CLOUD_DEPLOYMENT_OPTIONS.md#11-capacity-for-150-employees) for the
+   ~150-employee minimum VPS and storage plan (without lag).
+6. [Upgrade and Maintenance](UPGRADE_AND_MAINTENANCE.md) for releases, rollback, and ops cadence.
+7. [Database Integrity Audit](DATABASE_INTEGRITY_AUDIT.md) and
    [Employee Data and Integration API](EMPLOYEE_DATA_AND_INTEGRATION_API.md) for data assurance.
 
 ## 1. System Purpose

@@ -4380,9 +4380,14 @@ export function createApp() {
   app.get(
     "/leave/types",
     requireAuth,
-    asyncHandler(async (_req, res) => {
+    asyncHandler(async (req, res) => {
+      const includeInactive =
+        req.query.all === "true" &&
+        (req.user!.role === Role.DEVELOPER_ADMIN ||
+          req.user!.role === Role.MAIN_ADMIN ||
+          req.user!.role === Role.HR);
       const types = await prisma.leaveType.findMany({
-        where: { active: true },
+        where: includeInactive ? {} : { active: true },
         orderBy: { name: "asc" },
       });
       res.json(types.map(leaveTypeDto));
@@ -4394,13 +4399,27 @@ export function createApp() {
     requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
     asyncHandler(async (req, res) => {
       const body = leaveTypeSchema.parse(req.body);
-      throw new HttpError(400, "Company leave policies are protected and cannot be added manually");
-      /* istanbul ignore next */
+      const code = (
+        body.code ?? body.name.toUpperCase().replace(/[^A-Z0-9]+/g, "_")
+      ).toUpperCase();
+      if ((Object.values(LEAVE_CODES) as string[]).includes(code)) {
+        throw new HttpError(
+          400,
+          "Casual, Sick, Comp Off, and Unpaid leave codes are system-protected. Create a different custom code.",
+        );
+      }
       const type = await prisma.leaveType.create({
         data: {
-          name: body.name,
-          code: body.name.toUpperCase().replace(/[^A-Z0-9]+/g, "_"),
+          name: body.name.trim(),
+          code,
           paid: body.paid ?? true,
+          active: body.active ?? true,
+          annualAllowance: body.annualAllowance ?? null,
+          monthlyCredit: body.monthlyCredit ?? null,
+          maxPerMonth: body.maxPerMonth ?? null,
+          carryForward: body.carryForward ?? false,
+          requiresMedicalDocument: body.requiresMedicalDocument ?? false,
+          approvalRequired: body.approvalRequired ?? true,
         },
       });
       await audit({
@@ -4418,11 +4437,32 @@ export function createApp() {
     requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
     asyncHandler(async (req, res) => {
       const body = leaveTypeUpdateSchema.parse(req.body);
-      throw new HttpError(400, "Company leave policies are protected and cannot be modified");
-      /* istanbul ignore next */
-      const type = await prisma.leaveType.update({
+      const existing = await prisma.leaveType.findUnique({
         where: { leaveTypeId: String(req.params.id) },
-        data: { name: body.name, paid: body.paid },
+      });
+      if (!existing) throw new HttpError(404, "Leave type not found");
+      const isSystem = (Object.values(LEAVE_CODES) as string[]).includes(existing.code);
+      if (isSystem && body.code && body.code !== existing.code) {
+        throw new HttpError(400, "System leave type codes cannot be changed");
+      }
+      if (isSystem && body.name && body.name.trim() !== existing.name) {
+        throw new HttpError(400, "System leave type names cannot be renamed");
+      }
+      const type = await prisma.leaveType.update({
+        where: { leaveTypeId: existing.leaveTypeId },
+        data: {
+          ...(body.name && !isSystem ? { name: body.name.trim() } : {}),
+          ...(body.paid !== undefined ? { paid: body.paid } : {}),
+          ...(body.active !== undefined ? { active: body.active } : {}),
+          ...(body.annualAllowance !== undefined ? { annualAllowance: body.annualAllowance } : {}),
+          ...(body.monthlyCredit !== undefined ? { monthlyCredit: body.monthlyCredit } : {}),
+          ...(body.maxPerMonth !== undefined ? { maxPerMonth: body.maxPerMonth } : {}),
+          ...(body.carryForward !== undefined ? { carryForward: body.carryForward } : {}),
+          ...(body.requiresMedicalDocument !== undefined
+            ? { requiresMedicalDocument: body.requiresMedicalDocument }
+            : {}),
+          ...(body.approvalRequired !== undefined ? { approvalRequired: body.approvalRequired } : {}),
+        },
       });
       await audit({
         action: "leave type updated",
@@ -4439,12 +4479,26 @@ export function createApp() {
     requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
     asyncHandler(async (req, res) => {
       const id = String(req.params.id);
-      throw new HttpError(400, "Company leave policies are protected and cannot be deleted");
-      /* istanbul ignore next */
+      const existing = await prisma.leaveType.findUnique({ where: { leaveTypeId: id } });
+      if (!existing) throw new HttpError(404, "Leave type not found");
+      if ((Object.values(LEAVE_CODES) as string[]).includes(existing.code)) {
+        throw new HttpError(400, "System leave types cannot be deleted. Deactivate them instead.");
+      }
       const usage = await prisma.leaveRequest.count({ where: { leaveTypeId: id } });
       const balances = await prisma.leaveBalance.count({ where: { leaveTypeId: id } });
       if (usage || balances) {
-        throw new HttpError(400, "Leave type is already used and cannot be deleted");
+        const type = await prisma.leaveType.update({
+          where: { leaveTypeId: id },
+          data: { active: false },
+        });
+        await audit({
+          action: "leave type deactivated",
+          performedByUserId: req.user!.id,
+          newValue: leaveTypeDto(type),
+          ipAddress: req.ip,
+        });
+        res.json(leaveTypeDto(type));
+        return;
       }
       const type = await prisma.leaveType.delete({ where: { leaveTypeId: id } });
       await audit({
@@ -4454,6 +4508,55 @@ export function createApp() {
         ipAddress: req.ip,
       });
       res.json(leaveTypeDto(type));
+    }),
+  );
+
+  app.get(
+    "/leave/comp-off-credits",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const mine = req.query.mine === "true";
+      const employeeId = mine
+        ? req.user!.employeeId
+        : typeof req.query.employeeId === "string"
+          ? req.query.employeeId
+          : req.user!.employeeId;
+      if (!employeeId) throw new HttpError(400, "Employee profile required");
+      if (
+        !mine &&
+        employeeId !== req.user!.employeeId &&
+        req.user!.role !== Role.HR &&
+        req.user!.role !== Role.MAIN_ADMIN &&
+        req.user!.role !== Role.DEVELOPER_ADMIN &&
+        req.user!.role !== Role.CEO
+      ) {
+        throw new HttpError(403, "Insufficient permissions");
+      }
+      const rows = await prisma.compOffCredit.findMany({
+        where: { employeeId },
+        orderBy: { earnedDate: "desc" },
+        take: listLimit(req, 200, 500),
+      });
+      res.json(
+        rows.map((row) => ({
+          id: row.compOffCreditId,
+          employeeId: row.employeeId,
+          earnedDate: row.earnedDate.toISOString().slice(0, 10),
+          holidayId: row.holidayId ?? undefined,
+          consumedByLeaveRequestId: row.consumedByLeaveRequestId ?? undefined,
+          revokedAt: row.revokedAt?.toISOString(),
+          revokeReason: row.revokeReason ?? undefined,
+          expiredAt: row.expiredAt?.toISOString(),
+          status: row.revokedAt
+            ? "REVOKED"
+            : row.expiredAt
+              ? "EXPIRED"
+              : row.consumedByLeaveRequestId
+                ? "USED"
+                : "AVAILABLE",
+          createdAt: row.createdAt.toISOString(),
+        })),
+      );
     }),
   );
   app.get(
@@ -4824,10 +4927,21 @@ export function createApp() {
   app.post(
     "/leave/requests/:id/medical-document/verify",
     requireAuth,
-    requireRoles(Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN, Role.MANAGER),
+    requireRoles(Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
-      const leave = await prisma.leaveRequest.update({
+      const existing = await prisma.leaveRequest.findUnique({
         where: { leaveRequestId: String(req.params.id) },
+        include: { leaveType: true },
+      });
+      if (!existing) throw new HttpError(404, "Leave request not found");
+      if (existing.leaveType.code !== LEAVE_CODES.SICK) {
+        throw new HttpError(400, "Only Sick Leave medical documents can be verified");
+      }
+      if (!existing.medicalDocumentUrl) {
+        throw new HttpError(400, "No medical document has been uploaded yet");
+      }
+      const leave = await prisma.leaveRequest.update({
+        where: { leaveRequestId: existing.leaveRequestId },
         data: { medicalDocumentVerifiedAt: new Date(), medicalDocumentVerifiedBy: req.user!.id },
         include: { leaveType: true, employee: { include: { manager: true } } },
       });

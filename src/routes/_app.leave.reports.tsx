@@ -91,7 +91,7 @@ function LeaveReportsPage() {
     <div>
       <PageHeader
         title="Leave Tracking"
-        description="Organization-wide leave requests and approval progress. Verify sick-leave medical reports here when needed."
+        description="Organization-wide leave requests. Organization heads approve leave; HR verifies sick-leave medical reports here."
         actions={
           <Button
             size="sm"

@@ -467,16 +467,62 @@ export const leaveApi = {
       `/leave/requests${toQuery({ assignedApprovals: "true", includeBalances: "true", status })}`,
     ),
   approver: () => request<{ approverName: string | null; canApply: boolean }>("/leave/approver"),
-  types: () => request<LeaveTypeOption[]>("/leave/types"),
-  createType: (payload: { name: string; paid: boolean }) =>
-    request<LeaveTypeOption>("/leave/types", { method: "POST", body: JSON.stringify(payload) }),
-  updateType: (id: string, payload: Partial<{ name: string; paid: boolean }>) =>
+  types: (all = false) =>
+    request<LeaveTypeOption[]>(`/leave/types${all ? "?all=true" : ""}`),
+  createType: (payload: {
+    name: string;
+    paid?: boolean;
+    code?: string;
+    active?: boolean;
+    annualAllowance?: number | null;
+    monthlyCredit?: number | null;
+    maxPerMonth?: number | null;
+    carryForward?: boolean;
+    requiresMedicalDocument?: boolean;
+    approvalRequired?: boolean;
+  }) => request<LeaveTypeOption>("/leave/types", { method: "POST", body: JSON.stringify(payload) }),
+  updateType: (
+    id: string,
+    payload: Partial<{
+      name: string;
+      paid: boolean;
+      active: boolean;
+      annualAllowance: number | null;
+      monthlyCredit: number | null;
+      maxPerMonth: number | null;
+      carryForward: boolean;
+      requiresMedicalDocument: boolean;
+      approvalRequired: boolean;
+    }>,
+  ) =>
     request<LeaveTypeOption>(`/leave/types/${id}`, {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
   deleteType: (id: string) => request<LeaveTypeOption>(`/leave/types/${id}`, { method: "DELETE" }),
   myBalance: () => request<LeaveBalance[]>("/leave/balances/me"),
+  myCompOffCredits: () =>
+    request<
+      Array<{
+        id: string;
+        earnedDate: string;
+        status: "AVAILABLE" | "USED" | "EXPIRED" | "REVOKED";
+        consumedByLeaveRequestId?: string;
+        expiredAt?: string;
+        revokeReason?: string;
+      }>
+    >("/leave/comp-off-credits?mine=true"),
+  compOffCredits: (employeeId: string) =>
+    request<
+      Array<{
+        id: string;
+        earnedDate: string;
+        status: "AVAILABLE" | "USED" | "EXPIRED" | "REVOKED";
+        consumedByLeaveRequestId?: string;
+        expiredAt?: string;
+        revokeReason?: string;
+      }>
+    >(`/leave/comp-off-credits${toQuery({ employeeId })}`),
   listAllBalances: (employeeId?: string) =>
     request<
       Array<{
