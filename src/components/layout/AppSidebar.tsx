@@ -60,12 +60,7 @@ export function AppSidebar() {
         {collapsed && !isMobile ? (
           <img src="/atd-favicon.png" alt="Anytime Workforce" className="mx-auto h-8 w-8 object-contain" />
         ) : (
-          <div className="flex min-w-0 flex-col gap-0.5 px-1">
-            <Logo className="h-8 w-auto" />
-            <span className="truncate text-[11px] font-semibold tracking-tight text-foreground">
-              Anytime Workforce
-            </span>
-          </div>
+          <Logo className="h-9 w-auto px-1" />
         )}
       </SidebarHeader>
 
