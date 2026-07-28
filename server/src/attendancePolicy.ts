@@ -46,16 +46,22 @@ export function attendanceResultLabel(result: AttendanceResult, holidayName?: st
   }
 }
 
+/** Mobile punch inside a branch geofence — prefer the branch name over a bare "Branch-Mobile". */
+export function branchMobileSourceLabel(branchName?: string | null): string {
+  const name = branchName?.trim();
+  return name ? `${name} · Mobile` : "Branch-Mobile";
+}
+
 export function locationSourceLabel(
   source: AttendanceLocationSource | null | undefined,
   branchName?: string | null,
 ): string {
   if (source === AttendanceLocationSource.BRANCH_MOBILE) {
-    return branchName ? `Branch-Mobile · ${branchName}` : "Branch-Mobile";
+    return branchMobileSourceLabel(branchName);
   }
   if (source === AttendanceLocationSource.MOBILE) return "Mobile";
   if (source === AttendanceLocationSource.THUMB_SCANNER) {
-    return branchName ? `${branchName} - biometric` : "Thumb Scanner";
+    return branchName ? `${branchName} · Biometric` : "Thumb Scanner";
   }
   if (source === AttendanceLocationSource.MANUAL) return "Manual Entry";
   return "System";

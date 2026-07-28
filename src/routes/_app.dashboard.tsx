@@ -52,6 +52,7 @@ import {
 import { downloadCsv } from "@/lib/csv";
 import { formatWorkedTime, workedTime } from "@/lib/worked-time";
 import { subscribeToAttendanceChanges } from "@/lib/attendance-live";
+import { attendanceSourceLabel } from "@/lib/attendance-labels";
 import {
   FaceAttendanceDialog,
   type AttendanceCapture,
@@ -1385,7 +1386,9 @@ function TeamAttendanceCard({
                 </div>
                 <div className="min-w-0">
                   <p className="text-muted-foreground">Source</p>
-                  <p className="mt-0.5 truncate font-medium">{row.source}</p>
+                  <p className="mt-0.5 truncate font-medium">
+                    {attendanceSourceLabel(row, branches)}
+                  </p>
                 </div>
               </div>
             </div>
@@ -1413,7 +1416,7 @@ function TeamAttendanceCard({
                   <TableCell>{time(row.punchIn)}</TableCell>
                   <TableCell>{time(row.punchOut)}</TableCell>
                   <TableCell>{branchName(row.actualBranchId ?? row.homeBranchId)}</TableCell>
-                  <TableCell className="text-sm">{row.source}</TableCell>
+                  <TableCell className="text-sm">{attendanceSourceLabel(row, branches)}</TableCell>
                   <TableCell>
                     <StatusBadge status={row.status} />
                   </TableCell>

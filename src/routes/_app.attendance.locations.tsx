@@ -335,10 +335,14 @@ function DayLogsPage() {
                       workedSeconds: Math.round(
                         (row.totalHours ?? (row.workedMinutes ?? 0) / 60) * 3600,
                       ),
-                      sourceIn: punchSourceLabel(row.punchInSource, row.punchInBranchId, branches),
+                      sourceIn: punchSourceLabel(
+                        row.punchInSource,
+                        row.punchInBranchId ?? row.actualBranchId,
+                        branches,
+                      ),
                       sourceOut: punchSourceLabel(
                         row.punchOutSource,
-                        row.punchOutBranchId,
+                        row.punchOutBranchId ?? row.actualBranchId,
                         branches,
                       ),
                     };
@@ -394,13 +398,21 @@ function DayLogsPage() {
                           <TableCell>
                             <div>{row.punchIn ?? "-"}</div>
                             <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
-                              {punchSourceLabel(row.punchInSource, row.punchInBranchId, branches)}
+                              {punchSourceLabel(
+                                row.punchInSource,
+                                row.punchInBranchId ?? row.actualBranchId,
+                                branches,
+                              )}
                             </div>
                           </TableCell>
                           <TableCell>
                             <div>{row.punchOut ?? "-"}</div>
                             <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
-                              {punchSourceLabel(row.punchOutSource, row.punchOutBranchId, branches)}
+                              {punchSourceLabel(
+                                row.punchOutSource,
+                                row.punchOutBranchId ?? row.actualBranchId,
+                                branches,
+                              )}
                             </div>
                           </TableCell>
                           <TableCell className="font-medium tabular-nums">
@@ -544,7 +556,7 @@ function DayLogsPage() {
                         <TableCell>
                           {(() => {
                             const src = captureSourceLabel(row);
-                            if (src.startsWith("Biometric")) {
+                            if (src.includes("Biometric") || src.startsWith("Biometric")) {
                               return (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-purple-50 text-purple-700 border border-purple-100 dark:bg-purple-950/20 dark:text-purple-400 dark:border-purple-900/30">
                                   <Fingerprint className="h-3.5 w-3.5" />
@@ -552,7 +564,11 @@ function DayLogsPage() {
                                 </span>
                               );
                             }
-                            if (src.startsWith("Mobile -")) {
+                            if (
+                              src.includes(" · Mobile") ||
+                              src.startsWith("Mobile") ||
+                              src.startsWith("Branch-Mobile")
+                            ) {
                               return (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-900/30">
                                   <Smartphone className="h-3.5 w-3.5" />

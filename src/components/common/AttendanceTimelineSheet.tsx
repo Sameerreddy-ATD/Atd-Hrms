@@ -108,7 +108,7 @@ export function AttendanceTimelineSheet({
         icon: MapPin,
         bgClass:
           "bg-emerald-100 border-emerald-200 text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-900/50 dark:text-emerald-400",
-        label: event.branchName ? `Mobile - ${event.branchName}` : "Mobile",
+        label: event.branchName ? `${event.branchName} · Mobile` : "Mobile",
       };
     }
 
@@ -117,7 +117,7 @@ export function AttendanceTimelineSheet({
         icon: MapPin,
         bgClass:
           "bg-emerald-100 border-emerald-200 text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-900/50 dark:text-emerald-400",
-        label: "Mobile GPS check",
+        label: event.branchName ? `${event.branchName} · Mobile` : "Mobile GPS check",
       };
     }
 

@@ -25,6 +25,7 @@ import { useAuth } from "@/lib/auth";
 import { subscribeToAttendanceChanges } from "@/lib/attendance-live";
 import {
   MISSED_PUNCH_TYPE_OPTIONS,
+  attendanceSourceLabel,
   attendanceStatusWithFlags,
   isMobileAttendanceSource,
   punchSourceLabel,
@@ -272,7 +273,9 @@ function MyAttendancePage() {
                         <div className="flex items-start justify-between gap-2">
                           <div>
                             <p className="text-sm font-semibold">{record.date}</p>
-                            <p className="mt-0.5 text-xs text-muted-foreground">{record.source}</p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {attendanceSourceLabel(record, branches)}
+                            </p>
                           </div>
                           <StatusBadge status={record.status} />
                         </div>
@@ -283,7 +286,7 @@ function MyAttendancePage() {
                             <p className="mt-0.5 break-words text-[10px] text-muted-foreground">
                               {punchSourceLabel(
                                 record.punchInSource,
-                                record.punchInBranchId,
+                                record.punchInBranchId ?? record.actualBranchId,
                                 branches,
                               )}
                             </p>
@@ -294,7 +297,7 @@ function MyAttendancePage() {
                             <p className="mt-0.5 break-words text-[10px] text-muted-foreground">
                               {punchSourceLabel(
                                 record.punchOutSource,
-                                record.punchOutBranchId,
+                                record.punchOutBranchId ?? record.actualBranchId,
                                 branches,
                               )}
                             </p>
@@ -344,14 +347,7 @@ function MyAttendancePage() {
                               {a.date}
                             </TableCell>
                             <TableCell className="text-xs">
-                              <div>{a.source}</div>
-                              {isMobileAttendanceSource(a.source) && a.actualBranchId && (
-                                <div className="text-[10px] text-muted-foreground font-semibold mt-0.5">
-                                  Near:{" "}
-                                  {branches.find((b) => b.id === a.actualBranchId)?.name ||
-                                    "Branch"}
-                                </div>
-                              )}
+                              <div>{attendanceSourceLabel(a, branches)}</div>
                               {isMobileAttendanceSource(a.source) &&
                                 a.fieldCheckInLatitude &&
                                 a.fieldCheckOutLatitude &&
@@ -384,7 +380,11 @@ function MyAttendancePage() {
                             <TableCell className="text-xs whitespace-nowrap">
                               <div>{a.punchIn ?? "-"}</div>
                               <div className="mt-0.5 text-[10px] font-semibold text-muted-foreground">
-                                {punchSourceLabel(a.punchInSource, a.punchInBranchId, branches)}
+                                {punchSourceLabel(
+                                  a.punchInSource,
+                                  a.punchInBranchId ?? a.actualBranchId,
+                                  branches,
+                                )}
                               </div>
                               {isMobileAttendanceSource(a.punchInSource) &&
                                 a.fieldCheckInLatitude &&
@@ -404,7 +404,11 @@ function MyAttendancePage() {
                             <TableCell className="text-xs whitespace-nowrap">
                               <div>{a.punchOut ?? "-"}</div>
                               <div className="mt-0.5 text-[10px] font-semibold text-muted-foreground">
-                                {punchSourceLabel(a.punchOutSource, a.punchOutBranchId, branches)}
+                                {punchSourceLabel(
+                                  a.punchOutSource,
+                                  a.punchOutBranchId ?? a.actualBranchId,
+                                  branches,
+                                )}
                               </div>
                               {isMobileAttendanceSource(a.punchOutSource) &&
                                 a.fieldCheckOutLatitude &&

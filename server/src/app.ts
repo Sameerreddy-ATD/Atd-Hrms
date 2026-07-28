@@ -45,7 +45,7 @@ import {
   createAttendanceEvent,
   recalculateDailySummary,
 } from "./attendanceEngine.js";
-import { ensureEmployeeShiftAssignment } from "./attendancePolicy.js";
+import { classifyMobileSource, ensureEmployeeShiftAssignment, locationSourceLabel } from "./attendancePolicy.js";
 import { settleExpiredOpenPunches, closePriorOpenPunchForNewDay } from "./attendanceSettlement.js";
 import { openAttendanceStream } from "./attendanceLive.js";
 import { config } from "./config.js";
@@ -3451,15 +3451,32 @@ export function createApp() {
 
     const employeeIds = list.map((s) => s.employeeId);
     const dates = list.map((s) => s.date);
+    const branchIds = [
+      ...new Set(
+        list
+          .flatMap((s) => [s.matchedBranchId, s.primaryAttendedBranchId, s.homeBranchId, s.scheduledBranchId])
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
 
-    const events = await prisma.attendanceEvent.findMany({
-      where: {
-        employeeId: { in: employeeIds },
-        eventDate: { in: dates },
-      },
-      orderBy: { eventTime: "asc" },
-      include: { branch: true },
-    });
+    const [events, branches] = await Promise.all([
+      prisma.attendanceEvent.findMany({
+        where: {
+          employeeId: { in: employeeIds },
+          eventDate: { in: dates },
+        },
+        orderBy: { eventTime: "asc" },
+        include: { branch: true },
+      }),
+      branchIds.length
+        ? prisma.branch.findMany({
+            where: { branchId: { in: branchIds } },
+            select: { branchId: true, branchName: true },
+          })
+        : Promise.resolve([] as Array<{ branchId: string; branchName: string }>),
+    ]);
+
+    const branchNameById = Object.fromEntries(branches.map((b) => [b.branchId, b.branchName]));
 
     const dtos = list.map((summary) => {
       const summaryEvents = events.filter(
@@ -3485,14 +3502,26 @@ export function createApp() {
         .reverse()
         .find((event) => outEventTypes.has(event.eventType));
 
-      const sourceLabel = (event: (typeof summaryEvents)[number] | undefined) =>
-        event?.eventSource === "THUMB_SCANNER"
-          ? "Thumb Scanner"
-          : event?.eventSource === "MOBILE_GPS"
-            ? "Mobile GPS"
-            : undefined;
+      const sourceLabel = (event: (typeof summaryEvents)[number] | undefined) => {
+        if (!event) return undefined;
+        if (event.eventSource === "THUMB_SCANNER") {
+          return locationSourceLabel(
+            "THUMB_SCANNER",
+            event.branch?.branchName ??
+              (event.branchId ? branchNameById[event.branchId] : undefined),
+          );
+        }
+        if (event.eventSource === "MOBILE_GPS") {
+          return locationSourceLabel(
+            classifyMobileSource(event.branchId),
+            event.branch?.branchName ??
+              (event.branchId ? branchNameById[event.branchId] : undefined),
+          );
+        }
+        return undefined;
+      };
 
-      const dto = attendanceRecordDto(summary);
+      const dto = attendanceRecordDto(summary, { branchNameById });
 
       return {
         ...dto,
@@ -3501,7 +3530,7 @@ export function createApp() {
             ? summaryEvents.at(-1)?.eventTime.toISOString()
             : undefined,
         punchInSource: sourceLabel(firstInEvent),
-        punchInBranchId: firstInEvent?.branchId ?? undefined,
+        punchInBranchId: firstInEvent?.branchId ?? summary.matchedBranchId ?? undefined,
         punchOutSource: sourceLabel(lastOutEvent),
         punchOutBranchId: lastOutEvent?.branchId ?? undefined,
       };
