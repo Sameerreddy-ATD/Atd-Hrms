@@ -111,8 +111,8 @@ function AttendanceOverviewPage() {
         title="Attendance Overview"
         description="Employee-wise attendance directory. Open any employee to review day-wise logs and movement details."
         actions={
-          <Button asChild>
-            <Link to="/leave/apply">Apply Leave</Link>
+          <Button asChild variant="outline">
+            <Link to="/attendance/mine">My Attendance</Link>
           </Button>
         }
       />

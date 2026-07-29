@@ -90,11 +90,16 @@ function MyAttendancePage() {
     <div className="space-y-6">
       <PageHeader
         title="My Attendance"
-        description="Your attendance history and requests are shown here. Use the dashboard for check-in and check-out."
+        description="Your attendance history and missed-punch requests. Use the dashboard for check-in and check-out."
         actions={
-          <Button asChild>
-            <Link to="/leave/apply">Apply Leave</Link>
-          </Button>
+          <>
+            <Button asChild variant="outline">
+              <Link to="/leave/apply">Apply Leave</Link>
+            </Button>
+            <Button asChild>
+              <Link to="/attendance/missed-punch">Missed Punch</Link>
+            </Button>
+          </>
         }
       />
 

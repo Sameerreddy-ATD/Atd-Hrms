@@ -16,8 +16,13 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { EmptyState } from "@/components/common/EmptyState";
 import type { AttendanceRecord } from "@/types/domain";
-import { attendanceStatusWithFlags } from "@/lib/attendance-labels";
+import {
+  attendanceStatusWithFlags,
+  hasProvisionalSystemOut,
+  lastOutLabel,
+} from "@/lib/attendance-labels";
 import { formatStoredWorkedTime, formatWorkedTime } from "@/lib/worked-time";
 import { indiaDateKey } from "@/lib/india-date";
 
@@ -28,6 +33,9 @@ function WorkedTime({ record }: { record: AttendanceRecord }) {
     !record.hasMissedCheckout &&
     record.date === indiaDateKey() &&
     Boolean(record.latestOpenPunchAt);
+  const provisional = hasProvisionalSystemOut(record);
+  const needsOut =
+    !provisional && (record.hasMissedCheckout || (record.hasMissingOutEvent && !isOpenToday));
 
   useEffect(() => {
     if (!isOpenToday) return;
@@ -42,12 +50,12 @@ function WorkedTime({ record }: { record: AttendanceRecord }) {
     };
   }, [isOpenToday]);
 
-  if (record.hasMissedCheckout || (record.hasMissingOutEvent && !isOpenToday)) {
+  if (needsOut) {
     return (
       <span className="flex items-center gap-1 text-amber-700 dark:text-amber-400">
         <AlertTriangle className="h-3.5 w-3.5" />
         Punch-out required
-    </span>
+      </span>
     );
   }
 
@@ -57,6 +65,16 @@ function WorkedTime({ record }: { record: AttendanceRecord }) {
     return (
       <span className="text-emerald-700 dark:text-emerald-400">
         {formatWorkedTime(completedMs + openMs)} · In progress
+      </span>
+    );
+  }
+
+  if (provisional) {
+    return (
+      <span className="flex flex-wrap items-center gap-1 text-amber-700 dark:text-amber-400">
+        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+        {formatStoredWorkedTime(record.totalHours, record.workedMinutes)}
+        <span className="font-normal">· Confirm out</span>
       </span>
     );
   }
@@ -71,6 +89,9 @@ function DayRecordSummary({
   record: AttendanceRecord;
   showEmployee: boolean;
 }) {
+  const lastOut = lastOutLabel(record);
+  const lastOutAlert = lastOut.provisional || lastOut.text === "Punch-out required";
+
   return (
     <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-4 lg:grid-cols-6">
       {showEmployee && (
@@ -104,9 +125,13 @@ function DayRecordSummary({
       </div>
       <div>
         <p className="text-xs text-muted-foreground">Last out</p>
-        <p className="mt-0.5 flex items-center gap-1 text-sm font-medium tabular-nums">
-          <LogOut className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-          {record.hasMissingOutEvent ? "Punch-out required" : (record.punchOut ?? "-")}
+        <p
+          className={`mt-0.5 flex items-center gap-1 text-sm font-medium tabular-nums ${
+            lastOutAlert ? "text-amber-700 dark:text-amber-400" : ""
+          }`}
+        >
+          <LogOut className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+          <span className="min-w-0 break-words">{lastOut.text}</span>
         </p>
       </div>
       <div>
@@ -148,7 +173,13 @@ export function AttendanceDayList({
   emptyText?: string;
 }) {
   if (!records.length) {
-    return <p className="py-10 text-center text-sm text-muted-foreground">{emptyText}</p>;
+    return (
+      <EmptyState
+        icon={CalendarDays}
+        title={emptyText}
+        description="Days with punches or leave will show up here once recorded."
+      />
+    );
   }
 
   if (showEmployee) {

@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
+import { EmptyState } from "@/components/common/EmptyState";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { TableToolbar } from "@/components/common/TableToolbar";
 import { Input } from "@/components/ui/input";
@@ -16,7 +17,7 @@ import {
 } from "@/components/ui/table";
 import type { AttendanceRecord } from "@/types/domain";
 import { attendanceApi } from "@/services/api";
-import { punchSourceLabel } from "@/lib/attendance-labels";
+import { lastOutLabel, punchSourceLabel } from "@/lib/attendance-labels";
 import { formatStoredWorkedTime } from "@/lib/worked-time";
 import {
   ResponsiveListShell,
@@ -137,6 +138,7 @@ function FieldAttendancePage() {
                     r.fieldCheckOutLongitude,
                   )
                 : null;
+            const out = lastOutLabel(r);
             return (
               <MobileListItem key={r.id} intrinsicSize="240px">
                 <MobileListHeader
@@ -176,10 +178,12 @@ function FieldAttendancePage() {
                     label="Check Out"
                     value={
                       <>
-                        <span>{r.punchOut ?? "-"}</span>
-                        <span className="mt-0.5 block text-[11px] font-semibold text-muted-foreground">
-                          {punchSourceLabel(r.punchOutSource, r.punchOutBranchId, [])}
-                        </span>
+                        <span>{out.text}</span>
+                        {!out.provisional && out.text !== "Punch-out required" && (
+                          <span className="mt-0.5 block text-[11px] font-semibold text-muted-foreground">
+                            {punchSourceLabel(r.punchOutSource, r.punchOutBranchId, [])}
+                          </span>
+                        )}
                         {r.fieldCheckOutLatitude && r.fieldCheckOutLongitude ? (
                           <a
                             href={`https://www.google.com/maps/search/?api=1&query=${r.fieldCheckOutLatitude},${r.fieldCheckOutLongitude}`}
@@ -271,24 +275,34 @@ function FieldAttendancePage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <div>{r.punchOut ?? "-"}</div>
-                    <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
-                      {punchSourceLabel(r.punchOutSource, r.punchOutBranchId, [])}
-                    </div>
-                    {r.fieldCheckOutLatitude && r.fieldCheckOutLongitude ? (
-                      <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${r.fieldCheckOutLatitude},${r.fieldCheckOutLongitude}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs text-primary hover:underline flex items-center gap-1"
-                        title="Click to view check-out on Google Maps"
-                      >
-                        <MapPin className="h-3 w-3 text-red-500 shrink-0" />
-                        {r.fieldCheckOutLatitude.toFixed(4)}, {r.fieldCheckOutLongitude.toFixed(4)}
-                      </a>
-                    ) : (
-                      "-"
-                    )}
+                    {(() => {
+                      const out = lastOutLabel(r);
+                      return (
+                        <>
+                          <div>{out.text}</div>
+                          {!out.provisional && out.text !== "Punch-out required" && (
+                            <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
+                              {punchSourceLabel(r.punchOutSource, r.punchOutBranchId, [])}
+                            </div>
+                          )}
+                          {r.fieldCheckOutLatitude && r.fieldCheckOutLongitude ? (
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${r.fieldCheckOutLatitude},${r.fieldCheckOutLongitude}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex items-center gap-1 text-xs text-primary hover:underline"
+                              title="Click to view check-out on Google Maps"
+                            >
+                              <MapPin className="h-3 w-3 shrink-0 text-red-500" />
+                              {r.fieldCheckOutLatitude.toFixed(4)},{" "}
+                              {r.fieldCheckOutLongitude.toFixed(4)}
+                            </a>
+                          ) : out.text === "-" ? (
+                            "-"
+                          ) : null}
+                        </>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell className="font-medium tabular-nums">
                     {formatStoredWorkedTime(r.totalHours, r.workedMinutes)}
@@ -331,9 +345,12 @@ function FieldAttendancePage() {
           </Table>
         </DesktopTable>
         {!loading && rows.length === 0 && (
-          <div className="p-6 text-sm text-muted-foreground">
-            No field attendance records found.
-          </div>
+          <EmptyState
+            icon={MapPin}
+            title="No field attendance records"
+            description="Field check-ins for the selected filters will appear here."
+            className="m-2"
+          />
         )}
       </ResponsiveListShell>
     </div>

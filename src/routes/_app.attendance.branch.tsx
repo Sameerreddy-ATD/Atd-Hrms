@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
+import { EmptyState } from "@/components/common/EmptyState";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { TableToolbar } from "@/components/common/TableToolbar";
 import { Input } from "@/components/ui/input";
@@ -23,7 +24,7 @@ import {
 } from "@/components/ui/table";
 import type { AttendanceRecord, Branch } from "@/types/domain";
 import { attendanceApi, branchesApi } from "@/services/api";
-import { punchSourceLabel } from "@/lib/attendance-labels";
+import { lastOutLabel, punchSourceLabel } from "@/lib/attendance-labels";
 import { formatStoredWorkedTime } from "@/lib/worked-time";
 import {
   ResponsiveListShell,
@@ -35,7 +36,7 @@ import {
   MobileListActions,
   DesktopTable,
 } from "@/components/common/ResponsiveList";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Building2 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/attendance/branch")({
   component: BranchAttendancePage,
@@ -130,63 +131,68 @@ function BranchAttendancePage() {
       {error && <p className="text-sm text-destructive">{error}</p>}
       <ResponsiveListShell>
         <MobileList>
-          {rows.map((r) => (
-            <MobileListItem key={r.id} intrinsicSize="200px">
-              <MobileListHeader
-                title={r.employeeName}
-                meta={r.employeeId}
-                trailing={<StatusBadge status={r.status} />}
-              />
-              <MobileListFields>
-                <MobileListField label="Date" value={r.date} />
-                <MobileListField label="Home Branch" value={branchName(r.homeBranchId)} />
-                <MobileListField
-                  label="Punch In"
-                  value={
-                    <>
-                      <span>{r.punchIn ?? "-"}</span>
-                      <span className="mt-0.5 block text-[11px] font-semibold text-muted-foreground">
-                        {punchSourceLabel(
-                          r.punchInSource,
-                          r.punchInBranchId ?? r.actualBranchId,
-                          branches,
+          {rows.map((r) => {
+            const out = lastOutLabel(r);
+            return (
+              <MobileListItem key={r.id} intrinsicSize="200px">
+                <MobileListHeader
+                  title={r.employeeName}
+                  meta={r.employeeId}
+                  trailing={<StatusBadge status={r.status} />}
+                />
+                <MobileListFields>
+                  <MobileListField label="Date" value={r.date} />
+                  <MobileListField label="Home Branch" value={branchName(r.homeBranchId)} />
+                  <MobileListField
+                    label="Punch In"
+                    value={
+                      <>
+                        <span>{r.punchIn ?? "-"}</span>
+                        <span className="mt-0.5 block text-[11px] font-semibold text-muted-foreground">
+                          {punchSourceLabel(
+                            r.punchInSource,
+                            r.punchInBranchId ?? r.actualBranchId,
+                            branches,
+                          )}
+                        </span>
+                      </>
+                    }
+                  />
+                  <MobileListField
+                    label="Punch Out"
+                    value={
+                      <>
+                        <span>{out.text}</span>
+                        {!out.provisional && out.text !== "Punch-out required" && (
+                          <span className="mt-0.5 block text-[11px] font-semibold text-muted-foreground">
+                            {punchSourceLabel(
+                              r.punchOutSource,
+                              r.punchOutBranchId ?? r.actualBranchId,
+                              branches,
+                            )}
+                          </span>
                         )}
-                      </span>
-                    </>
-                  }
-                />
-                <MobileListField
-                  label="Punch Out"
-                  value={
-                    <>
-                      <span>{r.punchOut ?? "-"}</span>
-                      <span className="mt-0.5 block text-[11px] font-semibold text-muted-foreground">
-                        {punchSourceLabel(
-                          r.punchOutSource,
-                          r.punchOutBranchId ?? r.actualBranchId,
-                          branches,
-                        )}
-                      </span>
-                    </>
-                  }
-                />
-                <MobileListField
-                  label="Worked Time"
-                  value={formatStoredWorkedTime(r.totalHours, r.workedMinutes)}
-                />
-              </MobileListFields>
-              <MobileListActions>
-                <Button
-                  className="w-full"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => openDayLogs(r)}
-                >
-                  Open Day Logs <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-                </Button>
-              </MobileListActions>
-            </MobileListItem>
-          ))}
+                      </>
+                    }
+                  />
+                  <MobileListField
+                    label="Worked Time"
+                    value={formatStoredWorkedTime(r.totalHours, r.workedMinutes)}
+                  />
+                </MobileListFields>
+                <MobileListActions>
+                  <Button
+                    className="w-full"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openDayLogs(r)}
+                  >
+                    Open Day Logs <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                  </Button>
+                </MobileListActions>
+              </MobileListItem>
+            );
+          })}
         </MobileList>
         <DesktopTable>
           <Table className="min-w-[860px]">
@@ -222,14 +228,23 @@ function BranchAttendancePage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div>{r.punchOut ?? "-"}</div>
-                    <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
-                      {punchSourceLabel(
-                        r.punchOutSource,
-                        r.punchOutBranchId ?? r.actualBranchId,
-                        branches,
-                      )}
-                    </div>
+                    {(() => {
+                      const out = lastOutLabel(r);
+                      return (
+                        <>
+                          <div>{out.text}</div>
+                          {!out.provisional && out.text !== "Punch-out required" && (
+                            <div className="mt-0.5 text-xs font-semibold text-muted-foreground">
+                              {punchSourceLabel(
+                                r.punchOutSource,
+                                r.punchOutBranchId ?? r.actualBranchId,
+                                branches,
+                              )}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell className="font-medium tabular-nums">
                     {formatStoredWorkedTime(r.totalHours, r.workedMinutes)}
@@ -248,9 +263,12 @@ function BranchAttendancePage() {
           </Table>
         </DesktopTable>
         {!loading && rows.length === 0 && (
-          <div className="p-6 text-sm text-muted-foreground">
-            No branch attendance records found.
-          </div>
+          <EmptyState
+            icon={Building2}
+            title="No branch attendance records"
+            description="Branch punches for the selected filters will appear here."
+            className="m-2"
+          />
         )}
       </ResponsiveListShell>
     </div>
