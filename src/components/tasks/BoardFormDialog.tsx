@@ -18,6 +18,7 @@ import type { TaskAssignee, TaskBoard, TaskStage } from "@/types/domain";
 import {
   BOARD_ROLES,
   BOARD_ROLE_LABELS,
+  boardKeyPrefix,
   boardToForm,
   DEFAULT_BOARD_FORM,
   STAGE_COLORS,
@@ -182,15 +183,7 @@ export function BoardFormDialog({
                     keyPrefix:
                       current.keyPrefix && board
                         ? current.keyPrefix
-                        : name
-                            .toUpperCase()
-                            .replace(/[^A-Z0-9\s]/g, " ")
-                            .trim()
-                            .split(/\s+/)
-                            .filter(Boolean)
-                            .map((part) => part[0] ?? "")
-                            .join("")
-                            .slice(0, 4) || current.keyPrefix,
+                        : boardKeyPrefix(name) || current.keyPrefix,
                   }));
                 }}
                 placeholder="e.g. Operations"

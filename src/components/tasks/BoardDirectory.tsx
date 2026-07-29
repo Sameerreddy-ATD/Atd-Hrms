@@ -57,7 +57,7 @@ export function BoardDirectory({
   boards,
   archivedBoards,
   tasks,
-  assignedTotal,
+  assignedTotal: _assignedTotal,
   employeeId,
   canManage,
   canChangeBoard,
@@ -108,9 +108,9 @@ export function BoardDirectory({
             <UserRoundCheck className="h-4 w-4 text-muted-foreground" />
             <h2 className="text-sm font-semibold tracking-tight text-foreground">Your work</h2>
             <Badge variant="secondary" className="rounded-md font-normal tabular-nums">
-              {assignedTotal || assignedTasks.length}
+              {assignedTasks.length}
             </Badge>
-            {(assignedTotal > ASSIGNED_PREVIEW || hasMoreAssigned) && (
+            {(assignedTasks.length > ASSIGNED_PREVIEW || hasMoreAssigned) && (
               <Button
                 type="button"
                 variant="ghost"

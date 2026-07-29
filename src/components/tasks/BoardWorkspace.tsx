@@ -49,11 +49,18 @@ import {
   dueLabel,
   initials,
   issueKey,
+  ISSUE_TYPE_LABELS,
+  ISSUE_TYPE_STYLES,
   PRIORITY_LABELS,
   PRIORITY_MARK,
   PRIORITY_STYLES,
   STAGE_COLORS,
 } from "./task-utils";
+
+export type MoveTaskOptions = {
+  rankBeforeTaskId?: string;
+  rankAfterTaskId?: string;
+};
 
 type BoardView = "list" | "kanban" | "timeline";
 type DueFilter = "ALL" | "TODAY" | "OVERDUE" | "NONE";
@@ -77,7 +84,11 @@ type BoardWorkspaceProps = {
   onNewTask: (stageId?: string) => void;
   onEditBoard: () => void;
   onOpenTask: (task: WorkTask) => void;
-  onMoveTask: (task: WorkTask, stageId: string) => Promise<void>;
+  onMoveTask: (
+    task: WorkTask,
+    stageId: string,
+    options?: { rankBeforeTaskId?: string; rankAfterTaskId?: string },
+  ) => Promise<void>;
   onRescheduleTask?: (
     task: WorkTask,
     dates: { startDate: string | null; dueDate: string | null },
@@ -457,7 +468,7 @@ type BacklogViewProps = {
   onToggleStage: (stage: TaskStage) => void;
   onNewTask: (stageId?: string) => void;
   onOpenTask: (task: WorkTask) => void;
-  onMoveTask: (task: WorkTask, stageId: string) => Promise<void>;
+  onMoveTask: (task: WorkTask, stageId: string, options?: MoveTaskOptions) => Promise<void>;
 };
 
 function BacklogView({
@@ -606,8 +617,23 @@ type KanbanViewProps = {
   draggingTaskIdRef: MutableRefObject<string | null>;
   onNewTask: (stageId?: string) => void;
   onOpenTask: (task: WorkTask) => void;
-  onMoveTask: (task: WorkTask, stageId: string) => Promise<void>;
+  onMoveTask: (task: WorkTask, stageId: string, options?: MoveTaskOptions) => Promise<void>;
 };
+
+function dropOptionsForIndex(
+  columnTasks: WorkTask[],
+  draggedId: string,
+  targetIndex: number,
+): MoveTaskOptions {
+  const withoutDragged = columnTasks.filter((entry) => entry.id !== draggedId);
+  const clamped = Math.max(0, Math.min(targetIndex, withoutDragged.length));
+  const before = withoutDragged[clamped - 1];
+  const after = withoutDragged[clamped];
+  return {
+    ...(before ? { rankBeforeTaskId: before.id } : {}),
+    ...(after ? { rankAfterTaskId: after.id } : {}),
+  };
+}
 
 function KanbanView({
   board,
@@ -620,6 +646,32 @@ function KanbanView({
   onMoveTask,
 }: KanbanViewProps) {
   const allTasks = [...tasksByStage.values()].flat();
+
+  function finishDrag() {
+    draggingTaskIdRef.current = null;
+    setDraggingTaskId(null);
+  }
+
+  function handleDropOnColumn(stage: TaskStage, targetIndex?: number) {
+    const id = draggingTaskIdRef.current ?? draggingTaskId;
+    const task = allTasks.find((entry) => entry.id === id);
+    finishDrag();
+    if (!task) return;
+    const stageTasks = tasksByStage.get(stage.id) ?? [];
+    if (task.stageId === stage.id) {
+      const currentIndex = stageTasks.findIndex((entry) => entry.id === task.id);
+      if (currentIndex < 0) return;
+      if (targetIndex === undefined) {
+        if (currentIndex === stageTasks.length - 1) return;
+      } else if (targetIndex === currentIndex || targetIndex === currentIndex + 1) {
+        return;
+      }
+    }
+    const index = targetIndex ?? stageTasks.filter((entry) => entry.id !== task.id).length;
+    const options = dropOptionsForIndex(stageTasks, task.id, index);
+    void onMoveTask(task, stage.id, options);
+  }
+
   return (
     <div className="overflow-x-auto pb-3">
       <div
@@ -634,13 +686,7 @@ function KanbanView({
               key={stage.id}
               className="flex max-h-[min(72dvh,680px)] min-h-[280px] w-[260px] flex-col rounded-md border border-border/80 bg-muted/20 xl:w-auto"
               onDragOver={(event) => event.preventDefault()}
-              onDrop={() => {
-                const id = draggingTaskIdRef.current ?? draggingTaskId;
-                const task = allTasks.find((entry) => entry.id === id);
-                draggingTaskIdRef.current = null;
-                setDraggingTaskId(null);
-                if (task && task.stageId !== stage.id) void onMoveTask(task, stage.id);
-              }}
+              onDrop={() => handleDropOnColumn(stage)}
             >
               <header className="flex items-center justify-between gap-2 border-b border-border/60 px-2.5 py-2">
                 <div className="flex min-w-0 items-center gap-2">
@@ -654,7 +700,7 @@ function KanbanView({
                 </span>
               </header>
               <div className="flex-1 space-y-1.5 overflow-y-auto px-1.5 py-1.5">
-                {stageTasks.map((task) => (
+                {stageTasks.map((task, index) => (
                   <div
                     key={task.id}
                     draggable
@@ -670,6 +716,15 @@ function KanbanView({
                         }
                       }, 0);
                     }}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      handleDropOnColumn(stage, index);
+                    }}
                     className={cn(
                       "cursor-grab rounded-md border border-border/70 bg-background px-2.5 py-2 text-left shadow-sm transition hover:border-primary/40 active:cursor-grabbing",
                       draggingTaskId === task.id && "opacity-50",
@@ -678,6 +733,15 @@ function KanbanView({
                     <button type="button" onClick={() => onOpenTask(task)} className="w-full text-left">
                       <div className="flex items-start gap-1.5">
                         <PriorityMark priority={task.priority} />
+                        <span
+                          title={ISSUE_TYPE_LABELS[task.issueType ?? "TASK"]}
+                          className={cn(
+                            "mt-0.5 shrink-0 text-[10px] font-bold uppercase",
+                            ISSUE_TYPE_STYLES[task.issueType ?? "TASK"],
+                          )}
+                        >
+                          {(task.issueType ?? "TASK").slice(0, 1)}
+                        </span>
                         <span className="min-w-0 flex-1 text-sm font-medium leading-snug">
                           {task.title}
                         </span>

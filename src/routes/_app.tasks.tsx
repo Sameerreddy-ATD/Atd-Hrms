@@ -208,27 +208,59 @@ function TaskBoardsPage() {
     setSelectedTask((current) => (current?.id === updated.id ? updated : current));
   }
 
-  async function moveTask(task: WorkTask, stageId: string) {
-    if (task.stageId === stageId) return;
+  async function moveTask(
+    task: WorkTask,
+    stageId: string,
+    options?: { rankBeforeTaskId?: string; rankAfterTaskId?: string },
+  ) {
+    const sameStage = task.stageId === stageId;
+    if (sameStage && !options?.rankBeforeTaskId && !options?.rankAfterTaskId) return;
     const previous = task;
-    setTasks((current) =>
-      current.map((entry) =>
-        entry.id === task.id
-          ? {
-              ...entry,
-              stageId,
-              stage: selectedBoard?.stages.find((stage) => stage.id === stageId) ?? entry.stage,
-            }
-          : entry,
-      ),
-    );
+    setTasks((current) => {
+      const without = current.filter((entry) => entry.id !== task.id);
+      const moved: WorkTask = {
+        ...task,
+        stageId,
+        stage: selectedBoard?.stages.find((stage) => stage.id === stageId) ?? task.stage,
+      };
+      const column = without
+        .filter((entry) => entry.boardId === task.boardId && entry.stageId === stageId)
+        .sort((left, right) => (left.rank ?? 0) - (right.rank ?? 0));
+      let insertAt = column.length;
+      if (options?.rankAfterTaskId) {
+        const afterIndex = column.findIndex((entry) => entry.id === options.rankAfterTaskId);
+        if (afterIndex >= 0) insertAt = afterIndex;
+      } else if (options?.rankBeforeTaskId) {
+        const beforeIndex = column.findIndex((entry) => entry.id === options.rankBeforeTaskId);
+        if (beforeIndex >= 0) insertAt = beforeIndex + 1;
+      }
+      const beforeRank = column[insertAt - 1]?.rank;
+      const afterRank = column[insertAt]?.rank;
+      const optimisticRank =
+        beforeRank != null && afterRank != null
+          ? (beforeRank + afterRank) / 2
+          : beforeRank != null
+            ? beforeRank + 1000
+            : afterRank != null
+              ? afterRank / 2
+              : (task.rank ?? 1000);
+      moved.rank = optimisticRank;
+      const nextColumn = [...column];
+      nextColumn.splice(insertAt, 0, moved);
+      const others = without.filter(
+        (entry) => !(entry.boardId === task.boardId && entry.stageId === stageId),
+      );
+      return [...others, ...nextColumn];
+    });
     try {
       const updated = await tasksApi.update(task.id, {
         version: task.version,
         stageId,
+        ...(options?.rankBeforeTaskId ? { rankBeforeTaskId: options.rankBeforeTaskId } : {}),
+        ...(options?.rankAfterTaskId ? { rankAfterTaskId: options.rankAfterTaskId } : {}),
       });
       applyTaskUpdate(updated);
-      toast.success("Issue moved");
+      toast.success(sameStage ? "Issue reordered" : "Issue moved");
     } catch (cause) {
       applyTaskUpdate(previous);
       toast.error((cause as Error).message || "Unable to move the task.");
