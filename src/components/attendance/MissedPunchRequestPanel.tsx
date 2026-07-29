@@ -42,9 +42,10 @@ function currentTimeInputValue() {
 }
 
 function requestStatusLabel(status: string) {
-  if (status === "PENDING") return "Pending Approval";
-  if (status === "APPROVED") return "Present";
-  return "Rejected Attendance";
+  if (status === "PENDING") return "Pending";
+  if (status === "APPROVED") return "Approved";
+  if (status === "REJECTED") return "Rejected";
+  return status;
 }
 
 export function MissedPunchRequestPanel({
@@ -383,7 +384,12 @@ export function MissedPunchRequestPanel({
                           {request.remarks}
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
-                          {new Date(request.createdAt).toLocaleDateString()}
+                          {new Date(request.createdAt).toLocaleDateString("en-IN", {
+                            timeZone: "Asia/Kolkata",
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
                         </TableCell>
                         <TableCell>
                           <StatusBadge status={requestStatusLabel(request.status)} />
