@@ -55,7 +55,7 @@ MySQL 8.0 contains 58 application tables grouped as follows:
 | Leave                 | `leave_types`, `leave_balances`, `leave_requests`, `weekly_off_requests`, `comp_off_credits`                                                                                                                             | Policy, balance, request, review metadata, and earned-credit records remain separate       |
 | Employee services     | `expense_claims`, `certificate_requests`                                                                                                                                                                                 | Expense and HR-document workflow state is retained with reviewer and completion timestamps |
 | Assets                | `asset_catalog_items`, `company_assets` (incl. optional vehicle registration/insurance/fitness), `asset_returns` | Current assignment is on the asset; every completed return is a separate historical row |
-| Work Planner          | `task_boards`, `task_stages`, `task_board_roles`, `task_board_members`, `work_tasks`, `task_assignments`, `task_updates`, `task_attachments` | Stage status is canonical for board tasks; assignments and activity are relational history |
+| Work Planner          | `task_boards`, `task_stages`, `task_board_roles`, `task_board_members`, `work_tasks`, `task_assignments`, `task_updates`, `task_attachments` | Stage status is canonical; `issue_key` / `rank` / `issue_type` are persisted; assignments and activity are relational history |
 | HRMS extensions       | `checklist_*`, dormant `company_documents`/`document_acks`/`sop_*`/`notification_preferences` (plus dormant `roster_assignments`, `overtime_claims`, `appraisal_*`, `recruitment_jobs`, `candidates`) | Active: onboarding checklists + alert prefs; docs/SOP/roster/OT/ATS/appraisals tables retained unused |
 
 The physical table `certificate_requests` keeps its historical name for migration safety. The UI and
@@ -80,6 +80,15 @@ Migration `20260722213000_task_workspace_v2` intentionally deletes only legacy T
 installing the redesigned model. It never touches employee, attendance, leave, expense, asset,
 branch, department, user, integration, configuration, or audit data.
 
+Migration `20260729120000_jira_work_planner_keys` is additive on top of that model. It adds:
+
+- `task_boards.key_prefix` (unique) and `task_boards.next_issue_number`;
+- `work_tasks.issue_number`, unique `issue_key`, `issue_type` (TASK/BUG/STORY/EPIC), and `rank`;
+- unique `(board_id, issue_number)` and an index on `(board_id, stage_id, rank)`.
+
+Existing board-backed issues are backfilled with keys and ranks. Board-less issues may remain
+without an `issue_key` until moved onto a project.
+
 New guarantees:
 
 - `task_stages.status` is the workflow source of truth. A task cannot silently show one stage and
@@ -89,6 +98,9 @@ New guarantees:
 - `task_boards.version` provides the same optimistic-concurrency protection for names, access
   policies, stages, archival, and restore. Migration `20260723100000_task_board_versioning` adds the
   non-null counter with a safe default of `1` for existing boards.
+- `issue_key` values are allocated under a board row lock (`FOR UPDATE`) so concurrent creates do
+  not collide. Renaming `key_prefix` rewrites keys only when the planned set is free.
+- `rank` orders issues within a board column; midpoint inserts rebalance when neighbors converge.
 - `last_activity_at` supports reliable activity ordering; `archived_at` supports non-destructive
   future archival.
 - `task_assignments.assigned_by_user_id` records who assigned the person.

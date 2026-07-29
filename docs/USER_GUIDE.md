@@ -350,22 +350,86 @@ flowchart LR
 
 ## Work Planner
 
-Open **Work Planner** to see every task board available to your account.
+Open **Work Planner** for a Jira-style project workspace: **Your work**, project boards, and
+issues with persistent keys such as `OPS-12`.
 
-- A **board** is a shared workspace: anyone with access to that board sees **all** of its tasks
-  (not only cards assigned to them). Use filters such as **Mine** when you want a personal slice.
-- **Assigned to me** is your personal inbox on the directory. It lists active work assigned to you
-  across boards so you can open a task without first finding its board. Use **View all** to expand
-  the list or open a board with the Mine filter on.
-- Soft-archive tasks from the detail panel. Attachments (under 1.5 MB) upload from the API/detail
-  flow; `@employeeCode` mentions in progress notes notify mentioned people.
-- Cross-board moves and custom fields are available via task update when you have access to both
-  boards.
+- A **project** (board) is a shared workspace. Anyone with access sees **all** of its issues, not
+  only cards assigned to them. Use **Only my issues** when you want a personal slice.
+- **Your work** on the landing page lists active issues assigned to you across projects. Use
+  **View all** to expand the list or open a project with the Mine filter on.
+- Each project has a short **key** (for example `OPS`). New issues receive sequential keys
+  (`OPS-1`, `OPS-2`, …). Search supports title, description, assignee, and issue key.
+- Issue types are **Task**, **Bug**, **Story**, and **Epic**. Priority marks appear on cards and in
+  the detail sheet.
+- Soft-archive issues from the detail sheet. Attachments (under 1.5 MB) upload from the detail
+  flow; `@employeeCode` mentions in comments notify mentioned people.
+- Move an issue to another project from the detail sheet when you have access to both projects.
+  Custom fields follow the active project’s field definitions.
 
-Active boards show their access policy and open-task count. Archived boards remain recoverable and
+Active projects show access policy and open-issue count. Archived projects remain recoverable and
 do not accept new work until their owner restores them.
 
-Press **Ctrl/Cmd+K** for global search across pages, people, boards, tasks, and announcements.
+Press **Ctrl/Cmd+K** for global search across pages, people, projects, issues, and announcements.
+
+### Open and navigate a project
+
+1. Select an active project card. The header shows total and open issues for the whole project.
+2. Search by key, title, description, or assignee.
+3. Use **Only my issues**, assignee, priority, stage, and due-date filters together.
+4. Switch among:
+   - **Board** (Kanban) for columns and drag-and-drop stage moves; drop on a card to reorder
+     within a column (order is stored).
+   - **Backlog** for compact, collapsible stage groups and inline stage changes.
+   - **Timeline** for start/due-date planning grouped by primary assignee.
+5. Use the project selector to move directly to another accessible project.
+
+Wide Board/Timeline content scrolls horizontally on narrow screens. Selecting an issue opens a
+right-side detail sheet with editable fields, issue type, assignees, dates, progress, and activity.
+
+### Find and update work
+
+1. Select an issue row, card, timeline bar, or **Your work** entry.
+2. Edit summary, description, issue type, priority, dates, stage, project, and assignees in the
+   sheet, then **Save**. Managers and admins can change full details; employees may be limited to
+   stage, status, progress, and column order depending on policy.
+3. Change the stage from the sheet, Backlog stage selector, or by dragging on the Board.
+4. Enter a comment or progress note; set the resulting progress; then post the update.
+
+If another session saved the issue first, the app shows a refresh message and does not overwrite
+the newer change.
+
+### Create an issue
+
+Open a project and select **Create**, or **Create issue** within a specific stage.
+
+1. Add a short outcome-focused summary.
+2. Choose issue type, starting stage, and priority.
+3. Add details, start date, and due date as needed. The due date cannot be earlier than the
+   start date.
+4. Select one or more active assignees. The selection is restricted to people allowed by the
+   project and your organization scope.
+5. Select **Create**. The issue key, assignment, stage, canonical status, rank, and creation
+   activity are stored together.
+
+### Create or configure a project
+
+Authorized leaders select **Create project**. Add a professional name, a **project key**
+(2–8 letters/numbers, for example `OPS`), and optional purpose, then configure the workflow:
+
+1. Rename stages and choose their colors.
+2. Move stages up or down to set the display order.
+3. Add custom stages or remove empty stages.
+4. Keep at least one **To do** stage and mark exactly one stage as **Done**.
+5. Choose the access policy:
+   - **Open**: every account with Work Planner module access.
+   - **Role-gated**: only selected application roles.
+   - **Member-gated**: only selected active employees.
+6. Select **Create** or save project settings.
+
+Only the project owner or Developer Admin can change, archive, or restore it. Renaming the project
+key rewrites issue keys for that project when the new keys are free. A stage containing issues
+cannot be removed until the issues are moved. Access cannot be narrowed in a way that would hide
+current work from one of its assignees.
 
 ## Employee Requests
 
@@ -382,67 +446,6 @@ as they finish. HR can also start instances manually and mark complete/cancel/re
 (item titles and in-app links). Managers and employees do not see Checklists.
 
 Payroll/payslips and live biometric device connectors remain out of scope.
-
-### Open and navigate a board
-
-1. Select an active board card. The header shows total and active work for the whole board.
-2. Search by title, description, or assignee.
-3. Use **Mine**, assignee, priority, stage chips, and due-date filters together.
-4. Select a stage chip to focus the board on that stage; select it again to clear the filter.
-5. Switch among:
-   - **List** for compact, collapsible stage groups and inline stage changes.
-   - **Kanban** for visual workflow columns and drag-and-drop stage movement.
-   - **Timeline** for start/due-date planning grouped by primary assignee.
-6. Use the board selector to move directly to another accessible board.
-
-All wide controls and Kanban/timeline content scroll horizontally on narrow screens. Selecting a
-task opens a focused detail panel with editable fields, assignees, dates, progress, and activity.
-
-### Find and update work
-
-1. Select a task row, card, timeline bar, or **Assigned to me** entry.
-2. Edit title, description, priority, dates, stage, and assignees in the detail panel, then **Save**.
-   Managers and admins can change full details; employees may be limited to stage, status, and
-   progress depending on policy.
-3. Change the stage from the detail panel, or from the list stage selector. In Kanban, drag the card
-   to another column.
-4. Enter a decision, progress note, or blocker; set the resulting progress; then select
-   **Post update**.
-
-If another session saved the task first, the app shows a refresh message and does not overwrite the
-newer change.
-
-### Create a task
-
-Open a board and select **New task**, or use **Add task** within a specific stage.
-
-1. Add a short outcome-focused title.
-2. Select a starting stage and priority.
-3. Add details, start date, and due date as needed. The due date cannot be earlier than the
-   start date.
-4. Select one or more active assignees. The selection is automatically restricted to employees
-   allowed by the board and your organization scope.
-5. Select **Create task**. The assignment, stage, canonical status, and creation activity are stored
-   together.
-
-### Create or configure a board
-
-Authorized leaders select **New board**. Add a professional name and optional purpose, then configure
-the workflow:
-
-1. Rename stages and choose their colors.
-2. Move stages up or down to set the display order.
-3. Add custom stages or remove empty stages.
-4. Keep at least one **To do** stage and mark exactly one stage as **Done**.
-5. Choose the access policy:
-   - **Open**: every account with Work Planner module access.
-   - **Role-gated**: only selected application roles.
-   - **Member-gated**: only selected active employees.
-6. Select **Create board** or **Save changes**.
-
-Only the board owner or Developer Admin can change, archive, or restore it. A stage containing tasks
-cannot be removed until the tasks are moved. Access cannot be narrowed in a way that would hide a
-current task from one of its assignees.
 
 ## Manager: Review Team Leave And Attendance
 
@@ -619,7 +622,7 @@ Recommended mobile workflows:
 - Managers: Leave Approvals and team attendance review (card summaries on phones).
 - HR / Admin: Attendance overview and corrections, leave tracking, employee lists — use the menu
   icon, then work from the card list; open the full table view on a tablet or laptop when needed.
-- Work Planner: use List or Kanban on phones; Timeline shows assignee cards on phones and the
+- Work Planner: use Board or Backlog on phones; Timeline shows assignee cards on phones and the
   full chart from tablet size upward.
 - Notifications: Enable Alerts after install so leave, announcement, and attendance notices arrive
   even when the browser tab is closed (platform rules apply; see Device Compatibility).

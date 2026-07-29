@@ -1,7 +1,7 @@
 # Documentation Index
 
-These documents describe the canonical `main` release and the release-compatible `version-1`
-checkout used by the existing production server. When code changes a workflow, permission, API
+These documents describe the **`main`** production release. Keep **`version-1`** identical to
+`main` until a dedicated UAT environment is stood up. When code changes a workflow, permission, API
 contract, environment variable, migration, or operational command, update the relevant document
 in the same commit.
 
@@ -106,8 +106,7 @@ This package is intended for internal Anytime Diesel use. Final review changes i
 Still out of scope for this release: automated payslips/payroll deductions, live biometric device
 connectors, WhatsApp messaging providers, and full LMS/ATS enterprise suites.
 
-Recently added MVP modules (July 2026): Work Planner Phase 2 (archive, attachments, mentions,
-cross-board move, custom fields), global search, notification digest preferences, operations
-reports + paid-claims CSV export, field claims, and onboarding checklists. Document vault and SOP
-are deferred.
-library.
+Recently added MVP modules (July 2026): Work Planner with project keys, sequential issue keys,
+issue types, ranked Board ordering, archive, attachments, mentions, cross-project move, and custom
+fields; global search; notification digest preferences; operations reports + paid-claims CSV export;
+field claims; and onboarding checklists. Document vault and SOP are deferred.

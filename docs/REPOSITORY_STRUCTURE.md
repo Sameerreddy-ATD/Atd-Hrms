@@ -119,9 +119,10 @@ See [Database Integrity Audit](DATABASE_INTEGRITY_AUDIT.md) and
 | Database storage and relation audit          | `scripts/audit-database.mjs`        |
 | Repository structure and documentation audit | `scripts/audit-repository.mjs`      |
 
-Work Planner feature components live in `src/components/tasks/`: the board directory, configurable
-board dialog, board workspace, task creation dialog, focused task detail, and shared task labels.
-`src/routes/_app.tasks.tsx` only loads data and coordinates their versioned API operations.
+Work Planner feature components live in `src/components/tasks/`: project directory, project settings
+dialog, Board/Backlog/Timeline workspace, create-issue dialog, issue detail sheet, and shared
+helpers (keys, types, ranks, labels). `server/src/taskIssueKeys.ts` allocates project prefixes and
+issue keys. `src/routes/_app.tasks.tsx` loads data and coordinates versioned API operations.
 
 ## Change-to-Documentation Matrix
 
