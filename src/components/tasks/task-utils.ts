@@ -49,15 +49,15 @@ export function boardKeyPrefix(boardName?: string | null) {
   return (words[0] ?? "TASK").replace(/[^A-Z0-9]/g, "").slice(0, 4) || "TASK";
 }
 
-/** Prefer server issue key; fall back to a display-only key for legacy rows. */
+/** Prefer server issue key; show a clear provisional label when missing. */
 export function issueKey(
   task: Pick<WorkTask, "id" | "boardName" | "issueKey" | "boardKeyPrefix">,
   board?: Pick<TaskBoard, "name" | "keyPrefix"> | null,
 ) {
   if (task.issueKey) return task.issueKey;
-  const prefix = board?.keyPrefix || task.boardKeyPrefix || boardKeyPrefix(board?.name ?? task.boardName);
-  const suffix = task.id.replace(/[^a-zA-Z0-9]/g, "").slice(-4).toLowerCase() || "0000";
-  return `${prefix}-${suffix}`;
+  const prefix =
+    board?.keyPrefix || task.boardKeyPrefix || boardKeyPrefix(board?.name ?? task.boardName);
+  return `${prefix}-…`;
 }
 
 export const ISSUE_TYPE_LABELS: Record<string, string> = {

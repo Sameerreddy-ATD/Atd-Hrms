@@ -58,6 +58,7 @@ import {
   allocateUniqueBoardKeyPrefix,
   midpointRank,
   nextRankInStage,
+  rebalanceRanksInStage,
 } from "./taskIssueKeys.js";
 import { nearestBranch } from "./geofence.js";
 import {
@@ -5303,6 +5304,51 @@ export function createApp() {
     return board;
   }
 
+  /** HR/CEO/admins can mutate tasks on boards they can view via task scope, even if not board members. */
+  async function getMutableBoard(user: NonNullable<express.Request["user"]>, boardId: string) {
+    const unrestrictedRoles: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.CEO, Role.HR];
+    if (unrestrictedRoles.includes(user.role)) {
+      const board = await prisma.taskBoard.findFirst({
+        where: { boardId },
+        include: boardInclude,
+      });
+      if (!board) throw new HttpError(404, "Board not found");
+      return board;
+    }
+    return assertBoardAccess(user, boardId);
+  }
+
+  async function assertAssigneesAllowedOnBoard(
+    board: BoardWithDetails,
+    employeeIds: string[],
+  ) {
+    if (employeeIds.length === 0) return;
+    if (board.accessType === TaskBoardAccessType.MEMBER_GATED) {
+      if (
+        employeeIds.some(
+          (employeeId) => !board.members.some((member) => member.employeeId === employeeId),
+        )
+      ) {
+        throw new HttpError(400, "Every assignee must be a member of this board");
+      }
+    }
+    if (board.accessType === TaskBoardAccessType.ROLE_GATED) {
+      const allowedRoles = new Set(board.roleAccess.map((entry) => entry.role));
+      const employeeUsers = await prisma.employee.findMany({
+        where: { employeeId: { in: employeeIds } },
+        select: { employeeId: true, user: { select: { role: true } } },
+      });
+      if (
+        employeeUsers.length !== employeeIds.length ||
+        employeeUsers.some(
+          (employee) => !employee.user || !allowedRoles.has(employee.user.role),
+        )
+      ) {
+        throw new HttpError(400, "Every assignee must have a role allowed by this board");
+      }
+    }
+  }
+
   app.get(
     "/task-boards",
     requireAuth,
@@ -5324,8 +5370,6 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       const body = taskBoardSchema.parse(req.body);
       const { assignableIds } = await taskScope(req.user!);
-      if (assignableIds?.length === 0)
-        throw new HttpError(403, "Only team leads can create boards");
       if (
         assignableIds &&
         body.memberEmployeeIds.some((employeeId) => !assignableIds.includes(employeeId))
@@ -5505,6 +5549,24 @@ export function createApp() {
             where: { boardId: existing.boardId, issueNumber: { not: null } },
             select: { taskId: true, issueNumber: true },
           });
+          const plannedKeys = boardTasks
+            .filter((row) => row.issueNumber != null)
+            .map((row) => `${body.keyPrefix}-${row.issueNumber}`);
+          if (plannedKeys.length > 0) {
+            const conflict = await transaction.workTask.findFirst({
+              where: {
+                issueKey: { in: plannedKeys },
+                NOT: { boardId: existing.boardId },
+              },
+              select: { issueKey: true },
+            });
+            if (conflict) {
+              throw new HttpError(
+                409,
+                `Cannot rename project key: issue ${conflict.issueKey} already exists on another project`,
+              );
+            }
+          }
           for (const row of boardTasks) {
             if (row.issueNumber == null) continue;
             await transaction.workTask.update({
@@ -5733,6 +5795,28 @@ export function createApp() {
       const tomorrow = new Date(today);
       tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
       if (boardId) await assertBoardAccess(req.user!, boardId);
+      if (boardId) {
+        const board = await prisma.taskBoard.findUnique({
+          where: { boardId },
+          include: { stages: { orderBy: { sortOrder: "asc" }, take: 1 } },
+        });
+        const firstStage = board?.stages[0];
+        if (firstStage) {
+          await prisma.workTask.updateMany({
+            where: {
+              boardId,
+              archivedAt: null,
+              status: { not: TaskStatus.CANCELLED },
+              OR: [{ stageId: null }, { stage: { is: { boardId: { not: boardId } } } }],
+            },
+            data: {
+              stageId: firstStage.stageId,
+              status: firstStage.status,
+              lastActivityAt: new Date(),
+            },
+          });
+        }
+      }
       const tasks = await prisma.workTask.findMany({
         where: {
           ...(includeArchived ? {} : { archivedAt: null }),
@@ -5832,28 +5916,7 @@ export function createApp() {
         if (board.archived) {
           throw new HttpError(409, "Restore this board before adding tasks");
         }
-        if (
-          board.accessType === TaskBoardAccessType.MEMBER_GATED &&
-          employeeIds.some(
-            (employeeId) => !board.members.some((member) => member.employeeId === employeeId),
-          )
-        ) {
-          throw new HttpError(400, "Every assignee must be a member of this board");
-        }
-        if (board.accessType === TaskBoardAccessType.ROLE_GATED) {
-          const allowedRoles = new Set(board.roleAccess.map((entry) => entry.role));
-          const employeeUsers = await prisma.employee.findMany({
-            where: { employeeId: { in: employeeIds } },
-            select: { employeeId: true, user: { select: { role: true } } },
-          });
-          if (
-            employeeUsers.some(
-              (employee) => !employee.user || !allowedRoles.has(employee.user.role),
-            )
-          ) {
-            throw new HttpError(400, "Every assignee must have a role allowed by this board");
-          }
-        }
+        await assertAssigneesAllowedOnBoard(board, employeeIds);
         const stage = stageId
           ? board.stages.find((entry) => entry.stageId === stageId)
           : board.stages[0];
@@ -5953,7 +6016,12 @@ export function createApp() {
       }
       if (
         !canManage &&
-        Object.keys(body).some((key) => !["version", "status", "progress", "stageId"].includes(key))
+        Object.keys(body).some(
+          (key) =>
+            !["version", "status", "progress", "stageId", "rank", "rankBeforeTaskId", "rankAfterTaskId"].includes(
+              key,
+            ),
+        )
       ) {
         throw new HttpError(403, "Employees can update only task status and progress");
       }
@@ -5975,41 +6043,21 @@ export function createApp() {
         }
       }
 
-      const board = existing.boardId
-        ? await assertBoardAccess(req.user!, existing.boardId)
-        : undefined;
-      if (board?.archived) {
-        throw new HttpError(409, "Restore this board before changing its tasks");
+      if (body.boardId === null) {
+        throw new HttpError(400, "Moving an issue off a project is not supported");
       }
-      if (replacementIds && board) {
-        if (
-          board.accessType === TaskBoardAccessType.MEMBER_GATED &&
-          replacementIds.some(
-            (employeeId) => !board.members.some((member) => member.employeeId === employeeId),
-          )
-        ) {
-          throw new HttpError(400, "Every assignee must be a member of this board");
-        }
-        if (board.accessType === TaskBoardAccessType.ROLE_GATED) {
-          const allowedRoles = new Set(board.roleAccess.map((entry) => entry.role));
-          const employeeUsers = await prisma.employee.findMany({
-            where: { employeeId: { in: replacementIds } },
-            select: { user: { select: { role: true } } },
-          });
-          if (
-            employeeUsers.length !== replacementIds.length ||
-            employeeUsers.some(
-              (employee) => !employee.user || !allowedRoles.has(employee.user.role),
-            )
-          ) {
-            throw new HttpError(400, "Every assignee must have a role allowed by this board");
-          }
-        }
+
+      const sourceBoard = existing.boardId
+        ? await getMutableBoard(req.user!, existing.boardId)
+        : undefined;
+      if (sourceBoard?.archived) {
+        throw new HttpError(409, "Restore this board before changing its tasks");
       }
 
       let nextBoardId = existing.boardId;
+      let targetBoard = sourceBoard;
       if (body.boardId) {
-        const targetBoard = await assertBoardAccess(req.user!, body.boardId);
+        targetBoard = await getMutableBoard(req.user!, body.boardId);
         if (targetBoard.archived) {
           throw new HttpError(409, "Restore this board before moving tasks onto it");
         }
@@ -6031,11 +6079,17 @@ export function createApp() {
         }
         nextStageId = stage.stageId;
         nextStatus = stage.status;
-      } else if (body.status && board) {
+      } else if (body.boardId && nextBoardId && nextBoardId !== existing.boardId) {
+        const firstStage = targetBoard?.stages[0];
+        if (!firstStage) throw new HttpError(400, "Target project has no stages");
+        nextStageId = firstStage.stageId;
+        nextStatus = firstStage.status;
+      } else if (body.status && (targetBoard ?? sourceBoard)) {
+        const boardForStatus = targetBoard ?? sourceBoard!;
         if (body.status === TaskStatus.CANCELLED) {
           nextStageId = null;
         } else {
-          const matchingStages = board.stages.filter((stage) => stage.status === body.status);
+          const matchingStages = boardForStatus.stages.filter((stage) => stage.status === body.status);
           if (matchingStages.length === 0) {
             throw new HttpError(400, "This workspace has no stage for the selected status");
           }
@@ -6051,44 +6105,55 @@ export function createApp() {
         throw new HttpError(400, "Workspace tasks must remain in a stage");
       }
 
+      const effectiveAssigneeIds = replacementIds ?? existingEmployeeIds;
+      if (targetBoard) {
+        await assertAssigneesAllowedOnBoard(targetBoard, effectiveAssigneeIds);
+      }
+
       const nextStartDate = body.startDate === undefined ? existing.startDate : body.startDate;
       const nextDueDate = body.dueDate === undefined ? existing.dueDate : body.dueDate;
       if (nextStartDate && nextDueDate && nextDueDate < nextStartDate) {
         throw new HttpError(400, "Due date cannot be before the start date");
       }
 
-      let nextRank: number | undefined = body.rank;
-      if (
-        nextRank === undefined &&
-        (body.rankBeforeTaskId || body.rankAfterTaskId || body.stageId !== undefined)
-      ) {
+      const wantsRankNeighbors = Boolean(body.rankBeforeTaskId || body.rankAfterTaskId);
+      const stageChanging =
+        body.stageId !== undefined &&
+        (nextStageId !== undefined ? nextStageId : existing.stageId) !== existing.stageId;
+      const boardChanging = Boolean(body.boardId && nextBoardId && nextBoardId !== existing.boardId);
+      let requestedRank: number | undefined = body.rank;
+      let rankNeighborBefore: number | null | undefined;
+      let rankNeighborAfter: number | null | undefined;
+      if (requestedRank === undefined && (wantsRankNeighbors || stageChanging || boardChanging)) {
         const targetStageId =
           nextStageId !== undefined ? nextStageId : (existing.stageId ?? null);
-        const targetBoardId = nextBoardId ?? existing.boardId;
-        if (body.rankBeforeTaskId || body.rankAfterTaskId) {
+        const targetBoardIdForRank = nextBoardId ?? existing.boardId;
+        if (wantsRankNeighbors) {
           const [before, after] = await Promise.all([
             body.rankBeforeTaskId
               ? prisma.workTask.findUnique({
                   where: { taskId: body.rankBeforeTaskId },
-                  select: { rank: true, boardId: true },
+                  select: { rank: true, boardId: true, stageId: true },
                 })
               : null,
             body.rankAfterTaskId
               ? prisma.workTask.findUnique({
                   where: { taskId: body.rankAfterTaskId },
-                  select: { rank: true, boardId: true },
+                  select: { rank: true, boardId: true, stageId: true },
                 })
               : null,
           ]);
           if (
-            (before && before.boardId !== targetBoardId) ||
-            (after && after.boardId !== targetBoardId)
+            (before &&
+              (before.boardId !== targetBoardIdForRank || before.stageId !== targetStageId)) ||
+            (after && (after.boardId !== targetBoardIdForRank || after.stageId !== targetStageId))
           ) {
-            throw new HttpError(400, "Rank neighbors must belong to the same project");
+            throw new HttpError(400, "Rank neighbors must belong to the same project column");
           }
-          nextRank = midpointRank(before?.rank, after?.rank);
-        } else if (targetBoardId && body.stageId && body.stageId !== existing.stageId) {
-          nextRank = await nextRankInStage(prisma, targetBoardId, targetStageId);
+          rankNeighborBefore = before?.rank ?? null;
+          rankNeighborAfter = after?.rank ?? null;
+          const mid = midpointRank(rankNeighborBefore, rankNeighborAfter);
+          if (mid != null) requestedRank = mid;
         }
       }
 
@@ -6124,16 +6189,43 @@ export function createApp() {
       const task = await prisma.$transaction(async (transaction) => {
         let issueNumber = existing.issueNumber ?? undefined;
         let issueKey = existing.issueKey ?? undefined;
+        let nextRank = requestedRank;
+
         if (body.boardId && nextBoardId && nextBoardId !== existing.boardId) {
           const allocated = await allocateIssueKey(transaction, nextBoardId);
           issueNumber = allocated.issueNumber;
           issueKey = allocated.issueKey;
+        }
+
+        const targetStageId =
+          nextStageId !== undefined ? nextStageId : (existing.stageId ?? null);
+        const targetBoardIdForRank = nextBoardId ?? existing.boardId;
+
+        if (
+          nextRank === undefined &&
+          targetBoardIdForRank &&
+          (wantsRankNeighbors || stageChanging || boardChanging)
+        ) {
+          if (wantsRankNeighbors && rankNeighborBefore != null && rankNeighborAfter != null) {
+            await rebalanceRanksInStage(transaction, targetBoardIdForRank, targetStageId);
+            const [before, after] = await Promise.all([
+              body.rankBeforeTaskId
+                ? transaction.workTask.findUnique({
+                    where: { taskId: body.rankBeforeTaskId },
+                    select: { rank: true },
+                  })
+                : null,
+              body.rankAfterTaskId
+                ? transaction.workTask.findUnique({
+                    where: { taskId: body.rankAfterTaskId },
+                    select: { rank: true },
+                  })
+                : null,
+            ]);
+            nextRank = midpointRank(before?.rank, after?.rank) ?? undefined;
+          }
           if (nextRank === undefined) {
-            nextRank = await nextRankInStage(
-              transaction,
-              nextBoardId,
-              nextStageId !== undefined ? nextStageId : existing.stageId,
-            );
+            nextRank = await nextRankInStage(transaction, targetBoardIdForRank, targetStageId);
           }
         }
 
@@ -6229,7 +6321,7 @@ export function createApp() {
       );
 
       const board = existing.boardId
-        ? await assertBoardAccess(req.user!, existing.boardId)
+        ? await getMutableBoard(req.user!, existing.boardId)
         : undefined;
       if (board?.archived) {
         throw new HttpError(409, "Restore this board before changing its tasks");

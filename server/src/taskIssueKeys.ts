@@ -77,9 +77,33 @@ export async function nextRankInStage(
   return (top?.rank ?? 0) + 1000;
 }
 
+/** Returns null when neighbors are too close and the column should be rebalanced. */
 export function midpointRank(before?: number | null, after?: number | null) {
   if (before == null && after == null) return 1000;
   if (before == null && after != null) return after / 2;
   if (before != null && after == null) return before + 1000;
-  return (before! + after!) / 2;
+  const gap = after! - before!;
+  if (!Number.isFinite(gap) || Math.abs(gap) < 1e-3) return null;
+  return before! + gap / 2;
+}
+
+/** Spread ranks in a column to n*1000 so midpoint inserts stay stable. */
+export async function rebalanceRanksInStage(
+  db: PrismaClient | Prisma.TransactionClient,
+  boardId: string,
+  stageId: string | null,
+) {
+  const rows = await db.workTask.findMany({
+    where: { boardId, stageId, archivedAt: null },
+    orderBy: [{ rank: "asc" }, { createdAt: "asc" }, { taskId: "asc" }],
+    select: { taskId: true },
+  });
+  let rank = 1000;
+  for (const row of rows) {
+    await db.workTask.update({
+      where: { taskId: row.taskId },
+      data: { rank },
+    });
+    rank += 1000;
+  }
 }

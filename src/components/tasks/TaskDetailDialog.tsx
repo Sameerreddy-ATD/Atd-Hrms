@@ -136,12 +136,14 @@ export function TaskDetailDialog({
     setFormError("");
     setSubtaskTitle("");
     const nextFields: Record<string, string> = {};
-    for (const def of board?.customFieldDefs ?? []) {
+    const fieldBoard =
+      boards.find((entry) => entry.id === (task.boardId ?? "")) ?? board;
+    for (const def of fieldBoard?.customFieldDefs ?? []) {
       const value = task.customFields?.[def.key];
       nextFields[def.key] = value == null ? "" : String(value);
     }
     setCustomFields(nextFields);
-  }, [board?.customFieldDefs, open, task]);
+  }, [board, boards, open, task]);
 
   useEffect(() => {
     if (!open || !task) {
@@ -223,7 +225,7 @@ export function TaskDetailDialog({
           .slice()
           .sort()
           .join() ||
-      (board?.customFieldDefs ?? []).some((def) => {
+      (activeBoard?.customFieldDefs ?? []).some((def) => {
         const previous = task.customFields?.[def.key];
         const next = customFields[def.key] ?? "";
         return String(previous ?? "") !== next;
@@ -245,7 +247,7 @@ export function TaskDetailDialog({
     }
     setFormError("");
     const nextCustom: Record<string, string | number | boolean | null> = {};
-    for (const def of board?.customFieldDefs ?? []) {
+    for (const def of activeBoard?.customFieldDefs ?? []) {
       const raw = customFields[def.key]?.trim() ?? "";
       if (!raw) {
         nextCustom[def.key] = null;
@@ -342,11 +344,11 @@ export function TaskDetailDialog({
                   />
                 </section>
 
-                {(board?.customFieldDefs?.length ?? 0) > 0 && (
+                {(activeBoard?.customFieldDefs?.length ?? 0) > 0 && (
                   <section className="space-y-3">
                     <h3 className="text-sm font-semibold">Custom fields</h3>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      {board!.customFieldDefs!.map((field) => (
+                      {activeBoard!.customFieldDefs!.map((field) => (
                         <div key={field.key} className="space-y-1.5">
                           <Label htmlFor={`cf-${field.key}`}>{field.label}</Label>
                           <Input
@@ -566,6 +568,11 @@ export function TaskDetailDialog({
                         const next = boards.find((entry) => entry.id === value);
                         const firstStage = next?.stages[0]?.id ?? "";
                         setStageId(firstStage);
+                        const nextFields: Record<string, string> = {};
+                        for (const def of next?.customFieldDefs ?? []) {
+                          nextFields[def.key] = customFields[def.key] ?? "";
+                        }
+                        setCustomFields(nextFields);
                       }}
                     >
                       <SelectTrigger>
