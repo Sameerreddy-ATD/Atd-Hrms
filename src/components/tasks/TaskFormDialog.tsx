@@ -19,13 +19,14 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import type { TaskAssignee, TaskBoard, TaskPriority } from "@/types/domain";
-import { initials, PRIORITY_LABELS, STAGE_COLORS } from "./task-utils";
+import type { TaskAssignee, TaskBoard, TaskIssueType, TaskPriority } from "@/types/domain";
+import { initials, ISSUE_TYPE_LABELS, PRIORITY_LABELS, STAGE_COLORS } from "./task-utils";
 
 export type TaskFormValue = {
   title: string;
   description: string;
   assigneeEmployeeIds: string[];
+  issueType: TaskIssueType;
   priority: TaskPriority;
   startDate: string;
   dueDate: string;
@@ -47,6 +48,7 @@ function emptyTask(stageId = ""): TaskFormValue {
     title: "",
     description: "",
     assigneeEmployeeIds: [],
+    issueType: "TASK",
     priority: "MEDIUM",
     startDate: "",
     dueDate: "",
@@ -94,7 +96,7 @@ export function TaskFormDialog({
 
   async function submit() {
     if (!form.title.trim()) {
-      setError("Enter a clear task title.");
+      setError("Enter a clear issue summary.");
       return;
     }
     if (form.assigneeEmployeeIds.length === 0) {
@@ -102,7 +104,7 @@ export function TaskFormDialog({
       return;
     }
     if (!form.stageId) {
-      setError("Select a starting stage.");
+      setError("Select a starting status.");
       return;
     }
     if (form.startDate && form.dueDate && form.dueDate < form.startDate) {
@@ -119,7 +121,7 @@ export function TaskFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="grid max-h-[calc(100dvh-1rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-2xl">
         <DialogHeader className="border-b px-5 py-5 sm:px-7">
-          <DialogTitle>New task</DialogTitle>
+          <DialogTitle>Create issue</DialogTitle>
           <p className="text-sm text-muted-foreground">
             Add work to <span className="font-medium text-foreground">{board.name}</span>.
           </p>
@@ -127,7 +129,7 @@ export function TaskFormDialog({
         <div className="space-y-5 overflow-y-auto px-5 py-5 sm:px-7">
           <div className="space-y-2">
             <Label htmlFor="new-task-title">
-              Task title <span className="text-destructive">*</span>
+              Summary <span className="text-destructive">*</span>
             </Label>
             <Input
               id="new-task-title"
@@ -152,23 +154,20 @@ export function TaskFormDialog({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Starting stage</Label>
+              <Label>Issue type</Label>
               <Select
-                value={form.stageId}
-                onValueChange={(stageId) => setForm({ ...form, stageId })}
+                value={form.issueType}
+                onValueChange={(issueType) =>
+                  setForm({ ...form, issueType: issueType as TaskIssueType })
+                }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select stage" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {board.stages.map((stage) => (
-                    <SelectItem key={stage.id} value={stage.id}>
-                      <span className="flex items-center gap-2">
-                        <span
-                          className={cn("h-2.5 w-2.5 rounded-full", STAGE_COLORS[stage.color].dot)}
-                        />
-                        {stage.name}
-                      </span>
+                  {Object.entries(ISSUE_TYPE_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -196,7 +195,30 @@ export function TaskFormDialog({
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select
+                value={form.stageId}
+                onValueChange={(stageId) => setForm({ ...form, stageId })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {board.stages.map((stage) => (
+                    <SelectItem key={stage.id} value={stage.id}>
+                      <span className="flex items-center gap-2">
+                        <span
+                          className={cn("h-2.5 w-2.5 rounded-full", STAGE_COLORS[stage.color].dot)}
+                        />
+                        {stage.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="new-task-start">Start date</Label>
               <Input
@@ -256,10 +278,10 @@ export function TaskFormDialog({
                       }
                       className={cn(
                         "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm",
-                        selected ? "bg-red-50 text-red-950" : "hover:bg-muted",
+                        selected ? "bg-primary/10 text-foreground" : "hover:bg-muted",
                       )}
                     >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-semibold">
                         {initials(person.name)}
                       </span>
                       <span className="min-w-0 flex-1">
@@ -271,7 +293,7 @@ export function TaskFormDialog({
                       <span
                         className={cn(
                           "flex h-5 w-5 items-center justify-center rounded border",
-                          selected && "border-red-600 bg-red-600 text-white",
+                          selected && "border-primary bg-primary text-primary-foreground",
                         )}
                       >
                         {selected && <Check className="h-3.5 w-3.5" />}
@@ -296,9 +318,8 @@ export function TaskFormDialog({
           <Button
             disabled={saving}
             onClick={() => void submit()}
-            className="bg-red-600 hover:bg-red-700"
           >
-            {saving ? "Creating..." : "Create task"}
+            {saving ? "Creating..." : "Create"}
           </Button>
         </DialogFooter>
       </DialogContent>

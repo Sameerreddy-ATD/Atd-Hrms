@@ -2,7 +2,7 @@ import {
   Archive,
   ChevronDown,
   ChevronRight,
-  LayoutGrid,
+  FolderKanban,
   Layers3,
   Plus,
   RotateCcw,
@@ -15,7 +15,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/common/PageHeader";
 import { cn } from "@/lib/utils";
 import type { TaskBoard, WorkTask } from "@/types/domain";
-import { initials, PRIORITY_LABELS, PRIORITY_STYLES } from "./task-utils";
+import {
+  boardKeyPrefix,
+  dueLabel,
+  initials,
+  issueKey,
+  PRIORITY_MARK,
+} from "./task-utils";
 
 const ASSIGNED_PREVIEW = 8;
 
@@ -33,6 +39,19 @@ type BoardDirectoryProps = {
   onArchiveBoard: (board: TaskBoard, archived: boolean) => Promise<void>;
   onViewAllAssigned: () => void;
 };
+
+function PriorityMark({ priority }: { priority: WorkTask["priority"] }) {
+  const mark = PRIORITY_MARK[priority];
+  return (
+    <span
+      title={mark.label}
+      aria-label={mark.label}
+      className={cn("inline-flex w-4 justify-center text-sm font-bold leading-none", mark.className)}
+    >
+      {mark.glyph}
+    </span>
+  );
+}
 
 export function BoardDirectory({
   boards,
@@ -69,15 +88,15 @@ export function BoardDirectory({
   const hasMoreAssigned = assignedTasks.length > ASSIGNED_PREVIEW;
 
   return (
-    <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pb-20 sm:px-6">
+    <div className="mx-auto w-full max-w-[1440px] space-y-8 px-4 pb-20 sm:px-6">
       <PageHeader
-        title="Task boards"
-        description="Shared boards you can access, plus your personal assigned inbox."
+        title="Work Planner"
+        description="Your assigned issues and project boards — organize work like a lightweight Jira board."
         actions={
           canManage ? (
-            <Button onClick={onNewBoard} className="bg-red-600 hover:bg-red-700">
+            <Button onClick={onNewBoard}>
               <Plus className="mr-2 h-4 w-4" />
-              New board
+              Create project
             </Button>
           ) : undefined
         }
@@ -86,11 +105,9 @@ export function BoardDirectory({
       {employeeId && (
         <section className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <UserRoundCheck className="h-5 w-5 text-slate-500" />
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
-              Assigned to me
-            </h2>
-            <Badge variant="secondary" className="rounded-full">
+            <UserRoundCheck className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-sm font-semibold tracking-tight text-foreground">Your work</h2>
+            <Badge variant="secondary" className="rounded-md font-normal tabular-nums">
               {assignedTotal || assignedTasks.length}
             </Badge>
             {(assignedTotal > ASSIGNED_PREVIEW || hasMoreAssigned) && (
@@ -107,43 +124,58 @@ export function BoardDirectory({
                   onViewAllAssigned();
                 }}
               >
-                {showAllAssigned ? "Filter on a board" : "View all"}
+                {showAllAssigned ? "Open on a board" : "View all"}
               </Button>
             )}
           </div>
+          <p className="text-xs text-muted-foreground">Assigned to me · active issues</p>
           {assignedTasks.length === 0 ? (
-            <div className="rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">
-              No active tasks are assigned to you.
+            <div className="rounded-md border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+              No active issues are assigned to you.
             </div>
           ) : (
-            <div className="space-y-1.5">
-              {visibleAssigned.map((task) => (
-                <button
-                  key={task.id}
-                  type="button"
-                  onClick={() => onOpenTask(task)}
-                  className="flex w-full items-center gap-3 rounded-lg border border-border/80 bg-background px-3 py-2.5 text-left transition hover:border-primary/30 hover:bg-muted/30 sm:px-4"
-                >
-                  <Badge variant="outline" className={PRIORITY_STYLES[task.priority]}>
-                    {PRIORITY_LABELS[task.priority]}
-                  </Badge>
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{task.title}</span>
-                  {task.boardName && (
-                    <span className="hidden text-xs text-muted-foreground sm:block">
-                      {task.boardName}
+            <div className="overflow-hidden rounded-md border bg-background">
+              {visibleAssigned.map((task, index) => {
+                const key = issueKey(task);
+                const mark = PRIORITY_MARK[task.priority];
+                return (
+                  <button
+                    key={task.id}
+                    type="button"
+                    onClick={() => onOpenTask(task)}
+                    className={cn(
+                      "flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-muted/50 sm:px-4",
+                      index > 0 && "border-t",
+                    )}
+                  >
+                    <PriorityMark priority={task.priority} />
+                    <span className="hidden w-16 shrink-0 font-mono text-xs text-primary sm:block">
+                      {key}
                     </span>
-                  )}
-                  <span className="hidden h-7 w-7 items-center justify-center rounded-full bg-muted text-[10px] font-semibold uppercase text-muted-foreground sm:flex">
-                    {initials(task.assignees[0]?.name ?? task.title)}
-                  </span>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </button>
-              ))}
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{task.title}</span>
+                    {task.boardName && (
+                      <span className="hidden max-w-[10rem] truncate text-xs text-muted-foreground md:block">
+                        {task.boardName}
+                      </span>
+                    )}
+                    <span className="hidden text-xs text-muted-foreground lg:block">
+                      {dueLabel(task.dueDate, false)}
+                    </span>
+                    <span
+                      className="hidden h-7 w-7 items-center justify-center rounded-full bg-muted text-[10px] font-semibold uppercase text-muted-foreground sm:flex"
+                      title={mark.label}
+                    >
+                      {initials(task.assignees[0]?.name ?? task.title)}
+                    </span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </button>
+                );
+              })}
               {hasMoreAssigned && !showAllAssigned && (
                 <Button
                   type="button"
                   variant="ghost"
-                  className="w-full justify-center text-muted-foreground"
+                  className="w-full justify-center rounded-none border-t text-muted-foreground"
                   onClick={() => setShowAllAssigned(true)}
                 >
                   Show {assignedTasks.length - ASSIGNED_PREVIEW} more
@@ -156,9 +188,9 @@ export function BoardDirectory({
 
       <section className="space-y-3">
         <div className="flex items-center gap-2">
-          <LayoutGrid className="h-5 w-5 text-slate-500" />
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Boards</h2>
-          <Badge variant="secondary" className="rounded-full">
+          <FolderKanban className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-sm font-semibold tracking-tight">Projects</h2>
+          <Badge variant="secondary" className="rounded-md font-normal tabular-nums">
             {boards.length}
           </Badge>
         </div>
@@ -166,68 +198,66 @@ export function BoardDirectory({
           <Card className="border-dashed shadow-none">
             <CardContent className="flex flex-col items-center py-14 text-center">
               <Layers3 className="mb-3 h-7 w-7 text-muted-foreground" />
-              <h3 className="font-semibold">No active boards</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <h3 className="font-semibold">No projects yet</h3>
+              <p className="mt-1 max-w-sm text-sm text-muted-foreground">
                 {canManage
-                  ? "Create a board to organize ownership and workflow."
-                  : "You have not been given access to a board yet."}
+                  ? "Create a project board with stages to start tracking issues."
+                  : "You have not been given access to a project board yet."}
               </p>
+              {canManage && (
+                <Button className="mt-4" onClick={onNewBoard}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create project
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {boards.map((board) => (
-              <Card
+          <div className="overflow-hidden rounded-md border bg-background">
+            {boards.map((board, index) => (
+              <div
                 key={board.id}
-                className="group overflow-hidden border-border/80 shadow-sm transition hover:-translate-y-0.5 hover:border-red-200 hover:shadow-md"
+                className={cn("flex items-stretch gap-0", index > 0 && "border-t")}
               >
                 <button
                   type="button"
                   onClick={() => onOpenBoard(board.id)}
-                  className="w-full p-4 text-left sm:p-5"
+                  className="flex min-w-0 flex-1 items-center gap-3 px-3 py-3 text-left transition hover:bg-muted/50 sm:px-4"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="truncate text-lg font-semibold">{board.name}</h3>
-                      {board.description && (
-                        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                          {board.description}
-                        </p>
-                      )}
-                    </div>
-                    <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5" />
-                  </div>
-                  <div className="mt-4 flex items-center gap-3 text-sm">
-                    <Badge variant="outline" className="font-normal">
-                      {board.accessType === "OPEN"
-                        ? "Open"
-                        : board.accessType === "ROLE_GATED"
-                          ? "Role-gated"
-                          : "Member-gated"}
-                    </Badge>
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                      <Layers3 className="h-4 w-4" />
-                      <strong className="font-semibold text-foreground">
-                        {board.openTaskCount}
-                      </strong>
-                      open
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 font-mono text-xs font-bold text-primary">
+                    {board.keyPrefix || boardKeyPrefix(board.name)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold">{board.name}</span>
+                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                      {board.description ||
+                        (board.accessType === "OPEN"
+                          ? "Open project"
+                          : board.accessType === "ROLE_GATED"
+                            ? "Role-gated"
+                            : "Member-gated")}
                     </span>
-                  </div>
+                  </span>
+                  <span className="hidden shrink-0 text-xs tabular-nums text-muted-foreground sm:block">
+                    <strong className="font-semibold text-foreground">{board.openTaskCount}</strong>{" "}
+                    open · {board.taskCount} total
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                 </button>
                 {canChangeBoard(board) && (
-                  <div className="flex justify-end border-t bg-muted/20 px-3 py-2">
+                  <div className="flex items-center border-l px-1">
                     <Button
                       size="sm"
                       variant="ghost"
                       className="text-muted-foreground hover:text-destructive"
                       onClick={() => void onArchiveBoard(board, true)}
                     >
-                      <Archive className="mr-2 h-4 w-4" />
-                      Archive
+                      <Archive className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Archive</span>
                     </Button>
                   </div>
                 )}
-              </Card>
+              </div>
             ))}
           </div>
         )}
@@ -238,38 +268,40 @@ export function BoardDirectory({
           <button
             type="button"
             onClick={() => setShowArchived((current) => !current)}
-            className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-600"
+            className="flex items-center gap-2 text-sm font-semibold text-muted-foreground"
           >
             <ChevronDown className={cn("h-4 w-4 transition", !showArchived && "-rotate-90")} />
             <Archive className="h-4 w-4" />
-            Archived
-            <Badge variant="secondary" className="rounded-full">
+            Archived projects
+            <Badge variant="secondary" className="rounded-md font-normal tabular-nums">
               {archivedBoards.length}
             </Badge>
           </button>
           {showArchived && (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {archivedBoards.map((board) => (
-                <Card key={board.id} className="overflow-hidden bg-muted/20 shadow-none">
-                  <div className="w-full p-4 text-left opacity-75 sm:p-5">
-                    <h3 className="font-semibold">{board.name}</h3>
-                    <p className="mt-3 text-sm text-muted-foreground">
-                      {board.taskCount} total tasks
-                    </p>
+            <div className="overflow-hidden rounded-md border bg-muted/20">
+              {archivedBoards.map((board, index) => (
+                <div
+                  key={board.id}
+                  className={cn(
+                    "flex items-center justify-between gap-3 px-3 py-3 sm:px-4",
+                    index > 0 && "border-t",
+                  )}
+                >
+                  <div className="min-w-0 opacity-75">
+                    <p className="truncate text-sm font-medium">{board.name}</p>
+                    <p className="text-xs text-muted-foreground">{board.taskCount} total issues</p>
                   </div>
                   {canChangeBoard(board) && (
-                    <div className="flex justify-end border-t px-3 py-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => void onArchiveBoard(board, false)}
-                      >
-                        <RotateCcw className="mr-2 h-4 w-4" />
-                        Restore
-                      </Button>
-                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => void onArchiveBoard(board, false)}
+                    >
+                      <RotateCcw className="mr-2 h-4 w-4" />
+                      Restore
+                    </Button>
                   )}
-                </Card>
+                </div>
               ))}
             </div>
           )}

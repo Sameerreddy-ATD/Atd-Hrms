@@ -24,6 +24,7 @@ import type {
   Role,
   TaskAssignee,
   TaskBoard,
+  TaskIssueType,
   TaskPriority,
   TaskStatus,
   TaskStage,
@@ -1061,6 +1062,7 @@ export const tasksApi = {
     parentTaskId?: string | null;
     boardId?: string | null;
     stageId?: string | null;
+    issueType?: TaskIssueType;
     priority: TaskPriority;
     startDate?: string | null;
     dueDate?: string | null;
@@ -1071,6 +1073,7 @@ export const tasksApi = {
       title: string;
       description: string | null;
       assigneeEmployeeIds: string[];
+      issueType: TaskIssueType;
       priority: TaskPriority;
       status: TaskStatus;
       progress: number;
@@ -1079,6 +1082,9 @@ export const tasksApi = {
       stageId: string | null;
       boardId: string | null;
       parentTaskId: string | null;
+      rank: number;
+      rankBeforeTaskId: string;
+      rankAfterTaskId: string;
       customFields: Record<string, string | number | boolean | null>;
     }>,
   ) => request<WorkTask>(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
@@ -1096,6 +1102,7 @@ export const tasksApi = {
     request<TaskBoard[]>(`/task-boards${archived ? "?archived=true" : ""}`),
   createBoard: (payload: {
     name: string;
+    keyPrefix?: string;
     description?: string | null;
     accessType: TaskBoard["accessType"];
     allowedRoles: string[];
@@ -1108,6 +1115,7 @@ export const tasksApi = {
     payload: {
       version: number;
       name: string;
+      keyPrefix?: string;
       description?: string | null;
       accessType: TaskBoard["accessType"];
       allowedRoles: string[];

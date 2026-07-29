@@ -17,6 +17,7 @@ import {
   Role,
   TaskActivityType,
   TaskBoardAccessType,
+  TaskIssueType,
   TaskPriority,
   TaskStatus,
   UserStatus,
@@ -52,6 +53,12 @@ import { config } from "./config.js";
 import { ensureChecklistInstance, completeFaceEnrollmentChecklistItems } from "./checklistService.js";
 import { encryptEmployeeField, lastFour } from "./employeePrivateData.js";
 import { asyncHandler, errorHandler, HttpError } from "./errors.js";
+import {
+  allocateIssueKey,
+  allocateUniqueBoardKeyPrefix,
+  midpointRank,
+  nextRankInStage,
+} from "./taskIssueKeys.js";
 import { nearestBranch } from "./geofence.js";
 import {
   FACE_CONSENT,
@@ -5097,7 +5104,7 @@ export function createApp() {
       orderBy: { assignedAt: "asc" as const },
     },
     createdBy: { select: { id: true, name: true } },
-    board: { select: { boardId: true, name: true } },
+    board: { select: { boardId: true, name: true, keyPrefix: true } },
     stage: {
       select: {
         stageId: true,
@@ -5123,6 +5130,10 @@ export function createApp() {
       id: task.taskId,
       title: task.title,
       description: task.description ?? undefined,
+      issueKey: task.issueKey ?? undefined,
+      issueNumber: task.issueNumber ?? undefined,
+      issueType: task.issueType,
+      rank: task.rank,
       assignees: task.assignments.map(({ employee }) => ({
         id: employee.employeeId,
         name: employee.name,
@@ -5135,6 +5146,7 @@ export function createApp() {
       parentTaskId: task.parentTaskId ?? undefined,
       boardId: task.boardId ?? undefined,
       boardName: task.board?.name,
+      boardKeyPrefix: task.board?.keyPrefix,
       stageId: task.stageId ?? undefined,
       stage: task.stage
         ? {
@@ -5234,6 +5246,8 @@ export function createApp() {
     return {
       id: board.boardId,
       name: board.name,
+      keyPrefix: board.keyPrefix,
+      nextIssueNumber: board.nextIssueNumber,
       createdByUserId: board.createdByUserId,
       description: board.description ?? undefined,
       accessType: board.accessType,
@@ -5327,9 +5341,21 @@ export function createApp() {
           throw new HttpError(400, "Select active employees for board access");
         }
       }
+      const keyPrefix =
+        body.keyPrefix?.trim().toUpperCase() ||
+        (await allocateUniqueBoardKeyPrefix(prisma, body.name));
+      const prefixTaken = await prisma.taskBoard.findFirst({
+        where: { keyPrefix },
+        select: { boardId: true },
+      });
+      if (prefixTaken) {
+        throw new HttpError(409, `Project key ${keyPrefix} is already in use`);
+      }
       const board = await prisma.taskBoard.create({
         data: {
           name: body.name,
+          keyPrefix,
+          nextIssueNumber: 1,
           description: body.description || null,
           accessType: body.accessType,
           customFieldDefs: body.customFieldDefs ?? [],
@@ -5361,7 +5387,12 @@ export function createApp() {
       await audit({
         action: "task board created",
         performedByUserId: req.user!.id,
-        newValue: { boardId: board.boardId, name: board.name, accessType: board.accessType },
+        newValue: {
+          boardId: board.boardId,
+          name: board.name,
+          keyPrefix: board.keyPrefix,
+          accessType: board.accessType,
+        },
         ipAddress: req.ip,
       });
       res.status(201).json(boardDto(board));
@@ -5444,6 +5475,14 @@ export function createApp() {
           );
         }
 
+        if (body.keyPrefix && body.keyPrefix !== existing.keyPrefix) {
+          const taken = await transaction.taskBoard.findFirst({
+            where: { keyPrefix: body.keyPrefix, NOT: { boardId: existing.boardId } },
+            select: { boardId: true },
+          });
+          if (taken) throw new HttpError(409, `Project key ${body.keyPrefix} is already in use`);
+        }
+
         const changed = await transaction.taskBoard.updateMany({
           where: { boardId: existing.boardId, version: body.version },
           data: {
@@ -5451,11 +5490,28 @@ export function createApp() {
             description: body.description || null,
             accessType: body.accessType,
             customFieldDefs: body.customFieldDefs ?? [],
+            ...(body.keyPrefix && body.keyPrefix !== existing.keyPrefix
+              ? { keyPrefix: body.keyPrefix }
+              : {}),
             version: { increment: 1 },
           },
         });
         if (changed.count !== 1) {
           throw new HttpError(409, "This board changed in another session. Refresh and try again");
+        }
+
+        if (body.keyPrefix && body.keyPrefix !== existing.keyPrefix) {
+          const boardTasks = await transaction.workTask.findMany({
+            where: { boardId: existing.boardId, issueNumber: { not: null } },
+            select: { taskId: true, issueNumber: true },
+          });
+          for (const row of boardTasks) {
+            if (row.issueNumber == null) continue;
+            await transaction.workTask.update({
+              where: { taskId: row.taskId },
+              data: { issueKey: `${body.keyPrefix}-${row.issueNumber}` },
+            });
+          }
         }
 
         const boardAssignments = await transaction.taskAssignment.findMany({
@@ -5707,6 +5763,7 @@ export function createApp() {
                     OR: [
                       { title: { contains: query } },
                       { description: { contains: query } },
+                      { issueKey: { contains: query } },
                       { assignments: { some: { employee: { name: { contains: query } } } } },
                     ],
                   },
@@ -5715,7 +5772,9 @@ export function createApp() {
           ],
         },
         include: summary ? taskSummaryInclude : taskInclude,
-        orderBy: [{ dueDate: "asc" }, { updatedAt: "desc" }],
+        orderBy: boardId
+          ? [{ rank: "asc" }, { updatedAt: "desc" }]
+          : [{ dueDate: "asc" }, { updatedAt: "desc" }],
         skip: listOffset(req),
         take: listLimit(req, 300, 1000),
       });
@@ -5804,36 +5863,51 @@ export function createApp() {
       } else if (stageId) {
         throw new HttpError(400, "A stage requires a board");
       }
-      const { assigneeEmployeeIds: _assigneeEmployeeIds, ...taskData } = body;
-      const task = await prisma.workTask.create({
-        data: {
-          ...taskData,
-          boardId,
-          stageId,
-          status: selectedStage ? taskStatusForStage(selectedStage) : undefined,
-          progress: selectedStage?.isCompleted ? 100 : undefined,
-          completedAt: selectedStage?.isCompleted ? new Date() : undefined,
-          description: body.description || null,
-          parentTaskId: body.parentTaskId || null,
-          createdByUserId: req.user!.id,
-          assignments: {
-            create: employeeIds.map((employeeId) => ({
-              employeeId,
-              assignedByUserId: req.user!.id,
-            })),
-          },
-          updates: {
-            create: {
-              authorUserId: req.user!.id,
-              activityType: "CREATED",
-              message: "Task created",
-              status: selectedStage?.status ?? TaskStatus.TODO,
-              progress: selectedStage?.isCompleted ? 100 : 0,
-              metadata: { assigneeEmployeeIds: employeeIds },
+      const { assigneeEmployeeIds: _assigneeEmployeeIds, issueType, ...taskData } = body;
+      const task = await prisma.$transaction(async (transaction) => {
+        let issueNumber: number | undefined;
+        let issueKey: string | undefined;
+        let rank = 1000;
+        if (boardId) {
+          const allocated = await allocateIssueKey(transaction, boardId);
+          issueNumber = allocated.issueNumber;
+          issueKey = allocated.issueKey;
+          rank = await nextRankInStage(transaction, boardId, stageId);
+        }
+        return transaction.workTask.create({
+          data: {
+            ...taskData,
+            boardId,
+            stageId,
+            issueNumber,
+            issueKey,
+            issueType: issueType ?? TaskIssueType.TASK,
+            rank,
+            status: selectedStage ? taskStatusForStage(selectedStage) : undefined,
+            progress: selectedStage?.isCompleted ? 100 : undefined,
+            completedAt: selectedStage?.isCompleted ? new Date() : undefined,
+            description: body.description || null,
+            parentTaskId: body.parentTaskId || null,
+            createdByUserId: req.user!.id,
+            assignments: {
+              create: employeeIds.map((employeeId) => ({
+                employeeId,
+                assignedByUserId: req.user!.id,
+              })),
+            },
+            updates: {
+              create: {
+                authorUserId: req.user!.id,
+                activityType: "CREATED",
+                message: issueKey ? `Issue ${issueKey} created` : "Task created",
+                status: selectedStage?.status ?? TaskStatus.TODO,
+                progress: selectedStage?.isCompleted ? 100 : 0,
+                metadata: { assigneeEmployeeIds: employeeIds, issueKey },
+              },
             },
           },
-        },
-        include: taskInclude,
+          include: taskInclude,
+        });
       });
       await audit({
         action: "task assigned",
@@ -5841,6 +5915,7 @@ export function createApp() {
         newValue: {
           taskId: task.taskId,
           title: task.title,
+          issueKey: task.issueKey,
           assigneeEmployeeIds: employeeIds,
         },
         ipAddress: req.ip,
@@ -5982,6 +6057,41 @@ export function createApp() {
         throw new HttpError(400, "Due date cannot be before the start date");
       }
 
+      let nextRank: number | undefined = body.rank;
+      if (
+        nextRank === undefined &&
+        (body.rankBeforeTaskId || body.rankAfterTaskId || body.stageId !== undefined)
+      ) {
+        const targetStageId =
+          nextStageId !== undefined ? nextStageId : (existing.stageId ?? null);
+        const targetBoardId = nextBoardId ?? existing.boardId;
+        if (body.rankBeforeTaskId || body.rankAfterTaskId) {
+          const [before, after] = await Promise.all([
+            body.rankBeforeTaskId
+              ? prisma.workTask.findUnique({
+                  where: { taskId: body.rankBeforeTaskId },
+                  select: { rank: true, boardId: true },
+                })
+              : null,
+            body.rankAfterTaskId
+              ? prisma.workTask.findUnique({
+                  where: { taskId: body.rankAfterTaskId },
+                  select: { rank: true, boardId: true },
+                })
+              : null,
+          ]);
+          if (
+            (before && before.boardId !== targetBoardId) ||
+            (after && after.boardId !== targetBoardId)
+          ) {
+            throw new HttpError(400, "Rank neighbors must belong to the same project");
+          }
+          nextRank = midpointRank(before?.rank, after?.rank);
+        } else if (targetBoardId && body.stageId && body.stageId !== existing.stageId) {
+          nextRank = await nextRankInStage(prisma, targetBoardId, targetStageId);
+        }
+      }
+
       const effectiveStatus = nextStatus ?? existing.status;
       const nextProgress =
         effectiveStatus === TaskStatus.COMPLETED ? 100 : (body.progress ?? existing.progress);
@@ -5999,7 +6109,7 @@ export function createApp() {
             ? "Workflow status updated"
             : activityType === TaskActivityType.PROGRESS_UPDATED
               ? "Progress updated"
-              : "Task details updated";
+              : "Issue details updated";
       const metadata = JSON.parse(
         JSON.stringify({
           previousStatus: existing.status,
@@ -6007,22 +6117,43 @@ export function createApp() {
           previousProgress: existing.progress,
           progress: nextProgress,
           assigneeEmployeeIds: replacementIds,
+          issueType: body.issueType,
         }),
       ) as Prisma.InputJsonObject;
 
       const task = await prisma.$transaction(async (transaction) => {
+        let issueNumber = existing.issueNumber ?? undefined;
+        let issueKey = existing.issueKey ?? undefined;
+        if (body.boardId && nextBoardId && nextBoardId !== existing.boardId) {
+          const allocated = await allocateIssueKey(transaction, nextBoardId);
+          issueNumber = allocated.issueNumber;
+          issueKey = allocated.issueKey;
+          if (nextRank === undefined) {
+            nextRank = await nextRankInStage(
+              transaction,
+              nextBoardId,
+              nextStageId !== undefined ? nextStageId : existing.stageId,
+            );
+          }
+        }
+
         const updated = await transaction.workTask.updateMany({
           where: { taskId: existing.taskId, version: body.version },
           data: {
             title: body.title,
             description: body.description,
             priority: body.priority,
+            issueType: body.issueType,
             status: nextStatus,
             progress: body.progress !== undefined || nextStatus ? nextProgress : undefined,
             startDate: body.startDate,
             dueDate: body.dueDate,
             stageId: nextStageId,
             boardId: body.boardId === undefined ? undefined : nextBoardId,
+            issueNumber:
+              body.boardId && nextBoardId !== existing.boardId ? issueNumber : undefined,
+            issueKey: body.boardId && nextBoardId !== existing.boardId ? issueKey : undefined,
+            rank: nextRank,
             customFields: body.customFields as Prisma.InputJsonValue | undefined,
             parentTaskId: body.parentTaskId,
             completedAt:

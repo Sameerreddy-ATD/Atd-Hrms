@@ -10,7 +10,6 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -21,14 +20,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { tasksApi } from "@/services/api";
-import type { TaskAssignee, TaskBoard, TaskPriority, WorkTask } from "@/types/domain";
+import type { TaskAssignee, TaskBoard, TaskIssueType, TaskPriority, WorkTask } from "@/types/domain";
 import {
   dueLabel,
   initials,
+  ISSUE_TYPE_LABELS,
+  issueKey,
   PRIORITY_LABELS,
+  PRIORITY_MARK,
   PRIORITY_STYLES,
   STAGE_COLORS,
   STATUS_LABELS,
@@ -48,6 +56,7 @@ type TaskDetailDialogProps = {
     patch: {
       title: string;
       description: string | null;
+      issueType: TaskIssueType;
       priority: TaskPriority;
       startDate: string | null;
       dueDate: string | null;
@@ -92,6 +101,7 @@ export function TaskDetailDialog({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
+  const [issueType, setIssueType] = useState<TaskIssueType>("TASK");
   const [startDate, setStartDate] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [stageId, setStageId] = useState("");
@@ -114,6 +124,7 @@ export function TaskDetailDialog({
     setTitle(task.title);
     setDescription(task.description ?? "");
     setPriority(task.priority);
+    setIssueType(task.issueType ?? "TASK");
     setStartDate(task.startDate ?? "");
     setDueDate(task.dueDate ?? "");
     setStageId(task.stageId ?? "");
@@ -201,6 +212,7 @@ export function TaskDetailDialog({
     (title.trim() !== task.title ||
       description.trim() !== (task.description ?? "") ||
       priority !== task.priority ||
+      issueType !== (task.issueType ?? "TASK") ||
       (startDate || null) !== (task.startDate ?? null) ||
       (dueDate || null) !== (task.dueDate ?? null) ||
       (stageId || "") !== (task.stageId ?? "") ||
@@ -220,7 +232,7 @@ export function TaskDetailDialog({
   async function saveDetails() {
     if (!task) return;
     if (!title.trim()) {
-      setFormError("Enter a clear task title.");
+      setFormError("Enter a clear issue summary.");
       return;
     }
     if (assigneeIds.length === 0) {
@@ -244,6 +256,7 @@ export function TaskDetailDialog({
     await onSave(task, {
       title: title.trim(),
       description: description.trim() || null,
+      issueType,
       priority,
       startDate: startDate || null,
       dueDate: dueDate || null,
@@ -276,40 +289,47 @@ export function TaskDetailDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="h-[calc(100dvh-1rem)] max-h-none content-start overflow-y-auto sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-4xl">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="right"
+        className="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:w-[min(96vw,56rem)] sm:max-w-none"
+      >
         {loading && !task ? (
-          <div className="py-16 text-center text-sm text-muted-foreground">Loading task…</div>
+          <div className="py-16 text-center text-sm text-muted-foreground">Loading issue…</div>
         ) : !task ? (
-          <div className="py-16 text-center text-sm text-muted-foreground">Task not available.</div>
+          <div className="py-16 text-center text-sm text-muted-foreground">Issue not available.</div>
         ) : (
           <>
-            <DialogHeader>
-              <div className="space-y-3 pr-9">
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline" className={PRIORITY_STYLES[priority]}>
-                    {PRIORITY_LABELS[priority]}
-                  </Badge>
-                  <Badge variant="outline">
-                    {activeBoard?.stages.find((stage) => stage.id === stageId)?.name ??
-                      task.stage?.name ??
-                      STATUS_LABELS[task.status]}
-                  </Badge>
-                  {task.boardName && <Badge variant="secondary">{task.boardName}</Badge>}
-                  {task.parentTaskId && <Badge variant="outline">Subtask</Badge>}
-                </div>
-                <DialogTitle className="sr-only">{task.title}</DialogTitle>
-                <Input
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                  className="h-auto border-0 bg-transparent px-0 text-xl font-semibold shadow-none focus-visible:ring-0 sm:text-2xl"
-                  placeholder="Task title"
-                />
+            <SheetHeader className="space-y-3 border-b px-4 py-4 pr-12 text-left sm:px-6">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono text-sm font-semibold text-primary">
+                  {issueKey(task, activeBoard)}
+                </span>
+                <Badge variant="outline" className={PRIORITY_STYLES[priority]}>
+                  <span className={cn("mr-1 font-bold", PRIORITY_MARK[priority].className)}>
+                    {PRIORITY_MARK[priority].glyph}
+                  </span>
+                  {PRIORITY_LABELS[priority]}
+                </Badge>
+                <Badge variant="outline">
+                  {activeBoard?.stages.find((stage) => stage.id === stageId)?.name ??
+                    task.stage?.name ??
+                    STATUS_LABELS[task.status]}
+                </Badge>
+                {task.boardName && <Badge variant="secondary">{task.boardName}</Badge>}
+                {task.parentTaskId && <Badge variant="outline">Subtask</Badge>}
               </div>
-            </DialogHeader>
+              <SheetTitle className="sr-only">{task.title}</SheetTitle>
+              <Input
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                className="h-auto border-0 bg-transparent px-0 text-xl font-semibold shadow-none focus-visible:ring-0 sm:text-2xl"
+                placeholder="Issue summary"
+              />
+            </SheetHeader>
 
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
-              <div className="space-y-6">
+            <div className="grid min-h-0 flex-1 gap-0 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_280px]">
+              <div className="space-y-6 px-4 py-5 sm:px-6">
                 <section className="space-y-2">
                   <Label htmlFor="task-description">Description</Label>
                   <Textarea
@@ -352,11 +372,11 @@ export function TaskDetailDialog({
                     <div className="flex items-center gap-2">
                       <ListTree className="h-4 w-4" />
                       <h3 className="text-sm font-semibold">Subtasks</h3>
-                      <Badge variant="secondary" className="rounded-full">
+                      <Badge variant="secondary" className="rounded-md font-normal">
                         {subtasks.length || task.subtaskCount || 0}
                       </Badge>
                     </div>
-                    <div className="space-y-0 divide-y rounded-lg border">
+                    <div className="space-y-0 divide-y rounded-md border">
                       {subtasks.length === 0 ? (
                         <p className="px-3 py-4 text-sm text-muted-foreground">No subtasks yet.</p>
                       ) : (
@@ -367,7 +387,12 @@ export function TaskDetailDialog({
                             className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm hover:bg-muted/40"
                             onClick={() => onOpenTask?.(child)}
                           >
-                            <span className="truncate font-medium">{child.title}</span>
+                            <span className="min-w-0 truncate">
+                              <span className="mr-2 font-mono text-xs text-primary">
+                                {issueKey(child, activeBoard)}
+                              </span>
+                              <span className="font-medium">{child.title}</span>
+                            </span>
                             <span className="shrink-0 text-xs text-muted-foreground">
                               {STATUS_LABELS[child.status]} · {child.progress}%
                             </span>
@@ -429,16 +454,19 @@ export function TaskDetailDialog({
                   <div className="flex items-center gap-2">
                     <Paperclip className="h-4 w-4" />
                     <h3 className="text-sm font-semibold">Attachments</h3>
-                    <Badge variant="secondary" className="rounded-full">
+                    <Badge variant="secondary" className="rounded-md font-normal">
                       {attachments.length}
                     </Badge>
                   </div>
-                  <div className="space-y-0 divide-y rounded-lg border">
+                  <div className="space-y-0 divide-y rounded-md border">
                     {attachments.length === 0 ? (
                       <p className="px-3 py-4 text-sm text-muted-foreground">No files attached.</p>
                     ) : (
                       attachments.map((file) => (
-                        <div key={file.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
+                        <div
+                          key={file.id}
+                          className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm"
+                        >
                           <span className="truncate font-medium">{file.fileName}</span>
                           <span className="shrink-0 text-xs text-muted-foreground">
                             {Math.max(1, Math.round(file.sizeBytes / 1024))} KB
@@ -462,11 +490,11 @@ export function TaskDetailDialog({
                   <div className="mb-3 flex items-center gap-2">
                     <MessageSquareText className="h-4 w-4" />
                     <h3 className="text-sm font-semibold">Activity</h3>
-                    <Badge variant="secondary" className="rounded-full">
+                    <Badge variant="secondary" className="rounded-md font-normal">
                       {task.updates?.length ?? task.updateCount ?? 0}
                     </Badge>
                   </div>
-                  <div className="space-y-0 divide-y rounded-lg border">
+                  <div className="space-y-0 divide-y rounded-md border">
                     {(task.updates ?? []).length === 0 ? (
                       <p className="px-3 py-4 text-sm text-muted-foreground">No activity yet.</p>
                     ) : (
@@ -493,7 +521,7 @@ export function TaskDetailDialog({
                 </section>
 
                 <section className="space-y-3 border-t pt-5">
-                  <h3 className="text-sm font-semibold">Post an update</h3>
+                  <h3 className="text-sm font-semibold">Add a comment</h3>
                   <Textarea
                     value={message}
                     onChange={(event) => setMessage(event.target.value)}
@@ -519,17 +547,17 @@ export function TaskDetailDialog({
                       disabled={saving || !message.trim()}
                       onClick={() => void onAddUpdate(task, message.trim(), progress)}
                     >
-                      {saving ? "Saving..." : "Post update"}
+                      {saving ? "Saving..." : "Comment"}
                     </Button>
                   </div>
                 </section>
               </div>
 
-              <aside className="space-y-5 rounded-xl border bg-muted/20 p-4">
+              <aside className="space-y-5 border-t bg-muted/20 px-4 py-5 lg:border-l lg:border-t-0 sm:px-5">
                 {boards.length > 1 && (
                   <div className="space-y-2">
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Board
+                      Project
                     </p>
                     <Select
                       value={boardId}
@@ -541,7 +569,7 @@ export function TaskDetailDialog({
                       }}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select board" />
+                        <SelectValue placeholder="Select project" />
                       </SelectTrigger>
                       <SelectContent>
                         {boards.map((entry) => (
@@ -557,7 +585,7 @@ export function TaskDetailDialog({
                 {activeBoard && (
                   <div className="space-y-2">
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Stage
+                      Status
                     </p>
                     <Select
                       value={stageId}
@@ -591,6 +619,25 @@ export function TaskDetailDialog({
                 )}
 
                 <div className="space-y-2">
+                  <Label>Issue type</Label>
+                  <Select
+                    value={issueType}
+                    onValueChange={(value) => setIssueType(value as TaskIssueType)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(ISSUE_TYPE_LABELS) as TaskIssueType[]).map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {ISSUE_TYPE_LABELS[value]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
                   <Label>Priority</Label>
                   <Select
                     value={priority}
@@ -602,7 +649,12 @@ export function TaskDetailDialog({
                     <SelectContent>
                       {(Object.keys(PRIORITY_LABELS) as TaskPriority[]).map((value) => (
                         <SelectItem key={value} value={value}>
-                          {PRIORITY_LABELS[value]}
+                          <span className="flex items-center gap-2">
+                            <span className={cn("font-bold", PRIORITY_MARK[value].className)}>
+                              {PRIORITY_MARK[value].glyph}
+                            </span>
+                            {PRIORITY_LABELS[value]}
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -612,7 +664,7 @@ export function TaskDetailDialog({
                 <div className="space-y-2">
                   <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     <UserRound className="h-3.5 w-3.5" />
-                    Assignees
+                    Assignee
                   </p>
                   <div className="relative">
                     <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -661,7 +713,7 @@ export function TaskDetailDialog({
                 <div className="space-y-2">
                   <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     <CalendarDays className="h-3.5 w-3.5" />
-                    Schedule
+                    Dates
                   </p>
                   <div className="grid gap-2">
                     <div>
@@ -718,14 +770,14 @@ export function TaskDetailDialog({
                     disabled={saving}
                     onClick={() => void onArchive(task, !task.archivedAt)}
                   >
-                    {task.archivedAt ? "Restore from archive" : "Archive task"}
+                    {task.archivedAt ? "Restore from archive" : "Archive issue"}
                   </Button>
                 )}
               </aside>
             </div>
           </>
         )}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
