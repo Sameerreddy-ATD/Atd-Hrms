@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { sortAnnouncements } from "../src/lib/announcements.ts";
-import { futureBirthdays } from "../src/lib/birthdays.ts";
+import { sortAnnouncements } from "../src/lib/announcements.js";
+import { futureBirthdays } from "../src/lib/birthdays.js";
 
 describe("sortAnnouncements", () => {
   it("orders urgent before important before normal, then newest first", () => {
