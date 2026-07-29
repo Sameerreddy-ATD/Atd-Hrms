@@ -188,7 +188,19 @@ function LeaveApprovalsPage() {
 
   if (!accessChecked || !canApprove) {
     return (
-      <div className="text-sm text-muted-foreground">Checking organization approval access...</div>
+      <div className="space-y-4">
+        <PageHeader
+          title="Leave Approvals"
+          description="Approve leave and weekly-off for people in your reporting chain."
+        />
+        <LoadingState
+          label={
+            accessChecked
+              ? "Redirecting to Leave Tracking"
+              : "Checking organization approval access"
+          }
+        />
+      </div>
     );
   }
 

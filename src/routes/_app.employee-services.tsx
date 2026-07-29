@@ -94,6 +94,7 @@ function EmployeeServicesPage() {
     kind: "expense" | "certificate";
     id: string;
     status: string;
+    currentStatus: string;
     notes: string;
     documentUrl: string;
   } | null>(null);
@@ -259,6 +260,12 @@ function EmployeeServicesPage() {
             : "Submit expenses and request official documents from HR."
         }
       />
+      {canViewAll && !isHr && (
+        <p className="mb-4 rounded-md border border-border/80 bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground">
+          You can review every request here. HR marks expenses unpaid/paid and updates document
+          status.
+        </p>
+      )}
       {error && (
         <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
           {error}
@@ -763,11 +770,7 @@ function SectionHeading({ title, action }: { title: string; action?: React.React
   );
 }
 function EmptyPanel({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="rounded-lg border bg-card p-8">
-      <EmptyState title={title} description={description} />
-    </div>
-  );
+  return <EmptyState title={title} description={description} />;
 }
 function Field({ label: text, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -865,6 +868,7 @@ function ExpenseActions({
     kind: "expense";
     id: string;
     status: string;
+    currentStatus: string;
     notes: string;
     documentUrl: string;
   }) => void;
@@ -877,6 +881,7 @@ function ExpenseActions({
         onReview({
           kind: "expense",
           id: row.id,
+          currentStatus: row.status,
           status: row.status === "PENDING" ? "UNPAID" : "PAID",
           notes: row.reviewNotes ?? "",
           documentUrl: "",
@@ -896,6 +901,7 @@ function CertificateActions({
     kind: "certificate";
     id: string;
     status: string;
+    currentStatus: string;
     notes: string;
     documentUrl: string;
   }) => void;
@@ -910,6 +916,7 @@ function CertificateActions({
         onReview({
           kind: "certificate",
           id: row.id,
+          currentStatus: row.status,
           status: next,
           notes: row.hrNotes ?? "",
           documentUrl: row.documentUrl ?? "",
@@ -923,15 +930,18 @@ function CertificateActions({
 function reviewOptions(review: {
   kind: "expense" | "certificate";
   status: string;
-  currentStatus?: string;
+  currentStatus: string;
 }) {
-  if (review.kind === "expense")
-    return review.status === "UNPAID" ? ["UNPAID", "PAID", "REJECTED"] : ["UNPAID", "REJECTED"];
-  // Options are based on the intended next status already selected in the dialog.
-  if (review.status === "IN_PROGRESS") return ["IN_PROGRESS", "REJECTED"];
-  if (review.status === "READY") return ["READY", "REJECTED"];
-  if (review.status === "COLLECTED") return ["COLLECTED"];
-  if (review.status === "REJECTED") return ["REJECTED"];
+  if (review.kind === "expense") {
+    if (review.currentStatus === "PENDING") return ["UNPAID", "REJECTED"];
+    if (review.currentStatus === "UNPAID") return ["PAID", "UNPAID", "REJECTED"];
+    return [review.status];
+  }
+  if (review.currentStatus === "PENDING") return ["IN_PROGRESS", "REJECTED"];
+  if (review.currentStatus === "IN_PROGRESS") return ["READY", "IN_PROGRESS", "REJECTED"];
+  if (review.currentStatus === "READY") return ["COLLECTED", "READY", "REJECTED"];
+  if (review.currentStatus === "COLLECTED") return ["COLLECTED"];
+  if (review.currentStatus === "REJECTED") return ["REJECTED"];
   return ["IN_PROGRESS", "REJECTED"];
 }
 function label(value: string) {

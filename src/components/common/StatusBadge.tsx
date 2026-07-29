@@ -21,6 +21,7 @@ const map: Record<string, string> = {
     "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50",
   unpaid:
     "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-900/50",
+  paid: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50",
   missed:
     "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-900/50",
   holiday: "bg-muted text-muted-foreground border-border",
@@ -31,13 +32,13 @@ function classify(status: string): keyof typeof map {
   const s = status.toLowerCase();
   if (s.includes("mismatch")) return "mismatch";
   if (s.includes("field") || s.includes("location")) return "field";
+  if (s.includes("missed checkout") || s.includes("missed") || s.includes("manual")) return "missed";
   if (s.includes("late")) return "late";
   if (s.includes("absent") || s.includes("rejected")) return "rejected";
   if (s.includes("pending")) return "pending";
-  if (s.includes("approved")) return "approved";
+  if (s === "paid") return "paid";
+  if (s.includes("approved") || s.includes("collected") || s.includes("ready")) return "approved";
   if (s.includes("unpaid")) return "unpaid";
-  if (s.includes("missed") || s.includes("manual")) return "missed";
-  if (s.includes("holiday") || s.includes("week off")) return "holiday";
   if (s.includes("holiday") || s.includes("week off") || s.includes("sunday")) return "holiday";
   if (s.includes("leave") || s.includes("lop")) return "leave";
   if (s.includes("present") || s === "full day" || s === "half day") return "present";

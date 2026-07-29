@@ -202,8 +202,8 @@ function ApplyLeavePage() {
           <InfoButton title="Leave request process">
             Leave requests go to your organization head. Higher heads in the same chain can also
             approve or reject. Comp Off usage also requires Reporting Head approval and is consumed
-            only when approved. You can track the result in Leave History and cancel an approved
-            leave when required.
+            only when approved. Track leave results in Leave History. Weekly-off requests stay on this
+            Apply screen under Weekly off.
           </InfoButton>
         }
       />
