@@ -639,6 +639,7 @@ export interface Announcement {
 
 export type TaskStatus = "TODO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "COMPLETED" | "CANCELLED";
 export type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+export type TaskIssueType = "TASK" | "BUG" | "STORY" | "EPIC";
 export type TaskActivityType =
   | "CREATED"
   | "COMMENT"
@@ -663,12 +664,17 @@ export interface WorkTask {
   id: string;
   title: string;
   description?: string;
+  issueKey?: string;
+  issueNumber?: number;
+  issueType?: TaskIssueType;
+  rank?: number;
   assignees: TaskAssignee[];
   createdByUserId: string;
   createdByName: string;
   parentTaskId?: string;
   boardId?: string;
   boardName?: string;
+  boardKeyPrefix?: string;
   stageId?: string;
   stage?: TaskStage;
   status: TaskStatus;
@@ -701,6 +707,8 @@ export interface TaskBoard {
   id: string;
   createdByUserId: string;
   name: string;
+  keyPrefix?: string;
+  nextIssueNumber?: number;
   description?: string;
   accessType: "OPEN" | "ROLE_GATED" | "MEMBER_GATED";
   archived: boolean;

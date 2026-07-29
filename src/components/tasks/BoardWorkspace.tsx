@@ -23,12 +23,18 @@ import {
   UserRound,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type MutableRefObject, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MutableRefObject,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -42,7 +48,9 @@ import {
   dateValue,
   dueLabel,
   initials,
+  issueKey,
   PRIORITY_LABELS,
+  PRIORITY_MARK,
   PRIORITY_STYLES,
   STAGE_COLORS,
 } from "./task-utils";
@@ -50,8 +58,8 @@ import {
 type BoardView = "list" | "kanban" | "timeline";
 type DueFilter = "ALL" | "TODAY" | "OVERDUE" | "NONE";
 const VIEW_OPTIONS: Array<{ value: BoardView; label: string; Icon: LucideIcon }> = [
-  { value: "list", label: "List", Icon: LayoutList },
-  { value: "kanban", label: "Kanban", Icon: Columns3 },
+  { value: "kanban", label: "Board", Icon: Columns3 },
+  { value: "list", label: "Backlog", Icon: LayoutList },
   { value: "timeline", label: "Timeline", Icon: CalendarRange },
 ];
 
@@ -78,13 +86,13 @@ type BoardWorkspaceProps = {
 
 function TaskAvatars({ task }: { task: WorkTask }) {
   return (
-    <div className="flex -space-x-2">
+    <div className="flex -space-x-1.5">
       {task.assignees.slice(0, 3).map((person, index) => (
         <span
           key={person.id}
           title={person.name}
           className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-full border-2 border-background text-[10px] font-semibold",
+            "flex h-6 w-6 items-center justify-center rounded-full border-2 border-background text-[9px] font-semibold",
             index % 3 === 0 && "bg-red-100 text-red-800",
             index % 3 === 1 && "bg-blue-100 text-blue-800",
             index % 3 === 2 && "bg-emerald-100 text-emerald-800",
@@ -94,7 +102,7 @@ function TaskAvatars({ task }: { task: WorkTask }) {
         </span>
       ))}
       {task.assignees.length > 3 && (
-        <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-background bg-muted text-[10px] font-semibold">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-muted text-[9px] font-semibold">
           +{task.assignees.length - 3}
         </span>
       )}
@@ -102,11 +110,16 @@ function TaskAvatars({ task }: { task: WorkTask }) {
   );
 }
 
-function TaskPriorityBadge({ priority }: { priority: TaskPriority }) {
+function PriorityMark({ priority }: { priority: TaskPriority }) {
+  const mark = PRIORITY_MARK[priority];
   return (
-    <Badge variant="outline" className={cn("font-medium", PRIORITY_STYLES[priority])}>
-      {PRIORITY_LABELS[priority]}
-    </Badge>
+    <span
+      title={mark.label}
+      aria-label={mark.label}
+      className={cn("inline-flex w-3.5 shrink-0 justify-center text-xs font-bold leading-none", mark.className)}
+    >
+      {mark.glyph}
+    </span>
   );
 }
 
@@ -127,7 +140,7 @@ export function BoardWorkspace({
   onMoveTask,
   onRescheduleTask,
 }: BoardWorkspaceProps) {
-  const [view, setView] = useState<BoardView>("list");
+  const [view, setView] = useState<BoardView>("kanban");
   const [query, setQuery] = useState("");
   const [mineOnly, setMineOnly] = useState(initialMineOnly);
   const [assigneeId, setAssigneeId] = useState("ALL");
@@ -148,6 +161,7 @@ export function BoardWorkspace({
     setCollapsedStages(new Set());
     draggingTaskIdRef.current = null;
     setDraggingTaskId(null);
+    setView("kanban");
   }, [board.id, initialMineOnly]);
 
   const boardTasks = useMemo(
@@ -177,11 +191,15 @@ export function BoardWorkspace({
         return false;
       }
       if (!normalized) return true;
-      return [task.title, task.description, ...task.assignees.map((person) => person.name)]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(normalized));
+      const key = issueKey(task, board).toLowerCase();
+      return (
+        key.includes(normalized) ||
+        [task.title, task.description, ...task.assignees.map((person) => person.name)]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(normalized))
+      );
     });
-  }, [assigneeId, boardTasks, due, employeeId, mineOnly, priority, query, stageId]);
+  }, [assigneeId, board, boardTasks, due, employeeId, mineOnly, priority, query, stageId]);
 
   const activeCount = boardTasks.filter(
     (task) => !["COMPLETED", "CANCELLED"].includes(task.status),
@@ -191,7 +209,9 @@ export function BoardWorkspace({
       new Map(
         board.stages.map((stage) => [
           stage.id,
-          visibleTasks.filter((task) => task.stageId === stage.id),
+          visibleTasks
+            .filter((task) => task.stageId === stage.id)
+            .sort((left, right) => (left.rank ?? 0) - (right.rank ?? 0)),
         ]),
       ),
     [board.stages, visibleTasks],
@@ -207,192 +227,196 @@ export function BoardWorkspace({
     });
   }
 
-  return (
-    <div className="mx-auto w-full max-w-[1440px] space-y-5 px-4 pb-20 sm:px-6">
-      <Button variant="ghost" size="sm" onClick={onBack} className="-ml-2">
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        All boards
-      </Button>
+  const filtersActive =
+    mineOnly ||
+    assigneeId !== "ALL" ||
+    priority !== "ALL" ||
+    stageId !== "ALL" ||
+    due !== "ALL" ||
+    Boolean(query.trim());
 
-      <section className="overflow-hidden rounded-2xl bg-gradient-to-r from-red-600 via-red-500 to-rose-400 px-5 py-6 text-white shadow-lg shadow-red-900/10 sm:px-8 sm:py-7">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/75">
-              Shared board
-            </p>
-            <h1 className="mt-1 truncate text-2xl font-semibold sm:text-3xl">{board.name}</h1>
-            <p className="mt-1 text-sm text-white/85">
-              {board.taskCount} tasks · {activeCount} active
-              {loading ? " · Refreshing…" : ""}
-            </p>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <div className="relative min-w-0 sm:w-72 lg:w-80">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/80" />
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search this board"
-                className="border-white/30 bg-white/10 pl-9 text-white placeholder:text-white/75 focus-visible:ring-white"
-              />
-            </div>
-            <Button onClick={() => onNewTask()} className="bg-white text-red-600 hover:bg-white/90">
-              <Plus className="mr-2 h-4 w-4" />
-              New task
+  return (
+    <div className="mx-auto w-full max-w-[1600px] space-y-3 px-3 pb-20 sm:px-5">
+      {/* Jira-style project chrome */}
+      <div className="flex flex-col gap-3 border-b border-border/80 pb-3 pt-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={onBack} className="-ml-2 h-8 px-2">
+            <ArrowLeft className="mr-1.5 h-4 w-4" />
+            Projects
+          </Button>
+          <span className="text-muted-foreground">/</span>
+          <Select value={board.id} onValueChange={onSwitchBoard}>
+            <SelectTrigger className="h-8 w-auto min-w-[10rem] max-w-[16rem] border-0 bg-transparent px-1.5 font-semibold shadow-none focus:ring-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {boards.map((entry) => (
+                <SelectItem key={entry.id} value={entry.id}>
+                  {entry.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="text-xs text-muted-foreground">
+            {board.taskCount} issues · {activeCount} open
+            {loading ? " · Refreshing…" : ""}
+          </span>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {canChangeBoard && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8"
+                onClick={onEditBoard}
+              >
+                <Settings2 className="mr-1.5 h-3.5 w-3.5" />
+                Board settings
+              </Button>
+            )}
+            <Button size="sm" className="h-8" onClick={() => onNewTask()}>
+              <Plus className="mr-1.5 h-4 w-4" />
+              Create
             </Button>
           </div>
         </div>
-      </section>
 
-      <div className="scrollbar-none flex gap-2 overflow-x-auto pb-1">
-        <Button
-          size="sm"
-          variant={stageId === "ALL" ? "secondary" : "outline"}
-          onClick={() => setStageId("ALL")}
-          className="shrink-0"
-        >
-          All <span className="ml-2 tabular-nums">{boardTasks.length}</span>
-        </Button>
-        {board.stages.map((stage) => {
-          const color = STAGE_COLORS[stage.color] ?? STAGE_COLORS.SLATE;
-          const count = boardTasks.filter((task) => task.stageId === stage.id).length;
-          return (
-            <Button
-              key={stage.id}
-              size="sm"
-              variant="outline"
-              onClick={() => setStageId(stageId === stage.id ? "ALL" : stage.id)}
-              className={cn(
-                "shrink-0",
-                stageId === stage.id && color.soft,
-                stageId === stage.id && color.text,
-              )}
-            >
-              <span className={cn("mr-2 h-2 w-2 rounded-full", color.dot)} />
-              {stage.name}
-              <span className="ml-2 tabular-nums">{count}</span>
-            </Button>
-          );
-        })}
-      </div>
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+          <div
+            className="flex w-full rounded-md border bg-muted/30 p-0.5 sm:w-auto"
+            role="group"
+            aria-label="Board view"
+          >
+            {VIEW_OPTIONS.map(({ value, label, Icon }) => (
+              <Button
+                key={value}
+                size="sm"
+                variant={view === value ? "secondary" : "ghost"}
+                onClick={() => setView(value)}
+                className={cn(
+                  "h-8 flex-1 rounded-sm sm:flex-none",
+                  view === value && "bg-background shadow-sm",
+                )}
+              >
+                <Icon className="mr-1.5 h-3.5 w-3.5" />
+                {label}
+              </Button>
+            ))}
+          </div>
 
-      <section className="space-y-3 border-y border-border/80 py-3">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex w-full flex-col gap-2 min-[480px]:flex-row min-[480px]:flex-wrap min-[480px]:items-center">
+          <div className="flex w-full flex-col gap-2 min-[480px]:flex-row min-[480px]:flex-wrap min-[480px]:items-center lg:w-auto lg:justify-end">
+            <div className="relative min-w-0 flex-1 min-[480px]:max-w-xs lg:w-64 lg:flex-none">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search issues"
+                className="h-8 pl-8 text-sm"
+              />
+            </div>
             {employeeId && (
               <Button
                 size="sm"
                 variant={mineOnly ? "secondary" : "outline"}
                 onClick={() => setMineOnly((current) => !current)}
-                className="w-full shrink-0 min-[480px]:w-auto"
+                className="h-8 shrink-0"
               >
-                <UserRound className="mr-2 h-4 w-4" />
-                Mine
+                <UserRound className="mr-1.5 h-3.5 w-3.5" />
+                Only my issues
               </Button>
             )}
-            <Select value={assigneeId} onValueChange={setAssigneeId}>
-              <SelectTrigger className="h-10 w-full shrink-0 min-[480px]:h-9 min-[480px]:w-[170px]">
-                <SelectValue placeholder="All assignees" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All assignees</SelectItem>
-                {assignees.map((person) => (
-                  <SelectItem key={person.id} value={person.id}>
-                    {person.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={priority}
-              onValueChange={(value) => setPriority(value as TaskPriority | "ALL")}
-            >
-              <SelectTrigger className="h-10 w-full shrink-0 min-[480px]:h-9 min-[480px]:w-[150px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All priorities</SelectItem>
-                {Object.entries(PRIORITY_LABELS).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={due} onValueChange={(value) => setDue(value as DueFilter)}>
-              <SelectTrigger className="h-10 w-full shrink-0 min-[480px]:h-9 min-[480px]:w-[150px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Any due date</SelectItem>
-                <SelectItem value="TODAY">Due today</SelectItem>
-                <SelectItem value="OVERDUE">Overdue</SelectItem>
-                <SelectItem value="NONE">No due date</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex w-full flex-col gap-2 min-[480px]:flex-row min-[480px]:items-center">
-            <div
-              className="flex w-full rounded-lg border p-1 min-[480px]:w-auto"
-              role="group"
-              aria-label="Board view"
-            >
-              {VIEW_OPTIONS.map(({ value, label, Icon }) => (
-                <Button
-                  key={value}
-                  size="sm"
-                  variant={view === value ? "default" : "ghost"}
-                  onClick={() => setView(value)}
-                  className={cn(
-                    "h-9 flex-1 min-[480px]:flex-none",
-                    view === value && "bg-red-600 hover:bg-red-700",
-                  )}
-                >
-                  <Icon className="mr-1.5 h-4 w-4" />
-                  <span className="truncate">{label}</span>
-                </Button>
-              ))}
-            </div>
-            {canChangeBoard && (
-              <Button
-                variant="outline"
-                size="icon"
-                aria-label="Board settings"
-                onClick={onEditBoard}
-                className="shrink-0"
-              >
-                <Settings2 className="h-4 w-4" />
-              </Button>
-            )}
-            <Select value={board.id} onValueChange={onSwitchBoard}>
-              <SelectTrigger className="h-10 w-full shrink-0 min-[480px]:h-9 min-[480px]:w-[190px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {boards.map((entry) => (
-                  <SelectItem key={entry.id} value={entry.id}>
-                    {entry.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
         </div>
-      </section>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={assigneeId} onValueChange={setAssigneeId}>
+            <SelectTrigger className="h-8 w-auto min-w-[8.5rem] text-xs">
+              <SelectValue placeholder="Assignee" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Assignee: Any</SelectItem>
+              {assignees.map((person) => (
+                <SelectItem key={person.id} value={person.id}>
+                  {person.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={priority}
+            onValueChange={(value) => setPriority(value as TaskPriority | "ALL")}
+          >
+            <SelectTrigger className="h-8 w-auto min-w-[8rem] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Priority: Any</SelectItem>
+              {Object.entries(PRIORITY_LABELS).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={stageId} onValueChange={setStageId}>
+            <SelectTrigger className="h-8 w-auto min-w-[8rem] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Status: Any</SelectItem>
+              {board.stages.map((stage) => (
+                <SelectItem key={stage.id} value={stage.id}>
+                  {stage.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={due} onValueChange={(value) => setDue(value as DueFilter)}>
+            <SelectTrigger className="h-8 w-auto min-w-[8rem] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Due: Any</SelectItem>
+              <SelectItem value="TODAY">Due today</SelectItem>
+              <SelectItem value="OVERDUE">Overdue</SelectItem>
+              <SelectItem value="NONE">No due date</SelectItem>
+            </SelectContent>
+          </Select>
+          {filtersActive && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 text-xs text-muted-foreground"
+              onClick={() => {
+                setQuery("");
+                setMineOnly(false);
+                setAssigneeId("ALL");
+                setPriority("ALL");
+                setStageId("ALL");
+                setDue("ALL");
+              }}
+            >
+              Clear filters
+            </Button>
+          )}
+        </div>
+      </div>
 
       {visibleTasks.length === 0 ? (
         <Card className="border-dashed shadow-none">
           <CardContent className="flex flex-col items-center py-14 text-center">
             <ListFilter className="mb-3 h-7 w-7 text-muted-foreground" />
-            <h2 className="font-semibold">No matching tasks</h2>
+            <h2 className="font-semibold">No matching issues</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Clear a filter or add work to this board.
+              Clear a filter or create an issue on this board.
             </p>
+            <Button className="mt-4" size="sm" onClick={() => onNewTask()}>
+              <Plus className="mr-1.5 h-4 w-4" />
+              Create issue
+            </Button>
           </CardContent>
         </Card>
       ) : view === "list" ? (
-        <ListView
+        <BacklogView
           board={board}
           tasksByStage={tasksByStage}
           cancelledTasks={cancelledTasks}
@@ -415,6 +439,7 @@ export function BoardWorkspace({
         />
       ) : (
         <TimelineView
+          board={board}
           tasks={visibleTasks}
           onOpenTask={onOpenTask}
           onRescheduleTask={onRescheduleTask}
@@ -424,7 +449,7 @@ export function BoardWorkspace({
   );
 }
 
-type ListViewProps = {
+type BacklogViewProps = {
   board: TaskBoard;
   tasksByStage: Map<string, WorkTask[]>;
   cancelledTasks: WorkTask[];
@@ -435,7 +460,7 @@ type ListViewProps = {
   onMoveTask: (task: WorkTask, stageId: string) => Promise<void>;
 };
 
-function ListView({
+function BacklogView({
   board,
   tasksByStage,
   cancelledTasks,
@@ -444,20 +469,20 @@ function ListView({
   onNewTask,
   onOpenTask,
   onMoveTask,
-}: ListViewProps) {
+}: BacklogViewProps) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {board.stages.map((stage) => {
         const stageTasks = tasksByStage.get(stage.id) ?? [];
         const collapsed = collapsedStages.has(stage.id);
         const color = STAGE_COLORS[stage.color] ?? STAGE_COLORS.SLATE;
         return (
-          <section key={stage.id}>
+          <section key={stage.id} className="overflow-hidden rounded-md border bg-background">
             <button
               type="button"
               onClick={() => onToggleStage(stage)}
               className={cn(
-                "mb-2 flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left",
+                "flex w-full items-center gap-2 border-b bg-muted/30 px-3 py-2 text-left",
                 color.text,
               )}
             >
@@ -466,52 +491,62 @@ function ListView({
               ) : (
                 <ChevronDown className="h-4 w-4" />
               )}
-              <span className={cn("h-2.5 w-2.5 rounded-full", color.dot)} />
-              <span className="text-sm font-semibold uppercase tracking-wide">{stage.name}</span>
-              <Badge variant="secondary" className="rounded-full">
+              <span className={cn("h-2 w-2 rounded-full", color.dot)} />
+              <span className="text-xs font-semibold uppercase tracking-wide">{stage.name}</span>
+              <Badge variant="secondary" className="rounded-md font-normal tabular-nums">
                 {stageTasks.length}
               </Badge>
             </button>
             {!collapsed && (
-              <div className="space-y-2">
-                {stageTasks.map((task) => (
-                  <button
+              <div>
+                {stageTasks.map((task, index) => (
+                  <div
                     key={task.id}
-                    type="button"
-                    onClick={() => onOpenTask(task)}
-                    className="grid w-full gap-3 rounded-lg border border-border/80 bg-background px-3 py-3 text-left transition hover:border-primary/30 hover:bg-muted/30 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:items-center sm:px-4"
+                    className={cn(
+                      "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-2 py-1.5 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto_auto_auto] sm:gap-3 sm:px-3",
+                      index > 0 && "border-t",
+                      "hover:bg-muted/40",
+                    )}
                   >
-                    <span className="min-w-0">
-                      <span className="block truncate font-medium">{task.title}</span>
-                      <span className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                        {task.progress > 0 && <span className="tabular-nums">{task.progress}%</span>}
-                        {task.description && (
-                          <span className="line-clamp-1">{task.description}</span>
-                        )}
+                    <PriorityMark priority={task.priority} />
+                    <button
+                      type="button"
+                      onClick={() => onOpenTask(task)}
+                      className="hidden font-mono text-xs text-primary hover:underline sm:block"
+                    >
+                      {issueKey(task, board)}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onOpenTask(task)}
+                      className="min-w-0 truncate text-left text-sm font-medium hover:text-primary"
+                    >
+                      <span className="font-mono text-xs text-primary sm:hidden">
+                        {issueKey(task, board)}{" "}
                       </span>
+                      {task.title}
+                    </button>
+                    <span
+                      className={cn(
+                        "hidden text-xs text-muted-foreground lg:block",
+                        task.dueDate &&
+                          isBefore(dateValue(task.dueDate), startOfToday()) &&
+                          task.status !== "COMPLETED" &&
+                          "font-medium text-rose-600",
+                      )}
+                    >
+                      {dueLabel(task.dueDate, task.status === "COMPLETED")}
                     </span>
-                    <span className="flex flex-wrap items-center gap-2">
-                      <TaskPriorityBadge priority={task.priority} />
-                      <span
-                        className={cn(
-                          "text-xs text-muted-foreground",
-                          task.dueDate &&
-                            isBefore(dateValue(task.dueDate), startOfToday()) &&
-                            task.status !== "COMPLETED" &&
-                            "rounded bg-rose-100 px-2 py-1 text-rose-700",
-                        )}
-                      >
-                        {dueLabel(task.dueDate, task.status === "COMPLETED")}
-                      </span>
-                    </span>
-                    <TaskAvatars task={task} />
+                    <div className="hidden sm:block">
+                      <TaskAvatars task={task} />
+                    </div>
                     <Select
                       value={task.stageId ?? ""}
                       onValueChange={(nextStageId) => void onMoveTask(task, nextStageId)}
                     >
                       <SelectTrigger
-                        aria-label={`Stage for ${task.title}`}
-                        className="h-9 w-full sm:w-[145px]"
+                        aria-label={`Status for ${task.title}`}
+                        className="h-7 w-[7.5rem] text-xs"
                         onClick={(event) => event.stopPropagation()}
                       >
                         <SelectValue />
@@ -524,15 +559,16 @@ function ListView({
                         ))}
                       </SelectContent>
                     </Select>
-                  </button>
+                  </div>
                 ))}
                 <Button
                   variant="ghost"
-                  className="w-full justify-start border border-dashed text-muted-foreground"
+                  size="sm"
+                  className="w-full justify-start rounded-none border-t text-muted-foreground"
                   onClick={() => onNewTask(stage.id)}
                 >
                   <Plus className="mr-2 h-4 w-4" />
-                  Add a task to {stage.name}
+                  Create issue in {stage.name}
                 </Button>
               </div>
             )}
@@ -540,8 +576,8 @@ function ListView({
         );
       })}
       {cancelledTasks.length > 0 && (
-        <section className="space-y-2">
-          <h3 className="px-2 text-sm font-semibold text-muted-foreground">
+        <section className="space-y-1 rounded-md border border-dashed p-2">
+          <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Cancelled ({cancelledTasks.length})
           </h3>
           {cancelledTasks.map((task) => (
@@ -549,10 +585,11 @@ function ListView({
               key={task.id}
               type="button"
               onClick={() => onOpenTask(task)}
-              className="flex w-full items-center justify-between gap-3 rounded-lg border border-dashed px-4 py-3 text-left text-sm text-muted-foreground hover:bg-muted/20"
+              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-muted/30"
             >
-              <span className="truncate font-medium">{task.title}</span>
-              <TaskPriorityBadge priority={task.priority} />
+              <PriorityMark priority={task.priority} />
+              <span className="font-mono text-xs">{issueKey(task, board)}</span>
+              <span className="truncate">{task.title}</span>
             </button>
           ))}
         </section>
@@ -586,8 +623,8 @@ function KanbanView({
   return (
     <div className="overflow-x-auto pb-3">
       <div
-        className="grid min-w-max gap-3"
-        style={{ gridTemplateColumns: `repeat(${board.stages.length}, minmax(260px, 1fr))` }}
+        className="grid min-w-max gap-2"
+        style={{ gridTemplateColumns: `repeat(${board.stages.length}, minmax(240px, 1fr))` }}
       >
         {board.stages.map((stage) => {
           const stageTasks = tasksByStage.get(stage.id) ?? [];
@@ -595,7 +632,7 @@ function KanbanView({
           return (
             <section
               key={stage.id}
-              className="flex max-h-[min(70dvh,640px)] min-h-[320px] w-[280px] flex-col rounded-xl border border-border/80 bg-muted/10 xl:w-auto"
+              className="flex max-h-[min(72dvh,680px)] min-h-[280px] w-[260px] flex-col rounded-md border border-border/80 bg-muted/20 xl:w-auto"
               onDragOver={(event) => event.preventDefault()}
               onDrop={() => {
                 const id = draggingTaskIdRef.current ?? draggingTaskId;
@@ -605,16 +642,18 @@ function KanbanView({
                 if (task && task.stageId !== stage.id) void onMoveTask(task, stage.id);
               }}
             >
-              <header className="flex items-center justify-between px-3 py-2.5">
-                <div className="flex items-center gap-2">
-                  <span className={cn("h-2.5 w-2.5 rounded-full", color.dot)} />
-                  <h2 className="text-sm font-semibold">{stage.name}</h2>
+              <header className="flex items-center justify-between gap-2 border-b border-border/60 px-2.5 py-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className={cn("h-2 w-2 shrink-0 rounded-full", color.dot)} />
+                  <h2 className="truncate text-xs font-semibold uppercase tracking-wide">
+                    {stage.name}
+                  </h2>
                 </div>
-                <span className="text-xs tabular-nums text-muted-foreground">
+                <span className="rounded bg-background px-1.5 py-0.5 text-[11px] tabular-nums text-muted-foreground">
                   {stageTasks.length}
                 </span>
               </header>
-              <div className="flex-1 space-y-2 overflow-y-auto px-2 pb-2">
+              <div className="flex-1 space-y-1.5 overflow-y-auto px-1.5 py-1.5">
                 {stageTasks.map((task) => (
                   <div
                     key={task.id}
@@ -624,8 +663,6 @@ function KanbanView({
                       setDraggingTaskId(task.id);
                     }}
                     onDragEnd={() => {
-                      // Keep ref until drop runs; clear visual state only. If no drop,
-                      // clear the ref on the next tick.
                       setDraggingTaskId(null);
                       window.setTimeout(() => {
                         if (draggingTaskIdRef.current === task.id) {
@@ -634,43 +671,36 @@ function KanbanView({
                       }, 0);
                     }}
                     className={cn(
-                      "cursor-grab rounded-lg border border-border/80 bg-background p-3 text-left transition hover:border-primary/30 active:cursor-grabbing",
+                      "cursor-grab rounded-md border border-border/70 bg-background px-2.5 py-2 text-left shadow-sm transition hover:border-primary/40 active:cursor-grabbing",
                       draggingTaskId === task.id && "opacity-50",
                     )}
                   >
                     <button type="button" onClick={() => onOpenTask(task)} className="w-full text-left">
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="line-clamp-2 text-sm font-semibold leading-snug">
+                      <div className="flex items-start gap-1.5">
+                        <PriorityMark priority={task.priority} />
+                        <span className="min-w-0 flex-1 text-sm font-medium leading-snug">
                           {task.title}
-                        </h3>
-                        <TaskPriorityBadge priority={task.priority} />
-                      </div>
-                      {task.description && (
-                        <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
-                          {task.description}
-                        </p>
-                      )}
-                      {task.progress > 0 && task.status !== "COMPLETED" && (
-                        <div className="mt-2 flex items-center gap-2">
-                          <Progress value={task.progress} className="h-1.5" />
-                          <span className="text-xs tabular-nums text-muted-foreground">
-                            {task.progress}%
-                          </span>
-                        </div>
-                      )}
-                      <div className="mt-3 flex items-center justify-between">
-                        <span
-                          className={cn(
-                            "text-xs text-muted-foreground",
-                            task.dueDate &&
-                              isBefore(dateValue(task.dueDate), startOfToday()) &&
-                              task.status !== "COMPLETED" &&
-                              "rounded bg-rose-100 px-2 py-0.5 text-rose-700",
-                          )}
-                        >
-                          {dueLabel(task.dueDate, task.status === "COMPLETED")}
                         </span>
-                        <TaskAvatars task={task} />
+                      </div>
+                      <div className="mt-2 flex items-center justify-between gap-2">
+                        <span className="font-mono text-[11px] text-muted-foreground">
+                          {issueKey(task, board)}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {task.dueDate && (
+                            <span
+                              className={cn(
+                                "text-[10px] text-muted-foreground",
+                                isBefore(dateValue(task.dueDate), startOfToday()) &&
+                                  task.status !== "COMPLETED" &&
+                                  "font-medium text-rose-600",
+                              )}
+                            >
+                              {format(dateValue(task.dueDate), "d MMM")}
+                            </span>
+                          )}
+                          <TaskAvatars task={task} />
+                        </div>
                       </div>
                     </button>
                   </div>
@@ -678,11 +708,12 @@ function KanbanView({
               </div>
               <Button
                 variant="ghost"
-                className="m-2 justify-start text-muted-foreground"
+                size="sm"
+                className="m-1.5 h-8 justify-start text-xs text-muted-foreground"
                 onClick={() => onNewTask(stage.id)}
               >
-                <Plus className="mr-2 h-4 w-4" />
-                Add task
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                Create issue
               </Button>
             </section>
           );
@@ -693,10 +724,12 @@ function KanbanView({
 }
 
 function TimelineView({
+  board,
   tasks,
   onOpenTask,
   onRescheduleTask,
 }: {
+  board: TaskBoard;
   tasks: WorkTask[];
   onOpenTask: (task: WorkTask) => void;
   onRescheduleTask?: (
@@ -766,7 +799,8 @@ function TimelineView({
       const origin = dragOriginRef.current;
       if (!origin || origin.taskId !== task.id || !track) return;
       const rect = track.getBoundingClientRect();
-      const deltaDays = dayFromClientX(moveEvent.clientX, rect) - dayFromClientX(origin.clientX, rect);
+      const deltaDays =
+        dayFromClientX(moveEvent.clientX, rect) - dayFromClientX(origin.clientX, rect);
       const nextStart = new Date(origin.start);
       nextStart.setDate(nextStart.getDate() + deltaDays);
       const nextEnd = new Date(origin.end);
@@ -794,7 +828,8 @@ function TimelineView({
       setDragPreview(null);
       if (!origin || origin.taskId !== task.id || !track) return;
       const rect = track.getBoundingClientRect();
-      const deltaDays = dayFromClientX(upEvent.clientX, rect) - dayFromClientX(origin.clientX, rect);
+      const deltaDays =
+        dayFromClientX(upEvent.clientX, rect) - dayFromClientX(origin.clientX, rect);
       if (deltaDays === 0) {
         onOpenTask(task);
         return;
@@ -817,27 +852,28 @@ function TimelineView({
     <>
       <div className="space-y-3 md:hidden">
         {[...groups.entries()].map(([key, group]) => (
-          <div key={key} className="rounded-lg border bg-card p-3">
+          <div key={key} className="rounded-md border bg-card p-3">
             <div className="mb-3 flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-red-100 text-[10px] font-semibold text-red-800">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">
                 {initials(group.name)}
               </span>
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold">{group.name}</p>
-                <p className="text-xs text-muted-foreground">{group.tasks.length} tasks</p>
+                <p className="text-xs text-muted-foreground">{group.tasks.length} issues</p>
               </div>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {group.tasks.map((task) => (
                 <button
                   key={task.id}
                   type="button"
                   onClick={() => onOpenTask(task)}
                   className={cn(
-                    "flex w-full flex-col gap-1 rounded-md border px-3 py-2.5 text-left text-sm transition hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    "flex w-full flex-col gap-0.5 rounded-md border px-3 py-2 text-left text-sm transition hover:border-primary/40",
                     PRIORITY_STYLES[task.priority],
                   )}
                 >
+                  <span className="font-mono text-[11px] opacity-80">{issueKey(task, board)}</span>
                   <span className="font-medium">{task.title}</span>
                   <span className="text-xs opacity-80">
                     {dueLabel(task.dueDate, task.status === "COMPLETED")}
@@ -848,29 +884,29 @@ function TimelineView({
           </div>
         ))}
         {groups.size === 0 && (
-          <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-            Add a start or due date to display tasks on the timeline.
+          <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+            Add a start or due date to display issues on the timeline.
           </div>
         )}
         {undatedTasks.length > 0 && (
-          <div className="flex items-center gap-2 rounded-lg border bg-muted/20 px-4 py-3 text-sm">
+          <div className="flex items-center gap-2 rounded-md border bg-muted/20 px-4 py-3 text-sm">
             <ChevronRight className="h-4 w-4" />
             <span className="font-medium">No dates</span>
             <Badge variant="secondary">{undatedTasks.length}</Badge>
           </div>
         )}
       </div>
-      <div className="hidden overflow-x-auto rounded-xl border md:block">
+      <div className="hidden overflow-x-auto rounded-md border md:block">
         <div className="min-w-[900px]">
           <div className="grid grid-cols-[260px_1fr] border-b bg-muted/30">
-            <div className="border-r px-4 py-3 text-xs font-semibold uppercase tracking-wide">
+            <div className="border-r px-4 py-2.5 text-xs font-semibold uppercase tracking-wide">
               Assignee
             </div>
             <div className="grid grid-cols-3">
               {monthLabels.map((label) => (
                 <div
                   key={label}
-                  className="border-r px-3 py-3 text-sm font-semibold last:border-r-0"
+                  className="border-r px-3 py-2.5 text-sm font-semibold last:border-r-0"
                 >
                   {label}
                 </div>
@@ -886,17 +922,17 @@ function TimelineView({
                 style={{ minHeight: rowHeight }}
               >
                 <div className="flex items-start gap-3 border-r p-4">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-[10px] font-semibold text-red-800">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">
                     {initials(group.name)}
                   </span>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{group.name}</p>
-                    <p className="text-xs text-muted-foreground">{group.tasks.length} tasks</p>
+                    <p className="text-xs text-muted-foreground">{group.tasks.length} issues</p>
                   </div>
                 </div>
                 <div className="relative bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px)] bg-[size:33.333%_100%]">
                   <span
-                    className="absolute bottom-0 top-0 z-10 w-px bg-red-500"
+                    className="absolute bottom-0 top-0 z-10 w-px bg-primary"
                     style={{ left: `${todayPosition}%` }}
                   />
                   {group.tasks.map((task, index) => {
@@ -933,16 +969,17 @@ function TimelineView({
                           const track = event.currentTarget.parentElement as HTMLDivElement | null;
                           handleBarPointerDown(event, task, track);
                         }}
-                        title={`${task.title}: ${dueLabel(task.dueDate, task.status === "COMPLETED")}${
+                        title={`${issueKey(task, board)} ${task.title}: ${dueLabel(task.dueDate, task.status === "COMPLETED")}${
                           onRescheduleTask ? " · drag to move dates" : ""
                         }`}
                         className={cn(
-                          "absolute z-20 truncate rounded-md border px-2 py-1 text-left text-xs font-medium shadow-sm transition hover:ring-2 hover:ring-primary/30",
+                          "absolute z-20 truncate rounded border px-2 py-1 text-left text-xs font-medium shadow-sm transition hover:ring-2 hover:ring-primary/30",
                           onRescheduleTask && "cursor-grab active:cursor-grabbing",
                           PRIORITY_STYLES[task.priority],
                         )}
                         style={{ left: `${left}%`, width: `${width}%`, top: 10 + index * 34 }}
                       >
+                        <span className="font-mono opacity-70">{issueKey(task, board)}</span>{" "}
                         {task.title}
                       </button>
                     );
@@ -953,7 +990,7 @@ function TimelineView({
           })}
           {groups.size === 0 && (
             <div className="p-12 text-center text-sm text-muted-foreground">
-              Add a start or due date to display tasks on the timeline.
+              Add a start or due date to display issues on the timeline.
             </div>
           )}
           {undatedTasks.length > 0 && (

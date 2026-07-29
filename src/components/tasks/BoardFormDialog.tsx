@@ -106,7 +106,13 @@ export function BoardFormDialog({
   }
 
   function validate() {
-    if (form.name.trim().length < 2) return "Enter a board name.";
+    if (form.name.trim().length < 2) return "Enter a project name.";
+    if (!form.keyPrefix.trim() || form.keyPrefix.trim().length < 2) {
+      return "Enter a project key (e.g. OPS).";
+    }
+    if (!/^[A-Z][A-Z0-9]{1,7}$/i.test(form.keyPrefix.trim())) {
+      return "Project key must be 2–8 letters/numbers (e.g. OPS).";
+    }
     if (form.stages.length < 2) return "Add at least two stages.";
     if (form.stages.some((stage) => stage.name.trim().length < 2)) {
       return "Every stage needs a clear name.";
@@ -142,6 +148,7 @@ export function BoardFormDialog({
     await onSave({
       ...form,
       name: form.name.trim(),
+      keyPrefix: form.keyPrefix.trim().toUpperCase(),
       description: form.description.trim(),
       stages: form.stages.map((stage) => ({ ...stage, name: stage.name.trim() })),
     });
@@ -151,26 +158,67 @@ export function BoardFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="grid max-h-[calc(100dvh-1rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-[720px]">
         <DialogHeader className="border-b px-5 py-5 sm:px-7">
-          <DialogTitle>{board ? "Board settings" : "New board"}</DialogTitle>
+          <DialogTitle>{board ? "Project settings" : "Create project"}</DialogTitle>
           <p className="text-sm text-muted-foreground">
             Define the workflow and exactly who can access it.
           </p>
         </DialogHeader>
 
         <div className="space-y-7 overflow-y-auto px-5 py-5 sm:px-7">
-          <div className="space-y-2">
-            <Label htmlFor="board-name">
-              Board name <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="board-name"
-              autoFocus
-              value={form.name}
-              onChange={(event) => setForm({ ...form, name: event.target.value })}
-              placeholder="e.g. Engineering sprint"
-              maxLength={120}
-            />
+          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_8rem]">
+            <div className="space-y-2">
+              <Label htmlFor="board-name">
+                Project name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="board-name"
+                autoFocus
+                value={form.name}
+                onChange={(event) => {
+                  const name = event.target.value;
+                  setForm((current) => ({
+                    ...current,
+                    name,
+                    keyPrefix:
+                      current.keyPrefix && board
+                        ? current.keyPrefix
+                        : name
+                            .toUpperCase()
+                            .replace(/[^A-Z0-9\s]/g, " ")
+                            .trim()
+                            .split(/\s+/)
+                            .filter(Boolean)
+                            .map((part) => part[0] ?? "")
+                            .join("")
+                            .slice(0, 4) || current.keyPrefix,
+                  }));
+                }}
+                placeholder="e.g. Operations"
+                maxLength={120}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="board-key">
+                Key <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="board-key"
+                value={form.keyPrefix}
+                onChange={(event) =>
+                  setForm({
+                    ...form,
+                    keyPrefix: event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8),
+                  })
+                }
+                placeholder="OPS"
+                maxLength={8}
+                className="font-mono uppercase"
+              />
+            </div>
           </div>
+          <p className="-mt-2 text-xs text-muted-foreground">
+            Issues will be numbered like {form.keyPrefix || "OPS"}-1, {form.keyPrefix || "OPS"}-2.
+          </p>
 
           <div className="space-y-2">
             <Label htmlFor="board-description">Description</Label>
@@ -178,7 +226,7 @@ export function BoardFormDialog({
               id="board-description"
               value={form.description}
               onChange={(event) => setForm({ ...form, description: event.target.value })}
-              placeholder="What does this board coordinate?"
+              placeholder="What does this project coordinate?"
               rows={2}
               maxLength={1000}
             />

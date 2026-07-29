@@ -128,6 +128,7 @@ function TaskBoardsPage() {
     try {
       const payload = {
         name: form.name,
+        keyPrefix: form.keyPrefix || undefined,
         description: form.description || null,
         accessType: form.accessType,
         allowedRoles: form.allowedRoles,
@@ -144,7 +145,7 @@ function TaskBoardsPage() {
       setBoardDialogOpen(false);
       setEditingBoard(null);
       setSelectedBoardId(saved.id);
-      toast.success(editingBoard ? "Board settings updated" : "Board created");
+      toast.success(editingBoard ? "Project settings updated" : "Project created");
       await loadDirectory(false);
       if (saved.id) await loadBoardTasks(saved.id);
     } catch (cause) {
@@ -159,7 +160,7 @@ function TaskBoardsPage() {
     try {
       await tasksApi.archiveBoard(board.id, board.version, archived);
       if (archived && selectedBoardId === board.id) setSelectedBoardId(null);
-      toast.success(archived ? "Board archived" : "Board restored");
+      toast.success(archived ? "Project archived" : "Project restored");
       await loadDirectory(false);
     } catch (cause) {
       toast.error((cause as Error).message || "Unable to update the board.");
@@ -183,12 +184,13 @@ function TaskBoardsPage() {
         assigneeEmployeeIds: form.assigneeEmployeeIds,
         boardId: selectedBoard.id,
         stageId: form.stageId,
+        issueType: form.issueType,
         priority: form.priority,
         startDate: form.startDate || null,
         dueDate: form.dueDate || null,
       });
       setTaskDialogOpen(false);
-      toast.success("Task created");
+      toast.success("Issue created");
       await loadBoardTasks(selectedBoard.id);
       await loadDirectory(false);
     } catch (cause) {
@@ -226,7 +228,7 @@ function TaskBoardsPage() {
         stageId,
       });
       applyTaskUpdate(updated);
-      toast.success("Task moved");
+      toast.success("Issue moved");
     } catch (cause) {
       applyTaskUpdate(previous);
       toast.error((cause as Error).message || "Unable to move the task.");
@@ -239,6 +241,7 @@ function TaskBoardsPage() {
     patch: {
       title: string;
       description: string | null;
+      issueType: import("@/types/domain").TaskIssueType;
       priority: TaskPriority;
       startDate: string | null;
       dueDate: string | null;
@@ -254,6 +257,7 @@ function TaskBoardsPage() {
         version: task.version,
         title: patch.title,
         description: patch.description,
+        issueType: patch.issueType,
         priority: patch.priority,
         startDate: patch.startDate,
         dueDate: patch.dueDate,
@@ -266,7 +270,7 @@ function TaskBoardsPage() {
       if (patch.boardId && patch.boardId !== task.boardId) {
         setSelectedBoardId(patch.boardId);
       }
-      toast.success("Task updated");
+      toast.success("Issue updated");
     } catch (cause) {
       const message = (cause as Error).message || "Unable to update the task.";
       toast.error(
@@ -364,7 +368,7 @@ function TaskBoardsPage() {
   if (error && !selectedBoard) {
     return (
       <div className="mx-auto max-w-xl rounded-xl border border-destructive/30 bg-destructive/5 p-6">
-        <h1 className="font-semibold">Task boards could not be loaded</h1>
+        <h1 className="font-semibold">Work Planner could not be loaded</h1>
         <p className="mt-1 text-sm text-muted-foreground">{error}</p>
         <button
           type="button"
@@ -474,7 +478,7 @@ function TaskBoardsPage() {
               version: result.version,
               archivedAt: result.archivedAt ?? undefined,
             });
-            toast.success(archived ? "Task archived" : "Task restored");
+            toast.success(archived ? "Issue archived" : "Issue restored");
             if (selectedBoardId) await loadBoardTasks(selectedBoardId);
           } catch (cause) {
             toast.error((cause as Error).message || "Unable to archive the task.");

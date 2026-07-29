@@ -1,5 +1,5 @@
 import { format, isBefore, isSameDay, parseISO, startOfToday } from "date-fns";
-import type { TaskBoard, TaskPriority, TaskStage, TaskStatus } from "@/types/domain";
+import type { TaskBoard, TaskPriority, TaskStage, TaskStatus, WorkTask } from "@/types/domain";
 
 export const STATUS_LABELS: Record<TaskStatus, string> = {
   TODO: "To do",
@@ -22,6 +22,56 @@ export const PRIORITY_STYLES: Record<TaskPriority, string> = {
   MEDIUM: "border-amber-200 bg-amber-50 text-amber-700",
   HIGH: "border-orange-200 bg-orange-50 text-orange-700",
   URGENT: "border-rose-200 bg-rose-50 text-rose-700",
+};
+
+export const PRIORITY_MARK: Record<TaskPriority, { label: string; className: string; glyph: string }> =
+  {
+    URGENT: { label: "Highest", className: "text-rose-600", glyph: "⇈" },
+    HIGH: { label: "High", className: "text-orange-600", glyph: "↑" },
+    MEDIUM: { label: "Medium", className: "text-amber-600", glyph: "=" },
+    LOW: { label: "Low", className: "text-blue-600", glyph: "↓" },
+  };
+
+/** Board short code for display keys (e.g. Operations → OPS). */
+export function boardKeyPrefix(boardName?: string | null) {
+  const cleaned = (boardName ?? "TASK")
+    .toUpperCase()
+    .replace(/[^A-Z0-9\s]/g, " ")
+    .trim();
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    return words
+      .slice(0, 3)
+      .map((word) => word[0])
+      .join("")
+      .slice(0, 4);
+  }
+  return (words[0] ?? "TASK").replace(/[^A-Z0-9]/g, "").slice(0, 4) || "TASK";
+}
+
+/** Prefer server issue key; fall back to a display-only key for legacy rows. */
+export function issueKey(
+  task: Pick<WorkTask, "id" | "boardName" | "issueKey" | "boardKeyPrefix">,
+  board?: Pick<TaskBoard, "name" | "keyPrefix"> | null,
+) {
+  if (task.issueKey) return task.issueKey;
+  const prefix = board?.keyPrefix || task.boardKeyPrefix || boardKeyPrefix(board?.name ?? task.boardName);
+  const suffix = task.id.replace(/[^a-zA-Z0-9]/g, "").slice(-4).toLowerCase() || "0000";
+  return `${prefix}-${suffix}`;
+}
+
+export const ISSUE_TYPE_LABELS: Record<string, string> = {
+  TASK: "Task",
+  BUG: "Bug",
+  STORY: "Story",
+  EPIC: "Epic",
+};
+
+export const ISSUE_TYPE_STYLES: Record<string, string> = {
+  TASK: "text-blue-600",
+  BUG: "text-rose-600",
+  STORY: "text-emerald-600",
+  EPIC: "text-violet-600",
 };
 
 export const STAGE_COLORS: Record<TaskStage["color"], { dot: string; soft: string; text: string }> =
@@ -66,6 +116,7 @@ export type BoardFormStage = {
 
 export type BoardForm = {
   name: string;
+  keyPrefix: string;
   description: string;
   accessType: TaskBoard["accessType"];
   allowedRoles: string[];
@@ -76,6 +127,7 @@ export type BoardForm = {
 
 export const DEFAULT_BOARD_FORM: BoardForm = {
   name: "",
+  keyPrefix: "",
   description: "",
   accessType: "OPEN",
   allowedRoles: [],
@@ -92,6 +144,7 @@ export const DEFAULT_BOARD_FORM: BoardForm = {
 export function boardToForm(board: TaskBoard): BoardForm {
   return {
     name: board.name,
+    keyPrefix: board.keyPrefix ?? boardKeyPrefix(board.name),
     description: board.description ?? "",
     accessType: board.accessType,
     allowedRoles: board.allowedRoles,

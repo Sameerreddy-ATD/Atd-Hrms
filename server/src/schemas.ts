@@ -10,6 +10,7 @@ import {
   ShiftType,
   TaskPriority,
   TaskBoardAccessType,
+  TaskIssueType,
   TaskStatus,
   UserStatus,
   WorkType,
@@ -229,6 +230,7 @@ export const taskSchema = z
     parentTaskId: z.string().nullable().optional(),
     boardId: z.string().nullable().optional(),
     stageId: z.string().nullable().optional(),
+    issueType: z.nativeEnum(TaskIssueType).optional(),
     priority: z.nativeEnum(TaskPriority).optional(),
     startDate: z.coerce.date().nullable().optional(),
     dueDate: z.coerce.date().nullable().optional(),
@@ -248,6 +250,7 @@ export const taskUpdateSchema = z.object({
   title: z.string().trim().min(2).max(200).optional(),
   description: z.string().trim().max(5000).nullable().optional(),
   assigneeEmployeeIds: z.array(z.string().min(1)).min(1).max(100).optional(),
+  issueType: z.nativeEnum(TaskIssueType).optional(),
   priority: z.nativeEnum(TaskPriority).optional(),
   status: z.nativeEnum(TaskStatus).optional(),
   progress: z.coerce.number().int().min(0).max(100).optional(),
@@ -255,6 +258,9 @@ export const taskUpdateSchema = z.object({
   dueDate: z.coerce.date().nullable().optional(),
   stageId: z.string().nullable().optional(),
   boardId: z.string().nullable().optional(),
+  rank: z.number().finite().optional(),
+  rankBeforeTaskId: z.string().min(1).optional(),
+  rankAfterTaskId: z.string().min(1).optional(),
   customFields: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional(),
   parentTaskId: z.string().nullable().optional(),
 });
@@ -328,6 +334,12 @@ const customFieldDefSchema = z.object({
 
 const taskBoardConfigurationSchema = z.object({
   name: z.string().trim().min(2).max(120),
+  keyPrefix: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z][A-Z0-9]{1,7}$/, "Project key must be 2–8 letters/numbers")
+    .optional(),
   description: z.string().trim().max(1000).nullable().optional(),
   accessType: z.nativeEnum(TaskBoardAccessType).default(TaskBoardAccessType.OPEN),
   allowedRoles: z.array(z.nativeEnum(Role)).max(20).default([]),
