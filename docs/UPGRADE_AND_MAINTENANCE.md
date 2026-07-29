@@ -3,8 +3,8 @@
 ## Source of Truth
 
 - Repository: `Sameerreddy-ATD/Employee-Management-System` (private)
-- Canonical release branch: `main`
-- Existing production checkout branch: `version-1`
+- Production / final branch: `main` (deploy from this branch)
+- Mirror / future UAT branch: `version-1` (keep identical to `main` until a separate UAT host exists)
 - Server checkout: `/opt/anytime-crew-hub`
 - Server remote: `git@github-atd-ems:Sameerreddy-ATD/Employee-Management-System.git`
 
@@ -31,8 +31,8 @@ npm run build:backend
 npm run audit:deps
 ```
 
-4. Commit with the configured organization identity and push the canonical `main` release. Keep
-   `version-1` release-compatible while the existing server still tracks it.
+4. Commit with the configured organization identity and push **`main`**. Fast-forward **`version-1`**
+   to the same commit so both branches stay identical.
 5. Record the previous production commit: `git rev-parse HEAD`.
 
 ## Production Backup
@@ -111,6 +111,10 @@ Migration `20260723100000_task_board_versioning` is non-destructive. It adds
 archive, and restore actions cannot silently overwrite one another. Deploy it before starting the
 new backend.
 
+Migration `20260729120000_jira_work_planner_keys` is additive. It adds project `key_prefix`,
+`next_issue_number`, and issue `issue_key` / `issue_number` / `issue_type` / `rank`, and backfills
+existing board issues. Deploy with a verified MySQL backup.
+
 ### Leave-policy migration warning
 
 Release migration `20260716190000_leave_policy_and_weekly_off` removes legacy leave requests, leave balances, and configurable leave types before installing Casual Leave, Sick Leave, Unpaid Leave / LOP, and Comp Off. Create and verify the MySQL dump above before deploying this release. Keep that dump when historical legacy leave records may be needed for payroll or compliance.
@@ -119,8 +123,8 @@ Release migration `20260716190000_leave_policy_and_weekly_off` removes legacy le
 cd /opt/anytime-crew-hub
 git status
 git fetch origin
-# Existing production currently tracks version-1. Use main only after a planned branch switch.
-git pull --ff-only origin version-1
+git checkout main
+git pull --ff-only origin main
 # Install with development so Vite and other build tools are present when .env has NODE_ENV=production.
 NODE_ENV=development npm ci
 npx prisma generate
@@ -169,9 +173,9 @@ approval, rejection reason, encrypted evidence history, retention settings, leav
 check-in, checkout, and one-time session expiry. Confirm the evidence directory is persistent across
 a PM2 restart or container replacement.
 
-For a Work Planner release, create a board and task, add/reorder a custom stage, change the task
-stage, post an update, archive and restore the board, and confirm the stage/status/activity remain
-synchronized. Run `npm run db:audit` again after the test.
+For a Work Planner release, create a project with a key, create an issue (confirm `OPS-n` key and
+type), reorder a Board column, move stages, post an update, archive and restore the project, and
+confirm stage/status/activity remain synchronized. Run `npm run db:audit` again after the test.
 
 For releases that change shared navigation or dashboards, also verify:
 

@@ -128,8 +128,8 @@ Lockout or suspension does not delete or disable the employee record, allowing h
 | `/leave`                | Leave types, requests, cancellation, approvals, and reports                                 |
 | `/weekly-offs`          | Date-specific weekly-off requests and direct-head approval                                  |
 | `/holidays`             | Active holiday calendar and branch scope                                                    |
-| `/tasks`                | Board directory, list/Kanban/timeline views, versioned tasks, filters, and typed activity   |
-| `/task-boards`          | Versioned board configuration, ordered stages, access policies, archive, and restore        |
+| `/tasks`                | Project directory, Board/Backlog/Timeline, issue keys/types/ranks, filters, typed activity |
+| `/task-boards`          | Versioned project config, key prefix, stages, access policies, archive, and restore        |
 | `/assets`               | Physical/online assets, return checklists, and company investment per employee calculations |
 | `/api/v1`               | Scoped server-to-server employee master data and ordered employee change feed               |
 | `/integration-clients`  | Developer Admin credential creation, listing, expiry and revocation                         |

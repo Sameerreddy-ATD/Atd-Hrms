@@ -224,35 +224,40 @@ Required behavior:
 
 ## Work Planner
 
-- The screen is named **Work Planner**. Its landing page lists accessible active boards, recoverable
-  archived boards, and active tasks assigned to the signed-in employee.
-- Boards support open, role-gated, and member-gated access. The backend applies board visibility to
-  both board and task queries; frontend filtering is not treated as authorization.
-- Each board provides list, Kanban, and timeline projections of the same stored tasks. Dragging,
-  inline stage selection, and detail-panel stage changes call the same versioned task update API.
-- Developer Admin, Main Admin, CEO, and HR can assign any active employee. Organization heads can
-  assign employees within their permitted team. Employees see assigned work within their permitted
-  scope.
-- Every task has one or more active assignees. Every assignee sees the complete assignee list.
-- A board defines ordered, colored stages. Each stage has an explicit canonical status; moving a task to
-  a stage updates both values together.
-- Board configuration is versioned. Only its creator or Developer Admin may edit, archive, or restore
-  it. Stale board writes receive HTTP 409.
-- Archived boards are read-only through the API until restored; new tasks, task changes, activity,
-  and configuration changes are rejected.
-- Populated stages cannot be removed. When an existing stage's canonical status changes, its tasks
-  receive a version increment and typed activity while being synchronized in the same database
-  transaction. A board cannot be changed to role/member gating unless every current assignee
-  remains eligible.
-- Employees may update status, progress, stage, and work notes on their assigned work. Broader edits
-  and reassignment require task-management permission.
-- Task edits use a version number. If two sessions edit the same task, the stale session receives a
+- The screen is named **Work Planner**. Its landing page lists **Your work**, accessible active
+  projects, and recoverable archived projects.
+- Each project has a unique `keyPrefix` and allocates sequential `issueKey` values (`OPS-12`) with
+  an atomic `nextIssueNumber` counter. Issue types are Task, Bug, Story, and Epic. Board columns
+  order issues by stored `rank` (drag-and-drop persists neighbors via rank before/after).
+- Projects support open, role-gated, and member-gated access. The backend applies board visibility to
+  both project and issue queries; frontend filtering is not treated as authorization.
+- Each project provides Board (Kanban), Backlog, and Timeline projections of the same stored issues.
+  Dragging, inline stage selection, and detail-sheet stage changes call the same versioned task
+  update API. Cross-project moves re-key the issue and require a valid target stage; assignees must
+  remain eligible on the target project.
+- Developer Admin, Main Admin, CEO, and HR can assign any active employee and may mutate issues on
+  boards they can view through task scope. Organization heads can assign within their permitted team.
+- Every issue has one or more active assignees. Every assignee sees the complete assignee list.
+- A project defines ordered, colored stages. Each stage has an explicit canonical status; moving an
+  issue to a stage updates both values together.
+- Project configuration is versioned. Only its creator or Developer Admin may edit, archive, or
+  restore it. Renaming `keyPrefix` rewrites issue keys when the planned keys are free. Stale writes
+  receive HTTP 409.
+- Archived projects are read-only through the API until restored; new issues, issue changes,
+  activity, and configuration changes are rejected.
+- Populated stages cannot be removed. When an existing stage's canonical status changes, its issues
+  receive a version increment and typed activity in the same transaction. A project cannot be changed
+  to role/member gating unless every current assignee remains eligible.
+- Employees may update status, progress, stage, column rank, and work notes on their assigned work.
+  Broader edits and reassignment require task-management permission.
+- Issue edits use a version number. If two sessions edit the same issue, the stale session receives a
   conflict and must refresh instead of overwriting newer data.
-- Task details, assignment replacement, version increment, and typed activity history are committed
-  in one transaction.
-- Account blocking or employee deactivation does not delete assignments or task history.
+- Issue details, assignment replacement, version increment, and typed activity history are committed
+  in one transaction. Rank allocation for stage moves runs inside that transaction.
+- Account blocking or employee deactivation does not delete assignments or issue history.
 - Migration `20260722213000_task_workspace_v2` removes only legacy Task/board records as an explicit
-  redesign reset. Back up any legacy Task history before deployment if it must be retained externally.
+  redesign reset. Migration `20260729120000_jira_work_planner_keys` adds project keys, issue keys,
+  issue types, and ranks (backfilling existing board issues).
 
 ## Asset Management
 
@@ -271,7 +276,8 @@ Required behavior:
 - Onboarding/offboarding checklists: HR runs instances; Developer Admin owns templates.
 - Document vault / SOP library deferred (tables retained unused).
 - Global `/search`, notification digest preferences.
-- Work Planner Phase 2: soft-archive, attachments, mentions metadata, cross-board move, custom fields.
+- Work Planner: soft-archive, attachments, mentions metadata, cross-project move, custom fields,
+  project keys, sequential issue keys, issue types, and ranked Board ordering.
 
 ## Future Employee Modules
 

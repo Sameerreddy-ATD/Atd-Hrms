@@ -10,8 +10,8 @@ low-cost architecture, and the **~150-employee VPS/storage capacity plan**, read
 (especially [§1.1 Capacity for ~150 employees](CLOUD_DEPLOYMENT_OPTIONS.md#11-capacity-for-150-employees))
 before purchasing infrastructure. For company AWS (RDS, S3, CI/CD, and the VPS→AWS migration path),
 read [AWS Deployment Patterns](AWS_DEPLOYMENT_PATTERNS.md) first, then use this guide for host
-commands. New installations should use `main`. The existing production server can continue tracking
-`version-1` until a deliberate branch switch is scheduled.
+commands. New and existing production installations deploy from **`main`**. Keep **`version-1`**
+identical to `main` until a dedicated UAT host is introduced.
 
 Commands use `hrms.example.com` as a placeholder. Replace it with the receiving company's approved
 hostname everywhere, including DNS, `.env`, the frontend build, Nginx, TLS, and acceptance tests.
@@ -308,13 +308,12 @@ cp -p .env /home/ubuntu/anytime-crew-hub.env.backup-$(date +%F_%H-%M)
 chmod 600 /home/ubuntu/anytime-crew-hub.env.backup-*
 git remote set-url origin git@github-atd-ems:Sameerreddy-ATD/Employee-Management-System.git
 git fetch origin
-git checkout version-1
-git pull --ff-only origin version-1
+git checkout main
+git pull --ff-only origin main
 ```
 
-The current production server has already completed this switch and may remain on `version-1`.
-Because routine updates must use one consistent branch, do not change it to `main` during an
-ordinary release. A planned switch requires a verified database backup, a clean worktree, and:
+Production deploys from `main`. Keep the local `version-1` branch on GitHub fast-forwarded to the
+same commit for mirror/UAT readiness. Routine updates:
 
 ```bash
 cd /opt/anytime-crew-hub

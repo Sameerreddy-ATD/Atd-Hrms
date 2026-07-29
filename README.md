@@ -2,9 +2,10 @@
 
 Internal workforce and operations platform for Anytime Diesel. It manages accounts, organization units, attendance, leave, tasks, assets and returns, expense claims, HR documents, announcements, notifications, reports, audit history, and a scoped Employee Integration API through role-based web and installed PWA experiences.
 
-Work Planner includes configurable open/role/member-gated boards, ordered custom stages,
-assigned-work shortcuts, list/Kanban/timeline views, mobile-focused task details, optimistic
-concurrency, and recoverable board archival.
+Work Planner includes Jira-style projects with unique keys, sequential issue IDs (`OPS-12`),
+issue types (Task/Bug/Story/Epic), ranked Board ordering, open/role/member-gated access, ordered
+custom stages, Your work shortcuts, Board/Backlog/Timeline views, mobile-focused issue sheets,
+optimistic concurrency, and recoverable project archival.
 
 When Developer Admin enables face verification, every normal account completes face registration
 before workspace access; Developer Admin is always exempt. Mobile check-in then requires a
@@ -26,8 +27,8 @@ and stores successful rows through the standard transactional employee/login wor
 ## Current Release
 
 - Repository: `Sameerreddy-ATD/Employee-Management-System` (private)
-- Canonical release branch: `main`
-- Existing Ubuntu deployment branch: `version-1` (kept release-compatible with `main`)
+- Production / final branch: `main` (deploy from this branch)
+- Mirror branch: `version-1` (kept identical to `main` for now; reserved for future UAT)
 - Production URL: `https://hrms.sameerreddy.in`
 - Database: MySQL 8 with Prisma
 - Biometric/eSSL integration: data model and administration screens exist; live device synchronization is planned for a later version
@@ -229,16 +230,18 @@ Database models, permissions, notification rules, retention requirements, and ap
 
 ## Production Update
 
-Production already uses a read-only deploy key for the private repository. The current server
-tracks `version-1`; keep using that branch until the planned switch procedure in
-[Linux and AWS Deployment](docs/LINUX_LOCAL_DEPLOYMENT.md) is completed.
+Production deploys from **`main`**. Keep **`version-1`** fast-forwarded to the same commit so both
+branches stay identical until a separate UAT host is introduced. The server uses a read-only deploy
+key for the private repository.
 
 ```bash
 cd /opt/anytime-crew-hub
-git pull --ff-only origin version-1
+git fetch origin
+git checkout main
+git pull --ff-only origin main
 npm ci
 npm run db:deploy
-npm run build
+NODE_ENV=production npm run build
 npm run build:backend
 pm2 restart atd-backend --update-env
 pm2 restart atd-frontend --update-env
@@ -253,5 +256,6 @@ account to see the mandatory registration gate. Developer Admin is exempt from f
 and can review other users immediately.
 
 Migration `20260722213000_task_workspace_v2` intentionally clears legacy Task-only records while
-installing the new Work Planner model. Review the migration warning and retain a verified backup
-before deploying this release.
+installing the new Work Planner model. Migration `20260729120000_jira_work_planner_keys` adds
+project keys, issue keys, issue types, and ranks. Review migration warnings and retain a verified
+backup before deploying those releases.

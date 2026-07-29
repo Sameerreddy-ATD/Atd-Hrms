@@ -25,7 +25,8 @@ It includes:
 - employee accounts, profiles, organization hierarchy, module access, and ID cards;
 - attendance, mobile/geofenced events, biometric administration, corrections, and reports;
 - leave, weekly offs, holidays, Comp Off, and approval workflows;
-- configurable Work Planner boards, stages, assignments, activity, list, Kanban, and timeline;
+- configurable Work Planner projects with keys, sequential issue IDs, issue types, ranked Board
+  ordering, stages, assignments, activity, Backlog, and Timeline;
 - expense advances/claims and HR review/payment;
 - HR document requests and delivery;
 - company assets and return checklists;
@@ -40,8 +41,8 @@ authorization, validation, business rules, audit logging, and Prisma persistence
 | Item                                 | Value                                          |
 | ------------------------------------ | ---------------------------------------------- |
 | Repository                           | `Sameerreddy-ATD/Employee-Management-System`   |
-| Canonical release branch             | `main`                                         |
-| Existing server compatibility branch | `version-1`                                    |
+| Production / final branch            | `main` (deploy from this branch)               |
+| Mirror / future UAT branch           | `version-1` (kept identical to `main` for now) |
 | Runtime                              | Node.js 22                                     |
 | Browser application                  | React 19, TanStack Start/Router, Vite 8        |
 | UI system                            | Tailwind CSS 4, Radix UI, Lucide and Recharts  |
@@ -51,9 +52,9 @@ authorization, validation, business rules, audit logging, and Prisma persistence
 | Face verification                    | Self-hosted Human 3 with encrypted evidence    |
 | Automated verification               | Vitest 4, Playwright, ESLint 10 and Prettier 3 |
 
-New deployments should use `main`. The existing Ubuntu deployment may continue using `version-1`
-until it is deliberately switched. Do not force-push either release branch. Do not deploy a
-frontend from one release and a backend from another.
+Deploy production from `main`. Keep `version-1` fast-forwarded to the same commit until a separate
+UAT host is introduced. Do not force-push either branch. Do not deploy a frontend from one release
+and a backend from another.
 
 ## 3. Runtime Topology
 
