@@ -169,7 +169,8 @@ with open(path, "w", encoding="utf-8") as f:
     json.dump(payload, f, indent=2)
     f.write("\n")
 PY
-chmod 640 "$STATUS_PATH" 2>/dev/null || true
+chmod 644 "$STATUS_PATH" 2>/dev/null || true
+chmod 755 "$BACKUP_LOCAL_DIR" 2>/dev/null || true
 
 log "OK — backup complete: ${SQL_NAME}"
 rclone lsl "${REMOTE_PATH}/${SQL_NAME}" || true
