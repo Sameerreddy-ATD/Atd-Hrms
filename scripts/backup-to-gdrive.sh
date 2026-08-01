@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Every-3-days MySQL dump (+ face evidence) → Google Drive (via rclone).
+# Daily MySQL dump (+ face evidence) → Google Drive (via rclone).
 #
-# Same pattern as Inside Sales Tele Dashboard backups, less frequent:
+# Same pattern as Inside Sales Tele Dashboard backups:
 #   Full mysqldump each run → gdrive:HrmsBackups/*.sql.gz
 #   Face evidence tree     → gdrive:HrmsBackups/*_face-evidence.tar.gz
-# Retention default: last 15 days (BACKUP_KEEP_DAYS) ≈ ~5 copies at 3-day cadence.
+# Retention default: last 3 days (BACKUP_KEEP_DAYS) — upload daily, prune older.
 #
 # One-time setup (VPS already has rclone remote `gdrive` from Tele):
 #   sudo mkdir -p /opt/backups/anytime-crew-hub
@@ -14,8 +14,8 @@
 #   sudo tee /etc/cron.d/anytime-crew-hub-backup <<'EOF'
 #   SHELL=/bin/bash
 #   PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-#   # Every 3 calendar days at 02:20 Asia/Kolkata = 20:50 UTC
-#   50 20 */3 * * ubuntu /opt/anytime-crew-hub/scripts/backup-to-gdrive.sh >> /var/log/anytime-crew-hub-backup.log 2>&1
+#   # Daily at 02:20 Asia/Kolkata = 20:50 UTC (5 min after Tele)
+#   50 20 * * * ubuntu /opt/anytime-crew-hub/scripts/backup-to-gdrive.sh >> /var/log/anytime-crew-hub-backup.log 2>&1
 #   EOF
 #   sudo touch /var/log/anytime-crew-hub-backup.log
 #   sudo chown ubuntu:ubuntu /var/log/anytime-crew-hub-backup.log
@@ -24,7 +24,7 @@
 # Optional env overrides (shell or .env):
 #   RCLONE_REMOTE=gdrive
 #   GDRIVE_BACKUP_DIR=HrmsBackups
-#   BACKUP_KEEP_DAYS=15
+#   BACKUP_KEEP_DAYS=3
 #   BACKUP_LOCAL_DIR=/opt/backups/anytime-crew-hub
 set -euo pipefail
 
@@ -33,7 +33,7 @@ ENV_FILE="${APP_DIR}/.env"
 
 RCLONE_REMOTE="${RCLONE_REMOTE:-gdrive}"
 GDRIVE_BACKUP_DIR="${GDRIVE_BACKUP_DIR:-HrmsBackups}"
-BACKUP_KEEP_DAYS="${BACKUP_KEEP_DAYS:-15}"
+BACKUP_KEEP_DAYS="${BACKUP_KEEP_DAYS:-3}"
 BACKUP_LOCAL_DIR="${BACKUP_LOCAL_DIR:-/opt/backups/anytime-crew-hub}"
 
 log() { echo "[$(date -Iseconds)] $*"; }
@@ -69,7 +69,7 @@ _l="$(env_get BACKUP_LOCAL_DIR)"; [[ -n "$_l" ]] && BACKUP_LOCAL_DIR="$_l"
 
 RCLONE_REMOTE="${RCLONE_REMOTE:-gdrive}"
 GDRIVE_BACKUP_DIR="${GDRIVE_BACKUP_DIR:-HrmsBackups}"
-BACKUP_KEEP_DAYS="${BACKUP_KEEP_DAYS:-15}"
+BACKUP_KEEP_DAYS="${BACKUP_KEEP_DAYS:-3}"
 BACKUP_LOCAL_DIR="${BACKUP_LOCAL_DIR:-/opt/backups/anytime-crew-hub}"
 
 DATABASE_URL="$(env_get DATABASE_URL)"

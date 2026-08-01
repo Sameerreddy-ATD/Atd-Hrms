@@ -4,9 +4,9 @@ This project runs on **MySQL 8.0**. The Express backend and Prisma client both r
 
 ## `backup-to-gdrive.sh`
 
-Production backup every **3 days**: full `mysqldump` of `DATABASE_URL` plus `FACE_EVIDENCE_DIR` →
-Google Drive (`HrmsBackups/`, 15-day retention) via rclone. Same approach as the Tele Dashboard
-backup (Tele stays daily). See the script header and root `README.md` → **Backup → Google Drive**.
+Daily production backup: full `mysqldump` of `DATABASE_URL` plus `FACE_EVIDENCE_DIR` → Google Drive
+(`HrmsBackups/`, **3-day** retention) via rclone. Same approach as the Tele Dashboard backup. See
+the script header and root `README.md` → **Daily backup → Google Drive**.
 
 ## `start-all.ps1`
 

@@ -215,7 +215,7 @@ Restore MySQL only if a migration or data operation is incompatible. Database re
 - Check `/health`, `/health/db`, PM2 restart counts, CPU, memory, disk, MySQL size, and Nginx errors.
 - Rotate PM2 and Nginx logs.
 - Keep MySQL backups and test restoration regularly. On the shared VPS, production uses
-  `scripts/backup-to-gdrive.sh` every **3 days** (rclone → Google Drive `HrmsBackups/`, 15-day
+  `scripts/backup-to-gdrive.sh` **daily** (rclone → Google Drive `HrmsBackups/`, **3-day**
   retention), including a face-evidence tarball. Confirm `/var/log/anytime-crew-hub-backup.log`
   after scheduled runs.
 - Renew TLS automatically and test with `sudo certbot renew --dry-run`.
