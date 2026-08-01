@@ -49,6 +49,7 @@ import {
   Building2,
   CalendarCheck,
   Clock3,
+  CloudUpload,
   Database,
   Fingerprint,
   MemoryStick,
@@ -669,7 +670,7 @@ function SettingsPage() {
                     Checked {new Date(health.checkedAt).toLocaleString()}
                   </span>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                   <HealthMetric
                     icon={Clock3}
                     label="Backend uptime"
@@ -682,6 +683,30 @@ function SettingsPage() {
                     value={health.database.reachable ? "Connected" : "Unavailable"}
                     detail={`${health.database.latencyMs} ms response`}
                     warning={!health.database.reachable || health.database.latencyMs > 1500}
+                  />
+                  <HealthMetric
+                    icon={CloudUpload}
+                    label="Drive backup"
+                    value={
+                      health.backup?.finishedAt
+                        ? new Date(health.backup.finishedAt).toLocaleString("en-IN", {
+                            timeZone: "Asia/Kolkata",
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
+                            second: "2-digit",
+                            hour12: true,
+                          })
+                        : "Never"
+                    }
+                    detail={
+                      health.backup?.fileName
+                        ? `Last pushed · ${health.backup.fileName}`
+                        : "Google Drive daily dump"
+                    }
+                    warning={!health.backup?.available || health.backup.stale}
                   />
                   <HealthMetric
                     icon={MemoryStick}

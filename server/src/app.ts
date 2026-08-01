@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 import { createHash, randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { freemem, loadavg, totalmem } from "node:os";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
@@ -955,7 +956,64 @@ export function createApp() {
       const totalMemoryBytes = totalmem();
       const usedMemoryBytes = totalMemoryBytes - freemem();
       const memoryUsedPercent = Math.round((usedMemoryBytes / totalMemoryBytes) * 1000) / 10;
-      const degraded = !databaseReachable || databaseLatencyMs > 1500 || memoryUsedPercent > 92;
+
+      const backupStatusPath =
+        process.env.BACKUP_STATUS_PATH || "/opt/backups/anytime-crew-hub/last-backup.json";
+      let backup: {
+        available: boolean;
+        ok: boolean;
+        finishedAt: string | null;
+        fileName: string | null;
+        remotePath: string | null;
+        bytes: number | null;
+        faceEvidenceFileName: string | null;
+        stale: boolean;
+      } = {
+        available: false,
+        ok: false,
+        finishedAt: null,
+        fileName: null,
+        remotePath: null,
+        bytes: null,
+        faceEvidenceFileName: null,
+        stale: true,
+      };
+      try {
+        const raw = readFileSync(backupStatusPath, "utf8");
+        const data = JSON.parse(raw) as {
+          ok?: boolean;
+          finishedAt?: string;
+          fileName?: string;
+          remotePath?: string;
+          bytes?: number;
+          faceEvidenceFileName?: string;
+        };
+        const finishedAt = data.finishedAt ? new Date(data.finishedAt) : null;
+        const ageMs =
+          finishedAt && !Number.isNaN(finishedAt.getTime())
+            ? Date.now() - finishedAt.getTime()
+            : null;
+        // Daily upload with 3-day retention — warn if older than 36 hours
+        const stale = ageMs == null || ageMs > 36 * 60 * 60 * 1000;
+        backup = {
+          available: Boolean(finishedAt && !Number.isNaN(finishedAt.getTime())),
+          ok: data.ok !== false,
+          finishedAt:
+            finishedAt && !Number.isNaN(finishedAt.getTime()) ? finishedAt.toISOString() : null,
+          fileName: data.fileName ?? null,
+          remotePath: data.remotePath ?? null,
+          bytes: Number.isFinite(Number(data.bytes)) ? Number(data.bytes) : null,
+          faceEvidenceFileName: data.faceEvidenceFileName ?? null,
+          stale,
+        };
+      } catch {
+        // No status file yet (backup never ran on this host)
+      }
+
+      // Backup age is shown as a warning on the Drive backup card; it does not
+      // mark the whole system DEGRADED (DB/memory issues still do).
+      const degraded =
+        !databaseReachable || databaseLatencyMs > 1500 || memoryUsedPercent > 92;
 
       res.json({
         status: degraded ? "DEGRADED" : "HEALTHY",
@@ -973,6 +1031,7 @@ export function createApp() {
         },
         loadAverage: Math.round(loadavg()[0] * 100) / 100,
         nodeVersion: process.version,
+        backup,
       });
     }),
   );

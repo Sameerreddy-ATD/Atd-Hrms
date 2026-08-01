@@ -143,6 +143,34 @@ rclone rmdirs "${REMOTE_PATH}" --leave-root 2>/dev/null || true
 
 find "$BACKUP_LOCAL_DIR" -type f \( -name '*.sql.gz' -o -name '*_face-evidence.tar.gz' \) -mtime +1 -delete 2>/dev/null || true
 
+STATUS_PATH="${BACKUP_LOCAL_DIR}/last-backup.json"
+FINISHED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+FACE_STATUS_NAME=""
+FACE_STATUS_BYTES="0"
+if [[ -f "$FACE_PATH" ]]; then
+  FACE_STATUS_NAME="$FACE_NAME"
+  FACE_STATUS_BYTES="$(wc -c <"$FACE_PATH" | tr -d ' ')"
+fi
+python3 - "$STATUS_PATH" "$FINISHED_AT" "$SQL_NAME" "$REMOTE_PATH/$SQL_NAME" "$BYTES" \
+  "$FACE_STATUS_NAME" "$FACE_STATUS_BYTES" <<'PY'
+import json, sys
+path, finished_at, file_name, remote_path, bytes_s, face_name, face_bytes = sys.argv[1:8]
+payload = {
+    "ok": True,
+    "finishedAt": finished_at,
+    "fileName": file_name,
+    "remotePath": remote_path,
+    "bytes": int(bytes_s),
+}
+if face_name:
+    payload["faceEvidenceFileName"] = face_name
+    payload["faceEvidenceBytes"] = int(face_bytes or 0)
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(payload, f, indent=2)
+    f.write("\n")
+PY
+chmod 640 "$STATUS_PATH" 2>/dev/null || true
+
 log "OK — backup complete: ${SQL_NAME}"
 rclone lsl "${REMOTE_PATH}/${SQL_NAME}" || true
 if [[ -f "$FACE_PATH" ]]; then

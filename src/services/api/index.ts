@@ -953,6 +953,16 @@ export interface SystemHealth {
   memory: { usedPercent: number; processRssMb: number };
   loadAverage: number;
   nodeVersion: string;
+  backup?: {
+    available: boolean;
+    ok: boolean;
+    finishedAt: string | null;
+    fileName: string | null;
+    remotePath: string | null;
+    bytes: number | null;
+    faceEvidenceFileName: string | null;
+    stale: boolean;
+  };
 }
 
 export const systemApi = {
