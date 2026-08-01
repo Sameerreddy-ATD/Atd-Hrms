@@ -2,11 +2,11 @@
 
 ## Source of Truth
 
-- Repository: `Sameerreddy-ATD/Employee-Management-System` (private)
+- Repository: `Sameerreddy-ATD/Atd-Hrms` (`https://github.com/Sameerreddy-ATD/Atd-Hrms.git`)
 - Production / final branch: `main` (deploy from this branch)
 - Mirror / future UAT branch: `version-1` (keep identical to `main` until a separate UAT host exists)
 - Server checkout: `/opt/anytime-crew-hub`
-- Server remote: `git@github-atd-ems:Sameerreddy-ATD/Employee-Management-System.git`
+- Server remote: `https://github.com/Sameerreddy-ATD/Atd-Hrms.git`
 
 Company AWS migration (RDS, S3, CI/CD): [AWS Deployment Patterns](AWS_DEPLOYMENT_PATTERNS.md).
 Host and RDS install commands: [Linux and AWS Deployment](LINUX_LOCAL_DEPLOYMENT.md).

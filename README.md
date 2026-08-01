@@ -26,7 +26,7 @@ and stores successful rows through the standard transactional employee/login wor
 
 ## Current Release
 
-- Repository: `Sameerreddy-ATD/Employee-Management-System` (private)
+- Repository: `Sameerreddy-ATD/Atd-Hrms` (`https://github.com/Sameerreddy-ATD/Atd-Hrms.git`)
 - Production / final branch: `main` (deploy from this branch)
 - Mirror branch: `version-1` (kept identical to `main` for now; reserved for future UAT)
 - Production URL: `https://hrms.anytime-diesel.com` (VPS `100.31.66.212`, shared with Inside Sales)

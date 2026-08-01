@@ -40,7 +40,7 @@ authorization, validation, business rules, audit logging, and Prisma persistence
 
 | Item                                 | Value                                          |
 | ------------------------------------ | ---------------------------------------------- |
-| Repository                           | `Sameerreddy-ATD/Employee-Management-System`   |
+| Repository                           | `Sameerreddy-ATD/Atd-Hrms`                     |
 | Production / final branch            | `main` (deploy from this branch)               |
 | Mirror / future UAT branch           | `version-1` (kept identical to `main` for now) |
 | Runtime                              | Node.js 22                                     |

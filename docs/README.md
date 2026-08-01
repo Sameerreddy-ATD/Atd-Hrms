@@ -66,14 +66,14 @@ mandatory handling of credentials and employee data.
 
 ## Current Production Facts
 
-- Private repository: `git@github-atd-ems:Sameerreddy-ATD/Employee-Management-System.git`
+- Repository: `https://github.com/Sameerreddy-ATD/Atd-Hrms.git`
 - Canonical release branch: `main`
-- Existing production checkout branch: `version-1`
+- Mirror / future UAT branch: `version-1`
 - Installation: `/opt/anytime-crew-hub`
 - PM2 processes: `atd-backend` and `atd-frontend`
 - Backend: `127.0.0.1:4000`
 - Frontend preview: `127.0.0.1:8081`
-- Public URL: `https://hrms.sameerreddy.in`
+- Public URL: `https://hrms.anytime-diesel.com`
 - Database provider: MySQL
 
 Secrets are intentionally absent from documentation. Production `.env`, database dumps, private deploy keys, and VAPID private keys stay on the server only.

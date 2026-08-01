@@ -111,7 +111,7 @@ Clone the canonical `main` branch for a new installation:
 
 ```bash
 git clone --branch main \
-  git@github-atd-ems:Sameerreddy-ATD/Employee-Management-System.git \
+  https://github.com/Sameerreddy-ATD/Atd-Hrms.git \
   /opt/anytime-crew-hub
 cd /opt/anytime-crew-hub
 ```
@@ -306,7 +306,7 @@ Preserve environment and database before changing source:
 cd /opt/anytime-crew-hub
 cp -p .env /home/ubuntu/anytime-crew-hub.env.backup-$(date +%F_%H-%M)
 chmod 600 /home/ubuntu/anytime-crew-hub.env.backup-*
-git remote set-url origin git@github-atd-ems:Sameerreddy-ATD/Employee-Management-System.git
+git remote set-url origin https://github.com/Sameerreddy-ATD/Atd-Hrms.git
 git fetch origin
 git checkout main
 git pull --ff-only origin main
