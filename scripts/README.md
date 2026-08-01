@@ -2,6 +2,12 @@
 
 This project runs on **MySQL 8.0**. The Express backend and Prisma client both read `DATABASE_URL` from `.env`.
 
+## `backup-to-gdrive.sh`
+
+Daily production backup: full `mysqldump` of `DATABASE_URL` plus `FACE_EVIDENCE_DIR` → Google Drive
+(`HrmsBackups/`, 5-day retention) via rclone. Same approach as the Tele Dashboard backup. See the
+script header and root `README.md` → **Daily backup → Google Drive**.
+
 ## `start-all.ps1`
 
 Starts the project-managed MySQL instance, backend watcher, and frontend development server for a

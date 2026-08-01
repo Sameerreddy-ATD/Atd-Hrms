@@ -228,6 +228,31 @@ The following modules are planned for a future version and are not part of the c
 
 Database models, permissions, notification rules, retention requirements, and approval ownership must be designed before enabling these modules.
 
+## Daily backup → Google Drive
+
+Production MySQL (`anytimediesel_hrms` on the VPS host) is dumped **every day** and uploaded to
+Google Drive, same pattern as Inside Sales Tele Dashboard. Each run is a **full database snapshot**
+plus a tarball of `FACE_EVIDENCE_DIR`.
+
+| Item | Value |
+| ---- | ----- |
+| Script | `scripts/backup-to-gdrive.sh` |
+| Schedule | Cron `50 20 * * *` UTC (= **02:20 IST**) |
+| Drive folder | `HrmsBackups/` |
+| Retention | Last **5** days (`BACKUP_KEEP_DAYS`) |
+| Local staging | `/opt/backups/anytime-crew-hub/` |
+| Log | `/var/log/anytime-crew-hub-backup.log` |
+
+Uses the existing VPS rclone remote `gdrive` (shared with Tele). One-time install notes are in the
+script header. Manual test:
+
+```bash
+cd /opt/anytime-crew-hub
+./scripts/backup-to-gdrive.sh
+```
+
+Confirm new `.sql.gz` (and `_face-evidence.tar.gz`) under **My Drive → HrmsBackups**.
+
 ## Production Update
 
 Production deploys from **`main`**. Keep **`version-1`** fast-forwarded to the same commit so both
