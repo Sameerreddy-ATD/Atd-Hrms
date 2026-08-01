@@ -161,6 +161,23 @@ function RootComponent() {
   }, []);
 
   useEffect(() => {
+    // Keep the installed / mobile app in portrait even when the OS auto-rotate setting varies.
+    const orientation = window.screen?.orientation as ScreenOrientation & {
+      lock?: (orientation: string) => Promise<void>;
+      unlock?: () => void;
+    };
+    if (!orientation?.lock) return;
+    void orientation.lock("portrait").catch(() => undefined);
+    return () => {
+      try {
+        orientation.unlock?.();
+      } catch {
+        /* ignore */
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     // Suppress Chrome/Edge install mini-infobar on laptop/desktop; users can still install
     // from the browser address bar / menu if they choose.
     const platform = detectPwaPlatform();

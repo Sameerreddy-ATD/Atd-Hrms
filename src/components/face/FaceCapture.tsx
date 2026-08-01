@@ -102,13 +102,39 @@ const enrollmentStepCopy: Record<
 };
 
 function snapshotFromVideo(video: HTMLVideoElement) {
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  if (!vw || !vh) throw new Error("Camera frame is not ready.");
+
+  // Some phones report landscape sensor buffers while the UI is portrait; rotate so
+  // admin evidence photos are upright without relying on device auto-rotate.
+  const portraitUi =
+    typeof window !== "undefined" &&
+    window.matchMedia("(orientation: portrait)").matches;
+  const rotateForPortrait = portraitUi && vw > vh;
+
+  const srcW = rotateForPortrait ? vh : vw;
+  const srcH = rotateForPortrait ? vw : vh;
+  const scale = Math.min(1, 720 / srcW);
   const canvas = document.createElement("canvas");
-  const scale = Math.min(1, 720 / video.videoWidth);
-  canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-  canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+  canvas.width = Math.max(1, Math.round(srcW * scale));
+  canvas.height = Math.max(1, Math.round(srcH * scale));
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Camera capture is unavailable.");
-  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  if (rotateForPortrait) {
+    context.translate(canvas.width / 2, canvas.height / 2);
+    context.rotate(-Math.PI / 2);
+    context.drawImage(
+      video,
+      -Math.round((vw * scale) / 2),
+      -Math.round((vh * scale) / 2),
+      Math.round(vw * scale),
+      Math.round(vh * scale),
+    );
+  } else {
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  }
   return canvas.toDataURL("image/jpeg", 0.86);
 }
 
@@ -162,6 +188,11 @@ export function FaceCapture({
       cancelAnimationFrame(animationFrame);
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
+      try {
+        window.screen?.orientation?.unlock?.();
+      } catch {
+        /* ignore */
+      }
     };
 
     async function start() {
@@ -169,6 +200,10 @@ export function FaceCapture({
         if (!navigator.mediaDevices?.getUserMedia || !window.isSecureContext) {
           throw new Error("Camera verification requires HTTPS (or localhost) and camera support.");
         }
+        const orientation = window.screen?.orientation as ScreenOrientation & {
+          lock?: (orientation: string) => Promise<void>;
+        };
+        void orientation?.lock?.("portrait").catch(() => undefined);
         setMessage("Loading face detection models…");
         const human = await loadHuman();
         if (!active) return;
@@ -176,9 +211,10 @@ export function FaceCapture({
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
           video: {
-            facingMode: "user",
-            width: { ideal: 640 },
-            height: { ideal: 640 },
+            facingMode: { ideal: "user" },
+            width: { ideal: 720 },
+            height: { ideal: 1280 },
+            aspectRatio: { ideal: 0.5625 },
           },
         });
         if (!active) {

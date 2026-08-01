@@ -6,7 +6,6 @@ import {
   Clock3,
   Eye,
   ImageOff,
-  MapPin,
   Power,
   PowerOff,
   RefreshCw,
@@ -35,7 +34,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { faceApi } from "@/services/api";
-import type { FaceAdminProfile, FaceEvidenceRecord, FaceSettings } from "@/types/domain";
+import type { FaceAdminProfile, FaceSettings } from "@/types/domain";
 
 export const Route = createFileRoute("/_app/face-security")({
   component: FaceSecurityPage,
@@ -56,8 +55,6 @@ function FaceSecurityPage() {
   const [saving, setSaving] = useState(false);
   const [busyUser, setBusyUser] = useState<string | null>(null);
   const [evidence, setEvidence] = useState<FaceAdminProfile | null>(null);
-  const [evidenceHistory, setEvidenceHistory] = useState<FaceEvidenceRecord[]>([]);
-  const [evidenceLoading, setEvidenceLoading] = useState(false);
   const [rejecting, setRejecting] = useState<FaceAdminProfile | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [profileSearch, setProfileSearch] = useState("");
@@ -162,26 +159,13 @@ function FaceSecurityPage() {
     }
   }
 
-  async function openEvidence(profile: FaceAdminProfile) {
-    setEvidence(profile);
-    setEvidenceHistory([]);
-    setEvidenceLoading(true);
-    try {
-      setEvidenceHistory(await faceApi.admin.evidence(profile.userId));
-    } catch (error) {
-      toast.error((error as Error).message);
-    } finally {
-      setEvidenceLoading(false);
-    }
-  }
-
   if (loading) return <LoadingState label="Loading face security" />;
 
   return (
     <div className="space-y-5">
       <PageHeader
         title="Face Security"
-        description="Approve registrations, review short-lived evidence, and manage verification controls."
+        description="Approve registrations, review face photos, and manage verification controls."
         actions={
           <Button variant="outline" onClick={() => void refresh()}>
             <RefreshCw className="mr-2 size-4" />
@@ -434,29 +418,38 @@ function FaceSecurityPage() {
                 </div>
 
                 {latest && (
-                  <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-muted/45 p-3 text-xs sm:grid-cols-4">
-                    <div>
-                      <div className="text-muted-foreground">Face</div>
-                      <div className="mt-1 font-semibold">
-                        {Math.round(latest.faceConfidence * 100)}%
+                  <div className="mt-4 flex flex-col gap-3 min-[480px]:flex-row">
+                    <EvidencePhoto
+                      evidenceId={latest.evidenceId}
+                      imageAvailable={latest.imageAvailable}
+                      employeeName={profile.name}
+                      className="aspect-[3/4] w-full max-w-[11rem] shrink-0 overflow-hidden rounded-xl bg-slate-950"
+                      onOpen={() => setEvidence(profile)}
+                    />
+                    <div className="grid flex-1 grid-cols-2 gap-2 rounded-xl bg-muted/45 p-3 text-xs sm:grid-cols-4 min-[480px]:grid-cols-2">
+                      <div>
+                        <div className="text-muted-foreground">Face</div>
+                        <div className="mt-1 font-semibold">
+                          {Math.round(latest.faceConfidence * 100)}%
+                        </div>
                       </div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">Liveness</div>
-                      <div className="mt-1 font-semibold">
-                        {Math.round(latest.livenessScore * 100)}%
+                      <div>
+                        <div className="text-muted-foreground">Liveness</div>
+                        <div className="mt-1 font-semibold">
+                          {Math.round(latest.livenessScore * 100)}%
+                        </div>
                       </div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">Anti-spoof</div>
-                      <div className="mt-1 font-semibold">
-                        {Math.round(latest.antiSpoofScore * 100)}%
+                      <div>
+                        <div className="text-muted-foreground">Anti-spoof</div>
+                        <div className="mt-1 font-semibold">
+                          {Math.round(latest.antiSpoofScore * 100)}%
+                        </div>
                       </div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">Captured</div>
-                      <div className="mt-1 font-semibold">
-                        {new Date(latest.capturedAt).toLocaleDateString("en-IN")}
+                      <div>
+                        <div className="text-muted-foreground">Captured</div>
+                        <div className="mt-1 font-semibold">
+                          {new Date(latest.capturedAt).toLocaleDateString("en-IN")}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -483,10 +476,10 @@ function FaceSecurityPage() {
                 )}
 
                 <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-                  {latest && (
-                    <Button variant="outline" size="sm" onClick={() => void openEvidence(profile)}>
+                  {latest?.imageAvailable && (
+                    <Button variant="outline" size="sm" onClick={() => setEvidence(profile)}>
                       <Eye className="mr-1.5 size-4" />
-                      Evidence
+                      View photo
                     </Button>
                   )}
                   {profile.status === "PENDING" && (
@@ -554,32 +547,31 @@ function FaceSecurityPage() {
       </div>
 
       <Dialog open={Boolean(evidence)} onOpenChange={(open) => !open && setEvidence(null)}>
-        <DialogContent className="grid max-h-[calc(100dvh-1rem)] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:max-h-[calc(100dvh-2rem)] sm:max-w-4xl">
-          <DialogHeader className="border-b px-4 py-4 pr-14 text-left sm:px-6 sm:py-5">
-            <DialogTitle>Face evidence history</DialogTitle>
+        <DialogContent className="max-w-md overflow-hidden p-0 sm:max-w-lg">
+          <DialogHeader className="border-b px-4 py-4 pr-14 text-left sm:px-5">
+            <DialogTitle>Face evidence</DialogTitle>
             <DialogDescription>
-              {evidence?.name} · Registration photos (centre/left/right) are retained for review.
-              Check-in verification does not store new photos.
+              {evidence?.name}
+              {evidence?.latestEvidence
+                ? ` · ${new Date(evidence.latestEvidence.capturedAt).toLocaleString("en-IN")}`
+                : ""}
             </DialogDescription>
           </DialogHeader>
-          {evidenceLoading ? (
-            <LoadingState label="Loading encrypted evidence" className="min-h-72" />
-          ) : (
-            <div className="min-h-0 space-y-3 overflow-y-auto overscroll-contain p-3 sm:p-5">
-              {evidenceHistory.map((item) => (
-                <EvidenceHistoryCard
-                  key={item.evidenceId}
-                  item={item}
-                  employeeName={evidence?.name}
-                />
-              ))}
-              {!evidenceHistory.length && (
-                <div className="col-span-full rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-                  No retained evidence is available.
-                </div>
-              )}
-            </div>
-          )}
+          <div className="bg-slate-950 p-3 sm:p-4">
+            {evidence?.latestEvidence ? (
+              <EvidencePhoto
+                evidenceId={evidence.latestEvidence.evidenceId}
+                imageAvailable={evidence.latestEvidence.imageAvailable}
+                employeeName={evidence.name}
+                className="mx-auto aspect-[3/4] w-full max-w-sm overflow-hidden rounded-xl"
+              />
+            ) : (
+              <div className="flex min-h-64 flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+                <ImageOff className="size-6" />
+                No photo available
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -625,89 +617,48 @@ function FaceSecurityPage() {
   );
 }
 
-function EvidenceHistoryCard({
-  item,
+function EvidencePhoto({
+  evidenceId,
+  imageAvailable,
   employeeName,
+  className,
+  onOpen,
 }: {
-  item: FaceEvidenceRecord;
+  evidenceId: string;
+  imageAvailable: boolean;
   employeeName?: string;
+  className?: string;
+  onOpen?: () => void;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
-  const mismatch = item.failureReason?.startsWith("Another face detected");
-  const imageVisible = item.imageAvailable && !imageFailed;
-
-  return (
-    <article className="grid min-w-0 overflow-hidden rounded-2xl border bg-card shadow-sm min-[560px]:grid-cols-[minmax(13rem,17rem)_minmax(0,1fr)]">
-      <div className="relative min-h-52 overflow-hidden bg-slate-950 min-[560px]:min-h-64">
-        {imageVisible ? (
-          <img
-            src={faceApi.admin.evidenceImageUrl(item.evidenceId)}
-            alt={`Face evidence for ${employeeName ?? "employee"}`}
-            loading="lazy"
-            onError={() => setImageFailed(true)}
-            className="absolute inset-0 h-full w-full object-contain"
-          />
-        ) : (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-muted text-sm text-muted-foreground">
-            <ImageOff className="size-6" />
-            <span>{imageFailed ? "Image could not be loaded" : "Image expired"}</span>
-          </div>
-        )}
-      </div>
-
-      <div className="min-w-0 space-y-4 p-4 sm:p-5">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div>
-            <div className="font-semibold capitalize">
-              {item.purpose.replaceAll("_", " ").toLowerCase()}
-            </div>
-            <div className="mt-1 text-sm text-muted-foreground">
-              {new Date(item.capturedAt).toLocaleString("en-IN")}
-            </div>
-          </div>
-          <Badge
-            variant="outline"
-            className={
-              mismatch
-                ? "border-red-300 bg-red-50 text-red-800"
-                : item.outcome === "PASSED"
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                  : undefined
-            }
-          >
-            {mismatch ? "FACE MISMATCH" : item.outcome}
-          </Badge>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 text-sm min-[420px]:grid-cols-4 min-[560px]:grid-cols-2 lg:grid-cols-4">
-          {[
-            ["Face", item.faceConfidence],
-            ["Liveness", item.livenessScore],
-            ["Anti-spoof", item.antiSpoofScore],
-            ["Match", item.similarityScore],
-          ].map(([label, score]) => (
-            <div key={String(label)} className="rounded-xl bg-muted/55 p-2.5">
-              <div className="text-xs text-muted-foreground">{label}</div>
-              <div className="mt-1 font-semibold tabular-nums">
-                {typeof score === "number" ? `${Math.round(score * 100)}%` : "—"}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {item.locationAccuracy !== null && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <MapPin className="size-4 shrink-0" />
-            GPS accuracy: {Math.round(item.locationAccuracy)} m
-          </div>
-        )}
-
-        {item.failureReason && (
-          <div className="break-words rounded-xl border border-red-200 bg-red-50 p-3 text-sm leading-5 text-red-800">
-            {item.failureReason}
-          </div>
-        )}
-      </div>
-    </article>
+  const imageVisible = imageAvailable && !imageFailed;
+  const content = imageVisible ? (
+    <img
+      src={faceApi.admin.evidenceImageUrl(evidenceId)}
+      alt={`Face evidence for ${employeeName ?? "employee"}`}
+      loading="lazy"
+      onError={() => setImageFailed(true)}
+      className="absolute inset-0 h-full w-full object-cover object-center"
+    />
+  ) : (
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-muted text-sm text-muted-foreground">
+      <ImageOff className="size-6" />
+      <span>{imageFailed ? "Could not load" : "Expired"}</span>
+    </div>
   );
+
+  if (onOpen && imageVisible) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        className={`relative block cursor-zoom-in ${className ?? ""}`}
+        aria-label={`View face photo for ${employeeName ?? "employee"}`}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return <div className={`relative ${className ?? ""}`}>{content}</div>;
 }

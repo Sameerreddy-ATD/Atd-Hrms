@@ -12,7 +12,7 @@
   "prefer_related_applications": false,
   "background_color": "#F6F8FC",
   "theme_color": "#dc2f20",
-  "orientation": "any",
+  "orientation": "portrait",
   "categories": ["business", "productivity"],
   "launch_handler": {
     "client_mode": ["navigate-existing", "auto"]
