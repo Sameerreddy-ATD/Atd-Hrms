@@ -228,18 +228,18 @@ The following modules are planned for a future version and are not part of the c
 
 Database models, permissions, notification rules, retention requirements, and approval ownership must be designed before enabling these modules.
 
-## Daily backup → Google Drive
+## Backup → Google Drive (every 3 days)
 
-Production MySQL (`anytimediesel_hrms` on the VPS host) is dumped **every day** and uploaded to
-Google Drive, same pattern as Inside Sales Tele Dashboard. Each run is a **full database snapshot**
-plus a tarball of `FACE_EVIDENCE_DIR`.
+Production MySQL (`anytimediesel_hrms` on the VPS host) is dumped **every 3 days** and uploaded to
+Google Drive, same pattern as Inside Sales Tele Dashboard (which stays daily). Each run is a
+**full database snapshot** plus a tarball of `FACE_EVIDENCE_DIR`.
 
 | Item | Value |
 | ---- | ----- |
 | Script | `scripts/backup-to-gdrive.sh` |
-| Schedule | Cron `50 20 * * *` UTC (= **02:20 IST**) |
+| Schedule | Cron `50 20 */3 * *` UTC (= **02:20 IST**, every 3 calendar days) |
 | Drive folder | `HrmsBackups/` |
-| Retention | Last **5** days (`BACKUP_KEEP_DAYS`) |
+| Retention | Last **15** days (`BACKUP_KEEP_DAYS`, ~5 copies) |
 | Local staging | `/opt/backups/anytime-crew-hub/` |
 | Log | `/var/log/anytime-crew-hub-backup.log` |
 
