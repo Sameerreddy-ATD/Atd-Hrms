@@ -98,6 +98,7 @@ import {
   assertEmployeeAccess,
   canCreateRole,
   getOrganizationTeamEmployeeIds,
+  isAssignedOrganizationHead,
   requireAuth,
   requireRoles,
 } from "./rbac.js";
@@ -385,6 +386,32 @@ export function createApp() {
         400,
         "Developer Admin is a system owner and cannot be an organizational head",
       );
+    }
+  }
+
+  /** Mark an employee as an org head; the same person may head multiple departments. */
+  async function syncAssignedOrganizationHead(
+    tx: Prisma.TransactionClient | typeof prisma,
+    headEmployeeId: string | null | undefined,
+  ) {
+    if (!headEmployeeId) return;
+    const head = await tx.employee.findUnique({
+      where: { employeeId: headEmployeeId },
+      include: { user: true },
+    });
+    if (!head?.user) return;
+    if (head.organizationLevel !== "HEAD") {
+      await tx.employee.update({
+        where: { employeeId: headEmployeeId },
+        data: { organizationLevel: "HEAD" },
+      });
+    }
+    const promoteable: Role[] = [Role.EMPLOYEE, Role.SALES, Role.DRIVER, Role.FIELD_STAFF];
+    if (promoteable.includes(head.user.role)) {
+      await tx.user.update({
+        where: { id: head.user.id },
+        data: { role: Role.MANAGER },
+      });
     }
   }
 
@@ -2085,29 +2112,9 @@ export function createApp() {
         Role.FIELD_STAFF,
       ] as Role[];
       const shouldCreateEmployee = employeeRoles.includes(targetRole) && !body.employeeId;
-      let reportingManagerId = body.managerId ?? null;
-      if (shouldCreateEmployee && !reportingManagerId && targetRole !== Role.CEO) {
-        const unitWithParent = await prisma.department.findUnique({
-          where: { departmentId: organizationUnit.departmentId },
-          select: {
-            headEmployeeId: true,
-            parentDepartment: { select: { headEmployeeId: true } },
-          },
-        });
-        reportingManagerId =
-          body.organizationLevel === "HEAD"
-            ? (unitWithParent?.parentDepartment?.headEmployeeId ?? null)
-            : (unitWithParent?.headEmployeeId ??
-              unitWithParent?.parentDepartment?.headEmployeeId ??
-              null);
-        if (!reportingManagerId) {
-          const ceo = await prisma.user.findFirst({
-            where: { role: Role.CEO, status: "ACTIVE", employeeId: { not: null } },
-            select: { employeeId: true },
-          });
-          reportingManagerId = ceo?.employeeId ?? null;
-        }
-      }
+      // Reporting manager stays empty unless explicitly set. Assign organization heads
+      // from Departments (unit headEmployeeId); leave approval resolves from that chart.
+      const reportingManagerId = body.managerId ?? null;
       if (shouldCreateEmployee) await assertValidManager("new-employee", reportingManagerId);
       if (linkedEmployee && !linkedEmployee.email) {
         throw new HttpError(409, "Add an email to the employee profile before creating a login");
@@ -2204,8 +2211,15 @@ export function createApp() {
         res.json({ isReportingManager: false, teamCount: 0 });
         return;
       }
-      const teamCount = (await getOrganizationTeamEmployeeIds(req.user!.employeeId)).length;
-      res.json({ isReportingManager: teamCount > 0, teamCount });
+      const employeeId = req.user!.employeeId;
+      const [teamIds, isHead] = await Promise.all([
+        getOrganizationTeamEmployeeIds(employeeId),
+        isAssignedOrganizationHead(employeeId),
+      ]);
+      res.json({
+        isReportingManager: isHead || teamIds.length > 0,
+        teamCount: teamIds.length,
+      });
     }),
   );
 
@@ -2214,13 +2228,16 @@ export function createApp() {
     requireAuth,
     asyncHandler(async (req, res) => {
       const directoryRoles: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.CEO, Role.HR];
-      const where = directoryRoles.includes(req.user!.role)
-        ? {}
-        : req.user!.role === Role.MANAGER && req.user!.employeeId
-          ? { employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) } }
-          : req.user!.employeeId
-            ? { employeeId: req.user!.employeeId }
-            : { employeeId: "__none__" };
+      let where: Prisma.EmployeeWhereInput = { employeeId: "__none__" };
+      if (directoryRoles.includes(req.user!.role)) {
+        where = {};
+      } else if (req.user!.employeeId) {
+        const teamIds = await getOrganizationTeamEmployeeIds(req.user!.employeeId);
+        where =
+          teamIds.length > 0
+            ? { employeeId: { in: teamIds } }
+            : { employeeId: req.user!.employeeId };
+      }
       const employees = await prisma.employee.findMany({
         where,
         include: { user: true, department: true, homeBranch: true, manager: true },
@@ -2961,6 +2978,7 @@ export function createApp() {
         },
         include: { headEmployee: true },
       });
+      await syncAssignedOrganizationHead(prisma, department.headEmployeeId);
       await audit({
         action: "department created",
         performedByUserId: req.user!.id,
@@ -3012,6 +3030,7 @@ export function createApp() {
         },
         include: { headEmployee: true },
       });
+      await syncAssignedOrganizationHead(prisma, department.headEmployeeId);
       await audit({
         action: "department updated",
         performedByUserId: req.user!.id,
@@ -4753,11 +4772,16 @@ export function createApp() {
           ? await assignedLeaveApprovalWhere(req.user!.employeeId)
           : operationalRoles.includes(req.user!.role)
             ? {}
-            : req.user!.role === Role.MANAGER && req.user!.employeeId
+            : req.user!.employeeId
               ? {
-                  employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) },
+                  employeeId: {
+                    in: [
+                      req.user!.employeeId,
+                      ...(await getOrganizationTeamEmployeeIds(req.user!.employeeId)),
+                    ],
+                  },
                 }
-              : { employeeId: req.user!.employeeId ?? "__none__" };
+              : { employeeId: "__none__" };
       if (typeof req.query.status === "string") {
         const status = req.query.status.toUpperCase();
         if (status === "PENDING") where.status = "PENDING";

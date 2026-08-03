@@ -148,6 +148,14 @@ export function requireRoles(...roles: Role[]) {
   };
 }
 
+/** True when this employee is head of one or more organization units (multi-unit heads allowed). */
+export async function isAssignedOrganizationHead(employeeId: string) {
+  const headedCount = await prisma.department.count({
+    where: { headEmployeeId: employeeId },
+  });
+  return headedCount > 0;
+}
+
 /** Returns active employees in the units below an organizational head. */
 export async function getOrganizationTeamEmployeeIds(employeeId: string) {
   const [employee, units] = await Promise.all([
@@ -161,6 +169,7 @@ export async function getOrganizationTeamEmployeeIds(employeeId: string) {
   ]);
   if (!employee) return [];
 
+  // One person may head multiple units — include every unit they own.
   const ownedUnitIds = units
     .filter((unit) => unit.headEmployeeId === employeeId)
     .map((unit) => unit.departmentId);
@@ -211,7 +220,7 @@ export async function assertEmployeeAccess(viewer: Express.Request["user"], empl
     return;
   }
   if (viewer.employeeId === employeeId) return;
-  if (viewer.role === Role.MANAGER && viewer.employeeId) {
+  if (viewer.employeeId) {
     const teamEmployeeIds = await getOrganizationTeamEmployeeIds(viewer.employeeId);
     if (teamEmployeeIds.includes(employeeId)) return;
   }

@@ -72,7 +72,7 @@ export function CreateLoginForm({
   const [organizationUnitId, setOrganizationUnitId] = useState("");
   const [childOrganizationUnitId, setChildOrganizationUnitId] = useState("none");
   const [designation, setDesignation] = useState("");
-  const [managerId, setManagerId] = useState("automatic");
+  const [managerId, setManagerId] = useState("none");
   const [organizationLevel, setOrganizationLevel] = useState<
     "HEAD" | "SENIOR" | "JUNIOR" | "MEMBER"
   >("MEMBER");
@@ -189,7 +189,7 @@ export function CreateLoginForm({
         setBranch(emp.homeBranchId || branches[0]?.id || "");
         setDept(emp.departmentId || departments[0]?.id || "");
         setDesignation(emp.designation || "");
-        setManagerId(emp.managerId || "automatic");
+        setManagerId(emp.managerId || "none");
         setJoiningDate(emp.joiningDate || "");
         setGender(emp.gender || "PREFER_NOT_TO_SAY");
         setBloodGroup(emp.bloodGroup || "");
@@ -237,7 +237,7 @@ export function CreateLoginForm({
         payload.homeBranchId = branch || undefined;
         payload.departmentId = dept || undefined;
         payload.designation = designation.trim() || positionTitle;
-        payload.managerId = managerId === "automatic" ? undefined : managerId;
+        payload.managerId = managerId === "none" ? null : managerId;
         payload.organizationLevel = organizationLevel;
         payload.dateOfBirth = dateOfBirth || undefined;
         payload.joiningDate = joiningDate || undefined;
@@ -476,7 +476,7 @@ export function CreateLoginForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="automatic">Assign from organization structure</SelectItem>
+                  <SelectItem value="none">Leave empty (recommended)</SelectItem>
                   {employees
                     .filter((employee) => employee.employeeId)
                     .map((employee) => (
@@ -486,6 +486,10 @@ export function CreateLoginForm({
                     ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                Leave approval uses organization heads set under Departments. One person can head
+                multiple units.
+              </p>
             </div>
 
             <div className="rounded-md border border-border bg-muted/40 px-4 py-3 sm:col-span-2">
@@ -501,7 +505,8 @@ export function CreateLoginForm({
             <div className="border-t border-border pt-4 sm:col-span-2">
               <h3 className="text-sm font-semibold text-foreground">Employment details</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                Personal details and employment type. Reporting follows the organization structure.
+                Personal details and employment type. Assign unit heads later in Departments — not
+                required when creating the account.
               </p>
             </div>
 

@@ -295,7 +295,7 @@ function DeptPage() {
     <div>
       <PageHeader
         title="Departments"
-        description="Build the company structure from CEO-level teams to subteams and functions."
+        description="Assign organization heads here. Leave reporting manager empty when creating accounts — the same person can head multiple units for leave approvals."
       />
 
       {loading && <LoadingState label="Loading organization chart" />}
@@ -559,7 +559,8 @@ function DeptPage() {
                   : "Add organization unit"}
             </DialogTitle>
             <DialogDescription>
-              Create an expandable team, subteam, or function and assign its organizational head.
+              Assign an available employee as this unit&apos;s head. The same person may head
+              multiple departments — leave approval follows each unit&apos;s head.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={saveDepartment} className="space-y-4">
@@ -618,18 +619,33 @@ function DeptPage() {
               <Label>Department head</Label>
               <Select value={headEmployeeId} onValueChange={setHeadEmployeeId}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select an employee" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No head assigned</SelectItem>
-                  {headOptions.map((employee) => (
-                    <SelectItem key={employee.employeeId} value={employee.employeeId!}>
-                      {employee.name}
-                      {employee.employeeCode ? ` (${employee.employeeCode})` : ""}
-                    </SelectItem>
-                  ))}
+                  {headOptions.map((employee) => {
+                    const otherHeaded = departments
+                      .filter(
+                        (dept) =>
+                          dept.headEmployeeId === employee.employeeId &&
+                          dept.id !== editing?.id,
+                      )
+                      .map((dept) => dept.name);
+                    return (
+                      <SelectItem key={employee.employeeId} value={employee.employeeId!}>
+                        {employee.name}
+                        {employee.employeeCode ? ` (${employee.employeeCode})` : ""}
+                        {otherHeaded.length > 0
+                          ? ` · also heads ${otherHeaded.join(", ")}`
+                          : ""}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                Pick any active employee. Multi-department heads are supported.
+              </p>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={resetForm}>

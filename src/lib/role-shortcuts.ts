@@ -95,6 +95,16 @@ export function shortcutsForRole(
       return [
         attendance,
         myAttendance,
+        ...(options?.isReportingManager
+          ? [
+              {
+                label: "Leave approvals",
+                to: "/leave/approvals",
+                description: "Approve unit leave",
+                icon: BadgeCheck,
+              } satisfies RoleShortcut,
+            ]
+          : []),
         applyLeave,
         announcements,
         tasks,
@@ -147,6 +157,16 @@ export function shortcutsForRole(
           description: "Organization leave status",
           icon: FileText,
         },
+        ...(options?.isReportingManager
+          ? [
+              {
+                label: "Leave approvals",
+                to: "/leave/approvals",
+                description: "Approve unit leave",
+                icon: BadgeCheck,
+              } satisfies RoleShortcut,
+            ]
+          : []),
         {
           label: "Corrections",
           to: "/attendance/corrections",
@@ -184,6 +204,16 @@ export function shortcutsForRole(
           description: "Leave status company-wide",
           icon: FileText,
         },
+        ...(options?.isReportingManager
+          ? [
+              {
+                label: "Leave approvals",
+                to: "/leave/approvals",
+                description: "Approve unit leave",
+                icon: BadgeCheck,
+              } satisfies RoleShortcut,
+            ]
+          : []),
         tasks,
         announcements,
         notifications,
@@ -208,6 +238,16 @@ export function shortcutsForRole(
           description: "Leave status",
           icon: FileText,
         },
+        ...(options?.isReportingManager
+          ? [
+              {
+                label: "Leave approvals",
+                to: "/leave/approvals",
+                description: "Approve unit leave",
+                icon: BadgeCheck,
+              } satisfies RoleShortcut,
+            ]
+          : []),
         {
           label: "Branches",
           to: "/branches",
