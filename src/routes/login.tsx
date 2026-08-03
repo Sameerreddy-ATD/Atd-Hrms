@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/common/PasswordInput";
 import { Logo } from "@/components/common/Logo";
 import { LoginCrewMascot, type LoginCrewMode } from "@/components/auth/LoginCrewMascot";
+import { PwaInstallBanner } from "@/components/layout/PwaInstallBanner";
 import { useAuth } from "@/lib/auth";
 import { Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -83,6 +84,8 @@ function LoginPage() {
         </div>
 
         <LoginCrewMascot mode={crewMode} className="mx-auto w-full max-w-[11rem] sm:max-w-[12.5rem]" />
+
+        <PwaInstallBanner alwaysOffer className="w-full" />
 
         <Card className="aw-enter-delayed border-border/70 bg-card/95 shadow-sm backdrop-blur-sm">
           <CardContent className="p-6 sm:p-8">

@@ -138,7 +138,7 @@ export interface FaceCapturePayload {
   /** Required for enrollment; omitted on attendance verify (photo is not stored). */
   imageData?: string;
   enrollmentViews?: Array<{
-    direction: "CENTER" | "LEFT" | "RIGHT";
+    direction: "EYES_OPEN" | "EYES_CLOSED";
     imageData: string;
     descriptor: number[];
   }>;

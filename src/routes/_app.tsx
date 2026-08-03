@@ -8,6 +8,7 @@ import { PermissionSetup } from "@/components/layout/PermissionSetup";
 import { LoadingState } from "@/components/common/LoadingState";
 import { useAuth } from "@/lib/auth";
 import { FaceEnrollmentGate } from "@/components/face/FaceEnrollmentGate";
+import { PwaInstallBanner } from "@/components/layout/PwaInstallBanner";
 import { faceApi } from "@/services/api";
 import { moduleAccessApi } from "@/services/api";
 import { menuForRole, moduleForRoute } from "@/lib/menu";
@@ -200,6 +201,7 @@ function AppLayout() {
               </div>
             ) : (
               <>
+                <PwaInstallBanner className="mb-4" />
                 <Outlet />
               </>
             )}

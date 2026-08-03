@@ -1187,7 +1187,7 @@ export function createApp() {
       for (const alert of mismatchEvidence) {
         if (!latestAlertByUser.has(alert.userId)) latestAlertByUser.set(alert.userId, alert);
       }
-      const enrollmentLabels = ["Centre", "Left", "Right"] as const;
+      const enrollmentLabels = ["Eyes open", "Eyes closed"] as const;
       res.json(
         users.map((user) => {
           const latestAlert = latestAlertByUser.get(user.id);
@@ -1204,7 +1204,7 @@ export function createApp() {
                 a.createdAt.getTime() - b.createdAt.getTime() ||
                 a.evidenceId.localeCompare(b.evidenceId),
             )
-            .slice(0, 3);
+            .slice(0, 2);
           const enrollmentEvidence = sessionPhotos.map((row, index) => ({
             evidenceId: row.evidenceId,
             outcome: row.outcome,

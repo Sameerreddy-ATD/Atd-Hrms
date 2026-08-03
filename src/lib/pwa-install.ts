@@ -94,10 +94,11 @@ export function installInstructionCopy(platform: PwaPlatform) {
       };
     case "android":
       return {
-        title: "Install on Android",
+        title: "Install or create a shortcut",
         steps: [
-          "Tap Install app when prompted, or use the browser menu Install / Add to Home screen",
-          "Open the app from your home screen or app drawer",
+          "Tap Create shortcut / Install app below if shown",
+          "Or open the browser menu (⋮) → Install app / Add to Home screen / Create shortcut",
+          "Open Anytime Workforce from your home screen or app drawer",
           "Enable Alerts so company updates arrive even when the browser is closed",
         ],
       };

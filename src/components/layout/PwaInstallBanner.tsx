@@ -16,7 +16,19 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
-export function PwaInstallBanner({ className }: { className?: string }) {
+/**
+ * Phone install / “Create shortcut” prompt.
+ * Shown even before login so staff can install from the open link.
+ * Android may delay `beforeinstallprompt` — we still show guided steps.
+ */
+export function PwaInstallBanner({
+  className,
+  /** On login, keep the tip visible even if dismissed recently. */
+  alwaysOffer = false,
+}: {
+  className?: string;
+  alwaysOffer?: boolean;
+}) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [visible, setVisible] = useState(false);
   const [showSteps, setShowSteps] = useState(false);
@@ -25,8 +37,8 @@ export function PwaInstallBanner({ className }: { className?: string }) {
   const isPhone = platform === "ios" || platform === "android";
 
   useEffect(() => {
-    // Laptop/desktop browsers should never be nudged to install — optional via browser menu only.
-    if (!isPhone || isAppInstalled() || wasInstallDismissedRecently()) return;
+    if (!isPhone || isAppInstalled()) return;
+    if (!alwaysOffer && wasInstallDismissedRecently()) return;
 
     function onBeforeInstallPrompt(event: Event) {
       event.preventDefault();
@@ -36,14 +48,26 @@ export function PwaInstallBanner({ className }: { className?: string }) {
 
     window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
 
-    // iOS Safari never fires beforeinstallprompt — show guided install help.
-    if (isIosSafari()) {
+    // iOS never fires beforeinstallprompt — show Share → Add to Home Screen steps.
+    if (isIosSafari() || platform === "ios") {
       setVisible(true);
       setShowSteps(true);
     }
 
-    return () => window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
-  }, [isPhone]);
+    // Android often withholds the native prompt until engagement criteria are met.
+    // Still show Create shortcut / Install so the user can follow menu steps.
+    const fallback = window.setTimeout(() => {
+      setVisible(true);
+      if (platform === "android" && !deferredPrompt) setShowSteps(true);
+    }, 400);
+
+    return () => {
+      window.clearTimeout(fallback);
+      window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+    };
+    // deferredPrompt intentionally omitted — only used for initial fallback steps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [alwaysOffer, isPhone, platform]);
 
   if (!isPhone || !visible || isAppInstalled()) return null;
 
@@ -63,17 +87,17 @@ export function PwaInstallBanner({ className }: { className?: string }) {
   }
 
   function dismiss() {
-    dismissInstallPrompt();
+    if (!alwaysOffer) dismissInstallPrompt();
     setVisible(false);
   }
 
   return (
     <aside
       className={cn(
-        "mb-4 overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-br from-primary/[0.08] via-background to-background shadow-sm animate-in fade-in slide-in-from-top-2 duration-500",
+        "overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-br from-primary/[0.1] via-background to-background shadow-sm animate-in fade-in slide-in-from-top-2 duration-500",
         className,
       )}
-      aria-label="Install application"
+      aria-label="Install or create shortcut"
     >
       <div className="flex items-start gap-3 p-3.5 sm:p-4">
         <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
@@ -82,8 +106,8 @@ export function PwaInstallBanner({ className }: { className?: string }) {
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold tracking-tight text-foreground">{copy.title}</p>
           <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            Install for faster attendance, leave, and alerts — works on Android, iPhone, Windows,
-            and Mac.
+            Install or create a home-screen shortcut for faster attendance — no login required to
+            install.
           </p>
           {showSteps && (
             <ol className="mt-3 space-y-1.5 rounded-lg border bg-background/80 p-3 text-sm text-muted-foreground">
@@ -103,7 +127,14 @@ export function PwaInstallBanner({ className }: { className?: string }) {
           <div className="mt-3 flex flex-col gap-2 min-[420px]:flex-row">
             <Button className="w-full min-[420px]:w-auto" onClick={() => void install()}>
               <Download className="mr-2 h-4 w-4" />
-              {deferredPrompt ? "Install app" : "How to install"}
+              {deferredPrompt ? "Install app" : "Create shortcut"}
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full min-[420px]:w-auto"
+              onClick={() => setShowSteps((value) => !value)}
+            >
+              {showSteps ? "Hide steps" : "How to install"}
             </Button>
             <Button variant="ghost" className="w-full min-[420px]:w-auto" onClick={dismiss}>
               Not now

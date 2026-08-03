@@ -235,7 +235,7 @@ function FaceSecurityPage() {
                 </div>
                 <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
                   {settings.verificationEnabled
-                    ? "Employees must have an approved face profile and complete a live face match at check-in. The first 3 registration photos (centre, left, right) are kept for review; daily check-in does not store new photos."
+                    ? "Employees must have an approved face profile and complete a live face match at check-in. Two front registration photos (eyes open and eyes closed) are kept for review; daily check-in does not store new photos."
                     : "Employees can open the application and check in without a camera. Precise GPS is still required; existing face profiles and evidence are retained."}
                 </p>
               </div>
@@ -553,7 +553,7 @@ function FaceSecurityPage() {
                 ? ` · ${new Date(evidence.latestEvidence.capturedAt).toLocaleString("en-IN")}`
                 : ""}
               {" · "}
-              First 3 enrollment angles (centre, left, right)
+              Two front registration photos (eyes open, eyes closed)
             </DialogDescription>
           </DialogHeader>
           <div className="bg-slate-950 p-3 sm:p-4">

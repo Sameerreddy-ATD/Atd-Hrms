@@ -140,16 +140,16 @@ export function FaceEnrollmentGate({ onUnlocked }: { onUnlocked?: () => void }) 
                 Register your face to continue
               </h1>
               <p className="mt-3 max-w-md text-sm leading-6 text-background/70">
-                Photos are saved once during registration (centre, left, and right). Later check-ins
-                only verify your live face—no new photos are stored.
+                Photos are saved once during registration (eyes open and eyes closed). Later
+                check-ins only verify your live face—no new photos are stored.
               </p>
 
               <div className="mt-8 space-y-4 text-sm">
                 {[
                   {
                     icon: Camera,
-                    title: "Three-direction photos",
-                    body: "Centre, left, and right registration photos improve matching from different angles.",
+                    title: "Two front photos",
+                    body: "Eyes-open and eyes-closed photos are captured quickly from the front.",
                   },
                   {
                     icon: MapPin,
@@ -189,11 +189,11 @@ export function FaceEnrollmentGate({ onUnlocked }: { onUnlocked?: () => void }) 
                     Registration photos
                   </p>
                   <h2 className="mt-1 text-xl font-bold tracking-tight text-foreground">
-                    Front, left, then right — with countdown
+                    Eyes open, then eyes closed
                   </h2>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Follow each on-screen step. When your pose is ready, a 3–2–1 timer counts down
-                    and the photo is taken automatically.
+                    Stay facing the camera. Each photo captures quickly — open eyes first, then
+                    close both eyes.
                   </p>
                 </div>
                 <FaceCapture
