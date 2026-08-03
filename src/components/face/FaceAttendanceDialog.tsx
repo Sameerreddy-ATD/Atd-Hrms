@@ -17,6 +17,8 @@ export interface LocationAttendanceCapture {
   latitude: number;
   longitude: number;
   locationAccuracy: number;
+  /** Instant the employee completed the punch (IST-relevant wall clock from device). */
+  eventTime: string;
 }
 
 export interface VerifiedCheckInCapture extends LocationAttendanceCapture {
@@ -88,6 +90,7 @@ export function FaceAttendanceDialog({
           latitude: nextPosition.coords.latitude,
           longitude: nextPosition.coords.longitude,
           locationAccuracy: nextPosition.coords.accuracy,
+          eventTime: new Date().toISOString(),
         });
         if (active) onCloseRef.current();
       } catch (caught) {
@@ -118,6 +121,7 @@ export function FaceAttendanceDialog({
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
         locationAccuracy: position.coords.accuracy,
+        eventTime: new Date().toISOString(),
         faceVerification: capture,
       });
       onClose();
@@ -137,8 +141,8 @@ export function FaceAttendanceDialog({
           </DialogTitle>
           <DialogDescription>
             {action === "check-in"
-              ? "Complete the quick live-face movement. Your face is matched live—no new photo is saved. Precise location is attached to this check-in."
-              : "No camera is used for check-out. Your precise location is being verified."}
+              ? "Blink once while looking at the camera — no head turns. Your face is matched live (no new photo saved). Precise location and the exact punch time are recorded."
+              : "No camera is used for check-out. Your precise location and the exact punch time are recorded."}
           </DialogDescription>
         </DialogHeader>
 

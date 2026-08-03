@@ -10,7 +10,8 @@ import {
 } from "@/components/ui/command";
 import { useAuth } from "@/lib/auth";
 import { menuForRole } from "@/lib/menu";
-import { employeesApi, searchApi } from "@/services/api";
+import { employeesApi, moduleAccessApi, searchApi } from "@/services/api";
+import type { ModuleKey } from "@/types/domain";
 
 /**
  * Global quick-navigation palette. Opens with Ctrl/Cmd+K or the header
@@ -26,6 +27,7 @@ export function CommandPalette({
   const { user } = useAuth();
   const navigate = useNavigate();
   const [isReportingManager, setIsReportingManager] = useState(false);
+  const [allowedModules, setAllowedModules] = useState<ModuleKey[] | undefined>();
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<
     Array<{ id: string; type: string; title: string; subtitle?: string; href: string }>
@@ -41,6 +43,14 @@ export function CommandPalette({
       .then((result) => setIsReportingManager(result.isReportingManager))
       .catch(() => setIsReportingManager(false));
   }, [user?.employeeId]);
+
+  useEffect(() => {
+    if (!user) return;
+    moduleAccessApi
+      .mine()
+      .then((result) => setAllowedModules(result.modules))
+      .catch(() => setAllowedModules([]));
+  }, [user]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -81,7 +91,7 @@ export function CommandPalette({
 
   if (!user) return null;
 
-  const groups = menuForRole(user.role, { isReportingManager });
+  const groups = menuForRole(user.role, { isReportingManager, allowedModules });
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>

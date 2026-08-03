@@ -324,10 +324,18 @@ function DashboardPage() {
           onAttendanceChanged={refreshDashboard}
           attendanceReady={!summaryLoading}
         />
-      ) : user.role === "hr" ? (
+      ) : user.role === "hr" || user.role === "developer_admin" ? (
         <HRDashboard
           user={user}
-          data={{ total, present: presentToday, onLeave, missed, fieldPresent }}
+          data={{
+            total,
+            present: presentToday,
+            onLeave,
+            missed,
+            fieldPresent,
+            pendingLeaves,
+          }}
+          pendingLeaveRows={leaves.filter((leave) => leave.status === "Pending").slice(0, 8)}
           branchPresentCounts={branchPresentCounts}
           timeline={timeline}
           branches={branches}
@@ -526,18 +534,41 @@ function MarkAttendanceCard({
         if (cancelled) return;
         try {
           if (entry.kind === "check-in") {
-            await attendanceApi.checkIn(entry.payload as Parameters<typeof attendanceApi.checkIn>[0]);
+            const payload = entry.payload as Parameters<typeof attendanceApi.checkIn>[0];
+            if (payload.faceVerification) {
+              // Face sessions expire quickly; never keep a dead face punch blocking the queue.
+              await removeOfflinePunch(entry.id);
+              toast.error(
+                "A queued face check-in expired. Please check in again while online.",
+              );
+              continue;
+            }
+            await attendanceApi.checkIn({
+              ...payload,
+              eventTime: payload.eventTime ?? entry.createdAt,
+            });
           } else {
-            await attendanceApi.checkOut(
-              entry.payload as Parameters<typeof attendanceApi.checkOut>[0],
-            );
+            await attendanceApi.checkOut({
+              ...(entry.payload as Parameters<typeof attendanceApi.checkOut>[0]),
+              eventTime:
+                (entry.payload as { eventTime?: string }).eventTime ?? entry.createdAt,
+            });
           }
           await removeOfflinePunch(entry.id);
           toast.success(
             entry.kind === "check-in" ? "Queued check-in synced" : "Queued check-out synced",
           );
           onAttendanceChanged();
-        } catch {
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "";
+          if (
+            entry.kind === "check-in" &&
+            /expired|already submitted|face verification/i.test(message)
+          ) {
+            await removeOfflinePunch(entry.id);
+            toast.error("A queued face check-in could not be synced. Please check in again.");
+            continue;
+          }
           // Keep in queue for the next online attempt.
           break;
         }
@@ -575,13 +606,26 @@ function MarkAttendanceCard({
         "@/lib/offline-punch-queue"
       );
       if (isLikelyNetworkError(err)) {
+        if ("faceVerification" in capture && capture.faceVerification) {
+          toast.error(
+            "Face check-in needs an internet connection. Stay online and try again — offline queue cannot reuse an expired face session.",
+          );
+          return;
+        }
         await enqueueOfflinePunch({
           id: crypto.randomUUID(),
           kind: "check-in",
-          createdAt: new Date().toISOString(),
+          createdAt:
+            "eventTime" in capture && capture.eventTime
+              ? capture.eventTime
+              : new Date().toISOString(),
           payload: {
             employeeId: user.employeeId,
             ...capture,
+            eventTime:
+              "eventTime" in capture && capture.eventTime
+                ? capture.eventTime
+                : new Date().toISOString(),
             confirmLeaveCancellation,
             mobileDeviceId: navigator.userAgent.slice(0, 120),
           },
@@ -638,9 +682,16 @@ function MarkAttendanceCard({
             await enqueueOfflinePunch({
               id: crypto.randomUUID(),
               kind: "check-out",
-              createdAt: new Date().toISOString(),
+              createdAt:
+                "eventTime" in capture && capture.eventTime
+                  ? capture.eventTime
+                  : new Date().toISOString(),
               payload: {
                 ...capture,
+                eventTime:
+                  "eventTime" in capture && capture.eventTime
+                    ? capture.eventTime
+                    : new Date().toISOString(),
                 mobileDeviceId: navigator.userAgent.slice(0, 120),
               },
             });
@@ -856,6 +907,7 @@ function ManagerDashboard({
 function HRDashboard({
   user,
   data,
+  pendingLeaveRows,
   branchPresentCounts,
   timeline,
   branches,
@@ -870,7 +922,9 @@ function HRDashboard({
     onLeave: number;
     missed: number;
     fieldPresent: number;
+    pendingLeaves: number;
   };
+  pendingLeaveRows: LeaveRequest[];
   branchPresentCounts: Array<{ branch: Branch; present: number }>;
   timeline: AttendanceTimelineEvent[];
   branches: Branch[];
@@ -878,9 +932,10 @@ function HRDashboard({
   onAttendanceChanged: () => void;
   attendanceReady: boolean;
 }) {
+  const navigate = useNavigate();
   return (
     <div className="space-y-4">
-      <div className="aw-enter-delayed grid grid-cols-2 gap-3 min-[480px]:grid-cols-3 lg:grid-cols-5">
+      <div className="aw-enter-delayed grid grid-cols-2 gap-3 min-[480px]:grid-cols-3 lg:grid-cols-6">
         <StatCard label="Total employees" value={data.total} icon={Users} />
         <StatCard
           label="Present today"
@@ -890,23 +945,94 @@ function HRDashboard({
           hint="Office and field"
         />
         <StatCard label="On leave today" value={data.onLeave} icon={PlaneTakeoff} tone="info" />
+        <StatCard
+          label="Pending leave requests"
+          value={data.pendingLeaves}
+          icon={CalendarClock}
+          tone="warning"
+        />
         <StatCard label="Missed punch" value={data.missed} icon={AlertTriangle} tone="warning" />
         <StatCard label="Field present" value={data.fieldPresent} icon={MapPin} />
       </div>
+
+      <div className="grid gap-2 sm:grid-cols-3">
+        <Button
+          variant="outline"
+          className="justify-start"
+          onClick={() => void navigate({ to: "/attendance" })}
+        >
+          <Users className="mr-2 size-4" />
+          Employee attendance
+        </Button>
+        <Button
+          variant="outline"
+          className="justify-start"
+          onClick={() => void navigate({ to: "/attendance/locations" })}
+        >
+          <MapPin className="mr-2 size-4" />
+          Day logs
+        </Button>
+        <Button
+          variant="outline"
+          className="justify-start"
+          onClick={() => void navigate({ to: "/leave/reports" })}
+        >
+          <CalendarClock className="mr-2 size-4" />
+          Leave requests
+        </Button>
+      </div>
+
       <div className="grid gap-3 lg:grid-cols-2">
-        <MarkAttendanceCard
-          user={user}
-          timeline={timeline}
-          branches={branches}
-          onAttendanceChanged={onAttendanceChanged}
-          attendanceReady={attendanceReady}
-          className="lg:col-span-2"
-        />
+        {user.employeeId && (
+          <MarkAttendanceCard
+            user={user}
+            timeline={timeline}
+            branches={branches}
+            onAttendanceChanged={onAttendanceChanged}
+            attendanceReady={attendanceReady}
+            className="lg:col-span-2"
+          />
+        )}
         <BranchFieldAttendanceCard
           branchPresentCounts={branchPresentCounts}
           fieldPresent={data.fieldPresent}
         />
-        <UpcomingBirthdaysCard birthdays={birthdays} />
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+            <CardTitle className="text-sm">Pending leave requests</CardTitle>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void navigate({ to: "/leave/reports" })}
+            >
+              View all
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {pendingLeaveRows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No pending leave requests.</p>
+            ) : (
+              pendingLeaveRows.map((leave) => (
+                <div
+                  key={leave.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-sm"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{leave.employeeName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {leave.type} · {leave.from} → {leave.to} · {leave.days} day
+                      {leave.days === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                  <StatusBadge status={leave.status} />
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+        <div className="lg:col-span-2">
+          <UpcomingBirthdaysCard birthdays={birthdays} />
+        </div>
       </div>
     </div>
   );

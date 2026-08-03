@@ -13,6 +13,7 @@ export type OfflinePunch =
         locationAccuracy: number;
         mobileDeviceId?: string;
         confirmLeaveCancellation?: boolean;
+        eventTime?: string;
         faceVerification?: unknown;
       };
     }
@@ -25,6 +26,7 @@ export type OfflinePunch =
         longitude: number;
         locationAccuracy: number;
         mobileDeviceId?: string;
+        eventTime?: string;
       };
     };
 

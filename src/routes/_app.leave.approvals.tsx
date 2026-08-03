@@ -122,13 +122,27 @@ function LeaveApprovalsPage() {
         setCanApprove(result.isReportingManager);
         setAccessChecked(true);
         if (!result.isReportingManager) {
-          void navigate({ to: "/leave/reports", replace: true });
+          const fallback =
+            user.role === "hr" ||
+            user.role === "developer_admin" ||
+            user.role === "main_admin" ||
+            user.role === "ceo"
+              ? "/leave/reports"
+              : "/leave/history";
+          void navigate({ to: fallback, replace: true });
         }
       })
       .catch(() => {
         setAccessChecked(true);
         setCanApprove(false);
-        void navigate({ to: "/leave/reports", replace: true });
+        const fallback =
+          user.role === "hr" ||
+          user.role === "developer_admin" ||
+          user.role === "main_admin" ||
+          user.role === "ceo"
+            ? "/leave/reports"
+            : "/dashboard";
+        void navigate({ to: fallback, replace: true });
       });
   }, [navigate, user]);
 

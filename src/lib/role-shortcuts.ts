@@ -136,6 +136,12 @@ export function shortcutsForRole(
           icon: Users,
         },
         {
+          label: "Employee attendance",
+          to: "/attendance",
+          description: "Employee-wise attendance directory",
+          icon: MapPin,
+        },
+        {
           label: "Leave tracking",
           to: "/leave/reports",
           description: "Organization leave status",
@@ -229,6 +235,18 @@ export function shortcutsForRole(
           to: "/users",
           description: "Create and manage accounts",
           icon: UserCog,
+        },
+        {
+          label: "Employee attendance",
+          to: "/attendance",
+          description: "Employee-wise attendance directory",
+          icon: MapPin,
+        },
+        {
+          label: "Leave tracking",
+          to: "/leave/reports",
+          description: "All leave requests and status",
+          icon: FileText,
         },
         {
           label: "Face security",

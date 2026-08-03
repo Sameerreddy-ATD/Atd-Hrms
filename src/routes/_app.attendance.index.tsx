@@ -24,6 +24,7 @@ import {
 import type { Branch, Department, User } from "@/types/domain";
 import { branchesApi, employeesApi } from "@/services/api";
 import { indiaDateKey } from "@/lib/india-date";
+import { useAuth } from "@/lib/auth";
 import {
   ResponsiveListShell,
   MobileList,
@@ -34,7 +35,7 @@ import {
   MobileListActions,
   DesktopTable,
 } from "@/components/common/ResponsiveList";
-import { Search, ArrowRight } from "lucide-react";
+import { Search, ArrowRight, MapPin } from "lucide-react";
 
 export const Route = createFileRoute("/_app/attendance/")({
   validateSearch: (search: Record<string, unknown>): { q?: string } => ({
@@ -44,9 +45,14 @@ export const Route = createFileRoute("/_app/attendance/")({
 });
 
 function AttendanceOverviewPage() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const search = Route.useSearch();
   const [q, setQ] = useState(search.q || "");
+  const canOpenMine = Boolean(
+    user?.employeeId &&
+      !["developer_admin"].includes(user.role),
+  );
 
   useEffect(() => {
     setQ(search.q || "");
@@ -108,12 +114,22 @@ function AttendanceOverviewPage() {
   return (
     <div>
       <PageHeader
-        title="Attendance Overview"
-        description="Employee-wise attendance directory. Open any employee to review day-wise logs and movement details."
+        title="Employee Attendance"
+        description="Browse people, then open day logs for punch times, location, and movement."
         actions={
-          <Button asChild variant="outline">
-            <Link to="/attendance/mine">My Attendance</Link>
-          </Button>
+          <div className="flex w-full flex-col gap-2 min-[420px]:w-auto min-[420px]:flex-row">
+            <Button asChild variant="outline">
+              <Link to="/attendance/locations">
+                <MapPin className="mr-1.5 size-4" />
+                Day logs
+              </Link>
+            </Button>
+            {canOpenMine && (
+              <Button asChild variant="outline">
+                <Link to="/attendance/mine">My Attendance</Link>
+              </Button>
+            )}
+          </div>
         }
       />
 

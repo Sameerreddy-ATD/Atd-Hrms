@@ -131,6 +131,33 @@ async function requestNetwork<T>(path: string, options: RequestInit = {}): Promi
   return res.json() as Promise<T>;
 }
 
+/** Authenticated binary fetch with the same cookie + refresh behaviour as JSON APIs. */
+export async function fetchAuthenticatedBlob(path: string): Promise<Blob> {
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const fetchOptions: RequestInit = {
+    credentials: "include",
+    cache: "no-store",
+    signal: controller.signal,
+  };
+  try {
+    let res = await fetch(`${API_BASE}${path}`, fetchOptions);
+    if (res.status === 401) {
+      const refreshed = await refreshSession();
+      if (refreshed) res = await fetch(`${API_BASE}${path}`, fetchOptions);
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.blob();
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error("Request timed out. Please try again.");
+    }
+    throw err instanceof Error ? err : new Error("Unable to load file.");
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const method = (options.method ?? "GET").toUpperCase();
   if (method !== "GET") {
@@ -455,6 +482,8 @@ export const faceApi = {
       }),
     evidenceImageUrl: (evidenceId: string) =>
       `${API_BASE}/face/admin/evidence/${encodeURIComponent(evidenceId)}/image`,
+    evidenceImagePath: (evidenceId: string) =>
+      `/face/admin/evidence/${encodeURIComponent(evidenceId)}/image`,
   },
 };
 
@@ -616,6 +645,7 @@ export const attendanceApi = {
     locationAccuracy: number;
     mobileDeviceId?: string;
     confirmLeaveCancellation?: boolean;
+    eventTime?: string;
     faceVerification?: FaceCapturePayload;
   }) =>
     request<{ eventId: string }>("/attendance/mobile/check-in", {
@@ -625,7 +655,12 @@ export const attendanceApi = {
         mobileDeviceId: payload.mobileDeviceId ?? navigator.userAgent.slice(0, 120),
       }),
     }),
-  checkOut: (payload: { latitude: number; longitude: number; locationAccuracy: number }) =>
+  checkOut: (payload: {
+    latitude: number;
+    longitude: number;
+    locationAccuracy: number;
+    eventTime?: string;
+  }) =>
     request<{ eventId: string }>("/attendance/mobile/check-out", {
       method: "POST",
       body: JSON.stringify({

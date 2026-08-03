@@ -70,7 +70,11 @@ export function AttendanceTimelineSheet({
   function formatTime(timeStr: string) {
     try {
       const d = new Date(timeStr);
-      return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      return d.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Asia/Kolkata",
+      });
     } catch {
       return timeStr;
     }

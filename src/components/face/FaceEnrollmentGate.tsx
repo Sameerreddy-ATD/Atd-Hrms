@@ -15,7 +15,7 @@ import { authApi, faceApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
 import type { FaceCapturePayload, FaceVerificationSession } from "@/types/domain";
 
-export function FaceEnrollmentGate() {
+export function FaceEnrollmentGate({ onUnlocked }: { onUnlocked?: () => void }) {
   const { user, logout, updateCurrentUser } = useAuth();
   const [session, setSession] = useState<FaceVerificationSession | null>(null);
   const [consent, setConsent] = useState(false);
@@ -32,9 +32,30 @@ export function FaceEnrollmentGate() {
       .then((status) => {
         setConsentVersion(status.consent.version);
         setConsentText(status.consent.text);
+        if (status.status === "APPROVED" || !status.required) {
+          onUnlocked?.();
+        }
       })
       .catch(() => undefined);
-  }, []);
+  }, [onUnlocked]);
+
+  useEffect(() => {
+    if (user?.faceEnrollmentStatus !== "PENDING") return;
+    const poll = window.setInterval(() => {
+      void faceApi
+        .status()
+        .then((status) => {
+          if (status.status === "APPROVED" || !status.required) {
+            void authApi.me().then((refreshed) => {
+              updateCurrentUser(refreshed.user);
+              onUnlocked?.();
+            });
+          }
+        })
+        .catch(() => undefined);
+    }, 15_000);
+    return () => window.clearInterval(poll);
+  }, [onUnlocked, updateCurrentUser, user?.faceEnrollmentStatus]);
 
   useEffect(() => {
     if (user?.faceEnrollmentStatus !== "PENDING") return;
@@ -42,6 +63,9 @@ export function FaceEnrollmentGate() {
       try {
         const result = await authApi.me();
         updateCurrentUser(result.user);
+        if (result.user.faceEnrollmentStatus === "APPROVED") {
+          onUnlocked?.();
+        }
       } catch {
         // A temporary network failure should not unlock or dismiss the gate.
       }
@@ -57,7 +81,7 @@ export function FaceEnrollmentGate() {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [user?.faceEnrollmentStatus, updateCurrentUser]);
+  }, [user?.faceEnrollmentStatus, updateCurrentUser, onUnlocked]);
 
   const startEnrollment = async () => {
     if (!consent) {
@@ -77,7 +101,7 @@ export function FaceEnrollmentGate() {
 
   const finishEnrollment = useCallback(
     async (capture: FaceCapturePayload) => {
-      await faceApi.enroll({
+      const enrolled = await faceApi.enroll({
         ...capture,
         consentAccepted: true,
         consentVersion,
@@ -85,8 +109,15 @@ export function FaceEnrollmentGate() {
       const refreshed = await authApi.me();
       updateCurrentUser(refreshed.user);
       setSession(null);
+      if (
+        enrolled.status === "APPROVED" ||
+        refreshed.user.faceEnrollmentStatus === "APPROVED" ||
+        enrolled.autoApproved
+      ) {
+        onUnlocked?.();
+      }
     },
-    [consentVersion, updateCurrentUser],
+    [consentVersion, onUnlocked, updateCurrentUser],
   );
 
   const pending = user?.faceEnrollmentStatus === "PENDING";
@@ -158,8 +189,12 @@ export function FaceEnrollmentGate() {
                     Registration photos
                   </p>
                   <h2 className="mt-1 text-xl font-bold tracking-tight text-foreground">
-                    Capture centre, left, then right
+                    Front, left, then right — with countdown
                   </h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Follow each on-screen step. When your pose is ready, a 3–2–1 timer counts down
+                    and the photo is taken automatically.
+                  </p>
                 </div>
                 <FaceCapture
                   session={session}

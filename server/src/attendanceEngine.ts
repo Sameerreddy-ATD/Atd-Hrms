@@ -128,6 +128,21 @@ export async function inferThumbEventType(employeeId: string, branchId: string, 
   return inTypes.has(previous.eventType) ? EventType.OFFICE_OUT : EventType.OFFICE_IN;
 }
 
+/**
+ * Prefer the client's punch instant (when they completed check-in/out), not server
+ * time after face verify / network delay. Clamp absurd clock skew.
+ */
+export function resolveMobileEventTime(clientTime?: Date | null) {
+  const now = new Date();
+  if (!clientTime || Number.isNaN(clientTime.getTime())) return now;
+  const skewMs = clientTime.getTime() - now.getTime();
+  // More than 2 minutes in the future → use server now (bad device clock).
+  if (skewMs > 2 * 60_000) return now;
+  // Offline queue may be up to 48h old; older than that → server now.
+  if (skewMs < -48 * 3600_000) return now;
+  return clientTime;
+}
+
 export async function createAttendanceEvent(input: {
   employeeId: string;
   eventTime?: Date;

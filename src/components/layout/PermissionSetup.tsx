@@ -23,7 +23,7 @@ import { enableDesktopAlerts, getNotificationPermission } from "@/lib/browser-no
 import { getDeviceLocation } from "@/lib/geolocation";
 import { cn } from "@/lib/utils";
 
-type PermissionState = PermissionStatus["state"] | "unsupported";
+type PermissionState = PermissionStatus["state"] | NotificationPermission | "unsupported";
 type PermissionKey = "location" | "notifications" | "camera";
 
 /** Bump when the setup checklist changes so existing devices see the new flow once. */

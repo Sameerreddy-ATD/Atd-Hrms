@@ -46,6 +46,7 @@ import {
   attendanceTransitionIssue,
   createAttendanceEvent,
   recalculateDailySummary,
+  resolveMobileEventTime,
 } from "./attendanceEngine.js";
 import { classifyMobileSource, ensureEmployeeShiftAssignment, locationSourceLabel } from "./attendancePolicy.js";
 import { settleExpiredOpenPunches, closePriorOpenPunchForNewDay } from "./attendanceSettlement.js";
@@ -1144,12 +1145,17 @@ export function createApp() {
               },
             },
             faceEvidence: {
-              orderBy: { capturedAt: "desc" },
-              take: 1,
+              where: {
+                purpose: FaceVerificationPurpose.ENROLLMENT,
+              },
+              orderBy: [{ createdAt: "desc" }, { evidenceId: "desc" }],
+              take: 12,
               select: {
                 evidenceId: true,
+                sessionId: true,
                 outcome: true,
                 capturedAt: true,
+                createdAt: true,
                 expiresAt: true,
                 deletedAt: true,
                 imageKey: true,
@@ -1181,9 +1187,40 @@ export function createApp() {
       for (const alert of mismatchEvidence) {
         if (!latestAlertByUser.has(alert.userId)) latestAlertByUser.set(alert.userId, alert);
       }
+      const enrollmentLabels = ["Centre", "Left", "Right"] as const;
       res.json(
         users.map((user) => {
           const latestAlert = latestAlertByUser.get(user.id);
+          const withImages = user.faceEvidence.filter((row) => row.imageKey && !row.deletedAt);
+          const latestSessionId = withImages[0]?.sessionId ?? user.faceEvidence[0]?.sessionId ?? null;
+          const sessionPhotos = (
+            latestSessionId
+              ? withImages.filter((row) => row.sessionId === latestSessionId)
+              : withImages
+          )
+            .slice()
+            .sort(
+              (a, b) =>
+                a.createdAt.getTime() - b.createdAt.getTime() ||
+                a.evidenceId.localeCompare(b.evidenceId),
+            )
+            .slice(0, 3);
+          const enrollmentEvidence = sessionPhotos.map((row, index) => ({
+            evidenceId: row.evidenceId,
+            outcome: row.outcome,
+            faceConfidence: Number(row.faceConfidence ?? 0),
+            livenessScore: Number(row.livenessScore ?? 0),
+            antiSpoofScore: Number(row.antiSpoofScore ?? 0),
+            similarityScore:
+              row.similarityScore === null ? null : Number(row.similarityScore),
+            capturedAt: row.capturedAt.toISOString(),
+            expiresAt: row.expiresAt.toISOString(),
+            imageAvailable: Boolean(row.imageKey && !row.deletedAt),
+            failureReason: row.failureReason,
+            photoIndex: index + 1,
+            label: enrollmentLabels[index] ?? `Photo ${index + 1}`,
+          }));
+          const latestEvidence = enrollmentEvidence[0] ?? null;
           return {
             userId: user.id,
             employeeId: user.employeeId,
@@ -1202,24 +1239,8 @@ export function createApp() {
                   failureReason: latestAlert.failureReason,
                 }
               : null,
-            latestEvidence: user.faceEvidence[0]
-              ? {
-                  ...user.faceEvidence[0],
-                  faceConfidence: Number(user.faceEvidence[0].faceConfidence ?? 0),
-                  livenessScore: Number(user.faceEvidence[0].livenessScore ?? 0),
-                  antiSpoofScore: Number(user.faceEvidence[0].antiSpoofScore ?? 0),
-                  similarityScore:
-                    user.faceEvidence[0].similarityScore === null
-                      ? null
-                      : Number(user.faceEvidence[0].similarityScore),
-                  capturedAt: user.faceEvidence[0].capturedAt.toISOString(),
-                  expiresAt: user.faceEvidence[0].expiresAt.toISOString(),
-                  imageAvailable: Boolean(
-                    user.faceEvidence[0].imageKey && !user.faceEvidence[0].deletedAt,
-                  ),
-                  imageKey: undefined,
-                }
-              : null,
+            latestEvidence,
+            enrollmentEvidence,
           };
         }),
       );
@@ -3361,7 +3382,8 @@ export function createApp() {
         }
       }
     }
-    const eventDate = await attendanceDateForEmployee(employeeId, body.eventTime ?? new Date());
+    const punchAt = resolveMobileEventTime(body.eventTime ?? null);
+    const eventDate = await attendanceDateForEmployee(employeeId, punchAt);
     if (!isCheckOut) {
       await ensureEmployeeShiftAssignment(employeeId, eventDate, req.user!.employeeId);
       // Missed Checkout is a flag + correction window — never a gate on the next day's check-in.
@@ -3431,7 +3453,7 @@ export function createApp() {
         branchId: nearbyBranchId,
         eventSource: EventSource.MOBILE_GPS,
         eventType: resolvedType,
-        eventTime: body.eventTime,
+        eventTime: punchAt,
         latitude: body.latitude,
         longitude: body.longitude,
         address: body.address,

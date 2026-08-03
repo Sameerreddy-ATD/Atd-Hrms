@@ -86,10 +86,16 @@ export const menuGroups: MenuGroup[] = [
     label: "Attendance",
     items: [
       {
+        label: "Employee Attendance",
+        to: "/attendance",
+        icon: Users,
+        roles: ["manager", "hr", "main_admin", "ceo", "developer_admin"],
+      },
+      {
         label: "My Attendance",
         to: "/attendance/mine",
         icon: CalendarCheck,
-        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "ceo"],
+        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "ceo", "main_admin"],
       },
       {
         label: "Day Logs",
@@ -152,19 +158,19 @@ export const menuGroups: MenuGroup[] = [
         label: "Apply Leave",
         to: "/leave/apply",
         icon: PlaneTakeoff,
-        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "ceo"],
+        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "ceo", "main_admin"],
       },
       {
         label: "Leave History",
         to: "/leave/history",
         icon: History,
-        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "ceo"],
+        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "ceo", "main_admin"],
       },
       {
         label: "My Leave Balance",
         to: "/leave/balance",
         icon: CalendarCheck,
-        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "ceo"],
+        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "ceo", "main_admin"],
       },
       {
         label: "Leave Approvals",
@@ -267,9 +273,14 @@ export function menuForRole(
       ...g,
       items: g.items
         .filter((i) => {
+          const roleOk = i.roles.includes(role);
+          const reportingOk =
+            i.requiresReportingManager || i.allowReportingManager
+              ? options?.isReportingManager === true
+              : false;
           const roleAllowed = i.requiresReportingManager
-            ? options?.isReportingManager === true
-            : i.roles.includes(role) || (i.allowReportingManager && options?.isReportingManager);
+            ? roleOk && reportingOk
+            : roleOk || (i.allowReportingManager && reportingOk);
           const module = moduleForRoute(i.to);
           const moduleAllowed = !options?.allowedModules || options.allowedModules.includes(module);
           return roleAllowed && moduleAllowed;
@@ -316,7 +327,7 @@ function groupOrderForRole(role: Role): string[] {
     case "main_admin":
       return ["Overview", "People", "Attendance", "Leave", "Company", "System", "Work", "Me"];
     case "developer_admin":
-      return ["Overview", "People", "System", "Company", "Attendance", "Leave", "Work", "Me"];
+      return ["Overview", "People", "Attendance", "Leave", "Work", "Company", "System", "Me"];
     default:
       return ["Overview", "Attendance", "Leave", "Work", "People", "Company", "Me", "System"];
   }
@@ -347,6 +358,7 @@ function itemOrderForRole(role: Role): string[] {
       return [
         "/dashboard",
         "/attendance/mine",
+        "/attendance",
         "/attendance/locations",
         "/attendance/field",
         "/attendance/branch",
@@ -374,6 +386,7 @@ function itemOrderForRole(role: Role): string[] {
         "/leave/apply",
         "/leave/history",
         "/leave/balance",
+        "/attendance",
         "/attendance/mine",
         "/attendance/locations",
         "/attendance/field",
@@ -396,6 +409,7 @@ function itemOrderForRole(role: Role): string[] {
         "/dashboard",
         "/employees",
         "/attendance/mine",
+        "/attendance",
         "/attendance/locations",
         "/attendance/field",
         "/attendance/branch",
@@ -415,11 +429,15 @@ function itemOrderForRole(role: Role): string[] {
       return [
         "/dashboard",
         "/employees",
+        "/attendance/mine",
+        "/attendance",
         "/attendance/locations",
         "/attendance/field",
         "/attendance/branch",
         "/attendance/corrections",
-        "/leave/approvals",
+        "/leave/apply",
+        "/leave/history",
+        "/leave/balance",
         "/leave/reports",
         "/leave/policy",
         "/branches",
@@ -439,6 +457,13 @@ function itemOrderForRole(role: Role): string[] {
         "/users",
         "/employees",
         "/departments",
+        "/attendance",
+        "/attendance/locations",
+        "/attendance/field",
+        "/attendance/branch",
+        "/attendance/corrections",
+        "/leave/reports",
+        "/leave/policy",
         "/checklists",
         "/face-security",
         "/settings",
@@ -447,12 +472,6 @@ function itemOrderForRole(role: Role): string[] {
         "/devices",
         "/holidays",
         "/assets",
-        "/attendance/locations",
-        "/attendance/field",
-        "/attendance/branch",
-        "/attendance/corrections",
-        "/leave/approvals",
-        "/leave/policy",
         "/tasks",
         "/employee-services",
         "/announcements",
@@ -473,7 +492,8 @@ export function moduleForRoute(path: string): ModuleKey {
     )
   )
     return "PEOPLE";
-  if (path.startsWith("/attendance") || path === "/devices") return "ATTENDANCE";
+  if (path === "/attendance" || path.startsWith("/attendance/") || path === "/devices")
+    return "ATTENDANCE";
   if (path === "/tasks" || path.startsWith("/tasks/")) return "TASKS";
   if (path === "/employee-services") return "EMPLOYEE_REQUESTS";
   if (path.startsWith("/leave")) return "LEAVE";

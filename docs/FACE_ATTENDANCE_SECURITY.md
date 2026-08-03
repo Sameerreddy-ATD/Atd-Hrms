@@ -26,7 +26,7 @@ Face Liveness is not used.
 5. The user accepts the versioned biometric-consent statement (registration photos only; check-in
    does not store photos).
 6. The server creates a two-minute, single-use enrollment session with a cryptographically random
-   nonce. Attendance sessions use a randomized `TURN_LEFT` or `TURN_RIGHT` challenge.
+   nonce. Attendance sessions use a `BLINK` challenge only (no head turns).
 7. Enrollment captures three directions in order: **centre**, **left**, **right**. Each angle must
    show exactly one face, pass size/lighting/anti-spoof/liveness checks, and hold stable descriptors.
 8. The browser submits the centre image as the primary evidence image, left/right images as

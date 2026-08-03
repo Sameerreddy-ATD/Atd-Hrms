@@ -143,7 +143,7 @@ function AppLayout() {
   }
 
   if (faceRequired) {
-    return <FaceEnrollmentGate />;
+    return <FaceEnrollmentGate onUnlocked={() => setFaceRequired(false)} />;
   }
 
   if (allowedModules === null) {

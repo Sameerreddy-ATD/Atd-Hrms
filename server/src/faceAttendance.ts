@@ -15,8 +15,9 @@ import { prisma } from "./prisma.js";
 
 const FACE_SETTING_KEY = "face_attendance_settings";
 const FACE_CONSENT_VERSION = "2026-07";
-const CHALLENGES = ["TURN_LEFT", "TURN_RIGHT"] as const;
-const MAX_RETAINED_IMAGES_PER_USER = 6;
+/** Daily check-in: blink only — no head-turn challenges. */
+const CHALLENGES = ["BLINK"] as const;
+const MAX_RETAINED_IMAGES_PER_USER = 3;
 
 export const faceSettingsSchema = z.object({
   verificationEnabled: z.boolean().default(true),
@@ -427,7 +428,9 @@ export async function verifyFaceCapture(input: {
     failureReason = "A real face could not be confirmed. Photos and screens are not accepted.";
   }
   if (!failureReason && !capture.challengeCompleted) {
-    failureReason = "The requested face movement was not completed.";
+    failureReason = isAttendance
+      ? "Blink was not detected. Look at the camera and blink once, then hold still."
+      : "The requested face movement was not completed.";
   }
 
   if (!failureReason && isAttendance) {

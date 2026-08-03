@@ -162,6 +162,22 @@ export interface FaceVerificationSession {
   };
 }
 
+export interface FaceEvidenceSummary {
+  evidenceId: string;
+  outcome: "CREATED" | "PASSED" | "FAILED" | "EXPIRED";
+  capturedAt: string;
+  expiresAt: string;
+  imageAvailable: boolean;
+  faceConfidence: number;
+  livenessScore: number;
+  antiSpoofScore: number;
+  similarityScore: number | null;
+  failureReason: string | null;
+  /** 1-based registration angle order: 1 centre, 2 left, 3 right */
+  photoIndex: number;
+  label: string;
+}
+
 export interface FaceAdminProfile {
   userId: string;
   employeeId: string | null;
@@ -178,18 +194,10 @@ export interface FaceAdminProfile {
     capturedAt: string;
     failureReason: string | null;
   } | null;
-  latestEvidence: {
-    evidenceId: string;
-    outcome: "CREATED" | "PASSED" | "FAILED" | "EXPIRED";
-    capturedAt: string;
-    expiresAt: string;
-    imageAvailable: boolean;
-    faceConfidence: number;
-    livenessScore: number;
-    antiSpoofScore: number;
-    similarityScore: number | null;
-    failureReason: string | null;
-  } | null;
+  /** @deprecated Prefer enrollmentEvidence — kept for older clients */
+  latestEvidence: FaceEvidenceSummary | null;
+  /** First 3 registration photos (centre, left, right) from the latest enrollment */
+  enrollmentEvidence: FaceEvidenceSummary[];
 }
 
 export interface FaceEvidenceRecord {

@@ -33,8 +33,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { faceApi } from "@/services/api";
-import type { FaceAdminProfile, FaceSettings } from "@/types/domain";
+import { faceApi, fetchAuthenticatedBlob } from "@/services/api";
+import type { FaceAdminProfile, FaceEvidenceSummary, FaceSettings } from "@/types/domain";
 
 export const Route = createFileRoute("/_app/face-security")({
   component: FaceSecurityPage,
@@ -235,7 +235,7 @@ function FaceSecurityPage() {
                 </div>
                 <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
                   {settings.verificationEnabled
-                    ? "Employees must have an approved face profile and complete a live face match at check-in. Registration photos are saved once; daily check-in does not store new photos."
+                    ? "Employees must have an approved face profile and complete a live face match at check-in. The first 3 registration photos (centre, left, right) are kept for review; daily check-in does not store new photos."
                     : "Employees can open the application and check in without a camera. Precise GPS is still required; existing face profiles and evidence are retained."}
                 </p>
               </div>
@@ -276,7 +276,7 @@ function FaceSecurityPage() {
                   const registrationApprovalMode = event.target.value as "MANUAL" | "AUTOMATIC";
                   const next = { ...settings, registrationApprovalMode };
                   setSettings(next);
-                  void faceApi
+                  void faceApi.admin
                     .updateSettings(next)
                     .then(() =>
                       toast.success(
@@ -399,7 +399,13 @@ function FaceSecurityPage() {
 
       <div className="grid gap-3 xl:grid-cols-2">
         {visibleProfiles.map((profile) => {
-          const latest = profile.latestEvidence;
+          const photos =
+            profile.enrollmentEvidence?.length > 0
+              ? profile.enrollmentEvidence
+              : profile.latestEvidence
+                ? [profile.latestEvidence]
+                : [];
+          const latest = photos[0] ?? null;
           const busy = busyUser === profile.userId;
           return (
             <Card key={profile.userId} className="overflow-hidden">
@@ -418,38 +424,29 @@ function FaceSecurityPage() {
                 </div>
 
                 {latest && (
-                  <div className="mt-4 flex flex-col gap-3 min-[480px]:flex-row">
-                    <EvidencePhoto
-                      evidenceId={latest.evidenceId}
-                      imageAvailable={latest.imageAvailable}
-                      employeeName={profile.name}
-                      className="aspect-[3/4] w-full max-w-[11rem] shrink-0 overflow-hidden rounded-xl bg-slate-950"
-                      onOpen={() => setEvidence(profile)}
-                    />
-                    <div className="grid flex-1 grid-cols-2 gap-2 rounded-xl bg-muted/45 p-3 text-xs sm:grid-cols-4 min-[480px]:grid-cols-2">
-                      <div>
-                        <div className="text-muted-foreground">Face</div>
-                        <div className="mt-1 font-semibold">
-                          {Math.round(latest.faceConfidence * 100)}%
-                        </div>
+                  <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-muted/45 p-3 text-xs sm:grid-cols-4">
+                    <div>
+                      <div className="text-muted-foreground">Face</div>
+                      <div className="mt-1 font-semibold">
+                        {Math.round(latest.faceConfidence * 100)}%
                       </div>
-                      <div>
-                        <div className="text-muted-foreground">Liveness</div>
-                        <div className="mt-1 font-semibold">
-                          {Math.round(latest.livenessScore * 100)}%
-                        </div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Liveness</div>
+                      <div className="mt-1 font-semibold">
+                        {Math.round(latest.livenessScore * 100)}%
                       </div>
-                      <div>
-                        <div className="text-muted-foreground">Anti-spoof</div>
-                        <div className="mt-1 font-semibold">
-                          {Math.round(latest.antiSpoofScore * 100)}%
-                        </div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Anti-spoof</div>
+                      <div className="mt-1 font-semibold">
+                        {Math.round(latest.antiSpoofScore * 100)}%
                       </div>
-                      <div>
-                        <div className="text-muted-foreground">Captured</div>
-                        <div className="mt-1 font-semibold">
-                          {new Date(latest.capturedAt).toLocaleDateString("en-IN")}
-                        </div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Captured</div>
+                      <div className="mt-1 font-semibold">
+                        {new Date(latest.capturedAt).toLocaleDateString("en-IN")}
                       </div>
                     </div>
                   </div>
@@ -476,10 +473,10 @@ function FaceSecurityPage() {
                 )}
 
                 <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-                  {latest?.imageAvailable && (
+                  {photos.some((photo) => photo.imageAvailable) && (
                     <Button variant="outline" size="sm" onClick={() => setEvidence(profile)}>
                       <Eye className="mr-1.5 size-4" />
-                      View photo
+                      View photos ({photos.filter((photo) => photo.imageAvailable).length})
                     </Button>
                   )}
                   {profile.status === "PENDING" && (
@@ -547,24 +544,45 @@ function FaceSecurityPage() {
       </div>
 
       <Dialog open={Boolean(evidence)} onOpenChange={(open) => !open && setEvidence(null)}>
-        <DialogContent className="max-w-md overflow-hidden p-0 sm:max-w-lg">
+        <DialogContent className="max-w-3xl overflow-hidden p-0 sm:max-w-4xl">
           <DialogHeader className="border-b px-4 py-4 pr-14 text-left sm:px-5">
-            <DialogTitle>Face evidence</DialogTitle>
+            <DialogTitle>Registration photos</DialogTitle>
             <DialogDescription>
               {evidence?.name}
               {evidence?.latestEvidence
                 ? ` · ${new Date(evidence.latestEvidence.capturedAt).toLocaleString("en-IN")}`
                 : ""}
+              {" · "}
+              First 3 enrollment angles (centre, left, right)
             </DialogDescription>
           </DialogHeader>
           <div className="bg-slate-950 p-3 sm:p-4">
-            {evidence?.latestEvidence ? (
-              <EvidencePhoto
-                evidenceId={evidence.latestEvidence.evidenceId}
-                imageAvailable={evidence.latestEvidence.imageAvailable}
-                employeeName={evidence.name}
-                className="mx-auto aspect-[3/4] w-full max-w-sm overflow-hidden rounded-xl"
-              />
+            {(evidence?.enrollmentEvidence?.length
+              ? evidence.enrollmentEvidence
+              : evidence?.latestEvidence
+                ? [evidence.latestEvidence]
+                : []
+            ).length > 0 ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {(evidence?.enrollmentEvidence?.length
+                  ? evidence.enrollmentEvidence
+                  : evidence?.latestEvidence
+                    ? [evidence.latestEvidence]
+                    : []
+                ).map((photo) => (
+                  <div key={photo.evidenceId} className="min-w-0 space-y-2">
+                    <EvidencePhoto
+                      evidenceId={photo.evidenceId}
+                      imageAvailable={photo.imageAvailable}
+                      employeeName={evidence?.name}
+                      className="aspect-[3/4] w-full overflow-hidden rounded-xl"
+                    />
+                    <div className="text-center text-sm font-medium text-slate-200">
+                      {photo.label ?? `Photo ${photo.photoIndex ?? ""}`}
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : (
               <div className="flex min-h-64 flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
                 <ImageOff className="size-6" />
@@ -631,19 +649,48 @@ function EvidencePhoto({
   onOpen?: () => void;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
-  const imageVisible = imageAvailable && !imageFailed;
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!imageAvailable || !evidenceId) {
+      setBlobUrl(null);
+      setImageFailed(false);
+      return;
+    }
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    setImageFailed(false);
+    setBlobUrl(null);
+    void (async () => {
+      try {
+        const blob = await fetchAuthenticatedBlob(faceApi.admin.evidenceImagePath(evidenceId));
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setBlobUrl(objectUrl);
+      } catch {
+        if (!cancelled) {
+          setImageFailed(true);
+          setBlobUrl(null);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [evidenceId, imageAvailable]);
+
+  const imageVisible = imageAvailable && Boolean(blobUrl) && !imageFailed;
   const content = imageVisible ? (
     <img
-      src={faceApi.admin.evidenceImageUrl(evidenceId)}
+      src={blobUrl!}
       alt={`Face evidence for ${employeeName ?? "employee"}`}
-      loading="lazy"
-      onError={() => setImageFailed(true)}
       className="absolute inset-0 h-full w-full object-cover object-center"
     />
   ) : (
     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-muted text-sm text-muted-foreground">
       <ImageOff className="size-6" />
-      <span>{imageFailed ? "Could not load" : "Expired"}</span>
+      <span>{imageFailed ? "Could not load" : imageAvailable ? "Loading…" : "Expired"}</span>
     </div>
   );
 
