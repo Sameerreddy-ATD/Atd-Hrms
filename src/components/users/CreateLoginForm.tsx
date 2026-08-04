@@ -262,8 +262,8 @@ export function CreateLoginForm({
       const created = await usersApi.create(payload);
       toast.success(
         creationMode === "link"
-          ? "User login linked to employee account"
-          : "Login and employee profile created",
+          ? "Login linked — status is Created until they sign in"
+          : "Login created — status is Created until first sign-in",
       );
       onCreated?.(created);
     } catch (err) {

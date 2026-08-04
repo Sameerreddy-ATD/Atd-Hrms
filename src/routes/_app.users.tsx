@@ -184,8 +184,9 @@ function UsersPage() {
     }
     setResetting(true);
     try {
-      await usersApi.resetPassword(resetUser.id, newPassword);
-      toast.success(`Password reset for ${resetUser.name}. They will change it on next login.`);
+      const updated = await usersApi.resetPassword(resetUser.id, newPassword);
+      setUsers((prev) => prev.map((row) => (row.id === resetUser.id ? { ...row, ...updated } : row)));
+      toast.success(`Password reset for ${resetUser.name}. Status is Created until they sign in again.`);
       setResetUser(null);
       setNewPassword("");
       setConfirmPassword("");
@@ -200,8 +201,13 @@ function UsersPage() {
     const search = query.trim().toLowerCase();
     return users.filter((user) => {
       if (roleFilter !== "all" && user.role !== roleFilter) return false;
-      if (statusFilter === "active" && !user.active) return false;
-      if (statusFilter === "inactive" && user.active) return false;
+      const lifecycle = resolveUserLoginLifecycle(user);
+      if (statusFilter === "created" && lifecycle !== "CREATED") return false;
+      if (statusFilter === "password_change" && lifecycle !== "PASSWORD_CHANGE") return false;
+      if (statusFilter === "active" && lifecycle !== "ACTIVE") return false;
+      if (statusFilter === "inactive" && lifecycle !== "INACTIVE" && lifecycle !== "SUSPENDED" && lifecycle !== "LOCKED") {
+        return false;
+      }
       const searchable =
         `${user.name} ${user.email} ${user.employeeCode ?? ""} ${user.employeeId ?? ""}`.toLowerCase();
       return !search || searchable.includes(search);
@@ -234,7 +240,7 @@ function UsersPage() {
     <div>
       <PageHeader
         title="User Logins"
-        description="Create, deactivate, reactivate, suspend, and reset employee accounts."
+        description="Create, deactivate, reactivate, suspend, and reset employee accounts. Status moves from Created → Password change → Active."
         actions={
           <>
             <BulkEmployeeImport
@@ -275,13 +281,15 @@ function UsersPage() {
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="sm:w-40">
+          <SelectTrigger className="sm:w-48">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="created">Created</SelectItem>
+            <SelectItem value="password_change">Password change</SelectItem>
             <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
+            <SelectItem value="inactive">Inactive / blocked</SelectItem>
           </SelectContent>
         </Select>
       </TableToolbar>
@@ -304,6 +312,10 @@ function UsersPage() {
                 <div>
                   <p className="text-muted-foreground">Role</p>
                   <p className="mt-0.5">{ROLE_LABELS[user.role]}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Last login</p>
+                  <p className="mt-0.5">{formatLastLogin(user.lastLoginAt)}</p>
                 </div>
                 {user.department && (
                   <div>
@@ -357,7 +369,7 @@ function UsersPage() {
           ))}
         </div>
         <div className="hidden overflow-x-auto md:block">
-          <Table className="min-w-[760px]">
+          <Table className="min-w-[860px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
@@ -365,6 +377,7 @@ function UsersPage() {
                 <TableHead>Role</TableHead>
                 <TableHead>Employee ID</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Last login</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -379,6 +392,9 @@ function UsersPage() {
                   </TableCell>
                   <TableCell>
                     <LoginStatus user={u} />
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {formatLastLogin(u.lastLoginAt)}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
@@ -608,6 +624,36 @@ function UsersPage() {
   );
 }
 
+function resolveUserLoginLifecycle(user: User): NonNullable<User["loginLifecycle"]> {
+  if (user.loginLifecycle) return user.loginLifecycle;
+  if (user.status === "LOCKED") return "LOCKED";
+  if (user.status === "INACTIVE" || user.active === false) {
+    if (
+      user.suspensionStartsAt &&
+      user.suspendedUntil &&
+      new Date(user.suspensionStartsAt).getTime() <= Date.now() &&
+      new Date(user.suspendedUntil).getTime() > Date.now()
+    ) {
+      return "SUSPENDED";
+    }
+    return "INACTIVE";
+  }
+  if (!user.lastLoginAt) return "CREATED";
+  if (user.mustChangePassword) return "PASSWORD_CHANGE";
+  return "ACTIVE";
+}
+
+function formatLastLogin(value?: string | null) {
+  if (!value) return "Never";
+  return new Date(value).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function LoginStatus({ user }: { user: User }) {
   if (user.role === "developer_admin") {
     return (
@@ -619,7 +665,12 @@ function LoginStatus({ user }: { user: User }) {
       </Badge>
     );
   }
-  if (user.status === "LOCKED") {
+
+  const lifecycle = resolveUserLoginLifecycle(user);
+  const scheduled =
+    user.suspensionStartsAt && new Date(user.suspensionStartsAt).getTime() > Date.now();
+
+  if (lifecycle === "LOCKED") {
     return (
       <Badge
         variant="outline"
@@ -629,28 +680,58 @@ function LoginStatus({ user }: { user: User }) {
       </Badge>
     );
   }
-  if (user.active) {
-    const scheduled =
-      user.suspensionStartsAt && new Date(user.suspensionStartsAt).getTime() > Date.now();
+  if (lifecycle === "SUSPENDED") {
     return (
       <Badge
         variant="outline"
-        className="max-w-44 shrink-0 whitespace-normal border-emerald-200 bg-emerald-50 text-center text-emerald-700 dark:text-emerald-400"
+        className="max-w-44 shrink-0 whitespace-normal border-orange-200 bg-orange-50 text-center text-orange-800 dark:border-orange-900/50 dark:bg-orange-950/40 dark:text-orange-300"
       >
-        {scheduled
-          ? `Suspends ${new Date(user.suspensionStartsAt!).toLocaleDateString("en-IN")}`
-          : "Active"}
+        {user.suspendedUntil
+          ? `Suspended until ${new Date(user.suspendedUntil).toLocaleDateString("en-IN")}`
+          : "Suspended"}
+      </Badge>
+    );
+  }
+  if (lifecycle === "INACTIVE") {
+    return (
+      <Badge
+        variant="outline"
+        className="max-w-44 shrink-0 whitespace-normal border-border bg-muted text-center text-muted-foreground"
+      >
+        Inactive
+      </Badge>
+    );
+  }
+  if (lifecycle === "CREATED") {
+    return (
+      <Badge
+        variant="outline"
+        className="shrink-0 border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-300"
+        title="Account created; awaiting first sign-in"
+      >
+        Created
+      </Badge>
+    );
+  }
+  if (lifecycle === "PASSWORD_CHANGE") {
+    return (
+      <Badge
+        variant="outline"
+        className="shrink-0 border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300"
+        title="Signed in once; must set a new password"
+      >
+        Password change
       </Badge>
     );
   }
   return (
     <Badge
       variant="outline"
-      className="max-w-44 shrink-0 whitespace-normal border-border bg-muted text-center text-muted-foreground"
+      className="max-w-44 shrink-0 whitespace-normal border-emerald-200 bg-emerald-50 text-center text-emerald-700 dark:text-emerald-400"
     >
-      {user.suspendedUntil && new Date(user.suspendedUntil).getTime() > Date.now()
-        ? `Suspended until ${new Date(user.suspendedUntil).toLocaleDateString("en-IN")}`
-        : "Inactive"}
+      {scheduled
+        ? `Suspends ${new Date(user.suspensionStartsAt!).toLocaleDateString("en-IN")}`
+        : "Active"}
     </Badge>
   );
 }

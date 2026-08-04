@@ -84,9 +84,12 @@ export interface User {
   active: boolean;
   status?: string;
   accountStatus?: "ACTIVE" | "INACTIVE" | "LOCKED" | "SUSPENDED";
+  /** Account activation lifecycle from create → first login → password set. */
+  loginLifecycle?: "CREATED" | "PASSWORD_CHANGE" | "ACTIVE" | "INACTIVE" | "LOCKED" | "SUSPENDED";
   failedLoginAttempts?: number;
   suspendedUntil?: string;
   suspensionStartsAt?: string;
+  lastLoginAt?: string | null;
   managerId?: string;
   managerName?: string;
   attendanceMode?: "THUMB_ONLY" | "MOBILE_GPS_ONLY" | "BOTH";

@@ -92,6 +92,8 @@ describe("Developer Admin face exemption", () => {
       status: "ACTIVE",
       firstLoginPasswordChangeRequired: false,
       failedLoginAttempts: 0,
+      lastLoginAt: new Date("2026-01-01T00:00:00.000Z"),
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
       suspendedUntil: null,
       suspensionStartsAt: null,
       employee: null,
@@ -100,5 +102,52 @@ describe("Developer Admin face exemption", () => {
 
     expect(dto.faceEnrollmentStatus).toBe("DISABLED");
     expect(dto.faceEnrollmentRequired).toBe(false);
+    expect(dto.loginLifecycle).toBe("ACTIVE");
+  });
+
+  it("marks newly created logins as CREATED until first login", () => {
+    const dto = userDto({
+      id: "new-user",
+      employeeId: "EMP001",
+      name: "New Hire",
+      email: "newhire@example.com",
+      phone: null,
+      role: "EMPLOYEE",
+      status: "ACTIVE",
+      firstLoginPasswordChangeRequired: true,
+      failedLoginAttempts: 0,
+      lastLoginAt: null,
+      createdAt: new Date("2026-08-01T00:00:00.000Z"),
+      suspendedUntil: null,
+      suspensionStartsAt: null,
+      employee: null,
+      faceProfile: null,
+    });
+
+    expect(dto.loginLifecycle).toBe("CREATED");
+    expect(dto.mustChangePassword).toBe(true);
+    expect(dto.lastLoginAt).toBeNull();
+  });
+
+  it("marks first login before password change as PASSWORD_CHANGE", () => {
+    const dto = userDto({
+      id: "pending-pw",
+      employeeId: "EMP002",
+      name: "Pending Password",
+      email: "pending@example.com",
+      phone: null,
+      role: "EMPLOYEE",
+      status: "ACTIVE",
+      firstLoginPasswordChangeRequired: true,
+      failedLoginAttempts: 0,
+      lastLoginAt: new Date("2026-08-04T04:00:00.000Z"),
+      createdAt: new Date("2026-08-01T00:00:00.000Z"),
+      suspendedUntil: null,
+      suspensionStartsAt: null,
+      employee: null,
+      faceProfile: null,
+    });
+
+    expect(dto.loginLifecycle).toBe("PASSWORD_CHANGE");
   });
 });

@@ -8,9 +8,34 @@ import type {
   Employee,
   Holiday,
   User,
+  UserStatus,
 } from "@prisma/client";
 import { roleToUi } from "./rbac.js";
 import { decryptEmployeeField } from "./employeePrivateData.js";
+
+/** Account activation lifecycle shown in User Logins / Employees. */
+export type LoginLifecycle = "CREATED" | "PASSWORD_CHANGE" | "ACTIVE" | "INACTIVE" | "LOCKED" | "SUSPENDED";
+
+export function resolveLoginLifecycle(user: {
+  status: UserStatus;
+  firstLoginPasswordChangeRequired: boolean;
+  lastLoginAt: Date | null | undefined;
+  suspensionStartsAt?: Date | null;
+  suspendedUntil?: Date | null;
+}): LoginLifecycle {
+  const suspended = Boolean(
+    user.suspensionStartsAt &&
+      user.suspendedUntil &&
+      user.suspensionStartsAt.getTime() <= Date.now() &&
+      user.suspendedUntil.getTime() > Date.now(),
+  );
+  if (user.status === "LOCKED") return "LOCKED";
+  if (user.status === "INACTIVE") return "INACTIVE";
+  if (suspended) return "SUSPENDED";
+  if (!user.lastLoginAt) return "CREATED";
+  if (user.firstLoginPasswordChangeRequired) return "PASSWORD_CHANGE";
+  return "ACTIVE";
+}
 
 export function userDto(
   user: Pick<
@@ -24,6 +49,8 @@ export function userDto(
     | "status"
     | "firstLoginPasswordChangeRequired"
     | "failedLoginAttempts"
+    | "lastLoginAt"
+    | "createdAt"
     | "suspendedUntil"
     | "suspensionStartsAt"
   > & {
@@ -57,6 +84,7 @@ export function userDto(
 ) {
   const faceEnrollmentStatus =
     user.role === "DEVELOPER_ADMIN" ? "DISABLED" : (user.faceProfile?.status ?? "NOT_REGISTERED");
+  const loginLifecycle = resolveLoginLifecycle(user);
   return {
     id: user.id,
     employeeId: user.employeeId ?? undefined,
@@ -65,6 +93,7 @@ export function userDto(
     phone: user.phone ?? undefined,
     role: roleToUi(user.role),
     status: user.status,
+    loginLifecycle,
     failedLoginAttempts: user.failedLoginAttempts,
     active:
       user.status === "ACTIVE" &&
@@ -74,6 +103,8 @@ export function userDto(
         user.suspendedUntil.getTime() <= Date.now()),
     suspendedUntil: user.suspendedUntil ? user.suspendedUntil.toISOString() : null,
     suspensionStartsAt: user.suspensionStartsAt ? user.suspensionStartsAt.toISOString() : null,
+    lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
+    createdAt: user.createdAt.toISOString(),
     homeBranchId: user.employee?.homeBranchId ?? undefined,
     companyEntity: user.employee?.companyEntity,
     companyPhone: user.employee?.companyPhone ?? undefined,
@@ -106,7 +137,14 @@ export function employeeDto(
   employee: Employee & {
     user?: Pick<
       User,
-      "id" | "role" | "status" | "failedLoginAttempts" | "suspensionStartsAt" | "suspendedUntil"
+      | "id"
+      | "role"
+      | "status"
+      | "failedLoginAttempts"
+      | "firstLoginPasswordChangeRequired"
+      | "lastLoginAt"
+      | "suspensionStartsAt"
+      | "suspendedUntil"
     > | null;
     department?: { name: string } | null;
     homeBranch?: Branch | null;
@@ -154,6 +192,15 @@ export function employeeDto(
     employee.user.suspensionStartsAt.getTime() <= Date.now() &&
     employee.user.suspendedUntil.getTime() > Date.now(),
   );
+  const loginLifecycle = employee.user
+    ? resolveLoginLifecycle({
+        status: employee.user.status,
+        firstLoginPasswordChangeRequired: employee.user.firstLoginPasswordChangeRequired,
+        lastLoginAt: employee.user.lastLoginAt,
+        suspensionStartsAt: employee.user.suspensionStartsAt,
+        suspendedUntil: employee.user.suspendedUntil,
+      })
+    : ("INACTIVE" as const);
 
   return {
     // Employee API identifiers are always employee identifiers. Consumers that
@@ -173,6 +220,9 @@ export function employeeDto(
     active: employee.status === "ACTIVE" && employee.user?.status === "ACTIVE" && !accountSuspended,
     status: employee.status,
     accountStatus: accountSuspended ? "SUSPENDED" : (employee.user?.status ?? "INACTIVE"),
+    loginLifecycle,
+    mustChangePassword: employee.user?.firstLoginPasswordChangeRequired ?? false,
+    lastLoginAt: employee.user?.lastLoginAt ? employee.user.lastLoginAt.toISOString() : null,
     failedLoginAttempts: employee.user?.failedLoginAttempts ?? 0,
     suspensionStartsAt: employee.user?.suspensionStartsAt?.toISOString() ?? null,
     suspendedUntil: employee.user?.suspendedUntil?.toISOString() ?? null,

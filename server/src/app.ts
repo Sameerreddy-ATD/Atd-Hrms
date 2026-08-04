@@ -1904,10 +1904,12 @@ export function createApp() {
         data: {
           passwordHash: await hashPassword(body.password),
           firstLoginPasswordChangeRequired: true,
+          // Treat reset like a new temp login: awaiting first sign-in again.
+          lastLoginAt: null,
           failedLoginAttempts: 0,
           sessionVersion: { increment: 1 },
         },
-        include: { employee: true },
+        include: { employee: true, faceProfile: true },
       });
       await audit({
         action: "user password reset by admin/hr",

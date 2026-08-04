@@ -939,7 +939,22 @@ function EmployeeAccountStatus({ employee }: { employee: User }) {
       </Badge>
     );
   }
-  if (employee.accountStatus === "LOCKED") {
+
+  const lifecycle =
+    employee.loginLifecycle ??
+    (employee.accountStatus === "LOCKED"
+      ? "LOCKED"
+      : employee.accountStatus === "SUSPENDED"
+        ? "SUSPENDED"
+        : employee.accountStatus === "INACTIVE" || !employee.active
+          ? "INACTIVE"
+          : !employee.lastLoginAt
+            ? "CREATED"
+            : employee.mustChangePassword
+              ? "PASSWORD_CHANGE"
+              : "ACTIVE");
+
+  if (lifecycle === "LOCKED") {
     return (
       <Badge
         variant="outline"
@@ -949,7 +964,7 @@ function EmployeeAccountStatus({ employee }: { employee: User }) {
       </Badge>
     );
   }
-  if (employee.accountStatus === "SUSPENDED") {
+  if (lifecycle === "SUSPENDED") {
     return (
       <Badge
         variant="outline"
@@ -962,11 +977,33 @@ function EmployeeAccountStatus({ employee }: { employee: User }) {
       </Badge>
     );
   }
-  if (employee.active) {
+  if (lifecycle === "CREATED") {
     return (
       <Badge
         variant="outline"
-        className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-400"
+        className="border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-300"
+        title="Account created; awaiting first sign-in"
+      >
+        Created
+      </Badge>
+    );
+  }
+  if (lifecycle === "PASSWORD_CHANGE") {
+    return (
+      <Badge
+        variant="outline"
+        className="border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300"
+        title="Signed in once; must set a new password"
+      >
+        Password change
+      </Badge>
+    );
+  }
+  if (lifecycle === "ACTIVE" || employee.active) {
+    return (
+      <Badge
+        variant="outline"
+        className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-400"
       >
         Active
       </Badge>
