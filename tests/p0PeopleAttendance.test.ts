@@ -147,24 +147,23 @@ describe("P0 emergency contact and HR employee edit contracts", () => {
 describe("P0 attendance navigation roles", () => {
   const menuSource = readFileSync("src/lib/menu.ts", "utf8");
 
-  it("exposes Field and Branch attendance to the same ops roles as the backend APIs", () => {
-    const rolesLiteral = ATTENDANCE_OPS_ROLES.map((role) => `"${role}"`).join(", ");
-    expect(menuSource).toContain('label: "Field Attendance"');
-    expect(menuSource).toContain('to: "/attendance/field"');
-    expect(menuSource).toContain(`roles: [${rolesLiteral}]`);
-    expect(menuSource).toContain('label: "Branch Attendance"');
-    expect(menuSource).toContain('to: "/attendance/branch"');
-  });
-
-  it("does not list a retired mismatch attendance route in the menu", () => {
+  it("does not list Field or Branch attendance in the sidebar menu", () => {
+    expect(menuSource).not.toContain('label: "Field Attendance"');
+    expect(menuSource).not.toContain('label: "Branch Attendance"');
+    expect(menuSource).not.toContain('to: "/attendance/field"');
+    expect(menuSource).not.toContain('to: "/attendance/branch"');
     expect(menuSource).not.toContain("/attendance/mismatch");
   });
 
-  it("removes the mismatch route file while keeping the emergency-contact redirect", () => {
+  it("redirects retired field/branch attendance routes to Day Logs", () => {
     expect(existsSync("src/routes/_app.attendance.mismatch.tsx")).toBe(false);
     expect(existsSync("src/routes/_app.emergency-contact.tsx")).toBe(true);
-    expect(existsSync("src/routes/_app.attendance.field.tsx")).toBe(true);
-    expect(existsSync("src/routes/_app.attendance.branch.tsx")).toBe(true);
+    expect(readFileSync("src/routes/_app.attendance.field.tsx", "utf8")).toContain(
+      'to="/attendance/locations"',
+    );
+    expect(readFileSync("src/routes/_app.attendance.branch.tsx", "utf8")).toContain(
+      'to="/attendance/locations"',
+    );
     expect(readFileSync("src/routes/_app.emergency-contact.tsx", "utf8")).toContain(
       'to="/profile"',
     );

@@ -630,10 +630,6 @@ export const attendanceApi = {
     request<AttendanceRecord[]>(`/attendance/hr/daily${toQuery(filters)}`),
   listMine: (_employeeId: string, filters: Record<string, string | undefined> = {}) =>
     request<AttendanceRecord[]>(`/attendance/my/report${toQuery(filters)}`),
-  listField: (filters: Record<string, string | undefined> = {}) =>
-    request<AttendanceRecord[]>(`/attendance/hr/field${toQuery(filters)}`),
-  listBranch: (filters: Record<string, string | undefined> = {}) =>
-    request<AttendanceRecord[]>(`/attendance/hr/branch-wise${toQuery(filters)}`),
   myTimeline: (date?: string) =>
     request<AttendanceTimelineEvent[]>(`/attendance/my/timeline${date ? `?date=${date}` : ""}`),
   teamTimeline: (employeeId: string, date?: string) =>
