@@ -80,7 +80,12 @@ export async function nextRankInStage(
 /** Returns null when neighbors are too close and the column should be rebalanced. */
 export function midpointRank(before?: number | null, after?: number | null) {
   if (before == null && after == null) return 1000;
-  if (before == null && after != null) return after / 2;
+  if (before == null && after != null) {
+    if (!Number.isFinite(after) || Math.abs(after) < 1e-3) return null;
+    const next = after / 2;
+    if (!Number.isFinite(next) || Math.abs(after - next) < 1e-3) return null;
+    return next;
+  }
   if (before != null && after == null) return before + 1000;
   const gap = after! - before!;
   if (!Number.isFinite(gap) || Math.abs(gap) < 1e-3) return null;

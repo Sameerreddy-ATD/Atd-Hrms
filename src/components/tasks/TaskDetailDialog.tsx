@@ -247,6 +247,16 @@ export function TaskDetailDialog({
     }
     setFormError("");
     const nextCustom: Record<string, string | number | boolean | null> = {};
+    for (const [key, value] of Object.entries(task.customFields ?? {})) {
+      if (
+        typeof value === "string" ||
+        typeof value === "number" ||
+        typeof value === "boolean" ||
+        value === null
+      ) {
+        nextCustom[key] = value;
+      }
+    }
     for (const def of activeBoard?.customFieldDefs ?? []) {
       const raw = customFields[def.key]?.trim() ?? "";
       if (!raw) {
@@ -255,6 +265,7 @@ export function TaskDetailDialog({
       }
       nextCustom[def.key] = def.type === "number" ? Number(raw) : raw;
     }
+    const boardChanged = Boolean(boardId && boardId !== (task.boardId ?? ""));
     await onSave(task, {
       title: title.trim(),
       description: description.trim() || null,
@@ -262,8 +273,8 @@ export function TaskDetailDialog({
       priority,
       startDate: startDate || null,
       dueDate: dueDate || null,
-      stageId: stageId || undefined,
-      boardId: boardId || undefined,
+      // Same-board stage changes go through onMove immediately; avoid a second versioned write.
+      ...(boardChanged ? { stageId: stageId || undefined, boardId } : {}),
       assigneeEmployeeIds: assigneeIds,
       customFields: nextCustom,
     });
@@ -566,11 +577,12 @@ export function TaskDetailDialog({
                       onValueChange={(value) => {
                         setBoardId(value);
                         const next = boards.find((entry) => entry.id === value);
-                        const firstStage = next?.stages[0]?.id ?? "";
-                        setStageId(firstStage);
-                        const nextFields: Record<string, string> = {};
+                        const startStage =
+                          next?.stages.find((stage) => stage.status === "TODO") ?? next?.stages[0];
+                        setStageId(startStage?.id ?? "");
+                        const nextFields: Record<string, string> = { ...customFields };
                         for (const def of next?.customFieldDefs ?? []) {
-                          nextFields[def.key] = customFields[def.key] ?? "";
+                          if (!(def.key in nextFields)) nextFields[def.key] = "";
                         }
                         setCustomFields(nextFields);
                       }}

@@ -43,6 +43,61 @@ function emptyBoardForm(): BoardForm {
   };
 }
 
+/** Exactly one starting TODO (first) and one COMPLETED stage. */
+function normalizeStageStatuses(stages: BoardForm["stages"]): BoardForm["stages"] {
+  let next = stages.map((stage) => ({ ...stage }));
+  if (next.length === 0) return next;
+
+  if (!next.some((stage) => stage.status === "TODO")) {
+    const startIndex = next.findIndex((stage) => stage.status !== "COMPLETED");
+    const index = startIndex >= 0 ? startIndex : 0;
+    next = next.map((stage, position) =>
+      position === index
+        ? { ...stage, status: "TODO" }
+        : stage.status === "TODO"
+          ? { ...stage, status: "IN_PROGRESS" }
+          : stage,
+    );
+  } else {
+    let seenTodo = false;
+    next = next.map((stage) => {
+      if (stage.status !== "TODO") return stage;
+      if (seenTodo) return { ...stage, status: "IN_PROGRESS" };
+      seenTodo = true;
+      return stage;
+    });
+  }
+
+  if (!next.some((stage) => stage.status === "COMPLETED")) {
+    const doneIndex = [...next]
+      .map((stage, index) => ({ stage, index }))
+      .reverse()
+      .find(({ stage }) => stage.status !== "TODO")?.index;
+    if (doneIndex != null) {
+      next = next.map((stage, position) =>
+        position === doneIndex ? { ...stage, status: "COMPLETED" } : stage,
+      );
+    }
+  } else {
+    let seenDone = false;
+    next = next.map((stage) => {
+      if (stage.status !== "COMPLETED") return stage;
+      if (seenDone) return { ...stage, status: "IN_PROGRESS" };
+      seenDone = true;
+      return stage;
+    });
+  }
+
+  // Entry column must stay first — backend creates new issues in stages[0]/TODO.
+  const todoIndex = next.findIndex((stage) => stage.status === "TODO");
+  if (todoIndex > 0) {
+    const [todoStage] = next.splice(todoIndex, 1);
+    next.unshift(todoStage);
+  }
+
+  return next;
+}
+
 export function BoardFormDialog({
   open,
   onOpenChange,
@@ -57,7 +112,8 @@ export function BoardFormDialog({
 
   useEffect(() => {
     if (!open) return;
-    setForm(board ? boardToForm(board) : emptyBoardForm());
+    const next = board ? boardToForm(board) : emptyBoardForm();
+    setForm({ ...next, stages: normalizeStageStatuses(next.stages) });
     setMemberQuery("");
     setError("");
   }, [board, open]);
@@ -85,25 +141,50 @@ export function BoardFormDialog({
     setForm((current) => {
       const target = index + direction;
       if (target < 0 || target >= current.stages.length) return current;
+      // Keep the To do stage pinned at the top.
+      if (current.stages[index]?.status === "TODO" && direction === 1) return current;
+      if (current.stages[target]?.status === "TODO" && direction === -1) return current;
       const stages = [...current.stages];
       [stages[index], stages[target]] = [stages[target], stages[index]];
-      return { ...current, stages };
+      return { ...current, stages: normalizeStageStatuses(stages) };
     });
   }
 
   function setCompletedStage(index: number, completed: boolean) {
-    setForm((current) => ({
-      ...current,
-      stages: current.stages.map((stage, position) => {
+    setForm((current) => {
+      const target = current.stages[index];
+      // Never mark the starting To do column as Done — that removes the required TODO stage.
+      if (completed && target?.status === "TODO") {
+        return current;
+      }
+      // Exactly one Done stage is required — turn Done on another stage to move it.
+      if (!completed && target?.status === "COMPLETED") {
+        return current;
+      }
+
+      const stages = current.stages.map((stage, position) => {
         if (position === index) {
-          return { ...stage, status: completed ? "COMPLETED" : "IN_PROGRESS" };
+          return {
+            ...stage,
+            status: completed ? ("COMPLETED" as const) : ("IN_PROGRESS" as const),
+          };
         }
         if (completed && stage.status === "COMPLETED") {
-          return { ...stage, status: "IN_PROGRESS" };
+          return { ...stage, status: "IN_PROGRESS" as const };
         }
         return stage;
-      }),
-    }));
+      });
+
+      return { ...current, stages: normalizeStageStatuses(stages) };
+    });
+  }
+
+  function removeStage(index: number) {
+    setForm((current) => {
+      if (current.stages.length <= 2) return current;
+      const stages = current.stages.filter((_, position) => position !== index);
+      return { ...current, stages: normalizeStageStatuses(stages) };
+    });
   }
 
   function validate() {
@@ -228,11 +309,14 @@ export function BoardFormDialog({
           <section className="space-y-3">
             <div className="flex items-center justify-between">
               <Label>Stages</Label>
-              <span className="text-xs text-muted-foreground">{form.stages.length} stages</span>
+              <span className="text-xs text-muted-foreground">
+                {form.stages.length} stages · one Start, one Done
+              </span>
             </div>
             <div className="space-y-2">
               {form.stages.map((stage, index) => {
-                const color = STAGE_COLORS[stage.color];
+                const color = STAGE_COLORS[stage.color] ?? STAGE_COLORS.SLATE;
+                const doneLocked = stage.status === "TODO" || stage.status === "COMPLETED";
                 return (
                   <div
                     key={stage.id ?? `new-${index}`}
@@ -281,11 +365,23 @@ export function BoardFormDialog({
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <Switch
                         checked={stage.status === "COMPLETED"}
+                        disabled={doneLocked}
                         onCheckedChange={(checked) => setCompletedStage(index, checked)}
-                        aria-label={`${stage.name} is done stage`}
+                        aria-label={
+                          stage.status === "TODO"
+                            ? `${stage.name} is the starting To do stage`
+                            : stage.status === "COMPLETED"
+                              ? `${stage.name} is the Done stage — enable Done on another stage to move it`
+                              : `Mark ${stage.name} as Done`
+                        }
                       />
-                      <span className={cn(stage.status === "COMPLETED" && "text-emerald-700")}>
-                        Done
+                      <span
+                        className={cn(
+                          stage.status === "COMPLETED" && "text-emerald-700",
+                          stage.status === "TODO" && "text-slate-600",
+                        )}
+                      >
+                        {stage.status === "TODO" ? "Start" : "Done"}
                       </span>
                     </div>
                     <div className="col-span-4 flex justify-end sm:col-span-1">
@@ -294,7 +390,7 @@ export function BoardFormDialog({
                         variant="ghost"
                         size="icon"
                         aria-label={`Move ${stage.name} up`}
-                        disabled={index === 0}
+                        disabled={index === 0 || stage.status === "TODO"}
                         onClick={() => moveStage(index, -1)}
                       >
                         <ChevronUp className="h-4 w-4" />
@@ -304,7 +400,7 @@ export function BoardFormDialog({
                         variant="ghost"
                         size="icon"
                         aria-label={`Move ${stage.name} down`}
-                        disabled={index === form.stages.length - 1}
+                        disabled={index === form.stages.length - 1 || stage.status === "TODO"}
                         onClick={() => moveStage(index, 1)}
                       >
                         <ChevronDown className="h-4 w-4" />
@@ -315,12 +411,7 @@ export function BoardFormDialog({
                         size="icon"
                         aria-label={`Remove ${stage.name}`}
                         disabled={form.stages.length <= 2}
-                        onClick={() =>
-                          setForm((current) => ({
-                            ...current,
-                            stages: current.stages.filter((_, position) => position !== index),
-                          }))
-                        }
+                        onClick={() => removeStage(index)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

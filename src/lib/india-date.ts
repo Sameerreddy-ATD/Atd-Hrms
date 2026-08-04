@@ -22,7 +22,9 @@ export function indiaMonthKey(date: Date = new Date()): string {
   return indiaDateKey(date).slice(0, 7);
 }
 
-/** Inclusive first/last calendar days for a YYYY-MM month key (IST). */
+/** Inclusive first/last calendar days for a YYYY-MM month key (IST).
+ * For the current month, `to` stops at today so future dates are not included.
+ */
 export function indiaMonthRange(monthKey: string): { from: string; to: string } {
   const [year, month] = monthKey.split("-").map(Number);
   if (!year || !month || month < 1 || month > 12) {
@@ -32,6 +34,8 @@ export function indiaMonthRange(monthKey: string): { from: string; to: string } 
   const from = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-01`;
   // Day 0 of the next month is the last day of `month`.
   const lastDay = new Date(Date.UTC(year, month, 0, 12, 0, 0));
-  const to = indiaDateKey(lastDay);
-  return { from, to };
+  const monthEnd = indiaDateKey(lastDay);
+  const today = indiaDateKey();
+  const to = monthEnd > today ? today : monthEnd;
+  return { from, to: to < from ? from : to };
 }

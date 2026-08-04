@@ -288,11 +288,25 @@ function validateTaskBoardConfiguration(
       message: "Select exactly one completed stage",
     });
   }
-  if (!value.stages.some((stage) => stage.status === TaskStatus.TODO)) {
+  if (value.stages.filter((stage) => stage.status === TaskStatus.TODO).length !== 1) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["stages"],
-      message: "Add a to-do stage",
+      message: "Keep exactly one to-do stage",
+    });
+  }
+  if (value.stages.some((stage) => stage.status === TaskStatus.CANCELLED)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["stages"],
+      message: "Cancelled is not a valid board stage status",
+    });
+  }
+  if (value.stages[0] && value.stages[0].status !== TaskStatus.TODO) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["stages", 0, "status"],
+      message: "The first stage must be the starting To do stage",
     });
   }
   if (new Set(value.stages.map((stage) => stage.name.toLowerCase())).size !== value.stages.length) {

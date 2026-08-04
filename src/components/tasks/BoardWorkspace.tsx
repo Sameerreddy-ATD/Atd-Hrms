@@ -154,6 +154,7 @@ export function BoardWorkspace({
   const [view, setView] = useState<BoardView>("kanban");
   const [query, setQuery] = useState("");
   const [mineOnly, setMineOnly] = useState(initialMineOnly);
+  const [showArchived, setShowArchived] = useState(false);
   const [assigneeId, setAssigneeId] = useState("ALL");
   const [priority, setPriority] = useState<TaskPriority | "ALL">("ALL");
   const [stageId, setStageId] = useState("ALL");
@@ -165,6 +166,7 @@ export function BoardWorkspace({
   useEffect(() => {
     setQuery("");
     setMineOnly(initialMineOnly);
+    setShowArchived(false);
     setAssigneeId("ALL");
     setPriority("ALL");
     setStageId("ALL");
@@ -183,6 +185,8 @@ export function BoardWorkspace({
     const normalized = query.trim().toLowerCase();
     const today = startOfToday();
     return boardTasks.filter((task) => {
+      if (!showArchived && task.archivedAt) return false;
+      if (showArchived && !task.archivedAt) return false;
       if (mineOnly && employeeId && !task.assignees.some((person) => person.id === employeeId)) {
         return false;
       }
@@ -210,11 +214,31 @@ export function BoardWorkspace({
           .some((value) => String(value).toLowerCase().includes(normalized))
       );
     });
-  }, [assigneeId, board, boardTasks, due, employeeId, mineOnly, priority, query, stageId]);
+  }, [
+    assigneeId,
+    board,
+    boardTasks,
+    due,
+    employeeId,
+    mineOnly,
+    priority,
+    query,
+    showArchived,
+    stageId,
+  ]);
 
-  const activeCount = boardTasks.filter(
-    (task) => !["COMPLETED", "CANCELLED"].includes(task.status),
-  ).length;
+  const rankTasksByStage = useMemo(
+    () =>
+      new Map(
+        board.stages.map((stage) => [
+          stage.id,
+          boardTasks
+            .filter((task) => !task.archivedAt && task.stageId === stage.id)
+            .sort((left, right) => (left.rank ?? 0) - (right.rank ?? 0)),
+        ]),
+      ),
+    [board.stages, boardTasks],
+  );
   const tasksByStage = useMemo(
     () =>
       new Map(
@@ -228,6 +252,9 @@ export function BoardWorkspace({
     [board.stages, visibleTasks],
   );
   const cancelledTasks = visibleTasks.filter((task) => task.status === "CANCELLED");
+  const activeCount = boardTasks.filter(
+    (task) => !task.archivedAt && !["COMPLETED", "CANCELLED"].includes(task.status),
+  ).length;
 
   function toggleStage(stage: TaskStage) {
     setCollapsedStages((current) => {
@@ -240,6 +267,7 @@ export function BoardWorkspace({
 
   const filtersActive =
     mineOnly ||
+    showArchived ||
     assigneeId !== "ALL" ||
     priority !== "ALL" ||
     stageId !== "ALL" ||
@@ -335,6 +363,14 @@ export function BoardWorkspace({
                 Only my issues
               </Button>
             )}
+            <Button
+              size="sm"
+              variant={showArchived ? "secondary" : "outline"}
+              onClick={() => setShowArchived((current) => !current)}
+              className="h-8 shrink-0"
+            >
+              {showArchived ? "Archived only" : "Show archived"}
+            </Button>
           </div>
         </div>
 
@@ -400,6 +436,7 @@ export function BoardWorkspace({
               onClick={() => {
                 setQuery("");
                 setMineOnly(false);
+                setShowArchived(false);
                 setAssigneeId("ALL");
                 setPriority("ALL");
                 setStageId("ALL");
@@ -441,6 +478,7 @@ export function BoardWorkspace({
         <KanbanView
           board={board}
           tasksByStage={tasksByStage}
+          rankTasksByStage={rankTasksByStage}
           draggingTaskId={draggingTaskId}
           setDraggingTaskId={setDraggingTaskId}
           draggingTaskIdRef={draggingTaskIdRef}
@@ -612,6 +650,7 @@ function BacklogView({
 type KanbanViewProps = {
   board: TaskBoard;
   tasksByStage: Map<string, WorkTask[]>;
+  rankTasksByStage: Map<string, WorkTask[]>;
   draggingTaskId: string | null;
   setDraggingTaskId: (taskId: string | null) => void;
   draggingTaskIdRef: MutableRefObject<string | null>;
@@ -635,9 +674,44 @@ function dropOptionsForIndex(
   };
 }
 
+/** Place relative to the visible drop target, against the unfiltered column order. */
+function dropOptionsFromVisibleIndex(
+  visibleColumn: WorkTask[],
+  fullColumn: WorkTask[],
+  draggedId: string,
+  targetIndex: number,
+): MoveTaskOptions {
+  const visibleWithout = visibleColumn.filter((entry) => entry.id !== draggedId);
+  const fullWithout = fullColumn.filter((entry) => entry.id !== draggedId);
+  const clamped = Math.max(0, Math.min(targetIndex, visibleWithout.length));
+  const visibleBefore = visibleWithout[clamped - 1];
+  const visibleAfter = visibleWithout[clamped];
+
+  if (visibleBefore) {
+    const beforeIndex = fullWithout.findIndex((entry) => entry.id === visibleBefore.id);
+    const before = beforeIndex >= 0 ? fullWithout[beforeIndex] : undefined;
+    const after = beforeIndex >= 0 ? fullWithout[beforeIndex + 1] : undefined;
+    return {
+      ...(before ? { rankBeforeTaskId: before.id } : {}),
+      ...(after ? { rankAfterTaskId: after.id } : {}),
+    };
+  }
+  if (visibleAfter) {
+    const afterIndex = fullWithout.findIndex((entry) => entry.id === visibleAfter.id);
+    const after = afterIndex >= 0 ? fullWithout[afterIndex] : undefined;
+    const before = afterIndex > 0 ? fullWithout[afterIndex - 1] : undefined;
+    return {
+      ...(before ? { rankBeforeTaskId: before.id } : {}),
+      ...(after ? { rankAfterTaskId: after.id } : {}),
+    };
+  }
+  return dropOptionsForIndex(fullWithout, draggedId, fullWithout.length);
+}
+
 function KanbanView({
   board,
   tasksByStage,
+  rankTasksByStage,
   draggingTaskId,
   setDraggingTaskId,
   draggingTaskIdRef,
@@ -645,7 +719,7 @@ function KanbanView({
   onOpenTask,
   onMoveTask,
 }: KanbanViewProps) {
-  const allTasks = [...tasksByStage.values()].flat();
+  const allTasks = [...rankTasksByStage.values()].flat();
 
   function finishDrag() {
     draggingTaskIdRef.current = null;
@@ -658,6 +732,7 @@ function KanbanView({
     finishDrag();
     if (!task) return;
     const stageTasks = tasksByStage.get(stage.id) ?? [];
+    const rankColumn = rankTasksByStage.get(stage.id) ?? [];
     if (task.stageId === stage.id) {
       const currentIndex = stageTasks.findIndex((entry) => entry.id === task.id);
       if (currentIndex < 0) return;
@@ -668,7 +743,7 @@ function KanbanView({
       }
     }
     const index = targetIndex ?? stageTasks.filter((entry) => entry.id !== task.id).length;
-    const options = dropOptionsForIndex(stageTasks, task.id, index);
+    const options = dropOptionsFromVisibleIndex(stageTasks, rankColumn, task.id, index);
     void onMoveTask(task, stage.id, options);
   }
 

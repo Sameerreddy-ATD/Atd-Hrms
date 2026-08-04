@@ -54,6 +54,33 @@ describe("task boards and module access", () => {
     ).toThrow("Select exactly one completed stage");
   });
 
+  it("rejects boards where the first stage is not To do", () => {
+    expect(() =>
+      taskBoardSchema.parse({
+        name: "Reversed",
+        accessType: "OPEN",
+        stages: [
+          { name: "Done", color: "EMERALD", status: "COMPLETED" },
+          { name: "To do", color: "SLATE", status: "TODO" },
+        ],
+      }),
+    ).toThrow("The first stage must be the starting To do stage");
+  });
+
+  it("rejects boards with more than one To do stage", () => {
+    expect(() =>
+      taskBoardSchema.parse({
+        name: "Split queue",
+        accessType: "OPEN",
+        stages: [
+          { name: "Backlog", color: "SLATE", status: "TODO" },
+          { name: "Ready", color: "BLUE", status: "TODO" },
+          { name: "Done", color: "EMERALD", status: "COMPLETED" },
+        ],
+      }),
+    ).toThrow("Keep exactly one to-do stage");
+  });
+
   it("rejects a task whose due date is before its start date", () => {
     expect(() =>
       taskSchema.parse({
@@ -115,5 +142,16 @@ describe("task boards and module access", () => {
     expect(moduleForApiPath("/tasks/123")).toBe("TASKS");
     expect(moduleForApiPath("/leave/requests")).toBe("LEAVE");
     expect(DEFAULT_MODULE_ACCESS.DEVELOPER_ADMIN).toContain("SYSTEM");
+  });
+});
+
+describe("task ranking helpers", () => {
+  it("asks for rebalance when inserting above a near-zero rank", async () => {
+    const { midpointRank } = await import("../server/src/taskIssueKeys.js");
+    expect(midpointRank(null, 0)).toBeNull();
+    expect(midpointRank(null, 0.0005)).toBeNull();
+    expect(midpointRank(null, 1000)).toBe(500);
+    expect(midpointRank(1000, 2000)).toBe(1500);
+    expect(midpointRank(1000, 1000.0005)).toBeNull();
   });
 });

@@ -5333,8 +5333,63 @@ export function createApp() {
     const visibleIds = unrestricted
       ? undefined
       : [...new Set([...(user.employeeId ? [user.employeeId] : []), ...teamIds])];
-    const assignableIds = assignmentAdminRoles.includes(user.role) ? undefined : teamIds;
+    // Include the caller so self-assignment and task creation work for non-heads.
+    const assignableIds = assignmentAdminRoles.includes(user.role)
+      ? undefined
+      : [...new Set([...(user.employeeId ? [user.employeeId] : []), ...teamIds])];
     return { visibleIds, assignableIds };
+  }
+
+  function startingStage<T extends { status: TaskStatus; sortOrder?: number }>(stages: T[]) {
+    return stages.find((stage) => stage.status === TaskStatus.TODO) ?? stages[0];
+  }
+
+  async function assertValidParentTask(
+    user: NonNullable<express.Request["user"]>,
+    parentTaskId: string,
+    boardId: string | null,
+    taskId: string | null,
+  ) {
+    if (taskId && parentTaskId === taskId) {
+      throw new HttpError(400, "An issue cannot be its own parent");
+    }
+    const parent = await prisma.workTask.findUnique({
+      where: { taskId: parentTaskId },
+      select: {
+        taskId: true,
+        boardId: true,
+        parentTaskId: true,
+        archivedAt: true,
+        assignments: { select: { employeeId: true } },
+      },
+    });
+    if (!parent || parent.archivedAt) {
+      throw new HttpError(400, "Parent issue was not found");
+    }
+    if (boardId && parent.boardId && parent.boardId !== boardId) {
+      throw new HttpError(400, "Subtasks must stay on the same project as their parent");
+    }
+    await assertCanViewTask(
+      user,
+      parent,
+      parent.assignments.map((assignment) => assignment.employeeId),
+    );
+    let cursor: string | null = parent.parentTaskId;
+    let hops = 0;
+    while (cursor) {
+      if (taskId && cursor === taskId) {
+        throw new HttpError(400, "That parent would create a cycle");
+      }
+      if (hops >= 20) {
+        throw new HttpError(400, "Parent chain is too deep");
+      }
+      const ancestor: { parentTaskId: string | null } | null = await prisma.workTask.findUnique({
+        where: { taskId: cursor },
+        select: { parentTaskId: true },
+      });
+      cursor = ancestor?.parentTaskId ?? null;
+      hops += 1;
+    }
   }
 
   const boardInclude = {
@@ -5342,10 +5397,17 @@ export function createApp() {
     roleAccess: { select: { role: true } },
     members: { select: { employeeId: true } },
     tasks: {
-      where: { status: { notIn: [TaskStatus.COMPLETED, TaskStatus.CANCELLED] } },
+      where: {
+        archivedAt: null,
+        status: { notIn: [TaskStatus.COMPLETED, TaskStatus.CANCELLED] },
+      },
       select: { taskId: true },
     },
-    _count: { select: { tasks: true } },
+    _count: {
+      select: {
+        tasks: { where: { archivedAt: null } },
+      },
+    },
   } satisfies Prisma.TaskBoardInclude;
 
   type BoardWithDetails = Prisma.TaskBoardGetPayload<{ include: typeof boardInclude }>;
@@ -5474,6 +5536,13 @@ export function createApp() {
   app.post(
     "/task-boards",
     requireAuth,
+    requireRoles(
+      Role.DEVELOPER_ADMIN,
+      Role.MAIN_ADMIN,
+      Role.CEO,
+      Role.HR,
+      Role.MANAGER,
+    ),
     asyncHandler(async (req, res) => {
       const body = taskBoardSchema.parse(req.body);
       const { assignableIds } = await taskScope(req.user!);
@@ -5902,52 +5971,38 @@ export function createApp() {
       const tomorrow = new Date(today);
       tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
       if (boardId) await assertBoardAccess(req.user!, boardId);
-      if (boardId) {
-        const board = await prisma.taskBoard.findUnique({
-          where: { boardId },
-          include: { stages: { orderBy: { sortOrder: "asc" }, take: 1 } },
-        });
-        const firstStage = board?.stages[0];
-        if (firstStage) {
-          await prisma.workTask.updateMany({
-            where: {
-              boardId,
-              archivedAt: null,
-              status: { not: TaskStatus.CANCELLED },
-              OR: [{ stageId: null }, { stage: { is: { boardId: { not: boardId } } } }],
-            },
-            data: {
-              stageId: firstStage.stageId,
-              status: firstStage.status,
-              lastActivityAt: new Date(),
-            },
-          });
-        }
-      }
+      const statusFilter = requestedStatus.success ? { status: requestedStatus.data } : {};
+      const overdueFilter =
+        due === "overdue"
+          ? {
+              dueDate: { lt: today },
+              ...(requestedStatus.success
+                ? {}
+                : { status: { notIn: [TaskStatus.COMPLETED, TaskStatus.CANCELLED] } }),
+            }
+          : {};
+      const assignmentFilters = [
+        ...(scope ? [{ assignments: { some: { employeeId: { in: scope } } } }] : []),
+        ...(assigneeEmployeeId
+          ? [{ assignments: { some: { employeeId: assigneeEmployeeId } } }]
+          : []),
+      ];
       const tasks = await prisma.workTask.findMany({
         where: {
           ...(includeArchived ? {} : { archivedAt: null }),
-          ...(scope ? { assignments: { some: { employeeId: { in: scope } } } } : {}),
-          ...(requestedStatus.success ? { status: requestedStatus.data } : {}),
+          ...statusFilter,
           ...(requestedPriority.success ? { priority: requestedPriority.data } : {}),
           ...(boardId ? { boardId } : {}),
           ...(stageId ? { stageId } : {}),
           ...(parentTaskId ? { parentTaskId } : {}),
-          ...(assigneeEmployeeId
-            ? { assignments: { some: { employeeId: assigneeEmployeeId } } }
-            : {}),
           ...(due === "today" ? { dueDate: { gte: today, lt: tomorrow } } : {}),
-          ...(due === "overdue"
-            ? {
-                dueDate: { lt: today },
-                status: { notIn: [TaskStatus.COMPLETED, TaskStatus.CANCELLED] },
-              }
-            : {}),
+          ...overdueFilter,
           ...(due === "none" ? { dueDate: null } : {}),
           AND: [
             boardId
               ? {}
               : { OR: [{ boardId: null }, { board: { is: boardAccessWhere(req.user!) } }] },
+            ...assignmentFilters,
             ...(query
               ? [
                   {
@@ -5990,7 +6045,6 @@ export function createApp() {
         where: { taskId: String(req.params.id) },
         include: taskInclude,
       });
-      if (task.archivedAt) throw new HttpError(404, "Task not found");
       await assertCanViewTask(
         req.user!,
         task,
@@ -6026,12 +6080,15 @@ export function createApp() {
         await assertAssigneesAllowedOnBoard(board, employeeIds);
         const stage = stageId
           ? board.stages.find((entry) => entry.stageId === stageId)
-          : board.stages[0];
+          : startingStage(board.stages);
         if (!stage) throw new HttpError(400, "Select a stage from this board");
         stageId = stage.stageId;
         selectedStage = stage;
       } else if (stageId) {
         throw new HttpError(400, "A stage requires a board");
+      }
+      if (body.parentTaskId) {
+        await assertValidParentTask(req.user!, body.parentTaskId, boardId, null);
       }
       const { assigneeEmployeeIds: _assigneeEmployeeIds, issueType, ...taskData } = body;
       const task = await prisma.$transaction(async (transaction) => {
@@ -6187,7 +6244,7 @@ export function createApp() {
         nextStageId = stage.stageId;
         nextStatus = stage.status;
       } else if (body.boardId && nextBoardId && nextBoardId !== existing.boardId) {
-        const firstStage = targetBoard?.stages[0];
+        const firstStage = targetBoard ? startingStage(targetBoard.stages) : undefined;
         if (!firstStage) throw new HttpError(400, "Target project has no stages");
         nextStageId = firstStage.stageId;
         nextStatus = firstStage.status;
@@ -6221,6 +6278,15 @@ export function createApp() {
       const nextDueDate = body.dueDate === undefined ? existing.dueDate : body.dueDate;
       if (nextStartDate && nextDueDate && nextDueDate < nextStartDate) {
         throw new HttpError(400, "Due date cannot be before the start date");
+      }
+
+      if (body.parentTaskId !== undefined && body.parentTaskId !== null) {
+        await assertValidParentTask(
+          req.user!,
+          body.parentTaskId,
+          nextBoardId ?? existing.boardId,
+          existing.taskId,
+        );
       }
 
       const wantsRankNeighbors = Boolean(body.rankBeforeTaskId || body.rankAfterTaskId);
@@ -6313,7 +6379,7 @@ export function createApp() {
           targetBoardIdForRank &&
           (wantsRankNeighbors || stageChanging || boardChanging)
         ) {
-          if (wantsRankNeighbors && rankNeighborBefore != null && rankNeighborAfter != null) {
+          if (wantsRankNeighbors) {
             await rebalanceRanksInStage(transaction, targetBoardIdForRank, targetStageId);
             const [before, after] = await Promise.all([
               body.rankBeforeTaskId

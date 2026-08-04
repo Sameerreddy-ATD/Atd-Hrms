@@ -11,6 +11,7 @@ import { config } from "./config.js";
 import { ensureChecklistInstance } from "./checklistService.js";
 import { assertCanAccessTask, boardAccessWhere } from "./taskBoardAccess.js";
 import { readPrivateFile, storePrivateFile } from "./privateFiles.js";
+import { audit } from "./audit.js";
 
 function roleIn(userRole: Role, allowed: Role[]) {
   return allowed.includes(userRole);
@@ -501,17 +502,57 @@ export function registerHrmsExtensions(app: Express) {
       const existing = await assertCanAccessTask(req.user!, String(req.params.id));
       const full = await prisma.workTask.findUniqueOrThrow({
         where: { taskId: existing.taskId },
+        include: { assignments: { select: { employeeId: true } } },
       });
-      if (full.version !== body.version) {
-        throw new HttpError(409, "Task was updated elsewhere. Refresh and try again.");
+      if (full.boardId) {
+        const board = await prisma.taskBoard.findUnique({
+          where: { boardId: full.boardId },
+          select: { archived: true },
+        });
+        if (board?.archived) {
+          throw new HttpError(409, "Restore this board before changing its tasks");
+        }
       }
-      const task = await prisma.workTask.update({
-        where: { taskId: full.taskId },
+
+      const assignmentAdminRoles: Role[] = [
+        Role.DEVELOPER_ADMIN,
+        Role.MAIN_ADMIN,
+        Role.CEO,
+        Role.HR,
+      ];
+      const teamIds = req.user!.employeeId
+        ? await getOrganizationTeamEmployeeIds(req.user!.employeeId)
+        : [];
+      const assignableIds = assignmentAdminRoles.includes(req.user!.role)
+        ? undefined
+        : [...new Set([...(req.user!.employeeId ? [req.user!.employeeId] : []), ...teamIds])];
+      const assigneeIds = full.assignments.map((entry) => entry.employeeId);
+      const canManage =
+        assignableIds === undefined || assigneeIds.some((id) => assignableIds.includes(id));
+      if (!canManage) {
+        throw new HttpError(403, "You cannot archive this task");
+      }
+
+      const changed = await prisma.workTask.updateMany({
+        where: { taskId: full.taskId, version: body.version },
         data: {
           archivedAt: body.archived ? new Date() : null,
           version: { increment: 1 },
           lastActivityAt: new Date(),
         },
+      });
+      if (changed.count !== 1) {
+        throw new HttpError(409, "Task was updated elsewhere. Refresh and try again.");
+      }
+      const task = await prisma.workTask.findUniqueOrThrow({
+        where: { taskId: full.taskId },
+        select: { taskId: true, archivedAt: true, version: true },
+      });
+      await audit({
+        action: body.archived ? "task archived" : "task restored",
+        performedByUserId: req.user!.id,
+        newValue: { taskId: task.taskId, archived: body.archived, version: task.version },
+        ipAddress: req.ip,
       });
       res.json({
         id: task.taskId,

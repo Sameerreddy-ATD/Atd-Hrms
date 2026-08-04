@@ -154,7 +154,7 @@ function DayLogsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Day Logs"
-        description="Review day-wise attendance for the selected month. Expand any date to see every punch in chronological order."
+        description="Review day-wise attendance for the selected month through today. Expand any date to see every punch in chronological order."
       />
 
       <Card>

@@ -77,7 +77,12 @@ function TaskBoardsPage() {
     setError("");
     try {
       const [taskRows, people] = await Promise.all([
-        tasksApi.list("team", { boardId, limit: 1000, detail: "summary" }),
+        tasksApi.list("team", {
+          boardId,
+          limit: 1000,
+          detail: "summary",
+          includeArchived: true,
+        }),
         tasksApi.assignees(boardId).catch(() => []),
       ]);
       setTasks(taskRows);
@@ -170,7 +175,11 @@ function TaskBoardsPage() {
 
   function openNewTask(stageId?: string) {
     if (!selectedBoard) return;
-    setDefaultStageId(stageId);
+    setDefaultStageId(
+      stageId ||
+        selectedBoard.stages.find((stage) => stage.status === "TODO")?.id ||
+        selectedBoard.stages[0]?.id,
+    );
     setTaskDialogOpen(true);
   }
 
@@ -222,6 +231,7 @@ function TaskBoardsPage() {
         ...task,
         stageId,
         stage: selectedBoard?.stages.find((stage) => stage.id === stageId) ?? task.stage,
+        version: task.version + 1,
       };
       const column = without
         .filter((entry) => entry.boardId === task.boardId && entry.stageId === stageId)

@@ -71,7 +71,12 @@ export function TaskFormDialog({
 
   useEffect(() => {
     if (!open) return;
-    setForm(emptyTask(defaultStageId || board?.stages[0]?.id || ""));
+    const startStageId =
+      defaultStageId ||
+      board?.stages.find((stage) => stage.status === "TODO")?.id ||
+      board?.stages[0]?.id ||
+      "";
+    setForm(emptyTask(startStageId));
     setQuery("");
     setError("");
   }, [board, defaultStageId, open]);
@@ -210,7 +215,10 @@ export function TaskFormDialog({
                     <SelectItem key={stage.id} value={stage.id}>
                       <span className="flex items-center gap-2">
                         <span
-                          className={cn("h-2.5 w-2.5 rounded-full", STAGE_COLORS[stage.color].dot)}
+                          className={cn(
+                            "h-2.5 w-2.5 rounded-full",
+                            (STAGE_COLORS[stage.color] ?? STAGE_COLORS.SLATE).dot,
+                          )}
                         />
                         {stage.name}
                       </span>
