@@ -18,56 +18,47 @@ import type { AttendanceRecord, Branch, User } from "@/types/domain";
 import { attendanceApi, branchesApi, employeesApi } from "@/services/api";
 import { downloadAttendanceExcel } from "@/lib/csv";
 import { punchSourceLabel } from "@/lib/attendance-labels";
-import { indiaDateKey } from "@/lib/india-date";
+import { indiaMonthKey, indiaMonthRange } from "@/lib/india-date";
 import { CalendarRange } from "lucide-react";
 
 export const Route = createFileRoute("/_app/attendance/locations")({
   component: DayLogsPage,
 });
 
+type SavedDayLogSelection = {
+  employeeId?: string;
+  from?: string;
+  to?: string;
+};
+
+function readSavedSelection(): SavedDayLogSelection | null {
+  const raw = sessionStorage.getItem("attendance-day-log-selection");
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as SavedDayLogSelection;
+  } catch {
+    return null;
+  }
+}
+
 function DayLogsPage() {
+  const initialSelection = useMemo(() => readSavedSelection(), []);
+  const defaultMonth = initialSelection?.from?.slice(0, 7) || indiaMonthKey();
+  const defaultRange = indiaMonthRange(defaultMonth);
+
   const [employees, setEmployees] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState(() => {
-    const savedSelectionRaw = sessionStorage.getItem("attendance-day-log-selection");
-    if (savedSelectionRaw) {
-      try {
-        const savedSelection = JSON.parse(savedSelectionRaw) as { employeeId?: string };
-        return savedSelection.employeeId || "all";
-      } catch {
-        return "all";
-      }
-    }
-    return "all";
-  });
-  const [from, setFrom] = useState(() => {
-    const savedSelectionRaw = sessionStorage.getItem("attendance-day-log-selection");
-    if (savedSelectionRaw) {
-      try {
-        const savedSelection = JSON.parse(savedSelectionRaw) as { from?: string };
-        if (savedSelection.from !== undefined) return savedSelection.from;
-      } catch {
-        // Use today's date when a saved selection cannot be read.
-      }
-    }
-    return indiaDateKey();
-  });
-  const [to, setTo] = useState(() => {
-    const savedSelectionRaw = sessionStorage.getItem("attendance-day-log-selection");
-    if (savedSelectionRaw) {
-      try {
-        const savedSelection = JSON.parse(savedSelectionRaw) as { to?: string };
-        if (savedSelection.to !== undefined) return savedSelection.to;
-      } catch {
-        // Use today's date when a saved selection cannot be read.
-      }
-    }
-    return indiaDateKey();
-  });
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState(
+    () => initialSelection?.employeeId || "all",
+  );
+  const [month, setMonth] = useState(defaultMonth);
+  const [from, setFrom] = useState(() => initialSelection?.from || defaultRange.from);
+  const [to, setTo] = useState(() => initialSelection?.to || defaultRange.to);
   const [branchId, setBranchId] = useState("all");
   const [employeeRows, setEmployeeRows] = useState<AttendanceRecord[]>([]);
   const [loadingEmployeeRows, setLoadingEmployeeRows] = useState(true);
   const [employeeError, setEmployeeError] = useState("");
+
   useEffect(() => {
     Promise.all([employeesApi.list(), branchesApi.list()])
       .then(([employeeRows, branchRows]) => {
@@ -107,14 +98,6 @@ function DayLogsPage() {
             (a, b) => b.date.localeCompare(a.date) || a.employeeName.localeCompare(b.employeeName),
           ),
         );
-        if (!from && !to && filtered.length > 0) {
-          const dates = filtered.map((r) => r.date).filter(Boolean);
-          if (dates.length > 0) {
-            dates.sort();
-            setFrom(dates[0]);
-            setTo(dates[dates.length - 1]);
-          }
-        }
       })
       .catch((err) => setEmployeeError((err as Error).message))
       .finally(() => setLoadingEmployeeRows(false));
@@ -144,14 +127,25 @@ function DayLogsPage() {
     if (employeeId !== "all") setBranchId("all");
   }
 
-  function setToday() {
-    const today = indiaDateKey();
-    setFrom(today);
-    setTo(today);
+  function changeMonth(nextMonth: string) {
+    if (!nextMonth) return;
+    const range = indiaMonthRange(nextMonth);
+    setMonth(nextMonth);
+    setFrom(range.from);
+    setTo(range.to);
   }
 
-  function clearRange() {
-    setToday();
+  function changeFrom(nextFrom: string) {
+    setFrom(nextFrom);
+    if (nextFrom) setMonth(nextFrom.slice(0, 7));
+    if (to && nextFrom && to < nextFrom) setTo(nextFrom);
+  }
+
+  function changeTo(nextTo: string) {
+    setTo(nextTo);
+    if (nextTo && (!from || nextTo.slice(0, 7) === from.slice(0, 7))) {
+      setMonth(nextTo.slice(0, 7));
+    }
   }
 
   const branchName = (id?: string) => branches.find((branch) => branch.id === id)?.name ?? "-";
@@ -160,7 +154,7 @@ function DayLogsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Day Logs"
-        description="Review day-wise attendance and expand any date to see every punch in chronological order."
+        description="Review day-wise attendance for the selected month. Expand any date to see every punch in chronological order."
       />
 
       <Card>
@@ -169,7 +163,7 @@ function DayLogsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div
-            className={`grid gap-4 md:grid-cols-2 ${selectedEmployeeId === "all" ? "xl:grid-cols-5" : ""}`}
+            className={`grid gap-4 md:grid-cols-2 ${selectedEmployeeId === "all" ? "xl:grid-cols-5" : "xl:grid-cols-4"}`}
           >
             <div
               className={`space-y-1.5 ${selectedEmployeeId === "all" ? "xl:col-span-2" : "md:col-span-2"}`}
@@ -194,16 +188,22 @@ function DayLogsPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
+              <Label>Month</Label>
+              <Input
+                type="month"
+                value={month}
+                max={indiaMonthKey()}
+                onChange={(event) => changeMonth(event.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
               <Label>From</Label>
               <Input
                 type="date"
                 value={from}
-                max={to || undefined}
-                onChange={(event) => {
-                  const nextFrom = event.target.value;
-                  setFrom(nextFrom);
-                  if (to && nextFrom && to < nextFrom) setTo(nextFrom);
-                }}
+                min={indiaMonthRange(month).from}
+                max={to || indiaMonthRange(month).to}
+                onChange={(event) => changeFrom(event.target.value)}
               />
             </div>
             <div className="space-y-1.5">
@@ -211,8 +211,9 @@ function DayLogsPage() {
               <Input
                 type="date"
                 value={to}
-                min={from || undefined}
-                onChange={(event) => setTo(event.target.value)}
+                min={from || indiaMonthRange(month).from}
+                max={indiaMonthRange(month).to}
+                onChange={(event) => changeTo(event.target.value)}
               />
             </div>
             {selectedEmployeeId === "all" && (
@@ -266,7 +267,7 @@ function DayLogsPage() {
             <div className="inline-flex w-full items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground min-[420px]:w-auto">
               <CalendarRange className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">
-                {from && to ? `${from} to ${to}` : from || to || "Select date range"}
+                {from && to ? `${from} to ${to}` : from || to || "Select month"}
               </span>
             </div>
             <Button
@@ -314,17 +315,14 @@ function DayLogsPage() {
           {loadingEmployeeRows && <LoadingState label="Loading employee day logs" compact />}
           {employeeError && <p className="text-sm text-destructive">{employeeError}</p>}
           {!loadingEmployeeRows && !employeeError && (
-            <>
-              <AttendanceDayList
-                records={employeeRows}
-                showEmployee={selectedEmployeeId === "all"}
-                emptyText="No day-wise attendance records found."
-              />
-            </>
+            <AttendanceDayList
+              records={employeeRows}
+              showEmployee={selectedEmployeeId === "all"}
+              emptyText="No day-wise attendance records found for the selected month."
+            />
           )}
         </CardContent>
       </Card>
-
     </div>
   );
 }

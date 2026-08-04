@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import type { Branch, Department, User } from "@/types/domain";
 import { branchesApi, employeesApi } from "@/services/api";
-import { indiaDateKey } from "@/lib/india-date";
+import { indiaMonthKey, indiaMonthRange } from "@/lib/india-date";
 import { useAuth } from "@/lib/auth";
 import {
   ResponsiveListShell,
@@ -98,14 +98,14 @@ function AttendanceOverviewPage() {
   );
 
   function openDayLogs(employee: User) {
-    const today = indiaDateKey();
+    const { from, to } = indiaMonthRange(indiaMonthKey());
     sessionStorage.setItem(
       "attendance-day-log-selection",
       JSON.stringify({
         employeeId: employee.employeeId || employee.id,
         employeeName: employee.name,
-        from: today,
-        to: today,
+        from,
+        to,
       }),
     );
     void navigate({ to: "/attendance/locations" });
