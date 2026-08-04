@@ -10,11 +10,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import type { TaskAssignee, TaskBoard, TaskStage } from "@/types/domain";
+import type { TaskAssignee, TaskBoard, TaskStage, TaskStatus } from "@/types/domain";
 import {
   BOARD_ROLES,
   BOARD_ROLE_LABELS,
@@ -22,6 +21,7 @@ import {
   boardToForm,
   DEFAULT_BOARD_FORM,
   STAGE_COLORS,
+  STATUS_LABELS,
   type BoardForm,
 } from "./task-utils";
 
@@ -35,6 +35,15 @@ type BoardFormDialogProps = {
 };
 
 const COLOR_OPTIONS = Object.keys(STAGE_COLORS) as TaskStage["color"][];
+
+/** Statuses a board column can use (Cancelled is issue-only, not a column). */
+const STAGE_STATUS_OPTIONS: TaskStatus[] = [
+  "TODO",
+  "IN_PROGRESS",
+  "REVIEW",
+  "BLOCKED",
+  "COMPLETED",
+];
 
 function emptyBoardForm(): BoardForm {
   return {
@@ -150,31 +159,20 @@ export function BoardFormDialog({
     });
   }
 
-  function setCompletedStage(index: number, completed: boolean) {
+  function setStageStatus(index: number, status: TaskStatus) {
     setForm((current) => {
-      const target = current.stages[index];
-      // Never mark the starting To do column as Done — that removes the required TODO stage.
-      if (completed && target?.status === "TODO") {
-        return current;
-      }
-      // Exactly one Done stage is required — turn Done on another stage to move it.
-      if (!completed && target?.status === "COMPLETED") {
-        return current;
-      }
-
+      if (status === "CANCELLED") return current;
       const stages = current.stages.map((stage, position) => {
-        if (position === index) {
-          return {
-            ...stage,
-            status: completed ? ("COMPLETED" as const) : ("IN_PROGRESS" as const),
-          };
+        if (position === index) return { ...stage, status };
+        // Exactly one Start and one Done.
+        if (status === "TODO" && stage.status === "TODO") {
+          return { ...stage, status: "IN_PROGRESS" as const };
         }
-        if (completed && stage.status === "COMPLETED") {
+        if (status === "COMPLETED" && stage.status === "COMPLETED") {
           return { ...stage, status: "IN_PROGRESS" as const };
         }
         return stage;
       });
-
       return { ...current, stages: normalizeStageStatuses(stages) };
     });
   }
@@ -310,17 +308,21 @@ export function BoardFormDialog({
             <div className="flex items-center justify-between">
               <Label>Stages</Label>
               <span className="text-xs text-muted-foreground">
-                {form.stages.length} stages · one Start, one Done
+                {form.stages.length} stages · pick a type for each
               </span>
             </div>
+            <p className="text-xs text-muted-foreground">
+              One stage must be <span className="font-medium text-foreground">To do</span> (start)
+              and one must be <span className="font-medium text-foreground">Completed</span> (done).
+              Middle stages can be In progress, In review, or Blocked.
+            </p>
             <div className="space-y-2">
               {form.stages.map((stage, index) => {
                 const color = STAGE_COLORS[stage.color] ?? STAGE_COLORS.SLATE;
-                const doneLocked = stage.status === "TODO" || stage.status === "COMPLETED";
                 return (
                   <div
                     key={stage.id ?? `new-${index}`}
-                    className="grid grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-2 rounded-xl border bg-muted/25 p-2 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto_auto]"
+                    className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-2 rounded-xl border bg-muted/25 p-2 sm:grid-cols-[auto_auto_minmax(0,1fr)_9.5rem_auto]"
                   >
                     <GripVertical className="hidden h-4 w-4 text-muted-foreground sm:block" />
                     <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
@@ -362,29 +364,25 @@ export function BoardFormDialog({
                         className="h-9 min-w-0 border-0 bg-transparent px-1 shadow-none focus-visible:ring-0"
                       />
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Switch
-                        checked={stage.status === "COMPLETED"}
-                        disabled={doneLocked}
-                        onCheckedChange={(checked) => setCompletedStage(index, checked)}
-                        aria-label={
-                          stage.status === "TODO"
-                            ? `${stage.name} is the starting To do stage`
-                            : stage.status === "COMPLETED"
-                              ? `${stage.name} is the Done stage — enable Done on another stage to move it`
-                              : `Mark ${stage.name} as Done`
-                        }
-                      />
-                      <span
-                        className={cn(
-                          stage.status === "COMPLETED" && "text-emerald-700",
-                          stage.status === "TODO" && "text-slate-600",
-                        )}
+                    <Select
+                      value={stage.status}
+                      onValueChange={(value) => setStageStatus(index, value as TaskStatus)}
+                    >
+                      <SelectTrigger
+                        aria-label={`Status for ${stage.name}`}
+                        className="h-9 w-full text-xs sm:text-sm"
                       >
-                        {stage.status === "TODO" ? "Start" : "Done"}
-                      </span>
-                    </div>
-                    <div className="col-span-4 flex justify-end sm:col-span-1">
+                        <SelectValue>{STATUS_LABELS[stage.status]}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STAGE_STATUS_OPTIONS.map((status) => (
+                          <SelectItem key={status} value={status}>
+                            {STATUS_LABELS[status]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="col-span-3 flex justify-end sm:col-span-1">
                       <Button
                         type="button"
                         variant="ghost"
