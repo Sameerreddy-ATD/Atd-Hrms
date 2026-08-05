@@ -22,7 +22,15 @@ export function hoursBetween(a: Date, b: Date) {
 export function attendanceResultFromHours(totalHours: number): AttendanceResult {
   if (totalHours >= FULL_DAY_HOURS) return AttendanceResult.FULL_DAY;
   if (totalHours >= HALF_DAY_HOURS) return AttendanceResult.HALF_DAY;
+  // Any punched time counts as present — never Absent from hour thresholds.
+  if (totalHours > 0) return AttendanceResult.PENDING;
   return AttendanceResult.ABSENT;
+}
+
+/** Status label for days where the employee actually punched (not holiday/leave/absent). */
+export function workedAttendanceStatusLabel(result: AttendanceResult): string {
+  if (result === AttendanceResult.PENDING) return "Present";
+  return attendanceResultLabel(result);
 }
 
 export function attendanceResultLabel(result: AttendanceResult, holidayName?: string): string {

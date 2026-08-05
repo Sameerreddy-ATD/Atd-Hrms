@@ -53,9 +53,10 @@ describe("attendance movement summary rules", () => {
     expect(attendanceTransitionIssue(latestEvent, day, false)).toContain("already checked in");
   });
 
-  it("classifies worked duration into Full Day / Half Day / Absent", () => {
+  it("classifies worked duration into Full Day / Half Day / Present (never Absent for punched time)", () => {
     expect(attendanceResultFromHours(9)).toBe(AttendanceResult.FULL_DAY);
     expect(attendanceResultFromHours(4)).toBe(AttendanceResult.HALF_DAY);
-    expect(attendanceResultFromHours(3.5)).toBe(AttendanceResult.ABSENT);
+    expect(attendanceResultFromHours(3.5)).toBe(AttendanceResult.PENDING);
+    expect(attendanceResultFromHours(0)).toBe(AttendanceResult.ABSENT);
   });
 });

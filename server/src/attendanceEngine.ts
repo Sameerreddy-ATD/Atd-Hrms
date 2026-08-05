@@ -17,7 +17,7 @@ import {
 } from "./attendanceDayRules.js";
 import {
   attendanceResultFromHours,
-  attendanceResultLabel,
+  workedAttendanceStatusLabel,
   classifyMobileSource,
   correctionDeadlineFor,
   decimalHours,
@@ -329,17 +329,24 @@ export async function recalculateDailySummary(employeeId: string, date: string |
   let status = "Pending attendance";
   let holidayName: string | undefined;
 
-  if (events.length && (firstCheckIn || lastOut)) {
-    if (isMissedCheckout && !lastRealOut) {
-      // Empty punch-out: keep pending until a real out or approved correction fills hours.
+  const hasPunched = Boolean(firstCheckIn || lastOut || hasOpenPunch || realCheckIns.length);
+  if (hasPunched) {
+    // Include the open session so re-check-in after a short break is not scored as Absent.
+    const openSessionHours =
+      hasOpenPunch && activeWorkStart ? hoursBetween(activeWorkStart, new Date()) : 0;
+    const hoursForStatus = totalWorkedHours + openSessionHours;
+
+    if (isMissedCheckout && !lastRealOut && totalWorkedHours <= 0) {
+      // Open through slot end with no completed session — wait for punch-out / correction.
       attendanceResult = AttendanceResult.PENDING;
       status = "Pending attendance";
-    } else if (lastOut || !hasOpenPunch) {
-      attendanceResult = attendanceResultFromHours(totalWorkedHours);
-      status = attendanceResultLabel(attendanceResult);
     } else {
-      attendanceResult = AttendanceResult.PENDING;
-      status = "Pending attendance";
+      attendanceResult = attendanceResultFromHours(hoursForStatus);
+      // Any real punch means the day is not Absent (hour thresholds only decide Full/Half/Present).
+      if (attendanceResult === AttendanceResult.ABSENT) {
+        attendanceResult = AttendanceResult.PENDING;
+      }
+      status = workedAttendanceStatusLabel(attendanceResult);
     }
   } else {
     const noEvent = await resolveNoEventStatus(employeeId, eventDate);
