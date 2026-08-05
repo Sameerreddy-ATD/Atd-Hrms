@@ -34,3 +34,12 @@ export function nearestBranch(
     .map((branch) => ({ branch, distance: distanceMeters(location, branch) }))
     .sort((first, second) => first.distance - second.distance)[0];
 }
+
+/** Nearest configured location only when the punch falls inside its geofence. */
+export function matchingBranch(
+  location: { latitude: number; longitude: number },
+  branches: GeofenceBranch[],
+) {
+  const nearest = nearestBranch(location, branches);
+  return nearest && nearest.distance <= nearest.branch.attendanceRadiusMeters ? nearest : undefined;
+}

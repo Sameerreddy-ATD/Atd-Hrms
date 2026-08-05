@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { distanceMeters, nearestBranch } from "../server/src/geofence.js";
+import { distanceMeters, matchingBranch, nearestBranch } from "../server/src/geofence.js";
 
 describe("branch geofence", () => {
   const madhapur = {
@@ -36,5 +36,19 @@ describe("branch geofence", () => {
       { ...madhapur, branchId: "far", branchName: "Far", latitude: 18 },
     ]);
     expect(result?.branch.branchId).toBe("madhapur");
+  });
+
+  it("matches hubs and rejects locations outside every radius", () => {
+    const hub = {
+      ...madhapur,
+      branchId: "madhapur-hub",
+      branchName: "Madhapur Hub",
+      latitude: 17.460285,
+      longitude: 78.397064,
+    };
+    expect(matchingBranch({ latitude: hub.latitude, longitude: hub.longitude }, [hub])?.branch).toBe(
+      hub,
+    );
+    expect(matchingBranch({ latitude: 17.5, longitude: 78.45 }, [hub])).toBeUndefined();
   });
 });

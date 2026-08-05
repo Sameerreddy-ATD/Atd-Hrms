@@ -64,7 +64,7 @@ import {
   nextRankInStage,
   rebalanceRanksInStage,
 } from "./taskIssueKeys.js";
-import { nearestBranch } from "./geofence.js";
+import { matchingBranch } from "./geofence.js";
 import {
   FACE_CONSENT,
   createFaceVerificationSession,
@@ -2948,6 +2948,72 @@ export function createApp() {
     }),
   );
 
+  /**
+   * Re-evaluate stored GPS punches after a branch/hub geofence changes.
+   * Attendance events keep the matched location id, so adding a hub must
+   * backfill earlier punches before their source can display the hub name.
+   */
+  async function refreshGpsAttendanceBranchAssignments() {
+    const [configuredBranches, events] = await Promise.all([
+      prisma.branch.findMany({
+        where: { status: "ACTIVE", latitude: { not: null }, longitude: { not: null } },
+        select: {
+          branchId: true,
+          branchName: true,
+          latitude: true,
+          longitude: true,
+          attendanceRadiusMeters: true,
+        },
+      }),
+      prisma.attendanceEvent.findMany({
+        where: {
+          eventSource: EventSource.MOBILE_GPS,
+          latitude: { not: null },
+          longitude: { not: null },
+        },
+        select: {
+          eventId: true,
+          employeeId: true,
+          eventDate: true,
+          branchId: true,
+          latitude: true,
+          longitude: true,
+        },
+      }),
+    ]);
+
+    const geofences = configuredBranches.map((branch) => ({
+      ...branch,
+      latitude: Number(branch.latitude),
+      longitude: Number(branch.longitude),
+    }));
+    const summariesToRefresh = new Map<string, { employeeId: string; date: Date }>();
+    let changedEvents = 0;
+
+    for (const event of events) {
+      const matched = matchingBranch(
+        { latitude: Number(event.latitude), longitude: Number(event.longitude) },
+        geofences,
+      );
+      const nextBranchId = matched?.branch.branchId ?? null;
+      if (nextBranchId === event.branchId) continue;
+
+      await prisma.attendanceEvent.update({
+        where: { eventId: event.eventId },
+        data: { branchId: nextBranchId },
+      });
+      changedEvents += 1;
+      const key = `${event.employeeId}:${event.eventDate.toISOString().slice(0, 10)}`;
+      summariesToRefresh.set(key, { employeeId: event.employeeId, date: event.eventDate });
+    }
+
+    for (const target of summariesToRefresh.values()) {
+      await recalculateDailySummary(target.employeeId, target.date);
+    }
+
+    return { changedEvents, recalculatedDays: summariesToRefresh.size };
+  }
+
   app.post(
     "/branches",
     requireAuth,
@@ -2970,10 +3036,15 @@ export function createApp() {
           isHub: body.isHub ?? false,
         },
       });
+      const attendanceRefresh = await refreshGpsAttendanceBranchAssignments();
       await audit({
         action: "branch created",
         performedByUserId: req.user!.id,
-        newValue: { branchId: branch.branchId, name: branch.branchName },
+        newValue: {
+          branchId: branch.branchId,
+          name: branch.branchName,
+          attendanceRefresh,
+        },
         ipAddress: req.ip,
       });
       res.status(201).json(branchDto(branch));
@@ -3008,10 +3079,16 @@ export function createApp() {
           isHub: body.isHub,
         },
       });
+      const attendanceRefresh = await refreshGpsAttendanceBranchAssignments();
       await audit({
         action: "branch updated",
         performedByUserId: req.user!.id,
-        newValue: { branchId: branch.branchId, name: branch.branchName, status: branch.status },
+        newValue: {
+          branchId: branch.branchId,
+          name: branch.branchName,
+          status: branch.status,
+          attendanceRefresh,
+        },
         ipAddress: req.ip,
       });
       res.json(branchDto(branch));
@@ -3027,10 +3104,15 @@ export function createApp() {
         where: { branchId: String(req.params.id) },
         data: { status: "DELETED" },
       });
+      const attendanceRefresh = await refreshGpsAttendanceBranchAssignments();
       await audit({
         action: "branch deleted",
         performedByUserId: req.user!.id,
-        newValue: { branchId: branch.branchId, name: branch.branchName },
+        newValue: {
+          branchId: branch.branchId,
+          name: branch.branchName,
+          attendanceRefresh,
+        },
         ipAddress: req.ip,
       });
       res.json(branchDto(branch));
@@ -3499,7 +3581,7 @@ export function createApp() {
         },
       });
       if (configuredBranches.length) {
-        const nearest = nearestBranch(
+        const nearest = matchingBranch(
           { latitude: body.latitude, longitude: body.longitude },
           configuredBranches.map((branch) => ({
             ...branch,
@@ -3507,7 +3589,7 @@ export function createApp() {
             longitude: Number(branch.longitude),
           })),
         );
-        if (nearest && nearest.distance <= nearest.branch.attendanceRadiusMeters) {
+        if (nearest) {
           nearbyBranchId = nearest.branch.branchId;
         }
       }
