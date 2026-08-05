@@ -146,9 +146,9 @@ export function shortcutsForRole(
           icon: Users,
         },
         {
-          label: "Employee attendance",
-          to: "/attendance",
-          description: "Employee-wise attendance directory",
+          label: "Day logs",
+          to: "/attendance/locations",
+          description: "Day-wise attendance overview",
           icon: MapPin,
         },
         {
@@ -277,9 +277,9 @@ export function shortcutsForRole(
           icon: UserCog,
         },
         {
-          label: "Employee attendance",
-          to: "/attendance",
-          description: "Employee-wise attendance directory",
+          label: "Day logs",
+          to: "/attendance/locations",
+          description: "Day-wise attendance overview",
           icon: MapPin,
         },
         {

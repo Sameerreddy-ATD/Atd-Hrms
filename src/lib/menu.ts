@@ -86,12 +86,6 @@ export const menuGroups: MenuGroup[] = [
     label: "Attendance",
     items: [
       {
-        label: "Employee Attendance",
-        to: "/attendance",
-        icon: Users,
-        roles: ["manager", "hr", "main_admin", "ceo", "developer_admin"],
-      },
-      {
         label: "My Attendance",
         to: "/attendance/mine",
         icon: CalendarCheck,
@@ -347,7 +341,6 @@ function itemOrderForRole(role: Role): string[] {
       return [
         "/dashboard",
         "/attendance/mine",
-        "/attendance",
         "/attendance/locations",
         "/attendance/corrections",
         "/leave/apply",
@@ -374,7 +367,6 @@ function itemOrderForRole(role: Role): string[] {
         "/leave/approvals",
         "/leave/reports",
         "/leave/policy",
-        "/attendance",
         "/attendance/mine",
         "/attendance/locations",
         "/attendance/corrections",
@@ -395,7 +387,6 @@ function itemOrderForRole(role: Role): string[] {
         "/dashboard",
         "/employees",
         "/attendance/mine",
-        "/attendance",
         "/attendance/locations",
         "/leave/apply",
         "/leave/history",
@@ -415,7 +406,6 @@ function itemOrderForRole(role: Role): string[] {
         "/dashboard",
         "/employees",
         "/attendance/mine",
-        "/attendance",
         "/attendance/locations",
         "/attendance/corrections",
         "/leave/apply",
@@ -441,7 +431,6 @@ function itemOrderForRole(role: Role): string[] {
         "/users",
         "/employees",
         "/departments",
-        "/attendance",
         "/attendance/locations",
         "/attendance/corrections",
         "/leave/reports",

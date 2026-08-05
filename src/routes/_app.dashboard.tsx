@@ -955,15 +955,7 @@ function HRDashboard({
         <StatCard label="Field present" value={data.fieldPresent} icon={MapPin} />
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-3">
-        <Button
-          variant="outline"
-          className="justify-start"
-          onClick={() => void navigate({ to: "/attendance" })}
-        >
-          <Users className="mr-2 size-4" />
-          Employee attendance
-        </Button>
+      <div className="grid gap-2 sm:grid-cols-2">
         <Button
           variant="outline"
           className="justify-start"
