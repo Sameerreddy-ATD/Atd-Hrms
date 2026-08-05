@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { indiaDateKey, indiaMonthKey, indiaMonthRange } from "../src/lib/india-date";
+import { indiaDateKey, indiaMonthKey, indiaMonthRange } from "../src/lib/india-date.js";
 import {
   clampAttendanceRangeToToday,
   istMonthKey,
