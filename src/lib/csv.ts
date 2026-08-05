@@ -1,4 +1,4 @@
-import { formatDisplayDate } from "@/lib/india-date";
+import { formatDisplayDate } from "./india-date.js";
 
 export function downloadCsv(filename: string, rows: Array<Record<string, unknown>>) {
   if (rows.length === 0) return;
