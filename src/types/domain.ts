@@ -253,8 +253,12 @@ export interface Branch {
 export interface Department {
   id: string;
   name: string;
+  /** First / primary head (compat). */
   headEmployeeId?: string;
   head?: string;
+  /** All organization heads for this unit. */
+  headEmployeeIds?: string[];
+  heads?: string[];
   parentDepartmentId?: string;
   unitType?: "TEAM" | "SUBTEAM" | "FUNCTION";
   sortOrder?: number;

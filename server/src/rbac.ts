@@ -190,17 +190,18 @@ export async function assertCanViewTeamAttendance(user: Express.Request["user"])
   throw new HttpError(403, "Day Logs is available to organization heads with a team.");
 }
 
-/** True when this employee is head of one or more organization units (multi-unit heads allowed). */
+/** True when this employee is head of one or more organization units (multi-unit / multi-head). */
 export async function isAssignedOrganizationHead(employeeId: string) {
-  const headedCount = await prisma.department.count({
-    where: { headEmployeeId: employeeId },
-  });
-  return headedCount > 0;
+  const [assignmentCount, legacyCount] = await Promise.all([
+    prisma.departmentHeadAssignment.count({ where: { employeeId } }),
+    prisma.department.count({ where: { headEmployeeId: employeeId } }),
+  ]);
+  return assignmentCount > 0 || legacyCount > 0;
 }
 
 /** Returns active employees in the units below an organizational head. */
 export async function getOrganizationTeamEmployeeIds(employeeId: string) {
-  const [employee, units] = await Promise.all([
+  const [employee, units, assignments] = await Promise.all([
     prisma.employee.findUnique({
       where: { employeeId },
       select: { departmentId: true, organizationLevel: true },
@@ -208,13 +209,20 @@ export async function getOrganizationTeamEmployeeIds(employeeId: string) {
     prisma.department.findMany({
       select: { departmentId: true, parentDepartmentId: true, headEmployeeId: true },
     }),
+    prisma.departmentHeadAssignment.findMany({
+      where: { employeeId },
+      select: { departmentId: true },
+    }),
   ]);
   if (!employee) return [];
 
-  // One person may head multiple units — include every unit they own.
-  const ownedUnitIds = units
-    .filter((unit) => unit.headEmployeeId === employeeId)
-    .map((unit) => unit.departmentId);
+  // One person may head multiple units — and a unit may have multiple heads.
+  const ownedUnitIds = [
+    ...new Set([
+      ...assignments.map((row) => row.departmentId),
+      ...units.filter((unit) => unit.headEmployeeId === employeeId).map((unit) => unit.departmentId),
+    ]),
+  ];
   if (ownedUnitIds.length === 0 && employee.organizationLevel === "HEAD" && employee.departmentId) {
     ownedUnitIds.push(employee.departmentId);
   }

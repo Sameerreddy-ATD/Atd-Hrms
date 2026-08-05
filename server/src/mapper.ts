@@ -291,12 +291,34 @@ export function departmentDto(department: {
   unitType: string;
   sortOrder: number;
   headEmployee?: Pick<Employee, "name"> | null;
+  headAssignments?: Array<{
+    employeeId: string;
+    sortOrder: number;
+    employee?: Pick<Employee, "name"> | null;
+  }>;
 }) {
+  const assignmentHeads = [...(department.headAssignments ?? [])].sort(
+    (a, b) => a.sortOrder - b.sortOrder || a.employeeId.localeCompare(b.employeeId),
+  );
+  const headEmployeeIds =
+    assignmentHeads.length > 0
+      ? assignmentHeads.map((row) => row.employeeId)
+      : department.headEmployeeId
+        ? [department.headEmployeeId]
+        : [];
+  const heads =
+    assignmentHeads.length > 0
+      ? assignmentHeads.map((row) => row.employee?.name).filter((name): name is string => Boolean(name))
+      : department.headEmployee?.name
+        ? [department.headEmployee.name]
+        : [];
   return {
     id: department.departmentId,
     name: department.name,
-    headEmployeeId: department.headEmployeeId ?? undefined,
-    head: department.headEmployee?.name,
+    headEmployeeId: headEmployeeIds[0] ?? undefined,
+    head: heads[0],
+    headEmployeeIds,
+    heads,
     parentDepartmentId: department.parentDepartmentId ?? undefined,
     unitType: department.unitType,
     sortOrder: department.sortOrder,

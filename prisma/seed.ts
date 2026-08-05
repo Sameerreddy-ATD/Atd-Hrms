@@ -424,9 +424,18 @@ async function main() {
     ["Accounts", "EMP-0030"],
     ["Administration", "EMP-0002"],
   ] as const) {
+    const departmentId = units.get(unitName)!;
+    const headEmployeeId = employeeIds.get(headCode)!;
     await prisma.department.update({
-      where: { departmentId: units.get(unitName)! },
-      data: { headEmployeeId: employeeIds.get(headCode) },
+      where: { departmentId },
+      data: { headEmployeeId },
+    });
+    await prisma.departmentHeadAssignment.upsert({
+      where: {
+        departmentId_employeeId: { departmentId, employeeId: headEmployeeId },
+      },
+      update: { sortOrder: 0 },
+      create: { departmentId, employeeId: headEmployeeId, sortOrder: 0 },
     });
   }
 

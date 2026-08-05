@@ -734,8 +734,12 @@ export const branchesApi = {
   delete: (id: string) => request<Branch>(`/branches/${id}`, { method: "DELETE" }),
   departments: () => request<Department[]>("/departments"),
   createDepartment: (
-    department: Omit<Department, "id" | "headEmployeeId" | "head" | "parentDepartmentId"> & {
+    department: Omit<
+      Department,
+      "id" | "headEmployeeId" | "head" | "headEmployeeIds" | "heads" | "parentDepartmentId"
+    > & {
       headEmployeeId?: string | null;
+      headEmployeeIds?: string[];
       parentDepartmentId?: string | null;
     },
   ) => request<Department>("/departments", { method: "POST", body: JSON.stringify(department) }),
@@ -743,6 +747,7 @@ export const branchesApi = {
     id: string,
     patch: Omit<Partial<Department>, "headEmployeeId" | "parentDepartmentId"> & {
       headEmployeeId?: string | null;
+      headEmployeeIds?: string[];
       parentDepartmentId?: string | null;
     },
   ) => request<Department>(`/departments/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),

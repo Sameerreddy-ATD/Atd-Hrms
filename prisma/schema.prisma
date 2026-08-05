@@ -387,6 +387,7 @@ model Employee {
   correctionRequests         AttendanceCorrectionRequest[]
   emergencyContact           EmergencyContact?
   headedDepartments          Department[]                  @relation("DepartmentHead")
+  departmentHeadAssignments  DepartmentHeadAssignment[]
   assignedAssets             CompanyAsset[]
   assetAssignments           AssetAssignment[]
   taskAssignments            TaskAssignment[]
@@ -443,19 +444,36 @@ model EmployeeShiftAssignment {
 }
 
 model Department {
-  departmentId       String       @id @default(cuid()) @map("department_id")
-  name               String       @unique
-  headEmployeeId     String?      @map("head_employee_id")
-  headEmployee       Employee?    @relation("DepartmentHead", fields: [headEmployeeId], references: [employeeId])
-  parentDepartmentId String?      @map("parent_department_id")
-  parentDepartment   Department?  @relation("DepartmentHierarchy", fields: [parentDepartmentId], references: [departmentId])
-  childDepartments   Department[] @relation("DepartmentHierarchy")
-  unitType           String       @default("TEAM") @map("unit_type")
-  sortOrder          Int          @default(0) @map("sort_order")
+  departmentId       String                     @id @default(cuid()) @map("department_id")
+  name               String                     @unique
+  /// Primary / first head (kept in sync with department_head_assignments for legacy lookups).
+  headEmployeeId     String?                    @map("head_employee_id")
+  headEmployee       Employee?                  @relation("DepartmentHead", fields: [headEmployeeId], references: [employeeId])
+  headAssignments    DepartmentHeadAssignment[]
+  parentDepartmentId String?                    @map("parent_department_id")
+  parentDepartment   Department?                @relation("DepartmentHierarchy", fields: [parentDepartmentId], references: [departmentId])
+  childDepartments   Department[]               @relation("DepartmentHierarchy")
+  unitType           String                     @default("TEAM") @map("unit_type")
+  sortOrder          Int                        @default(0) @map("sort_order")
   employees          Employee[]
 
   @@index([parentDepartmentId])
   @@map("departments")
+}
+
+/** Multiple organization heads per unit (same person may also head several units). */
+model DepartmentHeadAssignment {
+  id           String     @id @default(cuid())
+  departmentId String     @map("department_id")
+  department   Department @relation(fields: [departmentId], references: [departmentId], onDelete: Cascade)
+  employeeId   String     @map("employee_id")
+  employee     Employee   @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  sortOrder    Int        @default(0) @map("sort_order")
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  @@unique([departmentId, employeeId])
+  @@index([employeeId])
+  @@map("department_head_assignments")
 }
 
 model Branch {

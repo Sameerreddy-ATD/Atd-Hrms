@@ -214,7 +214,9 @@ export const branchUpdateSchema = branchSchema.partial();
 
 export const departmentSchema = z.object({
   name: z.string().min(2).max(160),
+  /** @deprecated Prefer headEmployeeIds — kept for older clients. */
   headEmployeeId: z.string().nullable().optional(),
+  headEmployeeIds: z.array(z.string().min(1)).max(40).optional(),
   parentDepartmentId: z.string().nullable().optional(),
   unitType: z.enum(["TEAM", "SUBTEAM", "FUNCTION"]).optional(),
   sortOrder: z.coerce.number().int().min(0).max(10000).optional(),

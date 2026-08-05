@@ -394,6 +394,25 @@ export function createApp() {
     }
   }
 
+  async function assertValidDepartmentHeads(headEmployeeIds: string[]) {
+    for (const headEmployeeId of headEmployeeIds) {
+      await assertValidDepartmentHead(headEmployeeId);
+    }
+  }
+
+  function normalizeDepartmentHeadIds(body: {
+    headEmployeeIds?: string[] | null;
+    headEmployeeId?: string | null;
+  }) {
+    const fromList = Array.isArray(body.headEmployeeIds)
+      ? body.headEmployeeIds.filter((id): id is string => Boolean(id))
+      : null;
+    if (fromList) return [...new Set(fromList)];
+    if (body.headEmployeeId) return [body.headEmployeeId];
+    if (body.headEmployeeId === null) return [];
+    return null;
+  }
+
   /** Mark an employee as an org head; the same person may head multiple departments. */
   async function syncAssignedOrganizationHead(
     tx: Prisma.TransactionClient | typeof prisma,
@@ -420,6 +439,38 @@ export function createApp() {
     }
   }
 
+  async function replaceDepartmentHeads(
+    tx: Prisma.TransactionClient | typeof prisma,
+    departmentId: string,
+    headEmployeeIds: string[],
+  ) {
+    await tx.departmentHeadAssignment.deleteMany({ where: { departmentId } });
+    if (headEmployeeIds.length > 0) {
+      await tx.departmentHeadAssignment.createMany({
+        data: headEmployeeIds.map((employeeId, index) => ({
+          departmentId,
+          employeeId,
+          sortOrder: index,
+        })),
+      });
+    }
+    await tx.department.update({
+      where: { departmentId },
+      data: { headEmployeeId: headEmployeeIds[0] ?? null },
+    });
+    for (const headEmployeeId of headEmployeeIds) {
+      await syncAssignedOrganizationHead(tx, headEmployeeId);
+    }
+  }
+
+  const departmentInclude = {
+    headEmployee: true,
+    headAssignments: {
+      include: { employee: { select: { name: true } } },
+      orderBy: { sortOrder: "asc" as const },
+    },
+  };
+
   function departmentDto(department: {
     departmentId: string;
     name: string;
@@ -428,12 +479,36 @@ export function createApp() {
     unitType: string;
     sortOrder: number;
     headEmployee?: { name: string } | null;
+    headAssignments?: Array<{
+      employeeId: string;
+      sortOrder: number;
+      employee?: { name: string } | null;
+    }>;
   }) {
+    const assignmentHeads = [...(department.headAssignments ?? [])].sort(
+      (a, b) => a.sortOrder - b.sortOrder || a.employeeId.localeCompare(b.employeeId),
+    );
+    const headEmployeeIds =
+      assignmentHeads.length > 0
+        ? assignmentHeads.map((row) => row.employeeId)
+        : department.headEmployeeId
+          ? [department.headEmployeeId]
+          : [];
+    const heads =
+      assignmentHeads.length > 0
+        ? assignmentHeads
+            .map((row) => row.employee?.name)
+            .filter((name): name is string => Boolean(name))
+        : department.headEmployee?.name
+          ? [department.headEmployee.name]
+          : [];
     return {
       id: department.departmentId,
       name: department.name,
-      headEmployeeId: department.headEmployeeId ?? undefined,
-      head: department.headEmployee?.name ?? undefined,
+      headEmployeeId: headEmployeeIds[0] ?? undefined,
+      head: heads[0],
+      headEmployeeIds,
+      heads,
       parentDepartmentId: department.parentDepartmentId ?? undefined,
       unitType: department.unitType,
       sortOrder: department.sortOrder,
@@ -626,12 +701,16 @@ export function createApp() {
     return heads[0] ?? null;
   }
 
-  /** Immediate unit head first, then parent heads up the organization chart. */
+  /** Immediate unit heads first (all co-heads), then parent heads up the organization chart. */
   async function listOrganizationHeadApprovers(employeeId: string) {
-    const [employee, units] = await Promise.all([
+    const [employee, units, assignments] = await Promise.all([
       prisma.employee.findUnique({ where: { employeeId }, select: { departmentId: true } }),
       prisma.department.findMany({
         select: { departmentId: true, parentDepartmentId: true, headEmployeeId: true },
+      }),
+      prisma.departmentHeadAssignment.findMany({
+        select: { departmentId: true, employeeId: true, sortOrder: true },
+        orderBy: [{ sortOrder: "asc" }, { employeeId: "asc" }],
       }),
     ]);
     if (!employee?.departmentId) {
@@ -642,12 +721,24 @@ export function createApp() {
       return ceo ? [ceo] : [];
     }
 
+    const headsByUnit = new Map<string, string[]>();
+    for (const assignment of assignments) {
+      const current = headsByUnit.get(assignment.departmentId) ?? [];
+      current.push(assignment.employeeId);
+      headsByUnit.set(assignment.departmentId, current);
+    }
+    for (const unit of units) {
+      if (!headsByUnit.has(unit.departmentId) && unit.headEmployeeId) {
+        headsByUnit.set(unit.departmentId, [unit.headEmployeeId]);
+      }
+    }
+
     const byId = new Map(units.map((unit) => [unit.departmentId, unit]));
     const headIds: string[] = [];
     let unit = byId.get(employee.departmentId);
     while (unit) {
-      if (unit.headEmployeeId && unit.headEmployeeId !== employeeId) {
-        headIds.push(unit.headEmployeeId);
+      for (const headId of headsByUnit.get(unit.departmentId) ?? []) {
+        if (headId !== employeeId) headIds.push(headId);
       }
       unit = unit.parentDepartmentId ? byId.get(unit.parentDepartmentId) : undefined;
     }
@@ -900,6 +991,7 @@ export function createApp() {
             leaveTypes: await tx.leaveType.count(),
           };
 
+          await tx.departmentHeadAssignment.deleteMany();
           await tx.department.updateMany({ data: { headEmployeeId: null } });
           await tx.employee.updateMany({ data: { managerId: null } });
           await tx.user.updateMany({ data: { createdByUserId: null } });
@@ -2953,7 +3045,7 @@ export function createApp() {
     requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.CEO, Role.HR, Role.MANAGER),
     asyncHandler(async (_req, res) => {
       const departments = await prisma.department.findMany({
-        include: { headEmployee: true },
+        include: departmentInclude,
         orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       });
       res.json(departments.map(departmentDto));
@@ -2966,30 +3058,36 @@ export function createApp() {
     requireRoles(Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const body = departmentSchema.parse(req.body);
-      await assertValidDepartmentHead(body.headEmployeeId);
+      const headEmployeeIds = normalizeDepartmentHeadIds(body) ?? [];
+      await assertValidDepartmentHeads(headEmployeeIds);
       if (body.parentDepartmentId) {
         await prisma.department.findUniqueOrThrow({
           where: { departmentId: body.parentDepartmentId },
         });
       }
-      const department = await prisma.department.create({
-        data: {
-          name: body.name,
-          headEmployeeId: body.headEmployeeId ?? undefined,
-          parentDepartmentId: body.parentDepartmentId ?? undefined,
-          unitType: body.unitType ?? "TEAM",
-          sortOrder: body.sortOrder ?? 0,
-        },
-        include: { headEmployee: true },
+      const department = await prisma.$transaction(async (tx) => {
+        const created = await tx.department.create({
+          data: {
+            name: body.name,
+            headEmployeeId: headEmployeeIds[0] ?? undefined,
+            parentDepartmentId: body.parentDepartmentId ?? undefined,
+            unitType: body.unitType ?? "TEAM",
+            sortOrder: body.sortOrder ?? 0,
+          },
+        });
+        await replaceDepartmentHeads(tx, created.departmentId, headEmployeeIds);
+        return tx.department.findUniqueOrThrow({
+          where: { departmentId: created.departmentId },
+          include: departmentInclude,
+        });
       });
-      await syncAssignedOrganizationHead(prisma, department.headEmployeeId);
       await audit({
         action: "department created",
         performedByUserId: req.user!.id,
         newValue: {
           departmentId: department.departmentId,
           name: department.name,
-          headEmployeeId: department.headEmployeeId,
+          headEmployeeIds,
         },
         ipAddress: req.ip,
       });
@@ -3003,9 +3101,11 @@ export function createApp() {
     requireRoles(Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const body = departmentUpdateSchema.parse(req.body);
-      await assertValidDepartmentHead(body.headEmployeeId);
+      const nextHeadIds = normalizeDepartmentHeadIds(body);
+      if (nextHeadIds) await assertValidDepartmentHeads(nextHeadIds);
       const existing = await prisma.department.findUniqueOrThrow({
         where: { departmentId: String(req.params.id) },
+        include: { headAssignments: true },
       });
       if (body.parentDepartmentId === existing.departmentId) {
         throw new HttpError(400, "An organizational unit cannot be its own parent");
@@ -3023,26 +3123,35 @@ export function createApp() {
           cursor = parent?.parentDepartmentId ?? null;
         }
       }
-      const department = await prisma.department.update({
-        where: { departmentId: String(req.params.id) },
-        data: {
-          name: body.name,
-          headEmployeeId: body.headEmployeeId,
-          parentDepartmentId: body.parentDepartmentId,
-          unitType: body.unitType,
-          sortOrder: body.sortOrder,
-        },
-        include: { headEmployee: true },
+      const department = await prisma.$transaction(async (tx) => {
+        await tx.department.update({
+          where: { departmentId: String(req.params.id) },
+          data: {
+            name: body.name,
+            parentDepartmentId: body.parentDepartmentId,
+            unitType: body.unitType,
+            sortOrder: body.sortOrder,
+          },
+        });
+        if (nextHeadIds) {
+          await replaceDepartmentHeads(tx, existing.departmentId, nextHeadIds);
+        }
+        return tx.department.findUniqueOrThrow({
+          where: { departmentId: existing.departmentId },
+          include: departmentInclude,
+        });
       });
-      await syncAssignedOrganizationHead(prisma, department.headEmployeeId);
       await audit({
         action: "department updated",
         performedByUserId: req.user!.id,
-        oldValue: { name: existing.name, headEmployeeId: existing.headEmployeeId },
+        oldValue: {
+          name: existing.name,
+          headEmployeeIds: existing.headAssignments.map((row) => row.employeeId),
+        },
         newValue: {
           departmentId: department.departmentId,
           name: department.name,
-          headEmployeeId: department.headEmployeeId,
+          headEmployeeIds: department.headAssignments.map((row) => row.employeeId),
         },
         ipAddress: req.ip,
       });
@@ -3076,7 +3185,7 @@ export function createApp() {
         },
         ipAddress: req.ip,
       });
-      res.json(departmentDto({ ...department, headEmployee: null }));
+      res.json(departmentDto({ ...department, headEmployee: null, headAssignments: [] }));
     }),
   );
 
