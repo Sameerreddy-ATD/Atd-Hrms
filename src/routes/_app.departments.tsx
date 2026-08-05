@@ -60,6 +60,13 @@ export const Route = createFileRoute("/_app/departments")({
   component: DeptPage,
 });
 
+/** Reserved unit that holds multiple heads under the CEO / Leadership card. */
+const EXECUTIVE_LEADERSHIP_NAME = "Executive Leadership";
+
+function isExecutiveLeadership(department: Department) {
+  return department.name.trim().toLowerCase() === EXECUTIVE_LEADERSHIP_NAME.toLowerCase();
+}
+
 function headsLabel(department: Department) {
   const names =
     department.heads && department.heads.length > 0
@@ -83,10 +90,11 @@ function DeptPage() {
   const [parentDepartmentId, setParentDepartmentId] = useState("none");
   const [unitType, setUnitType] = useState<"TEAM" | "SUBTEAM" | "FUNCTION">("TEAM");
   const [editing, setEditing] = useState<Department | null>(null);
-  /** Leadership assign-heads dialog (existing top-level units only). */
-  const [assignUnderCeo, setAssignUnderCeo] = useState(false);
-  const [ceoUnitId, setCeoUnitId] = useState<string>("");
+  /** Leadership: assign multiple heads for the CEO (Executive Leadership unit). */
+  const [assignCeoHeads, setAssignCeoHeads] = useState(false);
+  const [ceoHeadsUnitId, setCeoHeadsUnitId] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [ensuringCeoUnit, setEnsuringCeoUnit] = useState(false);
   const [deleteDept, setDeleteDept] = useState<Department | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -158,6 +166,10 @@ function DeptPage() {
     return headOptions.filter((employee) => !taken.has(employee.employeeId!));
   }
 
+  const executiveLeadership = useMemo(
+    () => departments.find(isExecutiveLeadership) ?? null,
+    [departments],
+  );
   const topLevelDepartments = useMemo(
     () =>
       departments
@@ -165,19 +177,24 @@ function DeptPage() {
         .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
     [departments],
   );
-  const needsUnitName = !assignUnderCeo; // create/edit need a name; assign-heads does not
-  const isCreateTopLevel = !editing && !assignUnderCeo && parentDepartmentId === "none";
+  /** Org units shown under Leadership (hide the reserved CEO heads unit). */
+  const chartTopLevelDepartments = useMemo(
+    () => topLevelDepartments.filter((department) => !isExecutiveLeadership(department)),
+    [topLevelDepartments],
+  );
+  const needsUnitName = !assignCeoHeads; // create/edit need a name; CEO heads does not
+  const isCreateTopLevel = !editing && !assignCeoHeads && parentDepartmentId === "none";
 
   const childrenOf = (parentId: string) =>
     departments
       .filter((department) => department.parentDepartmentId === parentId)
       .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-  const chartWidth = Math.max(1120, topLevelDepartments.length * 388 - 28);
+  const chartWidth = Math.max(1120, chartTopLevelDepartments.length * 388 - 28);
 
   function resetForm() {
     setEditing(null);
-    setAssignUnderCeo(false);
-    setCeoUnitId("");
+    setAssignCeoHeads(false);
+    setCeoHeadsUnitId("");
     setName("");
     setHeadSlots(["none"]);
     setParentDepartmentId("none");
@@ -187,8 +204,8 @@ function DeptPage() {
 
   function openCreateTopLevel() {
     setEditing(null);
-    setAssignUnderCeo(false);
-    setCeoUnitId("");
+    setAssignCeoHeads(false);
+    setCeoHeadsUnitId("");
     setName("");
     setHeadSlots(["none"]);
     setParentDepartmentId("none");
@@ -196,33 +213,40 @@ function DeptPage() {
     setShowForm(true);
   }
 
-  function openAssignHeadsUnderCeo() {
-    if (topLevelDepartments.length === 0) {
-      toast.error("Create an organization unit under the CEO first, then assign heads.");
-      return;
+  async function openAssignCeoHeads() {
+    setEnsuringCeoUnit(true);
+    try {
+      let unit = executiveLeadership;
+      if (!unit) {
+        unit = await branchesApi.createDepartment({
+          name: EXECUTIVE_LEADERSHIP_NAME,
+          headEmployeeIds: [],
+          parentDepartmentId: null,
+          unitType: "TEAM",
+        });
+        setDepartments((prev) =>
+          [...prev, unit!].sort((a, b) => a.name.localeCompare(b.name)),
+        );
+      }
+      setEditing(null);
+      setAssignCeoHeads(true);
+      setCeoHeadsUnitId(unit.id);
+      setName(unit.name);
+      setHeadSlots(headsFromDepartment(unit));
+      setParentDepartmentId("none");
+      setUnitType("TEAM");
+      setShowForm(true);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setEnsuringCeoUnit(false);
     }
-    setEditing(null);
-    setAssignUnderCeo(true);
-    const firstUnit = topLevelDepartments[0];
-    setCeoUnitId(firstUnit.id);
-    setName(firstUnit.name);
-    setHeadSlots(headsFromDepartment(firstUnit));
-    setParentDepartmentId("none");
-    setUnitType("TEAM");
-    setShowForm(true);
-  }
-
-  function selectCeoUnit(nextId: string) {
-    setCeoUnitId(nextId);
-    const unit = departments.find((department) => department.id === nextId);
-    setName(unit?.name ?? "");
-    setHeadSlots(headsFromDepartment(unit));
   }
 
   function openCreateUnder(parent: Department) {
     setEditing(null);
-    setAssignUnderCeo(false);
-    setCeoUnitId("");
+    setAssignCeoHeads(false);
+    setCeoHeadsUnitId("");
     setName("");
     setHeadSlots(["none"]);
     setParentDepartmentId(parent.id);
@@ -231,9 +255,13 @@ function DeptPage() {
   }
 
   function openEditDialog(department: Department) {
+    if (isExecutiveLeadership(department)) {
+      void openAssignCeoHeads();
+      return;
+    }
     setEditing(department);
-    setAssignUnderCeo(false);
-    setCeoUnitId("");
+    setAssignCeoHeads(false);
+    setCeoHeadsUnitId("");
     setName(department.name);
     setHeadSlots(headsFromDepartment(department));
     setParentDepartmentId(department.parentDepartmentId ?? "none");
@@ -247,9 +275,13 @@ function DeptPage() {
       toast.error("Organization unit name is required");
       return;
     }
-    if (assignUnderCeo) {
-      if (!ceoUnitId) {
-        toast.error("Select an organization unit");
+    if (isCreateTopLevel && name.trim().toLowerCase() === EXECUTIVE_LEADERSHIP_NAME.toLowerCase()) {
+      toast.error("Use Assign heads on Leadership to manage CEO heads.");
+      return;
+    }
+    if (assignCeoHeads) {
+      if (!ceoHeadsUnitId) {
+        toast.error("CEO heads unit is not ready. Try again.");
         return;
       }
       if (headEmployeeIds.length === 0) {
@@ -259,14 +291,14 @@ function DeptPage() {
     }
     setSaving(true);
     try {
-      if (assignUnderCeo) {
-        const saved = await branchesApi.updateDepartment(ceoUnitId, { headEmployeeIds });
+      if (assignCeoHeads) {
+        const saved = await branchesApi.updateDepartment(ceoHeadsUnitId, { headEmployeeIds });
         setDepartments((prev) =>
           prev
             .map((row) => (row.id === saved.id ? saved : row))
             .sort((a, b) => a.name.localeCompare(b.name)),
         );
-        toast.success("Heads updated for this unit");
+        toast.success("CEO heads updated");
         resetForm();
         return;
       }
@@ -308,6 +340,11 @@ function DeptPage() {
   }
 
   async function performDeleteDepartment(dept: Department) {
+    if (isExecutiveLeadership(dept)) {
+      toast.error("CEO Leadership heads unit cannot be deleted. Clear heads instead.");
+      setDeleteDept(null);
+      return;
+    }
     try {
       await branchesApi.deleteDepartment(dept.id);
       setDepartments((prev) => prev.filter((d) => d.id !== dept.id));
@@ -419,23 +456,12 @@ function DeptPage() {
     <div>
       <PageHeader
         title="Departments"
-        description="Assign one or more heads per organization unit under the CEO. The same person can also head multiple units — leave approvals follow each unit's heads."
+        description="Assign multiple heads for the CEO from Leadership, and one or more heads per organization unit. The same person can head multiple units — leave approvals follow each unit's heads."
       />
 
       {loading && <LoadingState label="Loading organization chart" />}
       {error && <p className="text-sm text-destructive">{error}</p>}
-      {!loading && !error && departments.length === 0 && (
-        <div className="rounded-lg border border-dashed p-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            No organization units yet. Create a unit under the CEO to start the chart.
-          </p>
-          <Button type="button" className="mt-4" onClick={openCreateTopLevel}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create organization unit
-          </Button>
-        </div>
-      )}
-      {!loading && departments.length > 0 && (
+      {!loading && !error && (
         <div className="overflow-hidden rounded-lg border border-border bg-card">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/30 px-3 py-2 sm:px-4">
             <div>
@@ -503,6 +529,14 @@ function DeptPage() {
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-medium uppercase text-muted-foreground">Leadership</p>
                   <p className="font-semibold text-foreground">Chief Executive Officer</p>
+                  <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <UserRound className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">
+                      {executiveLeadership
+                        ? headsLabel(executiveLeadership)
+                        : "No heads assigned"}
+                    </span>
+                  </p>
                 </div>
                 <div className="flex shrink-0 gap-1">
                   <Button
@@ -519,9 +553,10 @@ function DeptPage() {
                     type="button"
                     size="icon"
                     variant="ghost"
-                    title="Assign heads under CEO"
-                    aria-label="Assign heads under CEO"
-                    onClick={openAssignHeadsUnderCeo}
+                    title="Assign heads for CEO"
+                    aria-label="Assign heads for CEO"
+                    disabled={ensuringCeoUnit}
+                    onClick={() => void openAssignCeoHeads()}
                   >
                     <UserRoundPlus className="h-4 w-4" />
                   </Button>
@@ -537,7 +572,13 @@ function DeptPage() {
               </div>
 
               <div className="flex w-full max-w-full flex-col items-stretch gap-4 md:w-max md:flex-row md:items-start md:gap-7">
-                {topLevelDepartments.map((department) => {
+                {chartTopLevelDepartments.length === 0 && (
+                  <div className="w-full rounded-md border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground md:w-[360px]">
+                    No organization units yet. Use + on Leadership to create Sales, Operations, and
+                    other units. Use Assign heads to add multiple heads for the CEO.
+                  </div>
+                )}
+                {chartTopLevelDepartments.map((department) => {
                   const children = childrenOf(department.id);
                   const isExpanded = expandedUnits.has(department.id);
                   return (
@@ -695,8 +736,8 @@ function DeptPage() {
             <DialogTitle>
               {editing
                 ? "Edit organization unit"
-                : assignUnderCeo
-                  ? "Assign heads under CEO"
+                : assignCeoHeads
+                  ? "Assign heads for CEO"
                   : isCreateTopLevel
                     ? "Create organization unit"
                     : parentDepartmentId !== "none"
@@ -704,34 +745,18 @@ function DeptPage() {
                       : "Add organization unit"}
             </DialogTitle>
             <DialogDescription>
-              {assignUnderCeo
-                ? "Pick an existing unit under the CEO, then assign one or more heads."
+              {assignCeoHeads
+                ? "Add one or more heads who report under the Chief Executive Officer. No organization unit selection needed."
                 : isCreateTopLevel
-                  ? "Create a unit that reports to the CEO. Assign heads afterward with Assign heads."
+                  ? "Create a unit that reports to the CEO. Assign that unit’s heads from the unit card."
                   : "Name the unit. You can assign heads now or later."}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={saveDepartment} className="space-y-4">
-            {assignUnderCeo && (
-              <div className="space-y-1.5">
-                <Label>Organization unit</Label>
-                <Select value={ceoUnitId} onValueChange={selectCeoUnit}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select unit" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {topLevelDepartments.map((unit) => (
-                      <SelectItem key={unit.id} value={unit.id}>
-                        {unit.name}
-                        {unit.heads?.length ? ` · ${unit.heads.length} head(s)` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Reports to Chief Executive Officer. Use Create unit (+) if the unit does not exist
-                  yet.
-                </p>
+            {assignCeoHeads && (
+              <div className="rounded-md border border-border bg-muted/40 px-3 py-2.5">
+                <p className="text-xs font-medium text-muted-foreground">Assigning heads for</p>
+                <p className="mt-1 text-sm font-semibold text-foreground">Chief Executive Officer</p>
               </div>
             )}
 
@@ -773,7 +798,9 @@ function DeptPage() {
                     <SelectContent>
                       <SelectItem value="none">CEO (top level)</SelectItem>
                       {departments
-                        .filter((item) => item.id !== editing.id)
+                        .filter(
+                          (item) => item.id !== editing.id && !isExecutiveLeadership(item),
+                        )
                         .map((item) => (
                           <SelectItem key={item.id} value={item.id}>
                             {item.name}
@@ -783,7 +810,7 @@ function DeptPage() {
                   </Select>
                 </div>
               </>
-            ) : !assignUnderCeo && !isCreateTopLevel ? (
+            ) : !assignCeoHeads && !isCreateTopLevel ? (
               <div className="rounded-md border border-border bg-muted/40 px-3 py-2.5">
                 <p className="text-xs font-medium text-muted-foreground">Adding under</p>
                 <p className="mt-1 text-sm font-semibold text-foreground">
@@ -819,7 +846,7 @@ function DeptPage() {
                             .filter(
                               (dept) =>
                                 dept.id !== editing?.id &&
-                                dept.id !== (assignUnderCeo ? ceoUnitId : "") &&
+                                dept.id !== (assignCeoHeads ? ceoHeadsUnitId : "") &&
                                 (dept.headEmployeeIds?.includes(selectedId) ||
                                   dept.headEmployeeId === selectedId),
                             )
@@ -907,8 +934,8 @@ function DeptPage() {
                   ? "Saving..."
                   : editing
                     ? "Save unit"
-                    : assignUnderCeo
-                      ? "Save heads"
+                    : assignCeoHeads
+                      ? "Save CEO heads"
                       : "Create unit"}
               </Button>
             </DialogFooter>
