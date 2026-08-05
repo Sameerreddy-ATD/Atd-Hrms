@@ -180,14 +180,18 @@ function DayLogsPage() {
         </CardHeader>
         <CardContent className="space-y-4 px-4 pb-4 sm:px-6 sm:pb-5">
           <div
-            className={`grid gap-3 sm:gap-4 md:grid-cols-2 ${selectedEmployeeId === "all" ? "xl:grid-cols-5" : "xl:grid-cols-4"}`}
+            className={`grid gap-2.5 sm:gap-3 md:grid-cols-2 ${
+              selectedEmployeeId === "all"
+                ? "lg:grid-cols-[minmax(0,1.2fr)_6.75rem_9rem_9rem_minmax(8.5rem,1fr)]"
+                : "lg:grid-cols-[minmax(0,1.35fr)_6.75rem_9rem_9rem]"
+            }`}
           >
             <div
-              className={`space-y-1.5 ${selectedEmployeeId === "all" ? "xl:col-span-2" : "md:col-span-2"}`}
+              className={`min-w-0 space-y-1 ${selectedEmployeeId === "all" ? "" : "md:col-span-2 lg:col-span-1"}`}
             >
-              <Label>Employee</Label>
+              <Label className="text-xs sm:text-sm">Employee</Label>
               <Select value={selectedEmployeeId} onValueChange={changeEmployee}>
-                <SelectTrigger className="min-h-11">
+                <SelectTrigger>
                   <SelectValue placeholder="Select employee" />
                 </SelectTrigger>
                 <SelectContent className="max-h-[320px]">
@@ -204,33 +208,33 @@ function DayLogsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label>Month</Label>
+            <div className="min-w-0 space-y-1">
+              <Label className="text-xs sm:text-sm">Month</Label>
               <Input
                 type="month"
-                className="min-h-11"
+                className="px-2.5"
                 value={month}
                 max={indiaMonthKey()}
                 onChange={(event) => changeMonth(event.target.value)}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3 sm:contents">
-              <div className="space-y-1.5">
-                <Label>From</Label>
+            <div className="grid grid-cols-2 gap-2.5 sm:contents">
+              <div className="min-w-0 space-y-1">
+                <Label className="text-xs sm:text-sm">From</Label>
                 <Input
                   type="date"
-                  className="min-h-11"
+                  className="px-2.5"
                   value={from}
                   min={indiaMonthRange(month).from}
                   max={to || indiaMonthRange(month).to}
                   onChange={(event) => changeFrom(event.target.value)}
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label>To</Label>
+              <div className="min-w-0 space-y-1">
+                <Label className="text-xs sm:text-sm">To</Label>
                 <Input
                   type="date"
-                  className="min-h-11"
+                  className="px-2.5"
                   value={to}
                   min={from || indiaMonthRange(month).from}
                   max={indiaMonthRange(month).to}
@@ -239,10 +243,10 @@ function DayLogsPage() {
               </div>
             </div>
             {selectedEmployeeId === "all" && (
-              <div className="space-y-1.5">
-                <Label>Branch</Label>
+              <div className="min-w-0 space-y-1">
+                <Label className="text-xs sm:text-sm">Branch</Label>
                 <Select value={branchId} onValueChange={setBranchId}>
-                  <SelectTrigger className="min-h-11">
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
