@@ -4,7 +4,6 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -52,6 +51,7 @@ import {
   RotateCcw,
   Trash2,
   UserRound,
+  UserRoundPlus,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -78,10 +78,14 @@ function DeptPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [employees, setEmployees] = useState<User[]>([]);
   const [name, setName] = useState("");
-  const [headEmployeeIds, setHeadEmployeeIds] = useState<string[]>([]);
+  /** Head pickers: one dropdown first; "Add another head" appends more. Use "none" for empty. */
+  const [headSlots, setHeadSlots] = useState<string[]>(["none"]);
   const [parentDepartmentId, setParentDepartmentId] = useState("none");
   const [unitType, setUnitType] = useState<"TEAM" | "SUBTEAM" | "FUNCTION">("TEAM");
   const [editing, setEditing] = useState<Department | null>(null);
+  /** Leadership + assigns heads under CEO; may use an existing top-level unit. */
+  const [assignUnderCeo, setAssignUnderCeo] = useState(false);
+  const [ceoUnitId, setCeoUnitId] = useState<string>("new");
   const [showForm, setShowForm] = useState(false);
   const [deleteDept, setDeleteDept] = useState<Department | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,12 +103,30 @@ function DeptPage() {
     });
   }
 
-  function toggleHead(employeeId: string) {
-    setHeadEmployeeIds((current) =>
-      current.includes(employeeId)
-        ? current.filter((id) => id !== employeeId)
-        : [...current, employeeId],
-    );
+  function headsFromDepartment(department?: Department | null) {
+    if (!department) return ["none"];
+    if (department.headEmployeeIds?.length) return [...department.headEmployeeIds];
+    if (department.headEmployeeId) return [department.headEmployeeId];
+    return ["none"];
+  }
+
+  function setHeadSlot(index: number, employeeId: string) {
+    setHeadSlots((current) => {
+      const next = [...current];
+      next[index] = employeeId;
+      return next;
+    });
+  }
+
+  function addHeadSlot() {
+    setHeadSlots((current) => [...current, "none"]);
+  }
+
+  function removeHeadSlot(index: number) {
+    setHeadSlots((current) => {
+      if (current.length <= 1) return ["none"];
+      return current.filter((_, slotIndex) => slotIndex !== index);
+    });
   }
 
   useEffect(() => {
@@ -121,6 +143,21 @@ function DeptPage() {
     () => employees.filter((employee) => !!employee.employeeId),
     [employees],
   );
+  const headEmployeeIds = useMemo(
+    () => headSlots.filter((id) => id !== "none"),
+    [headSlots],
+  );
+  const canAddAnotherHead = headOptions.some(
+    (employee) => !headEmployeeIds.includes(employee.employeeId!),
+  );
+
+  function optionsForHeadSlot(index: number) {
+    const taken = new Set(
+      headSlots.filter((id, slotIndex) => slotIndex !== index && id !== "none"),
+    );
+    return headOptions.filter((employee) => !taken.has(employee.employeeId!));
+  }
+
   const topLevelDepartments = useMemo(
     () =>
       departments
@@ -128,6 +165,8 @@ function DeptPage() {
         .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
     [departments],
   );
+  const creatingNewUnderCeo = assignUnderCeo && ceoUnitId === "new";
+  const needsUnitName = Boolean(editing) || !assignUnderCeo || creatingNewUnderCeo;
 
   const childrenOf = (parentId: string) =>
     departments
@@ -137,26 +176,45 @@ function DeptPage() {
 
   function resetForm() {
     setEditing(null);
+    setAssignUnderCeo(false);
+    setCeoUnitId("new");
     setName("");
-    setHeadEmployeeIds([]);
+    setHeadSlots(["none"]);
     setParentDepartmentId("none");
     setUnitType("TEAM");
     setShowForm(false);
   }
 
-  function openCreateTopLevel() {
+  function openAssignHeadsUnderCeo() {
     setEditing(null);
+    setAssignUnderCeo(true);
+    const firstUnit = topLevelDepartments[0];
+    setCeoUnitId(firstUnit?.id ?? "new");
     setName("");
-    setHeadEmployeeIds([]);
+    setHeadSlots(headsFromDepartment(firstUnit));
     setParentDepartmentId("none");
     setUnitType("TEAM");
     setShowForm(true);
   }
 
+  function selectCeoUnit(nextId: string) {
+    setCeoUnitId(nextId);
+    if (nextId === "new") {
+      setName("");
+      setHeadSlots(["none"]);
+      return;
+    }
+    const unit = departments.find((department) => department.id === nextId);
+    setName(unit?.name ?? "");
+    setHeadSlots(headsFromDepartment(unit));
+  }
+
   function openCreateUnder(parent: Department) {
     setEditing(null);
+    setAssignUnderCeo(false);
+    setCeoUnitId("new");
     setName("");
-    setHeadEmployeeIds([]);
+    setHeadSlots(["none"]);
     setParentDepartmentId(parent.id);
     setUnitType(parent.parentDepartmentId ? "FUNCTION" : "SUBTEAM");
     setShowForm(true);
@@ -164,14 +222,10 @@ function DeptPage() {
 
   function openEditDialog(department: Department) {
     setEditing(department);
+    setAssignUnderCeo(false);
+    setCeoUnitId("new");
     setName(department.name);
-    setHeadEmployeeIds(
-      department.headEmployeeIds?.length
-        ? [...department.headEmployeeIds]
-        : department.headEmployeeId
-          ? [department.headEmployeeId]
-          : [],
-    );
+    setHeadSlots(headsFromDepartment(department));
     setParentDepartmentId(department.parentDepartmentId ?? "none");
     setUnitType(department.unitType ?? "TEAM");
     setShowForm(true);
@@ -179,12 +233,28 @@ function DeptPage() {
 
   async function saveDepartment(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) {
-      toast.error("Department name is required");
+    if (needsUnitName && !name.trim()) {
+      toast.error("Organization unit name is required");
+      return;
+    }
+    if (assignUnderCeo && headEmployeeIds.length === 0) {
+      toast.error("Select at least one head");
       return;
     }
     setSaving(true);
     try {
+      if (assignUnderCeo && ceoUnitId !== "new") {
+        const saved = await branchesApi.updateDepartment(ceoUnitId, { headEmployeeIds });
+        setDepartments((prev) =>
+          prev.map((row) => (row.id === saved.id ? saved : row)).sort((a, b) =>
+            a.name.localeCompare(b.name),
+          ),
+        );
+        toast.success("Heads updated for this unit");
+        resetForm();
+        return;
+      }
+
       const payload = {
         name: name.trim(),
         headEmployeeIds,
@@ -199,7 +269,13 @@ function DeptPage() {
           (a, b) => a.name.localeCompare(b.name),
         ),
       );
-      toast.success(editing ? "Department updated" : "Department added");
+      toast.success(
+        editing
+          ? "Department updated"
+          : assignUnderCeo
+            ? "Unit created under CEO with heads assigned"
+            : "Department added",
+      );
       if (!editing && parentDepartmentId !== "none") {
         setExpandedUnits((current) => new Set(current).add(parentDepartmentId));
       }
@@ -394,7 +470,7 @@ function DeptPage() {
                 } as CSSProperties
               }
             >
-              <div className="mx-auto flex max-w-xs items-center gap-3 rounded-md border border-primary/30 bg-primary/5 px-4 py-3 shadow-sm">
+              <div className="mx-auto flex max-w-sm items-center gap-3 rounded-md border border-primary/30 bg-primary/5 px-4 py-3 shadow-sm">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
                   <Crown className="h-5 w-5" />
                 </div>
@@ -402,16 +478,16 @@ function DeptPage() {
                   <p className="text-xs font-medium uppercase text-muted-foreground">Leadership</p>
                   <p className="font-semibold text-foreground">Chief Executive Officer</p>
                 </div>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              className="ml-auto shrink-0"
-              title="Add organization unit under CEO"
-              aria-label="Add organization unit under CEO"
-              onClick={openCreateTopLevel}
-            >
-                  <Plus className="h-4 w-4" />
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="ml-auto shrink-0"
+                  title="Assign heads under CEO"
+                  aria-label="Assign heads under CEO"
+                  onClick={openAssignHeadsUnderCeo}
+                >
+                  <UserRoundPlus className="h-4 w-4" />
                 </Button>
               </div>
 
@@ -582,20 +658,53 @@ function DeptPage() {
             <DialogTitle>
               {editing
                 ? "Edit organization unit"
-                : parentDepartmentId !== "none"
-                  ? `Add under ${departments.find((item) => item.id === parentDepartmentId)?.name ?? "unit"}`
-                  : "Add organization unit"}
+                : assignUnderCeo
+                  ? "Assign heads under CEO"
+                  : parentDepartmentId !== "none"
+                    ? `Add under ${departments.find((item) => item.id === parentDepartmentId)?.name ?? "unit"}`
+                    : "Add organization unit"}
             </DialogTitle>
             <DialogDescription>
-              Select one or more heads for this unit. The same person may also head other units —
-              leave approval follows every assigned head on the chart.
+              {assignUnderCeo
+                ? "Choose an existing unit under the CEO and assign heads. Only create a new unit if it does not exist yet."
+                : "Select one or more heads for this unit. The same person may also head other units."}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={saveDepartment} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Department name</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
+            {assignUnderCeo && (
+              <div className="space-y-1.5">
+                <Label>Organization unit</Label>
+                <Select value={ceoUnitId} onValueChange={selectCeoUnit}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select unit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {topLevelDepartments.map((unit) => (
+                      <SelectItem key={unit.id} value={unit.id}>
+                        {unit.name}
+                        {unit.heads?.length ? ` · ${unit.heads.length} head(s)` : ""}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="new">Create new unit…</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Reports to Chief Executive Officer. Pick the unit first, then select heads below.
+                </p>
+              </div>
+            )}
+
+            {needsUnitName && (
+              <div className="space-y-1.5">
+                <Label>Organization unit name</Label>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Sales, Operations, Accounts"
+                />
+              </div>
+            )}
+
             {editing ? (
               <>
                 <div className="space-y-1.5">
@@ -633,7 +742,7 @@ function DeptPage() {
                   </Select>
                 </div>
               </>
-            ) : (
+            ) : !assignUnderCeo ? (
               <div className="rounded-md border border-border bg-muted/40 px-3 py-2.5">
                 <p className="text-xs font-medium text-muted-foreground">Adding under</p>
                 <p className="mt-1 text-sm font-semibold text-foreground">
@@ -642,68 +751,105 @@ function DeptPage() {
                     : departments.find((item) => item.id === parentDepartmentId)?.name}
                 </p>
               </div>
-            )}
-            <div className="space-y-1.5">
+            ) : null}
+
+            <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <Label>Department heads</Label>
+                <Label>Heads</Label>
                 <span className="text-xs text-muted-foreground">
                   {headEmployeeIds.length === 0
                     ? "None selected"
                     : `${headEmployeeIds.length} selected`}
                 </span>
               </div>
-              <div className="max-h-56 space-y-1 overflow-y-auto rounded-md border border-border p-2">
-                {headOptions.length === 0 ? (
-                  <p className="px-2 py-3 text-xs text-muted-foreground">
-                    No active employees available to assign as heads.
-                  </p>
-                ) : (
-                  headOptions.map((employee) => {
-                    const employeeId = employee.employeeId!;
-                    const checked = headEmployeeIds.includes(employeeId);
-                    const otherHeaded = departments
-                      .filter(
-                        (dept) =>
-                          dept.id !== editing?.id &&
-                          (dept.headEmployeeIds?.includes(employeeId) ||
-                            dept.headEmployeeId === employeeId),
-                      )
-                      .map((dept) => dept.name);
-                    return (
-                      <label
-                        key={employeeId}
-                        className="flex cursor-pointer items-start gap-2.5 rounded-md px-2 py-2 hover:bg-muted/60"
-                      >
-                        <Checkbox
-                          checked={checked}
-                          onCheckedChange={() => toggleHead(employeeId)}
-                          className="mt-0.5"
-                          aria-label={`Assign ${employee.name} as head`}
-                        />
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-sm font-medium leading-snug">
-                            {employee.name}
-                            {employee.employeeCode ? (
-                              <span className="font-normal text-muted-foreground">
-                                {" "}
-                                ({employee.employeeCode})
-                              </span>
-                            ) : null}
-                          </span>
-                          {otherHeaded.length > 0 ? (
-                            <span className="mt-0.5 block text-xs text-muted-foreground">
-                              Also heads {otherHeaded.join(", ")}
-                            </span>
-                          ) : null}
-                        </span>
-                      </label>
-                    );
-                  })
-                )}
+              <div className="space-y-2.5">
+                {headSlots.map((selectedId, index) => {
+                  const slotOptions = optionsForHeadSlot(index);
+                  const selectedEmployee = headOptions.find(
+                    (employee) => employee.employeeId === selectedId,
+                  );
+                  const otherHeaded =
+                    selectedId !== "none"
+                      ? departments
+                          .filter(
+                            (dept) =>
+                              dept.id !== editing?.id &&
+                              dept.id !== (ceoUnitId !== "new" ? ceoUnitId : "") &&
+                              (dept.headEmployeeIds?.includes(selectedId) ||
+                                dept.headEmployeeId === selectedId),
+                          )
+                          .map((dept) => dept.name)
+                      : [];
+                  return (
+                    <div key={`head-slot-${index}`} className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={selectedId}
+                          onValueChange={(value) => setHeadSlot(index, value)}
+                        >
+                          <SelectTrigger className="flex-1">
+                            <SelectValue
+                              placeholder={index === 0 ? "Select head" : "Select another head"}
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">
+                              {index === 0 ? "No head assigned" : "Select employee"}
+                            </SelectItem>
+                            {selectedEmployee &&
+                              !slotOptions.some(
+                                (employee) => employee.employeeId === selectedId,
+                              ) && (
+                                <SelectItem value={selectedId}>
+                                  {selectedEmployee.name}
+                                  {selectedEmployee.employeeCode
+                                    ? ` (${selectedEmployee.employeeCode})`
+                                    : ""}
+                                </SelectItem>
+                              )}
+                            {slotOptions.map((employee) => (
+                              <SelectItem key={employee.employeeId} value={employee.employeeId!}>
+                                {employee.name}
+                                {employee.employeeCode ? ` (${employee.employeeCode})` : ""}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {headSlots.length > 1 && (
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="shrink-0 text-muted-foreground hover:text-destructive"
+                            title="Remove this head"
+                            aria-label={`Remove head slot ${index + 1}`}
+                            onClick={() => removeHeadSlot(index)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                      {otherHeaded.length > 0 ? (
+                        <p className="px-0.5 text-xs text-muted-foreground">
+                          Also heads {otherHeaded.join(", ")}
+                        </p>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={!canAddAnotherHead}
+                onClick={addHeadSlot}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add another head
+              </Button>
               <p className="text-xs text-muted-foreground">
-                Pick any active employees. Multiple heads on one unit and the same person across
-                several units are both supported.
+                Already chosen people are hidden from the next dropdown for this unit.
               </p>
             </div>
             <DialogFooter>
@@ -711,7 +857,15 @@ function DeptPage() {
                 Cancel
               </Button>
               <Button type="submit" disabled={saving}>
-                {editing ? "Save department" : "Create department"}
+                {saving
+                  ? "Saving..."
+                  : editing
+                    ? "Save unit"
+                    : assignUnderCeo && ceoUnitId !== "new"
+                      ? "Save heads"
+                      : assignUnderCeo
+                        ? "Create unit & assign heads"
+                        : "Create unit"}
               </Button>
             </DialogFooter>
           </form>
