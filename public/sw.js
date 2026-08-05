@@ -1,4 +1,5 @@
-self.ATD_STATIC_CACHE = "atd-static-v6";
+self.ATD_STATIC_CACHE = "atd-static-v8";
+self.ATD_BUILD_ID = "2026-08-05-f1";
 self.ATD_SHELL_ASSETS = [
   "/manifest.webmanifest",
   "/atd-logo.png",
@@ -18,16 +19,19 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    Promise.all([
-      caches.keys().then((keys) =>
-        Promise.all(
-          keys
-            .filter((key) => key.startsWith("atd-static-") && key !== self.ATD_STATIC_CACHE)
-            .map((key) => caches.delete(key)),
-        ),
-      ),
-      self.clients.claim(),
-    ]),
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(
+        keys
+          .filter((key) => key.startsWith("atd-static-") && key !== self.ATD_STATIC_CACHE)
+          .map((key) => caches.delete(key)),
+      );
+      await self.clients.claim();
+      const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const client of clients) {
+        client.postMessage({ type: "FORCE_RELOAD", buildId: self.ATD_BUILD_ID });
+      }
+    })(),
   );
 });
 
@@ -53,14 +57,16 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // Never cache API / health / streams — always hit the live server.
+  // Never cache API / health / streams / build version / SW — always hit the live server.
   if (
     url.pathname.startsWith("/api/") ||
     url.pathname.startsWith("/attendance/") ||
     url.pathname.startsWith("/auth/") ||
     url.pathname.includes("/stream") ||
     url.pathname === "/health" ||
-    url.pathname.startsWith("/health/")
+    url.pathname.startsWith("/health/") ||
+    url.pathname === "/app-version.json" ||
+    url.pathname === "/sw.js"
   ) {
     return;
   }
@@ -100,11 +106,11 @@ self.addEventListener("fetch", (event) => {
 
   // Hashed JS/CSS: network-first, fall back to cache only when offline.
   const networkFirstDestination = ["script", "style", "font"].includes(request.destination);
-  if (networkFirstDestination || url.pathname === "/manifest.webmanifest" || url.pathname === "/sw.js") {
+  if (networkFirstDestination || url.pathname === "/manifest.webmanifest") {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          if (response.ok && url.pathname !== "/sw.js") {
+          if (response.ok) {
             const copy = response.clone();
             void caches.open(self.ATD_STATIC_CACHE).then((cache) => cache.put(request, copy));
           }

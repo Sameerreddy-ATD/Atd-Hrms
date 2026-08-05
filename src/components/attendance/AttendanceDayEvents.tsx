@@ -192,20 +192,20 @@ export function AttendanceDayEvents({
                 </time>
               </div>
             </div>
-            <div className="grid grid-cols-2 text-xs sm:text-sm lg:grid-cols-4 lg:divide-x">
-              <div className="min-w-0 border-b px-3 py-3 sm:px-4 lg:border-b-0">
+            <div className="grid grid-cols-1 divide-y text-xs sm:grid-cols-2 sm:divide-x sm:divide-y-0 sm:text-sm lg:grid-cols-4 lg:divide-x">
+              <div className="min-w-0 px-3 py-3 sm:px-4">
                 <p className="mb-1 text-xs text-muted-foreground">In source</p>
                 <SourceDetail event={session.punchIn} />
               </div>
-              <div className="min-w-0 border-b border-l px-3 py-3 sm:px-4 lg:border-b-0 lg:border-l-0">
+              <div className="min-w-0 px-3 py-3 sm:px-4">
                 <p className="mb-1 text-xs text-muted-foreground">In location</p>
                 <LocationDetail event={session.punchIn} />
               </div>
-              <div className="min-w-0 px-3 py-3 sm:px-4">
+              <div className="min-w-0 px-3 py-3 sm:px-4 sm:border-t lg:border-t-0">
                 <p className="mb-1 text-xs text-muted-foreground">Out source</p>
                 <SourceDetail event={session.punchOut} />
               </div>
-              <div className="min-w-0 border-l px-3 py-3 sm:px-4 lg:border-l-0">
+              <div className="min-w-0 px-3 py-3 sm:border-t sm:px-4 lg:border-t-0">
                 <p className="mb-1 text-xs text-muted-foreground">Out location</p>
                 <LocationDetail event={session.punchOut} />
               </div>

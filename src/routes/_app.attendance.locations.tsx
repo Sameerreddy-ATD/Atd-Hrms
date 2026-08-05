@@ -165,26 +165,29 @@ function DayLogsPage() {
   const branchName = (id?: string) => branches.find((branch) => branch.id === id)?.name ?? "-";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       <PageHeader
         title="Day Logs"
         description="Track your team's day-wise attendance for the selected month through today. Expand any date for every punch in order."
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Filters</CardTitle>
+      <Card className="border-border shadow-sm">
+        <CardHeader className="space-y-1 px-4 pb-3 pt-4 sm:px-6">
+          <CardTitle className="text-base font-semibold">Filters</CardTitle>
+          <p className="text-xs text-muted-foreground sm:text-sm">
+            Choose employee and date range. Results update as you change filters.
+          </p>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 px-4 pb-4 sm:px-6 sm:pb-5">
           <div
-            className={`grid gap-4 md:grid-cols-2 ${selectedEmployeeId === "all" ? "xl:grid-cols-5" : "xl:grid-cols-4"}`}
+            className={`grid gap-3 sm:gap-4 md:grid-cols-2 ${selectedEmployeeId === "all" ? "xl:grid-cols-5" : "xl:grid-cols-4"}`}
           >
             <div
               className={`space-y-1.5 ${selectedEmployeeId === "all" ? "xl:col-span-2" : "md:col-span-2"}`}
             >
               <Label>Employee</Label>
               <Select value={selectedEmployeeId} onValueChange={changeEmployee}>
-                <SelectTrigger>
+                <SelectTrigger className="min-h-11">
                   <SelectValue placeholder="Select employee" />
                 </SelectTrigger>
                 <SelectContent className="max-h-[320px]">
@@ -205,36 +208,41 @@ function DayLogsPage() {
               <Label>Month</Label>
               <Input
                 type="month"
+                className="min-h-11"
                 value={month}
                 max={indiaMonthKey()}
                 onChange={(event) => changeMonth(event.target.value)}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label>From</Label>
-              <Input
-                type="date"
-                value={from}
-                min={indiaMonthRange(month).from}
-                max={to || indiaMonthRange(month).to}
-                onChange={(event) => changeFrom(event.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>To</Label>
-              <Input
-                type="date"
-                value={to}
-                min={from || indiaMonthRange(month).from}
-                max={indiaMonthRange(month).to}
-                onChange={(event) => changeTo(event.target.value)}
-              />
+            <div className="grid grid-cols-2 gap-3 sm:contents">
+              <div className="space-y-1.5">
+                <Label>From</Label>
+                <Input
+                  type="date"
+                  className="min-h-11"
+                  value={from}
+                  min={indiaMonthRange(month).from}
+                  max={to || indiaMonthRange(month).to}
+                  onChange={(event) => changeFrom(event.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>To</Label>
+                <Input
+                  type="date"
+                  className="min-h-11"
+                  value={to}
+                  min={from || indiaMonthRange(month).from}
+                  max={indiaMonthRange(month).to}
+                  onChange={(event) => changeTo(event.target.value)}
+                />
+              </div>
             </div>
             {selectedEmployeeId === "all" && (
               <div className="space-y-1.5">
                 <Label>Branch</Label>
                 <Select value={branchId} onValueChange={setBranchId}>
-                  <SelectTrigger>
+                  <SelectTrigger className="min-h-11">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -252,12 +260,12 @@ function DayLogsPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <Card className="border-border shadow-sm">
+        <CardHeader className="flex flex-col gap-3 px-4 pt-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="min-w-0">
-            <CardTitle className="text-sm">Employee Day-wise Logs</CardTitle>
+            <CardTitle className="text-base font-semibold">Day-wise logs</CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
-              Clear per-day attendance records for{" "}
+              Per-day records for{" "}
               <span className="font-medium text-foreground">{employeeName}</span>.
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -278,7 +286,7 @@ function DayLogsPage() {
             </p>
           </div>
           <div className="flex w-full flex-col gap-2 min-[420px]:flex-row min-[420px]:flex-wrap min-[420px]:items-center sm:w-auto sm:justify-end">
-            <div className="inline-flex w-full items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground min-[420px]:w-auto">
+            <div className="inline-flex min-h-11 w-full items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground min-[420px]:w-auto">
               <CalendarRange className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">
                 {from && to
@@ -289,9 +297,8 @@ function DayLogsPage() {
               </span>
             </div>
             <Button
-              size="sm"
               variant="outline"
-              className="w-full min-[420px]:w-auto"
+              className="min-h-11 w-full min-[420px]:w-auto"
               disabled={employeeRows.length === 0}
               onClick={() =>
                 downloadAttendanceExcel(
@@ -329,7 +336,7 @@ function DayLogsPage() {
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-3 pb-4 pt-0 sm:px-4 sm:pb-5">
           {loadingEmployeeRows && <LoadingState label="Loading employee day logs" compact />}
           {employeeError && <p className="text-sm text-destructive">{employeeError}</p>}
           {!loadingEmployeeRows && !employeeError && (

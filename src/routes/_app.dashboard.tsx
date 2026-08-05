@@ -61,7 +61,6 @@ import {
   AlertTriangle,
   Building2,
   CalendarClock,
-  FileClock,
   Fingerprint,
   LogIn,
   LogOut,
@@ -296,7 +295,6 @@ function DashboardPage() {
       {["employee", "sales", "driver", "field_staff"].includes(user.role) ? (
         <EmployeeDashboard
           user={user}
-          attendance={todayAttendance}
           timeline={timeline}
           branches={branches}
           birthdays={birthdays}
@@ -415,7 +413,6 @@ function DashboardSkeleton() {
 
 function EmployeeDashboard({
   user,
-  attendance,
   timeline,
   branches,
   birthdays,
@@ -423,7 +420,6 @@ function EmployeeDashboard({
   attendanceReady,
 }: {
   user: User;
-  attendance: AttendanceRecord[];
   timeline: AttendanceTimelineEvent[];
   branches: Branch[];
   birthdays: BirthdayItem[];
@@ -441,7 +437,6 @@ function EmployeeDashboard({
           attendanceReady={attendanceReady}
           className="lg:col-span-2"
         />
-        <AttendanceAnalyticsCard rows={attendance} />
         <UpcomingBirthdaysCard birthdays={birthdays} />
       </div>
     </div>
@@ -463,7 +458,6 @@ function MarkAttendanceCard({
   className?: string;
   attendanceReady: boolean;
 }) {
-  const navigate = useNavigate();
   const [actionLoading, setActionLoading] = useState(false);
   const [faceAction, setFaceAction] = useState<"check-in" | "check-out" | null>(null);
   const [clockNow, setClockNow] = useState(() => Date.now());
@@ -714,20 +708,11 @@ function MarkAttendanceCard({
 
   return (
     <Card className={`border-border shadow-sm ${className ?? ""}`}>
-      <CardHeader className="flex flex-col items-stretch justify-between gap-3 p-4 min-[420px]:flex-row min-[420px]:items-center sm:p-5">
+      <CardHeader className="p-4 sm:p-5">
         <div className="min-w-0">
           <CardTitle className="text-base font-semibold text-foreground">Mark Attendance</CardTitle>
           <p className="mt-0.5 text-xs text-muted-foreground">Today&apos;s live work session</p>
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          className="w-full shrink-0 min-[420px]:w-auto"
-          onClick={() => navigate({ to: "/attendance/missed-punch" })}
-        >
-          <FileClock className="mr-1.5 h-4 w-4" />
-          Missed Punch
-        </Button>
       </CardHeader>
       <CardContent className="grid gap-4 p-4 pt-0 sm:p-5 sm:pt-0 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.72fr)]">
         <div className="overflow-hidden rounded-md border border-border/70 bg-muted/15">
@@ -804,10 +789,6 @@ function MarkAttendanceCard({
                   : "Check Out"}
             </Button>
           </div>
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            Each mobile check-in requires a live face match and precise device location. Check-out
-            uses precise location only.
-          </p>
         </div>
       </CardContent>
       <AlertDialog open={!!leaveCheckIn} onOpenChange={(open) => !open && setLeaveCheckIn(null)}>

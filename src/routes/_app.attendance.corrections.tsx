@@ -201,14 +201,22 @@ function AttendanceCorrectionsPage() {
       />
 
       <Tabs defaultValue="requests" className="mt-6 w-full">
-        <TabsList className="grid w-full max-w-[400px] grid-cols-2">
-          <TabsTrigger value="requests" className="flex items-center gap-2">
-            <FileClock className="h-4 w-4" />
-            Pending Requests ({pendingRequests.length})
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-lg bg-muted p-1 sm:max-w-md">
+          <TabsTrigger
+            value="requests"
+            className="min-h-11 flex-col gap-0.5 rounded-md py-2 text-xs font-semibold sm:flex-row sm:gap-2 sm:text-sm"
+          >
+            <FileClock className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="sm:hidden">Requests ({pendingRequests.length})</span>
+            <span className="hidden sm:inline">Pending Requests ({pendingRequests.length})</span>
           </TabsTrigger>
-          <TabsTrigger value="alerts" className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4" />
-            System Alerts ({rows.length})
+          <TabsTrigger
+            value="alerts"
+            className="min-h-11 flex-col gap-0.5 rounded-md py-2 text-xs font-semibold sm:flex-row sm:gap-2 sm:text-sm"
+          >
+            <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="sm:hidden">Alerts ({rows.length})</span>
+            <span className="hidden sm:inline">System Alerts ({rows.length})</span>
           </TabsTrigger>
         </TabsList>
 
@@ -266,7 +274,7 @@ function AttendanceCorrectionsPage() {
                   {req.canReview && (
                     <div className="grid grid-cols-2 gap-2">
                       <Button
-                        className="bg-emerald-600 text-white hover:bg-emerald-700"
+                        className="min-h-11 bg-emerald-600 text-white hover:bg-emerald-700"
                         disabled={actionId === req.id}
                         onClick={() => handleApprove(req.id)}
                       >
@@ -274,6 +282,7 @@ function AttendanceCorrectionsPage() {
                       </Button>
                       <Button
                         variant="destructive"
+                        className="min-h-11"
                         disabled={actionId === req.id}
                         onClick={() => handleReject(req.id)}
                       >
@@ -288,7 +297,7 @@ function AttendanceCorrectionsPage() {
                   )}
                   <Button
                     variant="outline"
-                    className="w-full"
+                    className="min-h-11 w-full"
                     onClick={() => openDayLogs(req.employeeId, req.employeeName, req.date)}
                   >
                     Open Day Logs <ArrowRight className="ml-1.5 h-4 w-4" />

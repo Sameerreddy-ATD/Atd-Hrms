@@ -2,7 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
-import { StatusBadge } from "@/components/common/StatusBadge";
 import { AttendanceDayList } from "@/components/attendance/AttendanceDayList";
 import {
   MissedPunchRequestPanel,
@@ -11,18 +10,11 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { attendanceApi, branchesApi } from "@/services/api";
-import type { AttendanceRecord, Branch } from "@/types/domain";
+import { attendanceApi } from "@/services/api";
+import type { AttendanceRecord } from "@/types/domain";
 import { useAuth } from "@/lib/auth";
 import { subscribeToAttendanceChanges } from "@/lib/attendance-live";
-import {
-  attendanceSourceLabel,
-  attendanceStatusWithFlags,
-  isMobileAttendanceSource,
-  punchSourceLabel,
-} from "@/lib/attendance-labels";
-import { formatStoredWorkedTime } from "@/lib/worked-time";
-import { formatDisplayDate, indiaMonthKey, indiaMonthRange } from "@/lib/india-date";
+import { indiaMonthKey, indiaMonthRange } from "@/lib/india-date";
 
 export const Route = createFileRoute("/_app/attendance/mine")({
   component: MyAttendancePage,
@@ -34,7 +26,6 @@ function MyAttendancePage() {
   const [error, setError] = useState("");
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [myRequests, setMyRequests] = useState<MissedPunchCorrectionRequest[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
 
   const load = useCallback(
     async (showLoading = true) => {
@@ -42,10 +33,9 @@ function MyAttendancePage() {
       setError("");
       try {
         const { from, to } = indiaMonthRange(indiaMonthKey());
-        const [attendanceRows, requestsList, branchRows] = await Promise.all([
+        const [attendanceRows, requestsList] = await Promise.all([
           attendanceApi.listMine(user?.employeeId ?? "", { from, to }),
           attendanceApi.listCorrectionRequests(),
-          branchesApi.list(),
         ]);
         setRecords(attendanceRows);
         const employeeId = user?.employeeId ?? "";
@@ -54,7 +44,6 @@ function MyAttendancePage() {
             employeeId ? request.employeeId === employeeId : true,
           ),
         );
-        setBranches(branchRows || []);
       } catch (err) {
         setError((err as Error).message);
       } finally {
@@ -89,16 +78,16 @@ function MyAttendancePage() {
   }, [load, user?.employeeId]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       <PageHeader
         title="My Attendance"
-        description="Your own attendance history and missed-punch requests. Use the dashboard to check in and check out."
+        description="Your own attendance history and missed-punch requests. Check in and out from the dashboard."
         actions={
           <>
-            <Button asChild variant="outline">
+            <Button asChild variant="outline" className="min-h-11">
               <Link to="/leave/apply">Apply Leave</Link>
             </Button>
-            <Button asChild>
+            <Button asChild className="min-h-11">
               <Link to="/attendance/missed-punch">Missed Punch</Link>
             </Button>
           </>
@@ -114,103 +103,51 @@ function MyAttendancePage() {
       )}
 
       {!loading && !error && (
-        <Tabs defaultValue="history" className="w-full space-y-6">
-          <TabsList className="grid w-full max-w-[360px] grid-cols-2 rounded-lg bg-muted p-1">
-            <TabsTrigger value="history" className="rounded-md py-1.5 text-xs font-semibold">
+        <Tabs defaultValue="history" className="w-full space-y-4 sm:space-y-6">
+          <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-lg bg-muted p-1 sm:max-w-sm">
+            <TabsTrigger
+              value="history"
+              className="min-h-11 rounded-md py-2.5 text-xs font-semibold sm:text-sm"
+            >
               Attendance Log
             </TabsTrigger>
-            <TabsTrigger value="requests" className="rounded-md py-1.5 text-xs font-semibold">
+            <TabsTrigger
+              value="requests"
+              className="min-h-11 rounded-md py-2.5 text-xs font-semibold sm:text-sm"
+            >
               Missed Punch
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="history" className="space-y-4">
+          <TabsContent value="history" className="mt-0 space-y-4">
             <Card className="border-border shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <div>
-                  <CardTitle className="text-base font-bold text-foreground">
-                    Attendance Log History
-                  </CardTitle>
-                  <p className="text-xs text-muted-foreground">
-                    This month from the 1st through today. Expand a day for full punch detail.
-                  </p>
-                </div>
+              <CardHeader className="space-y-1 px-4 pb-3 pt-4 sm:px-6">
+                <CardTitle className="text-base font-semibold text-foreground">
+                  This month’s log
+                </CardTitle>
+                <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                  From the 1st through today. Tap a day to see full punch detail.
+                </p>
               </CardHeader>
-              <CardContent className="p-3 sm:p-4">
+              <CardContent className="px-3 pb-4 pt-0 sm:px-4 sm:pb-5">
                 <AttendanceDayList
                   records={records}
                   mine
                   emptyText="No attendance history records logged yet."
                 />
               </CardContent>
-              <CardContent className="hidden">
-                <div className="space-y-2 p-3 md:hidden">
-                  {records.length === 0 ? (
-                    <p className="py-8 text-center text-sm text-muted-foreground">
-                      No attendance history records logged yet.
-                    </p>
-                  ) : (
-                    records.map((record) => (
-                      <div key={record.id} className="rounded-lg border bg-background p-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="text-sm font-semibold">{formatDisplayDate(record.date)}</p>
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                              {attendanceSourceLabel(record, branches)}
-                            </p>
-                          </div>
-                          <StatusBadge status={record.status} />
-                        </div>
-                        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                          <div className="rounded-md bg-muted/50 p-2">
-                            <p className="text-muted-foreground">Check in</p>
-                            <p className="mt-1 font-medium">{record.punchIn ?? "-"}</p>
-                            <p className="mt-0.5 break-words text-[10px] text-muted-foreground">
-                              {punchSourceLabel(
-                                record.punchInSource,
-                                record.punchInBranchId ?? record.actualBranchId,
-                                branches,
-                              )}
-                            </p>
-                          </div>
-                          <div className="rounded-md bg-muted/50 p-2">
-                            <p className="text-muted-foreground">Check out</p>
-                            <p className="mt-1 font-medium">{record.punchOut ?? "-"}</p>
-                            <p className="mt-0.5 break-words text-[10px] text-muted-foreground">
-                              {punchSourceLabel(
-                                record.punchOutSource,
-                                record.punchOutBranchId ?? record.actualBranchId,
-                                branches,
-                              )}
-                            </p>
-                          </div>
-                        </div>
-                        <p className="mt-2 text-xs text-muted-foreground">
-                          {attendanceStatusWithFlags(record)}
-                          {typeof record.workedMinutes === "number"
-                            ? ` · ${formatStoredWorkedTime(record.workedMinutes)}`
-                            : ""}
-                          {isMobileAttendanceSource(record.source) ? " · Mobile" : ""}
-                        </p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="requests" className="space-y-4">
+          <TabsContent value="requests" className="mt-0 space-y-4">
             <MissedPunchRequestPanel
               records={records}
               requests={myRequests}
               onSubmitted={() => load(false)}
             />
-            <div className="text-center">
-              <Button asChild variant="outline" size="sm">
-                <Link to="/attendance/missed-punch">Open full Missed Punch page</Link>
-              </Button>
-            </div>
+            <Button asChild variant="outline" className="min-h-11 w-full sm:w-auto">
+              <Link to="/attendance/missed-punch">Open full Missed Punch page</Link>
+            </Button>
           </TabsContent>
         </Tabs>
       )}

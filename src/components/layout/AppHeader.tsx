@@ -22,6 +22,7 @@ import {
   Menu,
   Sun,
   Moon,
+  RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { CommandPalette } from "@/components/layout/CommandPalette";
@@ -33,7 +34,9 @@ import {
   filterVisibleNotifications,
   NOTIFICATION_COUNT_CHANGED_EVENT,
 } from "@/lib/browser-notifications";
+import { hardRefreshApp, isAppInstalled } from "@/lib/pwa-install";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 function toTitle(pathname: string) {
   const seg = pathname.split("/").filter(Boolean).slice(-1)[0] ?? "dashboard";
@@ -48,6 +51,17 @@ export function AppHeader() {
   const [activeTheme, setActiveTheme] = useState<Theme>("light");
   const [notificationCount, setNotificationCount] = useState(0);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const installedApp = typeof window !== "undefined" && isAppInstalled();
+
+  async function refreshApp() {
+    if (refreshing) return;
+    setRefreshing(true);
+    toast.message("Refreshing app…", {
+      description: "Clearing cache and loading the latest version.",
+    });
+    await hardRefreshApp();
+  }
 
   useEffect(() => {
     setActiveTheme(getTheme());
@@ -137,6 +151,21 @@ export function AppHeader() {
           onClick={() => setPaletteOpen(true)}
         >
           <Search className="h-[18px] w-[18px]" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn(
+            "h-10 w-10 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground",
+            installedApp ? "inline-flex" : "hidden sm:inline-flex",
+          )}
+          aria-label="Refresh app"
+          title="Refresh app (hard reload)"
+          disabled={refreshing}
+          onClick={() => void refreshApp()}
+        >
+          <RefreshCw className={cn("h-[18px] w-[18px]", refreshing && "animate-spin")} />
         </Button>
 
         <Button
@@ -245,6 +274,21 @@ export function AppHeader() {
                     {notificationCount > 99 ? "99+" : notificationCount}
                   </span>
                 )}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={refreshing}
+                onSelect={(event) => {
+                  event.preventDefault();
+                  void refreshApp();
+                }}
+                className="cursor-pointer rounded-lg px-2.5 py-2.5"
+              >
+                <RefreshCw
+                  className={cn("mr-2.5 h-4 w-4 text-muted-foreground", refreshing && "animate-spin")}
+                />
+                <span className="font-medium">
+                  {refreshing ? "Refreshing…" : "Refresh app"}
+                </span>
               </DropdownMenuItem>
             </div>
 

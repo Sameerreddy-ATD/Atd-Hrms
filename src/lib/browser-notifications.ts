@@ -120,10 +120,14 @@ export async function registerAppServiceWorker() {
 
   // After a deploy, activate the new worker and reload so installed PWAs get fresh UI.
   let refreshing = false;
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
+  const reloadOnce = () => {
     if (refreshing) return;
     refreshing = true;
     window.location.reload();
+  };
+  navigator.serviceWorker.addEventListener("controllerchange", reloadOnce);
+  navigator.serviceWorker.addEventListener("message", (event) => {
+    if (event.data?.type === "FORCE_RELOAD") reloadOnce();
   });
 
   const promptUpdate = () => {
@@ -142,15 +146,18 @@ export async function registerAppServiceWorker() {
   });
   promptUpdate();
 
-  // Poll for updates while the installed app stays open.
-  window.setInterval(() => {
+  const checkUpdate = () => {
     void registration.update().catch(() => undefined);
-  }, 5 * 60_000);
+  };
+  checkUpdate();
+
+  // Poll often enough that already-open installed apps pick up deploys.
+  window.setInterval(checkUpdate, 60_000);
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") {
-      void registration.update().catch(() => undefined);
-    }
+    if (document.visibilityState === "visible") checkUpdate();
   });
+  window.addEventListener("focus", checkUpdate);
+  window.addEventListener("online", checkUpdate);
 }
 
 export async function showDesktopNotification(item: NotificationItem) {

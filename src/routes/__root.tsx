@@ -15,7 +15,7 @@ import { NotificationBridge } from "@/components/layout/NotificationBridge";
 import { SystemThemeSync } from "@/components/layout/SystemThemeSync";
 import { Toaster } from "@/components/ui/sonner";
 import { registerAppServiceWorker } from "@/lib/browser-notifications";
-import { detectPwaPlatform } from "@/lib/pwa-install";
+import { detectPwaPlatform, ensureLatestAppBuild } from "@/lib/pwa-install";
 
 const SITE_TITLE = "Anytime Workforce";
 const SITE_DESCRIPTION =
@@ -158,6 +158,32 @@ function RootComponent() {
 
   useEffect(() => {
     void registerAppServiceWorker().catch(() => undefined);
+    void ensureLatestAppBuild().catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    // Drop the hard-refresh cache-bust param so the URL stays clean.
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("_r")) return;
+    url.searchParams.delete("_r");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  }, []);
+
+  useEffect(() => {
+    // Re-check build on reopen so already-installed apps force-update after deploys.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        void ensureLatestAppBuild().catch(() => undefined);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    window.addEventListener("online", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+      window.removeEventListener("online", onVisible);
+    };
   }, []);
 
   useEffect(() => {

@@ -21,6 +21,7 @@ import {
 } from "@/lib/browser-notifications";
 import {
   detectPwaPlatform,
+  hardRefreshApp,
   installInstructionCopy,
   isAppInstalled,
   clearAppBadgeSafe,
@@ -37,6 +38,7 @@ import {
   Smartphone,
   ShieldAlert,
   CheckCircle2,
+  RefreshCw,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/notifications")({
@@ -311,9 +313,22 @@ function NotificationsPage() {
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {installed
-                    ? "You’re using the full-screen Anytime Workforce app."
+                    ? "You’re using the full-screen Anytime Workforce app. Use Refresh app if the screen looks outdated after an update."
                     : "Install from your phone browser menu if you want a home-screen icon. This is optional."}
                 </p>
+                {installed && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-3 min-h-11 w-full min-[420px]:w-auto"
+                    onClick={() => {
+                      toast.message("Refreshing app…");
+                      void hardRefreshApp();
+                    }}
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" /> Refresh app
+                  </Button>
+                )}
                 {!installed && (
                   <div className="mt-3 flex flex-col gap-2 min-[420px]:flex-row">
                     {installPrompt && (

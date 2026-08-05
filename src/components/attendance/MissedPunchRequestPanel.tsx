@@ -157,7 +157,7 @@ export function MissedPunchRequestPanel({
                   key={item.id}
                   type="button"
                   onClick={() => openItem(item)}
-                  className={`flex w-full flex-col gap-3 rounded-lg border p-3 text-left transition-colors sm:flex-row sm:items-center sm:justify-between ${
+                  className={`flex min-h-11 w-full flex-col gap-2.5 rounded-lg border p-3 text-left transition-colors sm:flex-row sm:items-center sm:justify-between sm:gap-3 ${
                     active
                       ? "border-primary bg-primary/5 ring-1 ring-primary/30"
                       : "border-amber-200 bg-background hover:border-primary/40 dark:border-amber-900"
@@ -165,7 +165,7 @@ export function MissedPunchRequestPanel({
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold">{formatDisplayDate(item.date)}</p>
+                      <p className="text-sm font-semibold">{formatDisplayDate(item.date)}</p>
                       <span
                         className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold ${
                           item.direction === "Out"
@@ -182,7 +182,25 @@ export function MissedPunchRequestPanel({
                       </span>
                       <StatusBadge status={item.record.status} />
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    <div className="mt-2 grid grid-cols-2 gap-2 sm:hidden">
+                      <div className="rounded-md bg-muted/50 px-2 py-1.5">
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          First in
+                        </p>
+                        <p className="mt-0.5 text-sm font-medium tabular-nums">
+                          {item.record.punchIn ?? "—"}
+                        </p>
+                      </div>
+                      <div className="rounded-md bg-muted/50 px-2 py-1.5">
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Last out
+                        </p>
+                        <p className="mt-0.5 text-sm font-medium tabular-nums">
+                          {item.record.punchOut ?? "—"}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="mt-1 hidden text-sm text-muted-foreground sm:block">
                       First in: {item.record.punchIn ?? "Not recorded"} · Last out:{" "}
                       {item.record.punchOut ?? "Not recorded"}
                     </p>
@@ -262,12 +280,17 @@ export function MissedPunchRequestPanel({
                   <Button
                     type="button"
                     variant="outline"
+                    className="min-h-11"
                     onClick={clearSelection}
                     disabled={submitting}
                   >
                     Cancel
                   </Button>
-                  <Button className="w-full sm:w-auto" type="submit" disabled={submitting}>
+                  <Button
+                    className="min-h-11 w-full sm:w-auto"
+                    type="submit"
+                    disabled={submitting}
+                  >
                     {submitting ? "Submitting..." : "Submit request"}
                   </Button>
                 </div>

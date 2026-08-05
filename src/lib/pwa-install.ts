@@ -123,3 +123,118 @@ export async function clearAppBadgeSafe() {
     // Badge APIs can fail on unsupported platforms.
   }
 }
+
+/**
+ * Force a full app refresh for home-screen / installed PWAs (no browser refresh button).
+ * Clears app caches, drops the service worker so the next load fetches a fresh one, then reloads.
+ */
+export async function hardRefreshApp(): Promise<void> {
+  try {
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      await Promise.all(
+        keys
+          .filter((key) => key.startsWith("atd-static-") || key.startsWith("atd-"))
+          .map((key) => caches.delete(key)),
+      );
+    }
+
+    if ("serviceWorker" in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(
+        registrations.map(async (registration) => {
+          try {
+            await registration.update();
+          } catch {
+            // Offline or blocked — still unregister below.
+          }
+          if (registration.waiting) {
+            registration.waiting.postMessage({ type: "SKIP_WAITING" });
+          }
+          await registration.unregister().catch(() => false);
+        }),
+      );
+    }
+  } catch {
+    // Always continue to reload.
+  }
+
+  const url = new URL(window.location.href);
+  url.searchParams.set("_r", String(Date.now()));
+  window.location.replace(url.toString());
+}
+
+/** Softer path: ask the service worker for an update without clearing everything. */
+export async function checkForAppUpdate(): Promise<"updated" | "current" | "unavailable"> {
+  if (!("serviceWorker" in navigator)) return "unavailable";
+  try {
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (!registration) return "unavailable";
+    await registration.update();
+    if (registration.waiting) {
+      registration.waiting.postMessage({ type: "SKIP_WAITING" });
+      return "updated";
+    }
+    return "current";
+  } catch {
+    return "unavailable";
+  }
+}
+
+import { APP_BUILD_ID } from "@/lib/app-build";
+
+const FORCED_BUILD_SESSION_KEY = "adh_forced_build";
+const STORED_BUILD_KEY = "adh_app_build_id";
+
+/**
+ * Compare the running client build to /app-version.json on the server.
+ * If they differ (new deploy), hard-refresh so already-installed home-screen apps catch up.
+ */
+export async function ensureLatestAppBuild(): Promise<void> {
+  if (typeof window === "undefined") return;
+  if (import.meta.env.DEV) return;
+
+  try {
+    const response = await fetch(`/app-version.json?_=${Date.now()}`, {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) return;
+
+    const remote = (await response.json()) as { buildId?: string; forceReload?: boolean };
+    if (!remote.buildId) return;
+
+    try {
+      window.localStorage.setItem(STORED_BUILD_KEY, APP_BUILD_ID);
+    } catch {
+      // ignore
+    }
+
+    // Already forced onto this remote build in this tab — avoid reload loops.
+    try {
+      if (window.sessionStorage.getItem(FORCED_BUILD_SESSION_KEY) === remote.buildId) {
+        return;
+      }
+    } catch {
+      // ignore
+    }
+
+    if (remote.buildId !== APP_BUILD_ID) {
+      try {
+        window.sessionStorage.setItem(FORCED_BUILD_SESSION_KEY, remote.buildId);
+      } catch {
+        // ignore
+      }
+      await hardRefreshApp();
+      return;
+    }
+
+    try {
+      window.sessionStorage.setItem(FORCED_BUILD_SESSION_KEY, remote.buildId);
+    } catch {
+      // ignore
+    }
+  } catch {
+    // Offline or blocked — keep the current shell.
+  }
+}
