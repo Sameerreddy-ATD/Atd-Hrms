@@ -12,6 +12,7 @@ import {
   type CompanyEntity,
 } from "@/types/domain";
 import { employeesApi } from "@/services/api";
+import { formatDisplayDate } from "@/lib/india-date";
 import { ShieldCheck } from "lucide-react";
 
 export const Route = createFileRoute("/_app/id-card")({
@@ -98,7 +99,14 @@ function IdCardPage() {
               <Row label="Group" value={PARENT_COMPANY_NAME} />
               <Row label="Department" value={employee?.department ?? user.department ?? "-"} />
               <Row label="Role" value={ROLE_LABELS[user.role]} />
-              <Row label="Joining date" value={employee?.joiningDate ?? user.joiningDate ?? "-"} />
+              <Row
+                label="Joining date"
+                value={
+                  employee?.joiningDate || user.joiningDate
+                    ? formatDisplayDate(employee?.joiningDate ?? user.joiningDate)
+                    : "-"
+                }
+              />
               <Row label="Blood group" value={employee?.bloodGroup ?? user.bloodGroup ?? "-"} />
               <Row
                 label="Phone"

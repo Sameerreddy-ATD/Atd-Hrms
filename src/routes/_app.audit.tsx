@@ -24,6 +24,7 @@ import {
 } from "@/components/common/ResponsiveList";
 import { ROLE_LABELS, type AuditLog } from "@/types/domain";
 import { auditApi } from "@/services/api";
+import { formatDisplayDateTime } from "@/lib/india-date";
 import { Database, Search } from "lucide-react";
 
 export const Route = createFileRoute("/_app/audit")({
@@ -60,7 +61,7 @@ function AuditPage() {
   }, [auditLogs, query]);
 
   const formatDate = (value?: string) =>
-    value ? new Date(value).toLocaleString() : "No records yet";
+    value ? formatDisplayDateTime(value) : "No records yet";
 
   return (
     <div>
@@ -102,7 +103,7 @@ function AuditPage() {
             <MobileListItem key={l.id} intrinsicSize="180px">
               <MobileListHeader
                 title={l.actor}
-                meta={l.timestamp}
+                meta={formatDisplayDateTime(l.timestamp)}
                 trailing={
                   <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium">
                     {ROLE_LABELS[l.role] ?? l.role}
@@ -156,7 +157,9 @@ function AuditPage() {
             <TableBody>
               {rows.map((l) => (
                 <TableRow key={l.id}>
-                  <TableCell className="whitespace-nowrap">{l.timestamp}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {formatDisplayDateTime(l.timestamp)}
+                  </TableCell>
                   <TableCell className="font-medium">{l.actor}</TableCell>
                   <TableCell>{ROLE_LABELS[l.role] ?? l.role}</TableCell>
                   <TableCell>{l.action}</TableCell>

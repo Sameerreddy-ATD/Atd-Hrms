@@ -43,6 +43,7 @@ import {
 import type { LeaveRequest, WeeklyOffRequest } from "@/types/domain";
 import { employeesApi, leaveApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
+import { formatDisplayDate, formatDisplayDateRange } from "@/lib/india-date";
 import { CalendarClock, CheckCircle2, Clock3 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/leave/approvals")({
@@ -265,11 +266,12 @@ function LeaveApprovalsPage() {
                         <div>
                           <p className="text-lg font-semibold">{leave.employeeName}</p>
                           <p className="text-sm text-muted-foreground">
-                            {leave.type} · {leave.from} to {leave.to} · {leave.days} day
+                            {leave.type} · {formatDisplayDateRange(leave.from, leave.to)} ·{" "}
+                            {leave.days} day
                             {leave.days === 1 ? "" : "s"}
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            Applied {leave.appliedOn}
+                            Applied {formatDisplayDate(leave.appliedOn)}
                             {leave.approverName ? ` · Primary head: ${leave.approverName}` : ""}
                           </p>
                         </div>
@@ -330,7 +332,9 @@ function LeaveApprovalsPage() {
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <p className="font-semibold">{request.employeeName}</p>
-                            <p className="text-sm text-muted-foreground">{request.date}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {formatDisplayDate(request.date)}
+                            </p>
                           </div>
                           <StatusBadge status={request.status} />
                         </div>
@@ -365,7 +369,7 @@ function LeaveApprovalsPage() {
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold">{request.employeeName}</p>
                           <p className="text-xs text-muted-foreground">
-                            {request.employeeCode} · {request.date}
+                            {request.employeeCode} · {formatDisplayDate(request.date)}
                           </p>
                         </div>
                         <StatusBadge status={request.status} />
@@ -389,7 +393,7 @@ function LeaveApprovalsPage() {
                       <MobileListFields>
                         <MobileListField
                           label="Dates"
-                          value={`${leave.from} → ${leave.to}`}
+                          value={formatDisplayDateRange(leave.from, leave.to)}
                           className="col-span-2"
                         />
                         <MobileListField label="Days" value={leave.days} />
@@ -418,7 +422,7 @@ function LeaveApprovalsPage() {
                             <div className="text-xs text-muted-foreground">{leave.days} day(s)</div>
                           </TableCell>
                           <TableCell>
-                            {leave.from} → {leave.to}
+                            {formatDisplayDateRange(leave.from, leave.to)}
                           </TableCell>
                           <TableCell className="text-sm">{decisionLabel(leave)}</TableCell>
                           <TableCell>
@@ -458,7 +462,7 @@ function LeaveApprovalsPage() {
                       Applying for <strong>{confirmLeave.requestedDays ?? confirmLeave.days}</strong>{" "}
                       day
                       {(confirmLeave.requestedDays ?? confirmLeave.days) === 1 ? "" : "s"} (
-                      {confirmLeave.from} to {confirmLeave.to}). Available{" "}
+                      {formatDisplayDateRange(confirmLeave.from, confirmLeave.to)}). Available{" "}
                       <strong>{confirmLeave.availableBalance ?? 0}</strong>, after approval{" "}
                       <strong>{confirmLeave.projectedBalance ?? 0}</strong>.
                     </p>

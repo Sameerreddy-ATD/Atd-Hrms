@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { indiaDateKey, indiaMonthKey, indiaMonthRange } from "../src/lib/india-date.js";
+import {
+  formatDisplayDate,
+  formatDisplayDateRange,
+  formatDisplayDateTime,
+  indiaDateKey,
+  indiaMonthKey,
+  indiaMonthRange,
+} from "../src/lib/india-date.js";
 import {
   clampAttendanceRangeToToday,
   istMonthKey,
@@ -27,6 +34,31 @@ describe("indiaMonthRange (frontend)", () => {
     const today = indiaDateKey();
     const range = indiaMonthRange(indiaMonthKey());
     expect(range.to > today).toBe(false);
+  });
+});
+
+describe("formatDisplayDate / formatDisplayDateRange", () => {
+  it("formats YYYY-MM-DD keys as DD/MM/YYYY", () => {
+    expect(formatDisplayDate("2026-08-05")).toBe("05/08/2026");
+    expect(formatDisplayDate("2026-01-31T15:30:00.000Z")).toBe("31/01/2026");
+  });
+
+  it("returns dash for empty values", () => {
+    expect(formatDisplayDate(null)).toBe("-");
+    expect(formatDisplayDate("")).toBe("-");
+    expect(formatDisplayDateRange(null, null)).toBe("-");
+  });
+
+  it("formats inclusive ranges with to", () => {
+    expect(formatDisplayDateRange("2026-08-01", "2026-08-05")).toBe(
+      "01/08/2026 to 05/08/2026",
+    );
+    expect(formatDisplayDateRange("2026-08-01", null)).toBe("01/08/2026");
+  });
+
+  it("formats date-times in IST as DD/MM/YYYY, HH:MM", () => {
+    // 2026-08-05T08:00:00Z = 13:30 IST
+    expect(formatDisplayDateTime("2026-08-05T08:00:00.000Z")).toBe("05/08/2026, 13:30");
   });
 });
 

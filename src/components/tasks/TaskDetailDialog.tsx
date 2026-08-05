@@ -1,4 +1,3 @@
-import { format } from "date-fns";
 import {
   CalendarDays,
   ListTree,
@@ -27,6 +26,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { formatDisplayDateTime } from "@/lib/india-date";
 import { cn } from "@/lib/utils";
 import { tasksApi } from "@/services/api";
 import type { TaskAssignee, TaskBoard, TaskIssueType, TaskPriority, WorkTask } from "@/types/domain";
@@ -521,7 +521,7 @@ export function TaskDetailDialog({
                               </span>
                             </p>
                             <time className="text-xs text-muted-foreground">
-                              {format(new Date(entry.createdAt), "d MMM yyyy, h:mm a")}
+                              {formatDisplayDateTime(entry.createdAt)}
                             </time>
                           </div>
                           <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">

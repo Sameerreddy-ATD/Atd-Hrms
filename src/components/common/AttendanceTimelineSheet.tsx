@@ -18,6 +18,7 @@ import {
   captureSourceLabel,
 } from "@/lib/attendance-labels";
 import { formatWorkedTime } from "@/lib/worked-time";
+import { formatDisplayDate } from "@/lib/india-date";
 import {
   Fingerprint,
   MapPin,
@@ -149,7 +150,7 @@ export function AttendanceTimelineSheet({
                 Timeline Tracking
               </Badge>
               <span className="text-xs text-muted-foreground font-mono flex items-center gap-1">
-                <Calendar className="h-3 w-3" /> {date}
+                <Calendar className="h-3 w-3" /> {formatDisplayDate(date)}
               </span>
             </div>
             <SheetTitle className="text-xl font-bold tracking-tight text-foreground">

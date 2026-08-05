@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
+import { formatDisplayDateTime } from "@/lib/india-date";
 import type { Announcement } from "@/types/domain";
 import { announcementsApi } from "@/services/api";
 import { sortAnnouncements } from "@/lib/announcements";
@@ -332,7 +333,7 @@ function AnnouncementsPage() {
                       <CalendarClock className="h-3.5 w-3.5" />
                       Until{" "}
                       {announcement.expiresAt
-                        ? new Date(announcement.expiresAt).toLocaleString()
+                        ? formatDisplayDateTime(announcement.expiresAt)
                         : "further notice"}
                     </span>
                   </div>

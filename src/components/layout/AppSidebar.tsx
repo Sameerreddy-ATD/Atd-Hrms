@@ -49,7 +49,11 @@ export function AppSidebar() {
 
   if (!user) return null;
 
-  const groups = menuForRole(user.role, { isReportingManager, allowedModules });
+  const groups = menuForRole(user.role, {
+    isReportingManager,
+    allowedModules,
+    hasEmployeeId: Boolean(user.employeeId),
+  });
 
   return (
     <Sidebar

@@ -148,6 +148,27 @@ export function requireRoles(...roles: Role[]) {
   };
 }
 
+const ORG_WIDE_ATTENDANCE_ROLES: Role[] = [
+  Role.HR,
+  Role.MAIN_ADMIN,
+  Role.DEVELOPER_ADMIN,
+  Role.CEO,
+];
+
+/** HR/admin/CEO see org-wide attendance; managers and org heads see their team only. */
+export async function assertCanViewTeamAttendance(user: Express.Request["user"]) {
+  if (!user) throw new HttpError(401, "Authentication required");
+  if (ORG_WIDE_ATTENDANCE_ROLES.includes(user.role)) return { scope: "org" as const, teamIds: [] as string[] };
+  if (!user.employeeId) {
+    throw new HttpError(403, "You can only view attendance for your team.");
+  }
+  const teamIds = await getOrganizationTeamEmployeeIds(user.employeeId);
+  if (user.role === Role.MANAGER || teamIds.length > 0) {
+    return { scope: "team" as const, teamIds };
+  }
+  throw new HttpError(403, "Day Logs is available to organization heads with a team.");
+}
+
 /** True when this employee is head of one or more organization units (multi-unit heads allowed). */
 export async function isAssignedOrganizationHead(employeeId: string) {
   const headedCount = await prisma.department.count({

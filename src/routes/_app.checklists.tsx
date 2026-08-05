@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { checklistsApi, employeesApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
+import { formatDisplayDate, formatDisplayDateTime } from "@/lib/india-date";
 import type { User } from "@/types/domain";
 import { cn } from "@/lib/utils";
 import {
@@ -364,7 +365,7 @@ function ChecklistsPage() {
                         <p className="mt-0.5 text-xs text-muted-foreground">
                           {row.kind === "ONBOARDING" ? "Onboarding" : "Offboarding"} ·{" "}
                           {row.templateName} · started{" "}
-                          {new Date(row.createdAt).toLocaleDateString("en-IN")}
+                          {formatDisplayDate(row.createdAt)}
                         </p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
@@ -459,7 +460,7 @@ function ChecklistsPage() {
                             </p>
                             {item.completedAt && (
                               <p className="mt-0.5 text-[11px] text-muted-foreground">
-                                Done {new Date(item.completedAt).toLocaleString("en-IN")}
+                                Done {formatDisplayDateTime(item.completedAt)}
                               </p>
                             )}
                           </div>

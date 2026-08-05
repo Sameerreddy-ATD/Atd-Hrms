@@ -24,7 +24,7 @@ import {
   lastOutLabel,
 } from "@/lib/attendance-labels";
 import { formatStoredWorkedTime, formatWorkedTime } from "@/lib/worked-time";
-import { indiaDateKey } from "@/lib/india-date";
+import { formatDisplayDate, indiaDateKey } from "@/lib/india-date";
 
 function WorkedTime({ record }: { record: AttendanceRecord }) {
   const [now, setNow] = useState(() => Date.now());
@@ -106,7 +106,7 @@ function DayRecordSummary({
         <div>
           <p className="text-xs text-muted-foreground">Date</p>
           <p className="mt-0.5 flex items-center gap-1.5 text-sm font-semibold">
-            <CalendarDays className="h-3.5 w-3.5" /> {record.date}
+            <CalendarDays className="h-3.5 w-3.5" /> {formatDisplayDate(record.date)}
           </p>
         </div>
       )}
@@ -215,7 +215,7 @@ export function AttendanceDayList({
                   <div>
                     <p className="text-xs text-muted-foreground">Date</p>
                     <p className="mt-0.5 flex items-center gap-1.5 text-sm font-semibold">
-                      <CalendarDays className="h-3.5 w-3.5" /> {date}
+                      <CalendarDays className="h-3.5 w-3.5" /> {formatDisplayDate(date)}
                     </p>
                   </div>
                   <div>

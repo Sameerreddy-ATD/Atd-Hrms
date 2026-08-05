@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
+import { formatDisplayDate } from "@/lib/india-date";
 import {
   Table,
   TableBody,
@@ -152,7 +153,7 @@ function HolidaysPage() {
                 <div className="min-w-0">
                   <p className="font-semibold">{holiday.name}</p>
                   <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <CalendarDays className="h-4 w-4" /> {holiday.date}
+                    <CalendarDays className="h-4 w-4" /> {formatDisplayDate(holiday.date)}
                   </p>
                   {holiday.description && (
                     <p className="mt-2 text-sm text-muted-foreground">{holiday.description}</p>
@@ -195,7 +196,7 @@ function HolidaysPage() {
             <TableBody>
               {holidays.map((h) => (
                 <TableRow key={h.id}>
-                  <TableCell>{h.date}</TableCell>
+                  <TableCell>{formatDisplayDate(h.date)}</TableCell>
                   <TableCell className="font-medium">{h.name}</TableCell>
                   <TableCell>
                     <Badge variant="outline">{h.type}</Badge>

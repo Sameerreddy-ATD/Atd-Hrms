@@ -1,5 +1,6 @@
-import { format, isBefore, isSameDay, parseISO, startOfToday } from "date-fns";
+import { isBefore, isSameDay, parseISO, startOfToday } from "date-fns";
 import type { TaskBoard, TaskPriority, TaskStage, TaskStatus, WorkTask } from "@/types/domain";
+import { formatDisplayDate } from "@/lib/india-date";
 
 export const STATUS_LABELS: Record<TaskStatus, string> = {
   TODO: "To do",
@@ -174,7 +175,7 @@ export function dueLabel(value?: string, completed = false) {
     );
     return `Overdue ${days} ${days === 1 ? "day" : "days"}`;
   }
-  return `Due ${format(date, "d MMM")}`;
+  return `Due ${formatDisplayDate(value)}`;
 }
 
 export function initials(name: string) {

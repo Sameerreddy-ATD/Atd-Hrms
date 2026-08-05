@@ -17,7 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAuth } from "@/lib/auth";
-import { indiaDateKey } from "@/lib/india-date";
+import { formatDisplayDate, indiaDateKey } from "@/lib/india-date";
 import {
   detectMissedPunchItems,
   directionFromEventType,
@@ -74,8 +74,8 @@ export function MissedPunchRequestPanel({
     setTime("");
     setReason(
       item.direction === "Out"
-        ? `Forgot to check out on ${item.date}`
-        : `Forgot to check in on ${item.date}`,
+        ? `Forgot to check out on ${formatDisplayDate(item.date)}`
+        : `Forgot to check in on ${formatDisplayDate(item.date)}`,
     );
   }
 
@@ -165,7 +165,7 @@ export function MissedPunchRequestPanel({
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold">{item.date}</p>
+                      <p className="font-semibold">{formatDisplayDate(item.date)}</p>
                       <span
                         className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold ${
                           item.direction === "Out"
@@ -282,7 +282,7 @@ export function MissedPunchRequestPanel({
                 <CalendarClock className="mt-0.5 size-4 shrink-0 text-primary" />
                 <div>
                   <p className="text-xs text-muted-foreground">Date</p>
-                  <p className="font-medium">{selected.date}</p>
+                  <p className="font-medium">{formatDisplayDate(selected.date)}</p>
                 </div>
               </div>
               <div className="flex gap-3">
@@ -324,7 +324,7 @@ export function MissedPunchRequestPanel({
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="text-sm font-semibold">
-                          {request.date.slice(0, 10)} ·{" "}
+                          {formatDisplayDate(request.date)} ·{" "}
                           {directionFromEventType(request.eventType) ?? request.eventType}
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
@@ -368,7 +368,7 @@ export function MissedPunchRequestPanel({
                     requests.map((request) => (
                       <TableRow key={request.id} className="text-xs hover:bg-muted/5">
                         <TableCell className="whitespace-nowrap font-semibold">
-                          {request.date.slice(0, 10)}
+                          {formatDisplayDate(request.date)}
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
                           {new Date(request.punchTime).toLocaleTimeString("en-IN", {
@@ -384,12 +384,7 @@ export function MissedPunchRequestPanel({
                           {request.remarks}
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
-                          {new Date(request.createdAt).toLocaleDateString("en-IN", {
-                            timeZone: "Asia/Kolkata",
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })}
+                          {formatDisplayDate(request.createdAt)}
                         </TableCell>
                         <TableCell>
                           <StatusBadge status={requestStatusLabel(request.status)} />

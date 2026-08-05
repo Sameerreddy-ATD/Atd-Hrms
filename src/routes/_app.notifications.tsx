@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { notificationsApi, notificationPreferencesApi } from "@/services/api";
 import type { NotificationItem } from "@/types/domain";
+import { formatDisplayDateTime } from "@/lib/india-date";
 import {
   clearNotifications,
   disableDesktopAlerts,
@@ -418,7 +419,7 @@ function NotificationsPage() {
                     </p>
                   )}
                   <p className="mt-2 text-xs text-muted-foreground">
-                    {new Date(n.time).toLocaleString()}
+                    {formatDisplayDateTime(n.time)}
                   </p>
                 </div>
               </CardContent>

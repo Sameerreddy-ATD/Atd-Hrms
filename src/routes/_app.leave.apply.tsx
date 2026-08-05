@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { leaveApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
-import { indiaDateKey, indiaDateKeyShift } from "@/lib/india-date";
+import { formatDisplayDate, indiaDateKey, indiaDateKeyShift } from "@/lib/india-date";
 import type { LeaveBalance, LeaveTypeOption, WeeklyOffRequest } from "@/types/domain";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { CalendarClock, CalendarDays, CheckCircle2, ShieldCheck, UserRound } from "lucide-react";
@@ -529,7 +529,7 @@ function ApplyLeavePage() {
                       className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-background p-3 text-sm"
                     >
                       <div className="min-w-0">
-                        <p className="font-medium">{request.date}</p>
+                        <p className="font-medium">{formatDisplayDate(request.date)}</p>
                         {request.reviewedByName && (
                           <p className="text-xs text-muted-foreground">
                             {request.status === "REJECTED"

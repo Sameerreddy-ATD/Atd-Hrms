@@ -1,3 +1,5 @@
+import { formatDisplayDate } from "@/lib/india-date";
+
 export function downloadCsv(filename: string, rows: Array<Record<string, unknown>>) {
   if (rows.length === 0) return;
 
@@ -234,7 +236,7 @@ export function downloadAttendanceExcel(
 
       empRowsXml += `
         <Row ss:Height="18">
-          <Cell><Data ss:Type="String">${escapeXml(row.date)}</Data></Cell>
+          <Cell><Data ss:Type="String">${escapeXml(formatDisplayDate(row.date))}</Data></Cell>
           <Cell ss:StyleID="${statusStyle}"><Data ss:Type="String">${escapeXml(row.status)}</Data></Cell>
           <Cell><Data ss:Type="String">${escapeXml(row.homeBranch)}</Data></Cell>
           <Cell><Data ss:Type="String">${escapeXml(row.actualBranch)}</Data></Cell>

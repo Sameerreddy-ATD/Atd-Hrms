@@ -20,6 +20,7 @@ import {
   MedicalDocumentUploadCard,
   decisionLabel,
 } from "@/components/leave/MedicalDocumentActions";
+import { formatDisplayDate, formatDisplayDateRange } from "@/lib/india-date";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -155,18 +156,19 @@ function LeaveHistoryPage() {
                 <MobileListItem key={leave.id} intrinsicSize="200px">
                   <MobileListHeader
                     title={leave.type}
-                    meta={`${leave.from} → ${leave.to}`}
+                    meta={formatDisplayDateRange(leave.from, leave.to)}
                     trailing={<StatusBadge status={leave.status} />}
                   />
                   <MobileListFields>
                     <MobileListField label="Days" value={leave.days} />
-                    <MobileListField label="Applied" value={leave.appliedOn} />
+                    <MobileListField label="Applied" value={formatDisplayDate(leave.appliedOn)} />
                     <MobileListField label="Assigned head" value={leave.approverName ?? "-"} />
                     <MobileListField label="Decision" value={decisionLabel(leave)} />
                   </MobileListFields>
                   {(leave.cancelledDates?.length ?? 0) > 0 && (
                     <p className="mt-2 text-xs text-muted-foreground">
-                      Cancelled: {leave.cancelledDates?.join(", ")}
+                      Cancelled:{" "}
+                      {leave.cancelledDates?.map((d) => formatDisplayDate(d)).join(", ")}
                     </p>
                   )}
                   {["Pending", "Approved"].includes(leave.status) && (
@@ -204,11 +206,14 @@ function LeaveHistoryPage() {
                     <TableRow key={leave.id}>
                       <TableCell className="font-medium">{leave.type}</TableCell>
                       <TableCell>
-                        <div>{leave.from} → {leave.to}</div>
-                        <div className="text-xs text-muted-foreground">Applied {leave.appliedOn}</div>
+                        <div>{formatDisplayDateRange(leave.from, leave.to)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Applied {formatDisplayDate(leave.appliedOn)}
+                        </div>
                         {(leave.cancelledDates?.length ?? 0) > 0 && (
                           <div className="mt-1 text-xs text-muted-foreground">
-                            Cancelled: {leave.cancelledDates?.join(", ")}
+                            Cancelled:{" "}
+                            {leave.cancelledDates?.map((d) => formatDisplayDate(d)).join(", ")}
                           </div>
                         )}
                       </TableCell>
@@ -256,7 +261,10 @@ function LeaveHistoryPage() {
             <AlertDialogTitle>Cancel leave request?</AlertDialogTitle>
             <AlertDialogDescription>
               This cancels remaining current and future dates in the request
-              {cancelling ? ` (${cancelling.type}: ${cancelling.from} to ${cancelling.to})` : ""}.
+              {cancelling
+                ? ` (${cancelling.type}: ${formatDisplayDateRange(cancelling.from, cancelling.to)})`
+                : ""}
+              .
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

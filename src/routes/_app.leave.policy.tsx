@@ -25,6 +25,7 @@ import {
 import { StatCard } from "@/components/common/StatCard";
 import type { LeaveTypeOption, User } from "@/types/domain";
 import { employeesApi, leaveApi } from "@/services/api";
+import { formatDisplayDate } from "@/lib/india-date";
 import { CalendarCheck, ChevronRight, Pencil, Search, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -395,7 +396,9 @@ function PolicyPage() {
                           key={credit.id}
                           className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
                         >
-                          <span className="tabular-nums">{credit.earnedDate}</span>
+                          <span className="tabular-nums">
+                            {formatDisplayDate(credit.earnedDate)}
+                          </span>
                           <span className="text-muted-foreground">{credit.status}</span>
                         </div>
                       ))}

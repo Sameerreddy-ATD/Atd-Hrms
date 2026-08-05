@@ -98,6 +98,12 @@ export function shortcutsForRole(
         ...(options?.isReportingManager
           ? [
               {
+                label: "Team day logs",
+                to: "/attendance/locations",
+                description: "Track your team's attendance",
+                icon: MapPin,
+              } satisfies RoleShortcut,
+              {
                 label: "Leave approvals",
                 to: "/leave/approvals",
                 description: "Approve unit leave",
@@ -115,10 +121,11 @@ export function shortcutsForRole(
     case "manager":
       return [
         attendance,
+        myAttendance,
         {
           label: "Team day logs",
           to: "/attendance/locations",
-          description: "Review team attendance",
+          description: "Track your team's attendance",
           icon: MapPin,
         },
         ...(options?.isReportingManager
@@ -148,7 +155,7 @@ export function shortcutsForRole(
         {
           label: "Day logs",
           to: "/attendance/locations",
-          description: "Day-wise attendance overview",
+          description: "Track team attendance by day",
           icon: MapPin,
         },
         {
@@ -279,7 +286,7 @@ export function shortcutsForRole(
         {
           label: "Day logs",
           to: "/attendance/locations",
-          description: "Day-wise attendance overview",
+          description: "Track team attendance by day",
           icon: MapPin,
         },
         {

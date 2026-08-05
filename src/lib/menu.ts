@@ -33,6 +33,8 @@ export interface MenuItem {
   roles: Role[];
   requiresReportingManager?: boolean;
   allowReportingManager?: boolean;
+  /** Hide unless the signed-in user has an employee profile (can punch / own attendance). */
+  requiresEmployeeId?: boolean;
 }
 
 export interface MenuGroup {
@@ -89,13 +91,17 @@ export const menuGroups: MenuGroup[] = [
         label: "My Attendance",
         to: "/attendance/mine",
         icon: CalendarCheck,
+        // Anyone who can mark attendance tracks only their own history here.
         roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "ceo", "main_admin"],
+        requiresEmployeeId: true,
       },
       {
         label: "Day Logs",
         to: "/attendance/locations",
         icon: MapPin,
+        // Org-wide for HR/admin/CEO; team heads (any role) via allowReportingManager.
         roles: ["manager", "hr", "main_admin", "ceo", "developer_admin"],
+        allowReportingManager: true,
       },
       {
         label: "Attendance Corrections",
@@ -246,7 +252,11 @@ export const menuGroups: MenuGroup[] = [
 
 export function menuForRole(
   role: Role,
-  options?: { isReportingManager?: boolean; allowedModules?: ModuleKey[] },
+  options?: {
+    isReportingManager?: boolean;
+    allowedModules?: ModuleKey[];
+    hasEmployeeId?: boolean;
+  },
 ): MenuGroup[] {
   const groupOrder = groupOrderForRole(role);
   const itemOrder = itemOrderForRole(role);
@@ -255,6 +265,7 @@ export function menuForRole(
       ...g,
       items: g.items
         .filter((i) => {
+          if (i.requiresEmployeeId && !options?.hasEmployeeId) return false;
           const roleOk = i.roles.includes(role);
           const reportingOk =
             i.requiresReportingManager || i.allowReportingManager
@@ -325,6 +336,8 @@ function itemOrderForRole(role: Role): string[] {
       return [
         "/dashboard",
         "/attendance/mine",
+        "/attendance/locations",
+        "/attendance/corrections",
         "/leave/apply",
         "/leave/history",
         "/leave/balance",

@@ -35,6 +35,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { faceApi, fetchAuthenticatedBlob } from "@/services/api";
 import type { FaceAdminProfile, FaceEvidenceSummary, FaceSettings } from "@/types/domain";
+import { formatDisplayDate, formatDisplayDateTime } from "@/lib/india-date";
 
 export const Route = createFileRoute("/_app/face-security")({
   component: FaceSecurityPage,
@@ -446,7 +447,7 @@ function FaceSecurityPage() {
                     <div>
                       <div className="text-muted-foreground">Captured</div>
                       <div className="mt-1 font-semibold">
-                        {new Date(latest.capturedAt).toLocaleDateString("en-IN")}
+                        {formatDisplayDate(latest.capturedAt)}
                       </div>
                     </div>
                   </div>
@@ -466,7 +467,7 @@ function FaceSecurityPage() {
                       <div className="mt-0.5 text-xs">
                         A check-in attempt was blocked because the face did not match this employee
                         {" · "}
-                        {new Date(profile.latestAlert.capturedAt).toLocaleString("en-IN")}.
+                        {formatDisplayDateTime(profile.latestAlert.capturedAt)}.
                       </div>
                     </div>
                   </div>
@@ -550,7 +551,7 @@ function FaceSecurityPage() {
             <DialogDescription>
               {evidence?.name}
               {evidence?.latestEvidence
-                ? ` · ${new Date(evidence.latestEvidence.capturedAt).toLocaleString("en-IN")}`
+                ? ` · ${formatDisplayDateTime(evidence.latestEvidence.capturedAt)}`
                 : ""}
               {" · "}
               Two front registration photos (eyes open, eyes closed)

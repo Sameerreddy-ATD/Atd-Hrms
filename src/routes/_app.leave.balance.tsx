@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { leaveApi } from "@/services/api";
 import type { LeaveBalance } from "@/types/domain";
+import { formatDisplayDate } from "@/lib/india-date";
 import { CalendarCheck, PlaneTakeoff } from "lucide-react";
 
 export const Route = createFileRoute("/_app/leave/balance")({
@@ -118,13 +119,15 @@ function LeaveBalancePage() {
                 <TableBody>
                   {credits.map((row) => (
                     <TableRow key={row.id}>
-                      <TableCell className="tabular-nums">{row.earnedDate}</TableCell>
+                      <TableCell className="tabular-nums">
+                        {formatDisplayDate(row.earnedDate)}
+                      </TableCell>
                       <TableCell>
                         <Badge variant="outline">{row.status}</Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {row.revokeReason ||
-                          (row.expiredAt ? `Expired ${row.expiredAt.slice(0, 10)}` : "") ||
+                          (row.expiredAt ? `Expired ${formatDisplayDate(row.expiredAt)}` : "") ||
                           (row.consumedByLeaveRequestId ? "Used on an approved Comp Off leave" : "—")}
                       </TableCell>
                     </TableRow>

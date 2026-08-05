@@ -43,6 +43,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
+import { formatDisplayDate } from "@/lib/india-date";
 import type { CertificateRequest, ExpenseClaim, User } from "@/types/domain";
 import { employeeServicesApi, employeesApi } from "@/services/api";
 
@@ -340,7 +341,7 @@ function EmployeeServicesPage() {
                   key={row.id}
                   title={`${formatCurrency(row.amount)} · ${row.claimType === "ADVANCE" ? "Advance expense" : (row.title ?? "Expense")}`}
                   employee={canViewAll ? `${row.employeeName} · ${row.employeeCode}` : undefined}
-                  date={row.expenseDate ?? new Date(row.createdAt).toLocaleDateString("en-IN")}
+                  date={formatDisplayDate(row.expenseDate ?? row.createdAt)}
                   status={row.status}
                   description={row.description ?? row.remark ?? ""}
                   link={
@@ -384,7 +385,7 @@ function EmployeeServicesPage() {
                   date={
                     row.requiredBy
                       ? `Required by ${row.requiredBy}`
-                      : `Requested ${new Date(row.createdAt).toLocaleDateString("en-IN")}`
+                      : `Requested ${formatDisplayDate(row.createdAt)}`
                   }
                   status={row.status}
                   description={row.purpose}

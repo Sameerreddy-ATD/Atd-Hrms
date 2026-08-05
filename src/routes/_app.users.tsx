@@ -28,6 +28,7 @@ import {
 import { ROLE_LABELS, type Branch, type Department, type User } from "@/types/domain";
 import { branchesApi, usersApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
+import { formatDisplayDate, formatDisplayDateTime } from "@/lib/india-date";
 import { Plus, Trash2, Key, Loader2 } from "lucide-react";
 import {
   Dialog,
@@ -645,13 +646,7 @@ function resolveUserLoginLifecycle(user: User): NonNullable<User["loginLifecycle
 
 function formatLastLogin(value?: string | null) {
   if (!value) return "Never";
-  return new Date(value).toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatDisplayDateTime(value);
 }
 
 function LoginStatus({ user }: { user: User }) {
@@ -687,7 +682,7 @@ function LoginStatus({ user }: { user: User }) {
         className="max-w-44 shrink-0 whitespace-normal border-orange-200 bg-orange-50 text-center text-orange-800 dark:border-orange-900/50 dark:bg-orange-950/40 dark:text-orange-300"
       >
         {user.suspendedUntil
-          ? `Suspended until ${new Date(user.suspendedUntil).toLocaleDateString("en-IN")}`
+          ? `Suspended until ${formatDisplayDate(user.suspendedUntil)}`
           : "Suspended"}
       </Badge>
     );
@@ -730,7 +725,7 @@ function LoginStatus({ user }: { user: User }) {
       className="max-w-44 shrink-0 whitespace-normal border-emerald-200 bg-emerald-50 text-center text-emerald-700 dark:text-emerald-400"
     >
       {scheduled
-        ? `Suspends ${new Date(user.suspensionStartsAt!).toLocaleDateString("en-IN")}`
+        ? `Suspends ${formatDisplayDate(user.suspensionStartsAt!)}`
         : "Active"}
     </Badge>
   );

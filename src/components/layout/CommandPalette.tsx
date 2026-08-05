@@ -91,7 +91,11 @@ export function CommandPalette({
 
   if (!user) return null;
 
-  const groups = menuForRole(user.role, { isReportingManager, allowedModules });
+  const groups = menuForRole(user.role, {
+    isReportingManager,
+    allowedModules,
+    hasEmployeeId: Boolean(user.employeeId),
+  });
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>

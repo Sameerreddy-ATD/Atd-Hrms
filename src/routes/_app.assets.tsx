@@ -43,6 +43,7 @@ import type {
 import { BulkAssetImport } from "@/components/assets/BulkAssetImport";
 import { assetsApi, branchesApi, employeesApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
+import { formatDisplayDateTime } from "@/lib/india-date";
 import {
   Building2,
   CalendarClock,
@@ -1415,7 +1416,7 @@ function ReturnHistorySection({ rows }: { rows: AssetReturnRecord[] }) {
               <span className="font-mono text-xs text-muted-foreground">{row.assetCode}</span>
             </p>
             <p className="text-xs text-muted-foreground">
-              Returned by {row.employeeName} · {new Date(row.returnedAt).toLocaleString("en-IN")}
+              Returned by {row.employeeName} · {formatDisplayDateTime(row.returnedAt)}
             </p>
           </div>
           <div className="flex flex-wrap gap-1.5">

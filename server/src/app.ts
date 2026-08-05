@@ -97,6 +97,7 @@ import { reportingHierarchyCycle } from "./organizationRules.js";
 import { isWebPushConfigured, sendPushToAll } from "./push.js";
 import { openNotificationStream, publishNotificationChange } from "./notificationLive.js";
 import {
+  assertCanViewTeamAttendance,
   assertEmployeeAccess,
   canCreateRole,
   getOrganizationTeamEmployeeIds,
@@ -3725,15 +3726,15 @@ export function createApp() {
   app.get(
     "/attendance/team/today",
     requireAuth,
-    requireRoles(Role.MANAGER, Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
+      const access = await assertCanViewTeamAttendance(req.user);
       const date = todayIstDate();
       const where: Prisma.AttendanceDailySummaryWhereInput =
-        req.user!.role === Role.MANAGER && req.user!.employeeId
+        access.scope === "team"
           ? {
               date,
               employee: employeeAttendanceVisibilityFilter({
-                employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) },
+                employeeId: { in: access.teamIds },
               }),
             }
           : { date, employee: employeeAttendanceVisibilityFilter() };
@@ -3767,20 +3768,21 @@ export function createApp() {
   app.get(
     "/attendance/hr/daily",
     requireAuth,
-    requireRoles(Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN, Role.CEO, Role.MANAGER),
     asyncHandler(async (req, res) => {
+      const access = await assertCanViewTeamAttendance(req.user);
       const where = attendanceWhereFromQuery(req);
-      if (req.user!.role === Role.MANAGER && req.user!.employeeId) {
+      if (access.scope === "team") {
         const departmentId =
           typeof req.query.departmentId === "string" ? req.query.departmentId : undefined;
         where.employee = employeeAttendanceVisibilityFilter({
-          employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) },
+          employeeId: { in: access.teamIds },
           ...(departmentId ? { departmentId } : {}),
         });
       }
 
       const employeeId =
         typeof req.query.employeeId === "string" ? req.query.employeeId : undefined;
+      if (employeeId) await assertEmployeeAccess(req.user, employeeId);
       const { from, to } = clampAttendanceRangeToToday({
         from: dateFromQuery(req.query.from ?? req.query.dateFrom),
         to: dateFromQuery(req.query.to ?? req.query.dateTo),
@@ -3839,8 +3841,8 @@ export function createApp() {
     app.get(
       path,
       requireAuth,
-      requireRoles(Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN, Role.CEO, Role.MANAGER),
       asyncHandler(async (req, res) => {
+        const access = await assertCanViewTeamAttendance(req.user);
         const where = attendanceWhereFromQuery(req);
         const existingOr = where.OR;
         const specializedOr: Prisma.AttendanceDailySummaryWhereInput[] = [];
@@ -3860,11 +3862,11 @@ export function createApp() {
         if (path.includes("multi-branch") || path.includes("movement")) {
           where.branchMovementCount = { gt: 0 };
         }
-        if (req.user!.role === Role.MANAGER && req.user!.employeeId) {
+        if (access.scope === "team") {
           const departmentId =
             typeof req.query.departmentId === "string" ? req.query.departmentId : undefined;
           where.employee = employeeAttendanceVisibilityFilter({
-            employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) },
+            employeeId: { in: access.teamIds },
             ...(departmentId ? { departmentId } : {}),
           });
         }
@@ -3913,14 +3915,14 @@ export function createApp() {
   app.get(
     "/reports/employee-attendance",
     requireAuth,
-    requireRoles(Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN, Role.CEO, Role.MANAGER),
     asyncHandler(async (req, res) => {
+      const access = await assertCanViewTeamAttendance(req.user);
       const where = attendanceWhereFromQuery(req);
-      if (req.user!.role === Role.MANAGER && req.user!.employeeId) {
+      if (access.scope === "team") {
         const departmentId =
           typeof req.query.departmentId === "string" ? req.query.departmentId : undefined;
         where.employee = employeeAttendanceVisibilityFilter({
-          employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) },
+          employeeId: { in: access.teamIds },
           ...(departmentId ? { departmentId } : {}),
         });
       }
@@ -3938,14 +3940,14 @@ export function createApp() {
   app.get(
     "/reports/timeline",
     requireAuth,
-    requireRoles(Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN, Role.CEO, Role.MANAGER),
     asyncHandler(async (req, res) => {
+      const access = await assertCanViewTeamAttendance(req.user);
       const where = attendanceEventWhereFromQuery(req);
-      if (req.user!.role === Role.MANAGER && req.user!.employeeId) {
+      if (access.scope === "team") {
         const departmentId =
           typeof req.query.departmentId === "string" ? req.query.departmentId : undefined;
         where.employee = employeeAttendanceVisibilityFilter({
-          employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) },
+          employeeId: { in: access.teamIds },
           ...(departmentId ? { departmentId } : {}),
         });
       }

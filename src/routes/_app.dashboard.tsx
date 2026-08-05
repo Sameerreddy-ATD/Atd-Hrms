@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
-import { indiaDateKey } from "@/lib/india-date";
+import { formatDisplayDate, formatDisplayDateRange, indiaDateKey } from "@/lib/india-date";
 import { BIRTHDAY_LOOKAHEAD_DAYS, futureBirthdays, upcomingBirthdays } from "@/lib/birthdays";
 import { PageHeader } from "@/components/common/PageHeader";
 import { BirthdayMarquee } from "@/components/layout/BirthdayMarquee";
@@ -276,12 +276,7 @@ function DashboardPage() {
       <PageHeader
         eyebrow="Anytime Workforce"
         title={`Welcome, ${user.name.split(" ")[0]}`}
-        description={`${ROLE_LABELS[user.role]} · ${new Date().toLocaleDateString(undefined, {
-          weekday: "long",
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        })}`}
+        description={`${ROLE_LABELS[user.role]} · ${formatDisplayDate(new Date())}`}
       />
 
       <BirthdayMarquee />
@@ -1012,7 +1007,8 @@ function HRDashboard({
                   <div className="min-w-0">
                     <p className="truncate font-medium">{leave.employeeName}</p>
                     <p className="text-xs text-muted-foreground">
-                      {leave.type} · {leave.from} → {leave.to} · {leave.days} day
+                      {leave.type} · {formatDisplayDateRange(leave.from, leave.to)} · {leave.days}{" "}
+                      day
                       {leave.days === 1 ? "" : "s"}
                     </p>
                   </div>
@@ -1434,7 +1430,7 @@ function RecentAttendanceCard({ rows }: { rows: AttendanceRecord[] }) {
               <div className="min-w-0">
                 <p className="truncate font-medium">{a.employeeName}</p>
                 <p className="text-xs text-muted-foreground">
-                  {a.date} · {a.source} · {a.deviceName ?? a.address ?? "-"}
+                  {formatDisplayDate(a.date)} · {a.source} · {a.deviceName ?? a.address ?? "-"}
                 </p>
               </div>
               <StatusBadge status={a.status} />
@@ -1531,7 +1527,9 @@ function TeamAttendanceCard({
                 <TableRow key={row.id}>
                   <TableCell>
                     <div className="font-medium">{row.employeeName}</div>
-                    <div className="text-xs text-muted-foreground">{row.date}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatDisplayDate(row.date)}
+                    </div>
                   </TableCell>
                   <TableCell>{time(row.punchIn)}</TableCell>
                   <TableCell>{time(row.punchOut)}</TableCell>

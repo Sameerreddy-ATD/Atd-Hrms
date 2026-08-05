@@ -43,6 +43,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { formatDisplayDate } from "@/lib/india-date";
 import type { TaskAssignee, TaskBoard, TaskPriority, TaskStage, WorkTask } from "@/types/domain";
 import {
   dateValue,
@@ -835,7 +836,7 @@ function KanbanView({
                                   "font-medium text-rose-600",
                               )}
                             >
-                              {format(dateValue(task.dueDate), "d MMM")}
+                              {formatDisplayDate(task.dueDate)}
                             </span>
                           )}
                           <TaskAvatars task={task} />

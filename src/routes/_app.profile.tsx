@@ -14,6 +14,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { useAuth } from "@/lib/auth";
+import { formatDisplayDate } from "@/lib/india-date";
 import { COMPANY_LABELS, PARENT_COMPANY_NAME, ROLE_LABELS, type User } from "@/types/domain";
 import { employeesApi, usersApi } from "@/services/api";
 import { Eye, EyeOff, Key, Loader2 } from "lucide-react";
@@ -357,7 +358,12 @@ function ProfilePage() {
                         label="Reporting manager"
                         value={profile.managerName ?? "Not assigned"}
                       />
-                      <Field label="Joining date" value={profile.joiningDate ?? "-"} />
+                      <Field
+                        label="Joining date"
+                        value={
+                          profile.joiningDate ? formatDisplayDate(profile.joiningDate) : "-"
+                        }
+                      />
                     </div>
                   </AccordionContent>
                 </AccordionItem>

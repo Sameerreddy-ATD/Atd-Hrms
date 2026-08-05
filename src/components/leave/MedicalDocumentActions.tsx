@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import type { LeaveRequest } from "@/types/domain";
+import { formatDisplayDateRange } from "@/lib/india-date";
 import { leaveApi } from "@/services/api";
 
 export function medicalHref(url: string | null | undefined) {
@@ -131,7 +132,8 @@ export function MedicalDocumentUploadCard({
           <div>
             <p className="font-semibold">Sick leave medical certificate</p>
             <p className="text-sm text-muted-foreground">
-              {leave.from} to {leave.to}. Upload a private PDF or image within 48 hours after
+              {formatDisplayDateRange(leave.from, leave.to)}. Upload a private PDF or image within 48
+              hours after
               returning to work. Reminders are sent at 24 hours and 2 hours before the deadline.
             </p>
           </div>

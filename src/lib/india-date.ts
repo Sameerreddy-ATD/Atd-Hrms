@@ -1,8 +1,10 @@
 /** Calendar date helpers in Asia/Kolkata (IST), matching backend attendance/leave day keys. */
 
+const IST = "Asia/Kolkata";
+
 export function indiaDateKey(date: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata",
+    timeZone: IST,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -38,4 +40,58 @@ export function indiaMonthRange(monthKey: string): { from: string; to: string } 
   const today = indiaDateKey();
   const to = monthEnd > today ? today : monthEnd;
   return { from, to: to < from ? from : to };
+}
+
+/**
+ * Display dates as DD/MM/YYYY (day/month/year) everywhere in the UI.
+ * Accepts YYYY-MM-DD keys, ISO timestamps, or Date objects.
+ * Keep YYYY-MM-DD only for API payloads and `<input type="date">` values.
+ */
+export function formatDisplayDate(value?: string | Date | null): string {
+  if (value == null || value === "") return "-";
+  if (typeof value === "string") {
+    const dayKey = value.slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) {
+      const [year, month, day] = dayKey.split("-");
+      return `${day}/${month}/${year}`;
+    }
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: IST,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+}
+
+/** Display date + time in IST as DD/MM/YYYY, HH:MM. */
+export function formatDisplayDateTime(value?: string | Date | null): string {
+  if (value == null || value === "") return "-";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  const datePart = new Intl.DateTimeFormat("en-GB", {
+    timeZone: IST,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+  const timePart = new Intl.DateTimeFormat("en-GB", {
+    timeZone: IST,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+  return `${datePart}, ${timePart}`;
+}
+
+/** Inclusive range label: DD/MM/YYYY to DD/MM/YYYY */
+export function formatDisplayDateRange(
+  from?: string | Date | null,
+  to?: string | Date | null,
+): string {
+  if (!from && !to) return "-";
+  if (from && to) return `${formatDisplayDate(from)} to ${formatDisplayDate(to)}`;
+  return formatDisplayDate(from ?? to);
 }

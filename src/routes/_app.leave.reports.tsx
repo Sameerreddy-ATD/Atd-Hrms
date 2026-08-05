@@ -20,6 +20,7 @@ import {
   MedicalOpenLink,
   MedicalVerifyButton,
 } from "@/components/leave/MedicalDocumentActions";
+import { formatDisplayDate, formatDisplayDateRange, formatDisplayDateTime } from "@/lib/india-date";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -74,17 +75,21 @@ function LeaveReportsPage() {
     employeeId: row.employeeId,
     organizationApprover: row.approverName ?? row.managerName ?? "",
     leaveType: row.type,
-    from: row.from,
-    to: row.to,
+    from: formatDisplayDate(row.from),
+    to: formatDisplayDate(row.to),
     days: row.days,
     status: row.status,
     workflow: row.workflowStatus ?? row.status,
-    appliedOn: row.appliedOn,
-    updatedOn: row.updatedOn ?? "",
+    appliedOn: formatDisplayDate(row.appliedOn),
+    updatedOn: row.updatedOn ? formatDisplayDate(row.updatedOn) : "",
     reason: row.reason,
     medicalDocument: row.medicalDocumentUrl ?? "",
-    medicalDocumentDue: row.medicalDocumentDueAt ?? "",
-    medicalDocumentVerified: row.medicalDocumentVerifiedAt ?? "",
+    medicalDocumentDue: row.medicalDocumentDueAt
+      ? formatDisplayDateTime(row.medicalDocumentDueAt)
+      : "",
+    medicalDocumentVerified: row.medicalDocumentVerifiedAt
+      ? formatDisplayDateTime(row.medicalDocumentVerifiedAt)
+      : "",
   }));
 
   return (
@@ -156,7 +161,7 @@ function LeaveReportsPage() {
                     <MobileListField label="Days" value={row.days} />
                     <MobileListField
                       label="Dates"
-                      value={`${row.from} → ${row.to}`}
+                      value={formatDisplayDateRange(row.from, row.to)}
                       className="col-span-2"
                     />
                     <MobileListField
@@ -174,7 +179,7 @@ function LeaveReportsPage() {
                       <p className="text-xs text-muted-foreground">
                         {row.medicalDocumentVerifiedAt
                           ? "Verified by HR"
-                          : `Due ${row.medicalDocumentDueAt ? new Date(row.medicalDocumentDueAt).toLocaleString() : "-"}`}
+                          : `Due ${row.medicalDocumentDueAt ? formatDisplayDateTime(row.medicalDocumentDueAt) : "-"}`}
                       </p>
                       {canVerifyMedicalReport &&
                         row.medicalDocumentUrl &&
@@ -225,10 +230,10 @@ function LeaveReportsPage() {
                         <div className="text-xs text-muted-foreground">{row.days} day(s)</div>
                       </TableCell>
                       <TableCell>
-                        <div>
-                          {row.from} → {row.to}
+                        <div>{formatDisplayDateRange(row.from, row.to)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Applied {formatDisplayDate(row.appliedOn)}
                         </div>
-                        <div className="text-xs text-muted-foreground">Applied {row.appliedOn}</div>
                       </TableCell>
                       <TableCell>
                         <div>{row.approverName ?? row.managerName ?? "-"}</div>

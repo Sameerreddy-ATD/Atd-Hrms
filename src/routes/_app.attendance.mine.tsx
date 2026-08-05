@@ -22,7 +22,7 @@ import {
   punchSourceLabel,
 } from "@/lib/attendance-labels";
 import { formatStoredWorkedTime } from "@/lib/worked-time";
-import { indiaMonthKey, indiaMonthRange } from "@/lib/india-date";
+import { formatDisplayDate, indiaMonthKey, indiaMonthRange } from "@/lib/india-date";
 
 export const Route = createFileRoute("/_app/attendance/mine")({
   component: MyAttendancePage,
@@ -92,7 +92,7 @@ function MyAttendancePage() {
     <div className="space-y-6">
       <PageHeader
         title="My Attendance"
-        description="Your attendance history and missed-punch requests. Use the dashboard for check-in and check-out."
+        description="Your own attendance history and missed-punch requests. Use the dashboard to check in and check out."
         actions={
           <>
             <Button asChild variant="outline">
@@ -154,7 +154,7 @@ function MyAttendancePage() {
                       <div key={record.id} className="rounded-lg border bg-background p-3">
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <p className="text-sm font-semibold">{record.date}</p>
+                            <p className="text-sm font-semibold">{formatDisplayDate(record.date)}</p>
                             <p className="mt-0.5 text-xs text-muted-foreground">
                               {attendanceSourceLabel(record, branches)}
                             </p>

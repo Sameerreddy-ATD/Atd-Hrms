@@ -18,7 +18,12 @@ import type { AttendanceRecord, Branch, User } from "@/types/domain";
 import { attendanceApi, branchesApi, employeesApi } from "@/services/api";
 import { downloadAttendanceExcel } from "@/lib/csv";
 import { punchSourceLabel } from "@/lib/attendance-labels";
-import { indiaMonthKey, indiaMonthRange } from "@/lib/india-date";
+import {
+  formatDisplayDate,
+  formatDisplayDateRange,
+  indiaMonthKey,
+  indiaMonthRange,
+} from "@/lib/india-date";
 import { CalendarRange } from "lucide-react";
 
 export const Route = createFileRoute("/_app/attendance/locations")({
@@ -163,7 +168,7 @@ function DayLogsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Day Logs"
-        description="Review day-wise attendance for the selected month through today. Expand any date to see every punch in chronological order."
+        description="Track your team's day-wise attendance for the selected month through today. Expand any date for every punch in order."
       />
 
       <Card>
@@ -276,7 +281,11 @@ function DayLogsPage() {
             <div className="inline-flex w-full items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground min-[420px]:w-auto">
               <CalendarRange className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">
-                {from && to ? `${from} to ${to}` : from || to || "Select month"}
+                {from && to
+                  ? formatDisplayDateRange(from, to)
+                  : from || to
+                    ? formatDisplayDate(from || to)
+                    : "Select month"}
               </span>
             </div>
             <Button

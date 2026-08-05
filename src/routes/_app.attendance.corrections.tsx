@@ -38,7 +38,7 @@ import {
 } from "@/components/common/ResponsiveList";
 import { attendanceApi } from "@/services/api";
 import type { AttendanceRecord } from "@/types/domain";
-import { indiaDateKeyShift } from "@/lib/india-date";
+import { formatDisplayDate, indiaDateKeyShift } from "@/lib/india-date";
 import { useAuth } from "@/lib/auth";
 import { punchTypeLabel } from "@/lib/attendance-labels";
 import { ArrowRight, Check, X, FileClock, AlertTriangle } from "lucide-react";
@@ -246,7 +246,7 @@ function AttendanceCorrectionsPage() {
                 <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                   <div>
                     <p className="text-xs text-muted-foreground">Requested date</p>
-                    <p className="font-medium">{req.date}</p>
+                    <p className="font-medium">{formatDisplayDate(req.date)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Punch time</p>
@@ -326,7 +326,7 @@ function AttendanceCorrectionsPage() {
                         <div className="font-medium">{req.employeeName}</div>
                         <div className="text-xs text-muted-foreground">{req.employeeId}</div>
                       </TableCell>
-                      <TableCell>{req.date}</TableCell>
+                      <TableCell>{formatDisplayDate(req.date)}</TableCell>
                       <TableCell>
                         {new Date(req.punchTime).toLocaleTimeString("en-IN", {
                           timeZone: "Asia/Kolkata",
@@ -341,7 +341,7 @@ function AttendanceCorrectionsPage() {
                       >
                         {req.remarks}
                       </TableCell>
-                      <TableCell>{new Date(req.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>{formatDisplayDate(req.createdAt)}</TableCell>
                       <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                         {req.canReview ? "Your decision" : (req.approverName ?? "Not assigned")}
                       </TableCell>
@@ -429,7 +429,7 @@ function AttendanceCorrectionsPage() {
                     trailing={<StatusBadge status={row.status} />}
                   />
                   <MobileListFields>
-                    <MobileListField label="Date" value={row.date} />
+                    <MobileListField label="Date" value={formatDisplayDate(row.date)} />
                     <MobileListField label="Source" value={row.source} />
                     <MobileListField label="Punch In" value={row.punchIn ?? "-"} />
                     <MobileListField label="Punch Out" value={row.punchOut ?? "-"} />
@@ -490,7 +490,7 @@ function AttendanceCorrectionsPage() {
                         <div className="font-medium">{row.employeeName}</div>
                         <div className="text-xs text-muted-foreground">{row.employeeId}</div>
                       </TableCell>
-                      <TableCell>{row.date}</TableCell>
+                      <TableCell>{formatDisplayDate(row.date)}</TableCell>
                       <TableCell>{row.punchIn ?? "-"}</TableCell>
                       <TableCell>{row.punchOut ?? "-"}</TableCell>
                       <TableCell>{row.source}</TableCell>
@@ -554,7 +554,7 @@ function AttendanceCorrectionsPage() {
           {punchOutTarget && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                {punchOutTarget.employeeName} · {punchOutTarget.date}
+                {punchOutTarget.employeeName} · {formatDisplayDate(punchOutTarget.date)}
               </p>
               <div className="space-y-1.5">
                 <Label htmlFor="punch-out-time">Punch-out time</Label>

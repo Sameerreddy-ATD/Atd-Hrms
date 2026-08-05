@@ -34,7 +34,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth";
-import { indiaDateKeyShift } from "@/lib/india-date";
+import { formatDisplayDateTime, indiaDateKeyShift } from "@/lib/india-date";
 import {
   ROLE_LABELS,
   type IntegrationClient,
@@ -575,9 +575,9 @@ function SettingsPage() {
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         Last used:{" "}
-                        {client.lastUsedAt ? new Date(client.lastUsedAt).toLocaleString() : "Never"}
+                        {client.lastUsedAt ? formatDisplayDateTime(client.lastUsedAt) : "Never"}
                         {client.expiresAt
-                          ? ` · Expires ${new Date(client.expiresAt).toLocaleString()}`
+                          ? ` · Expires ${formatDisplayDateTime(client.expiresAt)}`
                           : " · No expiry"}
                       </p>
                     </div>
@@ -667,7 +667,7 @@ function SettingsPage() {
                     {health.status === "HEALTHY" ? "All systems operational" : "Attention required"}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    Checked {new Date(health.checkedAt).toLocaleString()}
+                    Checked {formatDisplayDateTime(health.checkedAt)}
                   </span>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -675,7 +675,7 @@ function SettingsPage() {
                     icon={Clock3}
                     label="Backend uptime"
                     value={formatUptime(health.uptimeSeconds)}
-                    detail={`Started ${new Date(health.backendStartedAt).toLocaleString()}`}
+                    detail={`Started ${formatDisplayDateTime(health.backendStartedAt)}`}
                   />
                   <HealthMetric
                     icon={Database}
@@ -689,16 +689,7 @@ function SettingsPage() {
                     label="Drive backup"
                     value={
                       health.backup?.finishedAt
-                        ? new Date(health.backup.finishedAt).toLocaleString("en-IN", {
-                            timeZone: "Asia/Kolkata",
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                            hour: "numeric",
-                            minute: "2-digit",
-                            second: "2-digit",
-                            hour12: true,
-                          })
+                        ? formatDisplayDateTime(health.backup.finishedAt)
                         : "Never"
                     }
                     detail={

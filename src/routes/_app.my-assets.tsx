@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { assetsApi } from "@/services/api";
 import type { MyAssignedAsset } from "@/types/domain";
+import { formatDisplayDate } from "@/lib/india-date";
 
 export const Route = createFileRoute("/_app/my-assets")({
   component: MyAssetsPage,
@@ -76,14 +77,12 @@ function MyAssetsPage() {
                   )}
                   <div className="flex justify-between gap-2">
                     <dt>Assigned</dt>
-                    <dd className="text-foreground">
-                      {new Date(asset.assignedAt).toLocaleDateString("en-IN")}
-                    </dd>
+                    <dd className="text-foreground">{formatDisplayDate(asset.assignedAt)}</dd>
                   </div>
                   {asset.renewalDate && (
                     <div className="flex justify-between gap-2">
                       <dt>Renewal</dt>
-                      <dd className="text-foreground">{asset.renewalDate}</dd>
+                      <dd className="text-foreground">{formatDisplayDate(asset.renewalDate)}</dd>
                     </div>
                   )}
                 </dl>

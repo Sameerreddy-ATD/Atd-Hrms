@@ -27,6 +27,7 @@ import { COMPANY_LABELS, ROLE_LABELS } from "@/types/domain";
 import { branchesApi, employeesApi, shiftsApi } from "@/services/api";
 import { Search, Pencil, UserCog } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { formatDisplayDate } from "@/lib/india-date";
 import {
   Dialog,
   DialogContent,
@@ -935,7 +936,7 @@ function EmployeeAccountStatus({ employee }: { employee: User }) {
         variant="outline"
         className="max-w-44 whitespace-normal border-amber-200 bg-amber-50 text-center text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300"
       >
-        Suspends {new Date(employee.suspensionStartsAt!).toLocaleDateString("en-IN")}
+        Suspends {formatDisplayDate(employee.suspensionStartsAt!)}
       </Badge>
     );
   }
@@ -972,7 +973,7 @@ function EmployeeAccountStatus({ employee }: { employee: User }) {
       >
         Suspended
         {employee.suspendedUntil
-          ? ` until ${new Date(employee.suspendedUntil).toLocaleDateString("en-IN")}`
+          ? ` until ${formatDisplayDate(employee.suspendedUntil)}`
           : ""}
       </Badge>
     );
