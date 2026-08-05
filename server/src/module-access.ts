@@ -20,6 +20,7 @@ export type ModuleAccessMatrix = Record<Role, ModuleKey[]>;
 const ALL_MODULES = [...MODULE_KEYS];
 export const DEFAULT_MODULE_ACCESS: ModuleAccessMatrix = {
   DEVELOPER_ADMIN: ALL_MODULES,
+  // Company admin: setup + ops (no Employee Requests queue by default).
   MAIN_ADMIN: [
     "DASHBOARD",
     "PEOPLE",
@@ -31,6 +32,7 @@ export const DEFAULT_MODULE_ACCESS: ModuleAccessMatrix = {
     "COMMUNICATIONS",
     "SYSTEM",
   ],
+  // CEO: company-wide executive overview (no System). Attendance not required for the account.
   CEO: [
     "DASHBOARD",
     "PEOPLE",
@@ -53,6 +55,7 @@ export const DEFAULT_MODULE_ACCESS: ModuleAccessMatrix = {
     "PROFILE",
     "COMMUNICATIONS",
   ],
+  // Department heads (MANAGER): team People/Attendance/Leave; no Company or System.
   MANAGER: [
     "DASHBOARD",
     "PEOPLE",

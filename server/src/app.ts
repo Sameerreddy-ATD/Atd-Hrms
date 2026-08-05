@@ -104,6 +104,7 @@ import {
   isAssignedOrganizationHead,
   requireAuth,
   requireRoles,
+  resolveTargetLoginRole,
 } from "./rbac.js";
 import {
   clearCookies,
@@ -2089,22 +2090,14 @@ export function createApp() {
       const organizationUnit = organizationUnitId
         ? await prisma.department.findUnique({ where: { departmentId: organizationUnitId } })
         : null;
-      if (!organizationUnit) throw new HttpError(400, "Select an organization unit");
-      const unitName = organizationUnit.name.toLowerCase();
-      const targetRole =
-        unitName === "executive leadership"
-          ? Role.CEO
-          : unitName === "human resources"
-            ? Role.HR
-            : unitName === "administration" && body.organizationLevel === "HEAD"
-              ? Role.MAIN_ADMIN
-              : unitName === "drivers"
-                ? Role.DRIVER
-                : body.organizationLevel === "HEAD"
-                  ? Role.MANAGER
-                  : unitName.includes("sales")
-                    ? Role.SALES
-                    : Role.EMPLOYEE;
+      const targetRole = resolveTargetLoginRole({
+        explicitRole: body.role ?? null,
+        unitName: organizationUnit?.name,
+        organizationLevel: body.organizationLevel,
+      });
+      if (targetRole !== Role.CEO && !organizationUnit) {
+        throw new HttpError(400, "Select an organization unit");
+      }
       if (!canCreateRole(req.user!.role, targetRole))
         throw new HttpError(403, "This role cannot create the requested login");
       const employeeRoles = [
@@ -2126,6 +2119,11 @@ export function createApp() {
         throw new HttpError(409, "Add an email to the employee profile before creating a login");
       }
       const passwordHash = await hashPassword(body.password);
+      const organizationLevel =
+        targetRole === Role.CEO ? "HEAD" : (body.organizationLevel ?? "MEMBER");
+      const designation =
+        (body.designation?.trim() ||
+          (targetRole === Role.CEO ? "CEO" : undefined)) ?? undefined;
       const user = await prisma.$transaction(async (tx) => {
         const employee = shouldCreateEmployee
           ? await tx.employee.create({
@@ -2137,7 +2135,7 @@ export function createApp() {
                 companyPhone: body.companyPhone,
                 companyEntity: body.companyEntity,
                 departmentId: body.departmentId ?? undefined,
-                designation: body.designation ?? undefined,
+                designation,
                 homeBranchId: body.homeBranchId ?? undefined,
                 managerId: reportingManagerId ?? undefined,
                 attendanceMode: body.attendanceMode ?? "BOTH",
@@ -2150,7 +2148,7 @@ export function createApp() {
                 gender: body.gender ?? undefined,
                 bloodGroup: body.bloodGroup ?? undefined,
                 employmentType: body.employmentType ?? "FULL_TIME",
-                organizationLevel: body.organizationLevel ?? "MEMBER",
+                organizationLevel,
                 bankAccountType: body.bankAccountType ?? undefined,
                 bankAccountHolderName: body.bankAccountHolderName ?? undefined,
                 bankIfscCode: body.bankIfscCode ?? undefined,

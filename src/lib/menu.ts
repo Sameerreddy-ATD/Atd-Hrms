@@ -91,8 +91,8 @@ export const menuGroups: MenuGroup[] = [
         label: "My Attendance",
         to: "/attendance/mine",
         icon: CalendarCheck,
-        // Anyone who can mark attendance tracks only their own history here.
-        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "ceo", "main_admin"],
+        // Punch-capable roles only — CEO does not mark attendance.
+        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "main_admin"],
         requiresEmployeeId: true,
       },
       {
@@ -146,26 +146,27 @@ export const menuGroups: MenuGroup[] = [
         label: "Apply Leave",
         to: "/leave/apply",
         icon: PlaneTakeoff,
-        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "ceo", "main_admin"],
+        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "main_admin"],
       },
       {
         label: "Leave History",
         to: "/leave/history",
         icon: History,
-        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "ceo", "main_admin"],
+        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "main_admin"],
       },
       {
         label: "My Leave Balance",
         to: "/leave/balance",
         icon: CalendarCheck,
-        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "ceo", "main_admin"],
+        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "main_admin"],
       },
       {
         label: "Leave Approvals",
         to: "/leave/approvals",
         icon: BadgeCheck,
-        roles: ["manager", "employee", "sales", "driver", "field_staff", "hr", "ceo", "main_admin"],
-        requiresReportingManager: true,
+        // HR/CEO/Admin always; department heads via allowReportingManager.
+        roles: ["hr", "ceo", "main_admin"],
+        allowReportingManager: true,
       },
       {
         label: "Leave Tracking",
@@ -399,11 +400,7 @@ function itemOrderForRole(role: Role): string[] {
       return [
         "/dashboard",
         "/employees",
-        "/attendance/mine",
         "/attendance/locations",
-        "/leave/apply",
-        "/leave/history",
-        "/leave/balance",
         "/leave/approvals",
         "/leave/reports",
         "/tasks",

@@ -31,6 +31,27 @@ export function canCreateRole(actor: Role, target: Role) {
   return creationRules[actor]?.includes(target) ?? false;
 }
 
+/**
+ * Prefer an explicit role from Developer Admin create-login.
+ * Otherwise infer from organization unit name + level (legacy path).
+ */
+export function resolveTargetLoginRole(input: {
+  explicitRole?: Role | null;
+  unitName?: string | null;
+  organizationLevel?: string | null;
+}): Role {
+  if (input.explicitRole) return input.explicitRole;
+  const unitName = (input.unitName ?? "").trim().toLowerCase();
+  const level = input.organizationLevel ?? "MEMBER";
+  if (unitName === "executive leadership") return Role.CEO;
+  if (unitName === "human resources") return Role.HR;
+  if (unitName === "administration" && level === "HEAD") return Role.MAIN_ADMIN;
+  if (unitName === "drivers") return Role.DRIVER;
+  if (level === "HEAD") return Role.MANAGER;
+  if (unitName.includes("sales")) return Role.SALES;
+  return Role.EMPLOYEE;
+}
+
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const token = req.cookies?.[config.sessionCookie];
   if (!token) return next(new HttpError(401, "Authentication required"));

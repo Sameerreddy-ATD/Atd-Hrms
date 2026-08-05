@@ -15,6 +15,7 @@ import { useAuth } from "@/lib/auth";
 import {
   COMPANY_LABELS,
   PARENT_COMPANY_NAME,
+  ROLE_LABELS,
   type BankAccountType,
   type Branch,
   type CompanyEntity,
@@ -26,9 +27,8 @@ import { branchesApi, employeesApi, usersApi } from "@/services/api";
 
 const CAN_CREATE: Record<Role, Role[]> = {
   developer_admin: [
-    "developer_admin",
-    "main_admin",
     "ceo",
+    "main_admin",
     "hr",
     "manager",
     "employee",
@@ -45,6 +45,38 @@ const CAN_CREATE: Record<Role, Role[]> = {
   driver: [],
   field_staff: [],
 };
+
+const LOGIN_ROLE_OPTIONS: { value: Role; label: string; hint: string }[] = [
+  { value: "ceo", label: "CEO", hint: "Company-wide executive overview; no attendance required" },
+  { value: "main_admin", label: "Admin", hint: "Administration head with company setup access" },
+  { value: "hr", label: "HR", hint: "People, leave, and attendance operations" },
+  {
+    value: "manager",
+    label: "Department Head",
+    hint: "Team head — assign units under Departments (multi-head supported)",
+  },
+  { value: "employee", label: "Employee", hint: "Standard employee workspace" },
+  { value: "sales", label: "Sales Team", hint: "Sales / field sales workspace" },
+  { value: "driver", label: "Driver", hint: "Driver attendance and work tools" },
+  { value: "field_staff", label: "Field Staff", hint: "Field attendance workspace" },
+];
+
+function defaultLevelForRole(role: Role): "HEAD" | "SENIOR" | "JUNIOR" | "MEMBER" {
+  if (role === "ceo" || role === "main_admin" || role === "manager") return "HEAD";
+  if (role === "hr") return "SENIOR";
+  return "MEMBER";
+}
+
+function defaultTitleForRole(role: Role, unitName?: string): string {
+  if (role === "ceo") return "CEO";
+  if (role === "main_admin") return unitName ? `${unitName} Head` : "Administration Head";
+  if (role === "hr") return "HR";
+  if (role === "manager") return unitName ? `${unitName} Head` : "Department Head";
+  if (role === "sales") return unitName || "Sales";
+  if (role === "driver") return "Driver";
+  if (role === "field_staff") return "Field Staff";
+  return unitName || "Employee";
+}
 
 export function CreateLoginForm({
   onCreated,
@@ -73,6 +105,7 @@ export function CreateLoginForm({
   const [childOrganizationUnitId, setChildOrganizationUnitId] = useState("none");
   const [designation, setDesignation] = useState("");
   const [managerId, setManagerId] = useState("none");
+  const [loginRole, setLoginRole] = useState<Role>("employee");
   const [organizationLevel, setOrganizationLevel] = useState<
     "HEAD" | "SENIOR" | "JUNIOR" | "MEMBER"
   >("MEMBER");
@@ -107,28 +140,27 @@ export function CreateLoginForm({
     [departments, organizationUnitId],
   );
   const selectedUnit = departments.find((department) => department.id === dept);
-  const role: Role = selectedUnit
-    ? selectedUnit.name === "Executive Leadership"
-      ? "ceo"
-      : selectedUnit.name === "Human Resources"
-        ? "hr"
-        : selectedUnit.name === "Administration" && organizationLevel === "HEAD"
-          ? "main_admin"
-          : selectedUnit.name === "Drivers"
-            ? "driver"
-            : organizationLevel === "HEAD"
-              ? "manager"
-              : selectedUnit.name.toLowerCase().includes("sales")
-                ? "sales"
-                : "employee"
-    : "employee";
-  const positionTitle = selectedUnit
-    ? organizationLevel === "HEAD"
-      ? `${selectedUnit.name} Head`
-      : organizationLevel === "MEMBER"
-        ? selectedUnit.name
-        : `${organizationLevel === "SENIOR" ? "Senior" : "Junior"} ${selectedUnit.name}`
-    : "Select an organization unit";
+  const role: Role = loginRole;
+  const isCeo = role === "ceo";
+  const needsOrganizationUnit = !isCeo;
+  const roleOption = LOGIN_ROLE_OPTIONS.find((option) => option.value === role);
+  const positionTitle = designation.trim() || defaultTitleForRole(role, selectedUnit?.name);
+
+  function changeLoginRole(nextRole: Role) {
+    setLoginRole(nextRole);
+    setOrganizationLevel(defaultLevelForRole(nextRole));
+    if (nextRole === "ceo") {
+      setOrganizationUnitId("");
+      setChildOrganizationUnitId("none");
+      setDept("");
+    } else if (!organizationUnitId) {
+      const firstTopLevel = departments.find((department) => !department.parentDepartmentId);
+      if (firstTopLevel) {
+        setOrganizationUnitId(firstTopLevel.id);
+        setDept(firstTopLevel.id);
+      }
+    }
+  }
 
   useEffect(() => {
     Promise.all([
@@ -208,6 +240,10 @@ export function CreateLoginForm({
       toast.error("Email and temporary password are required");
       return;
     }
+    if (needsOrganizationUnit && !dept) {
+      toast.error("Select an organization unit");
+      return;
+    }
     if (
       temporaryPassword.length < 10 ||
       !/[A-Z]/.test(temporaryPassword) ||
@@ -228,6 +264,7 @@ export function CreateLoginForm({
         active: true,
         mustChangePassword: true,
         password: temporaryPassword,
+        role,
       };
 
       if (creationMode === "link") {
@@ -235,10 +272,10 @@ export function CreateLoginForm({
       } else {
         payload.employeeCode = employeeCode || undefined;
         payload.homeBranchId = branch || undefined;
-        payload.departmentId = dept || undefined;
+        payload.departmentId = isCeo ? dept || null : dept || undefined;
         payload.designation = designation.trim() || positionTitle;
         payload.managerId = managerId === "none" ? null : managerId;
-        payload.organizationLevel = organizationLevel;
+        payload.organizationLevel = isCeo ? "HEAD" : organizationLevel;
         payload.dateOfBirth = dateOfBirth || undefined;
         payload.joiningDate = joiningDate || undefined;
         payload.gender = gender;
@@ -362,8 +399,30 @@ export function CreateLoginForm({
             <div className="border-t border-border pt-4 sm:col-span-2">
               <h3 className="text-sm font-semibold text-foreground">Organization assignment</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                Place the employee in the company hierarchy. Access is assigned automatically.
+                Choose the login role first. Access modules follow that role; department heads are
+                assigned under Departments (one person may head multiple units).
               </p>
+            </div>
+
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Login role</Label>
+              <Select value={loginRole} onValueChange={(value) => changeLoginRole(value as Role)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LOGIN_ROLE_OPTIONS.filter((option) => allowed.includes(option.value)).map(
+                    (option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ),
+                  )}
+                </SelectContent>
+              </Select>
+              {roleOption && (
+                <p className="text-xs text-muted-foreground">{roleOption.hint}</p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -401,72 +460,80 @@ export function CreateLoginForm({
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Used only for attendance and geofence rules.
+                {isCeo
+                  ? "Optional for CEO records; CEO accounts do not mark attendance."
+                  : "Used only for attendance and geofence rules."}
               </p>
             </div>
 
-            <div className="space-y-1.5">
-              <Label>Main organization unit</Label>
-              <Select value={organizationUnitId} onValueChange={setOrganizationUnitId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select main unit" />
-                </SelectTrigger>
-                <SelectContent>
-                  {topLevelUnits.map((d) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {!isCeo && (
+              <>
+                <div className="space-y-1.5">
+                  <Label>Main organization unit</Label>
+                  <Select value={organizationUnitId} onValueChange={setOrganizationUnitId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select main unit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {topLevelUnits.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="space-y-1.5">
-              <Label>Child organization unit</Label>
-              <Select
-                value={childOrganizationUnitId}
-                onValueChange={setChildOrganizationUnitId}
-                disabled={childUnits.length === 0}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select child unit" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Use main unit</SelectItem>
-                  {childUnits.map((unit) => (
-                    <SelectItem key={unit.id} value={unit.id}>
-                      {unit.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                <div className="space-y-1.5">
+                  <Label>Child organization unit</Label>
+                  <Select
+                    value={childOrganizationUnitId}
+                    onValueChange={setChildOrganizationUnitId}
+                    disabled={childUnits.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select child unit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Use main unit</SelectItem>
+                      {childUnits.map((unit) => (
+                        <SelectItem key={unit.id} value={unit.id}>
+                          {unit.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Organization level</Label>
+                  <Select
+                    value={organizationLevel}
+                    onValueChange={(value) =>
+                      setOrganizationLevel(value as typeof organizationLevel)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="HEAD">Head</SelectItem>
+                      <SelectItem value="SENIOR">Senior</SelectItem>
+                      <SelectItem value="JUNIOR">Junior</SelectItem>
+                      <SelectItem value="MEMBER">Member</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
 
             <div className="space-y-1.5">
               <Label>Job title (optional)</Label>
               <Input
                 value={designation}
-                placeholder={positionTitle}
+                placeholder={defaultTitleForRole(role, selectedUnit?.name)}
                 onChange={(e) => setDesignation(e.target.value)}
               />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Organization level</Label>
-              <Select
-                value={organizationLevel}
-                onValueChange={(value) => setOrganizationLevel(value as typeof organizationLevel)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="HEAD">Head</SelectItem>
-                  <SelectItem value="SENIOR">Senior</SelectItem>
-                  <SelectItem value="JUNIOR">Junior</SelectItem>
-                  <SelectItem value="MEMBER">Member</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
 
             <div className="space-y-1.5">
@@ -496,9 +563,14 @@ export function CreateLoginForm({
               <p className="text-xs font-medium text-muted-foreground">Position preview</p>
               <p className="mt-1 text-base font-semibold text-foreground">{positionTitle}</p>
               <p className="mt-1 break-words text-xs text-muted-foreground">
-                {selectedUnit?.parentDepartmentId
-                  ? `${departments.find((unit) => unit.id === selectedUnit.parentDepartmentId)?.name ?? "Organization"} / ${selectedUnit.name}`
-                  : (selectedUnit?.name ?? "Choose a unit to continue")}
+                {ROLE_LABELS[role]}
+                {isCeo
+                  ? " · company-wide access · sits above departments"
+                  : selectedUnit?.parentDepartmentId
+                    ? ` · ${departments.find((unit) => unit.id === selectedUnit.parentDepartmentId)?.name ?? "Organization"} / ${selectedUnit.name}`
+                    : selectedUnit?.name
+                      ? ` · ${selectedUnit.name}`
+                      : " · choose a unit to continue"}
               </p>
             </div>
 
