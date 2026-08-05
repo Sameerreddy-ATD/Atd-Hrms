@@ -23,7 +23,6 @@ import {
   correctionDeadlineFor,
   decimalHours,
   hoursBetween,
-  isLateCheckIn,
   resolveEmployeeShift,
   shiftWindowBounds,
 } from "./attendancePolicy.js";
@@ -284,7 +283,7 @@ export async function recalculateDailySummary(employeeId: string, date: string |
   }
 
   const hasMissingOutEvent = hasOpenPunch;
-  const isLate = Boolean(firstCheckIn && isLateCheckIn(firstCheckIn, bounds.graceEnd));
+  const isLate = false;
 
   const checkInEvent = realCheckIns[0] ?? events.find((e) => inTypes.has(e.eventType));
   const latestOutEvent = [...events]

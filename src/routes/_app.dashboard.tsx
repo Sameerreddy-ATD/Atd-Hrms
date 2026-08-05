@@ -260,7 +260,6 @@ function DashboardPage() {
   ).length;
   const presentToday = countUniquePresent(todayAttendance);
   const absent = countStatus(todayAttendance, "Absent");
-  const late = countStatus(todayAttendance, "Late");
   const onLeave = countStatusIncludes(todayAttendance, "Leave");
   const fieldPresent = countFieldPresent(todayAttendance);
   const missed = countStatusIncludes(todayAttendance, "Missed");

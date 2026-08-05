@@ -4,7 +4,6 @@ import { cn } from "@/lib/utils";
 const map: Record<string, string> = {
   present:
     "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50",
-  late: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/50",
   absent:
     "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900/50",
   leave:
@@ -33,7 +32,6 @@ function classify(status: string): keyof typeof map {
   if (s.includes("mismatch")) return "mismatch";
   if (s.includes("field") || s.includes("location")) return "field";
   if (s.includes("missed checkout") || s.includes("missed") || s.includes("manual")) return "missed";
-  if (s.includes("late")) return "late";
   if (s.includes("absent") || s.includes("rejected")) return "rejected";
   if (s.includes("pending")) return "pending";
   if (s === "paid") return "paid";

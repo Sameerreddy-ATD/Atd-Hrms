@@ -424,7 +424,6 @@ export type AttendanceStatus =
   | "Full Day"
   | "Present"
   | "Absent"
-  | "Late"
   | "Holiday"
   | "Week Off"
   | "Paid Leave"

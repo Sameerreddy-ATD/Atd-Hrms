@@ -180,7 +180,6 @@ export function attendanceStatusWithFlags(row: {
   hasMissingOutEvent?: boolean;
 }) {
   const flags: string[] = [];
-  if (row.isLate) flags.push("Late");
   // Only after the day punch-out deadline (hasMissedCheckout). Mid-day open punch is not Missed Checkout yet.
   if (row.hasMissedCheckout) flags.push("Missed Checkout");
   return flags.length ? `${row.status} · ${flags.join(" · ")}` : row.status;

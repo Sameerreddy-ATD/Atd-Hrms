@@ -126,8 +126,9 @@ export function correctionDeadlineFor(attendanceDate: Date, punchOutDeadline: Da
   return base;
 }
 
-export function isLateCheckIn(checkInAt: Date, graceEnd: Date) {
-  return checkInAt.getTime() > graceEnd.getTime();
+export function isLateCheckIn(_checkInAt: Date, _graceEnd: Date) {
+  // Late marking is disabled — keep helper for shift grace window tests / future use.
+  return false;
 }
 
 export async function findActiveShiftAssignment(employeeId: string, attendanceDate: Date) {
