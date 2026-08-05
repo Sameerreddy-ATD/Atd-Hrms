@@ -29,6 +29,49 @@ export function todayIstDate(now = new Date()) {
   return new Date(Date.UTC(parts.year, parts.month, parts.day));
 }
 
+function dayKeyUtc(date: Date) {
+  return startOfDayUtc(date).toISOString().slice(0, 10);
+}
+
+/** Current calendar month in Asia/Kolkata as YYYY-MM. */
+export function istMonthKey(now = new Date()) {
+  return dayKeyUtc(todayIstDate(now)).slice(0, 7);
+}
+
+/**
+ * Inclusive first/last calendar days for a YYYY-MM month key (IST).
+ * For the current month, `to` stops at today so future dates are not included.
+ */
+export function istMonthRangeThroughToday(monthKey?: string, now = new Date()) {
+  const key = monthKey && /^\d{4}-\d{2}$/.test(monthKey) ? monthKey : istMonthKey(now);
+  const [year, month] = key.split("-").map(Number);
+  const from = new Date(Date.UTC(year, month - 1, 1));
+  const monthEnd = new Date(Date.UTC(year, month, 0));
+  const today = todayIstDate(now);
+  const to = monthEnd.getTime() > today.getTime() ? today : monthEnd;
+  return {
+    from,
+    to: to.getTime() < from.getTime() ? from : to,
+    fromKey: dayKeyUtc(from),
+    toKey: dayKeyUtc(to.getTime() < from.getTime() ? from : to),
+  };
+}
+
+/** Clamp an attendance date range so `to` never exceeds today (IST). */
+export function clampAttendanceRangeToToday(input: {
+  from?: Date;
+  to?: Date;
+  now?: Date;
+}) {
+  const today = todayIstDate(input.now);
+  let from = input.from ? startOfDayUtc(input.from) : undefined;
+  let to = input.to ? startOfDayUtc(input.to) : undefined;
+  if (to && to.getTime() > today.getTime()) to = today;
+  if (from && from.getTime() > today.getTime()) from = today;
+  if (from && to && to.getTime() < from.getTime()) to = from;
+  return { from, to };
+}
+
 export function isSunday(date: Date) {
   return istDateParts(date).weekday === 0;
 }

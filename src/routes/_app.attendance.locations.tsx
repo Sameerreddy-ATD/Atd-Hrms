@@ -142,9 +142,18 @@ function DayLogsPage() {
   }
 
   function changeTo(nextTo: string) {
-    setTo(nextTo);
-    if (nextTo && (!from || nextTo.slice(0, 7) === from.slice(0, 7))) {
-      setMonth(nextTo.slice(0, 7));
+    if (!nextTo) {
+      setTo(nextTo);
+      return;
+    }
+    const monthKey = (!from || nextTo.slice(0, 7) === from.slice(0, 7)
+      ? nextTo.slice(0, 7)
+      : month) || nextTo.slice(0, 7);
+    const capped = indiaMonthRange(monthKey).to;
+    const clamped = nextTo > capped ? capped : nextTo;
+    setTo(clamped);
+    if (!from || clamped.slice(0, 7) === from.slice(0, 7)) {
+      setMonth(clamped.slice(0, 7));
     }
   }
 

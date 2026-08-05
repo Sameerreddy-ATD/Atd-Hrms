@@ -22,6 +22,7 @@ import {
   punchSourceLabel,
 } from "@/lib/attendance-labels";
 import { formatStoredWorkedTime } from "@/lib/worked-time";
+import { indiaMonthKey, indiaMonthRange } from "@/lib/india-date";
 
 export const Route = createFileRoute("/_app/attendance/mine")({
   component: MyAttendancePage,
@@ -40,8 +41,9 @@ function MyAttendancePage() {
       if (showLoading) setLoading(true);
       setError("");
       try {
+        const { from, to } = indiaMonthRange(indiaMonthKey());
         const [attendanceRows, requestsList, branchRows] = await Promise.all([
-          attendanceApi.listMine(user?.employeeId ?? ""),
+          attendanceApi.listMine(user?.employeeId ?? "", { from, to }),
           attendanceApi.listCorrectionRequests(),
           branchesApi.list(),
         ]);
@@ -130,7 +132,7 @@ function MyAttendancePage() {
                     Attendance Log History
                   </CardTitle>
                   <p className="text-xs text-muted-foreground">
-                    A list of your daily check-in and check-out summaries.
+                    This month from the 1st through today. Expand a day for full punch detail.
                   </p>
                 </div>
               </CardHeader>

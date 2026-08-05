@@ -42,7 +42,7 @@ describe("attendance movement summary rules", () => {
     const currentDate = new Date("2026-07-25T00:00:00.000Z");
     const latestEvent = { eventType: EventType.FIELD_CHECK_IN, eventDate: previousDate };
 
-    // Prior-day open punches are auto-closed before check-in; transition itself allows the new day.
+    // Prior-day open punches stay empty (Missed Checkout); transition itself allows the new day.
     expect(attendanceTransitionIssue(latestEvent, currentDate, false)).toBeUndefined();
     expect(attendanceTransitionIssue(latestEvent, currentDate, true)).toBeUndefined();
   });

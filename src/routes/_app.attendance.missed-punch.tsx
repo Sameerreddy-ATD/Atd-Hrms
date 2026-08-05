@@ -10,6 +10,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { attendanceApi } from "@/services/api";
 import type { AttendanceRecord } from "@/types/domain";
+import { indiaMonthKey, indiaMonthRange } from "@/lib/india-date";
 
 export const Route = createFileRoute("/_app/attendance/missed-punch")({
   component: MissedPunchPage,
@@ -33,8 +34,9 @@ function MissedPunchPage() {
       if (showLoading) setLoading(true);
       setError("");
       try {
+        const { from, to } = indiaMonthRange(indiaMonthKey());
         const [attendanceRows, requestsList] = await Promise.all([
-          attendanceApi.listMine(user.employeeId),
+          attendanceApi.listMine(user.employeeId, { from, to }),
           attendanceApi.listCorrectionRequests(),
         ]);
         setRecords(attendanceRows);

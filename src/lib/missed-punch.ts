@@ -1,5 +1,6 @@
 import type { AttendanceRecord } from "@/types/domain";
 import { isMobileAttendanceSource } from "@/lib/attendance-labels";
+import { indiaDateKey } from "@/lib/india-date";
 
 export type MissedPunchDirection = "In" | "Out";
 
@@ -75,10 +76,18 @@ export function detectMissedPunchItems(
   const covered = coveredKeys(requests);
   const items: MissedPunchItem[] = [];
 
+  const today = indiaDateKey();
   for (const record of records) {
     const date = dateKey(record.date);
 
-    const needsOut = Boolean(record.hasMissedCheckout || record.hasMissingOutEvent);
+    // In-progress today: employee should check out normally, not raise missed punch yet.
+    const openInProgressToday =
+      date === today &&
+      Boolean(record.hasMissingOutEvent) &&
+      !record.hasMissedCheckout;
+    const needsOut =
+      Boolean(record.hasMissedCheckout) ||
+      (Boolean(record.hasMissingOutEvent) && !openInProgressToday);
     if (needsOut && !covered.has(`${date}|Out`)) {
       items.push({
         id: `${record.id}-out`,

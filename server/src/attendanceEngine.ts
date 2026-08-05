@@ -93,7 +93,7 @@ export function attendanceTransitionIssue(
 ) {
   const latestIsOpen = Boolean(latestEvent && inTypes.has(latestEvent.eventType));
   if (!isCheckOut && latestIsOpen) {
-    // Prior-day open punches are auto-closed before check-in; same-day double check-in is blocked.
+    // Prior-day open punches stay empty (Missed Checkout); same-day double check-in is blocked.
     if (latestEvent!.eventDate.getTime() !== requestedEventDate.getTime()) {
       return undefined;
     }
@@ -243,17 +243,14 @@ export async function recalculateDailySummary(employeeId: string, date: string |
   const realCheckOuts = events.filter(
     (e) => outTypes.has(e.eventType) && e.eventSource !== EventSource.SYSTEM,
   );
-  const systemCheckOut = [...events]
-    .reverse()
-    .find((e) => outTypes.has(e.eventType) && e.eventSource === EventSource.SYSTEM);
 
   const firstCheckIn = realCheckIns[0]?.eventTime ?? events.find((e) => inTypes.has(e.eventType))?.eventTime;
   const lastRealOut = realCheckOuts.at(-1)?.eventTime;
-  // Prefer the chronologically latest out (real or system) so missed-checkout provisional times show in HR views.
-  const lastOut =
-    [lastRealOut, systemCheckOut?.eventTime].filter(Boolean).sort((a, b) => a!.getTime() - b!.getTime()).at(-1) ??
-    undefined;
+  // Only real outs fill punch-out. Missing outs stay empty for missed-punch correction.
+  const lastOut = lastRealOut;
   const { hasOpenPunch } = openPunchState(events);
+  // After slot end: Missed Checkout + "Punch-out required". During the slot: punch-out stays empty.
+  const pastSlotEnd = Date.now() >= bounds.end.getTime();
 
   let officeHours = 0;
   let fieldHours = 0;
@@ -262,6 +259,7 @@ export async function recalculateDailySummary(employeeId: string, date: string |
   let activeWorkStart: Date | undefined;
   const open = new Map<string, Date>();
   for (const event of events) {
+    if (event.eventSource === EventSource.SYSTEM) continue;
     if (inTypes.has(event.eventType) && !activeWorkStart) activeWorkStart = event.eventTime;
     if (outTypes.has(event.eventType) && activeWorkStart) {
       totalWorkedHours += hoursBetween(activeWorkStart, event.eventTime);
@@ -282,16 +280,13 @@ export async function recalculateDailySummary(employeeId: string, date: string |
     }
   }
 
-  const isMissedCheckout = Boolean(
-    systemCheckOut &&
-      (!lastRealOut || systemCheckOut.eventTime.getTime() >= lastRealOut.getTime()),
-  );
+  const isMissedCheckout = Boolean(hasOpenPunch && pastSlotEnd && !lastRealOut);
   const hasMissingOutEvent = hasOpenPunch || (isMissedCheckout && !lastRealOut);
   const isLate = Boolean(firstCheckIn && isLateCheckIn(firstCheckIn, bounds.graceEnd));
 
   const checkInEvent = realCheckIns[0] ?? events.find((e) => inTypes.has(e.eventType));
   const latestOutEvent = [...events]
-    .filter((e) => outTypes.has(e.eventType))
+    .filter((e) => outTypes.has(e.eventType) && e.eventSource !== EventSource.SYSTEM)
     .sort((a, b) => a.eventTime.getTime() - b.eventTime.getTime())
     .at(-1);
   const checkOutEvent = latestOutEvent ?? undefined;
@@ -336,8 +331,9 @@ export async function recalculateDailySummary(employeeId: string, date: string |
 
   if (events.length && (firstCheckIn || lastOut)) {
     if (isMissedCheckout && !lastRealOut) {
-      attendanceResult = attendanceResultFromHours(totalWorkedHours);
-      status = attendanceResultLabel(attendanceResult);
+      // Empty punch-out: keep pending until a real out or approved correction fills hours.
+      attendanceResult = AttendanceResult.PENDING;
+      status = "Pending attendance";
     } else if (lastOut || !hasOpenPunch) {
       attendanceResult = attendanceResultFromHours(totalWorkedHours);
       status = attendanceResultLabel(attendanceResult);
@@ -358,7 +354,7 @@ export async function recalculateDailySummary(employeeId: string, date: string |
     else attendanceResult = AttendanceResult.PENDING;
   }
 
-  const provisionalCheckOutAt = systemCheckOut?.eventTime ?? existing?.provisionalCheckOutAt ?? null;
+  const provisionalCheckOutAt = null;
   let correctionDeadlineAt = existing?.correctionDeadlineAt ?? null;
   let isLocked = existing?.isLocked ?? false;
   if (isMissedCheckout) {
@@ -368,6 +364,7 @@ export async function recalculateDailySummary(employeeId: string, date: string |
       isLocked = true;
     }
   } else if (lastRealOut) {
+    correctionDeadlineAt = null;
     isLocked = false;
   }
 

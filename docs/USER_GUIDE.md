@@ -302,9 +302,10 @@ sequenceDiagram
 
 ## Employee: Request Missed Punch Correction
 
-Punch-out is **mandatory**. If you forget to check out, submit your actual punch-out time within
-**two days** from **Missed Punch Request**. Tomorrow’s check-in and check-out are **not** blocked.
-After the two-day window, only HR can unlock and correct the day.
+Punch-out is **mandatory**. During your shift, punch-out stays **empty**. After your slot ends with
+no check-out, it shows **Punch-out required** (Missed Checkout). Submit your actual punch-out time
+within **two days** from **Missed Punch Request** so your head (or HR) can approve it. Tomorrow’s
+check-in is **not** blocked. After the two-day window, only HR can unlock and correct the day.
 
 1. Open **Missed Punch Request**.
 2. Select the date and punch time.

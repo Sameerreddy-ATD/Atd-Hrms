@@ -94,10 +94,13 @@ export function AttendanceDayEvents({
   employeeId,
   date,
   mine = false,
+  punchOutRequired = false,
 }: {
   employeeId: string;
   date: string;
   mine?: boolean;
+  /** True after the employee's slot has ended with no punch-out. */
+  punchOutRequired?: boolean;
 }) {
   const [events, setEvents] = useState<AttendanceTimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -135,12 +138,13 @@ export function AttendanceDayEvents({
     );
   }
 
-  const sessions = pairPunches(events);
+  const sessions = pairPunches(
+    events.filter((event) => (event.source ?? "").toUpperCase() !== "SYSTEM"),
+  );
 
   return (
     <div className="relative ml-1 border-l-2 border-dashed border-border pl-3 sm:ml-4 sm:pl-5">
       {sessions.map((session, index) => {
-        const systemOut = session.punchOut?.source?.toUpperCase() === "SYSTEM";
         const missingOut = Boolean(session.punchIn && !session.punchOut);
 
         return (
@@ -152,13 +156,13 @@ export function AttendanceDayEvents({
           <span className="absolute -left-3 top-7 h-px w-3 bg-border sm:-left-5 sm:w-5" />
           <span className="absolute -left-[18px] top-[23px] h-3 w-3 rounded-full border-2 border-background bg-primary sm:-left-[26px]" />
           <div className="overflow-hidden rounded-md border bg-background">
-            {(missingOut || systemOut) && (
+            {missingOut && punchOutRequired && (
               <div className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300 sm:px-4">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span>
-                  {systemOut
-                    ? "Closed by System at the time below. If this is wrong, submit a missed-punch correction within two days. Tomorrow’s attendance is not affected."
-                    : "Punch-out is mandatory. Check out when you finish work, or submit your punch-out time within two days. Tomorrow’s check-in and check-out are not affected."}
+                  Your shift has ended and punch-out is still empty. Check out now, or raise a missed
+                  punch with your actual time for your head to approve. Tomorrow’s check-in is not
+                  affected.
                 </span>
               </div>
             )}
@@ -177,14 +181,14 @@ export function AttendanceDayEvents({
                 </p>
                 <time
                   className={`mt-1 block text-sm font-semibold tabular-nums sm:text-base ${
-                    missingOut || systemOut ? "text-amber-700 dark:text-amber-400" : ""
+                    missingOut && punchOutRequired ? "text-amber-700 dark:text-amber-400" : ""
                   }`}
                 >
                   {missingOut
-                    ? "Punch-out required"
-                    : systemOut
-                      ? `${formatTime(session.punchOut)} · System`
-                      : formatTime(session.punchOut)}
+                    ? punchOutRequired
+                      ? "Punch-out required"
+                      : "—"
+                    : formatTime(session.punchOut)}
                 </time>
               </div>
             </div>

@@ -13,7 +13,7 @@ This is an **issue and completeness register**, not a claim that every row is un
 | Layer | Health | Notes |
 | ----- | ------ | ----- |
 | **Auth / sessions / RBAC core** | Strong | Login, refresh, module middleware, face gate, Dev Admin protections |
-| **Attendance + leave policy** | Strong (new) | Full/Half/Absent, Missed Checkout auto-close, Comp Off, holidays, shifts |
+| **Attendance + leave policy** | Strong (new) | Full/Half/Absent, Missed Checkout empty out, Comp Off, holidays, shifts |
 | **Face verify** | Strong (new) | Multi-angle enroll; check-in verify-only (no daily photos) |
 | **People / profile ops** | Partial | Dev Admin–only edits by design; emergency contact unused; HR manager edit UI missing |
 | **Expenses / certificates** | Mostly usable | Expense PAID path looks fixed; CEO read-only clarity still weak |
@@ -34,7 +34,7 @@ This is an **issue and completeness register**, not a claim that every row is un
 | Login / first password / restore | Yes | Yes | users | |
 | Face enroll (C/L/R) + Dev Admin approve | Yes | Yes | face_* | Photos once; verify later without store |
 | Mobile check-in (face+GPS) / check-out (GPS) | Yes | Yes | attendance_events / summaries | Offline queue on dashboard |
-| Missed checkout + next-day check-in | Yes | Yes | summaries + SYSTEM out | Auto-close prior open day |
+| Missed checkout + next-day check-in | Yes | Yes | summaries, empty punch-out | Prior open day flagged; no SYSTEM out |
 | Punch corrections + HR lock window | Yes | Yes | correction_requests | |
 | Leave apply / approve / cancel / medical 48h | Yes | Yes | leave_* | |
 | Weekly off + Comp Off on holiday Full Day | Yes | Yes | weekly_off / comp_off | |

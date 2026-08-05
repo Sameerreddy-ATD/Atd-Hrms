@@ -33,14 +33,17 @@ When a geofence match has no resolvable branch name, the UI may fall back to **B
 
 ## Missed checkout (does not block next-day attendance)
 
-1. If the employee does not check out, at **shift end + 30 minutes** the system creates a provisional
-   **SYSTEM** checkout and marks **Missed Checkout**.
-2. The employee has a **two-day** correction window to submit the real punch time.
-3. After that window, only **HR** can unlock / correct (HR lock).
-4. **Next-day check-in is never blocked** by a prior missed checkout or open prior-day punch.
-5. If the employee checks in on a new day while a prior day is still open, the system auto-closes
-   that prior day as Missed Checkout, then accepts today’s check-in.
-6. The employee may also check out a still-open prior day with real GPS; that out is stored on the
+1. Check-in and check-out are recorded only when the employee actually punches.
+2. During the shift, punch-out stays **empty**. After **slot (shift) end** with no punch-out, the
+   UI shows **Punch-out required** and the day is marked **Missed Checkout** (no automatic SYSTEM
+   checkout).
+3. The employee has a **two-day** correction window to submit a **Missed Punch** with the real
+   punch-out time; their organization head (or HR) can approve it.
+4. After that window, only **HR** can unlock / correct (HR lock).
+5. **Next-day check-in is never blocked** by a prior missed checkout or open prior-day punch.
+6. If the employee checks in on a new day while a prior day is still open, that prior day is marked
+   Missed Checkout with empty punch-out, then today’s check-in is accepted.
+7. The employee may also check out a still-open prior day with real GPS; that out is stored on the
    open attendance date.
 
 Corrections remain available from **Missed Punch Request** / **Attendance Corrections**; they are
@@ -89,7 +92,12 @@ Profile appearance uses a **light / dark** switch only (no Auto / system mode).
 
 ## What was fixed (27 Jul 2026)
 
-- **Prior open / missed checkout no longer blocks today’s check-in.** System auto-closes the prior
-  day when needed; Missed Checkout remains a flag with a two-day correction window.
+- **Prior open / missed checkout no longer blocks today’s check-in.** Prior day is marked Missed
+  Checkout with empty punch-out when needed; correction window remains two days.
 - **Face:** multi-direction enrollment photos; attendance verify without saving photos.
 - Documentation aligned to the rules above.
+
+## Punch-out empty on missed checkout (Aug 2026)
+
+- No automatic SYSTEM checkout. During the slot, punch-out is empty; after slot end it shows
+  Punch-out required until a real checkout or an approved missed punch (org head / HR).

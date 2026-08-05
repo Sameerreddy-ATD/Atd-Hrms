@@ -95,8 +95,8 @@ This package is intended for internal Anytime Diesel use. Final review changes i
 
 - Attendance results: Full Day (≥9h) / Half Day (4–&lt;9h) / Absent (&lt;4h); Late and Missed Checkout
   as flags; `{Branch} · Mobile` vs Mobile labels; shift catalog assignments.
-- Missed Checkout at shift end + 30 with two-day employee correction window then HR lock; **does not
-  block next-day check-in** (prior open day auto-closes when needed).
+- During the slot punch-out is empty; after shift end it shows Punch-out required / Missed Checkout;
+  two-day missed-punch correction (org head / HR) then HR lock; **does not block next-day check-in**.
 - Leave: Casual / Sick / Unpaid / Comp Off; medical upload 48h; Comp Off on holiday Full Day with
   approval-on-consume; company-wide holidays; Sunday weekly-off auto-confirm.
 - Face: centre/left/right registration photos once; daily check-in verifies live without storing

@@ -90,7 +90,7 @@ function DayRecordSummary({
   showEmployee: boolean;
 }) {
   const lastOut = lastOutLabel(record);
-  const lastOutAlert = lastOut.provisional || lastOut.text === "Punch-out required";
+  const lastOutAlert = lastOut.provisional || Boolean(lastOut.missing) || lastOut.text === "Punch-out required";
 
   return (
     <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-4 lg:grid-cols-6">
@@ -155,7 +155,12 @@ function EmployeeDayRecord({ record, mine }: { record: AttendanceRecord; mine: b
         <DayRecordSummary record={record} showEmployee />
       </AccordionTrigger>
       <AccordionContent className="border-t bg-muted/15 px-2.5 pb-3 pt-2.5 sm:px-3">
-        <AttendanceDayEvents employeeId={record.employeeId} date={record.date} mine={mine} />
+        <AttendanceDayEvents
+          employeeId={record.employeeId}
+          date={record.date}
+          mine={mine}
+          punchOutRequired={Boolean(record.hasMissedCheckout)}
+        />
       </AccordionContent>
     </AccordionItem>
   );
@@ -264,7 +269,12 @@ export function AttendanceDayList({
             <DayRecordSummary record={record} showEmployee={false} />
           </AccordionTrigger>
           <AccordionContent className="border-t bg-muted/15 px-2.5 pb-3 pt-2.5 sm:px-3">
-            <AttendanceDayEvents employeeId={record.employeeId} date={record.date} mine={mine} />
+            <AttendanceDayEvents
+          employeeId={record.employeeId}
+          date={record.date}
+          mine={mine}
+          punchOutRequired={Boolean(record.hasMissedCheckout)}
+        />
           </AccordionContent>
         </AccordionItem>
       ))}

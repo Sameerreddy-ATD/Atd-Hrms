@@ -209,12 +209,12 @@ Required behavior:
 ## Attendance results
 
 - Primary day results are **Full Day** (≥9h), **Half Day** (4–&lt;9h), and **Absent** (&lt;4h).
-- **Late** and **Missed Checkout** are flags, not primary results. Missed checkout uses a system
-  provisional checkout at shift end + 30 minutes; employees have a two-day correction window, then
-  HR lock.
+- **Late** and **Missed Checkout** are flags, not primary results. During the slot punch-out is
+  empty; after shift end with no punch-out the day shows **Punch-out required** / Missed Checkout.
+  Employees submit a missed punch for org-head / HR approval within two days, then HR lock.
 - **Missed Checkout never blocks the next day’s check-in.** If a prior day is still open when the
-  employee checks in again, the system auto-closes that prior day as Missed Checkout and accepts
-  today’s punch. Corrections remain optional within the two-day window.
+  employee checks in again, that prior day is marked Missed Checkout (empty punch-out) and today’s
+  punch is accepted. Corrections remain optional within the two-day window.
 - Mobile location sources are labeled **`{Branch name} · Mobile`** (inside branch radius) or
   **Mobile** (outside). Biometric punches use **`{Branch name} · Biometric`**.
 - Employees must have an assigned shift for the attendance date (catalog assignment; profile times

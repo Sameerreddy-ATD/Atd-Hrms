@@ -181,21 +181,22 @@ export function attendanceStatusWithFlags(row: {
 }) {
   const flags: string[] = [];
   if (row.isLate) flags.push("Late");
-  if (row.hasMissedCheckout || row.hasMissingOutEvent) flags.push("Missed Checkout");
+  // Only after slot end (hasMissedCheckout). Open mid-shift is not Missed Checkout yet.
+  if (row.hasMissedCheckout) flags.push("Missed Checkout");
   return flags.length ? `${row.status} · ${flags.join(" · ")}` : row.status;
 }
 
-/** True when the day was auto-closed by a provisional System out (still needs employee confirmation). */
-export function hasProvisionalSystemOut(row: Pick<
+/** Legacy helper — provisional System outs are no longer written; punch-out stays empty. */
+export function hasProvisionalSystemOut(_row: Pick<
   AttendanceRecord,
   "hasMissedCheckout" | "hasMissingOutEvent" | "punchOut" | "provisionalCheckOutAt" | "checkOutSource"
 >) {
-  if (!(row.hasMissedCheckout || row.hasMissingOutEvent)) return false;
-  if (row.punchOut || row.provisionalCheckOutAt) return true;
-  return (row.checkOutSource ?? "").toUpperCase() === "SYSTEM";
+  return false;
 }
 
-/** Last-out cell for day lists — keep provisional System times visible. */
+/**
+ * Last-out cell: empty during the slot; "Punch-out required" after slot end (Missed Checkout).
+ */
 export function lastOutLabel(row: Pick<
   AttendanceRecord,
   | "punchOut"
@@ -206,19 +207,14 @@ export function lastOutLabel(row: Pick<
   | "date"
   | "latestOpenPunchAt"
 >) {
-  if (hasProvisionalSystemOut(row) && row.punchOut) {
-    return { text: `${row.punchOut} · System`, provisional: true as const };
+  if (row.punchOut) {
+    return { text: row.punchOut, provisional: false as const, missing: false as const };
   }
-  if (hasProvisionalSystemOut(row) && row.provisionalCheckOutAt) {
-    const time = new Date(row.provisionalCheckOutAt).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "Asia/Kolkata",
-    });
-    return { text: `${time} · System`, provisional: true as const };
+  if (row.hasMissedCheckout) {
+    return { text: "Punch-out required", provisional: false as const, missing: true as const };
   }
-  if (row.hasMissingOutEvent || row.hasMissedCheckout) {
-    return { text: "Punch-out required", provisional: false as const };
+  if (row.hasMissingOutEvent) {
+    return { text: "—", provisional: false as const, missing: false as const };
   }
-  return { text: row.punchOut ?? "-", provisional: false as const };
+  return { text: "-", provisional: false as const, missing: false as const };
 }

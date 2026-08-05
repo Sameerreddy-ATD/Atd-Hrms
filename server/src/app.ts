@@ -32,9 +32,11 @@ import {
   activeEmployeeIdsExcludingDeveloperAdmin,
   cancelApprovedLeaveForDay,
   cancelLeaveDates,
+  clampAttendanceRangeToToday,
   eachDateInRange,
   ensureDailySummariesForRange,
   findApprovedLeaveForDay,
+  istMonthRangeThroughToday,
   recalculateLeaveDateRange,
   startOfDayUtc,
   todayIstDate,
@@ -293,8 +295,9 @@ export function createApp() {
   }
 
   function attendanceWhereFromQuery(req: express.Request): Prisma.AttendanceDailySummaryWhereInput {
-    const from = dateFromQuery(req.query.from ?? req.query.dateFrom);
-    const to = dateFromQuery(req.query.to ?? req.query.dateTo);
+    const rawFrom = dateFromQuery(req.query.from ?? req.query.dateFrom);
+    const rawTo = dateFromQuery(req.query.to ?? req.query.dateTo);
+    const { from, to } = clampAttendanceRangeToToday({ from: rawFrom, to: rawTo });
     const employeeId = typeof req.query.employeeId === "string" ? req.query.employeeId : undefined;
     const branchId = typeof req.query.branchId === "string" ? req.query.branchId : undefined;
     const departmentId =
@@ -3610,7 +3613,10 @@ export function createApp() {
       const firstInEvent = summaryEvents.find((event) => inEventTypes.has(event.eventType));
       const lastOutEvent = [...summaryEvents]
         .reverse()
-        .find((event) => outEventTypes.has(event.eventType));
+        .find(
+          (event) =>
+            outEventTypes.has(event.eventType) && event.eventSource !== EventSource.SYSTEM,
+        );
 
       const sourceLabel = (event: (typeof summaryEvents)[number] | undefined) => {
         if (!event) return undefined;
@@ -3695,12 +3701,17 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       if (!req.user!.employeeId) throw new HttpError(404, "No employee profile");
       await settleExpiredOpenPunches(req.user!.employeeId);
-      const from = dateFromQuery(req.query.from);
-      const to = dateFromQuery(req.query.to);
+      const rawFrom = dateFromQuery(req.query.from);
+      const rawTo = dateFromQuery(req.query.to);
+      const defaults = istMonthRangeThroughToday();
+      const { from, to } = clampAttendanceRangeToToday({
+        from: rawFrom ?? defaults.from,
+        to: rawTo ?? defaults.to,
+      });
       const rows = await prisma.attendanceDailySummary.findMany({
         where: {
           employeeId: req.user!.employeeId,
-          ...(from || to ? { date: { gte: from, lte: to } } : {}),
+          date: { gte: from, lte: to },
         },
         include: { employee: true },
         orderBy: { date: "desc" },
@@ -3770,8 +3781,10 @@ export function createApp() {
 
       const employeeId =
         typeof req.query.employeeId === "string" ? req.query.employeeId : undefined;
-      const from = dateFromQuery(req.query.from ?? req.query.dateFrom);
-      const to = dateFromQuery(req.query.to ?? req.query.dateTo);
+      const { from, to } = clampAttendanceRangeToToday({
+        from: dateFromQuery(req.query.from ?? req.query.dateFrom),
+        to: dateFromQuery(req.query.to ?? req.query.dateTo),
+      });
       if (employeeId && from && to) {
         await ensureDailySummariesForRange(employeeId, from, to, recalculateDailySummary);
       }
