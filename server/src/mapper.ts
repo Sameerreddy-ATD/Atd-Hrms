@@ -12,6 +12,11 @@ import type {
 } from "@prisma/client";
 import { roleToUi } from "./rbac.js";
 import { decryptEmployeeField } from "./employeePrivateData.js";
+import {
+  branchMobileSourceLabel,
+  formatLocationPlaceName,
+  locationSourceLabel,
+} from "./attendancePolicy.js";
 
 /** Account activation lifecycle shown in User Logins / Employees. */
 export type LoginLifecycle = "CREATED" | "PASSWORD_CHANGE" | "ACTIVE" | "INACTIVE" | "LOCKED" | "SUSPENDED";
@@ -336,6 +341,7 @@ export function branchDto(branch: Branch) {
     latitude: branch.latitude == null ? undefined : Number(branch.latitude),
     longitude: branch.longitude == null ? undefined : Number(branch.longitude),
     attendanceRadiusMeters: branch.attendanceRadiusMeters,
+    isHub: Boolean(branch.isHub),
   };
 }
 
@@ -394,12 +400,13 @@ function movementPlaceLabel(
   eventType: string,
   eventSource: string,
   branchName?: string | null,
+  isHub?: boolean | null,
 ): string {
   if (eventSource === "THUMB_SCANNER") {
-    return branchName ? `${branchName} · Biometric` : "Thumb Scanner";
+    return locationSourceLabel("THUMB_SCANNER", branchName, isHub);
   }
   if (eventSource === "MOBILE_GPS" && branchName) {
-    return `${branchName} · Mobile`;
+    return branchMobileSourceLabel(branchName, isHub);
   }
   if (eventSource === "MOBILE_GPS") {
     return "Mobile";
@@ -407,7 +414,7 @@ function movementPlaceLabel(
 
   const upper = eventType.toUpperCase();
   if (upper === "OFFICE_IN" || upper === "OFFICE_OUT" || upper.includes("BRANCH")) {
-    return branchName ? `${branchName} · Mobile` : "Branch-Mobile";
+    return branchMobileSourceLabel(branchName, isHub);
   }
   if (upper.includes("CLIENT") || upper.includes("FIELD") || upper.includes("BREAK")) {
     return "Mobile";
@@ -418,37 +425,46 @@ function movementPlaceLabel(
 
 function movementLabel(event: AttendanceEvent & { branch?: Branch | null }) {
   const branchName = event.branch?.branchName;
-  const source = movementPlaceLabel(event.eventType, event.eventSource, branchName);
+  const isHub = event.branch?.isHub;
+  const source = movementPlaceLabel(event.eventType, event.eventSource, branchName, isHub);
   const direction = movementDirectionLabel(event.eventType);
   return direction ? `${direction} · ${source}` : source;
 }
 
+export type BranchLabelMeta = { name: string; isHub: boolean };
+
 export function attendanceRecordDto(
   summary: AttendanceDailySummary & { employee: Employee; primaryBranch?: Branch | null },
-  options?: { branchNameById?: Record<string, string> },
+  options?: {
+    branchNameById?: Record<string, string>;
+    branchMetaById?: Record<string, BranchLabelMeta>;
+  },
 ) {
   const branchId =
     summary.matchedBranchId ?? summary.primaryAttendedBranchId ?? summary.homeBranchId ?? undefined;
+  const matchedMeta =
+    (summary.primaryBranch
+      ? {
+          name: summary.primaryBranch.branchName,
+          isHub: Boolean(summary.primaryBranch.isHub),
+        }
+      : undefined) ?? (branchId ? options?.branchMetaById?.[branchId] : undefined);
   const matchedBranchName =
+    matchedMeta?.name ??
     summary.primaryBranch?.branchName ??
     (branchId ? options?.branchNameById?.[branchId] : undefined);
+  const matchedIsHub = matchedMeta?.isHub ?? Boolean(summary.primaryBranch?.isHub);
   const sourceLabel =
     summary.attendanceSourceSummary === "BRANCH_MOBILE" || summary.checkInSource === "BRANCH_MOBILE"
-      ? matchedBranchName
-        ? `${matchedBranchName} · Mobile`
-        : "Branch-Mobile"
+      ? branchMobileSourceLabel(matchedBranchName, matchedIsHub)
       : summary.attendanceSourceSummary === "MOBILE" || summary.checkInSource === "MOBILE"
         ? "Mobile"
         : summary.attendanceSourceSummary === "THUMB_SCANNER" ||
             summary.checkInSource === "THUMB_SCANNER"
-          ? matchedBranchName
-            ? `${matchedBranchName} · Biometric`
-            : "Thumb Scanner"
+          ? locationSourceLabel("THUMB_SCANNER", matchedBranchName, matchedIsHub)
           : summary.attendanceSourceSummary === "MOBILE_GPS"
             ? summary.matchedBranchId || summary.primaryAttendedBranchId
-              ? matchedBranchName
-                ? `${matchedBranchName} · Mobile`
-                : "Branch-Mobile"
+              ? branchMobileSourceLabel(matchedBranchName, matchedIsHub)
               : "Mobile"
             : "System";
 
@@ -513,7 +529,10 @@ export function eventDto(
     time: event.eventTime.toISOString(),
     source: event.eventSource,
     type: event.eventType,
-    branchName: event.branch?.branchName,
+    branchName: event.branch
+      ? formatLocationPlaceName(event.branch.branchName, event.branch.isHub) || event.branch.branchName
+      : undefined,
+    isHub: event.branch ? Boolean(event.branch.isHub) : undefined,
     deviceName: event.device?.deviceName,
     latitude: event.latitude ? Number(event.latitude) : undefined,
     longitude: event.longitude ? Number(event.longitude) : undefined,

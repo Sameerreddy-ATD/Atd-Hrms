@@ -1,4 +1,4 @@
-export const BIRTHDAY_LOOKAHEAD_DAYS = 60;
+export const BIRTHDAY_LOOKAHEAD_DAYS = 90;
 
 export function upcomingBirthdays<T extends { daysUntil: number }>(items: T[]): T[] {
   return items.filter((item) => item.daysUntil >= 0 && item.daysUntil <= BIRTHDAY_LOOKAHEAD_DAYS);

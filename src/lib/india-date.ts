@@ -86,6 +86,62 @@ export function formatDisplayDateTime(value?: string | Date | null): string {
   return `${datePart}, ${timePart}`;
 }
 
+/**
+ * Editable-input form of a YYYY-MM-DD key: DD/MM/YYYY, or "" when unset.
+ * Unlike `formatDisplayDate` this never renders a "-" placeholder.
+ */
+export function toDateInputText(value?: string | null): string {
+  if (!value) return "";
+  const dayKey = value.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) return "";
+  const [year, month, day] = dayKey.split("-");
+  return `${day}/${month}/${year}`;
+}
+
+/** Progressively insert slashes while digits are typed: "05082026" -> "05/08/2026". */
+export function maskDateInputText(input: string): string {
+  const digits = input.replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+/** Parse typed DD/MM/YYYY into a YYYY-MM-DD key. Returns null when incomplete or not a real date. */
+export function parseDateInputText(input: string): string | null {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(input.trim());
+  if (!match) return null;
+  const [, day, month, year] = match;
+  const dayNum = Number(day);
+  const monthNum = Number(month);
+  const yearNum = Number(year);
+  if (yearNum < 1900 || yearNum > 2999) return null;
+  // Rejects rollovers such as 31/02 that Date would silently shift into March.
+  const probe = new Date(Date.UTC(yearNum, monthNum - 1, dayNum));
+  if (
+    probe.getUTCFullYear() !== yearNum ||
+    probe.getUTCMonth() !== monthNum - 1 ||
+    probe.getUTCDate() !== dayNum
+  ) {
+    return null;
+  }
+  return `${year}-${month}-${day}`;
+}
+
+/** YYYY-MM-DD -> Date in the local calendar (no timezone shift for day-only values). */
+export function dateKeyToLocalDate(value?: string | null): Date | undefined {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec((value ?? "").slice(0, 10));
+  if (!match) return undefined;
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+}
+
+/** Local calendar Date -> YYYY-MM-DD, without the UTC shift `toISOString` would apply. */
+export function localDateToDateKey(date: Date): string {
+  const year = String(date.getFullYear()).padStart(4, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 /** Inclusive range label: DD/MM/YYYY to DD/MM/YYYY */
 export function formatDisplayDateRange(
   from?: string | Date | null,

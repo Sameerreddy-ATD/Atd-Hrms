@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DateField } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -733,22 +734,18 @@ function AssetsPage() {
                 assetForm.costFrequency === "ONE_TIME" ? "Purchase date" : "Subscription start date"
               }
             >
-              <Input
-                type="date"
+              <DateField
                 value={assetForm.purchaseDate}
-                onChange={(event) =>
-                  setAssetForm({ ...assetForm, purchaseDate: event.target.value })
-                }
+                onChange={(next) => setAssetForm({ ...assetForm, purchaseDate: next })}
+                aria-label="Purchase date"
               />
             </FormField>
             {assetForm.costFrequency !== "ONE_TIME" && (
               <FormField label="Next renewal date">
-                <Input
-                  type="date"
+                <DateField
                   value={assetForm.renewalDate}
-                  onChange={(event) =>
-                    setAssetForm({ ...assetForm, renewalDate: event.target.value })
-                  }
+                  onChange={(next) => setAssetForm({ ...assetForm, renewalDate: next })}
+                  aria-label="Next renewal date"
                 />
               </FormField>
             )}

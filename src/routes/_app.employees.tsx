@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
 import { TableToolbar } from "@/components/common/TableToolbar";
 import { Badge } from "@/components/ui/badge";
+import { DateField } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,7 +28,7 @@ import { COMPANY_LABELS, ROLE_LABELS } from "@/types/domain";
 import { branchesApi, employeesApi, shiftsApi } from "@/services/api";
 import { Search, Pencil, UserCog } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { formatDisplayDate } from "@/lib/india-date";
+import { formatDisplayDate, indiaDateKey } from "@/lib/india-date";
 import {
   Dialog,
   DialogContent,
@@ -596,10 +597,11 @@ function EmployeesPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Date of Birth</Label>
-                  <Input
-                    type="date"
+                  <DateField
                     value={editForm.dateOfBirth}
-                    onChange={(e) => setEditForm((c) => ({ ...c, dateOfBirth: e.target.value }))}
+                    max={indiaDateKey()}
+                    onChange={(next) => setEditForm((c) => ({ ...c, dateOfBirth: next }))}
+                    aria-label="Date of Birth"
                   />
                 </div>
                 <div className="space-y-1.5">

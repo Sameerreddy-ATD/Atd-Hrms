@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { TableToolbar } from "@/components/common/TableToolbar";
 import { Button } from "@/components/ui/button";
+import { DateField } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -403,23 +404,20 @@ function AttendanceCorrectionsPage() {
 
         <TabsContent value="alerts" className="mt-4">
           <TableToolbar>
-            <Input
-              type="date"
+            <DateField
               value={from}
               max={to || undefined}
-              onChange={(e) => {
-                const nextFrom = e.target.value;
+              onChange={(nextFrom) => {
                 setFrom(nextFrom);
                 if (to && nextFrom && to < nextFrom) setTo(nextFrom);
               }}
               className="sm:w-auto"
               aria-label="From date"
             />
-            <Input
-              type="date"
+            <DateField
               value={to}
               min={from || undefined}
-              onChange={(e) => setTo(e.target.value)}
+              onChange={setTo}
               className="sm:w-auto"
               aria-label="To date"
             />

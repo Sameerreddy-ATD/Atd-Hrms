@@ -28,7 +28,7 @@ import {
 import { ROLE_LABELS, type Branch, type Department, type User } from "@/types/domain";
 import { branchesApi, usersApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
-import { formatDisplayDate, formatDisplayDateTime } from "@/lib/india-date";
+import { formatDisplayDate, formatDisplayDateTime, indiaDateKeyShift } from "@/lib/india-date";
 import { Plus, Trash2, Key, Loader2 } from "lucide-react";
 import {
   Dialog,
@@ -39,6 +39,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { DateField } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/common/PasswordInput";
 import { PasswordMatchHint } from "@/components/common/PasswordMatchHint";
@@ -463,22 +464,20 @@ function UsersPage() {
               <div className="grid gap-3 pt-3 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="suspension-start">Suspension starts</Label>
-                  <Input
+                  <DateField
                     id="suspension-start"
-                    type="date"
-                    min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                    min={indiaDateKeyShift(1)}
                     value={suspensionStartsAt}
-                    onChange={(event) => setSuspensionStartsAt(event.target.value)}
+                    onChange={setSuspensionStartsAt}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="suspension-end">Suspended through</Label>
-                  <Input
+                  <DateField
                     id="suspension-end"
-                    type="date"
                     min={suspensionStartsAt}
                     value={suspendedUntil}
-                    onChange={(event) => setSuspendedUntil(event.target.value)}
+                    onChange={setSuspendedUntil}
                   />
                 </div>
               </div>

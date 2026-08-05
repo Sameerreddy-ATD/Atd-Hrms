@@ -208,6 +208,7 @@ export const branchSchema = z.object({
   latitude: z.coerce.number().min(-90).max(90).nullable().optional(),
   longitude: z.coerce.number().min(-180).max(180).nullable().optional(),
   attendanceRadiusMeters: z.coerce.number().int().min(25).max(5000).optional(),
+  isHub: z.boolean().optional(),
 });
 
 export const branchUpdateSchema = branchSchema.partial();

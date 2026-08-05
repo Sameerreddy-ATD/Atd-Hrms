@@ -5,6 +5,7 @@ import { LoadingState } from "@/components/common/LoadingState";
 import { AttendanceDayList } from "@/components/attendance/AttendanceDayList";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DateField } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -162,7 +163,11 @@ function DayLogsPage() {
     }
   }
 
-  const branchName = (id?: string) => branches.find((branch) => branch.id === id)?.name ?? "-";
+  const branchName = (id?: string) => {
+    const branch = branches.find((row) => row.id === id);
+    if (!branch) return "-";
+    return branch.isHub ? `${branch.name} - Hub` : branch.name;
+  };
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -221,24 +226,22 @@ function DayLogsPage() {
             <div className="grid grid-cols-2 gap-2.5 sm:contents">
               <div className="min-w-0 space-y-1">
                 <Label className="text-xs sm:text-sm">From</Label>
-                <Input
-                  type="date"
-                  className="px-2.5"
+                <DateField
                   value={from}
                   min={indiaMonthRange(month).from}
                   max={to || indiaMonthRange(month).to}
-                  onChange={(event) => changeFrom(event.target.value)}
+                  onChange={changeFrom}
+                  aria-label="From date"
                 />
               </div>
               <div className="min-w-0 space-y-1">
                 <Label className="text-xs sm:text-sm">To</Label>
-                <Input
-                  type="date"
-                  className="px-2.5"
+                <DateField
                   value={to}
                   min={from || indiaMonthRange(month).from}
                   max={indiaMonthRange(month).to}
-                  onChange={(event) => changeTo(event.target.value)}
+                  onChange={changeTo}
+                  aria-label="To date"
                 />
               </div>
             </div>

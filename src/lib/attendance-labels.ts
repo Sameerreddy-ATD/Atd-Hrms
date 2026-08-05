@@ -24,18 +24,34 @@ export const MISSED_PUNCH_TYPE_OPTIONS = [
   "FIELD_CHECK_OUT",
 ] as const;
 
-/** Geofenced mobile punch — show the branch name, not a bare "Branch-Mobile". */
-export function branchMobileSourceLabel(branchName?: string | null) {
-  const name = branchName?.trim();
-  return name ? `${name} · Mobile` : "Branch-Mobile";
+/** Place name — hubs already include " - Hub" when passed via API event.branchName. */
+export function formatLocationPlaceName(branchName?: string | null, isHub?: boolean | null) {
+  const name = branchName?.trim() ?? "";
+  if (!name) return "";
+  if (name.endsWith(" - Hub")) return name;
+  return isHub ? `${name} - Hub` : name;
 }
 
-function movementPlaceLabel(eventType?: string, eventSource?: string, branchName?: string): string {
+/** Geofenced mobile punch — show the place name, not a bare "Branch-Mobile". */
+export function branchMobileSourceLabel(branchName?: string | null, isHub?: boolean | null) {
+  const place = formatLocationPlaceName(branchName, isHub);
+  if (!place) return "Branch-Mobile";
+  if (isHub || place.endsWith(" - Hub")) return place;
+  return `${place} · Mobile`;
+}
+
+function movementPlaceLabel(
+  eventType?: string,
+  eventSource?: string,
+  branchName?: string,
+  isHub?: boolean | null,
+): string {
   if (eventSource === "THUMB_SCANNER") {
-    return branchName ? `${branchName} · Biometric` : "Thumb Scanner";
+    const place = formatLocationPlaceName(branchName, isHub);
+    return place ? `${place} · Biometric` : "Thumb Scanner";
   }
   if (eventSource === "MOBILE_GPS" && branchName) {
-    return branchMobileSourceLabel(branchName);
+    return branchMobileSourceLabel(branchName, isHub);
   }
   if (eventSource === "MOBILE_GPS") {
     return "Mobile";
@@ -44,25 +60,36 @@ function movementPlaceLabel(eventType?: string, eventSource?: string, branchName
 
   const meta = PUNCH_TYPE_META[eventType?.toUpperCase() ?? ""];
   if (meta?.place === "Branch") {
-    return branchMobileSourceLabel(branchName);
+    return branchMobileSourceLabel(branchName, isHub);
   }
   return "Mobile";
 }
 
-export function punchTypeLabel(eventType?: string, eventSource?: string, branchName?: string) {
+export function punchTypeLabel(
+  eventType?: string,
+  eventSource?: string,
+  branchName?: string,
+  isHub?: boolean | null,
+) {
   const meta = PUNCH_TYPE_META[eventType?.toUpperCase() ?? ""];
   if (!meta) return eventType?.replaceAll("_", " ") ?? "Attendance event";
 
   const direction = meta.direction;
-  let source = movementPlaceLabel(eventType, eventSource, branchName);
+  let source = movementPlaceLabel(eventType, eventSource, branchName, isHub);
   if (!eventSource && meta.defaultSource === "biometric") {
-    source = branchName ? `${branchName} · Biometric` : "Thumb Scanner";
+    const place = formatLocationPlaceName(branchName, isHub);
+    source = place ? `${place} · Biometric` : "Thumb Scanner";
   }
   return `${direction} · ${source}`;
 }
 
-export function branchNameFromMap(branches: Array<{ id: string; name: string }>, id?: string) {
-  return branches.find((branch) => branch.id === id)?.name;
+export function branchNameFromMap(
+  branches: Array<{ id: string; name: string; isHub?: boolean | null }>,
+  id?: string,
+) {
+  const branch = branches.find((row) => row.id === id);
+  if (!branch) return undefined;
+  return formatLocationPlaceName(branch.name, branch.isHub);
 }
 
 export function movementDirectionLabel(type?: string) {
@@ -73,7 +100,7 @@ export function movementDirectionLabel(type?: string) {
 }
 
 export function movementSourceLabel(row: AttendanceTimelineEvent) {
-  return movementPlaceLabel(row.type, row.source, row.branchName);
+  return movementPlaceLabel(row.type, row.source, row.branchName, row.isHub);
 }
 
 export function movementEventLabel(row: AttendanceTimelineEvent) {
@@ -89,10 +116,11 @@ export function movementStatusLabel(row: AttendanceTimelineEvent) {
 export function captureSourceLabel(row: AttendanceTimelineEvent) {
   const source = row.source?.toUpperCase() ?? "";
   if (source === "THUMB_SCANNER") {
-    return row.branchName ? `${row.branchName} · Biometric` : "Thumb Scanner";
+    const place = formatLocationPlaceName(row.branchName, row.isHub);
+    return place ? `${place} · Biometric` : "Thumb Scanner";
   }
   if (source === "MOBILE_GPS") {
-    return row.branchName ? branchMobileSourceLabel(row.branchName) : "Mobile";
+    return row.branchName ? branchMobileSourceLabel(row.branchName, row.isHub) : "Mobile";
   }
   if (source === "SYSTEM") return "System";
   return row.source || "-";
@@ -103,6 +131,7 @@ function alreadyResolvedSourceLabel(source?: string | null) {
   return (
     source.includes(" · Mobile") ||
     source.includes(" · Biometric") ||
+    source.endsWith(" - Hub") ||
     source.startsWith("Branch-Mobile · ") ||
     source === "Mobile" ||
     source === "Thumb Scanner" ||
@@ -113,24 +142,25 @@ function alreadyResolvedSourceLabel(source?: string | null) {
 
 export function attendanceSourceLabel(
   row: AttendanceRecord,
-  branches: Array<{ id: string; name: string }>,
+  branches: Array<{ id: string; name: string; isHub?: boolean | null }>,
 ) {
-  const branch = branchNameFromMap(branches, row.actualBranchId);
+  const branch = branches.find((b) => b.id === row.actualBranchId);
+  const place = branchNameFromMap(branches, row.actualBranchId);
   if (alreadyResolvedSourceLabel(row.source) && row.source !== "Branch-Mobile") {
     return row.source;
   }
   if (row.source === "Branch-Mobile" || row.checkInSource === "BRANCH_MOBILE") {
-    return branchMobileSourceLabel(branch);
+    return branchMobileSourceLabel(branch?.name ?? place, branch?.isHub);
   }
   if (row.source === "Mobile" || row.source === "Thumb Scanner" || row.source === "System") {
     return row.source === "Thumb Scanner"
-      ? branch
-        ? `${branch} · Biometric`
+      ? place
+        ? `${place} · Biometric`
         : "Thumb Scanner"
       : row.source;
   }
   if (row.source === "Mobile GPS" && row.actualBranchId) {
-    return branchMobileSourceLabel(branch);
+    return branchMobileSourceLabel(branch?.name ?? place, branch?.isHub);
   }
   if (row.source === "Mobile GPS") return "Mobile";
   return row.source;
@@ -139,14 +169,15 @@ export function attendanceSourceLabel(
 export function punchSourceLabel(
   source: AttendanceRecord["punchInSource"] | AttendanceRecord["punchOutSource"],
   branchId: string | undefined,
-  branches: Array<{ id: string; name: string }>,
+  branches: Array<{ id: string; name: string; isHub?: boolean | null }>,
 ) {
   if (alreadyResolvedSourceLabel(source) && source !== "Branch-Mobile") {
     return source ?? "-";
   }
-  const branch = branchNameFromMap(branches, branchId);
+  const branch = branches.find((b) => b.id === branchId);
+  const place = branchNameFromMap(branches, branchId);
   if (source === "Thumb Scanner" || source === "THUMB_SCANNER") {
-    return branch ? `${branch} · Biometric` : "Thumb Scanner";
+    return place ? `${place} · Biometric` : "Thumb Scanner";
   }
   if (
     source === "Mobile GPS" ||
@@ -154,7 +185,7 @@ export function punchSourceLabel(
     source === "Branch-Mobile" ||
     source === "MOBILE_GPS"
   ) {
-    return branch ? branchMobileSourceLabel(branch) : "Mobile";
+    return place ? branchMobileSourceLabel(branch?.name ?? place, branch?.isHub) : "Mobile";
   }
   if (source === "MOBILE" || source === "Mobile") return "Mobile";
   return source ?? "-";
@@ -169,7 +200,8 @@ export function isMobileAttendanceSource(source?: string | null) {
     source === "BRANCH_MOBILE" ||
     source === "MOBILE_GPS" ||
     source.startsWith("Branch-Mobile") ||
-    source.includes(" · Mobile")
+    source.includes(" · Mobile") ||
+    source.endsWith(" - Hub")
   );
 }
 

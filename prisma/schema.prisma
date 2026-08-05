@@ -486,6 +486,7 @@ model Branch {
   latitude               Decimal?                 @db.Decimal(10, 7)
   longitude              Decimal?                 @db.Decimal(10, 7)
   attendanceRadiusMeters Int                      @default(250) @map("attendance_radius_meters")
+  isHub                  Boolean                  @default(false) @map("is_hub")
   createdAt              DateTime                 @default(now()) @map("created_at")
   updatedAt              DateTime                 @updatedAt @map("updated_at")
   devices                BiometricDevice[]

@@ -17,6 +17,7 @@ import {
   type SystemHealth,
 } from "@/services/api";
 import { Button } from "@/components/ui/button";
+import { DateField } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -490,12 +491,11 @@ function SettingsPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="integration-expiry">Expiry date (optional)</Label>
-                <Input
+                <DateField
                   id="integration-expiry"
-                  type="date"
                   min={indiaDateKeyShift(1)}
                   value={integrationExpiry}
-                  onChange={(event) => setIntegrationExpiry(event.target.value)}
+                  onChange={setIntegrationExpiry}
                 />
               </div>
               <Button

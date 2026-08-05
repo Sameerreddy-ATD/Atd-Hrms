@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DateField } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -229,21 +230,19 @@ export function TaskFormDialog({
             </div>
             <div className="space-y-2">
               <Label htmlFor="new-task-start">Start date</Label>
-              <Input
+              <DateField
                 id="new-task-start"
-                type="date"
                 value={form.startDate}
-                onChange={(event) => setForm({ ...form, startDate: event.target.value })}
+                onChange={(next) => setForm({ ...form, startDate: next })}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="new-task-due">Due date</Label>
-              <Input
+              <DateField
                 id="new-task-due"
-                type="date"
                 min={form.startDate || undefined}
                 value={form.dueDate}
-                onChange={(event) => setForm({ ...form, dueDate: event.target.value })}
+                onChange={(next) => setForm({ ...form, dueDate: next })}
               />
             </div>
           </div>

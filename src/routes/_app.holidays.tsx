@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { DateField } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -246,10 +247,10 @@ function HolidaysPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Date</Label>
-              <Input
-                type="date"
+              <DateField
                 value={form.date}
-                onChange={(e) => setForm((current) => ({ ...current, date: e.target.value }))}
+                onChange={(next) => setForm((current) => ({ ...current, date: next }))}
+                aria-label="Holiday date"
               />
             </div>
             <div className="space-y-1.5">

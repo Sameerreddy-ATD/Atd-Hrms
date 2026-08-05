@@ -25,8 +25,9 @@ describe("futureBirthdays", () => {
       { daysUntil: 12 },
       { daysUntil: 0 },
       { daysUntil: 3 },
-      { daysUntil: 61 },
+      { daysUntil: 90 },
+      { daysUntil: 91 },
     ]);
-    expect(sorted.map((item) => item.daysUntil)).toEqual([3, 12]);
+    expect(sorted.map((item) => item.daysUntil)).toEqual([3, 12, 90]);
   });
 });

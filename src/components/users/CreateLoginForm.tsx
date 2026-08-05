@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PasswordInput } from "@/components/common/PasswordInput";
 import { Button } from "@/components/ui/button";
+import { DateField } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -12,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
+import { indiaDateKey } from "@/lib/india-date";
 import {
   COMPANY_LABELS,
   PARENT_COMPANY_NAME,
@@ -583,21 +585,18 @@ export function CreateLoginForm({
             </div>
 
             <div className="space-y-1.5">
-              <Label>Date of Birth</Label>
-              <Input
-                type="date"
+              <Label htmlFor="create-login-dob">Date of Birth</Label>
+              <DateField
+                id="create-login-dob"
                 value={dateOfBirth}
-                onChange={(e) => setDateOfBirth(e.target.value)}
+                onChange={setDateOfBirth}
+                max={indiaDateKey()}
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label>Joining date</Label>
-              <Input
-                type="date"
-                value={joiningDate}
-                onChange={(e) => setJoiningDate(e.target.value)}
-              />
+              <Label htmlFor="create-login-joining">Joining date</Label>
+              <DateField id="create-login-joining" value={joiningDate} onChange={setJoiningDate} />
             </div>
 
             <div className="space-y-1.5">

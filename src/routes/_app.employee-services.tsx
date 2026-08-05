@@ -25,6 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DateField } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -43,7 +44,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
-import { formatDisplayDate } from "@/lib/india-date";
+import { formatDisplayDate, indiaDateKey } from "@/lib/india-date";
 import type { CertificateRequest, ExpenseClaim, User } from "@/types/domain";
 import { employeeServicesApi, employeesApi } from "@/services/api";
 
@@ -498,12 +499,12 @@ function EmployeeServicesPage() {
                 />
               </Field>
               <Field label="Expense date">
-                <Input
-                  type="date"
-                  max={new Date().toISOString().slice(0, 10)}
+                <DateField
+                  max={indiaDateKey()}
                   value={expenseForm.expenseDate}
-                  onChange={(e) => setExpenseForm((v) => ({ ...v, expenseDate: e.target.value }))}
+                  onChange={(next) => setExpenseForm((v) => ({ ...v, expenseDate: next }))}
                   required
+                  aria-label="Expense date"
                 />
               </Field>
               <div className="sm:col-span-2">
@@ -668,13 +669,11 @@ function EmployeeServicesPage() {
                 </Select>
               </Field>
               <Field label="Required by (optional)">
-                <Input
-                  type="date"
-                  min={new Date().toISOString().slice(0, 10)}
+                <DateField
+                  min={indiaDateKey()}
                   value={certificateForm.requiredBy}
-                  onChange={(e) =>
-                    setCertificateForm((v) => ({ ...v, requiredBy: e.target.value }))
-                  }
+                  onChange={(next) => setCertificateForm((v) => ({ ...v, requiredBy: next }))}
+                  aria-label="Required by"
                 />
               </Field>
               <div className="sm:col-span-2">

@@ -6,6 +6,7 @@ import { InfoButton } from "@/components/common/InfoButton";
 import { Card, CardContent } from "@/components/ui/card";
 import { LoadingState } from "@/components/common/LoadingState";
 import { Button } from "@/components/ui/button";
+import { DateField } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -316,14 +317,12 @@ function ApplyLeavePage() {
                   )}
                   <div className="space-y-1.5">
                     <Label htmlFor="from">From</Label>
-                    <Input
+                    <DateField
                       id="from"
-                      type="date"
                       value={from}
                       min={todayString}
                       max={to || undefined}
-                      onChange={(e) => {
-                        const nextFrom = e.target.value;
+                      onChange={(nextFrom) => {
                         setFrom(nextFrom);
                         if (isCompOff) setTo(nextFrom);
                         else if (to && nextFrom && to < nextFrom) setTo(nextFrom);
@@ -333,13 +332,12 @@ function ApplyLeavePage() {
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="to">{isCompOff ? "Date" : "To"}</Label>
-                    <Input
+                    <DateField
                       id="to"
-                      type="date"
                       value={to}
                       min={from || todayString}
                       disabled={isCompOff}
-                      onChange={(e) => setTo(e.target.value)}
+                      onChange={setTo}
                     />
                     {errors.to && <p className="text-xs text-destructive">{errors.to}</p>}
                     {isCompOff && (
@@ -459,12 +457,11 @@ function ApplyLeavePage() {
               <form onSubmit={submitWeeklyOff} className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="weekly-off-date">Requested date</Label>
-                  <Input
+                  <DateField
                     id="weekly-off-date"
-                    type="date"
                     value={weeklyOffDate}
                     min={indiaDateKeyShift(0)}
-                    onChange={(event) => setWeeklyOffDate(event.target.value)}
+                    onChange={setWeeklyOffDate}
                   />
                 </div>
                 <div className="space-y-1.5">

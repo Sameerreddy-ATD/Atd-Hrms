@@ -21,13 +21,14 @@ import {
 } from "@/components/ui/dialog";
 import { enableDesktopAlerts, getNotificationPermission } from "@/lib/browser-notifications";
 import { getDeviceLocation } from "@/lib/geolocation";
+import { detectPwaPlatform } from "@/lib/pwa-install";
 import { cn } from "@/lib/utils";
 
 type PermissionState = PermissionStatus["state"] | NotificationPermission | "unsupported";
 type PermissionKey = "location" | "notifications" | "camera";
 
 /** Bump when the setup checklist changes so existing devices see the new flow once. */
-const DISMISSED_KEY = "adh_permission_setup_dismissed_v2";
+const DISMISSED_KEY = "adh_permission_setup_dismissed_v3";
 
 async function readLocationPermission(): Promise<PermissionState> {
   if (!("geolocation" in navigator)) return "unsupported";
@@ -100,18 +101,22 @@ export function PermissionSetup() {
   const [notifications, setNotifications] = useState(getNotificationPermission);
   const [camera, setCamera] = useState<PermissionState>("prompt");
   const [requesting, setRequesting] = useState<PermissionKey | "all" | null>(null);
+  const isAndroid = useMemo(() => detectPwaPlatform() === "android", []);
 
   const refresh = useCallback(async () => {
-    setLocation(await readLocationPermission());
+    const [nextLocation, nextCamera] = await Promise.all([
+      readLocationPermission(),
+      readCameraPermission(),
+    ]);
+    setLocation(nextLocation);
     setNotifications(getNotificationPermission());
-    setCamera(await readCameraPermission());
+    setCamera(nextCamera);
   }, []);
 
   useEffect(() => {
-    void refresh().then(() => {
-      const dismissed = window.localStorage.getItem(DISMISSED_KEY) === "true";
-      if (!dismissed) setOpen(true);
-    });
+    const dismissed = window.localStorage.getItem(DISMISSED_KEY) === "true";
+    if (!dismissed) setOpen(true);
+    void refresh();
     const onVisible = () => document.visibilityState === "visible" && void refresh();
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", onVisible);
@@ -194,7 +199,10 @@ export function PermissionSetup() {
   const onAllowAll = async () => {
     setRequesting("all");
     const pending = required.filter((item) => item.state === "prompt" || item.state === "granted");
-    for (const item of pending) {
+    const requests = isAndroid
+      ? pending.filter((item) => item.state !== "granted").slice(0, 1)
+      : pending;
+    for (const item of requests) {
       if (item.state === "granted") continue;
       try {
         await requestOne(item.key);
@@ -206,6 +214,8 @@ export function PermissionSetup() {
     setRequesting(null);
     await refresh();
   };
+
+  const pendingCount = required.filter((item) => item.state === "prompt").length;
 
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : close())}>
@@ -328,6 +338,11 @@ export function PermissionSetup() {
           )}
 
           <DialogFooter className="flex-col gap-2 sm:flex-col">
+            {isAndroid && pendingCount > 0 && (
+              <p className="text-center text-xs leading-relaxed text-muted-foreground">
+                Android opens one system permission at a time. Tap below for each instant prompt.
+              </p>
+            )}
             {!allReady && (
               <Button
                 className="w-full"
@@ -340,7 +355,9 @@ export function PermissionSetup() {
                     Requesting…
                   </>
                 ) : (
-                  "Allow all"
+                  isAndroid
+                    ? `Allow next permission${pendingCount > 1 ? ` (${pendingCount} left)` : ""}`
+                    : "Allow all"
                 )}
               </Button>
             )}

@@ -27,7 +27,7 @@ import {
 import { parse } from "csv-parse/sync";
 import { audit } from "./audit.js";
 import { birthdayMessage } from "./birthdayMessages.js";
-import { isUpcomingBirthday } from "./birthdays.js";
+import { isUpcomingBirthday, nextBirthdayDetails } from "./birthdays.js";
 import {
   activeEmployeeIdsExcludingDeveloperAdmin,
   cancelApprovedLeaveForDay,
@@ -2374,23 +2374,13 @@ export function createApp() {
         },
       });
 
-      const today = new Date();
-      const todayUTC = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
-      const currentYear = today.getUTCFullYear();
+      const now = new Date();
 
       const birthdayList = employees.map((emp) => {
         const dob = new Date(emp.dateOfBirth!);
         const bMonth = dob.getUTCMonth();
         const bDate = dob.getUTCDate();
-
-        let nextBdayUTC = Date.UTC(currentYear, bMonth, bDate);
-        if (nextBdayUTC < todayUTC) {
-          nextBdayUTC = Date.UTC(currentYear + 1, bMonth, bDate);
-        }
-
-        const daysUntil = Math.ceil((nextBdayUTC - todayUTC) / (1000 * 60 * 60 * 24));
-        const isToday = bMonth === today.getUTCMonth() && bDate === today.getUTCDate();
-        const age = currentYear - dob.getUTCFullYear();
+        const details = nextBirthdayDetails(dob, now);
         const dobString = `1900-${String(bMonth + 1).padStart(2, "0")}-${String(bDate).padStart(2, "0")}`;
 
         return {
@@ -2399,10 +2389,16 @@ export function createApp() {
           designation: emp.designation ?? undefined,
           department: emp.department?.name ?? undefined,
           dateOfBirth: dobString,
-          isToday,
-          daysUntil: isToday ? 0 : daysUntil,
-          age,
-          message: birthdayMessage(emp.employeeId, emp.name, age, currentYear, emp.gender),
+          isToday: details.isToday,
+          daysUntil: details.daysUntil,
+          age: details.age,
+          message: birthdayMessage(
+            emp.employeeId,
+            emp.name,
+            details.age,
+            now.getUTCFullYear(),
+            emp.gender,
+          ),
         };
       });
 
@@ -2971,6 +2967,7 @@ export function createApp() {
           latitude: body.latitude,
           longitude: body.longitude,
           attendanceRadiusMeters: body.attendanceRadiusMeters,
+          isHub: body.isHub ?? false,
         },
       });
       await audit({
@@ -3008,6 +3005,7 @@ export function createApp() {
           latitude: body.latitude,
           longitude: body.longitude,
           attendanceRadiusMeters: body.attendanceRadiusMeters,
+          isHub: body.isHub,
         },
       });
       await audit({
@@ -3692,12 +3690,15 @@ export function createApp() {
       branchIds.length
         ? prisma.branch.findMany({
             where: { branchId: { in: branchIds } },
-            select: { branchId: true, branchName: true },
+            select: { branchId: true, branchName: true, isHub: true },
           })
-        : Promise.resolve([] as Array<{ branchId: string; branchName: string }>),
+        : Promise.resolve([] as Array<{ branchId: string; branchName: string; isHub: boolean }>),
     ]);
 
     const branchNameById = Object.fromEntries(branches.map((b) => [b.branchId, b.branchName]));
+    const branchMetaById = Object.fromEntries(
+      branches.map((b) => [b.branchId, { name: b.branchName, isHub: Boolean(b.isHub) }]),
+    );
 
     const dtos = list.map((summary) => {
       const summaryEvents = events.filter(
@@ -3728,24 +3729,19 @@ export function createApp() {
 
       const sourceLabel = (event: (typeof summaryEvents)[number] | undefined) => {
         if (!event) return undefined;
+        const meta = event.branchId ? branchMetaById[event.branchId] : undefined;
+        const name = event.branch?.branchName ?? meta?.name;
+        const isHub = event.branch?.isHub ?? meta?.isHub;
         if (event.eventSource === "THUMB_SCANNER") {
-          return locationSourceLabel(
-            "THUMB_SCANNER",
-            event.branch?.branchName ??
-              (event.branchId ? branchNameById[event.branchId] : undefined),
-          );
+          return locationSourceLabel("THUMB_SCANNER", name, isHub);
         }
         if (event.eventSource === "MOBILE_GPS") {
-          return locationSourceLabel(
-            classifyMobileSource(event.branchId),
-            event.branch?.branchName ??
-              (event.branchId ? branchNameById[event.branchId] : undefined),
-          );
+          return locationSourceLabel(classifyMobileSource(event.branchId), name, isHub);
         }
         return undefined;
       };
 
-      const dto = attendanceRecordDto(summary, { branchNameById });
+      const dto = attendanceRecordDto(summary, { branchNameById, branchMetaById });
 
       return {
         ...dto,

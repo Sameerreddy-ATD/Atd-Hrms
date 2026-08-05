@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { DateField } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -547,15 +548,22 @@ function Field({
   editable?: boolean;
   type?: string;
 }) {
+  const isDate = type === "date";
   return editable ? (
     <div className="space-y-1.5">
       <Label>{label}</Label>
-      <Input type={type} value={value} onChange={(event) => onChange?.(event.target.value)} />
+      {isDate ? (
+        <DateField value={value} onChange={(next) => onChange?.(next)} aria-label={label} />
+      ) : (
+        <Input type={type} value={value} onChange={(event) => onChange?.(event.target.value)} />
+      )}
     </div>
   ) : (
     <div className="min-w-0 rounded-md border bg-muted/20 px-3 py-2.5">
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className="mt-0.5 break-words text-sm font-medium text-foreground">{value}</p>
+      <p className="mt-0.5 break-words text-sm font-medium text-foreground">
+        {isDate ? formatDisplayDate(value) : value}
+      </p>
     </div>
   );
 }

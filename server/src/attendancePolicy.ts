@@ -55,22 +55,39 @@ export function attendanceResultLabel(result: AttendanceResult, holidayName?: st
   }
 }
 
-/** Mobile punch inside a branch geofence — prefer the branch name over a bare "Branch-Mobile". */
-export function branchMobileSourceLabel(branchName?: string | null): string {
-  const name = branchName?.trim();
-  return name ? `${name} · Mobile` : "Branch-Mobile";
+/** Place name for attendance UI — hubs append " - Hub". */
+export function formatLocationPlaceName(
+  branchName?: string | null,
+  isHub?: boolean | null,
+): string {
+  const name = branchName?.trim() ?? "";
+  if (!name) return "";
+  return isHub ? `${name} - Hub` : name;
+}
+
+/** Mobile punch inside a branch/hub geofence — prefer the place name over a bare "Branch-Mobile". */
+export function branchMobileSourceLabel(
+  branchName?: string | null,
+  isHub?: boolean | null,
+): string {
+  const place = formatLocationPlaceName(branchName, isHub);
+  if (!place) return "Branch-Mobile";
+  if (isHub) return place;
+  return `${place} · Mobile`;
 }
 
 export function locationSourceLabel(
   source: AttendanceLocationSource | null | undefined,
   branchName?: string | null,
+  isHub?: boolean | null,
 ): string {
   if (source === AttendanceLocationSource.BRANCH_MOBILE) {
-    return branchMobileSourceLabel(branchName);
+    return branchMobileSourceLabel(branchName, isHub);
   }
   if (source === AttendanceLocationSource.MOBILE) return "Mobile";
   if (source === AttendanceLocationSource.THUMB_SCANNER) {
-    return branchName ? `${branchName} · Biometric` : "Thumb Scanner";
+    const place = formatLocationPlaceName(branchName, isHub);
+    return place ? `${place} · Biometric` : "Thumb Scanner";
   }
   if (source === AttendanceLocationSource.MANUAL) return "Manual Entry";
   return "System";

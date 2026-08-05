@@ -9,6 +9,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DateField } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -739,22 +740,17 @@ export function TaskDetailDialog({
                       <Label htmlFor="task-start" className="text-xs text-muted-foreground">
                         Start
                       </Label>
-                      <Input
-                        id="task-start"
-                        type="date"
-                        value={startDate}
-                        onChange={(event) => setStartDate(event.target.value)}
-                      />
+                      <DateField id="task-start" value={startDate} onChange={setStartDate} />
                     </div>
                     <div>
                       <Label htmlFor="task-due" className="text-xs text-muted-foreground">
                         Due
                       </Label>
-                      <Input
+                      <DateField
                         id="task-due"
-                        type="date"
                         value={dueDate}
-                        onChange={(event) => setDueDate(event.target.value)}
+                        min={startDate || undefined}
+                        onChange={setDueDate}
                       />
                     </div>
                   </div>

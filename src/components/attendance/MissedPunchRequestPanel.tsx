@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DateField } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -235,13 +236,7 @@ export function MissedPunchRequestPanel({
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="missed-date-locked">Date</Label>
-                    <Input
-                      id="missed-date-locked"
-                      type="date"
-                      value={selected.date}
-                      disabled
-                      readOnly
-                    />
+                    <DateField id="missed-date-locked" value={selected.date} disabled readOnly />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="missed-type-locked">Type</Label>

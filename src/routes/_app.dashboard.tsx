@@ -486,7 +486,12 @@ function MarkAttendanceCard({
         timeZone: "Asia/Kolkata",
       }).format(effectiveFirstCheckIn)
     : "Not checked in";
-  const branchName = branches.find((branch) => branch.id === user.homeBranchId)?.name ?? "-";
+  const homeBranch = branches.find((branch) => branch.id === user.homeBranchId);
+  const branchName = homeBranch
+    ? homeBranch.isHub
+      ? `${homeBranch.name} - Hub`
+      : homeBranch.name
+    : "-";
 
   useEffect(() => {
     setClockNow(Date.now());
@@ -1443,8 +1448,11 @@ function TeamAttendanceCard({
     todayParts.find((value) => value.type === type)?.value ?? "";
   const today = `${part("year")}-${part("month")}-${part("day")}`;
   const todayRows = rows.filter((row) => row.date === today);
-  const branchName = (branchId?: string) =>
-    branches.find((branch) => branch.id === branchId)?.name ?? "-";
+  const branchName = (branchId?: string) => {
+    const branch = branches.find((row) => row.id === branchId);
+    if (!branch) return "-";
+    return branch.isHub ? `${branch.name} - Hub` : branch.name;
+  };
   const time = (value?: string) =>
     value ? new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "-";
 
@@ -1595,9 +1603,13 @@ function UpcomingBirthdaysCard({
   }>;
 }) {
   const { user } = useAuth();
-  const myBirthdayToday = birthdays.find(
-    (birthday) => birthday.isToday && birthday.employeeId === user?.employeeId,
-  );
+  const birthdaysToday = birthdays
+    .filter((birthday) => birthday.isToday)
+    .sort((a, b) => {
+      if (a.employeeId === user?.employeeId) return -1;
+      if (b.employeeId === user?.employeeId) return 1;
+      return a.name.localeCompare(b.name);
+    });
   const upcoming = futureBirthdays(birthdays);
 
   const formatDob = (dobStr: string) => {
@@ -1619,7 +1631,7 @@ function UpcomingBirthdaysCard({
       "Nov",
       "Dec",
     ];
-    return `${months[monthIndex]} ${day}`;
+    return `${String(day).padStart(2, "0")} ${months[monthIndex]}`;
   };
 
   return (
@@ -1631,31 +1643,49 @@ function UpcomingBirthdaysCard({
         <span className="text-xs text-muted-foreground">Next {BIRTHDAY_LOOKAHEAD_DAYS} days</span>
       </CardHeader>
       <CardContent className="space-y-4">
-        {myBirthdayToday && (
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/25 bg-primary/[0.05] p-3 text-sm">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="rounded-xl bg-primary/10 p-2 text-primary">
-                <Cake className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="font-semibold text-foreground">Your birthday</p>
-                <p className="text-xs text-muted-foreground">
-                  The Anytime Diesel team wishes you a very happy birthday.
-                </p>
-              </div>
-            </div>
-            <div className="shrink-0 text-right">
-              <p className="font-semibold text-foreground">
-                {formatDob(myBirthdayToday.dateOfBirth)}
-              </p>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">Today</p>
-            </div>
+        {birthdaysToday.length > 0 && (
+          <div className="space-y-2">
+            {birthdaysToday.map((birthday) => {
+              const isSelf = birthday.employeeId === user?.employeeId;
+              return (
+                <div
+                  key={birthday.employeeId}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-primary/25 bg-primary/[0.05] p-3 text-sm"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="rounded-xl bg-primary/10 p-2 text-primary">
+                      <Cake className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-foreground">
+                        {isSelf ? "Your birthday" : birthday.name}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {isSelf
+                          ? "The Anytime Diesel team wishes you a very happy birthday."
+                          : [birthday.designation, birthday.department]
+                              .filter(Boolean)
+                              .join(" · ") || "Team member"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="font-semibold text-foreground">
+                      {formatDob(birthday.dateOfBirth)}
+                    </p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">
+                      Today
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
         {upcoming.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            {myBirthdayToday
+            {birthdaysToday.length > 0
               ? `No other birthdays in the next ${BIRTHDAY_LOOKAHEAD_DAYS} days.`
               : `No upcoming birthdays in the next ${BIRTHDAY_LOOKAHEAD_DAYS} days.`}
           </p>
