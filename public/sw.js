@@ -1,4 +1,4 @@
-self.ATD_STATIC_CACHE = "atd-static-v5";
+self.ATD_STATIC_CACHE = "atd-static-v6";
 self.ATD_SHELL_ASSETS = [
   "/manifest.webmanifest",
   "/atd-logo.png",
@@ -12,21 +12,20 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(self.ATD_STATIC_CACHE).then((cache) => cache.addAll(self.ATD_SHELL_ASSETS)),
   );
+  // Activate updated SW immediately so installed apps pick up new builds.
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     Promise.all([
-      caches
-        .keys()
-        .then((keys) =>
-          Promise.all(
-            keys
-              .filter((key) => key.startsWith("atd-static-") && key !== self.ATD_STATIC_CACHE)
-              .map((key) => caches.delete(key)),
-          ),
+      caches.keys().then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => key.startsWith("atd-static-") && key !== self.ATD_STATIC_CACHE)
+            .map((key) => caches.delete(key)),
         ),
+      ),
       self.clients.claim(),
     ]),
   );
@@ -54,34 +53,37 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
+  // Never cache API / health / streams — always hit the live server.
+  if (
+    url.pathname.startsWith("/api/") ||
+    url.pathname.startsWith("/attendance/") ||
+    url.pathname.startsWith("/auth/") ||
+    url.pathname.includes("/stream") ||
+    url.pathname === "/health" ||
+    url.pathname.startsWith("/health/")
+  ) {
+    return;
+  }
+
+  // App navigations: network-only so deploys show new UI without a stale shell.
   if (request.mode === "navigate") {
     event.respondWith(
       Promise.race([
         fetch(request),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Navigation network timeout")), 4000),
+          setTimeout(() => reject(new Error("Navigation network timeout")), 8000),
         ),
-      ])
-        .then((response) => {
-          if (response.ok) {
-            const copy = response.clone();
-            void caches.open(self.ATD_STATIC_CACHE).then((cache) => cache.put(request, copy));
-          }
-          return response;
-        })
-        .catch(async () => {
-          const cached = await caches.match(request);
-          if (cached) return cached;
-          const shell = await caches.match("/dashboard");
-          if (shell) return shell;
-          return new Response(
-            "<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Offline</title><style>body{font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100dvh;margin:0;background:#F6F8FC;color:#1f2937;padding:24px;text-align:center}main{max-width:24rem}h1{font-size:1.25rem;margin:0 0 .5rem}p{margin:0;color:#64748b;line-height:1.5}</style></head><body><main><h1>You're offline</h1><p>Anytime Diesel Employees could not reach the server. Reconnect and try again.</p></main></body></html>",
-            {
-              status: 503,
-              headers: { "Content-Type": "text/html; charset=utf-8" },
-            },
-          );
-        }),
+      ]).catch(async () => {
+        const cached = await caches.match(request);
+        if (cached) return cached;
+        return new Response(
+          "<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Offline</title><style>body{font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100dvh;margin:0;background:#F6F8FC;color:#1f2937;padding:24px;text-align:center}main{max-width:24rem}h1{font-size:1.25rem;margin:0 0 .5rem}p{margin:0;color:#64748b;line-height:1.5}</style></head><body><main><h1>You're offline</h1><p>Anytime Diesel Employees could not reach the server. Reconnect and try again.</p></main></body></html>",
+          {
+            status: 503,
+            headers: { "Content-Type": "text/html; charset=utf-8" },
+          },
+        );
+      }),
     );
     return;
   }
@@ -96,12 +98,13 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Hashed JS/CSS: network-first, fall back to cache only when offline.
   const networkFirstDestination = ["script", "style", "font"].includes(request.destination);
-  if (networkFirstDestination || url.pathname === "/manifest.webmanifest") {
+  if (networkFirstDestination || url.pathname === "/manifest.webmanifest" || url.pathname === "/sw.js") {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          if (response.ok) {
+          if (response.ok && url.pathname !== "/sw.js") {
             const copy = response.clone();
             void caches.open(self.ATD_STATIC_CACHE).then((cache) => cache.put(request, copy));
           }
@@ -183,4 +186,10 @@ self.addEventListener("notificationclick", (event) => {
       return undefined;
     }),
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });

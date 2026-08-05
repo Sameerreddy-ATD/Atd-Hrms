@@ -120,14 +120,15 @@ export async function processMissedCheckInNotifications(now = new Date()) {
   return created;
 }
 
-const provisionalSystemOutReasons = [
+const provisionalSystemOutReasons = new Set([
   "MISSED_CHECKOUT_AUTO_STOP",
   "PRIOR_DAY_AUTO_CLOSE_ON_CHECK_IN",
-] as const;
+]);
 
 /** Remove legacy provisional SYSTEM outs so punch-out stays empty until a real out or correction. */
 async function clearProvisionalSystemCheckouts() {
-  const rows = await prisma.attendanceEvent.findMany({
+  // MySQL Prisma JSON `path` filters are unreliable here — load SYSTEM outs and filter in app code.
+  const candidates = await prisma.attendanceEvent.findMany({
     where: {
       eventSource: EventSource.SYSTEM,
       eventType: {
@@ -139,14 +140,22 @@ async function clearProvisionalSystemCheckouts() {
           EventType.BREAK_OUT,
         ],
       },
-      OR: [
-        { remarks: { contains: "Missed Checkout" } },
-        ...provisionalSystemOutReasons.map((reason) => ({
-          rawPayload: { path: ["reason"], equals: reason },
-        })),
-      ],
     },
-    select: { eventId: true, employeeId: true, eventDate: true },
+    select: {
+      eventId: true,
+      employeeId: true,
+      eventDate: true,
+      remarks: true,
+      rawPayload: true,
+    },
+  });
+
+  const rows = candidates.filter((row) => {
+    if (row.remarks?.includes("Missed Checkout")) return true;
+    const payload = row.rawPayload;
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) return false;
+    const reason = (payload as { reason?: unknown }).reason;
+    return typeof reason === "string" && provisionalSystemOutReasons.has(reason);
   });
   if (!rows.length) return 0;
 
@@ -169,7 +178,11 @@ async function clearProvisionalSystemCheckouts() {
  * Does not invent a SYSTEM checkout — employee (or head/HR) supplies the real out via correction.
  */
 export async function processMissedCheckouts(now = new Date()) {
-  await clearProvisionalSystemCheckouts();
+  try {
+    await clearProvisionalSystemCheckouts();
+  } catch (error) {
+    console.error("clearProvisionalSystemCheckouts failed", error);
+  }
 
   const employeeIds = await activeEmployeeIdsExcludingDeveloperAdmin();
   const users = await employeeUserMap(employeeIds);

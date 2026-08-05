@@ -51,7 +51,7 @@ import {
   resolveMobileEventTime,
 } from "./attendanceEngine.js";
 import { classifyMobileSource, ensureEmployeeShiftAssignment, locationSourceLabel } from "./attendancePolicy.js";
-import { settleExpiredOpenPunches, closePriorOpenPunchForNewDay } from "./attendanceSettlement.js";
+import { closePriorOpenPunchForNewDay } from "./attendanceSettlement.js";
 import { openAttendanceStream } from "./attendanceLive.js";
 import { config } from "./config.js";
 import { ensureChecklistInstance, completeFaceEnrollmentChecklistItems } from "./checklistService.js";
@@ -3701,7 +3701,10 @@ export function createApp() {
     requireAuth,
     asyncHandler(async (req, res) => {
       if (!req.user!.employeeId) throw new HttpError(404, "No employee profile");
-      await settleExpiredOpenPunches(req.user!.employeeId);
+      // Keep this employee's open-day flags fresh without running global settlement
+      // (global jobs already run on a timer; settlement must not block My Attendance).
+      const attendanceDate = await attendanceDateForEmployee(req.user!.employeeId, new Date());
+      await recalculateDailySummary(req.user!.employeeId, attendanceDate).catch(() => undefined);
       const rawFrom = dateFromQuery(req.query.from);
       const rawTo = dateFromQuery(req.query.to);
       const defaults = istMonthRangeThroughToday();

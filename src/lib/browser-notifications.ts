@@ -115,7 +115,42 @@ export async function registerAppServiceWorker() {
     }
     return;
   }
-  await navigator.serviceWorker.register("/sw.js");
+
+  const registration = await navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" });
+
+  // After a deploy, activate the new worker and reload so installed PWAs get fresh UI.
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (refreshing) return;
+    refreshing = true;
+    window.location.reload();
+  });
+
+  const promptUpdate = () => {
+    if (registration.waiting) {
+      registration.waiting.postMessage({ type: "SKIP_WAITING" });
+    }
+  };
+  registration.addEventListener("updatefound", () => {
+    const installing = registration.installing;
+    if (!installing) return;
+    installing.addEventListener("statechange", () => {
+      if (installing.state === "installed" && navigator.serviceWorker.controller) {
+        promptUpdate();
+      }
+    });
+  });
+  promptUpdate();
+
+  // Poll for updates while the installed app stays open.
+  window.setInterval(() => {
+    void registration.update().catch(() => undefined);
+  }, 5 * 60_000);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      void registration.update().catch(() => undefined);
+    }
+  });
 }
 
 export async function showDesktopNotification(item: NotificationItem) {
