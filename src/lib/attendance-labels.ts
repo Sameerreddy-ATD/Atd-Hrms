@@ -181,7 +181,7 @@ export function attendanceStatusWithFlags(row: {
 }) {
   const flags: string[] = [];
   if (row.isLate) flags.push("Late");
-  // Only after slot end (hasMissedCheckout). Open mid-shift is not Missed Checkout yet.
+  // Only after the day punch-out deadline (hasMissedCheckout). Mid-day open punch is not Missed Checkout yet.
   if (row.hasMissedCheckout) flags.push("Missed Checkout");
   return flags.length ? `${row.status} · ${flags.join(" · ")}` : row.status;
 }
@@ -195,7 +195,7 @@ export function hasProvisionalSystemOut(_row: Pick<
 }
 
 /**
- * Last-out cell: empty during the slot; "Punch-out required" after slot end (Missed Checkout).
+ * Last-out cell: empty while checked in during the day; "Punch-out required" after day end (Missed Checkout).
  */
 export function lastOutLabel(row: Pick<
   AttendanceRecord,

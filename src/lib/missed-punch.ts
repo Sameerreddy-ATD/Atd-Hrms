@@ -80,7 +80,7 @@ export function detectMissedPunchItems(
   for (const record of records) {
     const date = dateKey(record.date);
 
-    // In-progress today: employee should check out normally, not raise missed punch yet.
+    // In-progress today: employee should check out normally until the day ends.
     const openInProgressToday =
       date === today &&
       Boolean(record.hasMissingOutEvent) &&

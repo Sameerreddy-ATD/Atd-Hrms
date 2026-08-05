@@ -1,9 +1,8 @@
 import { AttendanceLocationSource, AttendanceResult, Prisma } from "@prisma/client";
-import { istDateParts, startOfDayUtc } from "./attendanceDayRules.js";
+import { endOfAttendanceDayIst, istDateParts, startOfDayUtc } from "./attendanceDayRules.js";
 import { prisma } from "./prisma.js";
 
 export const GRACE_MINUTES = 30;
-export const HALF_DAY_HOURS = 4;
 export const FULL_DAY_HOURS = 9;
 export const CORRECTION_WINDOW_DAYS = 2;
 
@@ -21,15 +20,16 @@ export function hoursBetween(a: Date, b: Date) {
 
 export function attendanceResultFromHours(totalHours: number): AttendanceResult {
   if (totalHours >= FULL_DAY_HOURS) return AttendanceResult.FULL_DAY;
-  if (totalHours >= HALF_DAY_HOURS) return AttendanceResult.HALF_DAY;
-  // Any punched time counts as present — never Absent from hour thresholds.
+  // Any punched time under a full day counts as present — no Half Day result.
   if (totalHours > 0) return AttendanceResult.PENDING;
   return AttendanceResult.ABSENT;
 }
 
 /** Status label for days where the employee actually punched (not holiday/leave/absent). */
 export function workedAttendanceStatusLabel(result: AttendanceResult): string {
-  if (result === AttendanceResult.PENDING) return "Present";
+  if (result === AttendanceResult.PENDING || result === AttendanceResult.HALF_DAY) {
+    return "Present";
+  }
   return attendanceResultLabel(result);
 }
 
@@ -38,7 +38,8 @@ export function attendanceResultLabel(result: AttendanceResult, holidayName?: st
     case AttendanceResult.FULL_DAY:
       return "Full Day";
     case AttendanceResult.HALF_DAY:
-      return "Half Day";
+      // Legacy enum value — display as Present; new summaries never write HALF_DAY.
+      return "Present";
     case AttendanceResult.ABSENT:
       return "Absent";
     case AttendanceResult.HOLIDAY:
@@ -107,8 +108,20 @@ export function shiftWindowBounds(attendanceDate: Date, shift: ShiftWindow) {
   };
 }
 
-export function correctionDeadlineFor(attendanceDate: Date, shiftEnd: Date) {
-  const base = new Date(Math.max(shiftEnd.getTime(), startOfDayUtc(attendanceDate).getTime()));
+/**
+ * Latest moment to check out without Missed Checkout: end of the IST calendar day,
+ * or shift end when that is later (night shifts that cross midnight).
+ */
+export function attendancePunchOutDeadline(attendanceDate: Date, shift: ShiftWindow) {
+  const calendarEnd = endOfAttendanceDayIst(attendanceDate);
+  const { end: shiftEnd } = shiftWindowBounds(attendanceDate, shift);
+  return new Date(Math.max(calendarEnd.getTime(), shiftEnd.getTime()));
+}
+
+export function correctionDeadlineFor(attendanceDate: Date, punchOutDeadline: Date) {
+  const base = new Date(
+    Math.max(punchOutDeadline.getTime(), startOfDayUtc(attendanceDate).getTime()),
+  );
   base.setUTCDate(base.getUTCDate() + CORRECTION_WINDOW_DAYS);
   return base;
 }

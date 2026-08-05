@@ -5,7 +5,8 @@ import {
   attendanceTransitionIssue,
   openPunchState,
 } from "../server/src/attendanceEngine.js";
-import { attendanceResultFromHours } from "../server/src/attendancePolicy.js";
+import { attendanceResultFromHours, attendancePunchOutDeadline } from "../server/src/attendancePolicy.js";
+import { endOfAttendanceDayIst } from "../server/src/attendanceDayRules.js";
 import { AttendanceResult } from "@prisma/client";
 
 describe("attendance movement summary rules", () => {
@@ -53,10 +54,35 @@ describe("attendance movement summary rules", () => {
     expect(attendanceTransitionIssue(latestEvent, day, false)).toContain("already checked in");
   });
 
-  it("classifies worked duration into Full Day / Half Day / Present (never Absent for punched time)", () => {
+  it("classifies worked duration into Full Day or Present (no Half Day)", () => {
     expect(attendanceResultFromHours(9)).toBe(AttendanceResult.FULL_DAY);
-    expect(attendanceResultFromHours(4)).toBe(AttendanceResult.HALF_DAY);
+    expect(attendanceResultFromHours(4)).toBe(AttendanceResult.PENDING);
     expect(attendanceResultFromHours(3.5)).toBe(AttendanceResult.PENDING);
+    expect(attendanceResultFromHours(8.9)).toBe(AttendanceResult.PENDING);
     expect(attendanceResultFromHours(0)).toBe(AttendanceResult.ABSENT);
+  });
+
+  it("sets day-shift punch-out deadline at IST midnight after the attendance date", () => {
+    const date = new Date("2026-08-05T00:00:00.000Z");
+    const dayEnd = endOfAttendanceDayIst(date);
+    const deadline = attendancePunchOutDeadline(date, {
+      shiftType: "DAY",
+      shiftStartMinutes: 540,
+      shiftEndMinutes: 1080,
+    });
+    expect(deadline.getTime()).toBe(dayEnd.getTime());
+    // 2026-08-06 00:00 IST = 2026-08-05T18:30:00.000Z
+    expect(dayEnd.toISOString()).toBe("2026-08-05T18:30:00.000Z");
+  });
+
+  it("keeps night-shift punch-out deadline at shift end when that is after midnight", () => {
+    const date = new Date("2026-08-05T00:00:00.000Z");
+    const deadline = attendancePunchOutDeadline(date, {
+      shiftType: "NIGHT",
+      shiftStartMinutes: 22 * 60,
+      shiftEndMinutes: 6 * 60,
+    });
+    const dayEnd = endOfAttendanceDayIst(date);
+    expect(deadline.getTime()).toBeGreaterThan(dayEnd.getTime());
   });
 });

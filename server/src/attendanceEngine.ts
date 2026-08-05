@@ -18,6 +18,7 @@ import {
 import {
   attendanceResultFromHours,
   workedAttendanceStatusLabel,
+  attendancePunchOutDeadline,
   classifyMobileSource,
   correctionDeadlineFor,
   decimalHours,
@@ -246,11 +247,13 @@ export async function recalculateDailySummary(employeeId: string, date: string |
 
   const firstCheckIn = realCheckIns[0]?.eventTime ?? events.find((e) => inTypes.has(e.eventType))?.eventTime;
   const lastRealOut = realCheckOuts.at(-1)?.eventTime;
-  // Only real outs fill punch-out. Missing outs stay empty for missed-punch correction.
-  const lastOut = lastRealOut;
   const { hasOpenPunch } = openPunchState(events);
-  // After slot end: Missed Checkout + "Punch-out required". During the slot: punch-out stays empty.
-  const pastSlotEnd = Date.now() >= bounds.end.getTime();
+  // Open session: keep punch-out empty until a real out (never invent a time).
+  const lastOut = hasOpenPunch ? null : lastRealOut;
+  const punchOutDeadline = attendancePunchOutDeadline(eventDate, shift);
+  const pastPunchOutDeadline = Date.now() >= punchOutDeadline.getTime();
+  // After the day (or night-shift) deadline with no out → Missed Checkout for correction.
+  const isMissedCheckout = Boolean(hasOpenPunch && pastPunchOutDeadline);
 
   let officeHours = 0;
   let fieldHours = 0;
@@ -280,8 +283,7 @@ export async function recalculateDailySummary(employeeId: string, date: string |
     }
   }
 
-  const isMissedCheckout = Boolean(hasOpenPunch && pastSlotEnd && !lastRealOut);
-  const hasMissingOutEvent = hasOpenPunch || (isMissedCheckout && !lastRealOut);
+  const hasMissingOutEvent = hasOpenPunch;
   const isLate = Boolean(firstCheckIn && isLateCheckIn(firstCheckIn, bounds.graceEnd));
 
   const checkInEvent = realCheckIns[0] ?? events.find((e) => inTypes.has(e.eventType));
@@ -289,7 +291,7 @@ export async function recalculateDailySummary(employeeId: string, date: string |
     .filter((e) => outTypes.has(e.eventType) && e.eventSource !== EventSource.SYSTEM)
     .sort((a, b) => a.eventTime.getTime() - b.eventTime.getTime())
     .at(-1);
-  const checkOutEvent = latestOutEvent ?? undefined;
+  const checkOutEvent = hasOpenPunch ? undefined : latestOutEvent;
   const checkInSource = checkInEvent ? eventLocationSource(checkInEvent) : null;
   const checkOutSource = checkOutEvent ? eventLocationSource(checkOutEvent) : null;
   const matchedBranchId = checkInEvent?.branchId ?? branches[0] ?? null;
@@ -329,25 +331,22 @@ export async function recalculateDailySummary(employeeId: string, date: string |
   let status = "Pending attendance";
   let holidayName: string | undefined;
 
-  const hasPunched = Boolean(firstCheckIn || lastOut || hasOpenPunch || realCheckIns.length);
+  const hasPunched = Boolean(firstCheckIn || lastRealOut || hasOpenPunch || realCheckIns.length);
   if (hasPunched) {
-    // Include the open session so re-check-in after a short break is not scored as Absent.
+    const openCutoff = pastPunchOutDeadline ? punchOutDeadline : new Date();
     const openSessionHours =
-      hasOpenPunch && activeWorkStart ? hoursBetween(activeWorkStart, new Date()) : 0;
+      hasOpenPunch && activeWorkStart ? hoursBetween(activeWorkStart, openCutoff) : 0;
     const hoursForStatus = totalWorkedHours + openSessionHours;
 
-    if (isMissedCheckout && !lastRealOut && totalWorkedHours <= 0) {
-      // Open through slot end with no completed session — wait for punch-out / correction.
+    attendanceResult = attendanceResultFromHours(hoursForStatus);
+    // Any real punch means the day is not Absent (Full Day only at ≥9h; otherwise Present).
+    if (
+      attendanceResult === AttendanceResult.ABSENT ||
+      attendanceResult === AttendanceResult.HALF_DAY
+    ) {
       attendanceResult = AttendanceResult.PENDING;
-      status = "Pending attendance";
-    } else {
-      attendanceResult = attendanceResultFromHours(hoursForStatus);
-      // Any real punch means the day is not Absent (hour thresholds only decide Full/Half/Present).
-      if (attendanceResult === AttendanceResult.ABSENT) {
-        attendanceResult = AttendanceResult.PENDING;
-      }
-      status = workedAttendanceStatusLabel(attendanceResult);
     }
+    status = workedAttendanceStatusLabel(attendanceResult);
   } else {
     const noEvent = await resolveNoEventStatus(employeeId, eventDate);
     status = noEvent;
@@ -366,11 +365,11 @@ export async function recalculateDailySummary(employeeId: string, date: string |
   let isLocked = existing?.isLocked ?? false;
   if (isMissedCheckout) {
     correctionDeadlineAt =
-      correctionDeadlineAt ?? correctionDeadlineFor(eventDate, bounds.end);
-    if (correctionDeadlineAt && Date.now() > correctionDeadlineAt.getTime() && !lastRealOut) {
+      correctionDeadlineAt ?? correctionDeadlineFor(eventDate, punchOutDeadline);
+    if (correctionDeadlineAt && Date.now() > correctionDeadlineAt.getTime() && hasOpenPunch) {
       isLocked = true;
     }
-  } else if (lastRealOut) {
+  } else if (!hasOpenPunch) {
     correctionDeadlineAt = null;
     isLocked = false;
   }

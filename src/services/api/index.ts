@@ -572,7 +572,7 @@ export const leaveApi = {
     fromDate: string;
     toDate: string;
     days: number;
-    session?: "FULL" | "FIRST_HALF" | "SECOND_HALF";
+    session?: "FULL";
     reason: string;
     medicalDocumentUrl?: string;
   }) => request<LeaveRequest>("/leave/requests", { method: "POST", body: JSON.stringify(req) }),

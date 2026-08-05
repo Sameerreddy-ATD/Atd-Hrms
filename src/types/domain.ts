@@ -422,7 +422,7 @@ export interface CertificateRequest {
 
 export type AttendanceStatus =
   | "Full Day"
-  | "Half Day"
+  | "Present"
   | "Absent"
   | "Late"
   | "Holiday"

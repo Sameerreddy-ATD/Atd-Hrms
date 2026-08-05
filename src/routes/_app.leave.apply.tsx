@@ -41,7 +41,6 @@ function ApplyLeavePage() {
   const [loading, setLoading] = useState(false);
   const [typesLoading, setTypesLoading] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [session, setSession] = useState<"FULL" | "FIRST_HALF" | "SECOND_HALF">("FULL");
   const [requestKind, setRequestKind] = useState<"leave" | "weekly-off">("leave");
   const todayString = indiaDateKey();
 
@@ -62,17 +61,13 @@ function ApplyLeavePage() {
   const selectedBalance = balances.find((item) => item.code === selectedType?.code)?.balance ?? 0;
   const requestedDays =
     from && to && from <= to
-      ? session === "FULL"
-        ? Math.max(1, Math.round((+new Date(to) - +new Date(from)) / 86400000) + 1)
-        : 0.5
+      ? Math.max(1, Math.round((+new Date(to) - +new Date(from)) / 86400000) + 1)
       : 0;
 
   useEffect(() => {
     if (!isCompOff || !from) return;
     if (to !== from) setTo(from);
-    if (session !== "FULL") setSession("FULL");
-  }, [isCompOff, from, to, session]);
-
+  }, [isCompOff, from, to]);
 
   useEffect(() => {
     if (!user?.employeeId) {
@@ -115,11 +110,7 @@ function ApplyLeavePage() {
       1,
       Math.round((+new Date(to) - +new Date(from)) / 86400000) + 1,
     );
-    const days = isCompOff ? 1 : session === "FULL" ? calendarDays : 0.5;
-    if (session !== "FULL" && from !== to) {
-      setErrors({ to: "Half-day leave must be a single date" });
-      return;
-    }
+    const days = isCompOff ? 1 : calendarDays;
     setLoading(true);
     try {
       let medicalUrl = medicalDocumentUrl.trim() || undefined;
@@ -139,7 +130,7 @@ function ApplyLeavePage() {
         fromDate: from,
         toDate: isCompOff ? from : to,
         days,
-        session: isCompOff ? "FULL" : session,
+        session: "FULL",
         reason: reason.trim(),
         medicalDocumentUrl: medicalUrl,
       });
@@ -323,27 +314,6 @@ function ApplyLeavePage() {
                       </p>
                     </div>
                   )}
-                  {(selectedType?.code === "CASUAL" ||
-                    selectedType?.code === "SICK" ||
-                    selectedType?.code === "LOP") && (
-                    <div className="space-y-1.5 sm:col-span-2">
-                      <Label htmlFor="session">Day length</Label>
-                      <select
-                        id="session"
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                        value={session}
-                        onChange={(event) => {
-                          const next = event.target.value as typeof session;
-                          setSession(next);
-                          if (next !== "FULL" && from) setTo(from);
-                        }}
-                      >
-                        <option value="FULL">Full day</option>
-                        <option value="FIRST_HALF">First half (0.5)</option>
-                        <option value="SECOND_HALF">Second half (0.5)</option>
-                      </select>
-                    </div>
-                  )}
                   <div className="space-y-1.5">
                     <Label htmlFor="from">From</Label>
                     <Input
@@ -355,7 +325,7 @@ function ApplyLeavePage() {
                       onChange={(e) => {
                         const nextFrom = e.target.value;
                         setFrom(nextFrom);
-                        if (isCompOff || session !== "FULL") setTo(nextFrom);
+                        if (isCompOff) setTo(nextFrom);
                         else if (to && nextFrom && to < nextFrom) setTo(nextFrom);
                       }}
                     />
@@ -368,7 +338,7 @@ function ApplyLeavePage() {
                       type="date"
                       value={to}
                       min={from || todayString}
-                      disabled={isCompOff || session !== "FULL"}
+                      disabled={isCompOff}
                       onChange={(e) => setTo(e.target.value)}
                     />
                     {errors.to && <p className="text-xs text-destructive">{errors.to}</p>}

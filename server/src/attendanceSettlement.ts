@@ -11,6 +11,7 @@ import {
 import {
   resolveEmployeeShift,
   shiftWindowBounds,
+  attendancePunchOutDeadline,
 } from "./attendancePolicy.js";
 import { prisma } from "./prisma.js";
 import { publishNotificationChange } from "./notificationLive.js";
@@ -174,8 +175,8 @@ async function clearProvisionalSystemCheckouts() {
 }
 
 /**
- * At slot (shift) end: mark Missed Checkout, keep punch-out empty, notify employee.
- * Does not invent a SYSTEM checkout — employee (or head/HR) supplies the real out via correction.
+ * After the attendance day's punch-out deadline: mark Missed Checkout, keep punch-out empty, notify.
+ * Does not invent a SYSTEM checkout — employee (or head) supplies the real out via missed punch.
  */
 export async function processMissedCheckouts(now = new Date()) {
   try {
@@ -237,8 +238,8 @@ export async function processMissedCheckouts(now = new Date()) {
     if (!latest || !openTypes.has(latest.eventType)) continue;
 
     const shift = await resolveEmployeeShift(employeeId, latest.eventDate);
-    const bounds = shiftWindowBounds(latest.eventDate, shift);
-    if (now.getTime() < bounds.end.getTime()) continue;
+    const deadline = attendancePunchOutDeadline(latest.eventDate, shift);
+    if (now.getTime() < deadline.getTime()) continue;
 
     await recalculateDailySummary(employeeId, latest.eventDate);
 
@@ -249,7 +250,7 @@ export async function processMissedCheckouts(now = new Date()) {
           employeeId,
           eventId: tag,
           eventDate: latest.eventDate,
-          eventTime: bounds.end,
+          eventTime: deadline,
         },
       })
       .catch(() => null);
@@ -260,7 +261,7 @@ export async function processMissedCheckouts(now = new Date()) {
     if (userId) {
       await sendPushToUsers([userId], {
         title: "Punch-out required",
-        body: "Your shift has ended and you did not check out. Punch-out is empty — submit a missed punch with your actual time within two days. Tomorrow’s check-in is not affected.",
+        body: "The day ended and you did not check out. Punch-out is empty — submit a missed punch with your actual time within two days for your head to approve. Tomorrow’s check-in is not affected.",
         href: "/attendance/missed-punch",
         tag,
       });

@@ -57,12 +57,19 @@ async function main() {
   });
   const banjaraHills = await prisma.branch.upsert({
     where: { branchCode: "BANJARA" },
-    update: {},
+    update: {
+      latitude: 17.4130575,
+      longitude: 78.4232275,
+      attendanceRadiusMeters: 250,
+    },
     create: {
       branchName: "Banjara Hills",
       branchCode: "BANJARA",
       address: "Anytime Diesel, Banjara Hills, Hyderabad",
       city: "Hyderabad",
+      latitude: 17.4130575,
+      longitude: 78.4232275,
+      attendanceRadiusMeters: 250,
     },
   });
 

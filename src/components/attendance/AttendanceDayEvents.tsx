@@ -160,9 +160,9 @@ export function AttendanceDayEvents({
               <div className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300 sm:px-4">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span>
-                  Your shift has ended and punch-out is still empty. Check out now, or raise a missed
-                  punch with your actual time for your head to approve. Tomorrow’s check-in is not
-                  affected.
+                  The day ended and punch-out is still empty. Check out now if you can, or raise a
+                  missed punch with your actual time for your head to approve. Tomorrow’s check-in is
+                  not affected.
                 </span>
               </div>
             )}

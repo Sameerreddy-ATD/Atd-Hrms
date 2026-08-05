@@ -28,7 +28,7 @@ function effectiveDays(request: { days: Prisma.Decimal; cancelledDates: unknown 
   const cancelled = Array.isArray(request.cancelledDates)
     ? request.cancelledDates.filter((value) => typeof value === "string").length
     : 0;
-  // Half-day requests store days=0.5 with a single calendar date — cancelled dates wipe the whole request day.
+  // Legacy half-day rows (days < 1) still cancel as a whole day when cancelledDates is set.
   if (Number(request.days) < 1) {
     return cancelled > 0 ? 0 : Number(request.days);
   }
@@ -253,21 +253,20 @@ export async function validateLeaveApplication(input: {
   fromDate: Date;
   toDate: Date;
   days: number;
-  session?: "FULL" | "FIRST_HALF" | "SECOND_HALF";
+  session?: "FULL";
 }) {
   const type = await prisma.leaveType.findFirst({
     where: { leaveTypeId: input.leaveTypeId, active: true },
   });
   if (!type) throw new HttpError(400, "Select a valid leave type");
   const session = input.session ?? "FULL";
+  if (session !== "FULL") {
+    throw new HttpError(400, "Half-day leave is not available. Apply for full day(s) only.");
+  }
   const dates = eachDateInRange(input.fromDate, input.toDate);
   if (!dates.length) throw new HttpError(400, "Select a valid date range");
 
-  if (session !== "FULL") {
-    if (dates.length !== 1 || input.days !== 0.5) {
-      throw new HttpError(400, "Half-day leave must be a single date for 0.5 days");
-    }
-  } else if (dates.length !== input.days) {
+  if (dates.length !== input.days) {
     throw new HttpError(400, "Leave days do not match the selected date range");
   }
 

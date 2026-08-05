@@ -76,6 +76,17 @@ export function isSunday(date: Date) {
   return istDateParts(date).weekday === 0;
 }
 
+/**
+ * Instant when an IST attendance calendar day ends (next IST midnight).
+ * `attendanceDate` is the date-only key (UTC midnight of Y-M-D).
+ */
+export function endOfAttendanceDayIst(attendanceDate: Date) {
+  const day = startOfDayUtc(attendanceDate);
+  const nextKey = new Date(day);
+  nextKey.setUTCDate(nextKey.getUTCDate() + 1);
+  return new Date(nextKey.getTime() - IST_OFFSET_MS);
+}
+
 const WEEKDAY_KEYS = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
 
 function dayKey(date: Date) {
