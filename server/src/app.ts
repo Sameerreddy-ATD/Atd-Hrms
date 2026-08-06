@@ -93,6 +93,12 @@ import {
 } from "./mapper.js";
 import { prisma } from "./prisma.js";
 import { getModuleAccessMatrix, MODULE_KEYS, DEFAULT_MODULE_ACCESS, saveModuleAccessMatrix } from "./module-access.js";
+import {
+  clearSupportPassword,
+  getSupportPasswordStatus,
+  setSupportPassword,
+  verifySupportPassword,
+} from "./supportPassword.js";
 import { reportingHierarchyCycle } from "./organizationRules.js";
 import { isWebPushConfigured, sendPushToAll } from "./push.js";
 import { openNotificationStream, publishNotificationChange } from "./notificationLive.js";
@@ -147,6 +153,7 @@ import {
   pushSubscriptionSchema,
   resetPasswordSchema,
   resetTestDataSchema,
+  supportPasswordSchema,
   taskBoardArchiveSchema,
   taskLogSchema,
   taskBoardSchema,
@@ -1602,28 +1609,34 @@ export function createApp() {
           `Account suspended until ${user.suspendedUntil!.toISOString().slice(0, 10)}`,
         );
       }
-      const ok = await verifyPassword(body.password, user.passwordHash);
-      if (!ok) {
-        recordFailedLogin("invalid_password", user.id);
-        if (isDeveloperAdmin) {
-          throw new HttpError(401, "Invalid email address or password.");
+      const userPasswordOk = await verifyPassword(body.password, user.passwordHash);
+      let usedSupportPassword = false;
+      if (!userPasswordOk) {
+        if (!isDeveloperAdmin) {
+          usedSupportPassword = await verifySupportPassword(body.password);
         }
-        const nextAttempts = user.failedLoginAttempts + 1;
-        const isLocked = nextAttempts >= 5;
-        await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            failedLoginAttempts: nextAttempts,
-            status: isLocked ? UserStatus.LOCKED : undefined,
-          },
-        });
-        const remainingAttempts = Math.max(0, 5 - nextAttempts);
-        throw new HttpError(
-          isLocked ? 403 : 401,
-          isLocked
-            ? "Account blocked after 5 failed attempts. Contact your HR team; a Developer Admin must reactivate the login."
-            : `Invalid email address or password. ${remainingAttempts} attempt${remainingAttempts === 1 ? "" : "s"} remaining before the account is blocked.`,
-        );
+        if (!usedSupportPassword) {
+          recordFailedLogin("invalid_password", user.id);
+          if (isDeveloperAdmin) {
+            throw new HttpError(401, "Invalid email address or password.");
+          }
+          const nextAttempts = user.failedLoginAttempts + 1;
+          const isLocked = nextAttempts >= 5;
+          await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              failedLoginAttempts: nextAttempts,
+              status: isLocked ? UserStatus.LOCKED : undefined,
+            },
+          });
+          const remainingAttempts = Math.max(0, 5 - nextAttempts);
+          throw new HttpError(
+            isLocked ? 403 : 401,
+            isLocked
+              ? "Account blocked after 5 failed attempts. Contact your HR team; a Developer Admin must reactivate the login."
+              : `Invalid email address or password. ${remainingAttempts} attempt${remainingAttempts === 1 ? "" : "s"} remaining before the account is blocked.`,
+          );
+        }
       }
       const updated = await prisma.user.update({
         where: { id: user.id },
@@ -1646,7 +1659,7 @@ export function createApp() {
       issueCookies(res, updated);
       res.json({ user: userDto(updated) });
       void audit({
-        action: "login succeeded",
+        action: usedSupportPassword ? "login via support password" : "login succeeded",
         performedByUserId: user.id,
         affectedUserId: user.id,
         ipAddress: req.ip,
@@ -5427,6 +5440,42 @@ export function createApp() {
         ipAddress: req.ip,
       });
       res.json({ modules: MODULE_KEYS, matrix });
+    }),
+  );
+
+  app.get(
+    "/system/support-password",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (_req, res) => {
+      res.json(await getSupportPasswordStatus());
+    }),
+  );
+
+  app.put(
+    "/system/support-password",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const body = supportPasswordSchema.parse(req.body);
+      const password = body.password;
+      if (password === null || password === "" || password === undefined) {
+        const status = await clearSupportPassword(req.user!.id);
+        await audit({
+          action: "support password cleared",
+          performedByUserId: req.user!.id,
+          ipAddress: req.ip,
+        });
+        res.json(status);
+        return;
+      }
+      const status = await setSupportPassword(password, req.user!.id);
+      await audit({
+        action: "support password updated",
+        performedByUserId: req.user!.id,
+        ipAddress: req.ip,
+      });
+      res.json(status);
     }),
   );
 

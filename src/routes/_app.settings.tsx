@@ -132,6 +132,12 @@ function SettingsPage() {
   ]);
   const [integrationSaving, setIntegrationSaving] = useState(false);
   const [generatedApiKey, setGeneratedApiKey] = useState("");
+  const [supportEnabled, setSupportEnabled] = useState(false);
+  const [supportUpdatedAt, setSupportUpdatedAt] = useState<string | null>(null);
+  const [supportPassword, setSupportPassword] = useState("");
+  const [supportPasswordConfirm, setSupportPasswordConfirm] = useState("");
+  const [supportSaving, setSupportSaving] = useState(false);
+  const [supportLoading, setSupportLoading] = useState(false);
 
   const refreshHealth = useCallback(async () => {
     setHealthError("");
@@ -206,6 +212,19 @@ function SettingsPage() {
       .list()
       .then(setIntegrationClients)
       .catch((err) => toast.error((err as Error).message));
+  }, [isDeveloperAdmin]);
+
+  useEffect(() => {
+    if (!isDeveloperAdmin) return;
+    setSupportLoading(true);
+    void systemApi
+      .supportPasswordStatus()
+      .then((status) => {
+        setSupportEnabled(status.enabled);
+        setSupportUpdatedAt(status.updatedAt);
+      })
+      .catch((err) => toast.error((err as Error).message))
+      .finally(() => setSupportLoading(false));
   }, [isDeveloperAdmin]);
 
   return (
@@ -431,6 +450,154 @@ function SettingsPage() {
                 }}
               >
                 {moduleAccessSaving ? "Saving..." : "Save module access"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {isDeveloperAdmin && (
+        <Card>
+          <CardHeader className="gap-1 border-b border-border/80 px-4 py-3.5 sm:px-5">
+            <div className="flex items-start gap-3">
+              <span className="rounded-md bg-primary/10 p-2 text-primary">
+                <KeyRound className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <CardTitle className="text-base">Support access</CardTitle>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      supportEnabled
+                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {supportLoading ? "…" : supportEnabled ? "Enabled" : "Not set"}
+                  </span>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Temporary company password for non–Developer Admin accounts. Employees keep their
+                  own passwords. This is not shown anywhere else in the app.
+                </p>
+                {supportEnabled && supportUpdatedAt && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Last updated {formatDisplayDateTime(supportUpdatedAt)}
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 px-4 py-4 sm:px-5">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="support-password">
+                  {supportEnabled ? "New support password" : "Support password"}
+                </Label>
+                <PasswordInput
+                  id="support-password"
+                  value={supportPassword}
+                  onChange={(event) => setSupportPassword(event.target.value)}
+                  autoComplete="new-password"
+                  disabled={supportSaving}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="support-password-confirm">Confirm password</Label>
+                <PasswordInput
+                  id="support-password-confirm"
+                  value={supportPasswordConfirm}
+                  onChange={(event) => setSupportPasswordConfirm(event.target.value)}
+                  autoComplete="new-password"
+                  disabled={supportSaving}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              At least 10 characters with an uppercase letter and a number. Clear when no longer
+              needed.
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              {supportEnabled && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                      disabled={supportSaving}
+                    >
+                      Clear support password
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Clear support password?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Accounts will only accept each user’s own password until you set a new
+                        support password.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => {
+                          setSupportSaving(true);
+                          void systemApi
+                            .setSupportPassword(null)
+                            .then((status) => {
+                              setSupportEnabled(status.enabled);
+                              setSupportUpdatedAt(status.updatedAt);
+                              setSupportPassword("");
+                              setSupportPasswordConfirm("");
+                              toast.success("Support password cleared");
+                            })
+                            .catch((err) => toast.error((err as Error).message))
+                            .finally(() => setSupportSaving(false));
+                        }}
+                      >
+                        Clear
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+              <Button
+                type="button"
+                className="w-full sm:w-auto"
+                disabled={supportSaving || !supportPassword}
+                onClick={() => {
+                  if (supportPassword !== supportPasswordConfirm) {
+                    toast.error("Passwords do not match");
+                    return;
+                  }
+                  if (
+                    supportPassword.length < 10 ||
+                    !/[A-Z]/.test(supportPassword) ||
+                    !/[0-9]/.test(supportPassword)
+                  ) {
+                    toast.error(
+                      "Password must be at least 10 characters with an uppercase letter and a number",
+                    );
+                    return;
+                  }
+                  setSupportSaving(true);
+                  void systemApi
+                    .setSupportPassword(supportPassword)
+                    .then((status) => {
+                      setSupportEnabled(status.enabled);
+                      setSupportUpdatedAt(status.updatedAt);
+                      setSupportPassword("");
+                      setSupportPasswordConfirm("");
+                      toast.success(
+                        status.enabled ? "Support password saved" : "Support password cleared",
+                      );
+                    })
+                    .catch((err) => toast.error((err as Error).message))
+                    .finally(() => setSupportSaving(false));
+                }}
+              >
+                {supportSaving ? "Saving…" : supportEnabled ? "Update password" : "Set password"}
               </Button>
             </div>
           </CardContent>

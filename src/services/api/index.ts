@@ -1040,6 +1040,13 @@ export const systemApi = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  supportPasswordStatus: () =>
+    request<{ enabled: boolean; updatedAt: string | null }>("/system/support-password"),
+  setSupportPassword: (password: string | null) =>
+    request<{ enabled: boolean; updatedAt: string | null }>("/system/support-password", {
+      method: "PUT",
+      body: JSON.stringify({ password }),
+    }),
 };
 
 export const notificationsApi = {

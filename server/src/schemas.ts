@@ -152,6 +152,22 @@ export const changePasswordSchema = z.object({
     .regex(/[0-9]/, "Password must contain a number"),
 });
 
+/** Set or clear the temporary company support password (Developer Admin only). */
+export const supportPasswordSchema = z.object({
+  password: z
+    .union([
+      z
+        .string()
+        .min(10)
+        .max(200)
+        .regex(/[A-Z]/, "Password must contain an uppercase letter")
+        .regex(/[0-9]/, "Password must contain a number"),
+      z.literal(""),
+      z.null(),
+    ])
+    .optional(),
+});
+
 export const resetTestDataSchema = z.object({
   confirmation: z.literal("DELETE ALL TEST DATA"),
   password: z.string().min(1).max(200),
