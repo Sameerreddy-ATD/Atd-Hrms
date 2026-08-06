@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Camera, CheckCircle2, LoaderCircle, ScanFace, ShieldCheck, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { lockPortraitOrientation } from "@/lib/screen-orientation";
 import type { FaceCapturePayload, FaceChallenge, FaceVerificationSession } from "@/types/domain";
 
 type HumanInstance = InstanceType<typeof import("@vladmandic/human").default>;
@@ -203,11 +204,7 @@ export function FaceCapture({
       cancelAnimationFrame(animationFrame);
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
-      try {
-        window.screen?.orientation?.unlock?.();
-      } catch {
-        /* ignore */
-      }
+      // Do not unlock screen orientation — phone portrait is owned app-wide.
     };
 
     const resetCountdown = () => {
@@ -224,10 +221,7 @@ export function FaceCapture({
         if (!navigator.mediaDevices?.getUserMedia || !window.isSecureContext) {
           throw new Error("Camera verification requires HTTPS (or localhost) and camera support.");
         }
-        const orientation = window.screen?.orientation as ScreenOrientation & {
-          lock?: (orientation: string) => Promise<void>;
-        };
-        void orientation?.lock?.("portrait").catch(() => undefined);
+        lockPortraitOrientation();
         setMessage("Loading face detection models…");
         const human = await loadHuman();
         if (!active) return;

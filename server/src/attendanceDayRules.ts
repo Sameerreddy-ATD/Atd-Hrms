@@ -212,6 +212,17 @@ export async function resolveNoEventStatus(employeeId: string, eventDate: Date):
     return `Week Off (${dayOfWeek[0]}${dayOfWeek.slice(1).toLowerCase()})`;
   }
 
+  // Fixed-Sunday policy: every Sunday is week off without a request row.
+  if (isSunday(eventDate)) {
+    const employee = await prisma.employee.findUnique({
+      where: { employeeId },
+      select: { weeklyOffPolicy: true },
+    });
+    if (employee?.weeklyOffPolicy === "SUNDAY_FIXED") {
+      return "Week Off (Sunday)";
+    }
+  }
+
   const paidLeave = await findApprovedLeaveForDay(employeeId, eventDate, true);
   if (paidLeave) return "Paid Leave";
 

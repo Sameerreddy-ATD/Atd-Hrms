@@ -69,6 +69,12 @@ enum ShiftType {
   NIGHT
 }
 
+/// Sunday is always the week off, or the employee picks a day each week (approval rules apply).
+enum WeeklyOffPolicy {
+  SUNDAY_FIXED
+  SELECTABLE
+}
+
 enum AttendanceResult {
   FULL_DAY
   HALF_DAY
@@ -369,6 +375,7 @@ model Employee {
   shiftStartMinutes          Int                           @default(540) @map("shift_start_minutes")
   shiftEndMinutes            Int                           @default(1080) @map("shift_end_minutes")
   isFieldEmployee            Boolean                       @default(false) @map("is_field_employee")
+  weeklyOffPolicy            WeeklyOffPolicy               @default(SELECTABLE) @map("weekly_off_policy")
   status                     EmployeeStatus                @default(ACTIVE)
   version                    Int                           @default(1)
   terminatedAt               DateTime?                     @map("terminated_at")

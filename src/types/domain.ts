@@ -55,6 +55,13 @@ export type CompanyEntity =
 
 export type BankAccountType = "SAVINGS" | "CURRENT" | "SALARY" | "NRE" | "NRO" | "OTHER";
 
+export type WeeklyOffPolicy = "SUNDAY_FIXED" | "SELECTABLE";
+
+export const WEEKLY_OFF_POLICY_LABELS: Record<WeeklyOffPolicy, string> = {
+  SUNDAY_FIXED: "Sunday fixed",
+  SELECTABLE: "Selectable (approval)",
+};
+
 export const COMPANY_LABELS: Record<CompanyEntity, string> = {
   ROYAL_PETRO_PARK_PRIVATE_LIMITED: "Royal Petro Park Private Limited",
   ANYTIME_DIESEL: "Anytime Diesel",
@@ -94,6 +101,7 @@ export interface User {
   managerName?: string;
   attendanceMode?: "THUMB_ONLY" | "MOBILE_GPS_ONLY" | "BOTH";
   isFieldEmployee?: boolean;
+  weeklyOffPolicy?: WeeklyOffPolicy;
   joiningDate?: string;
   dateOfBirth?: string;
   gender?: "FEMALE" | "MALE" | "PREFER_NOT_TO_SAY";

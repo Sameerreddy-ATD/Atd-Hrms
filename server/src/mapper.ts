@@ -68,6 +68,7 @@ export function userDto(
       | "designation"
       | "attendanceMode"
       | "isFieldEmployee"
+      | "weeklyOffPolicy"
       | "employeeCode"
       | "dateOfBirth"
       | "gender"
@@ -125,6 +126,7 @@ export function userDto(
     faceEnrollmentApprovedAt: user.faceProfile?.approvedAt?.toISOString(),
     attendanceMode: user.employee?.attendanceMode ?? undefined,
     isFieldEmployee: user.employee?.isFieldEmployee ?? undefined,
+    weeklyOffPolicy: user.employee?.weeklyOffPolicy ?? undefined,
     employeeCode: user.employee?.employeeCode ?? undefined,
     dateOfBirth: user.employee?.dateOfBirth?.toISOString().slice(0, 10),
     gender: user.employee?.gender ?? undefined,
@@ -240,6 +242,7 @@ export function employeeDto(
     managerName: employee.manager?.name,
     attendanceMode: employee.attendanceMode,
     isFieldEmployee: employee.isFieldEmployee,
+    weeklyOffPolicy: employee.weeklyOffPolicy,
     joiningDate: employee.joiningDate?.toISOString().slice(0, 10),
     dateOfBirth: dobString,
     gender: employee.gender ?? undefined,

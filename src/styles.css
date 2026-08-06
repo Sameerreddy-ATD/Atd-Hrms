@@ -499,7 +499,62 @@
   }
 }
 
+/* Phone landscape fallback when OS/browser ignores portrait lock */
+.portrait-orientation-guard {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: color-mix(in oklab, var(--background) 92%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.portrait-orientation-guard__card {
+  max-width: 20rem;
+  text-align: center;
+  color: var(--foreground);
+}
+
+.portrait-orientation-guard__icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  margin: 0 auto 0.75rem;
+  color: var(--primary);
+  animation: portrait-phone-tilt 1.6s ease-in-out infinite;
+}
+
+.portrait-orientation-guard__card h2 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.portrait-orientation-guard__card p {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+
+@keyframes portrait-phone-tilt {
+  0%,
+  100% {
+    transform: rotate(-12deg);
+  }
+  50% {
+    transform: rotate(12deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .portrait-orientation-guard__icon {
+    animation: none;
+  }
+
   .atd-boot__content,
   .atd-boot__copy,
   .atd-boot__status,

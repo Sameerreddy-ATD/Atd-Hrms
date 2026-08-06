@@ -23,8 +23,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { BankAccountType, Branch, CompanyEntity, Department, User } from "@/types/domain";
-import { COMPANY_LABELS, ROLE_LABELS } from "@/types/domain";
+import type {
+  BankAccountType,
+  Branch,
+  CompanyEntity,
+  Department,
+  User,
+  WeeklyOffPolicy,
+} from "@/types/domain";
+import { COMPANY_LABELS, ROLE_LABELS, WEEKLY_OFF_POLICY_LABELS } from "@/types/domain";
 import { branchesApi, employeesApi, shiftsApi } from "@/services/api";
 import { Search, Pencil, UserCog } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -79,6 +86,7 @@ function EmployeesPage() {
     phone: "",
     companyPhone: "",
     companyEntity: "ANYTIME_DIESEL" as CompanyEntity,
+    employeeCode: "",
     homeBranchId: "",
     departmentId: "",
     designation: "",
@@ -94,6 +102,7 @@ function EmployeesPage() {
     gender: "PREFER_NOT_TO_SAY" as "FEMALE" | "MALE" | "PREFER_NOT_TO_SAY",
     employmentType: "FULL_TIME" as "FULL_TIME" | "PART_TIME" | "INTERN",
     organizationLevel: "MEMBER" as "HEAD" | "SENIOR" | "JUNIOR" | "MEMBER",
+    weeklyOffPolicy: "SELECTABLE" as WeeklyOffPolicy,
     attendanceMode: "BOTH" as "THUMB_ONLY" | "MOBILE_GPS_ONLY" | "BOTH",
     shiftType: "DAY" as "DAY" | "NIGHT",
     shiftStartMinutes: 540,
@@ -198,6 +207,7 @@ function EmployeesPage() {
       phone: fullEmployee.phone || "",
       companyPhone: fullEmployee.companyPhone || "",
       companyEntity: fullEmployee.companyEntity || "ANYTIME_DIESEL",
+      employeeCode: fullEmployee.employeeCode || "",
       homeBranchId: fullEmployee.homeBranchId || "",
       departmentId: fullEmployee.departmentId || "",
       designation: fullEmployee.designation || "",
@@ -213,6 +223,7 @@ function EmployeesPage() {
       gender: fullEmployee.gender || "PREFER_NOT_TO_SAY",
       employmentType: fullEmployee.employmentType || "FULL_TIME",
       organizationLevel: fullEmployee.organizationLevel || "MEMBER",
+      weeklyOffPolicy: fullEmployee.weeklyOffPolicy || "SELECTABLE",
       attendanceMode: "BOTH",
       shiftType: fullEmployee.shiftType || "DAY",
       shiftStartMinutes: fullEmployee.shiftStartMinutes ?? 540,
@@ -230,6 +241,7 @@ function EmployeesPage() {
         phone: editForm.phone || undefined,
         companyPhone: editForm.companyPhone || undefined,
         companyEntity: editForm.companyEntity,
+        employeeCode: editForm.employeeCode.trim() || undefined,
         homeBranchId: editForm.homeBranchId || undefined,
         departmentId: editForm.departmentId || undefined,
         designation: editForm.designation || undefined,
@@ -245,6 +257,7 @@ function EmployeesPage() {
         gender: editForm.gender,
         employmentType: editForm.employmentType,
         organizationLevel: editForm.organizationLevel,
+        weeklyOffPolicy: editForm.weeklyOffPolicy,
         attendanceMode: "BOTH" as const,
         shiftType: editForm.shiftType,
         shiftStartMinutes: editForm.shiftStartMinutes,
@@ -482,6 +495,20 @@ function EmployeesPage() {
                     onChange={(e) => setEditForm((c) => ({ ...c, name: e.target.value }))}
                     required
                   />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-employee-id">Employee ID</Label>
+                  <Input
+                    id="edit-employee-id"
+                    className="font-mono"
+                    value={editForm.employeeCode}
+                    onChange={(e) =>
+                      setEditForm((c) => ({ ...c, employeeCode: e.target.value.trimStart() }))
+                    }
+                    required
+                    maxLength={40}
+                  />
+                  <p className="text-xs text-muted-foreground">Must be unique across the company.</p>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Email</Label>
@@ -732,6 +759,34 @@ function EmployeesPage() {
                 ))}
                 <div className="border-t border-border pt-4 sm:col-span-2">
                   <h3 className="text-sm font-semibold">Attendance configuration</h3>
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>Week off policy</Label>
+                  <Select
+                    value={editForm.weeklyOffPolicy}
+                    onValueChange={(value) =>
+                      setEditForm((current) => ({
+                        ...current,
+                        weeklyOffPolicy: value as WeeklyOffPolicy,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(WEEKLY_OFF_POLICY_LABELS) as WeeklyOffPolicy[]).map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {WEEKLY_OFF_POLICY_LABELS[value]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {editForm.weeklyOffPolicy === "SUNDAY_FIXED"
+                      ? "Sundays are marked as week off automatically. The employee cannot request another day."
+                      : "Employee chooses one day per week. Sundays auto-confirm; other days need organization-head approval."}
+                  </p>
                 </div>
                 {shiftCatalog.length > 0 && (
                   <div className="space-y-1.5 sm:col-span-2">

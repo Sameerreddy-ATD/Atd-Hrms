@@ -608,7 +608,7 @@ function UsersPage() {
           <DialogHeader className="border-b border-border px-5 py-4 sm:px-6">
             <DialogTitle>Create employee account</DialogTitle>
             <DialogDescription>
-              Add login details, organization placement, and employment information.
+              Set employee ID, week-off policy, organization placement, and sign-in details.
             </DialogDescription>
           </DialogHeader>
           <CreateLoginForm

@@ -2210,6 +2210,14 @@ export function createApp() {
       if (linkedEmployee && !linkedEmployee.email) {
         throw new HttpError(409, "Add an email to the employee profile before creating a login");
       }
+      const requestedEmployeeCode = body.employeeCode?.trim();
+      if (shouldCreateEmployee && requestedEmployeeCode) {
+        const clash = await prisma.employee.findFirst({
+          where: { employeeCode: requestedEmployeeCode },
+          select: { employeeId: true },
+        });
+        if (clash) throw new HttpError(409, "That employee ID is already in use");
+      }
       const passwordHash = await hashPassword(body.password);
       const organizationLevel =
         targetRole === Role.CEO ? "HEAD" : (body.organizationLevel ?? "MEMBER");
@@ -2220,7 +2228,7 @@ export function createApp() {
         const employee = shouldCreateEmployee
           ? await tx.employee.create({
               data: {
-                employeeCode: body.employeeCode || nextEmployeeCode(),
+                employeeCode: requestedEmployeeCode || nextEmployeeCode(),
                 name: body.name,
                 email: body.email.toLowerCase(),
                 phone: body.phone,
@@ -2235,6 +2243,7 @@ export function createApp() {
                 isFieldEmployee:
                   body.isFieldEmployee ??
                   ([Role.SALES, Role.DRIVER, Role.FIELD_STAFF] as Role[]).includes(targetRole),
+                weeklyOffPolicy: body.weeklyOffPolicy ?? "SELECTABLE",
                 joiningDate: body.joiningDate ?? undefined,
                 dateOfBirth: body.dateOfBirth ?? undefined,
                 gender: body.gender ?? undefined,
@@ -2487,7 +2496,6 @@ export function createApp() {
       const employeeId = String(req.params.id);
       await assertEmployeeAccess(req.user, employeeId);
       const body = updateEmployeeSchema.parse(req.body);
-      const { bankAccountNumber, panNumber, aadhaarNumber, uanNumber, ...employeeUpdate } = body;
       if (
         req.user!.role === Role.HR &&
         (body.managerId === undefined || Object.keys(body).some((key) => key !== "managerId"))
@@ -2498,6 +2506,19 @@ export function createApp() {
         where: { employeeId },
         include: { user: true },
       });
+      if (body.employeeCode !== undefined) {
+        const nextCode = body.employeeCode.trim();
+        if (!nextCode) throw new HttpError(400, "Employee ID cannot be empty");
+        if (nextCode !== existing.employeeCode) {
+          const clash = await prisma.employee.findFirst({
+            where: { employeeCode: nextCode, NOT: { employeeId } },
+            select: { employeeId: true },
+          });
+          if (clash) throw new HttpError(409, "That employee ID is already in use");
+        }
+        body.employeeCode = nextCode;
+      }
+      const { bankAccountNumber, panNumber, aadhaarNumber, uanNumber, ...employeeUpdate } = body;
       const nextDateOfBirth =
         body.dateOfBirth === undefined ? existing.dateOfBirth : body.dateOfBirth;
       const nextJoiningDate =
@@ -4552,6 +4573,16 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       if (!req.user!.employeeId) throw new HttpError(400, "No employee profile");
       const body = weeklyOffRequestSchema.parse(req.body);
+      const employee = await prisma.employee.findUniqueOrThrow({
+        where: { employeeId: req.user!.employeeId },
+        select: { weeklyOffPolicy: true },
+      });
+      if (employee.weeklyOffPolicy === "SUNDAY_FIXED") {
+        throw new HttpError(
+          400,
+          "Your week off is fixed to Sunday. Attendance marks Sundays as week off automatically — no request is needed.",
+        );
+      }
       const date = startOfDayUtc(body.date);
       const today = todayIstDate();
       const tomorrow = new Date(today);

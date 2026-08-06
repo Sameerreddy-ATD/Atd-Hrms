@@ -10,10 +10,10 @@ import { DateField } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { leaveApi } from "@/services/api";
+import { leaveApi, employeesApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
 import { formatDisplayDate, indiaDateKey, indiaDateKeyShift } from "@/lib/india-date";
-import type { LeaveBalance, LeaveTypeOption, WeeklyOffRequest } from "@/types/domain";
+import type { LeaveBalance, LeaveTypeOption, WeeklyOffPolicy, WeeklyOffRequest } from "@/types/domain";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { CalendarClock, CalendarDays, CheckCircle2, ShieldCheck, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -43,6 +43,7 @@ function ApplyLeavePage() {
   const [typesLoading, setTypesLoading] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [requestKind, setRequestKind] = useState<"leave" | "weekly-off">("leave");
+  const [weeklyOffPolicy, setWeeklyOffPolicy] = useState<WeeklyOffPolicy>("SELECTABLE");
   const todayString = indiaDateKey();
 
   useEffect(() => {
@@ -56,6 +57,21 @@ function ApplyLeavePage() {
       .catch((err) => toast.error((err as Error).message))
       .finally(() => setTypesLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!user?.employeeId) {
+      setWeeklyOffPolicy("SELECTABLE");
+      return;
+    }
+    if (user.weeklyOffPolicy) {
+      setWeeklyOffPolicy(user.weeklyOffPolicy);
+      return;
+    }
+    employeesApi
+      .get(user.employeeId)
+      .then((profile) => setWeeklyOffPolicy(profile?.weeklyOffPolicy || "SELECTABLE"))
+      .catch(() => setWeeklyOffPolicy("SELECTABLE"));
+  }, [user?.employeeId, user?.weeklyOffPolicy]);
   const selectedType = types.find((type) => type.id === typeId);
   const isCompOff = selectedType?.code === "COMP_OFF";
   const requiresApprover = selectedType?.approvalRequired !== false;
@@ -439,108 +455,132 @@ function ApplyLeavePage() {
               <div className="mb-5 flex items-start gap-3">
                 <CalendarClock className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                 <div>
-                  <h2 className="font-semibold">Request weekly off</h2>
+                  <h2 className="font-semibold">
+                    {weeklyOffPolicy === "SUNDAY_FIXED" ? "Sunday week off" : "Request weekly off"}
+                  </h2>
                   <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                    Non-Sunday weekly offs need at least one day advance approval from your
-                    organization head. Sundays auto-confirm for today or a future Sunday. One weekly
-                    off per Monday–Sunday week; consecutive weekly-off dates are not allowed.
+                    {weeklyOffPolicy === "SUNDAY_FIXED"
+                      ? "Your week off is fixed to Sunday. Attendance marks every Sunday as week off automatically — you do not need to submit a request."
+                      : "Pick one day in each Monday–Sunday week. Sundays auto-confirm for today or a future Sunday. Other days need at least one day advance approval from your organization head. Consecutive weekly-off dates are not allowed."}
                   </p>
                 </div>
               </div>
-              {!approverLoading && approverName && (
-                <p className="mb-4 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                  This request will be sent to your organization head:{" "}
-                  <span className="font-medium text-foreground">{approverName}</span>. Higher heads in
-                  the same chain can also approve or reject it.
-                </p>
-              )}
-              <form onSubmit={submitWeeklyOff} className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="weekly-off-date">Requested date</Label>
-                  <DateField
-                    id="weekly-off-date"
-                    value={weeklyOffDate}
-                    min={indiaDateKeyShift(0)}
-                    onChange={setWeeklyOffDate}
-                  />
+              {weeklyOffPolicy === "SUNDAY_FIXED" ? (
+                <div className="rounded-lg border border-border bg-muted/30 px-4 py-5">
+                  <p className="text-sm font-medium text-foreground">Fixed Sunday off is active</p>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                    If you need a different arrangement, ask HR or Developer Admin to change your week
+                    off policy on your employee profile.
+                  </p>
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="weekly-off-reason">Reason (optional)</Label>
-                  <Input
-                    id="weekly-off-reason"
-                    value={weeklyOffReason}
-                    maxLength={500}
-                    placeholder="Add a short note"
-                    onChange={(event) => setWeeklyOffReason(event.target.value)}
-                  />
-                </div>
-                <div className="flex justify-end gap-2 sm:col-span-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => navigate({ to: "/leave/history" })}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={weeklyOffSaving || !weeklyOffDate}>
-                    {weeklyOffSaving ? "Sending..." : "Submit request"}
-                  </Button>
-                </div>
-              </form>
-              {weeklyOffs.length > 0 && (
-                <div className="mt-5 space-y-2">
-                  <h3 className="text-sm font-semibold">Recent weekly-off requests</h3>
-                  {weeklyOffs.slice(0, 6).map((request) => (
-                    <div
-                      key={request.id}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-background p-3 text-sm"
-                    >
-                      <div className="min-w-0">
-                        <p className="font-medium">{formatDisplayDate(request.date)}</p>
-                        {request.reviewedByName && (
-                          <p className="text-xs text-muted-foreground">
-                            {request.status === "REJECTED"
-                              ? `Rejected by ${request.reviewedByName}`
-                              : request.status === "APPROVED"
-                                ? `Approved by ${request.reviewedByName}`
-                                : request.reviewedByName}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <StatusBadge status={request.status} />
-                        {(request.status === "PENDING" || request.status === "APPROVED") && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            disabled={weeklyOffSaving}
-                            onClick={() => void cancelWeeklyOff(request.id)}
-                          >
-                            Cancel
-                          </Button>
-                        )}
-                      </div>
+              ) : (
+                <>
+                  {!approverLoading && approverName && (
+                    <p className="mb-4 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                      This request will be sent to your organization head:{" "}
+                      <span className="font-medium text-foreground">{approverName}</span>. Higher heads
+                      in the same chain can also approve or reject it.
+                    </p>
+                  )}
+                  <form onSubmit={submitWeeklyOff} className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="weekly-off-date">Requested date</Label>
+                      <DateField
+                        id="weekly-off-date"
+                        value={weeklyOffDate}
+                        min={indiaDateKeyShift(0)}
+                        onChange={setWeeklyOffDate}
+                      />
                     </div>
-                  ))}
-                </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="weekly-off-reason">Reason (optional)</Label>
+                      <Input
+                        id="weekly-off-reason"
+                        value={weeklyOffReason}
+                        maxLength={500}
+                        placeholder="Add a short note"
+                        onChange={(event) => setWeeklyOffReason(event.target.value)}
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2 sm:col-span-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => navigate({ to: "/leave/history" })}
+                      >
+                        Cancel
+                      </Button>
+                      <Button type="submit" disabled={weeklyOffSaving || !weeklyOffDate}>
+                        {weeklyOffSaving ? "Sending..." : "Submit request"}
+                      </Button>
+                    </div>
+                  </form>
+                  {weeklyOffs.length > 0 && (
+                    <div className="mt-5 space-y-2">
+                      <h3 className="text-sm font-semibold">Recent weekly-off requests</h3>
+                      {weeklyOffs.slice(0, 6).map((request) => (
+                        <div
+                          key={request.id}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-background p-3 text-sm"
+                        >
+                          <div className="min-w-0">
+                            <p className="font-medium">{formatDisplayDate(request.date)}</p>
+                            {request.reviewedByName && (
+                              <p className="text-xs text-muted-foreground">
+                                {request.status === "REJECTED"
+                                  ? `Rejected by ${request.reviewedByName}`
+                                  : request.status === "APPROVED"
+                                    ? `Approved by ${request.reviewedByName}`
+                                    : request.reviewedByName}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <StatusBadge status={request.status} />
+                            {(request.status === "PENDING" || request.status === "APPROVED") && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={weeklyOffSaving}
+                                onClick={() => void cancelWeeklyOff(request.id)}
+                              >
+                                Cancel
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
           <aside className="rounded-lg border bg-muted/20 p-4 lg:sticky lg:top-4 lg:self-start">
             <h2 className="text-sm font-semibold">Request summary</h2>
             <div className="mt-4 space-y-4">
-              <LeaveSummary icon={CalendarClock} label="Request type" value="Weekly off" />
               <LeaveSummary
-                icon={CalendarDays}
-                label="Requested date"
-                value={weeklyOffDate || "Select a date"}
+                icon={CalendarClock}
+                label="Policy"
+                value={
+                  weeklyOffPolicy === "SUNDAY_FIXED" ? "Sunday fixed" : "Selectable with approval"
+                }
               />
-              <LeaveSummary
-                icon={UserRound}
-                label="Approver"
-                value={approverLoading ? "Checking..." : (approverName ?? "Not assigned")}
-              />
+              {weeklyOffPolicy === "SELECTABLE" && (
+                <>
+                  <LeaveSummary
+                    icon={CalendarDays}
+                    label="Requested date"
+                    value={weeklyOffDate || "Select a date"}
+                  />
+                  <LeaveSummary
+                    icon={UserRound}
+                    label="Approver"
+                    value={approverLoading ? "Checking..." : (approverName ?? "Not assigned")}
+                  />
+                </>
+              )}
             </div>
           </aside>
         </div>

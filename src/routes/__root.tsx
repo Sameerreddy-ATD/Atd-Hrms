@@ -16,6 +16,7 @@ import { SystemThemeSync } from "@/components/layout/SystemThemeSync";
 import { Toaster } from "@/components/ui/sonner";
 import { registerAppServiceWorker } from "@/lib/browser-notifications";
 import { detectPwaPlatform, ensureLatestAppBuild } from "@/lib/pwa-install";
+import { PortraitOrientationGuard } from "@/components/layout/PortraitOrientationGuard";
 
 const SITE_TITLE = "Anytime Workforce";
 const SITE_DESCRIPTION =
@@ -187,23 +188,6 @@ function RootComponent() {
   }, []);
 
   useEffect(() => {
-    // Keep the installed / mobile app in portrait even when the OS auto-rotate setting varies.
-    const orientation = window.screen?.orientation as ScreenOrientation & {
-      lock?: (orientation: string) => Promise<void>;
-      unlock?: () => void;
-    };
-    if (!orientation?.lock) return;
-    void orientation.lock("portrait").catch(() => undefined);
-    return () => {
-      try {
-        orientation.unlock?.();
-      } catch {
-        /* ignore */
-      }
-    };
-  }, []);
-
-  useEffect(() => {
     // Suppress Chrome/Edge install mini-infobar on laptop/desktop; users can still install
     // from the browser address bar / menu if they choose.
     const platform = detectPwaPlatform();
@@ -220,6 +204,7 @@ function RootComponent() {
       <AuthProvider>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
+        <PortraitOrientationGuard />
         <SystemThemeSync />
         <NotificationBridge />
         <Toaster position="top-center" richColors closeButton />
