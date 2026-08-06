@@ -868,8 +868,8 @@ function AssetsPage() {
                   <div>
                     <h3 className="text-sm font-semibold text-foreground">Laptop details</h3>
                     <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-                      Required inventory fields for employee-assigned laptops. Passwords are
-                      encrypted. Warranty till is optional.
+                      Device specs and login credentials for this laptop. Passwords are encrypted.
+                      Warranty till is optional.
                     </p>
                   </div>
                 </div>
@@ -974,50 +974,12 @@ function AssetsPage() {
                       required={!editingAsset}
                     />
                   </FormField>
-                  <FormField
-                    label="One-time value (INR)"
-                    hint="Stored as the asset purchase / one-time investment value above."
-                  >
-                    <Input
-                      type="number"
-                      min="0"
-                      value={assetForm.purchaseValue}
-                      onChange={(event) =>
-                        setAssetForm({ ...assetForm, purchaseValue: event.target.value })
-                      }
-                      required
-                    />
-                  </FormField>
-                  <FormField label="Purchase date">
-                    <DateField
-                      value={assetForm.purchaseDate}
-                      onChange={(next) => setAssetForm({ ...assetForm, purchaseDate: next })}
-                      aria-label="Laptop purchase date"
-                    />
-                  </FormField>
                   <FormField label="Warranty till (optional)">
                     <DateField
                       value={assetForm.warrantyUntil}
                       onChange={(next) => setAssetForm({ ...assetForm, warrantyUntil: next })}
                       aria-label="Warranty until"
                     />
-                  </FormField>
-                  <FormField label="Branch">
-                    <Select
-                      value={assetForm.branchId}
-                      onValueChange={(branchId) => setAssetForm({ ...assetForm, branchId })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select branch" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {branches.map((branch) => (
-                          <SelectItem key={branch.id} value={branch.id}>
-                            {branch.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                   </FormField>
                 </div>
               </div>
