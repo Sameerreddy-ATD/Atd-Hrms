@@ -2,7 +2,7 @@ import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CreateLoginForm } from "@/components/users/CreateLoginForm";
-import { BulkEmployeeImport } from "@/components/employees/BulkEmployeeImport";
+import { BulkLoginSheet } from "@/components/users/BulkLoginSheet";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
 import { Badge } from "@/components/ui/badge";
@@ -245,7 +245,7 @@ function UsersPage() {
         description="Create, deactivate, reactivate, suspend, and reset employee accounts. Status moves from Created → Password change → Active."
         actions={
           <>
-            <BulkEmployeeImport
+            <BulkLoginSheet
               branches={branches}
               departments={departments}
               existingEmployees={users}
