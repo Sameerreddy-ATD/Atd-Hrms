@@ -113,7 +113,7 @@ export function AppHeader() {
   const roleLabel = user ? ROLE_LABELS[user.role] : "";
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-1 border-b border-border/80 bg-background/85 px-2 backdrop-blur-xl transition-[background-color,border-color] duration-[var(--motion-ui)] dark:bg-card/90 dark:shadow-[0_1px_0_0_color-mix(in_oklab,white_6%,transparent)] sm:h-16 sm:gap-3 sm:px-4 md:px-6">
+    <header className="sticky top-0 z-30 flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center justify-between gap-1 border-b border-border/80 bg-background/85 px-2 pt-[env(safe-area-inset-top)] backdrop-blur-xl transition-[background-color,border-color] duration-[var(--motion-ui)] dark:bg-card/90 dark:shadow-[0_1px_0_0_color-mix(in_oklab,white_6%,transparent)] sm:h-[calc(4rem+env(safe-area-inset-top))] sm:gap-3 sm:px-4 md:px-6">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <Button
           variant="ghost"
