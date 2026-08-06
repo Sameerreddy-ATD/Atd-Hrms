@@ -52,7 +52,6 @@ import {
   CalendarClock,
   Globe2,
   IndianRupee,
-  Laptop,
   Package,
   Pencil,
   Plus,
@@ -860,129 +859,115 @@ function AssetsPage() {
             </FormField>
 
             {isLaptopAssetName(assetForm.name) && assetForm.assetType === "PHYSICAL" && (
-              <div className="space-y-4 rounded-lg border border-border bg-muted/20 p-4 sm:col-span-2">
-                <div className="flex items-start gap-3">
-                  <span className="mt-0.5 grid h-8 w-8 place-items-center rounded-md bg-primary/10 text-primary">
-                    <Laptop className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                  <div>
-                    <h3 className="text-sm font-semibold text-foreground">Laptop details</h3>
-                    <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-                      Device specs and login credentials for this laptop. Passwords are encrypted.
-                      Warranty till is optional.
-                    </p>
-                  </div>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField label="Laptop name">
-                    <Input
-                      value={assetForm.laptopName}
-                      onChange={(event) =>
-                        setAssetForm({ ...assetForm, laptopName: event.target.value })
-                      }
-                      placeholder="e.g. Sameer-Dell-01"
-                      required
-                    />
-                  </FormField>
-                  <FormField label="Device ID">
-                    <Input
-                      value={assetForm.deviceId}
-                      onChange={(event) =>
-                        setAssetForm({ ...assetForm, deviceId: event.target.value })
-                      }
-                      required
-                    />
-                  </FormField>
-                  <FormField label="Product ID">
-                    <Input
-                      value={assetForm.productId}
-                      onChange={(event) =>
-                        setAssetForm({ ...assetForm, productId: event.target.value })
-                      }
-                      required
-                    />
-                  </FormField>
-                  <FormField label="Processor">
-                    <Input
-                      value={assetForm.processor}
-                      onChange={(event) =>
-                        setAssetForm({ ...assetForm, processor: event.target.value })
-                      }
-                      placeholder="e.g. Intel i5-1235U"
-                      required
-                    />
-                  </FormField>
-                  <FormField label="RAM">
-                    <Input
-                      value={assetForm.ram}
-                      onChange={(event) => setAssetForm({ ...assetForm, ram: event.target.value })}
-                      placeholder="e.g. 16 GB"
-                      required
-                    />
-                  </FormField>
-                  <FormField label="SSD">
-                    <Input
-                      value={assetForm.ssd}
-                      onChange={(event) => setAssetForm({ ...assetForm, ssd: event.target.value })}
-                      placeholder="e.g. 512 GB"
-                      required
-                    />
-                  </FormField>
-                  <FormField label="Windows version">
-                    <Input
-                      value={assetForm.windowsVersion}
-                      onChange={(event) =>
-                        setAssetForm({ ...assetForm, windowsVersion: event.target.value })
-                      }
-                      placeholder="e.g. Windows 11 Pro"
-                      required
-                    />
-                  </FormField>
-                  <FormField label="MAC address">
-                    <Input
-                      value={assetForm.macAddress}
-                      onChange={(event) =>
-                        setAssetForm({ ...assetForm, macAddress: event.target.value })
-                      }
-                      placeholder="AA:BB:CC:DD:EE:FF"
-                      required
-                    />
-                  </FormField>
-                  <FormField
-                    label="User password"
-                    hint={editingAsset ? "Leave blank to keep the current password." : undefined}
-                  >
-                    <PasswordInput
-                      value={assetForm.userPassword}
-                      onChange={(event) =>
-                        setAssetForm({ ...assetForm, userPassword: event.target.value })
-                      }
-                      autoComplete="new-password"
-                      required={!editingAsset}
-                    />
-                  </FormField>
-                  <FormField
-                    label="Admin password"
-                    hint={editingAsset ? "Leave blank to keep the current password." : undefined}
-                  >
-                    <PasswordInput
-                      value={assetForm.adminPassword}
-                      onChange={(event) =>
-                        setAssetForm({ ...assetForm, adminPassword: event.target.value })
-                      }
-                      autoComplete="new-password"
-                      required={!editingAsset}
-                    />
-                  </FormField>
-                  <FormField label="Warranty till (optional)">
-                    <DateField
-                      value={assetForm.warrantyUntil}
-                      onChange={(next) => setAssetForm({ ...assetForm, warrantyUntil: next })}
-                      aria-label="Warranty until"
-                    />
-                  </FormField>
-                </div>
-              </div>
+              <>
+                <FormField label="Laptop name">
+                  <Input
+                    value={assetForm.laptopName}
+                    onChange={(event) =>
+                      setAssetForm({ ...assetForm, laptopName: event.target.value })
+                    }
+                    placeholder="e.g. Sameer-Dell-01"
+                    required
+                  />
+                </FormField>
+                <FormField label="Device ID">
+                  <Input
+                    value={assetForm.deviceId}
+                    onChange={(event) =>
+                      setAssetForm({ ...assetForm, deviceId: event.target.value })
+                    }
+                    required
+                  />
+                </FormField>
+                <FormField label="Product ID">
+                  <Input
+                    value={assetForm.productId}
+                    onChange={(event) =>
+                      setAssetForm({ ...assetForm, productId: event.target.value })
+                    }
+                    required
+                  />
+                </FormField>
+                <FormField label="Processor">
+                  <Input
+                    value={assetForm.processor}
+                    onChange={(event) =>
+                      setAssetForm({ ...assetForm, processor: event.target.value })
+                    }
+                    placeholder="e.g. Intel i5-1235U"
+                    required
+                  />
+                </FormField>
+                <FormField label="RAM">
+                  <Input
+                    value={assetForm.ram}
+                    onChange={(event) => setAssetForm({ ...assetForm, ram: event.target.value })}
+                    placeholder="e.g. 16 GB"
+                    required
+                  />
+                </FormField>
+                <FormField label="SSD">
+                  <Input
+                    value={assetForm.ssd}
+                    onChange={(event) => setAssetForm({ ...assetForm, ssd: event.target.value })}
+                    placeholder="e.g. 512 GB"
+                    required
+                  />
+                </FormField>
+                <FormField label="Windows version">
+                  <Input
+                    value={assetForm.windowsVersion}
+                    onChange={(event) =>
+                      setAssetForm({ ...assetForm, windowsVersion: event.target.value })
+                    }
+                    placeholder="e.g. Windows 11 Pro"
+                    required
+                  />
+                </FormField>
+                <FormField label="MAC address">
+                  <Input
+                    value={assetForm.macAddress}
+                    onChange={(event) =>
+                      setAssetForm({ ...assetForm, macAddress: event.target.value })
+                    }
+                    placeholder="AA:BB:CC:DD:EE:FF"
+                    required
+                  />
+                </FormField>
+                <FormField
+                  label="User password"
+                  hint={editingAsset ? "Leave blank to keep the current password." : undefined}
+                >
+                  <PasswordInput
+                    value={assetForm.userPassword}
+                    onChange={(event) =>
+                      setAssetForm({ ...assetForm, userPassword: event.target.value })
+                    }
+                    autoComplete="new-password"
+                    required={!editingAsset}
+                  />
+                </FormField>
+                <FormField
+                  label="Admin password"
+                  hint={editingAsset ? "Leave blank to keep the current password." : undefined}
+                >
+                  <PasswordInput
+                    value={assetForm.adminPassword}
+                    onChange={(event) =>
+                      setAssetForm({ ...assetForm, adminPassword: event.target.value })
+                    }
+                    autoComplete="new-password"
+                    required={!editingAsset}
+                  />
+                </FormField>
+                <FormField label="Warranty till (optional)">
+                  <DateField
+                    value={assetForm.warrantyUntil}
+                    onChange={(next) => setAssetForm({ ...assetForm, warrantyUntil: next })}
+                    aria-label="Warranty until"
+                  />
+                </FormField>
+              </>
             )}
 
             <DialogFooter className="sm:col-span-2">
