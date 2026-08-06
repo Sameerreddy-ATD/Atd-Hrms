@@ -420,7 +420,7 @@ export const employeeShiftAssignmentSchema = z.object({
   effectiveTo: z.coerce.date().nullable().optional(),
 });
 
-export const companyAssetSchema = z.object({
+export const companyAssetBaseSchema = z.object({
   catalogId: z.string().min(1).nullable().optional(),
   assetCode: z.string().min(2).max(60).optional(),
   name: z.string().min(2).max(160),
@@ -438,9 +438,56 @@ export const companyAssetSchema = z.object({
   branchId: z.string().min(1).nullable().optional(),
   location: z.string().max(160).nullable().optional(),
   notes: z.string().max(1000).nullable().optional(),
+  laptopName: z.string().trim().min(1).max(160).nullable().optional(),
+  deviceId: z.string().trim().min(1).max(160).nullable().optional(),
+  productId: z.string().trim().min(1).max(160).nullable().optional(),
+  processor: z.string().trim().min(1).max(160).nullable().optional(),
+  ram: z.string().trim().min(1).max(80).nullable().optional(),
+  ssd: z.string().trim().min(1).max(80).nullable().optional(),
+  windowsVersion: z.string().trim().min(1).max(120).nullable().optional(),
+  macAddress: z.string().trim().min(1).max(80).nullable().optional(),
+  userPassword: z.string().max(200).nullable().optional(),
+  adminPassword: z.string().max(200).nullable().optional(),
+  warrantyUntil: z.coerce.date().nullable().optional(),
 });
 
-export const companyAssetUpdateSchema = companyAssetSchema.partial();
+function refineLaptopAssetFields(
+  value: z.infer<typeof companyAssetBaseSchema>,
+  context: z.RefinementCtx,
+  options?: { requirePasswords?: boolean },
+) {
+  if (!/\blaptops?\b/i.test((value.name ?? "").trim())) return;
+  const required: Array<keyof typeof value> = [
+    "laptopName",
+    "deviceId",
+    "productId",
+    "processor",
+    "ram",
+    "ssd",
+    "windowsVersion",
+    "macAddress",
+    "purchaseDate",
+  ];
+  if (options?.requirePasswords !== false) {
+    required.push("userPassword", "adminPassword");
+  }
+  for (const field of required) {
+    const raw = value[field];
+    if (raw === undefined || raw === null || (typeof raw === "string" && !String(raw).trim())) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [field],
+        message: "Required for laptop assets",
+      });
+    }
+  }
+}
+
+export const companyAssetSchema = companyAssetBaseSchema.superRefine((value, context) =>
+  refineLaptopAssetFields(value, context, { requirePasswords: true }),
+);
+
+export const companyAssetUpdateSchema = companyAssetBaseSchema.partial();
 
 export const assetAssignSchema = z.object({
   employeeId: z.string().min(1),

@@ -10,6 +10,8 @@ import {
   returnAssetAssignment,
   syncAssetAssigneeDenorm,
 } from "./assetRules.js";
+import { encryptEmployeeField } from "./employeePrivateData.js";
+import { isLaptopAssetName } from "./laptopAsset.js";
 import { asyncHandler, HttpError } from "./errors.js";
 import {
   assetCatalogItemDto,
@@ -250,7 +252,23 @@ export function registerAssetRoutes(app: Express) {
         location,
         notes,
         status: requestedStatus,
+        laptopName,
+        deviceId,
+        productId,
+        processor,
+        ram,
+        ssd,
+        windowsVersion,
+        macAddress,
+        userPassword,
+        adminPassword,
+        warrantyUntil,
       } = body;
+
+      const resolvedName = catalogItem?.name ?? name;
+      if (isLaptopAssetName(resolvedName) && assetType === "PHYSICAL") {
+        // Schema already enforces required laptop fields for create.
+      }
 
       let status: string;
       try {
@@ -267,7 +285,7 @@ export function registerAssetRoutes(app: Express) {
         const created = await tx.companyAsset.create({
           data: {
             assetCode: assetCode ?? `ATD-ONL-${randomUUID().slice(0, 8).toUpperCase()}`,
-            name: catalogItem?.name ?? name,
+            name: resolvedName,
             category: assetType,
             assetType,
             assignmentScope,
@@ -282,6 +300,21 @@ export function registerAssetRoutes(app: Express) {
             location: location || null,
             notes: notes || null,
             status,
+            laptopName: isLaptopAssetName(resolvedName) ? laptopName || null : null,
+            deviceId: isLaptopAssetName(resolvedName) ? deviceId || null : null,
+            productId: isLaptopAssetName(resolvedName) ? productId || null : null,
+            processor: isLaptopAssetName(resolvedName) ? processor || null : null,
+            ram: isLaptopAssetName(resolvedName) ? ram || null : null,
+            ssd: isLaptopAssetName(resolvedName) ? ssd || null : null,
+            windowsVersion: isLaptopAssetName(resolvedName) ? windowsVersion || null : null,
+            macAddress: isLaptopAssetName(resolvedName) ? macAddress || null : null,
+            userPasswordEncrypted: isLaptopAssetName(resolvedName)
+              ? encryptEmployeeField(userPassword)
+              : null,
+            adminPasswordEncrypted: isLaptopAssetName(resolvedName)
+              ? encryptEmployeeField(adminPassword)
+              : null,
+            warrantyUntil: isLaptopAssetName(resolvedName) ? (warrantyUntil ?? null) : null,
           },
         });
         if (assignedEmployeeId && assignmentScope === "EMPLOYEE") {
@@ -342,8 +375,22 @@ export function registerAssetRoutes(app: Express) {
       const {
         assignedEmployeeId,
         visibleToEmployee,
+        userPassword,
+        adminPassword,
+        laptopName,
+        deviceId,
+        productId,
+        processor,
+        ram,
+        ssd,
+        windowsVersion,
+        macAddress,
+        warrantyUntil,
         ...assetFields
       } = body;
+
+      const nextName = catalogItem?.name ?? body.name ?? existing.name;
+      const laptop = isLaptopAssetName(nextName);
 
       const asset = await prisma.$transaction(async (tx) => {
         await tx.companyAsset.update({
@@ -363,6 +410,74 @@ export function registerAssetRoutes(app: Express) {
                   ? undefined
                   : body.branchId || null,
             assignedEmployeeId: undefined,
+            laptopName:
+              laptopName === undefined
+                ? laptop
+                  ? undefined
+                  : null
+                : laptop
+                  ? laptopName || null
+                  : null,
+            deviceId:
+              deviceId === undefined ? (laptop ? undefined : null) : laptop ? deviceId || null : null,
+            productId:
+              productId === undefined
+                ? laptop
+                  ? undefined
+                  : null
+                : laptop
+                  ? productId || null
+                  : null,
+            processor:
+              processor === undefined
+                ? laptop
+                  ? undefined
+                  : null
+                : laptop
+                  ? processor || null
+                  : null,
+            ram: ram === undefined ? (laptop ? undefined : null) : laptop ? ram || null : null,
+            ssd: ssd === undefined ? (laptop ? undefined : null) : laptop ? ssd || null : null,
+            windowsVersion:
+              windowsVersion === undefined
+                ? laptop
+                  ? undefined
+                  : null
+                : laptop
+                  ? windowsVersion || null
+                  : null,
+            macAddress:
+              macAddress === undefined
+                ? laptop
+                  ? undefined
+                  : null
+                : laptop
+                  ? macAddress || null
+                  : null,
+            warrantyUntil:
+              warrantyUntil === undefined
+                ? laptop
+                  ? undefined
+                  : null
+                : laptop
+                  ? warrantyUntil
+                  : null,
+            userPasswordEncrypted:
+              userPassword === undefined
+                ? laptop
+                  ? undefined
+                  : null
+                : laptop
+                  ? encryptEmployeeField(userPassword)
+                  : null,
+            adminPasswordEncrypted:
+              adminPassword === undefined
+                ? laptop
+                  ? undefined
+                  : null
+                : laptop
+                  ? encryptEmployeeField(adminPassword)
+                  : null,
           },
         });
 

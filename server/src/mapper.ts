@@ -12,6 +12,7 @@ import type {
 } from "@prisma/client";
 import { roleToUi } from "./rbac.js";
 import { decryptEmployeeField } from "./employeePrivateData.js";
+import { isLaptopAssetName } from "./laptopAsset.js";
 import {
   branchMobileSourceLabel,
   formatLocationPlaceName,
@@ -628,6 +629,21 @@ export function companyAssetDto(
     branchName: asset.branch?.branchName,
     location: asset.location ?? undefined,
     notes: asset.notes ?? undefined,
+    laptopName: asset.laptopName ?? undefined,
+    deviceId: asset.deviceId ?? undefined,
+    productId: asset.productId ?? undefined,
+    processor: asset.processor ?? undefined,
+    ram: asset.ram ?? undefined,
+    ssd: asset.ssd ?? undefined,
+    windowsVersion: asset.windowsVersion ?? undefined,
+    macAddress: asset.macAddress ?? undefined,
+    userPassword: isLaptopAssetName(asset.name)
+      ? decryptEmployeeField(asset.userPasswordEncrypted)
+      : undefined,
+    adminPassword: isLaptopAssetName(asset.name)
+      ? decryptEmployeeField(asset.adminPasswordEncrypted)
+      : undefined,
+    warrantyUntil: asset.warrantyUntil?.toISOString().slice(0, 10),
     assignments,
   };
   if (options?.hideCosts) {
@@ -637,6 +653,8 @@ export function companyAssetDto(
       monthlyEquivalent: undefined,
       annualRecurring: undefined,
       costSharePerSeat: undefined,
+      userPassword: undefined,
+      adminPassword: undefined,
       assignments: assignments.map(({ costShareAmount: _a, costShareFrequency: _f, ...seat }) => seat),
     };
   }

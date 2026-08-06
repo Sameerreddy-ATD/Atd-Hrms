@@ -42,14 +42,17 @@ import type {
   User,
 } from "@/types/domain";
 import { BulkAssetImport } from "@/components/assets/BulkAssetImport";
+import { PasswordInput } from "@/components/common/PasswordInput";
 import { assetsApi, branchesApi, employeesApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
 import { formatDisplayDateTime } from "@/lib/india-date";
+import { isLaptopAssetName } from "@/lib/laptop-asset";
 import {
   Building2,
   CalendarClock,
   Globe2,
   IndianRupee,
+  Laptop,
   Package,
   Pencil,
   Plus,
@@ -74,6 +77,17 @@ const EMPTY_ASSET_FORM = {
   branchId: "",
   status: "AVAILABLE" as CompanyAsset["status"],
   visibleToEmployee: true,
+  laptopName: "",
+  deviceId: "",
+  productId: "",
+  processor: "",
+  ram: "",
+  ssd: "",
+  windowsVersion: "",
+  macAddress: "",
+  userPassword: "",
+  adminPassword: "",
+  warrantyUntil: "",
 };
 
 const PAGE_SIZE = 100;
@@ -267,6 +281,17 @@ function AssetsPage() {
       branchId: asset.branchId ?? "",
       status: asset.status,
       visibleToEmployee: true,
+      laptopName: asset.laptopName ?? "",
+      deviceId: asset.deviceId ?? "",
+      productId: asset.productId ?? "",
+      processor: asset.processor ?? "",
+      ram: asset.ram ?? "",
+      ssd: asset.ssd ?? "",
+      windowsVersion: asset.windowsVersion ?? "",
+      macAddress: asset.macAddress ?? "",
+      userPassword: asset.userPassword ?? "",
+      adminPassword: asset.adminPassword ?? "",
+      warrantyUntil: asset.warrantyUntil ?? "",
     });
     setAssetDialogOpen(true);
   }
@@ -285,6 +310,30 @@ function AssetsPage() {
       );
       return;
     }
+    const laptop = isLaptopAssetName(assetForm.name);
+    if (laptop) {
+      const missing = [
+        ["Laptop name", assetForm.laptopName],
+        ["Device ID", assetForm.deviceId],
+        ["Product ID", assetForm.productId],
+        ["Processor", assetForm.processor],
+        ["RAM", assetForm.ram],
+        ["SSD", assetForm.ssd],
+        ["Windows version", assetForm.windowsVersion],
+        ["MAC address", assetForm.macAddress],
+        ["Purchase date", assetForm.purchaseDate],
+      ].filter(([, value]) => !String(value).trim());
+      if (!editingAsset) {
+        if (!assetForm.userPassword.trim() || !assetForm.adminPassword.trim()) {
+          toast.error("User password and admin password are required for laptops.");
+          return;
+        }
+      }
+      if (missing.length) {
+        toast.error(`Complete laptop details: ${missing.map(([label]) => label).join(", ")}`);
+        return;
+      }
+    }
     try {
       const payload = {
         assetCode: assetForm.assetType === "ONLINE" ? undefined : assetForm.assetCode.trim(),
@@ -301,6 +350,21 @@ function AssetsPage() {
         branchId: assetForm.assetType === "ONLINE" ? null : assetForm.branchId || null,
         status: assetForm.status,
         visibleToEmployee: assetForm.visibleToEmployee,
+        laptopName: laptop ? assetForm.laptopName.trim() : null,
+        deviceId: laptop ? assetForm.deviceId.trim() : null,
+        productId: laptop ? assetForm.productId.trim() : null,
+        processor: laptop ? assetForm.processor.trim() : null,
+        ram: laptop ? assetForm.ram.trim() : null,
+        ssd: laptop ? assetForm.ssd.trim() : null,
+        windowsVersion: laptop ? assetForm.windowsVersion.trim() : null,
+        macAddress: laptop ? assetForm.macAddress.trim() : null,
+        userPassword: laptop
+          ? assetForm.userPassword.trim() || (editingAsset ? undefined : null)
+          : null,
+        adminPassword: laptop
+          ? assetForm.adminPassword.trim() || (editingAsset ? undefined : null)
+          : null,
+        warrantyUntil: laptop ? assetForm.warrantyUntil || null : null,
       };
       const saved = editingAsset
         ? await assetsApi.update(editingAsset.id, payload)
@@ -794,6 +858,171 @@ function AssetsPage() {
                 </SelectContent>
               </Select>
             </FormField>
+
+            {isLaptopAssetName(assetForm.name) && assetForm.assetType === "PHYSICAL" && (
+              <div className="space-y-4 rounded-lg border border-border bg-muted/20 p-4 sm:col-span-2">
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 grid h-8 w-8 place-items-center rounded-md bg-primary/10 text-primary">
+                    <Laptop className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">Laptop details</h3>
+                    <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                      Required inventory fields for employee-assigned laptops. Passwords are
+                      encrypted. Warranty till is optional.
+                    </p>
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <FormField label="Laptop name">
+                    <Input
+                      value={assetForm.laptopName}
+                      onChange={(event) =>
+                        setAssetForm({ ...assetForm, laptopName: event.target.value })
+                      }
+                      placeholder="e.g. Sameer-Dell-01"
+                      required
+                    />
+                  </FormField>
+                  <FormField label="Device ID">
+                    <Input
+                      value={assetForm.deviceId}
+                      onChange={(event) =>
+                        setAssetForm({ ...assetForm, deviceId: event.target.value })
+                      }
+                      required
+                    />
+                  </FormField>
+                  <FormField label="Product ID">
+                    <Input
+                      value={assetForm.productId}
+                      onChange={(event) =>
+                        setAssetForm({ ...assetForm, productId: event.target.value })
+                      }
+                      required
+                    />
+                  </FormField>
+                  <FormField label="Processor">
+                    <Input
+                      value={assetForm.processor}
+                      onChange={(event) =>
+                        setAssetForm({ ...assetForm, processor: event.target.value })
+                      }
+                      placeholder="e.g. Intel i5-1235U"
+                      required
+                    />
+                  </FormField>
+                  <FormField label="RAM">
+                    <Input
+                      value={assetForm.ram}
+                      onChange={(event) => setAssetForm({ ...assetForm, ram: event.target.value })}
+                      placeholder="e.g. 16 GB"
+                      required
+                    />
+                  </FormField>
+                  <FormField label="SSD">
+                    <Input
+                      value={assetForm.ssd}
+                      onChange={(event) => setAssetForm({ ...assetForm, ssd: event.target.value })}
+                      placeholder="e.g. 512 GB"
+                      required
+                    />
+                  </FormField>
+                  <FormField label="Windows version">
+                    <Input
+                      value={assetForm.windowsVersion}
+                      onChange={(event) =>
+                        setAssetForm({ ...assetForm, windowsVersion: event.target.value })
+                      }
+                      placeholder="e.g. Windows 11 Pro"
+                      required
+                    />
+                  </FormField>
+                  <FormField label="MAC address">
+                    <Input
+                      value={assetForm.macAddress}
+                      onChange={(event) =>
+                        setAssetForm({ ...assetForm, macAddress: event.target.value })
+                      }
+                      placeholder="AA:BB:CC:DD:EE:FF"
+                      required
+                    />
+                  </FormField>
+                  <FormField
+                    label="User password"
+                    hint={editingAsset ? "Leave blank to keep the current password." : undefined}
+                  >
+                    <PasswordInput
+                      value={assetForm.userPassword}
+                      onChange={(event) =>
+                        setAssetForm({ ...assetForm, userPassword: event.target.value })
+                      }
+                      autoComplete="new-password"
+                      required={!editingAsset}
+                    />
+                  </FormField>
+                  <FormField
+                    label="Admin password"
+                    hint={editingAsset ? "Leave blank to keep the current password." : undefined}
+                  >
+                    <PasswordInput
+                      value={assetForm.adminPassword}
+                      onChange={(event) =>
+                        setAssetForm({ ...assetForm, adminPassword: event.target.value })
+                      }
+                      autoComplete="new-password"
+                      required={!editingAsset}
+                    />
+                  </FormField>
+                  <FormField
+                    label="One-time value (INR)"
+                    hint="Stored as the asset purchase / one-time investment value above."
+                  >
+                    <Input
+                      type="number"
+                      min="0"
+                      value={assetForm.purchaseValue}
+                      onChange={(event) =>
+                        setAssetForm({ ...assetForm, purchaseValue: event.target.value })
+                      }
+                      required
+                    />
+                  </FormField>
+                  <FormField label="Purchase date">
+                    <DateField
+                      value={assetForm.purchaseDate}
+                      onChange={(next) => setAssetForm({ ...assetForm, purchaseDate: next })}
+                      aria-label="Laptop purchase date"
+                    />
+                  </FormField>
+                  <FormField label="Warranty till (optional)">
+                    <DateField
+                      value={assetForm.warrantyUntil}
+                      onChange={(next) => setAssetForm({ ...assetForm, warrantyUntil: next })}
+                      aria-label="Warranty until"
+                    />
+                  </FormField>
+                  <FormField label="Branch">
+                    <Select
+                      value={assetForm.branchId}
+                      onValueChange={(branchId) => setAssetForm({ ...assetForm, branchId })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select branch" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branches.map((branch) => (
+                          <SelectItem key={branch.id} value={branch.id}>
+                            {branch.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormField>
+                </div>
+              </div>
+            )}
+
             <DialogFooter className="sm:col-span-2">
               <Button type="button" variant="outline" onClick={() => setAssetDialogOpen(false)}>
                 Cancel
@@ -1517,7 +1746,8 @@ function assetLabel(asset: CompanyAsset) {
     asset.assetType === "ONLINE"
       ? asset.serialNumber || asset.assetCode
       : asset.assetCode;
-  return `${asset.name} · ${idPart}`;
+  const laptop = asset.laptopName ? ` · ${asset.laptopName}` : "";
+  return `${asset.name}${laptop} · ${idPart}`;
 }
 
 function costLabel(frequency: CompanyAsset["costFrequency"]) {

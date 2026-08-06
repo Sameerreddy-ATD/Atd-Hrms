@@ -326,6 +326,17 @@ export interface CompanyAsset {
   branchName?: string;
   location?: string;
   notes?: string;
+  laptopName?: string;
+  deviceId?: string;
+  productId?: string;
+  processor?: string;
+  ram?: string;
+  ssd?: string;
+  windowsVersion?: string;
+  macAddress?: string;
+  userPassword?: string;
+  adminPassword?: string;
+  warrantyUntil?: string;
   assignments?: AssetSeat[];
 }
 

@@ -526,6 +526,18 @@ model CompanyAsset {
   branch             Branch?              @relation(fields: [branchId], references: [branchId])
   location           String?
   notes              String?
+  /// Laptop inventory details (shown when asset name is a laptop).
+  laptopName         String?              @map("laptop_name")
+  deviceId           String?              @map("device_id")
+  productId          String?              @map("product_id")
+  processor          String?
+  ram                String?
+  ssd                String?
+  windowsVersion     String?              @map("windows_version")
+  macAddress         String?              @map("mac_address")
+  userPasswordEncrypted  String?          @map("user_password_encrypted") @db.Text
+  adminPasswordEncrypted String?          @map("admin_password_encrypted") @db.Text
+  warrantyUntil      DateTime?            @map("warranty_until") @db.Date
   assignments        AssetAssignment[]
   returns            AssetReturn[]
   createdAt          DateTime             @default(now()) @map("created_at")

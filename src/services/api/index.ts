@@ -763,6 +763,7 @@ type CompanyAssetPayload = Omit<
   | "serialNumber"
   | "purchaseDate"
   | "renewalDate"
+  | "warrantyUntil"
   | "monthlyEquivalent"
   | "annualRecurring"
   | "assignedEmployeeId"
@@ -775,6 +776,16 @@ type CompanyAssetPayload = Omit<
   | "activeSeatCount"
   | "costSharePerSeat"
   | "assignments"
+  | "laptopName"
+  | "deviceId"
+  | "productId"
+  | "processor"
+  | "ram"
+  | "ssd"
+  | "windowsVersion"
+  | "macAddress"
+  | "userPassword"
+  | "adminPassword"
 > & {
   assetCode?: string;
   status?: CompanyAsset["status"];
@@ -782,11 +793,22 @@ type CompanyAssetPayload = Omit<
   serialNumber?: string | null;
   purchaseDate?: string | null;
   renewalDate?: string | null;
+  warrantyUntil?: string | null;
   assignedEmployeeId?: string | null;
   visibleToEmployee?: boolean;
   branchId?: string | null;
   location?: string | null;
   notes?: string | null;
+  laptopName?: string | null;
+  deviceId?: string | null;
+  productId?: string | null;
+  processor?: string | null;
+  ram?: string | null;
+  ssd?: string | null;
+  windowsVersion?: string | null;
+  macAddress?: string | null;
+  userPassword?: string | null;
+  adminPassword?: string | null;
 };
 
 export const assetsApi = {
