@@ -442,9 +442,10 @@ function UsersPage() {
                         variant="destructive"
                         disabled={u.id === currentUser?.id || u.role === "developer_admin"}
                         onClick={() => setDeleteUser(u)}
-                        title="Offboard employee"
+                        title="Offboard employee — end employment and close login"
                       >
                         <Trash2 className="h-4 w-4" />
+                        Offboard
                       </Button>
                     </div>
                   </TableCell>
