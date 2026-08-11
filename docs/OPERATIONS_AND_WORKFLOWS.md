@@ -52,11 +52,11 @@ flowchart LR
   D --> E["Mandatory live face registration (normal accounts)"]
   E --> K["Developer Admin approval"]
   K --> F["Active account"]
-  F --> G["Scheduled suspension, deactivation, or lockout"]
+  F --> G["Scheduled suspension, offboard, or lockout"]
   G --> H["Developer Admin reactivates"]
   H --> F
-  F --> I["Typed deactivation confirmation"]
-  I --> J["Employee and account inactive; history retained"]
+  F --> I["Typed OFFBOARD confirmation"]
+  I --> J["Employee TERMINATED, login INACTIVE; history retained"]
 ```
 
 - Public signup is disabled.
@@ -68,18 +68,11 @@ flowchart LR
 - Only Developer Admin can reactivate a blocked login; reactivation resets the failed-attempt counter.
 - Blocking or suspending login retains the employee, attendance, biometric mapping, leave, asset, and task data.
 - Biometric imports and task assignment use the employee record and continue to work while only the login is blocked.
-- User Logins and Employees display active, scheduled suspension, suspended, blocked, and inactive states from the same backend account status.
+- User Logins and Employees display active, scheduled suspension, suspended, blocked, inactive, and left-company (terminated) states from the same backend account status.
 - Developer Admin can offboard an employee by typing `OFFBOARD` (or `DEACTIVATE`). The current account and all Developer Admin accounts are protected.
-- Deactivation synchronizes employee/account status and retains the profile, attendance, leave, biometric mappings, assigned assets, expenses, tasks, and audit history.
-- Developer Admin bulk import uses a generated Excel template containing the current company,
-  organization-unit, branch, and manager references. It accepts the complete employee identity,
-  employment, company, reporting, banking, and statutory profile.
-- Bulk-imported roles are derived by the backend from organization unit and level. Private
-  identifiers pass through the same validation and encryption used by individual login creation.
-  Manager-dependent workbook rows wait until their manager row has been created.
-- Example rows must be replaced or removed. Import is row-atomic: every successful row commits the
-  same employee/user transaction as single creation, while a failed row is reported for correction
-  without leaving a partial employee or login.
+- Offboard sets employee **TERMINATED** and login **INACTIVE** together and retains the profile, attendance, leave, biometric mappings, assigned assets, expenses, tasks, and audit history.
+- Developer Admin **Bulk add** uses an in-app pasteable grid (Excel/Sheets paste supported) for create-many logins with the same validation and encryption as single create.
+- Developer Admin **Bulk edit** loads existing logins into a grid; only changed rows are saved; blank password/sensitive IDs keep current values; Developer Admin accounts are excluded.
 - Server-generated employee codes include time and randomness instead of a shared sequential
   counter, avoiding duplicate selection when imports or backend instances run concurrently.
 

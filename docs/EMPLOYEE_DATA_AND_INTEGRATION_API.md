@@ -50,10 +50,13 @@ returned separately as `userId`.
 - Linking a login to an existing employee uses the employee's canonical name, email, and phone.
 - Creating through `/api/v1/employees` creates an employee only; no password or login is required.
 - Updating shared employee fields updates the linked account mirror transactionally.
-- Deactivation / offboard sets the linked login to `INACTIVE` and the employee to `TERMINATED`,
+- Offboard (typed `OFFBOARD`; `DEACTIVATE` still accepted) sets the linked login to `INACTIVE` and
+  the employee to `TERMINATED`,
   records termination/deactivation time,
   increments the employee version, and retains attendance, leave, expenses, assets, tasks, and audit
   history.
+- Browser **Bulk edit logins** applies the same `PATCH` employee / user (and password reset) paths
+  per changed row; it is not a separate Employee API v1 feature.
 - Reactivation clears termination/deactivation time and records a `REACTIVATED` change event.
 - The production account UI does not permanently delete an employee. The explicitly labelled test
   data reset remains destructive and must only be used after a backup.

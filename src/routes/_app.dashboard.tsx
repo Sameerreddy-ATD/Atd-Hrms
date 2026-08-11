@@ -847,7 +847,7 @@ function ManagerDashboard({
 }) {
   return (
     <div className="space-y-4">
-      <div className="aw-enter-delayed grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="aw-enter-delayed grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Team present" value={data.present} icon={UserCheck} tone="success" />
         <StatCard label="On leave" value={data.onLeave} icon={PlaneTakeoff} tone="info" />
         <StatCard

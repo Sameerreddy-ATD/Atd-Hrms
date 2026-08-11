@@ -661,3 +661,305 @@ export function pastedRowsMatchHeaders(firstRow: string[]) {
   }).length;
   return matches >= Math.min(3, firstRow.length);
 }
+
+/** Bulk edit sheet — same columns as create, but password is optional. */
+export const LOGIN_EDIT_SHEET_NAME = "Edit Logins";
+
+export const LOGIN_EDIT_COLUMNS: LoginImportColumn[] = LOGIN_IMPORT_COLUMNS.map((column) =>
+  column.key === "password"
+    ? {
+        ...column,
+        label: "New Password",
+        required: false,
+        defaultValue: "",
+      }
+    : column,
+);
+
+export interface LoginEditRow extends LoginImportRow {
+  userId: string;
+  employeeId?: string;
+  originalEmail: string;
+  originalCode: string;
+  /** Snapshot of editable cell values when the sheet was loaded. */
+  baseline: LoginImportRowValues;
+}
+
+function minutesToHhMm(minutes?: number | null) {
+  if (minutes == null || Number.isNaN(minutes)) return "";
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+}
+
+export function employeeToEditRow(
+  employee: User,
+  context: {
+    branches: Branch[];
+    departments: Department[];
+    /** All employees — used to resolve reporting manager codes. */
+    directory?: User[];
+  },
+): LoginEditRow | null {
+  // EmployeeProfile.id is employeeId; login account id is userId.
+  const accountId = employee.userId ?? null;
+  if (!accountId || employee.role === "developer_admin") return null;
+
+  const departmentId = employee.departmentId || undefined;
+  const department = departmentId
+    ? context.departments.find((item) => item.id === departmentId)
+    : context.departments.find(
+        (item) =>
+          item.name.trim().toLowerCase() === String(employee.department ?? "").trim().toLowerCase(),
+      );
+  const parent = department?.parentDepartmentId
+    ? context.departments.find((item) => item.id === department.parentDepartmentId)
+    : undefined;
+  const mainUnitName = parent?.name ?? department?.name ?? "";
+  const childUnitName = parent
+    ? `${parent.name} > ${department?.name ?? ""}`
+    : "Use main unit";
+  const branchName =
+    employee.homeBranchName ||
+    context.branches.find((branch) => branch.id === employee.homeBranchId)?.name ||
+    "";
+
+  const managerEmployee = employee.managerId
+    ? (context.directory ?? []).find((item) => item.employeeId === employee.managerId)
+    : undefined;
+  const managerReference = managerEmployee
+    ? managerEmployee.employeeCode ||
+      managerEmployee.email ||
+      managerEmployee.employeeId ||
+      "Automatic"
+    : employee.managerId || "Automatic";
+
+  const values: LoginImportRowValues = {
+    employeeCode: employee.employeeCode || "",
+    name: employee.name || "",
+    email: employee.email || "",
+    password: "",
+    role: ROLE_LABELS[employee.role] || employee.role || ROLE_LABELS.employee,
+    companyEntity: employee.companyEntity
+      ? COMPANY_LABELS[employee.companyEntity]
+      : COMPANY_LABELS.ANYTIME_DIESEL,
+    phone: employee.phone || "",
+    companyPhone: employee.companyPhone || "",
+    branchName,
+    mainUnitName,
+    childUnitName,
+    designation: employee.designation || "",
+    organizationLevel: employee.organizationLevel || "MEMBER",
+    weeklyOffPolicy: employee.weeklyOffPolicy
+      ? WEEKLY_OFF_POLICY_LABELS[employee.weeklyOffPolicy]
+      : WEEKLY_OFF_POLICY_LABELS.SELECTABLE,
+    shiftType: employee.shiftType || "DAY",
+    shiftStart: minutesToHhMm(employee.shiftStartMinutes) || "09:00",
+    shiftEnd: minutesToHhMm(employee.shiftEndMinutes) || "18:00",
+    managerReference,
+    joiningDate: employee.joiningDate || "",
+    dateOfBirth: employee.dateOfBirth || "",
+    gender: employee.gender || "PREFER_NOT_TO_SAY",
+    employmentType: employee.employmentType || "FULL_TIME",
+    bloodGroup: employee.bloodGroup || "",
+    bankAccountHolderName: employee.bankAccountHolderName || "",
+    bankAccountType: employee.bankAccountType || "",
+    bankAccountNumber: employee.bankAccountNumber || "",
+    bankIfscCode: employee.bankIfscCode || "",
+    panNumber: employee.panNumber || "",
+    aadhaarNumber: employee.aadhaarNumber || "",
+    uanNumber: employee.uanNumber || "",
+  };
+
+  return {
+    id: `edit-${accountId}`,
+    userId: accountId,
+    employeeId: employee.employeeId,
+    originalEmail: (employee.email || "").toLowerCase(),
+    originalCode: (employee.employeeCode || "").toLowerCase(),
+    baseline: { ...values },
+    ...values,
+    errors: [],
+  };
+}
+
+export function validateLoginEditRow(
+  row: LoginEditRow,
+  context: LoginImportContext,
+): string[] {
+  if (isRowBlank(row) && !row.userId) return [];
+
+  const errors = validateLoginRow(
+    row,
+    {
+      ...context,
+      // Treat this account as already existing so uniqueness checks use exclude options.
+      existingEmployees: context.existingEmployees.filter((employee) => {
+        const isSelf =
+          (employee.userId != null && employee.userId === row.userId) ||
+          employee.id === row.userId ||
+          (row.employeeId != null && employee.employeeId === row.employeeId);
+        return !isSelf;
+      }),
+    },
+    { excludeEmail: row.originalEmail, excludeCode: row.originalCode },
+  ).filter((message) => {
+    // Password is optional on edit — drop create-only password requirement messages when blank.
+    if (!row.password.trim()) {
+      return (
+        !message.toLowerCase().includes("temporary password") &&
+        !message.toLowerCase().includes("password needs") &&
+        !message.toLowerCase().includes("password is required")
+      );
+    }
+    return true;
+  });
+
+  // Re-check password rules only when provided.
+  if (row.password.trim()) {
+    const password = row.password;
+    if (password.length < 10 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+      if (!errors.some((message) => message.toLowerCase().includes("password"))) {
+        errors.push("Password needs 10+ characters, an uppercase letter, and a number");
+      }
+    }
+  }
+
+  if (!row.employeeId) {
+    const orgTouched = LOGIN_EDIT_COLUMNS.some((column) => {
+      if (["name", "email", "phone", "role", "password"].includes(column.key)) return false;
+      return (row[column.key] ?? "").trim() !== (row.baseline[column.key] ?? "").trim();
+    });
+    if (orgTouched) {
+      errors.push(
+        "No employee profile linked — only name, email, phone, role, and password can be edited",
+      );
+    }
+  }
+
+  return errors;
+}
+
+export function revalidateEditRows(
+  rows: LoginEditRow[],
+  context: Omit<LoginImportContext, "sheetEmails" | "sheetCodes">,
+): LoginEditRow[] {
+  const filled = rows.filter((row) => !isRowBlank(row) || Boolean(row.userId));
+  return rows.map((row) => {
+    const sheetEmails = new Set(
+      filled
+        .filter((candidate) => candidate.id !== row.id)
+        .map((candidate) => candidate.email.trim().toLowerCase())
+        .filter(Boolean),
+    );
+    const sheetCodes = new Set(
+      filled
+        .filter((candidate) => candidate.id !== row.id)
+        .map((candidate) => candidate.employeeCode.trim().toLowerCase())
+        .filter(Boolean),
+    );
+    return {
+      ...row,
+      errors: validateLoginEditRow(row, { ...context, sheetEmails, sheetCodes }),
+    };
+  });
+}
+
+export function isEditRowDirty(row: LoginEditRow) {
+  const loginOnlyKeys = new Set<LoginImportFieldKey>([
+    "name",
+    "email",
+    "phone",
+    "role",
+    "password",
+  ]);
+  return LOGIN_EDIT_COLUMNS.some((column) => {
+    if (!row.employeeId && !loginOnlyKeys.has(column.key)) return false;
+    const current = row[column.key] ?? "";
+    const baseline = row.baseline[column.key] ?? "";
+    if (column.key === "password") return Boolean(current.trim());
+    return current.trim() !== baseline.trim();
+  });
+}
+
+export interface LoginUpdatePayloads {
+  userId: string;
+  employeeId?: string;
+  role?: Role;
+  password?: string;
+  employeePatch: Record<string, unknown>;
+}
+
+export function rowToUpdatePayloads(
+  row: LoginEditRow,
+  context: {
+    branches: Branch[];
+    departments: Department[];
+    managerId?: string | null;
+  },
+): LoginUpdatePayloads {
+  const create = rowToCreatePayload(row, context);
+  const employeePatch: Record<string, unknown> = {
+    name: create.name,
+    email: create.email,
+    phone: create.phone ?? null,
+    companyPhone: create.companyPhone ?? null,
+    companyEntity: create.companyEntity,
+    employeeCode: create.employeeCode,
+    departmentId: create.departmentId ?? null,
+    homeBranchId: create.homeBranchId ?? null,
+    designation: create.designation ?? null,
+    managerId: context.managerId === undefined ? undefined : context.managerId,
+    organizationLevel: create.organizationLevel,
+    weeklyOffPolicy: create.weeklyOffPolicy,
+    shiftType: create.shiftType,
+    shiftStartMinutes: create.shiftStartMinutes,
+    shiftEndMinutes: create.shiftEndMinutes,
+    gender: create.gender,
+    employmentType: create.employmentType,
+    joiningDate: create.joiningDate ?? null,
+    dateOfBirth: create.dateOfBirth ?? null,
+    bloodGroup: create.bloodGroup ?? null,
+  };
+
+  // Sensitive fields: only send when the operator typed a value (blank = keep existing).
+  if (row.bankAccountHolderName.trim()) {
+    employeePatch.bankAccountHolderName = create.bankAccountHolderName;
+  }
+  if (row.bankAccountType.trim()) {
+    employeePatch.bankAccountType = create.bankAccountType;
+  }
+  if (row.bankAccountNumber.trim()) {
+    employeePatch.bankAccountNumber = create.bankAccountNumber;
+  }
+  if (row.bankIfscCode.trim()) {
+    employeePatch.bankIfscCode = create.bankIfscCode;
+  }
+  if (row.panNumber.trim()) {
+    employeePatch.panNumber = create.panNumber;
+  }
+  if (row.aadhaarNumber.trim()) {
+    employeePatch.aadhaarNumber = create.aadhaarNumber;
+  }
+  if (row.uanNumber.trim()) {
+    employeePatch.uanNumber = create.uanNumber;
+  }
+
+  return {
+    userId: row.userId,
+    employeeId: row.employeeId,
+    role: create.role,
+    password: row.password.trim() || undefined,
+    employeePatch,
+  };
+}
+
+export function pastedEditRowsMatchHeaders(firstRow: string[]) {
+  const labels = LOGIN_EDIT_COLUMNS.map((column) => column.label.toLowerCase());
+  const matches = firstRow.filter((cell, index) => {
+    const normalized = cell.trim().toLowerCase().replace(/\*$/, "");
+    const label = labels[index]?.replace(/\*$/, "");
+    return normalized && label && (normalized === label || labels.includes(normalized));
+  }).length;
+  return matches >= Math.min(3, firstRow.length);
+}

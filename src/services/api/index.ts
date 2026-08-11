@@ -279,7 +279,14 @@ export const usersApi = {
       suspendedUntil?: string | null;
       suspensionStartsAt?: string | null;
     },
-  ) => request<User>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  ) =>
+    request<User>(`/users/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        ...patch,
+        role: patch.role ? String(patch.role).toUpperCase() : undefined,
+      }),
+    }),
   deactivate: (id: string) => request<User>(`/users/${id}/deactivate`, { method: "POST" }),
   suspend: (id: string, suspensionStartsAt: string, suspendedUntil: string) =>
     request<User>(`/users/${id}/suspend`, {

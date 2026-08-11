@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CreateLoginForm } from "@/components/users/CreateLoginForm";
 import { BulkLoginSheet } from "@/components/users/BulkLoginSheet";
+import { BulkEditLoginSheet } from "@/components/users/BulkEditLoginSheet";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
 import { Badge } from "@/components/ui/badge";
@@ -261,6 +262,12 @@ function UsersPage() {
               departments={departments}
               existingEmployees={users}
               onImported={loadUsers}
+            />
+            <BulkEditLoginSheet
+              branches={branches}
+              departments={departments}
+              existingUsers={users}
+              onSaved={loadUsers}
             />
             <Button size="sm" onClick={() => setShowCreate(true)}>
               <Plus className="mr-2 h-4 w-4" /> Create login

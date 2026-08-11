@@ -17,17 +17,18 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        "mb-5 flex flex-col gap-3 border-b border-border/70 pb-4 sm:mb-6 sm:flex-row sm:items-end sm:justify-between sm:pb-5",
+        "mb-5 flex flex-col gap-3 border-b border-border/70 pb-4.5 sm:mb-6 sm:flex-row sm:items-end sm:justify-between sm:pb-5",
         className,
       )}
     >
       <div className="min-w-0">
         {eyebrow && (
-          <p className="mb-1 text-[0.6875rem] font-semibold uppercase tracking-[0.16em] text-primary">
+          <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/8 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-primary dark:bg-primary/15">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary pulse-dot" />
             {eyebrow}
-          </p>
+          </div>
         )}
-        <h1 className="break-words text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+        <h1 className="gradient-heading break-words text-xl font-bold tracking-tight sm:text-2xl lg:text-3xl">
           {title}
         </h1>
         {description && (

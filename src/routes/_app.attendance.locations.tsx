@@ -187,8 +187,8 @@ function DayLogsPage() {
           <div
             className={`grid gap-2.5 sm:gap-3 md:grid-cols-2 ${
               selectedEmployeeId === "all"
-                ? "lg:grid-cols-[minmax(0,1.2fr)_6.75rem_9rem_9rem_minmax(8.5rem,1fr)]"
-                : "lg:grid-cols-[minmax(0,1.35fr)_6.75rem_9rem_9rem]"
+                ? "lg:grid-cols-5"
+                : "lg:grid-cols-4"
             }`}
           >
             <div

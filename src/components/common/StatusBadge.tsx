@@ -43,10 +43,39 @@ function classify(status: string): keyof typeof map {
   return "neutral";
 }
 
-export function StatusBadge({ status }: { status: string }) {
+const dotMap: Record<string, string> = {
+  present: "bg-emerald-500",
+  absent: "bg-rose-500",
+  leave: "bg-sky-500",
+  mismatch: "bg-amber-500",
+  field: "bg-indigo-500",
+  pending: "bg-amber-500",
+  rejected: "bg-rose-500",
+  approved: "bg-emerald-500",
+  unpaid: "bg-amber-500",
+  paid: "bg-emerald-500",
+  missed: "bg-amber-500",
+  holiday: "bg-muted-foreground",
+  neutral: "bg-muted-foreground",
+};
+
+export function StatusBadge({ status, showDot = true }: { status: string; showDot?: boolean }) {
+  const category = classify(status);
   return (
-    <Badge variant="outline" className={cn("font-medium", map[classify(status)])}>
-      {status}
+    <Badge
+      variant="outline"
+      className={cn("inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold shadow-2xs backdrop-blur-xs", map[category])}
+    >
+      {showDot && (
+        <span
+          className={cn(
+            "h-1.5 w-1.5 rounded-full shrink-0",
+            dotMap[category],
+            (category === "present" || category === "approved") && "pulse-dot",
+          )}
+        />
+      )}
+      <span>{status}</span>
     </Badge>
   );
 }

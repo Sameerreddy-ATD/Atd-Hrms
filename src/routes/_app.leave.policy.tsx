@@ -357,7 +357,7 @@ function PolicyPage() {
                     {balances.map((row) => (
                       <div
                         key={row.id}
-                        className="grid gap-3 rounded-md border border-border p-4 sm:grid-cols-[minmax(0,1fr)_repeat(3,minmax(70px,0.35fr))_auto] sm:items-center"
+                        className="grid gap-3 rounded-md border border-border p-4 md:grid-cols-[minmax(0,1fr)_repeat(3,minmax(70px,0.35fr))_auto] md:items-center"
                       >
                         <div className="min-w-0">
                           <p className="font-semibold">{row.leaveType}</p>

@@ -39,6 +39,8 @@ needed. Product chrome, PWA identity, and documentation refer to **Anytime Workf
 | Apply                              | **Apply**, with **Add advance expense** and **Add expense** actions | Keeps the primary action concise while making each request explicit  |
 | Certificate type                   | **Document type**                                                   | Matches the broader HR Documents category                            |
 | Delete user / Deactivate account | **Offboard employee**                                           | Ends employment, closes login, retains history                   |
+| Bulk import (User Logins)        | **Bulk add**                                                    | Create-many grid on User Logins; pairs with Bulk edit            |
+| Bulk update accounts             | **Bulk edit logins**                                            | Update existing User Logins in a spreadsheet-style grid          |
 | Module access                      | **Module Access**                                                   | Clear administrative language for role-based feature permissions     |
 | API token                          | **Employee API credential**                                         | Makes the credential purpose and audience explicit                   |
 | Tasks & Daily Logs / Work Progress | **Work Planner**                                                    | Jira-style projects, issue keys, Board/Backlog/Timeline, ownership, and activity |

@@ -7,7 +7,7 @@ This guide explains how Developer Admin, HR, organization heads, employees, fiel
 | Area                           | Developer Admin                                                | Main Admin              | HR                      | CEO                   | Manager                     | Employee / Sales / Driver / Field Staff |
 | ------------------------------ | -------------------------------------------------------------- | ----------------------- | ----------------------- | --------------------- | --------------------------- | --------------------------------------- |
 | Dashboard                      | Full system view                                               | Admin view              | HR operations view      | Summary/report view   | Team view                   | Personal view                           |
-| User logins                    | Create, edit, suspend, offboard, reactivate, reset passwords | No                      | No                      | No                    | No                          | No                                      |
+| User logins                    | Create, bulk add/edit, suspend, offboard, reactivate, reset passwords | No                      | No                      | No                    | No                          | No                                      |
 | Employees                      | Full access                                                    | Full access             | Full access             | Summary/report access | Assigned team only          | Own profile only                        |
 | Departments                    | Add, edit, delete, assign department heads                     | Reference access        | Reference access        | Reference access      | Reference access            | No                                      |
 | Branches                       | Add, edit, deactivate                                          | Add, edit, deactivate   | Add, edit, deactivate   | View reports          | View assigned/team data     | No                                      |
@@ -126,37 +126,34 @@ Notes:
 - Bank account number, PAN, Aadhaar, and UAN are encrypted. They are not exported through the
   general Employee API.
 
-### Bulk Import Employee Logins
+### Bulk Add Employee Logins
 
-Developer Admin can select **Bulk import** on **User Logins** and download the current `.xlsx`
-template. Always download a fresh copy because its reference sheets contain the current companies,
-attendance branches, organization units, and reporting managers.
+Developer Admin can select **Bulk add** on **User Logins** to open an in-app spreadsheet grid.
+Paste rows from Excel or Google Sheets (header row optional), or type directly. Each filled,
+validated row creates a login through the same backend path as Create login.
 
-The Employees sheet supports:
+The grid covers identity, temporary password, login role, employer company, phones, attendance
+branch, main/child organization unit, designation, organization level, weekly off, shift,
+reporting manager, dates, employment fields, and optional banking/statutory identifiers.
 
-- employee code, full name, email, temporary password, personal phone, and company phone;
-- employer company, optional attendance branch, main/child organization unit, designation,
-  organization level, and reporting manager;
-- joining date, date of birth, gender, employment type, and blood group; and
-- account holder name, account type, account number, IFSC, PAN, Aadhaar, and optional UAN.
-
-Application role is intentionally not imported directly. The backend derives it from the selected
-organization unit and level, preventing a spreadsheet from granting an unauthorized role.
 Reporting Manager accepts an existing employee code/email, a code/email from another row in the
-same workbook, or `Automatic`. Same-workbook managers are created before their reports.
+same sheet, or `Automatic`. Manager-dependent rows wait until their manager row has been created.
+Validation covers duplicates, unit hierarchy, dates, manager references, passwords, and statutory
+formats. Import is row-atomic: a successful row remains saved when a later row fails.
 
-The upload validates all rows before enabling import, including duplicate accounts, unit hierarchy,
-dates, manager references, passwords, and statutory formats. Up to 500 employees can be processed
-in one workbook. Every successful row creates the login and canonical employee record through the
-normal backend transaction, so encryption, role assignment, employee change events, and audit logs
-remain active.
+Temporary passwords and private identifiers stay in the browser until create runs. Restrict access
+to any spreadsheet copies and delete them after a successful import.
 
-Replace or delete every example row before importing. Rows retaining a `SAMPLE-...` employee code
-or the sample email are rejected. Import is row-atomic: a successful row remains saved when a later
-row fails, and the result panel identifies exactly which rows must be corrected and retried.
+### Bulk Edit Employee Logins
 
-The workbook contains plaintext temporary passwords and any private information entered. Restrict
-access to it and permanently delete local/email copies after confirming a successful import.
+Developer Admin can select **Bulk edit** on **User Logins** to load existing accounts into the same
+style of editable grid (Developer Admin accounts are excluded).
+
+- Edit cells or paste from Excel the same way as Bulk add, then save only changed rows.
+- Leave **New Password** and sensitive IDs blank to keep current values.
+- Each saved row uses the standard employee/user update and password-reset paths (validation and
+  encryption unchanged).
+- Accounts without an employee profile can only change name, email, phone, role, and password.
 
 ## Employee: Review My Profile And ID Card
 
@@ -176,7 +173,10 @@ number. The QR verification page exposes only the minimum active-employment deta
 Use **User Logins** for account lifecycle actions.
 
 - **Suspend**: blocks login only for the selected date window. Attendance and employee history remain in the database.
-- **Offboard employee**: ends employment and closes the login. The employee is marked terminated (left company), hidden from birthdays and active attendance, and an offboarding checklist starts. Past attendance and other history are retained until a Developer Admin reactivates the account.
+- **Offboard employee**: ends employment and closes the login. The employee status is
+  **TERMINATED** (left company) and the login is **INACTIVE**; the person is hidden from birthdays
+  and active attendance, and an offboarding checklist starts. Past attendance and other history are
+  retained until a Developer Admin reactivates the account.
 - **Blocked**: five consecutive incorrect passwords block login. Only the Developer Admin can reactivate it. Attendance history, biometric mappings, and task assignments are retained.
 
 Employees receive account suspension notifications before the suspension date where the scheduled suspension notification feature is active.

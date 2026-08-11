@@ -119,7 +119,7 @@ Lockout or suspension does not delete or disable the employee record, allowing h
 | Prefix                  | Purpose                                                                                     |
 | ----------------------- | ------------------------------------------------------------------------------------------- |
 | `/auth`                 | Login, restore, logout, password change/reset                                               |
-| `/users`                | Account creation, lifecycle, reset, and history-preserving deactivation                     |
+| `/users`                | Account creation, bulk add/edit UI, lifecycle, reset, and history-preserving offboard (TERMINATED employee + INACTIVE login) |
 | `/employees`            | Directory, details, organization placement, and birthdays                                   |
 | `/departments`          | Organization hierarchy and unit heads                                                       |
 | `/branches`             | Branches and server-side geofence configuration                                             |
