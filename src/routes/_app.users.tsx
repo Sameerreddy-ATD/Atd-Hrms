@@ -373,12 +373,11 @@ function UsersPage() {
                       Reactivate
                     </Button>
                   ))}
-                {user.role !== "developer_admin" && (
+                {canOffboardUser(user, currentUser?.id) && (
                   <Button
                     className="col-span-2"
                     size="sm"
                     variant="destructive"
-                    disabled={user.id === currentUser?.id}
                     onClick={() => setDeleteUser(user)}
                   >
                     <Trash2 className="h-4 w-4" /> Offboard employee
@@ -444,16 +443,17 @@ function UsersPage() {
                           Reactivate
                         </Button>
                       )}
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        disabled={u.id === currentUser?.id || u.role === "developer_admin"}
-                        onClick={() => setDeleteUser(u)}
-                        title="Offboard employee — end employment and close login"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Offboard
-                      </Button>
+                      {canOffboardUser(u, currentUser?.id) && (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => setDeleteUser(u)}
+                          title="Offboard employee — end employment and close login"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Offboard
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -669,6 +669,17 @@ function resolveUserLoginLifecycle(user: User): NonNullable<User["loginLifecycle
   if (!user.lastLoginAt) return "CREATED";
   if (user.mustChangePassword) return "PASSWORD_CHANGE";
   return "ACTIVE";
+}
+
+/** Offboard only for accounts that have not already left the company. */
+function canOffboardUser(user: User, currentUserId?: string) {
+  if (user.role === "developer_admin") return false;
+  if (currentUserId && user.id === currentUserId) return false;
+  if (user.status === "INACTIVE") return false;
+  if (user.employeeStatus === "TERMINATED") return false;
+  if (user.deactivatedAt) return false;
+  if (resolveUserLoginLifecycle(user) === "INACTIVE") return false;
+  return true;
 }
 
 function formatLastLogin(value?: string | null) {
