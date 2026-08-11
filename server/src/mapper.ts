@@ -59,6 +59,7 @@ export function userDto(
     | "createdAt"
     | "suspendedUntil"
     | "suspensionStartsAt"
+    | "deactivatedAt"
   > & {
     employee?: Pick<
       Employee,
@@ -80,6 +81,7 @@ export function userDto(
       | "shiftType"
       | "shiftStartMinutes"
       | "shiftEndMinutes"
+      | "status"
     > | null;
     faceProfile?: {
       status: "PENDING" | "APPROVED" | "REJECTED" | "DISABLED";
@@ -102,6 +104,8 @@ export function userDto(
     status: user.status,
     loginLifecycle,
     failedLoginAttempts: user.failedLoginAttempts,
+    deactivatedAt: user.deactivatedAt ? user.deactivatedAt.toISOString() : null,
+    employeeStatus: user.employee?.status ?? undefined,
     active:
       user.status === "ACTIVE" &&
       (!user.suspendedUntil ||

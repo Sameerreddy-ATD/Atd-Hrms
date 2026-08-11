@@ -38,7 +38,7 @@ needed. Product chrome, PWA identity, and documentation refer to **Anytime Workf
 | Users                              | **User Logins**                                                     | Distinguishes authentication accounts from employee records          |
 | Apply                              | **Apply**, with **Add advance expense** and **Add expense** actions | Keeps the primary action concise while making each request explicit  |
 | Certificate type                   | **Document type**                                                   | Matches the broader HR Documents category                            |
-| Delete user                        | **Deactivate login**                                                | Reflects the history-preserving lifecycle behavior                   |
+| Delete user / Deactivate account | **Offboard employee**                                           | Ends employment, closes login, retains history                   |
 | Module access                      | **Module Access**                                                   | Clear administrative language for role-based feature permissions     |
 | API token                          | **Employee API credential**                                         | Makes the credential purpose and audience explicit                   |
 | Tasks & Daily Logs / Work Progress | **Work Planner**                                                    | Jira-style projects, issue keys, Board/Backlog/Timeline, ownership, and activity |
@@ -47,7 +47,7 @@ needed. Product chrome, PWA identity, and documentation refer to **Anytime Workf
 
 - Use employee-facing language in the UI and stable technical identifiers in APIs.
 - Prefer action labels that describe the result: **Submit for review**, **Approve**, **Reject**,
-  **Mark as paid**, and **Deactivate**.
+  **Mark as paid**, **Offboard employee**, and **Deactivate**.
 - Do not expose physical database table names to external integrations.
 - Do not rename versioned API fields after release; introduce an additive field or a new API
   version instead.

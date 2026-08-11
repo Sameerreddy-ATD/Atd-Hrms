@@ -21,6 +21,7 @@ import {
   TaskIssueType,
   TaskPriority,
   TaskStatus,
+  EmployeeStatus,
   UserStatus,
   WorkType,
 } from "@prisma/client";
@@ -1754,9 +1755,9 @@ export function createApp() {
               phone: body.phone,
               status:
                 body.status === UserStatus.INACTIVE
-                  ? "INACTIVE"
+                  ? EmployeeStatus.TERMINATED
                   : body.status === UserStatus.ACTIVE
-                    ? "ACTIVE"
+                    ? EmployeeStatus.ACTIVE
                     : undefined,
               terminatedAt:
                 body.status === UserStatus.INACTIVE
@@ -1883,7 +1884,11 @@ export function createApp() {
         if (existing.employeeId) {
           const employee = await tx.employee.update({
             where: { employeeId: existing.employeeId },
-            data: { status: "INACTIVE", terminatedAt: new Date(), version: { increment: 1 } },
+            data: {
+              status: EmployeeStatus.TERMINATED,
+              terminatedAt: new Date(),
+              version: { increment: 1 },
+            },
           });
           await tx.employeeChangeEvent.create({
             data: {
@@ -1903,17 +1908,19 @@ export function createApp() {
           data: {
             status: UserStatus.INACTIVE,
             deactivatedAt: new Date(),
+            suspendedUntil: null,
+            suspensionStartsAt: null,
             sessionVersion: { increment: 1 },
           },
           include: { employee: true, faceProfile: true },
         });
       });
       await audit({
-        action: "user deactivated",
+        action: "user offboarded; employment ended",
         performedByUserId: req.user!.id,
         affectedUserId: updated.id,
         oldValue: { status: existing.status },
-        newValue: { status: updated.status },
+        newValue: { status: updated.status, employeeStatus: EmployeeStatus.TERMINATED },
         ipAddress: req.ip,
       });
       if (existing.employeeId) {
@@ -1939,8 +1946,12 @@ export function createApp() {
       if (existing.role === Role.DEVELOPER_ADMIN) {
         throw new HttpError(403, "Developer Admin accounts cannot be deactivated");
       }
-      if (req.body?.confirmation !== "DEACTIVATE") {
-        throw new HttpError(400, "Type DEACTIVATE to preserve history and deactivate the account");
+      const confirmation = String(req.body?.confirmation ?? "");
+      if (confirmation !== "OFFBOARD" && confirmation !== "DEACTIVATE") {
+        throw new HttpError(
+          400,
+          "Type OFFBOARD to end employment and close the login (DEACTIVATE is also accepted)",
+        );
       }
 
       const employeeId = existing.employeeId;
@@ -1948,7 +1959,11 @@ export function createApp() {
         if (employeeId) {
           const employee = await tx.employee.update({
             where: { employeeId },
-            data: { status: "INACTIVE", terminatedAt: new Date(), version: { increment: 1 } },
+            data: {
+              status: EmployeeStatus.TERMINATED,
+              terminatedAt: new Date(),
+              version: { increment: 1 },
+            },
           });
           await tx.employeeChangeEvent.create({
             data: {
@@ -1977,7 +1992,7 @@ export function createApp() {
       });
 
       await audit({
-        action: "user deactivated with history retained",
+        action: "user offboarded; employment ended",
         performedByUserId: req.user!.id,
         affectedUserId: id,
         ipAddress: req.ip,
@@ -1986,6 +2001,7 @@ export function createApp() {
           employeeId,
           name: existing.name,
           email: existing.email,
+          employeeStatus: EmployeeStatus.TERMINATED,
           employeeDataRetained: Boolean(employeeId),
         },
       });
@@ -2572,6 +2588,12 @@ export function createApp() {
                 : body.status === "ACTIVE"
                   ? null
                   : undefined,
+            status:
+              body.status === "INACTIVE"
+                ? EmployeeStatus.TERMINATED
+                : body.status === undefined
+                  ? undefined
+                  : body.status,
             version: { increment: 1 },
           },
           include: { user: true, department: true, homeBranch: true, manager: true },
@@ -2595,6 +2617,8 @@ export function createApp() {
                   : body.status === "ACTIVE"
                     ? null
                     : undefined,
+              suspendedUntil: body.status && body.status !== "ACTIVE" ? null : undefined,
+              suspensionStartsAt: body.status && body.status !== "ACTIVE" ? null : undefined,
               sessionVersion: body.status ? { increment: 1 } : undefined,
             },
           });

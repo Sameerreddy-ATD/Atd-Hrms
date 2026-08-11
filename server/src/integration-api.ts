@@ -593,7 +593,7 @@ export function registerIntegrationRoutes(app: Express) {
         const updated = await tx.employee.updateMany({
           where: { employeeId, version: expectedVersion },
           data: {
-            status: EmployeeStatus.INACTIVE,
+            status: EmployeeStatus.TERMINATED,
             terminatedAt: new Date(),
             version: { increment: 1 },
           },
@@ -609,7 +609,13 @@ export function registerIntegrationRoutes(app: Express) {
         }
         await tx.user.updateMany({
           where: { employeeId },
-          data: { status: UserStatus.INACTIVE, deactivatedAt: new Date() },
+          data: {
+            status: UserStatus.INACTIVE,
+            deactivatedAt: new Date(),
+            suspendedUntil: null,
+            suspensionStartsAt: null,
+            sessionVersion: { increment: 1 },
+          },
         });
         const employee = await tx.employee.findUniqueOrThrow({
           where: { employeeId },

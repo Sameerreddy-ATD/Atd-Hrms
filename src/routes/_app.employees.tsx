@@ -1057,6 +1057,21 @@ function EmployeeAccountStatus({ employee }: { employee: User }) {
       </Badge>
     );
   }
+  if (employee.status === "TERMINATED" || employee.terminatedAt) {
+    return (
+      <Badge
+        variant="outline"
+        className="border-border bg-muted text-muted-foreground"
+        title={
+          employee.terminatedAt
+            ? `Left company on ${formatDisplayDate(employee.terminatedAt)}`
+            : "Left company"
+        }
+      >
+        Left company
+      </Badge>
+    );
+  }
   if (lifecycle === "ACTIVE" || employee.active) {
     return (
       <Badge

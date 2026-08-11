@@ -50,8 +50,8 @@ returned separately as `userId`.
 - Linking a login to an existing employee uses the employee's canonical name, email, and phone.
 - Creating through `/api/v1/employees` creates an employee only; no password or login is required.
 - Updating shared employee fields updates the linked account mirror transactionally.
-- Deactivation sets employee/account status to `INACTIVE` (or preserves the employee's explicit
-  `TERMINATED` state), records termination/deactivation time,
+- Deactivation / offboard sets the linked login to `INACTIVE` and the employee to `TERMINATED`,
+  records termination/deactivation time,
   increments the employee version, and retains attendance, leave, expenses, assets, tasks, and audit
   history.
 - Reactivation clears termination/deactivation time and records a `REACTIVATED` change event.
@@ -178,7 +178,7 @@ These endpoints use HTTP-only browser session cookies and role/module permission
 | `PATCH /employees/:employeeId` | Developer Admin; HR manager-only update        | Update canonical employee and account mirror          |
 | `POST /users`                  | Developer Admin                                | Create login and optionally employee                  |
 | `PATCH /users/:userId`         | Developer Admin                                | Update account and synchronize shared employee fields |
-| `DELETE /users/:userId`        | Developer Admin with `DEACTIVATE` confirmation | Soft-deactivate and retain data                       |
+| `DELETE /users/:userId`        | Developer Admin with `OFFBOARD` (or `DEACTIVATE`) confirmation | Soft-offboard: terminate employment, close login, retain data |
 
 These endpoints are for the first-party application. External systems must use `/api/v1` and must not
 automate browser login/cookies.

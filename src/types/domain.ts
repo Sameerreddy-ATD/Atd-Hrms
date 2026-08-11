@@ -94,6 +94,8 @@ export interface User {
   /** Account activation lifecycle from create → first login → password set. */
   loginLifecycle?: "CREATED" | "PASSWORD_CHANGE" | "ACTIVE" | "INACTIVE" | "LOCKED" | "SUSPENDED";
   failedLoginAttempts?: number;
+  deactivatedAt?: string | null;
+  employeeStatus?: "ACTIVE" | "INACTIVE" | "TERMINATED";
   suspendedUntil?: string;
   suspensionStartsAt?: string;
   lastLoginAt?: string | null;

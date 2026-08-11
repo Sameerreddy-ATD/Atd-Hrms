@@ -151,18 +151,29 @@ function UsersPage() {
   }
 
   async function performDeleteUser(user: User) {
-    if (deleteConfirmation !== "DEACTIVATE") return;
+    if (deleteConfirmation !== "OFFBOARD" && deleteConfirmation !== "DEACTIVATE") return;
     setDeleting(true);
     try {
       await usersApi.delete(user.id, deleteConfirmation);
       setUsers((prev) =>
         prev.map((row) =>
-          row.id === user.id ? { ...row, active: false, status: "INACTIVE" } : row,
+          row.id === user.id
+            ? {
+                ...row,
+                active: false,
+                status: "INACTIVE",
+                employeeStatus: "TERMINATED",
+                deactivatedAt: new Date().toISOString(),
+                suspendedUntil: undefined,
+                suspensionStartsAt: undefined,
+                loginLifecycle: "INACTIVE",
+              }
+            : row,
         ),
       );
       setDeleteUser(null);
       setDeleteConfirmation("");
-      toast.success("Account deactivated; employee history was retained");
+      toast.success("Employment ended; login closed and history retained");
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -242,7 +253,7 @@ function UsersPage() {
     <div>
       <PageHeader
         title="User Logins"
-        description="Create, deactivate, reactivate, suspend, and reset employee accounts. Status moves from Created → Password change → Active."
+        description="Create, suspend, offboard, reactivate, and reset employee accounts. Status moves from Created → Password change → Active."
         actions={
           <>
             <BulkLoginSheet
@@ -291,7 +302,7 @@ function UsersPage() {
             <SelectItem value="created">Created</SelectItem>
             <SelectItem value="password_change">Password change</SelectItem>
             <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive / blocked</SelectItem>
+            <SelectItem value="inactive">Left company / blocked</SelectItem>
           </SelectContent>
         </Select>
       </TableToolbar>
@@ -363,7 +374,7 @@ function UsersPage() {
                     disabled={user.id === currentUser?.id}
                     onClick={() => setDeleteUser(user)}
                   >
-                    <Trash2 className="h-4 w-4" /> Deactivate account
+                    <Trash2 className="h-4 w-4" /> Offboard employee
                   </Button>
                 )}
               </div>
@@ -431,7 +442,7 @@ function UsersPage() {
                         variant="destructive"
                         disabled={u.id === currentUser?.id || u.role === "developer_admin"}
                         onClick={() => setDeleteUser(u)}
-                        title="Deactivate user"
+                        title="Offboard employee"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -516,35 +527,41 @@ function UsersPage() {
       >
         <AlertDialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto sm:max-w-lg">
           <AlertDialogHeader>
-            <AlertDialogTitle>Deactivate this account?</AlertDialogTitle>
+            <AlertDialogTitle>End employment and close login?</AlertDialogTitle>
             <AlertDialogDescription>
-              This prevents {deleteUser?.name} from signing in while preserving their employee
-              record and operational history.
+              This marks {deleteUser?.name} as left the company: they cannot sign in, disappear from
+              birthdays and active attendance, and an offboarding checklist is started. Past records
+              are kept.
             </AlertDialogDescription>
             <div className="rounded-md border bg-muted/30 p-3 text-sm">
-              <p className="font-semibold">The following data will be retained:</p>
+              <p className="font-semibold">What changes immediately</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5 sm:text-sm">
+                <li>Login is closed and any active sessions are revoked</li>
+                <li>Employee is marked terminated (left company)</li>
+                <li>Hidden from birthday lists and active attendance reminders</li>
+                <li>Offboarding checklist is started when a linked employee exists</li>
+              </ul>
+              <p className="mt-3 font-semibold">History retained</p>
               <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5 sm:text-sm">
                 <li>Employee profile and account audit record</li>
-                <li>Attendance punches, daily summaries, schedules, and correction requests</li>
+                <li>Past attendance punches, daily summaries, and correction requests</li>
                 <li>Leave requests, emergency contact, and biometric mappings</li>
-                <li>Assets assigned to this employee</li>
-                <li>Task assignments, task updates, and tasks created by this account</li>
+                <li>Assets, tasks, and other operational history</li>
               </ul>
               <p className="mt-2 text-xs leading-5">
-                The account and employee are marked inactive. A Developer Admin can reactivate them
-                later.
+                A Developer Admin can reactivate the login later if employment resumes.
               </p>
             </div>
             <div className="space-y-2 pt-2 text-left">
               <Label htmlFor="delete-confirmation">
-                Type <span className="font-mono font-semibold">DEACTIVATE</span> to approve
+                Type <span className="font-mono font-semibold">OFFBOARD</span> to approve
               </Label>
               <Input
                 id="delete-confirmation"
                 autoComplete="off"
                 value={deleteConfirmation}
                 onChange={(event) => setDeleteConfirmation(event.target.value)}
-                placeholder="DEACTIVATE"
+                placeholder="OFFBOARD"
               />
             </div>
           </AlertDialogHeader>
@@ -552,14 +569,17 @@ function UsersPage() {
             <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 text-white hover:bg-red-700"
-              disabled={deleteConfirmation !== "DEACTIVATE" || deleting}
+              disabled={
+                (deleteConfirmation !== "OFFBOARD" && deleteConfirmation !== "DEACTIVATE") ||
+                deleting
+              }
               onClick={() => {
                 if (!deleteUser) return;
                 void performDeleteUser(deleteUser);
               }}
             >
               {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Deactivate account
+              Offboard employee
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -691,8 +711,13 @@ function LoginStatus({ user }: { user: User }) {
       <Badge
         variant="outline"
         className="max-w-44 shrink-0 whitespace-normal border-border bg-muted text-center text-muted-foreground"
+        title={
+          user.deactivatedAt
+            ? `Left company on ${formatDisplayDate(user.deactivatedAt)}`
+            : "Employment ended; login closed"
+        }
       >
-        Inactive
+        Left company
       </Badge>
     );
   }

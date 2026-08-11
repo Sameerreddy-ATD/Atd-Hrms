@@ -7,7 +7,7 @@ This guide explains how Developer Admin, HR, organization heads, employees, fiel
 | Area                           | Developer Admin                                                | Main Admin              | HR                      | CEO                   | Manager                     | Employee / Sales / Driver / Field Staff |
 | ------------------------------ | -------------------------------------------------------------- | ----------------------- | ----------------------- | --------------------- | --------------------------- | --------------------------------------- |
 | Dashboard                      | Full system view                                               | Admin view              | HR operations view      | Summary/report view   | Team view                   | Personal view                           |
-| User logins                    | Create, edit, suspend, deactivate, reactivate, reset passwords | No                      | No                      | No                    | No                          | No                                      |
+| User logins                    | Create, edit, suspend, offboard, reactivate, reset passwords | No                      | No                      | No                    | No                          | No                                      |
 | Employees                      | Full access                                                    | Full access             | Full access             | Summary/report access | Assigned team only          | Own profile only                        |
 | Departments                    | Add, edit, delete, assign department heads                     | Reference access        | Reference access        | Reference access      | Reference access            | No                                      |
 | Branches                       | Add, edit, deactivate                                          | Add, edit, deactivate   | Add, edit, deactivate   | View reports          | View assigned/team data     | No                                      |
@@ -171,27 +171,27 @@ are intentionally kept out of this personal profile.
 employee code, designation, department, role, joining date, blood group, and company contact
 number. The QR verification page exposes only the minimum active-employment details.
 
-## Developer Admin: Suspend, Deactivate, Or Reactivate A Login
+## Developer Admin: Suspend, Offboard, Or Reactivate A Login
 
 Use **User Logins** for account lifecycle actions.
 
 - **Suspend**: blocks login only for the selected date window. Attendance and employee history remain in the database.
-- **Deactivate**: turns off the login until the Developer Admin reactivates it.
+- **Offboard employee**: ends employment and closes the login. The employee is marked terminated (left company), hidden from birthdays and active attendance, and an offboarding checklist starts. Past attendance and other history are retained until a Developer Admin reactivates the account.
 - **Blocked**: five consecutive incorrect passwords block login. Only the Developer Admin can reactivate it. Attendance history, biometric mappings, and task assignments are retained.
 
 Employees receive account suspension notifications before the suspension date where the scheduled suspension notification feature is active.
 
-## Developer Admin: Deactivate An Account And Retain History
+## Developer Admin: Offboard An Employee And Retain History
 
-Use deactivation when an employee should no longer sign in or appear as active.
+Use **Offboard employee** when someone has left the company and should no longer sign in or appear as active.
 
 1. Open **User Logins**.
-2. Select **Deactivate account** for the intended user.
-3. Review the displayed list of profile, attendance, leave, biometric, asset, expense, task, and audit data that will be retained.
-4. Type `DEACTIVATE` exactly.
-5. Confirm deactivation.
+2. Select **Offboard employee** for the intended user.
+3. Review what changes immediately (login closed, terminated status, birthdays/active attendance hidden, offboarding checklist) and the list of retained history.
+4. Type `OFFBOARD` exactly (`DEACTIVATE` is still accepted by the API for compatibility).
+5. Confirm offboarding.
 
-The employee and login are marked inactive together. The current signed-in account and Developer Admin accounts cannot be deactivated. Developer Admin can reactivate the account later.
+The employee is marked terminated and the login inactive together. The current signed-in account and Developer Admin accounts cannot be offboarded. Developer Admin can reactivate the account later.
 
 ## Developer Admin: Reset Testing Data Before Go-Live
 
@@ -444,7 +444,7 @@ payment remain the same workflow. Travel and fuel claim types are deferred for a
 
 ## Checklists
 
-Creating a login auto-starts onboarding; deactivating a login auto-starts offboarding. **HR**
+Creating a login auto-starts onboarding; offboarding a login auto-starts offboarding. **HR**
 works each checklist: what to provide to the employee and what data to collect, then ticks items
 as they finish. HR can also start instances manually and mark complete/cancel/reopen.
 

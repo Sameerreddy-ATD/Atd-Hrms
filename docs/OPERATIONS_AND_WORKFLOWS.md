@@ -69,7 +69,7 @@ flowchart LR
 - Blocking or suspending login retains the employee, attendance, biometric mapping, leave, asset, and task data.
 - Biometric imports and task assignment use the employee record and continue to work while only the login is blocked.
 - User Logins and Employees display active, scheduled suspension, suspended, blocked, and inactive states from the same backend account status.
-- Developer Admin can deactivate an account by typing `DEACTIVATE`. The current account and all Developer Admin accounts are protected.
+- Developer Admin can offboard an employee by typing `OFFBOARD` (or `DEACTIVATE`). The current account and all Developer Admin accounts are protected.
 - Deactivation synchronizes employee/account status and retains the profile, attendance, leave, biometric mappings, assigned assets, expenses, tasks, and audit history.
 - Developer Admin bulk import uses a generated Excel template containing the current company,
   organization-unit, branch, and manager references. It accepts the complete employee identity,

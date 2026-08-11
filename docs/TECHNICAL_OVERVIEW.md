@@ -191,7 +191,7 @@ use its own domain without editing source.
 
 ## Employee Data Retention
 
-Employee/account removal is a typed, server-validated `DEACTIVATE` operation. One Prisma transaction marks the employee and login inactive, records lifecycle timestamps and an employee change event, and retains attendance, leave, biometric, asset, expense, task, and audit history. Reactivation synchronizes both records. Developer Admin and the current signed-in account cannot be deactivated through this workflow.
+Employee/account removal is a typed, server-validated `OFFBOARD` operation (`DEACTIVATE` remains accepted). One Prisma transaction marks the employee `TERMINATED` and the login `INACTIVE`, records lifecycle timestamps and an employee change event, and retains attendance, leave, biometric, asset, expense, task, and audit history. Birthdays and active attendance rosters exclude non-active employees. Reactivation synchronizes both records. Developer Admin and the current signed-in account cannot be offboarded through this workflow.
 
 Announcement permanent deletion is available to HR and Developer Admin, requires typed confirmation, and removes the announcement while retaining an audit event.
 
