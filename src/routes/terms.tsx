@@ -48,8 +48,12 @@ function TermsPage() {
           <h2 className="text-base font-semibold">Ending access</h2>
           <p className="text-muted-foreground">
             When employment ends, HR or Developer Admin offboards the account, which closes login
-            access while retaining operational history as required by the company. Contact HR if you
-            believe your access should be changed.
+            access while retaining operational history as required by the company. You may also
+            request deletion via{" "}
+            <Link to="/account-deletion" className="font-medium text-primary hover:underline">
+              Account deletion
+            </Link>
+            .
           </p>
           <h2 className="text-base font-semibold">Availability</h2>
           <p className="text-muted-foreground">
