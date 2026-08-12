@@ -1,6 +1,8 @@
 import { detectPwaPlatform } from "@/lib/pwa-install";
+import { isNativeApp, getNativePlatform } from "@/lib/native-app";
+import { ScreenOrientation as CapScreenOrientation } from "@capacitor/screen-orientation";
 
-type LockableOrientation = ScreenOrientation & {
+type LockableOrientation = globalThis.ScreenOrientation & {
   lock?: (orientation: string) => Promise<void>;
   unlock?: () => void;
 };
@@ -8,6 +10,18 @@ type LockableOrientation = ScreenOrientation & {
 /** True for phone-sized devices where the workforce app should stay portrait. */
 export function shouldLockPortraitOrientation() {
   if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+
+  // Store builds: always portrait on phone form factors (Capacitor phones).
+  if (isNativeApp()) {
+    const platform = getNativePlatform();
+    if (platform === "ios") {
+      return /iPhone|iPod/i.test(navigator.userAgent);
+    }
+    if (platform === "android") {
+      const shortest = Math.min(window.screen.width || 0, window.screen.height || 0);
+      return shortest > 0 && shortest < 600;
+    }
+  }
 
   const platform = detectPwaPlatform();
   const ua = navigator.userAgent;
@@ -32,11 +46,15 @@ function getOrientationApi(): LockableOrientation | null {
 }
 
 /**
- * Ask the browser to keep the phone in upright portrait.
+ * Ask the browser / native shell to keep the phone in upright portrait.
  * Safe to call repeatedly — failures are ignored (common outside installed PWAs).
  */
 export function lockPortraitOrientation() {
   if (!shouldLockPortraitOrientation()) return;
+  if (isNativeApp()) {
+    void CapScreenOrientation.lock({ orientation: "portrait" }).catch(() => undefined);
+    return;
+  }
   const orientation = getOrientationApi();
   if (!orientation?.lock) return;
   void orientation.lock("portrait-primary").catch(() => {

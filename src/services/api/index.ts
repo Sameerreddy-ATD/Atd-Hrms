@@ -1090,16 +1090,27 @@ export const announcementsApi = {
 };
 
 export const pushApi = {
-  publicKey: () => request<{ publicKey: string | null }>("/push/public-key"),
+  publicKey: () =>
+    request<{ publicKey: string | null; nativePushAvailable?: boolean }>("/push/public-key"),
   subscribe: (subscription: PushSubscriptionJSON) =>
-    request<{ ok: true }>("/push/subscriptions", {
+    request<{ ok: true; channel?: string }>("/push/subscriptions", {
       method: "POST",
       body: JSON.stringify(subscription),
+    }),
+  subscribeNative: (channel: "fcm" | "apns", token: string) =>
+    request<{ ok: true; channel?: string }>("/push/subscriptions", {
+      method: "POST",
+      body: JSON.stringify({ channel, token }),
     }),
   unsubscribe: (endpoint: string) =>
     request<{ ok: true }>("/push/subscriptions", {
       method: "DELETE",
       body: JSON.stringify({ endpoint }),
+    }),
+  unsubscribeNative: (channel: "fcm" | "apns", token: string) =>
+    request<{ ok: true }>("/push/subscriptions", {
+      method: "DELETE",
+      body: JSON.stringify({ channel, token }),
     }),
 };
 

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -474,6 +474,26 @@ function ProfilePage() {
                 </div>
               )}
             </form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Privacy and account access</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <p>
+              When employment ends, HR or Developer Admin offboards your login. Contact HR for
+              privacy questions about your employee record.
+            </p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              <Link to="/privacy" className="font-medium text-primary hover:underline">
+                Privacy policy
+              </Link>
+              <Link to="/terms" className="font-medium text-primary hover:underline">
+                Terms of use
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>

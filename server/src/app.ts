@@ -101,7 +101,13 @@ import {
   verifySupportPassword,
 } from "./supportPassword.js";
 import { reportingHierarchyCycle } from "./organizationRules.js";
-import { isWebPushConfigured, sendPushToAll } from "./push.js";
+import {
+  hashPushEndpoint,
+  isAnyPushConfigured,
+  isWebPushConfigured,
+  nativeTokenEndpoint,
+  sendPushToAll,
+} from "./push.js";
 import { openNotificationStream, publishNotificationChange } from "./notificationLive.js";
 import {
   assertCanViewTeamAttendance,
@@ -151,7 +157,8 @@ import {
   loginSchema,
   forgotPasswordSchema,
   mobileEventSchema,
-  pushSubscriptionSchema,
+  pushSubscriptionBodySchema,
+  pushUnsubscribeSchema,
   resetPasswordSchema,
   resetTestDataSchema,
   supportPasswordSchema,
@@ -4000,7 +4007,7 @@ export function createApp() {
     requireAuth,
     asyncHandler(async (req, res) => {
       const employeeId = String(req.query.employeeId ?? "");
-      const date = String(req.query.date ?? new Date().toISOString().slice(0, 10));
+      const date = String(req.query.date ?? todayIstDate().toISOString().slice(0, 10));
       await assertEmployeeAccess(req.user, employeeId);
       const events = await prisma.attendanceEvent.findMany({
         where: { employeeId, eventDate: new Date(`${date}T00:00:00.000Z`) },
@@ -6893,20 +6900,52 @@ export function createApp() {
   );
 
   app.get("/push/public-key", requireAuth, (_req, res) => {
-    res.json({ publicKey: isWebPushConfigured() ? config.vapidPublicKey : null });
+    res.json({
+      publicKey: isWebPushConfigured() ? config.vapidPublicKey : null,
+      nativePushAvailable: isAnyPushConfigured(),
+    });
   });
 
   app.post(
     "/push/subscriptions",
     requireAuth,
     asyncHandler(async (req, res) => {
-      if (!isWebPushConfigured()) throw new HttpError(503, "Push notifications are not configured");
-      const body = pushSubscriptionSchema.parse(req.body);
-      const endpointHash = createHash("sha256").update(body.endpoint).digest("hex");
+      const body = pushSubscriptionBodySchema.parse(req.body);
+
+      if ("token" in body) {
+        const endpoint = nativeTokenEndpoint(body.channel, body.token);
+        const endpointHash = hashPushEndpoint(endpoint);
+        await prisma.pushSubscription.upsert({
+          where: { endpointHash },
+          create: {
+            userId: req.user!.id,
+            channel: body.channel,
+            endpoint,
+            endpointHash,
+            p256dh: "native",
+            auth: body.channel,
+            userAgent: req.get("user-agent"),
+          },
+          update: {
+            userId: req.user!.id,
+            channel: body.channel,
+            endpoint,
+            p256dh: "native",
+            auth: body.channel,
+            userAgent: req.get("user-agent"),
+          },
+        });
+        res.status(201).json({ ok: true, channel: body.channel });
+        return;
+      }
+
+      if (!isWebPushConfigured()) throw new HttpError(503, "Web push is not configured");
+      const endpointHash = hashPushEndpoint(body.endpoint);
       await prisma.pushSubscription.upsert({
         where: { endpointHash },
         create: {
           userId: req.user!.id,
+          channel: "web",
           endpoint: body.endpoint,
           endpointHash,
           p256dh: body.keys.p256dh,
@@ -6915,13 +6954,14 @@ export function createApp() {
         },
         update: {
           userId: req.user!.id,
+          channel: "web",
           endpoint: body.endpoint,
           p256dh: body.keys.p256dh,
           auth: body.keys.auth,
           userAgent: req.get("user-agent"),
         },
       });
-      res.status(201).json({ ok: true });
+      res.status(201).json({ ok: true, channel: "web" });
     }),
   );
 
@@ -6929,8 +6969,10 @@ export function createApp() {
     "/push/subscriptions",
     requireAuth,
     asyncHandler(async (req, res) => {
-      const endpoint = z.object({ endpoint: z.string().url() }).parse(req.body).endpoint;
-      const endpointHash = createHash("sha256").update(endpoint).digest("hex");
+      const body = pushUnsubscribeSchema.parse(req.body);
+      const endpoint =
+        "token" in body ? nativeTokenEndpoint(body.channel, body.token) : body.endpoint;
+      const endpointHash = hashPushEndpoint(endpoint);
       await prisma.pushSubscription.deleteMany({
         where: { endpointHash, userId: req.user!.id },
       });

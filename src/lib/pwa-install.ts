@@ -1,3 +1,5 @@
+import { isNativeApp } from "@/lib/native-app";
+
 const INSTALL_DISMISSED_KEY = "adh_pwa_install_dismissed_at";
 const DISMISS_DAYS = 14;
 
@@ -21,6 +23,8 @@ function writeLocalStorage(key: string, value: string) {
 
 export function isAppInstalled() {
   if (typeof window === "undefined") return false;
+  // Capacitor store builds are already installed — never show the PWA banner.
+  if (isNativeApp()) return true;
   const standaloneDisplay = window.matchMedia("(display-mode: standalone)").matches;
   const standaloneIos = "standalone" in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
   const windowControls =

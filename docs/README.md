@@ -22,6 +22,7 @@ in the same commit.
 - Server administrators: [Linux and AWS Deployment](LINUX_LOCAL_DEPLOYMENT.md) (includes company RDS wiring)
 - Release owners: [Upgrade and Maintenance](UPGRADE_AND_MAINTENANCE.md) (releases, CI/CD, ops cadence)
 - Mobile QA/support: [Device Compatibility](DEVICE_COMPATIBILITY.md)
+- Store release owners: [Mobile Store Release](MOBILE_STORE_RELEASE.md)
 - Security, HR, and attendance owners:
   [Face Registration and Verified Attendance](FACE_ATTENDANCE_SECURITY.md) and
   [Attendance, Leave, and Face Policy](ATTENDANCE_LEAVE_AND_FACE_POLICY.md)
@@ -52,7 +53,8 @@ in the same commit.
 | `AWS_DEPLOYMENT_PATTERNS.md`           | VPS→company AWS path, EC2/RDS/S3, ECS, CI/CD, secrets, go-live, and post-deploy maintenance       |
 | `LINUX_LOCAL_DEPLOYMENT.md`            | Fresh Linux/AWS installation, company RDS wiring, Nginx, TLS, PM2, and optional containers        |
 | `UPGRADE_AND_MAINTENANCE.md`           | Production updates, backups, verification, rollback, CI/CD gates, and maintenance cadence         |
-| `DEVICE_COMPATIBILITY.md`              | Supported browsers, PWA permissions, low-network behavior, and QA matrix                          |
+| `DEVICE_COMPATIBILITY.md`              | Supported browsers, PWA/store apps, permissions, low-network behavior, and QA matrix |
+| `MOBILE_STORE_RELEASE.md`              | Capacitor Android/iOS builds, signing, push env, and Play/App Store checklist          |
 | `RESPONSIVE_UI_AUDIT.md`               | Shared responsive rules, audited surfaces, resolved issues, and UI release checklist              |
 | `FACE_ATTENDANCE_SECURITY.md`          | Mandatory enrollment, liveness/GPS flow, encrypted storage, retention, admin, and deployment      |
 | `ATTENDANCE_LEAVE_AND_FACE_POLICY.md`  | Authoritative Full Day/Half Day/Absent, Missed Checkout, leave, Comp Off, and face photo rules    |

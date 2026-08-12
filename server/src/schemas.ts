@@ -836,10 +836,23 @@ export const announcementSchema = announcementFields.refine(
 
 export const announcementUpdateSchema = announcementFields.partial();
 
-export const pushSubscriptionSchema = z.object({
-  endpoint: z.string().url().max(5000),
-  keys: z.object({
-    p256dh: z.string().min(1).max(5000),
-    auth: z.string().min(1).max(5000),
+/** Web Push (PWA) or native FCM/APNs device token registration. */
+export const pushSubscriptionBodySchema = z.union([
+  z.object({
+    channel: z.enum(["fcm", "apns"]),
+    token: z.string().min(8).max(4096),
   }),
-});
+  z.object({
+    channel: z.literal("web").optional(),
+    endpoint: z.string().url().max(5000),
+    keys: z.object({
+      p256dh: z.string().min(1).max(5000),
+      auth: z.string().min(1).max(5000),
+    }),
+  }),
+]);
+
+export const pushUnsubscribeSchema = z.union([
+  z.object({ endpoint: z.string().url().max(5000) }),
+  z.object({ channel: z.enum(["fcm", "apns"]), token: z.string().min(8).max(4096) }),
+]);

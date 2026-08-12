@@ -323,6 +323,8 @@ model PushSubscription {
   subscriptionId String   @id @default(cuid()) @map("subscription_id")
   userId         String   @map("user_id")
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// web | fcm | apns
+  channel        String   @default("web") @db.VarChar(16)
   endpoint       String   @db.Text
   endpointHash   String   @unique @map("endpoint_hash") @db.VarChar(64)
   p256dh         String   @db.Text
@@ -332,6 +334,7 @@ model PushSubscription {
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   @@index([userId])
+  @@index([channel])
   @@map("push_subscriptions")
 }
 

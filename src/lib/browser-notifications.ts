@@ -1,9 +1,11 @@
 import type { NotificationItem } from "@/types/domain";
 import { pushApi } from "@/services/api";
+import { getNativePlatform, isNativeApp } from "@/lib/native-app";
 
 const CLEARED_AT_KEY = "adh_notifications_cleared_at";
 const DESKTOP_ALERTS_KEY = "adh_desktop_alerts_enabled";
 const SEEN_NOTIFICATION_IDS_KEY = "adh_seen_notification_ids";
+const NATIVE_PUSH_TOKEN_KEY = "adh_native_push_token";
 export const NOTIFICATION_COUNT_CHANGED_EVENT = "adh:notification-count-changed";
 
 function readLocalStorage(key: string) {
@@ -20,6 +22,18 @@ function writeLocalStorage(key: string, value: string) {
   } catch {
     // Ignore storage failures in private or restricted contexts.
   }
+}
+
+function removeLocalStorage(key: string) {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function nativePushChannel(): "fcm" | "apns" {
+  return getNativePlatform() === "ios" ? "apns" : "fcm";
 }
 
 export function getNotificationsClearedAt() {
@@ -47,6 +61,21 @@ export function setDesktopAlertsEnabled(enabled: boolean) {
 }
 
 export async function disableDesktopAlerts() {
+  if (isNativeApp()) {
+    const token = readLocalStorage(NATIVE_PUSH_TOKEN_KEY);
+    if (token) {
+      await pushApi.unsubscribeNative(nativePushChannel(), token).catch(() => undefined);
+      removeLocalStorage(NATIVE_PUSH_TOKEN_KEY);
+    }
+    try {
+      const { PushNotifications } = await import("@capacitor/push-notifications");
+      await PushNotifications.removeAllListeners();
+    } catch {
+      // Plugin may be unavailable.
+    }
+    setDesktopAlertsEnabled(false);
+    return;
+  }
   if ("serviceWorker" in navigator) {
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager?.getSubscription();
@@ -62,6 +91,10 @@ export type NotificationPermissionState = "granted" | "denied" | "default" | "un
 
 export function getNotificationPermission(): NotificationPermissionState {
   if (typeof window === "undefined") return "unsupported";
+  if (isNativeApp()) {
+    // Native permission is resolved asynchronously; local flag tracks user choice.
+    return areDesktopAlertsEnabled() ? "granted" : "default";
+  }
   if (!("Notification" in window)) return "unsupported";
   return Notification.permission;
 }
@@ -185,6 +218,36 @@ export async function showDesktopNotification(item: NotificationItem) {
 }
 
 export async function enableDesktopAlerts() {
+  if (isNativeApp()) {
+    const { PushNotifications } = await import("@capacitor/push-notifications");
+    let permission = await PushNotifications.checkPermissions();
+    if (permission.receive === "prompt" || permission.receive === "prompt-with-rationale") {
+      permission = await PushNotifications.requestPermissions();
+    }
+    if (permission.receive !== "granted") {
+      throw new Error("Notification permission was not granted.");
+    }
+
+    await PushNotifications.removeAllListeners();
+    await PushNotifications.addListener("registration", (token) => {
+      writeLocalStorage(NATIVE_PUSH_TOKEN_KEY, token.value);
+      void pushApi.subscribeNative(nativePushChannel(), token.value).catch(() => undefined);
+    });
+    await PushNotifications.addListener("registrationError", (error) => {
+      console.error("Native push registration failed", error);
+    });
+    await PushNotifications.addListener("pushNotificationActionPerformed", (event) => {
+      const href =
+        (event.notification.data as { href?: string } | undefined)?.href ?? "/notifications";
+      if (typeof href === "string" && href.startsWith("/")) {
+        window.location.assign(href);
+      }
+    });
+    await PushNotifications.register();
+    setDesktopAlertsEnabled(true);
+    return;
+  }
+
   if (!("Notification" in window)) {
     throw new Error("This browser does not support desktop notifications.");
   }

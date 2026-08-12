@@ -1,6 +1,6 @@
 # Anytime Workforce
 
-Internal workforce and operations platform for Anytime Diesel. It manages accounts, organization units, attendance, leave, tasks, assets and returns, expense claims, HR documents, announcements, notifications, reports, audit history, and a scoped Employee Integration API through role-based web and installed PWA experiences.
+Internal workforce and operations platform for Anytime Diesel. It manages accounts, organization units, attendance, leave, tasks, assets and returns, expense claims, HR documents, announcements, notifications, reports, audit history, and a scoped Employee Integration API through role-based web, installed PWA, and Capacitor store-app experiences.
 
 Work Planner includes Jira-style projects with unique keys, sequential issue IDs (`OPS-12`),
 issue types (Task/Bug/Story/Epic), ranked Board ordering, open/role/member-gated access, ordered
@@ -53,7 +53,8 @@ Start with the [documentation index](docs/README.md).
 | [Linux and AWS Deployment](docs/LINUX_LOCAL_DEPLOYMENT.md)                     | Server administrators                                                        |
 | [Upgrade and Maintenance](docs/UPGRADE_AND_MAINTENANCE.md)                     | Production releases, backups, rollback, and monitoring                       |
 | [Reset and Go-Live](docs/RESET_AND_GO_LIVE.md)                                 | Developer Admin and go-live owners                                           |
-| [Device Compatibility](docs/DEVICE_COMPATIBILITY.md)                           | Mobile/PWA testing and support                                               |
+| [Device Compatibility](docs/DEVICE_COMPATIBILITY.md)                           | Mobile/PWA/store-app testing and support                                     |
+| [Mobile Store Release](docs/MOBILE_STORE_RELEASE.md)                           | Capacitor Android/iOS builds, Play Store and App Store release checklist     |
 | [Face Registration and Verified Attendance](docs/FACE_ATTENDANCE_SECURITY.md)  | Enrollment, liveness, GPS, storage, retention, APIs, and operations          |
 | [Product Naming](docs/PRODUCT_NAMING.md)                                       | Product owners and interface writers                                         |
 
@@ -66,7 +67,8 @@ Security reporting and credential-handling rules are in [SECURITY.md](SECURITY.m
 | Web application        | React 19, TanStack Start/Router, TypeScript 5.9, Vite 8, Tailwind CSS 4           |
 | API                    | Node.js 22, Express 4, Zod validation, HTTP-only cookie authentication and RBAC   |
 | Data                   | MySQL 8, Prisma 6 migrations and transactional persistence                        |
-| Realtime and installed | Authenticated Server-Sent Events, Web Push, service worker and PWA manifest       |
+| Realtime and installed | Authenticated Server-Sent Events, Web Push, Capacitor FCM/APNs, service worker and PWA manifest |
+| Mobile stores          | Capacitor 7 Android/iOS shell loading production HTTPS (`com.anytimediesel.workforce`) |
 | Face attendance        | Self-hosted Human 3, WebGL inference, backend matching and encrypted evidence     |
 | UI foundation          | Radix primitives, Lucide icons, responsive shared dialogs/tables and Recharts     |
 | Quality                | Vitest 4, Playwright, ESLint 10, Prettier 3 and strict frontend/backend typecheck |
@@ -78,19 +80,23 @@ standards.
 ## Repository Layout
 
 ```text
+android/              Capacitor Android project (Play Store)
+ios/                  Capacitor iOS project (App Store; build on macOS)
+mobile/               Capacitor web fallback shell and store icon sources
 docs/                 Product, workflow, data, API, deployment, and maintenance manuals
 deploy/               Container handoff and reverse-proxy reference configuration
 prisma/               MySQL schema, active migrations, seed, and archived PostgreSQL history
 public/               PWA manifest, service worker, logos, favicons, and install icons
-scripts/              Setup, database audit, migration, reset, and smoke-test utilities
+scripts/              Setup, database audit, migration, reset, mobile bundle, and smoke-test utilities
 server/src/           Express API, security, business rules, integrations, and persistence
 src/components/       Shared feature, layout, and design-system components
 src/hooks/            Reusable React hooks
-src/lib/              Frontend auth, notifications, attendance, formatting, and utilities
+src/lib/              Frontend auth, notifications, native bridge, attendance, formatting, and utilities
 src/routes/           TanStack file-based application pages
 src/services/api/     Typed frontend API client
 src/types/            Shared frontend domain contracts
 tests/                Unit, workflow, security, integration, and browser tests
+capacitor.config.ts   Capacitor app id, production server URL, and native plugin defaults
 Dockerfile            Separate frontend and backend production container targets
 ```
 

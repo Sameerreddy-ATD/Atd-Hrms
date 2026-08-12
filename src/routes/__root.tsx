@@ -16,6 +16,7 @@ import { SystemThemeSync } from "@/components/layout/SystemThemeSync";
 import { Toaster } from "@/components/ui/sonner";
 import { registerAppServiceWorker } from "@/lib/browser-notifications";
 import { detectPwaPlatform, ensureLatestAppBuild } from "@/lib/pwa-install";
+import { bootstrapNativeApp, isNativeApp } from "@/lib/native-app";
 import { PortraitOrientationGuard } from "@/components/layout/PortraitOrientationGuard";
 
 const SITE_TITLE = "Anytime Workforce";
@@ -158,6 +159,19 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   useEffect(() => {
+    let disposeNative: (() => void) | undefined;
+    void bootstrapNativeApp()
+      .then((dispose) => {
+        disposeNative = dispose;
+      })
+      .catch(() => undefined);
+    return () => {
+      disposeNative?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isNativeApp()) return;
     void registerAppServiceWorker().catch(() => undefined);
     void ensureLatestAppBuild().catch(() => undefined);
   }, []);

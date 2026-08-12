@@ -34,9 +34,29 @@
     "db:verify": "node scripts/verify-mysql.mjs",
     "db:audit": "node scripts/audit-database.mjs",
     "repo:audit": "node scripts/audit-repository.mjs",
-    "audit:deps": "npm audit --omit=dev"
+    "audit:deps": "npm audit --omit=dev",
+    "cap:sync": "npx cap sync",
+    "cap:android": "npx cap open android",
+    "cap:ios": "npx cap open ios",
+    "mobile:sync": "npx cap sync",
+    "mobile:add:android": "npx cap add android",
+    "mobile:add:ios": "npx cap add ios",
+    "mobile:copy": "npx cap copy",
+    "mobile:android:bundle": "bash scripts/mobile-android-bundle.sh",
+    "mobile:ios:open": "npx cap open ios"
   },
+
   "dependencies": {
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/camera": "^7.0.5",
+    "@capacitor/core": "^7.6.8",
+    "@capacitor/geolocation": "^7.1.8",
+    "@capacitor/keyboard": "^7.0.6",
+    "@capacitor/network": "^7.0.4",
+    "@capacitor/push-notifications": "^7.0.7",
+    "@capacitor/screen-orientation": "^7.0.4",
+    "@capacitor/splash-screen": "^7.0.5",
+    "@capacitor/status-bar": "^7.0.6",
     "@hookform/resolvers": "^5.2.2",
     "@prisma/client": "^6.1.0",
     "@radix-ui/react-accordion": "^1.2.12",
@@ -105,6 +125,9 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@capacitor/android": "^7.6.8",
+    "@capacitor/cli": "^7.6.8",
+    "@capacitor/ios": "^7.6.8",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.55.0",
     "@types/bcryptjs": "^2.4.6",

@@ -148,6 +148,14 @@ function LoginPage() {
             <p className="mt-6 text-center text-[11px] text-muted-foreground/70">
               Anytime Diesel · Anytime Workforce
             </p>
+            <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-[11px]">
+              <Link to="/privacy" className="text-muted-foreground hover:text-primary hover:underline">
+                Privacy
+              </Link>
+              <Link to="/terms" className="text-muted-foreground hover:text-primary hover:underline">
+                Terms
+              </Link>
+            </p>
           </CardContent>
         </Card>
       </div>

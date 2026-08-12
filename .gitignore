@@ -50,3 +50,24 @@ scripts/.mysql-migration-batch.sql
 *.njsproj
 *.sln
 *.sw?
+
+# Capacitor / native release artifacts (commit android/ and ios/ project trees)
+*.keystore
+*.jks
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/keystore.properties
+android/captures/
+android/.idea/
+ios/App/Pods/
+ios/App/App/public/
+ios/DerivedData/
+mobile/.capacitor/
+*.ipa
+*.aab
+*.apk
+google-services.json
+GoogleService-Info.plist
+

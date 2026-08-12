@@ -34,6 +34,14 @@ export const config = {
   vapidPublicKey: process.env.VAPID_PUBLIC_KEY ?? "",
   vapidPrivateKey: process.env.VAPID_PRIVATE_KEY ?? "",
   vapidSubject: process.env.VAPID_SUBJECT ?? "mailto:hrms@example.com",
+  /** Legacy FCM server key (Android native push). Optional until Play push is enabled. */
+  fcmServerKey: process.env.FCM_SERVER_KEY ?? "",
+  /** APNs key material for iOS native push (PEM contents or path handled by ops). */
+  apnsKeyId: process.env.APNS_KEY_ID ?? "",
+  apnsTeamId: process.env.APNS_TEAM_ID ?? "",
+  apnsBundleId: process.env.APNS_BUNDLE_ID ?? "com.anytimediesel.workforce",
+  apnsKeyP8: process.env.APNS_KEY_P8 ?? "",
+  apnsProduction: process.env.APNS_PRODUCTION !== "false",
 };
 
 export function assertSecureConfig() {

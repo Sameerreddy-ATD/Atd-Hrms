@@ -1,17 +1,18 @@
 # Device Compatibility Guide
 
-The application uses responsive web and Progressive Web App behavior. The supported target is the current and previous major browser version on common phones, tablets, and laptops.
+The application uses responsive web, Progressive Web App behavior, and optional Capacitor store builds (Google Play / App Store). The supported target is the current and previous major browser version on common phones, tablets, and laptops, plus the official Anytime Workforce Android and iOS apps when published.
 
 ## Supported Device Families
 
 | Device                | Browser / installed mode      | Required checks                                                                                   |
 | --------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------- |
-| iPhone and iPad       | Safari and Add to Home Screen | HTTPS, camera, cookies, Precise Location, location While Using, current iOS                       |
-| Google Pixel          | Chrome and installed PWA      | Camera/location allowed, precise device Location enabled, WebGL, Chrome updated                   |
-| Samsung               | Chrome or Samsung Internet    | Camera/location allowed, WebGL, battery restrictions reviewed when permission prompts are delayed |
-| Vivo and Oppo         | Chrome                        | Camera/location allowed, WebGL, browser auto-start/background restrictions reviewed               |
+| iPhone and iPad       | Safari, Add to Home Screen, or App Store build | HTTPS, camera, cookies, Precise Location, location While Using, current iOS           |
+| Google Pixel          | Chrome, installed PWA, or Play Store build | Camera/location allowed, precise device Location enabled, WebGL, Chrome updated         |
+| Samsung               | Chrome or Samsung Internet, or Play Store build | Camera/location allowed, WebGL, battery restrictions reviewed when permission prompts are delayed |
+| Vivo and Oppo         | Chrome or Play Store build    | Camera/location allowed, WebGL, browser auto-start/background restrictions reviewed               |
 | Windows laptop/tablet | Chrome or Edge                | Camera, location, cookies, WebGL, responsive navigation, export and print checks                  |
 | macOS                 | Safari or Chrome              | Camera, precise location, cookies, HTTPS, WebGL, notification permission when required            |
+
 
 ## Location Requirements
 
@@ -24,7 +25,8 @@ The application uses responsive web and Progressive Web App behavior. The suppor
 
 ## Installed App Behavior
 
-- Add the application through Safari's **Add to Home Screen** on iOS, Chrome/Edge **Install app**
+- Prefer the **Play Store / App Store** Anytime Workforce app when published (Capacitor shell loading the production site with native push and permissions). See [Mobile Store Release](MOBILE_STORE_RELEASE.md).
+- Or add the application through Safari's **Add to Home Screen** on iOS, Chrome/Edge **Install app**
   on Android/Windows/macOS from the browser menu, or optionally from **Notifications** on a phone.
 - The web app manifest uses standalone display, maskable icons, launch handling for existing
   windows, and shortcuts to Dashboard, My Attendance, Notifications, and Apply Leave.
@@ -34,7 +36,7 @@ The application uses responsive web and Progressive Web App behavior. The suppor
 - Closing and reopening the installed app should restore the session through the refresh cookie.
 - Web Push requires HTTPS, a valid VAPID configuration, an installed service worker, and user
   permission. iOS Web Push requires the site to be added to the Home Screen on iOS 16.4+ and opened
-  from that icon before alerts can be enabled.
+  from that icon before alerts can be enabled. Store builds use FCM/APNs instead of Web Push.
 - Open app sessions receive live attendance and announcement refresh through authenticated
   server-sent events.
 - Notification clicks open the Notifications screen; Android/desktop badges clear when that screen
@@ -44,12 +46,14 @@ The application uses responsive web and Progressive Web App behavior. The suppor
 
 | Platform | How employees install | Alerts |
 | -------- | --------------------- | ------ |
+| Android (Play Store) | Install Anytime Workforce from Google Play | Enable Alerts in Notifications (FCM) |
 | Android (Chrome / Samsung Internet) | Browser menu Install / Add to Home screen, or optional steps under Notifications | Enable Alerts after install for background push |
+| iPhone / iPad (App Store) | Install Anytime Workforce from the App Store | Enable Alerts in Notifications (APNs) |
 | iPhone / iPad (Safari) | Share → Add to Home Screen, then open from the icon | Enable Alerts inside the installed app (iOS 16.4+) |
 | Windows (Chrome / Edge) | Install from address bar or browser menu only (no in-app prompt) | Enable Alerts for desktop notifications |
 | macOS (Chrome / Edge / Safari) | Install / Add to Dock from the browser only (no in-app prompt) | Enable Alerts after opening the installed app |
 
-Phone users can open **Notifications** for optional install steps. Laptop and desktop browsers are
+Phone users can open **Notifications** for optional PWA install steps when they are not already on a store build. Laptop and desktop browsers are
 not shown an install banner; employees who want a desktop shortcut use the browser’s own install
 menu.
 
