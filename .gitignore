@@ -77,3 +77,7 @@ android/anytime-workforce-upload.jks
 
 # Cursor local assistant files
 .cursor/
+
+# Local agent skills (npx skills / Cursor)
+.agents/
+skills-lock.json
