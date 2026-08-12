@@ -1,6 +1,6 @@
 # Waiting on you — Play launch inputs
 
-Play Console can stay in verification. Below is everything **only you** can provide, why we need it, and what is already done.
+Play Console can stay in verification. Below is what **only you** still need to finish vs what is already done on this laptop.
 
 ## Already done (no action)
 
@@ -10,70 +10,55 @@ Play Console can stay in verification. Below is everything **only you** can prov
 - Listing copy draft in `mobile/store/PLAY_LISTING_COPY.md`
 - Backup disabled, no ads ID, no background location
 - Permission disclosure + account deletion UX
-- Native push plumbing (needs Firebase keys to actually send)
+- Upload keystore generated + passwords saved under `~/Anytime-Workforce-Credentials` (not in Git)
+- `google-services.json` placed locally (gitignored) + Firebase project `atd-workforce`
+- JDK 21 + Android SDK on this machine; signed AAB built (`targetSdk` 36)
+- Digital Asset Links file for App Links
+- Backend supports FCM HTTP v1 (`FCM_SERVICE_ACCOUNT_JSON`) + legacy key fallback
 
-## Provide these next
+## Still needed from you
 
-### 1) Keystore passwords (or say “generate for me”)
+### 1) Play Console verification
 
-**What:** Two passwords (store + key), or one shared password is fine for first upload.  
-**Why:** Signs the `.aab` Play will accept. Without this we cannot build a release bundle.  
-**How:** Reply with passwords you want, OR say “generate and tell me where the file is” and we create `android/anytime-workforce-upload.jks` + `android/keystore.properties` (gitignored).  
-**Keep forever:** Losing the upload key makes Play updates painful.
+**What:** Finish Google Play developer account verification.  
+**Why:** Blocks creating the listing and uploading the AAB.  
+**When ready:** Upload `~/Anytime-Workforce-Credentials/play-upload/AnytimeWorkforce-1.0.0.aab` to Internal testing.
 
-### 2) Firebase `google-services.json`
+### 2) FCM service account JSON (optional for first ship)
 
-**What:** File from Firebase Console → Android app package `com.anytimediesel.workforce`.  
-**Why:** Required for Android push (FCM). Play listing can ship without push, but alerts will not work in the store app.  
-**How:** Download and place at `android/app/google-services.json` (or send the file and we place it). Do **not** commit to GitHub.
+**What:** Firebase Console → Project settings → Service accounts → Generate new private key (JSON).  
+**Why:** Production backend sends native Android pushes via FCM HTTP v1.  
+**How:** We place the stringified JSON in server `.env` as `FCM_SERVICE_ACCOUNT_JSON` (and `FCM_PROJECT_ID=atd-workforce`) on `13.204.5.57`, then restart `atd-backend`. Never commit to Git.  
+**Note:** Legacy `FCM_SERVER_KEY` is fallback only; Cloud Console often hides the old key.
 
-### 3) FCM server key (for production API)
+### 3) Support / contact email for Play listing
 
-**What:** Firebase Cloud Messaging server key (Cloud Messaging API legacy key, or we document HTTP v1 later).  
-**Why:** Backend must send pushes to phones that registered a native token.  
-**How:** Paste the key; we add it to server `.env` as `FCM_SERVER_KEY` on `13.204.5.57` and restart `atd-backend`. Never put it in Git.
+**What:** Public email for the listing and account-deletion mailto.  
+**Confirm:** Is `hrms@anytimediesel.com` correct?
 
-### 4) Support / contact email for Play listing
+### 4) Phone screenshots (5 images)
 
-**What:** Public email users/Google can contact (e.g. `hrms@anytimediesel.com`).  
-**Why:** Required on the store listing and used in account-deletion mailto.  
-**Confirm:** Is `hrms@anytimediesel.com` correct? If not, send the right one.
-
-### 5) Phone screenshots (5 images)
-
-**What:** PNG/JPG from a real phone (or Chrome device mode at ~1080×1920): login, dashboard, My Attendance, leave apply, profile.  
+**What:** PNG/JPG ~1080×1920: login, dashboard, My Attendance, leave apply, profile.  
 **Why:** Play rejects listings without screenshots.  
-**How:** Drop files into `mobile/assets/screenshots/` or send them here.
+**How:** Drop into `mobile/assets/screenshots/` or send here.
 
-### 6) Reviewer test employee login (can wait until Console is live)
+### 5) Reviewer test employee login (after Console is live)
 
-**What:** Email + password for a normal employee account (not Developer Admin).  
-**Why:** Google review often needs to sign in. Pause Face Security for that user if face gate would block them.  
-**When:** After Play Console verification finishes.
-
-### 7) JDK + Android SDK on this machine (or build on another PC)
-
-**What:** Confirm whether you can install Android Studio on this Linux machine, or you have another Windows/Mac with Android Studio.  
-**Why:** This environment currently has **no Java / Android SDK**, so we cannot produce the `.aab` here until that is installed.  
-**Options:**  
-- A) Install Android Studio here (you run installer / sudo)  
-- B) You build on another PC after we prepare keystore + `google-services.json`  
-- C) You give sudo and ask us to install OpenJDK + command-line SDK (heavier)
+**What:** Email + password for a normal employee (not Developer Admin).  
+**Why:** Google review often needs to sign in. Pause Face Security for that user if the gate would block them.
 
 ## Not needed until Console is verified
 
-- Creating the Play app listing (blocked on verification)
+- Creating the Play app listing
 - Uploading AAB
-- Data Safety form click-through (answers already drafted in `docs/MOBILE_STORE_RELEASE.md`)
+- Data Safety form click-through (answers drafted in `docs/MOBILE_STORE_RELEASE.md`)
 
-## Reply template (copy/paste)
+## Reply template
 
 ```text
-1) Keystore: generate for me / OR passwords: store=___ key=___
-2) google-services.json: will upload / path=___
-3) FCM_SERVER_KEY: ___
-4) Support email: ___
-5) Screenshots: will add to mobile/assets/screenshots/
-6) Build machine: this Linux with Android Studio / other PC / install OpenJDK here
-7) Reviewer test login: later / email=___ password=___
+1) Play Console: still verifying / verified — ready to upload
+2) FCM service account JSON: will upload / skip for first ship
+3) Support email: ___
+4) Screenshots: will add to mobile/assets/screenshots/
+5) Reviewer test login: later / email=___ password=___
 ```

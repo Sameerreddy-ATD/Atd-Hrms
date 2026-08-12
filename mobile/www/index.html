@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta
       name="viewport"
-      content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
     <meta name="format-detection" content="telephone=no" />
     <meta name="color-scheme" content="light" />
@@ -18,37 +18,69 @@
         min-height: 100dvh;
         display: grid;
         place-items: center;
-        font-family: system-ui, -apple-system, Segoe UI, sans-serif;
-        background: #f6f8fc;
+        font-family: "Plus Jakarta Sans", system-ui, -apple-system, Segoe UI, sans-serif;
+        background: linear-gradient(180deg, #fff5f4 0%, #f6f8fc 45%, #f6f8fc 100%);
         color: #1a1f2c;
-        padding: 1.5rem;
+        padding: max(1.5rem, env(safe-area-inset-top)) max(1.5rem, env(safe-area-inset-right))
+          max(1.5rem, env(safe-area-inset-bottom)) max(1.5rem, env(safe-area-inset-left));
         text-align: center;
+      }
+      .mark {
+        width: 4.5rem;
+        height: 0.35rem;
+        margin: 0 auto 1.25rem;
+        border-radius: 999px;
+        background: #dc2f20;
       }
       h1 {
         margin: 0 0 0.5rem;
-        font-size: 1.35rem;
+        font-size: 1.45rem;
+        letter-spacing: -0.02em;
       }
       p {
-        margin: 0;
+        margin: 0 auto 1.25rem;
         max-width: 22rem;
-        line-height: 1.45;
+        line-height: 1.5;
         color: #5b6475;
         font-size: 0.95rem;
       }
-      a {
+      a.button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 2.75rem;
+        padding: 0 1.15rem;
+        border-radius: 0.65rem;
+        background: #dc2f20;
+        color: #fff;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      a.secondary {
+        display: inline-block;
+        margin-top: 0.85rem;
         color: #dc2f20;
         font-weight: 600;
+        font-size: 0.9rem;
       }
     </style>
   </head>
   <body>
     <main>
+      <div class="mark" aria-hidden="true"></div>
       <h1>Anytime Workforce</h1>
       <p>
-        Waiting for a network connection to open the app. Check mobile data or Wi‑Fi, then reopen
-        Anytime Workforce, or visit
-        <a href="https://hrms.anytime-diesel.com">hrms.anytime-diesel.com</a>.
+        You are offline or the company server is unreachable. Reconnect to mobile data or Wi‑Fi, then
+        open the app again to continue attendance, leave, and work tools.
       </p>
+      <a class="button" href="https://hrms.anytime-diesel.com/login">Retry connection</a>
+      <br />
+      <a class="secondary" href="https://hrms.anytime-diesel.com/privacy">Privacy policy</a>
     </main>
+    <script>
+      window.addEventListener("online", function () {
+        window.location.replace("https://hrms.anytime-diesel.com/login");
+      });
+    </script>
   </body>
 </html>

@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.anytimediesel.workforce",
+      "sha256_cert_fingerprints": [
+        "23:E7:2A:88:86:40:6E:00:47:E2:9B:0E:CB:2E:6B:53:D2:B6:C5:85:42:54:D6:B0:2E:86:1B:0A:C2:7D:9D:59"
+      ]
+    }
+  }
+]

@@ -81,6 +81,14 @@ menu.
 - The UI should retain stable loading states and allow retry after connectivity returns.
 - Test network recovery by switching between Wi-Fi and mobile data while the installed app is open.
 
+## Foldables and multi-window
+
+- Treat **shortest layout side < 600 px** as phone: prefer portrait lock in the Capacitor /
+  installed PWA shell.
+- Unfolded foldables, tablets, and desktop/laptop browsers keep free rotation and denser grids.
+- Re-test after fold/unfold and split-screen resize: navigation, attendance dialogs, and login must
+  remain usable without horizontal page scroll.
+
 ## Responsive Acceptance Matrix
 
 Test at minimum:
@@ -89,6 +97,7 @@ Test at minimum:
 - 360 x 800 Android phone
 - 390 x 844 modern iPhone
 - 412 x 915 large Android phone
+- Fold cover + unfolded widths
 - 768 x 1024 tablet portrait
 - 1024 x 768 tablet landscape
 - 1366 x 768 laptop

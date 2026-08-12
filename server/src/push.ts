@@ -1,4 +1,4 @@
-import { createHash, createPrivateKey, sign } from "node:crypto";
+import { createHash, createPrivateKey, createSign, sign } from "node:crypto";
 import webPush from "web-push";
 import { config } from "./config.js";
 import { prisma } from "./prisma.js";
@@ -11,12 +11,21 @@ type PushPayload = {
   priority?: string;
 };
 
+type ServiceAccount = {
+  project_id?: string;
+  client_email: string;
+  private_key: string;
+  token_uri?: string;
+};
+
+let cachedFcmToken: { value: string; expiresAt: number } | null = null;
+
 export function isWebPushConfigured() {
   return Boolean(config.vapidPublicKey && config.vapidPrivateKey && config.vapidSubject);
 }
 
 export function isFcmConfigured() {
-  return Boolean(config.fcmServerKey);
+  return Boolean(config.fcmServiceAccountJson || config.fcmServerKey);
 }
 
 export function isApnsConfigured() {
@@ -45,8 +54,120 @@ export function nativeTokenEndpoint(channel: "fcm" | "apns", token: string) {
   return nativeEndpoint(channel, token);
 }
 
-async function sendFcm(token: string, payload: PushPayload) {
-  if (!isFcmConfigured()) return false;
+function base64Url(input: Buffer | string) {
+  const buffer = typeof input === "string" ? Buffer.from(input) : input;
+  return buffer.toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
+
+function readServiceAccount(): ServiceAccount | null {
+  if (!config.fcmServiceAccountJson) return null;
+  try {
+    return JSON.parse(config.fcmServiceAccountJson) as ServiceAccount;
+  } catch {
+    return null;
+  }
+}
+
+async function getFcmAccessToken() {
+  if (cachedFcmToken && cachedFcmToken.expiresAt > Date.now() + 60_000) {
+    return cachedFcmToken.value;
+  }
+  const sa = readServiceAccount();
+  if (!sa?.client_email || !sa.private_key) {
+    throw new Error("FCM service account JSON is missing client_email/private_key");
+  }
+  const now = Math.floor(Date.now() / 1000);
+  const header = base64Url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const claim = base64Url(
+    JSON.stringify({
+      iss: sa.client_email,
+      scope: "https://www.googleapis.com/auth/firebase.messaging",
+      aud: sa.token_uri || "https://oauth2.googleapis.com/token",
+      iat: now,
+      exp: now + 3600,
+    }),
+  );
+  const unsigned = `${header}.${claim}`;
+  const signer = createSign("RSA-SHA256");
+  signer.update(unsigned);
+  signer.end();
+  const signature = base64Url(signer.sign(sa.private_key));
+  const assertion = `${unsigned}.${signature}`;
+  const response = await fetch(sa.token_uri || "https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion,
+    }),
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`FCM OAuth failed (${response.status}): ${text.slice(0, 200)}`);
+  }
+  const body = (await response.json()) as { access_token?: string; expires_in?: number };
+  if (!body.access_token) throw new Error("FCM OAuth response missing access_token");
+  cachedFcmToken = {
+    value: body.access_token,
+    expiresAt: Date.now() + Math.max(60, Number(body.expires_in ?? 3600)) * 1000,
+  };
+  return body.access_token;
+}
+
+async function sendFcmHttpV1(token: string, payload: PushPayload) {
+  const sa = readServiceAccount();
+  const projectId = config.fcmProjectId || sa?.project_id;
+  if (!projectId) throw new Error("FCM_PROJECT_ID or service account project_id is required");
+  const accessToken = await getFcmAccessToken();
+  const response = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      message: {
+        token,
+        notification: {
+          title: payload.title,
+          body: payload.body,
+        },
+        data: {
+          href: payload.href ?? "/notifications",
+          title: payload.title,
+          body: payload.body,
+          tag: payload.tag ?? "",
+        },
+        android: {
+          priority: payload.priority === "URGENT" ? "HIGH" : "NORMAL",
+          notification: {
+            channelId: "anytime_workforce",
+            tag: payload.tag,
+            clickAction: "FLUTTER_NOTIFICATION_CLICK",
+          },
+        },
+      },
+    }),
+  });
+  if (response.status === 404 || response.status === 410) {
+    const err = new Error("FCM token gone") as Error & { statusCode: number };
+    err.statusCode = response.status;
+    throw err;
+  }
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    // UNREGISTERED tokens
+    if (text.includes("UNREGISTERED") || text.includes("NOT_FOUND")) {
+      const err = new Error("FCM token gone") as Error & { statusCode: number };
+      err.statusCode = 404;
+      throw err;
+    }
+    throw new Error(`FCM v1 send failed (${response.status}): ${text.slice(0, 200)}`);
+  }
+  return true;
+}
+
+async function sendFcmLegacy(token: string, payload: PushPayload) {
   const response = await fetch("https://fcm.googleapis.com/fcm/send", {
     method: "POST",
     headers: {
@@ -76,14 +197,15 @@ async function sendFcm(token: string, payload: PushPayload) {
   }
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    throw new Error(`FCM send failed (${response.status}): ${text.slice(0, 200)}`);
+    throw new Error(`FCM legacy send failed (${response.status}): ${text.slice(0, 200)}`);
   }
   return true;
 }
 
-function base64Url(input: Buffer | string) {
-  const buffer = typeof input === "string" ? Buffer.from(input) : input;
-  return buffer.toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+async function sendFcm(token: string, payload: PushPayload) {
+  if (!isFcmConfigured()) return false;
+  if (config.fcmServiceAccountJson) return sendFcmHttpV1(token, payload);
+  return sendFcmLegacy(token, payload);
 }
 
 function createApnsAuthToken() {
@@ -91,7 +213,9 @@ function createApnsAuthToken() {
   const header = base64Url(JSON.stringify({ alg: "ES256", kid: config.apnsKeyId }));
   const claims = base64Url(JSON.stringify({ iss: config.apnsTeamId, iat: now }));
   const unsigned = `${header}.${claims}`;
-  const key = createPrivateKey(config.apnsKeyP8.includes("BEGIN") ? config.apnsKeyP8 : Buffer.from(config.apnsKeyP8, "base64"));
+  const key = createPrivateKey(
+    config.apnsKeyP8.includes("BEGIN") ? config.apnsKeyP8 : Buffer.from(config.apnsKeyP8, "base64"),
+  );
   const signature = sign("sha256", Buffer.from(unsigned), { key, dsaEncoding: "ieee-p1363" });
   return `${unsigned}.${base64Url(signature)}`;
 }

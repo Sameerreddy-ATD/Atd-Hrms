@@ -55,6 +55,7 @@ Start with the [documentation index](docs/README.md).
 | [Reset and Go-Live](docs/RESET_AND_GO_LIVE.md)                                 | Developer Admin and go-live owners                                           |
 | [Device Compatibility](docs/DEVICE_COMPATIBILITY.md)                           | Mobile/PWA/store-app testing and support                                     |
 | [Mobile Store Release](docs/MOBILE_STORE_RELEASE.md)                           | Capacitor Android/iOS builds, Play Store and App Store release checklist     |
+| [Play Launch Status](docs/PLAY_LAUNCH_STATUS.md)                               | What is done, waiting items, and rejection mitigations for Play upload       |
 | [Face Registration and Verified Attendance](docs/FACE_ATTENDANCE_SECURITY.md)  | Enrollment, liveness, GPS, storage, retention, APIs, and operations          |
 | [Product Naming](docs/PRODUCT_NAMING.md)                                       | Product owners and interface writers                                         |
 

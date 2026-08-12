@@ -99,6 +99,17 @@ employees, leave history/approvals/reports, holidays, users, and assets.
 - Installed-app UX: phone users may optionally install from **Notifications**; do not auto-prompt
   laptop/desktop browsers. Clear app badges when notifications are viewed.
 
+## August 2026 — fold / tablet / short viewport
+
+- Portrait orientation lock applies only when the **layout** shortest side is under 600 px
+  (`src/lib/screen-orientation.ts`). Unfolded foldables, tablets, and wide split-screen stay free
+  to rotate; phones re-lock after resize/orientation change.
+- Android Manifest no longer hard-sets `screenOrientation=portrait` for every device.
+- Dashboard stat and action grids use intermediate breakpoints (`min-[360px]`, `min-[480px]`,
+  `md`, `lg`, `xl`) so fold cover, tablet, and laptop densify smoothly.
+- Login / first-password: short viewports shrink or hide the crew mascot so the form and CTAs stay
+  above the fold (`src/styles.css`).
+
 ## Release Verification
 
 Run the normal typecheck, lint, unit tests, frontend/backend builds, and repository audit. Run
@@ -112,6 +123,7 @@ Manual release coverage remains:
 - 360 × 800
 - 390 × 844
 - 412 × 915
+- Fold cover / unfolded widths (≈ 280–700+ CSS px depending on device)
 - 768 × 1024
 - 1024 × 768
 - 1366 × 768

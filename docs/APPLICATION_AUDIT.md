@@ -1,8 +1,8 @@
 # Application Audit — Frontend, Backend, Database & Flows
 
-**Date:** 27 July 2026  
-**Branches:** `main` / production `version-1` (`da56b35`+)  
-**Method:** Code review of routes, Express APIs, Prisma models, jobs, menus, and cross-checks against `UX_FLOW_AUDIT.md`, `OPERATIONS_AND_WORKFLOWS.md`, and `ATTENDANCE_LEAVE_AND_FACE_POLICY.md`.
+**Date:** 27 July 2026 (refresh **12 Aug 2026** for store / Capacitor / push)  
+**Branches:** production deploy from **`main`**  
+**Method:** Code review of routes, Express APIs, Prisma models, jobs, menus, and cross-checks against `UX_FLOW_AUDIT.md`, `OPERATIONS_AND_WORKFLOWS.md`, `ATTENDANCE_LEAVE_AND_FACE_POLICY.md`, and `PLAY_LAUNCH_STATUS.md`.
 
 This is an **issue and completeness register**, not a claim that every row is unfixed. Items marked **Fixed recently** were verified in code after late-July policy work.
 
@@ -13,13 +13,14 @@ This is an **issue and completeness register**, not a claim that every row is un
 | Layer | Health | Notes |
 | ----- | ------ | ----- |
 | **Auth / sessions / RBAC core** | Strong | Login, refresh, module middleware, face gate, Dev Admin protections |
-| **Attendance + leave policy** | Strong (new) | Full/Half/Absent, Missed Checkout empty out, Comp Off, holidays, shifts |
-| **Face verify** | Strong (new) | Multi-angle enroll; check-in verify-only (no daily photos) |
-| **People / profile ops** | Partial | Dev Admin–only edits by design; emergency contact unused; HR manager edit UI missing |
-| **Expenses / certificates** | Mostly usable | Expense PAID path looks fixed; CEO read-only clarity still weak |
+| **Attendance + leave policy** | Strong | Full/Half/Absent, Missed Checkout empty out, Comp Off, holidays, shifts |
+| **Face verify** | Strong | Multi-angle enroll; check-in verify-only (no daily photos) |
+| **People / profile ops** | Partial | Dev Admin–only edits by design; profile edit-request still 501 |
+| **Expenses / certificates** | Mostly usable | Expense PAID path fixed; CEO read-only clarity still weak |
 | **Biometrics** | Half | Device/mapping + CSV/thumb ingest APIs exist; **no live device connector** |
 | **Deferred modules in DB** | Empty shells | Roster, OT, appraisals, SOP, vault, recruitment tables with **no app code** |
-| **Notifications** | Partial | In-app + Web Push work; **email/WhatsApp digests not wired** |
+| **Notifications** | Stronger | In-app + Web Push; native FCM/APNs subscribe + HTTP v1 sender (env optional) |
+| **Store / Capacitor shell** | Ready | Android AAB signed; Play upload blocked on Console verification only |
 
 **Company-ready for:** face-gated login, mobile GPS attendance, leave, tasks, assets, holidays/branches (Dev Admin), checklists, basic expenses/certificates, HR day logs.
 
@@ -238,10 +239,24 @@ flowchart TB
 
 ---
 
+## 12. August 2026 store / platform refresh
+
+| Area | Status | Evidence |
+| ---- | ------ | -------- |
+| Public legal + deletion | Done | `/privacy`, `/terms`, `/account-deletion` |
+| Digital Asset Links | Done | `public/.well-known/assetlinks.json` |
+| Native push channel column | Done | Migration + `push_subscriptions.channel` |
+| FCM HTTP v1 | Code done; prod env optional | `server/src/push.ts`, `.env.example` |
+| Android targetSdk 36 | Done | `android/variables.gradle` |
+| Portrait lock fold/tablet safe | Done | Manifest unlocked; `screen-orientation.ts` |
+| Play AAB | Built on laptop | See `PLAY_LAUNCH_STATUS.md` |
+
+**Not Play blockers:** A5 profile edit-request 501, A6 live biometric connector, email digests.
+
 ## Document ownership
 
 | Item | Value |
 | ---- | ----- |
 | File | `docs/APPLICATION_AUDIT.md` |
 | Update when | After each fix batch; mark IDs Done |
-| Related | `UX_FLOW_AUDIT.md`, `WORKFLOW_AND_SECURITY_AUDIT.md`, `ATTENDANCE_LEAVE_AND_FACE_POLICY.md` |
+| Related | `UX_FLOW_AUDIT.md`, `WORKFLOW_AND_SECURITY_AUDIT.md`, `ATTENDANCE_LEAVE_AND_FACE_POLICY.md`, `PLAY_LAUNCH_STATUS.md` |

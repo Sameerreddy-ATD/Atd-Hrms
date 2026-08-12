@@ -29,7 +29,7 @@ The store apps load the live production site inside Capacitor so HTTP-only sessi
 5. [ ] Feature graphic 1024×500 + phone screenshots: login, dashboard, My Attendance (GPS), face check-in (if enabled), leave apply, Profile → account deletion.
 6. [ ] Privacy policy URL, Terms URL, Account deletion URL (all public, no login).
 7. [ ] Content rating questionnaire (Business app; no user-generated social content).
-8. [ ] Target API: 35 (already set). Declare **no ads** / advertising ID not used (manifest removes `AD_ID`).
+8. [ ] Target API: **36** (`android/variables.gradle`). Declare **no ads** / advertising ID not used (manifest removes `AD_ID`).
 
 ### Account deletion (Play policy)
 
@@ -108,9 +108,12 @@ cd ios/App && pod install && open App.xcworkspace
 
 ## Backend env for native push
 
-- `FCM_SERVER_KEY` — Android FCM (plan HTTP v1 migration later)
+- Prefer `FCM_SERVICE_ACCOUNT_JSON` (stringified service-account JSON) + `FCM_PROJECT_ID` for FCM HTTP v1
+- Optional fallback: `FCM_SERVER_KEY` (legacy)
 - `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_BUNDLE_ID`, `APNS_KEY_P8`, `APNS_PRODUCTION`
 - Existing VAPID keys for PWA Web Push
+
+See also [Play Launch Status](PLAY_LAUNCH_STATUS.md) for packaging progress and deploy notes.
 
 ## Smoke test before upload
 

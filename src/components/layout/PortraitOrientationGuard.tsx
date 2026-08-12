@@ -16,7 +16,10 @@ export function PortraitOrientationGuard() {
   useEffect(() => startPortraitOrientationLock(), []);
 
   useEffect(() => {
-    const sync = () => setShowLandscapePrompt(isPhoneLandscapeViewport());
+    const sync = () => {
+      // Re-evaluate phone vs tablet after fold/unfold or split-screen resize.
+      setShowLandscapePrompt(isPhoneLandscapeViewport());
+    };
     sync();
     window.addEventListener("resize", sync);
     window.addEventListener("orientationchange", sync);

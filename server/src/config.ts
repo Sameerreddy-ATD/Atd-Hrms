@@ -34,8 +34,11 @@ export const config = {
   vapidPublicKey: process.env.VAPID_PUBLIC_KEY ?? "",
   vapidPrivateKey: process.env.VAPID_PRIVATE_KEY ?? "",
   vapidSubject: process.env.VAPID_SUBJECT ?? "mailto:hrms@example.com",
-  /** Legacy FCM server key (Android native push). Optional until Play push is enabled. */
+  /** Legacy FCM server key (optional fallback). Prefer FCM_SERVICE_ACCOUNT_JSON (HTTP v1). */
   fcmServerKey: process.env.FCM_SERVER_KEY ?? "",
+  /** Firebase service account JSON string for FCM HTTP v1. */
+  fcmServiceAccountJson: process.env.FCM_SERVICE_ACCOUNT_JSON ?? "",
+  fcmProjectId: process.env.FCM_PROJECT_ID ?? "",
   /** APNs key material for iOS native push (PEM contents or path handled by ops). */
   apnsKeyId: process.env.APNS_KEY_ID ?? "",
   apnsTeamId: process.env.APNS_TEAM_ID ?? "",

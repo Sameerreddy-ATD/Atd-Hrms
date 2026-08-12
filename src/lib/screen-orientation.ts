@@ -7,18 +7,31 @@ type LockableOrientation = globalThis.ScreenOrientation & {
   unlock?: () => void;
 };
 
+/**
+ * Phone-sized viewport where portrait lock applies.
+ * Prefer layout viewport (innerWidth) so foldables / split-screen reclassify correctly.
+ */
+function shortestLayoutSide() {
+  if (typeof window === "undefined") return 0;
+  const w = window.innerWidth || window.screen?.width || 0;
+  const h = window.innerHeight || window.screen?.height || 0;
+  return Math.min(w, h);
+}
+
 /** True for phone-sized devices where the workforce app should stay portrait. */
 export function shouldLockPortraitOrientation() {
   if (typeof window === "undefined" || typeof navigator === "undefined") return false;
 
-  // Store builds: always portrait on phone form factors (Capacitor phones).
+  // Tablets / unfolded foldables / wide split-screen: allow landscape admin work.
+  if (window.matchMedia("(min-width: 600px)").matches) return false;
+
   if (isNativeApp()) {
     const platform = getNativePlatform();
     if (platform === "ios") {
       return /iPhone|iPod/i.test(navigator.userAgent);
     }
     if (platform === "android") {
-      const shortest = Math.min(window.screen.width || 0, window.screen.height || 0);
+      const shortest = shortestLayoutSide();
       return shortest > 0 && shortest < 600;
     }
   }
@@ -27,13 +40,11 @@ export function shouldLockPortraitOrientation() {
   const ua = navigator.userAgent;
 
   if (platform === "ios") {
-    // iPhone / iPod only — iPad may be used in landscape for admin work.
     return /iPhone|iPod/i.test(ua);
   }
 
   if (platform === "android") {
-    // Shortest physical side under ~600 CSS px ≈ phone, not tablet.
-    const shortest = Math.min(window.screen.width || 0, window.screen.height || 0);
+    const shortest = shortestLayoutSide();
     return shortest > 0 && shortest < 600;
   }
 
@@ -50,7 +61,12 @@ function getOrientationApi(): LockableOrientation | null {
  * Safe to call repeatedly — failures are ignored (common outside installed PWAs).
  */
 export function lockPortraitOrientation() {
-  if (!shouldLockPortraitOrientation()) return;
+  if (!shouldLockPortraitOrientation()) {
+    if (isNativeApp()) {
+      void CapScreenOrientation.unlock().catch(() => undefined);
+    }
+    return;
+  }
   if (isNativeApp()) {
     void CapScreenOrientation.lock({ orientation: "portrait" }).catch(() => undefined);
     return;
@@ -58,20 +74,14 @@ export function lockPortraitOrientation() {
   const orientation = getOrientationApi();
   if (!orientation?.lock) return;
   void orientation.lock("portrait-primary").catch(() => {
-    // Some engines only accept the broader "portrait" token.
     void orientation.lock?.("portrait").catch(() => undefined);
   });
 }
 
 /**
- * Keep trying to hold portrait on phones: mount, resume, and after OS orientation flips.
- * Does not unlock — FaceCapture and route remounts must not release the lock.
+ * Keep trying to hold portrait on phones: mount, resume, fold/unfold, and orientation flips.
  */
 export function startPortraitOrientationLock() {
-  if (!shouldLockPortraitOrientation()) {
-    return () => undefined;
-  }
-
   const apply = () => lockPortraitOrientation();
   apply();
 
@@ -83,6 +93,7 @@ export function startPortraitOrientationLock() {
   window.addEventListener("pageshow", apply);
   window.addEventListener("focus", apply);
   window.addEventListener("orientationchange", apply);
+  window.addEventListener("resize", apply);
   getOrientationApi()?.addEventListener?.("change", apply);
 
   return () => {
@@ -90,6 +101,7 @@ export function startPortraitOrientationLock() {
     window.removeEventListener("pageshow", apply);
     window.removeEventListener("focus", apply);
     window.removeEventListener("orientationchange", apply);
+    window.removeEventListener("resize", apply);
     getOrientationApi()?.removeEventListener?.("change", apply);
   };
 }

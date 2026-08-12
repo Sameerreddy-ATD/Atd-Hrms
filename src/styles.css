@@ -353,6 +353,19 @@
     linear-gradient(180deg, color-mix(in oklab, var(--muted) 70%, transparent), var(--color-background) 48%);
 }
 
+@media (max-height: 720px) {
+  .aw-auth-canvas .login-crew {
+    max-width: 7.5rem !important;
+    margin-bottom: 0.25rem;
+  }
+}
+
+@media (max-height: 640px) {
+  .aw-auth-canvas .login-crew {
+    display: none;
+  }
+}
+
 .dark .aw-auth-canvas {
   background:
     radial-gradient(ellipse 80% 50% at 50% -15%, color-mix(in oklab, var(--primary) 20%, transparent), transparent 58%),

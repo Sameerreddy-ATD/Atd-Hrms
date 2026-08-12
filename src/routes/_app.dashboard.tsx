@@ -380,7 +380,7 @@ function DashboardPage() {
 function DashboardSkeleton() {
   return (
     <div className="space-y-4" aria-label="Loading dashboard data">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
           <div key={index} className="rounded-md border bg-card p-4">
             <Skeleton className="h-3 w-24" />
@@ -388,7 +388,7 @@ function DashboardSkeleton() {
           </div>
         ))}
       </div>
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-2">
         <div className="rounded-md border bg-card p-4">
           <Skeleton className="h-4 w-32" />
           <Skeleton className="mt-4 h-24 w-full" />
@@ -718,7 +718,7 @@ function MarkAttendanceCard({
           <p className="mt-0.5 text-xs text-muted-foreground">Today&apos;s live work session</p>
         </div>
       </CardHeader>
-      <CardContent className="grid gap-4 p-4 pt-0 sm:p-5 sm:pt-0 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.72fr)]">
+      <CardContent className="grid gap-4 p-4 pt-0 sm:p-5 sm:pt-0 md:grid-cols-[minmax(0,1fr)_minmax(260px,0.72fr)]">
         <div className="overflow-hidden rounded-md border border-border/70 bg-muted/15">
           <div className="flex items-center gap-3 border-b border-border/60 p-4">
             <span
@@ -847,7 +847,7 @@ function ManagerDashboard({
 }) {
   return (
     <div className="space-y-4">
-      <div className="aw-enter-delayed grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 lg:grid-cols-4">
+      <div className="aw-enter-delayed grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         <StatCard label="Team present" value={data.present} icon={UserCheck} tone="success" />
         <StatCard label="On leave" value={data.onLeave} icon={PlaneTakeoff} tone="info" />
         <StatCard
@@ -1333,7 +1333,7 @@ function AdminDashboard({
 }) {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
         <StatCard label="Total users" value={data.users} icon={Users} />
         <StatCard label="Total employees" value={data.total} icon={UserCheck} />
         <StatCard label="Branches" value={data.branches} icon={Building2} />
