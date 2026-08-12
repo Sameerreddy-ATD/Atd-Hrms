@@ -3,6 +3,7 @@ import { Geolocation } from "@capacitor/geolocation";
 
 const CACHE_KEY = "atd.last-location";
 const CACHE_MAX_AGE_MS = 15_000;
+const NATIVE_GEO_TIMEOUT_MS = 10_000;
 
 type CachedLocation = {
   latitude: number;
@@ -28,10 +29,14 @@ function cacheAndResolve(
   timestamp: number,
   resolve: (position: GeolocationPosition) => void,
 ) {
-  window.sessionStorage.setItem(
-    CACHE_KEY,
-    JSON.stringify({ latitude, longitude, accuracy, timestamp }),
-  );
+  try {
+    window.sessionStorage.setItem(
+      CACHE_KEY,
+      JSON.stringify({ latitude, longitude, accuracy, timestamp }),
+    );
+  } catch {
+    // sessionStorage may be blocked — still return the fix.
+  }
   resolve({
     coords: {
       latitude,
@@ -46,14 +51,91 @@ function cacheAndResolve(
   } as unknown as GeolocationPosition);
 }
 
+function getBrowserLocation(
+  resolve: (position: GeolocationPosition) => void,
+  reject: (reason?: unknown) => void,
+) {
+  if (!navigator.geolocation) {
+    reject(new Error("Location is not supported on this device."));
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      cacheAndResolve(
+        position.coords.latitude,
+        position.coords.longitude,
+        position.coords.accuracy,
+        position.timestamp || Date.now(),
+        resolve,
+      );
+    },
+    reject,
+    { enableHighAccuracy: true, timeout: 8_000, maximumAge: CACHE_MAX_AGE_MS },
+  );
+}
+
+/**
+ * Capacitor Geolocation.requestPermissions has crashed Samsung One UI WebViews.
+ * Prefer the Chrome WebView geolocation API (still gated by the app manifest
+ * ACCESS_FINE_LOCATION). Fall back to the plugin only if the browser path fails.
+ */
 async function getNativeDeviceLocation(
   resolve: (position: GeolocationPosition) => void,
   reject: (reason?: unknown) => void,
 ) {
+  // 1) WebView path — safest on Samsung / Android 15+.
+  const browserAttempt = await new Promise<"ok" | "fail">((done) => {
+    if (!navigator.geolocation) {
+      done("fail");
+      return;
+    }
+    let settled = false;
+    const timer = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      done("fail");
+    }, NATIVE_GEO_TIMEOUT_MS);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        cacheAndResolve(
+          position.coords.latitude,
+          position.coords.longitude,
+          position.coords.accuracy,
+          position.timestamp || Date.now(),
+          resolve,
+        );
+        done("ok");
+      },
+      () => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        done("fail");
+      },
+      { enableHighAccuracy: true, timeout: 8_000, maximumAge: CACHE_MAX_AGE_MS },
+    );
+  });
+  if (browserAttempt === "ok") return;
+
+  // 2) Capacitor plugin fallback — fully isolated so a plugin crash cannot
+  //    become an unhandled rejection that tears down the WebView.
   try {
-    const permission = await Geolocation.checkPermissions();
+    const permission = await Promise.race([
+      Geolocation.checkPermissions(),
+      new Promise<never>((_, fail) =>
+        window.setTimeout(() => fail(new Error("Location permission check timed out.")), 4_000),
+      ),
+    ]);
     if (permission.location !== "granted" && permission.coarseLocation !== "granted") {
-      const requested = await Geolocation.requestPermissions();
+      const requested = await Promise.race([
+        Geolocation.requestPermissions(),
+        new Promise<never>((_, fail) =>
+          window.setTimeout(() => fail(new Error("Location permission request timed out.")), 15_000),
+        ),
+      ]);
       if (requested.location !== "granted" && requested.coarseLocation !== "granted") {
         reject(Object.assign(new Error("Location permission was denied."), { code: 1 }));
         return;
@@ -72,7 +154,11 @@ async function getNativeDeviceLocation(
       resolve,
     );
   } catch (error) {
-    reject(error);
+    reject(
+      error instanceof Error
+        ? error
+        : Object.assign(new Error("Precise location is required to mark attendance."), { code: 1 }),
+    );
   }
 }
 
@@ -96,23 +182,6 @@ export function getDeviceLocation(options: { allowRecent?: boolean } = {}) {
       return;
     }
 
-    if (!navigator.geolocation) {
-      reject(new Error("Location is not supported on this device."));
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        cacheAndResolve(
-          position.coords.latitude,
-          position.coords.longitude,
-          position.coords.accuracy,
-          position.timestamp || Date.now(),
-          resolve,
-        );
-      },
-      reject,
-      { enableHighAccuracy: true, timeout: 8_000, maximumAge: CACHE_MAX_AGE_MS },
-    );
+    getBrowserLocation(resolve, reject);
   });
 }

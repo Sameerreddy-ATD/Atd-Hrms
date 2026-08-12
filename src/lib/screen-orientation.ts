@@ -67,12 +67,16 @@ const NATIVE_LOCK_COOLDOWN_MS = 2_500;
  */
 export function lockPortraitOrientation() {
   if (!shouldLockPortraitOrientation()) {
-    if (isNativeApp()) {
+    // Do not call Cap unlock on Android either — unlock has also crashed OEMs.
+    if (isNativeApp() && getNativePlatform() !== "android") {
       void CapScreenOrientation.unlock().catch(() => undefined);
     }
     return;
   }
   if (isNativeApp()) {
+    // Skip Capacitor ScreenOrientation on Android — correlated with S25 process death
+    // during camera / checkout. Manifest configChanges already absorbs rotation.
+    if (getNativePlatform() === "android") return;
     const now = Date.now();
     if (now - lastNativeLockAt < NATIVE_LOCK_COOLDOWN_MS) return;
     lastNativeLockAt = now;

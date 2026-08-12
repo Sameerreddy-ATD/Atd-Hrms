@@ -219,33 +219,89 @@ export async function showDesktopNotification(item: NotificationItem) {
 
 export async function enableDesktopAlerts() {
   if (isNativeApp()) {
-    const { PushNotifications } = await import("@capacitor/push-notifications");
-    let permission = await PushNotifications.checkPermissions();
-    if (permission.receive === "prompt" || permission.receive === "prompt-with-rationale") {
-      permission = await PushNotifications.requestPermissions();
-    }
-    if (permission.receive !== "granted") {
-      throw new Error("Notification permission was not granted.");
-    }
+    // Samsung One UI has crashed inside PushNotifications.register / requestPermissions.
+    // Keep every Cap call isolated; still enable in-app alerts if FCM setup fails.
+    try {
+      const { PushNotifications } = await import("@capacitor/push-notifications");
 
-    await PushNotifications.removeAllListeners();
-    await PushNotifications.addListener("registration", (token) => {
-      writeLocalStorage(NATIVE_PUSH_TOKEN_KEY, token.value);
-      void pushApi.subscribeNative(nativePushChannel(), token.value).catch(() => undefined);
-    });
-    await PushNotifications.addListener("registrationError", (error) => {
-      console.error("Native push registration failed", error);
-    });
-    await PushNotifications.addListener("pushNotificationActionPerformed", (event) => {
-      const href =
-        (event.notification.data as { href?: string } | undefined)?.href ?? "/notifications";
-      if (typeof href === "string" && href.startsWith("/")) {
-        window.location.assign(href);
+      let permission: { receive?: string } = { receive: "prompt" };
+      try {
+        permission = await Promise.race([
+          PushNotifications.checkPermissions(),
+          new Promise<never>((_, reject) =>
+            window.setTimeout(() => reject(new Error("Notification check timed out.")), 4_000),
+          ),
+        ]);
+      } catch {
+        permission = { receive: "prompt" };
       }
-    });
-    await PushNotifications.register();
-    setDesktopAlertsEnabled(true);
-    return;
+
+      if (permission.receive === "prompt" || permission.receive === "prompt-with-rationale") {
+        try {
+          permission = await Promise.race([
+            PushNotifications.requestPermissions(),
+            new Promise<never>((_, reject) =>
+              window.setTimeout(
+                () => reject(new Error("Notification permission timed out.")),
+                20_000,
+              ),
+            ),
+          ]);
+        } catch {
+          // User dismissed or OEM hung — fall through.
+        }
+      }
+
+      if (permission.receive && permission.receive !== "granted") {
+        throw new Error(
+          "Notification permission was not granted. Open Settings → Apps → Anytime Workforce → Notifications and allow them.",
+        );
+      }
+
+      try {
+        await PushNotifications.removeAllListeners();
+      } catch {
+        // ignore
+      }
+
+      try {
+        await PushNotifications.addListener("registration", (token) => {
+          writeLocalStorage(NATIVE_PUSH_TOKEN_KEY, token.value);
+          void pushApi.subscribeNative(nativePushChannel(), token.value).catch(() => undefined);
+        });
+        await PushNotifications.addListener("registrationError", (error) => {
+          console.error("Native push registration failed", error);
+        });
+        await PushNotifications.addListener("pushNotificationActionPerformed", (event) => {
+          const href =
+            (event.notification.data as { href?: string } | undefined)?.href ?? "/notifications";
+          if (typeof href === "string" && href.startsWith("/")) {
+            window.location.assign(href);
+          }
+        });
+      } catch {
+        // Listeners optional.
+      }
+
+      // Defer register so the UI can finish the tap handler before FCM runs.
+      window.setTimeout(() => {
+        void PushNotifications.register().catch((error) => {
+          console.error("Native push register failed", error);
+        });
+      }, 400);
+
+      setDesktopAlertsEnabled(true);
+      return;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/not granted|blocked|denied/i.test(message)) {
+        throw error instanceof Error ? error : new Error(message);
+      }
+      setDesktopAlertsEnabled(true);
+      throw new Error(
+        "Alerts were turned on in the app, but system push setup failed on this device. You will still see notifications inside Anytime Workforce.",
+      );
+    }
   }
 
   if (!("Notification" in window)) {
@@ -283,3 +339,4 @@ export async function enableDesktopAlerts() {
     type: "system",
   });
 }
+
