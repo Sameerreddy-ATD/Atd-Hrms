@@ -71,3 +71,6 @@ mobile/.capacitor/
 google-services.json
 GoogleService-Info.plist
 
+
+android/keystore.password
+android/anytime-workforce-upload.jks
