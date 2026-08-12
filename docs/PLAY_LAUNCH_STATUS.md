@@ -26,8 +26,10 @@ Canonical product docs remain in the rest of `docs/`. Credentials stay on the la
 - Branded launcher icons + Play 512 icon + feature graphic `1024×500`
 - `google-services.json` installed locally (gitignored)
 - Upload keystore created; signed **AAB** built (rebuild after each Play-hygiene change):
-  - `~/Downloads/AnytimeWorkforce-1.0.0.aab`
-  - `~/Anytime-Workforce-Credentials/play-upload/AnytimeWorkforce-1.0.0.aab`
+  - Latest: **1.0.1** (`versionCode` 2) with R8 minify/shrink — re-upload for Internal testing
+  - `~/Downloads/AnytimeWorkforce-1.0.1.aab`
+  - `~/Anytime-Workforce-Credentials/play-upload/AnytimeWorkforce-1.0.1.aab`
+- Release hardening: `minifyEnabled` + `shrinkResources`, Capacitor ProGuard keep rules, AGP **8.9.2** (not AGP 9 — Capacitor 7-safe), arm-only ABIs
 - Play hygiene: `allowBackup=false`, AD_ID removed, no background location, FileProvider paths narrowed
 - Offline Capacitor shell page improved (`mobile/www/index.html`)
 - Listing copy: `mobile/store/PLAY_LISTING_COPY.md`
@@ -48,10 +50,10 @@ Contains keystore, password text file, Firebase JSON, AAB. Not in Git.
 
 | Item | Status |
 | ---- | ------ |
-| Google Play Console account verification | Pending (blocks upload) |
+| Google Play Console account verification | **Done** — create app + upload AAB next |
 | FCM service account JSON on production `.env` | Optional for first ship; enables native Android push |
 | Phone screenshots in Play listing | Needed at upload time |
-| Internal testing track + reviewer employee login | After Console is live |
+| Internal testing track + reviewer employee login | After app listing exists |
 
 ## Play rejection risk — mitigated
 

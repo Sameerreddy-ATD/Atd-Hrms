@@ -1,6 +1,6 @@
 # Waiting on you — Play launch inputs
 
-Play Console can stay in verification. Below is what **only you** still need to finish vs what is already done on this laptop.
+Play Console is **verified**. Upload can proceed. Below is what is already done vs what you still finish in Console.
 
 ## Already done (no action)
 
@@ -15,50 +15,38 @@ Play Console can stay in verification. Below is what **only you** still need to 
 - JDK 21 + Android SDK on this machine; signed AAB built (`targetSdk` 36)
 - Digital Asset Links file for App Links
 - Backend supports FCM HTTP v1 (`FCM_SERVICE_ACCOUNT_JSON`) + legacy key fallback
+- Play developer account verification
 
-## Still needed from you
+## Do this now (Play Console)
 
-### 1) Play Console verification
+1. Create the app → **Anytime Workforce** / package `com.anytimediesel.workforce`
+2. Fill listing from `mobile/store/PLAY_LISTING_COPY.md`
+3. Upload graphics + **phone screenshots**
+4. Paste legal URLs (privacy / terms / account deletion)
+5. Complete Data Safety + content rating (drafts in `docs/MOBILE_STORE_RELEASE.md`)
+6. Create **Internal testing** release → upload  
+   `~/Anytime-Workforce-Credentials/play-upload/AnytimeWorkforce-1.0.0.aab`  
+   (or `~/Downloads/AnytimeWorkforce-1.0.0.aab`)
+7. Add your Google account as a tester, install from the testing link, smoke-test login + attendance
+8. Prepare a **normal employee** reviewer login (not Developer Admin); pause Face Security for that user if needed
 
-**What:** Finish Google Play developer account verification.  
-**Why:** Blocks creating the listing and uploading the AAB.  
-**When ready:** Upload `~/Anytime-Workforce-Credentials/play-upload/AnytimeWorkforce-1.0.0.aab` to Internal testing.
+## Optional before / after first ship
 
-### 2) FCM service account JSON (optional for first ship)
+### FCM service account JSON
 
-**What:** Firebase Console → Project settings → Service accounts → Generate new private key (JSON).  
-**Why:** Production backend sends native Android pushes via FCM HTTP v1.  
-**How:** We place the stringified JSON in server `.env` as `FCM_SERVICE_ACCOUNT_JSON` (and `FCM_PROJECT_ID=atd-workforce`) on `13.204.5.57`, then restart `atd-backend`. Never commit to Git.  
-**Note:** Legacy `FCM_SERVER_KEY` is fallback only; Cloud Console often hides the old key.
+Firebase Console → Project settings → Service accounts → Generate new private key.  
+We put stringified JSON in production `.env` as `FCM_SERVICE_ACCOUNT_JSON` (+ `FCM_PROJECT_ID=atd-workforce`) and restart `atd-backend`. Skip for first ship if alerts can wait.
 
-### 3) Support / contact email for Play listing
+### Support / contact email
 
-**What:** Public email for the listing and account-deletion mailto.  
-**Confirm:** Is `hrms@anytimediesel.com` correct?
-
-### 4) Phone screenshots (5 images)
-
-**What:** PNG/JPG ~1080×1920: login, dashboard, My Attendance, leave apply, profile.  
-**Why:** Play rejects listings without screenshots.  
-**How:** Drop into `mobile/assets/screenshots/` or send here.
-
-### 5) Reviewer test employee login (after Console is live)
-
-**What:** Email + password for a normal employee (not Developer Admin).  
-**Why:** Google review often needs to sign in. Pause Face Security for that user if the gate would block them.
-
-## Not needed until Console is verified
-
-- Creating the Play app listing
-- Uploading AAB
-- Data Safety form click-through (answers drafted in `docs/MOBILE_STORE_RELEASE.md`)
+Confirm listing email (e.g. `hrms@anytimediesel.com`).
 
 ## Reply template
 
 ```text
-1) Play Console: still verifying / verified — ready to upload
+1) Play Console: verified — creating app / uploading AAB
 2) FCM service account JSON: will upload / skip for first ship
 3) Support email: ___
-4) Screenshots: will add to mobile/assets/screenshots/
-5) Reviewer test login: later / email=___ password=___
+4) Screenshots: ready / need help capturing
+5) Reviewer test login: email=___ password=___
 ```
