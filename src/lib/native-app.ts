@@ -139,17 +139,19 @@ async function hideSplashWhenReady() {
 export async function bootstrapNativeApp() {
   if (!isNativeApp()) return () => undefined;
 
-  // Status bar first (cheap). Delay orientation lock — locking during cold start
-  // crashes some Android 12–15 OEM WebView builds.
+  // Status bar first (cheap). Skip orientation lock on Android — OEM WebViews
+  // (Samsung One UI) have crashed when lock races keyboard dismiss after login.
   try {
     await configureStatusBar();
   } catch {
     // continue boot
   }
 
-  window.setTimeout(() => {
-    void lockNativePortrait();
-  }, 800);
+  if (getNativePlatform() !== "android") {
+    window.setTimeout(() => {
+      void lockNativePortrait();
+    }, 800);
+  }
 
   // Keep splash until the remote web UI has had time to paint.
   window.setTimeout(() => {
@@ -160,11 +162,11 @@ export async function bootstrapNativeApp() {
     if (!isActive) return;
     markNavActivity();
     void configureStatusBar();
-    // Debounce orientation re-lock on resume — immediate lock during keyboard /
-    // activity transitions crashes some Samsung One UI WebView builds.
-    window.setTimeout(() => {
-      void lockNativePortrait();
-    }, 1_200);
+    if (getNativePlatform() !== "android") {
+      window.setTimeout(() => {
+        void lockNativePortrait();
+      }, 1_200);
+    }
   });
 
   // Track route changes so a Back event that lands immediately after login /

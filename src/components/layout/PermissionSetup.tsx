@@ -59,29 +59,26 @@ export function PermissionSetup() {
   }, []);
 
   useEffect(() => {
-    if (!isMobileDeviceShell()) return;
+    // Native: never auto-prompt location right after login. Samsung One UI WebView
+    // dies ~2–3s after Geolocation.checkPermissions + sheet open on the dashboard.
+    // Users can still enable location later from attendance check-in.
+    if (!isMobileDeviceShell() || isNativeApp()) return;
     const dismissed = window.localStorage.getItem(DISMISSED_KEY) === "true";
     let cancelled = false;
-    // On native, wait until after login keyboard / route settle so the permission
-    // sheet + Geolocation.checkPermissions cannot race Samsung WebView resize.
-    const delayMs = isNativeApp() ? 2_500 : 0;
-    const timer = window.setTimeout(() => {
-      void (async () => {
-        const nextLocation = await readLocationPermission();
-        if (cancelled) return;
-        setLocation(nextLocation);
-        setNotifications(getNotificationPermission());
-        if (!dismissed && nextLocation !== "granted" && nextLocation !== "unsupported") {
-          setOpen(true);
-        }
-      })();
-    }, delayMs);
+    void (async () => {
+      const nextLocation = await readLocationPermission();
+      if (cancelled) return;
+      setLocation(nextLocation);
+      setNotifications(getNotificationPermission());
+      if (!dismissed && nextLocation !== "granted" && nextLocation !== "unsupported") {
+        setOpen(true);
+      }
+    })();
     const onVisible = () => document.visibilityState === "visible" && void refresh();
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", onVisible);
     };
@@ -142,6 +139,9 @@ export function PermissionSetup() {
       ] as const,
     [location, notifications],
   );
+
+  // Native shell: render nothing (permission sheet is PWA/mobile-web only for now).
+  if (isNativeApp()) return null;
 
   return (
     <Sheet open={open} onOpenChange={(next) => (next ? setOpen(true) : close())}>

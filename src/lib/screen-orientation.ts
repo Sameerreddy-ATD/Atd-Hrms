@@ -90,10 +90,15 @@ export function lockPortraitOrientation() {
  * Keep trying to hold portrait on phones: mount, resume, fold/unfold, and orientation flips.
  */
 export function startPortraitOrientationLock() {
+  // On native Android, skip continuous orientation lock entirely for now.
+  // Repeated ScreenOrientation.lock during post-login keyboard/resize has been
+  // correlated with Samsung S25 process death. Capacitor config + manifest still
+  // prefer portrait via activity configChanges; FaceCapture can lock on demand.
+  if (isNativeApp() && getNativePlatform() === "android") {
+    return () => undefined;
+  }
+
   const apply = () => lockPortraitOrientation();
-  // Defer the very first native lock: locking during cold start crashes some
-  // Android OEM WebView builds (mirrors bootstrapNativeApp's delay). Later
-  // resume/rotation events still re-lock (with cooldown).
   if (isNativeApp()) {
     window.setTimeout(apply, 1_500);
   } else {
@@ -105,14 +110,12 @@ export function startPortraitOrientationLock() {
     if (document.visibilityState === "visible") apply();
   };
   const onResize = () => {
-    // Keyboard dismiss fires many resize events — debounce hard on native.
     if (resizeTimer !== undefined) window.clearTimeout(resizeTimer);
     resizeTimer = window.setTimeout(apply, isNativeApp() ? 800 : 0);
   };
 
   document.addEventListener("visibilitychange", onVisible);
   window.addEventListener("pageshow", apply);
-  // Do NOT lock on every window focus — that races keyboard/login on Samsung.
   window.addEventListener("orientationchange", apply);
   window.addEventListener("resize", onResize);
   getOrientationApi()?.addEventListener?.("change", apply);
@@ -122,7 +125,7 @@ export function startPortraitOrientationLock() {
     window.removeEventListener("pageshow", apply);
     window.removeEventListener("orientationchange", apply);
     window.removeEventListener("resize", onResize);
-    if (resizeTimer) window.clearTimeout(resizeTimer);
+    if (resizeTimer !== undefined) window.clearTimeout(resizeTimer);
     getOrientationApi()?.removeEventListener?.("change", apply);
   };
 }
