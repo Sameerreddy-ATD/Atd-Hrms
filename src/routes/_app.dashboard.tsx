@@ -82,7 +82,7 @@ interface BirthdayItem {
   name: string;
   designation?: string;
   department?: string;
-  dateOfBirth: string;
+  dateOfBirth?: string;
   isToday: boolean;
   daysUntil: number;
 }
@@ -240,7 +240,7 @@ function DashboardPage() {
       <div>
         <PageHeader
           eyebrow="Anytime Workforce"
-          title={`Welcome, ${user.name.split(" ")[0]}`}
+          title={`Welcome, ${user.name?.split(" ")[0] ?? "there"}`}
           description={`${ROLE_LABELS[user.role]} · Loading today's workspace`}
         />
         <DashboardSkeleton />
@@ -273,7 +273,7 @@ function DashboardPage() {
     <div className="aw-enter space-y-1">
       <PageHeader
         eyebrow="Anytime Workforce"
-        title={`Welcome, ${user.name.split(" ")[0]}`}
+        title={`Welcome, ${user.name?.split(" ")[0] ?? "there"}`}
         description={`${ROLE_LABELS[user.role]} · ${formatDisplayDate(new Date())}`}
       />
 
@@ -1597,7 +1597,7 @@ function UpcomingBirthdaysCard({
     name: string;
     designation?: string;
     department?: string;
-    dateOfBirth: string;
+    dateOfBirth?: string;
     isToday: boolean;
     daysUntil: number;
   }>;
@@ -1612,7 +1612,8 @@ function UpcomingBirthdaysCard({
     });
   const upcoming = futureBirthdays(birthdays);
 
-  const formatDob = (dobStr: string) => {
+  const formatDob = (dobStr?: string) => {
+    if (!dobStr) return "—";
     const parts = dobStr.split("-");
     if (parts.length < 3) return dobStr;
     const monthIndex = parseInt(parts[1], 10) - 1;
@@ -1631,6 +1632,7 @@ function UpcomingBirthdaysCard({
       "Nov",
       "Dec",
     ];
+    if (Number.isNaN(monthIndex) || Number.isNaN(day) || !months[monthIndex]) return dobStr;
     return `${String(day).padStart(2, "0")} ${months[monthIndex]}`;
   };
 

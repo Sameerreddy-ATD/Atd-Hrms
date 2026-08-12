@@ -32,7 +32,7 @@ function BirthdayCard({
   isSelf: boolean;
   className?: string;
 }) {
-  const firstName = birthday.name.split(" ")[0];
+  const firstName = birthday.name?.split(" ")[0] || "teammate";
   const teamWish = isSelf
     ? `Happy birthday, ${firstName}. The Anytime Diesel team wishes you a wonderful year ahead.`
     : `Today we celebrate ${firstName}. Please join us in wishing them a happy birthday.`;

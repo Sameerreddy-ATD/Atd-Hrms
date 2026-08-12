@@ -371,11 +371,11 @@ export const employeesApi = {
         name: string;
         designation?: string;
         department?: string;
-        dateOfBirth: string;
+        dateOfBirth?: string;
         isToday: boolean;
         daysUntil: number;
-        age: number;
-        message: string;
+        age?: number;
+        message?: string;
       }>
     >("/employees/birthdays"),
   getShiftAssignment: (id: string) =>

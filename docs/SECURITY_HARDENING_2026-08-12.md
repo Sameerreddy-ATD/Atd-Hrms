@@ -31,7 +31,7 @@ White-box findings from the audit were patched as follows (no live exploit run).
 | Password min 8 on change/reset | Raised to 10 |
 | `failedLoginAttempts` in session DTO | Removed from `userDto` (kept on employee admin DTO) |
 | JWT algorithms | Explicit `HS256` on sign/verify |
-| Birthday age leak | Age only for HR / Main Admin / Developer Admin |
+| Birthday age leak | Age only for HR / Main Admin / Developer Admin; dashboard still receives month/day (`1900-MM-DD`) so the Upcoming Birthdays card can format dates without crashing |
 | Rate limits | Dedicated verify-id + upload limiters |
 
 ## Residual / deferred

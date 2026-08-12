@@ -2450,34 +2450,25 @@ export function createApp() {
       const birthdayList = employees.map((emp) => {
         const dob = new Date(emp.dateOfBirth!);
         const details = nextBirthdayDetails(dob, now);
+        // Month/day only — never send the birth year to the dashboard.
+        const displayDob = `1900-${String(dob.getUTCMonth() + 1).padStart(2, "0")}-${String(dob.getUTCDate()).padStart(2, "0")}`;
 
         return {
           employeeId: emp.employeeId,
           name: emp.name,
           designation: emp.designation ?? undefined,
           department: emp.department?.name ?? undefined,
+          dateOfBirth: displayDob,
           isToday: details.isToday,
           daysUntil: details.daysUntil,
-          ...(canSeeAge
-            ? {
-                age: details.age,
-                message: birthdayMessage(
-                  emp.employeeId,
-                  emp.name,
-                  details.age,
-                  now.getUTCFullYear(),
-                  emp.gender,
-                ),
-              }
-            : {
-                message: birthdayMessage(
-                  emp.employeeId,
-                  emp.name,
-                  details.age,
-                  now.getUTCFullYear(),
-                  emp.gender,
-                ),
-              }),
+          message: birthdayMessage(
+            emp.employeeId,
+            emp.name,
+            details.age,
+            now.getUTCFullYear(),
+            emp.gender,
+          ),
+          ...(canSeeAge ? { age: details.age } : {}),
         };
       });
 
