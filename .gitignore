@@ -74,3 +74,6 @@ GoogleService-Info.plist
 
 android/keystore.password
 android/anytime-workforce-upload.jks
+
+# Cursor local assistant files
+.cursor/
