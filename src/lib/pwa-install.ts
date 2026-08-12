@@ -70,7 +70,7 @@ export function installInstructionCopy(platform: PwaPlatform) {
   switch (platform) {
     case "ios":
       return {
-        title: "Add Anytime Diesel to your Home Screen",
+        title: "Add Anytime Workforce to your Home Screen",
         steps: [
           "Tap the Share button in Safari",
           "Scroll and choose Add to Home Screen",

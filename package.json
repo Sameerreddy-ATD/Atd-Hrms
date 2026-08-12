@@ -43,7 +43,8 @@
     "mobile:add:ios": "npx cap add ios",
     "mobile:copy": "npx cap copy",
     "mobile:android:bundle": "bash scripts/mobile-android-bundle.sh",
-    "mobile:ios:open": "npx cap open ios"
+    "mobile:ios:open": "npx cap open ios",
+    "mobile:icons": "python3 scripts/generate-android-icons.py"
   },
 
   "dependencies": {

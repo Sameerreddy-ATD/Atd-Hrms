@@ -28,7 +28,7 @@ type PermissionState = PermissionStatus["state"] | NotificationPermission | "uns
 type PermissionKey = "location" | "notifications" | "camera";
 
 /** Bump when the setup checklist changes so existing devices see the new flow once. */
-const DISMISSED_KEY = "adh_permission_setup_dismissed_v3";
+const DISMISSED_KEY = "adh_permission_setup_dismissed_v4";
 
 async function readLocationPermission(): Promise<PermissionState> {
   if (!("geolocation" in navigator)) return "unsupported";
@@ -138,21 +138,23 @@ export function PermissionSetup() {
         {
           key: "location" as const,
           title: "Location",
-          blurb: "Precise GPS for check-in and check-out",
+          blurb:
+            "Precise GPS only while you check in or check out, to match your branch. Not used in the background or for advertising.",
           state: location,
           icon: LocateFixed,
         },
         {
           key: "camera" as const,
           title: "Camera",
-          blurb: "Face verification when attendance security is on",
+          blurb:
+            "Front camera for face registration and check-in only when your company enables face verification. Photos are encrypted and retained per Face Security settings.",
           state: camera,
           icon: Camera,
         },
         {
           key: "notifications" as const,
           title: "Notifications",
-          blurb: "Leave, tasks, and important company alerts",
+          blurb: "Optional alerts for leave, tasks, and important company updates. You can turn these off anytime.",
           state: notifications,
           icon: Bell,
         },
@@ -232,8 +234,10 @@ export function PermissionSetup() {
               <DialogHeader className="space-y-1 text-left">
                 <DialogTitle className="text-xl tracking-tight">Set up this device</DialogTitle>
                 <DialogDescription className="text-sm leading-relaxed">
-                  Turn on location, camera, and notifications so attendance and alerts work on this
-                  phone or laptop.
+                  Before the system permission prompts, review why Anytime Workforce needs each
+                  access. Location and camera are used only while you use attendance features—not in
+                  the background. You can allow each item now or continue and enable later when you
+                  check in.
                 </DialogDescription>
               </DialogHeader>
             </div>

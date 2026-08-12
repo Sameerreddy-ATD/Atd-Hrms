@@ -155,6 +155,12 @@ function LoginPage() {
               <Link to="/terms" className="text-muted-foreground hover:text-primary hover:underline">
                 Terms
               </Link>
+              <Link
+                to="/account-deletion"
+                className="text-muted-foreground hover:text-primary hover:underline"
+              >
+                Account deletion
+              </Link>
             </p>
           </CardContent>
         </Card>

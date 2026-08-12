@@ -226,15 +226,24 @@ export function FaceCapture({
         const human = await loadHuman();
         if (!active) return;
         setMessage("Requesting camera access…");
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: {
-            facingMode: { ideal: "user" },
-            width: { ideal: 720 },
-            height: { ideal: 1280 },
-            aspectRatio: { ideal: 0.5625 },
-          },
-        });
+        let stream: MediaStream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+              facingMode: { ideal: "user" },
+              width: { ideal: 720 },
+              height: { ideal: 1280 },
+              aspectRatio: { ideal: 0.5625 },
+            },
+          });
+        } catch {
+          // Some Android WebViews reject ideal constraints — fall back to a basic user camera.
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: { facingMode: "user" },
+          });
+        }
         if (!active) {
           stream.getTracks().forEach((track) => track.stop());
           return;

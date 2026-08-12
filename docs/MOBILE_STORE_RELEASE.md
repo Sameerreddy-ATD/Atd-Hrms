@@ -9,26 +9,80 @@ Guide for shipping the Capacitor Android and iOS shells to Google Play and the A
 | App name | Anytime Workforce |
 | Bundle / application id | `com.anytimediesel.workforce` |
 | Production web origin | `https://hrms.anytime-diesel.com` |
+| Privacy policy (public) | `https://hrms.anytime-diesel.com/privacy` |
+| Terms (public) | `https://hrms.anytime-diesel.com/terms` |
+| Account deletion (public) | `https://hrms.anytime-diesel.com/account-deletion` |
 | Short description | Workforce attendance, leave, and operations for Anytime Diesel |
 | Category | Business / Productivity |
+| Target audience | Internal employees (18+); not for children |
 
-The store apps load the live production site inside Capacitor so HTTP-only session cookies continue to work. Native plugins provide splash, status bar, portrait lock, geolocation permissions, and FCM/APNs push.
+The store apps load the live production site inside Capacitor so HTTP-only session cookies continue to work. Native plugins provide splash, status bar, portrait lock (phones), geolocation, camera permission bridge, deep links, and FCM/APNs push — this is a workforce operations client, not a generic browser wrapper.
+
+## Play Console — tonight checklist
+
+### Before you upload
+
+1. [ ] Create upload keystore (never commit). Copy `android/keystore.properties.example` → `android/keystore.properties`.
+2. [ ] Add Firebase Android app for `com.anytimediesel.workforce` and place `android/app/google-services.json` (gitignored).
+3. [ ] `npm run mobile:sync` then `npm run mobile:android:bundle` → upload the `.aab`.
+4. [ ] Store listing icons: use `mobile/assets/play-icon-512.png` (branded).
+5. [ ] Feature graphic 1024×500 + phone screenshots: login, dashboard, My Attendance (GPS), face check-in (if enabled), leave apply, Profile → account deletion.
+6. [ ] Privacy policy URL, Terms URL, Account deletion URL (all public, no login).
+7. [ ] Content rating questionnaire (Business app; no user-generated social content).
+8. [ ] Target API: 35 (already set). Declare **no ads** / advertising ID not used (manifest removes `AD_ID`).
+
+### Account deletion (Play policy)
+
+- Accounts are **employer-provisioned** (no in-app self-signup).
+- In-app: Profile → **Request account deletion** + mailto HR.
+- Web URL for Console: `https://hrms.anytime-diesel.com/account-deletion`
+- Console answer: users request deletion via in-app Profile / web page; HR offboards within ~7 business days; login closed; face/push tokens removed per retention; attendance/leave may be retained for legal compliance.
+
+### Data Safety form (draft answers)
+
+| Data type | Collected | Shared | Purpose | Optional? | Notes |
+| --------- | --------- | ------ | ------- | --------- | ----- |
+| Name, email | Yes | No (except employer processors) | App functionality | Required for login | Company accounts |
+| Precise location | Yes | No | App functionality | Required for attendance | **While in use only** — no background location |
+| Photos / videos | Yes when face mode on | No | App functionality | Required only if Face Security enabled | Encrypted evidence; retention in Face Security |
+| Device / push IDs | Yes if alerts on | Yes — Google FCM | App functionality | Optional (user enables alerts) | FCM is a third-party processor for delivery |
+| Other HR / employment data | Yes | No | App functionality | Required for role | Encrypted statutory fields where configured |
+
+- **Sold:** No  
+- **Advertising / ads ID:** No  
+- **Encryption in transit:** Yes (HTTPS)  
+- **Encryption at rest:** Yes for configured sensitive employee fields and face evidence  
+- **Users can request deletion:** Yes (see account deletion URL)  
+- **Children:** No  
+
+### Permission declarations (Play)
+
+| Permission | Declared use |
+| ---------- | ------------ |
+| Location (fine/coarse) | Foreground attendance check-in/out geofencing |
+| Camera | Face registration / check-in when enabled by admin |
+| Notifications | Optional workforce alerts |
+| Background location | **Not requested** |
+
+### Reviewer notes (paste into Console if asked)
+
+Anytime Workforce is an internal Anytime Diesel employee app. Logins are created by HR/Developer Admin only. Native features: precise location for branch attendance, optional face verification camera, push alerts, portrait lock, and App Links to `hrms.anytime-diesel.com`. Test account: provide a temporary employee login to Google Play review if requested (do not use production admin).
 
 ## Prerequisites (outside this repo)
 
-1. Google Play Console developer account and an app listing for `com.anytimediesel.workforce`.
-2. Apple Developer Program membership and an App Store Connect app with the same bundle id.
-3. Android upload keystore (keep out of Git; path via CI secrets).
-4. Firebase project with `google-services.json` for FCM (place under `android/app/`; gitignored).
-5. Apple Push Auth Key (`.p8`) + Key ID + Team ID for APNs.
-6. Privacy Policy and Terms URLs (in-app routes):  
-   `https://hrms.anytime-diesel.com/privacy` and `https://hrms.anytime-diesel.com/terms`.
+1. Google Play Console developer account and listing for `com.anytimediesel.workforce`.
+2. Apple Developer Program (later) with the same bundle id.
+3. Android upload keystore (out of Git).
+4. Firebase `google-services.json` for FCM.
+5. Apple Push Auth Key for APNs when shipping iOS.
 
 ## Local / CI build commands
 
 ```bash
 npm install
+python3 scripts/generate-android-icons.py   # refresh branded launcher icons
 npx cap sync
+npm run mobile:android:bundle
 ```
 
 ### Android App Bundle
@@ -39,82 +93,39 @@ cd android
 # Output: android/app/build/outputs/bundle/release/app-release.aab
 ```
 
-Configure signing in `android/keystore.properties` (not committed) or Gradle env:
+Signing via `android/keystore.properties` or env:
 
 - `ANDROID_KEYSTORE_FILE`
 - `ANDROID_KEYSTORE_PASSWORD`
 - `ANDROID_KEY_ALIAS`
 - `ANDROID_KEY_PASSWORD`
 
-Helper script from repo root:
+### iOS (macOS + Xcode)
 
 ```bash
-npm run mobile:android:bundle
-```
-
-### iOS (macOS + Xcode required)
-
-```bash
-cd ios/App
-pod install
-open App.xcworkspace
-```
-
-Archive with the Anytime Workforce signing team, then upload via Organizer or `xcodebuild`.
-
-```bash
-npm run mobile:ios:open
+cd ios/App && pod install && open App.xcworkspace
 ```
 
 ## Backend env for native push
 
-Set on the API host (see `.env.example`):
-
-- `FCM_SERVER_KEY` — Android FCM legacy server key
+- `FCM_SERVER_KEY` — Android FCM (plan HTTP v1 migration later)
 - `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_BUNDLE_ID`, `APNS_KEY_P8`, `APNS_PRODUCTION`
-
-Web Push VAPID keys remain required for installed PWAs.
-
-After env changes, run Prisma migrate so `push_subscriptions.channel` exists:
-
-```bash
-npx prisma migrate deploy
-```
-
-## Store listing checklist
-
-- [ ] Feature graphic and phone screenshots (login, dashboard, My Attendance, leave apply)
-- [ ] Privacy policy URL and terms URL
-- [ ] Data safety / App Privacy answers (see below)
-- [ ] Content rating questionnaire
-- [ ] Target audience: workforce / internal employees (no children)
-- [ ] Contact email for store support
-
-## Data Safety / App Privacy questionnaire (draft answers)
-
-| Data type | Collected | Purpose | Linked to identity | Notes |
-| --------- | --------- | ------- | ------------------ | ----- |
-| Name, email | Yes | App functionality / account | Yes | Company login |
-| Location | Yes (precise, while using) | Attendance geofence | Yes | Check-in/out only |
-| Photos / camera | Yes when face mode on | Face registration & check-in | Yes | Encrypted evidence; retention controlled in Face Security |
-| Device IDs / push tokens | Yes if alerts enabled | Notifications | Yes | Web push or FCM/APNs |
-| Employment / HR data | Yes | Workforce operations | Yes | Encrypted statutory fields where configured |
-
-**Not sold.** Not used for advertising. Face templates are excluded from Employee API v1.
+- Existing VAPID keys for PWA Web Push
 
 ## Smoke test before upload
 
-1. Cold start → splash hides → login at production origin.
-2. Session persists after backgrounding the app.
-3. My Attendance check-in with GPS permission prompt.
-4. Face check-in when Face Security is enabled (camera permission).
-5. Enable alerts → native token registers (`channel` fcm/apns in DB).
-6. Portrait lock on phone; landscape prompt still works if OS ignores lock.
-7. Privacy and Terms open from login footer and Profile.
-8. PWA install banner does **not** show inside the store app.
+1. Cold start → splash hides → production login.
+2. Session persists after backgrounding.
+3. Permission setup shows **why** location/camera/notifications are needed before OS prompts.
+4. My Attendance GPS check-in (foreground only).
+5. Face check-in when Face Security enabled (camera fallback constraints OK).
+6. Enable alerts → FCM token registers when `google-services.json` present.
+7. Login footer + Profile open Privacy, Terms, Account deletion.
+8. PWA install banner hidden in store build.
+9. Android back minimizes when at root (does not force-kill).
+10. `allowBackup=false` — confirm in merged manifest.
 
 ## Branch policy
 
-- Ship store tooling and product changes from **`main`**.
-- Do not merge `version-1` tip-to-tip; cherry-pick only missing fixes if needed.
-- Keep `version-1` aligned with `main` when ops wants a single line of history.
+- Ship from **`main`**.
+- Do not merge `version-1` tip-to-tip.

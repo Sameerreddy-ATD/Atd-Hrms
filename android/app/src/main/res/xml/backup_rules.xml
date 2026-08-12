@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Do not back up WebView/auth storage for a workforce app with HR data. -->
+    <exclude domain="root" path="." />
+    <exclude domain="sharedpref" path="." />
+    <exclude domain="database" path="." />
+    <exclude domain="file" path="." />
+    <exclude domain="external" path="." />
+</full-backup-content>

@@ -481,19 +481,28 @@ function ProfilePage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Privacy and account access</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
+          <CardContent className="space-y-3 text-sm text-muted-foreground">
             <p>
-              When employment ends, HR or Developer Admin offboards your login. Contact HR for
-              privacy questions about your employee record.
+              Accounts are employer-provisioned. When employment ends, HR or Developer Admin
+              offboards your login. You can also request deletion of your account and associated
+              personal app data.
             </p>
-            <div className="flex flex-wrap gap-x-4 gap-y-1">
+            <div className="flex flex-wrap gap-x-4 gap-y-2">
               <Link to="/privacy" className="font-medium text-primary hover:underline">
                 Privacy policy
               </Link>
               <Link to="/terms" className="font-medium text-primary hover:underline">
                 Terms of use
               </Link>
+              <Link to="/account-deletion" className="font-medium text-primary hover:underline">
+                Request account deletion
+              </Link>
             </div>
+            <Button asChild variant="outline" size="sm" className="mt-1">
+              <a href="mailto:hrms@anytimediesel.com?subject=Anytime%20Workforce%20account%20deletion%20request">
+                Email HR to request deletion
+              </a>
+            </Button>
           </CardContent>
         </Card>
       </div>

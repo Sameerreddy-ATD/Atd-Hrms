@@ -25,6 +25,17 @@ export function getNativePlatform(): "ios" | "android" | "web" {
   }
 }
 
+function shouldLockNativePortrait() {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+  const platform = getNativePlatform();
+  if (platform === "ios") return /iPhone|iPod/i.test(navigator.userAgent);
+  if (platform === "android") {
+    const shortest = Math.min(window.screen.width || 0, window.screen.height || 0);
+    return shortest > 0 && shortest < 600;
+  }
+  return false;
+}
+
 async function configureStatusBar() {
   if (!isNativeApp()) return;
   try {
@@ -39,7 +50,7 @@ async function configureStatusBar() {
 }
 
 async function lockNativePortrait() {
-  if (!isNativeApp()) return;
+  if (!isNativeApp() || !shouldLockNativePortrait()) return;
   try {
     await ScreenOrientation.lock({ orientation: "portrait" });
   } catch {
@@ -82,7 +93,9 @@ export async function bootstrapNativeApp() {
       window.history.back();
       return;
     }
-    void CapApp.exitApp();
+    void CapApp.minimizeApp().catch(() => {
+      void CapApp.exitApp();
+    });
   });
 
   return () => {

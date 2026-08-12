@@ -60,13 +60,33 @@ function PrivacyPage() {
             do not sell personal data. Role-based access controls which colleagues can see your
             records.
           </p>
-          <h2 className="text-base font-semibold">Retention and account access</h2>
+          <h2 className="text-base font-semibold">Retention and account deletion</h2>
           <p className="text-muted-foreground">
-            Employment history is retained for company compliance after offboarding. Face evidence
-            follows the Face Security retention settings. To end access, HR or Developer Admin
-            offboards the employee account. Contact HR for privacy requests related to your employee
-            record.
+            Employment history may be retained for company compliance after offboarding. Face evidence
+            follows the Face Security retention settings. To end access and request deletion of your
+            login and associated personal app data, follow{" "}
+            <Link to="/account-deletion" className="font-medium text-primary hover:underline">
+              Account deletion
+            </Link>
+            . HR or Developer Admin completes offboarding after a verified request. Contact HR for
+            other privacy questions about your employee record.
           </p>
+          <h2 className="text-base font-semibold">Permissions used on mobile</h2>
+          <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+            <li>
+              <strong className="text-foreground">Precise location (while using the app)</strong> —
+              attendance check-in and check-out against your branch. We do not use background
+              location.
+            </li>
+            <li>
+              <strong className="text-foreground">Camera</strong> — face registration and check-in
+              only when Developer Admin enables face verification.
+            </li>
+            <li>
+              <strong className="text-foreground">Notifications</strong> — optional leave, task, and
+              company alerts (Web Push or store FCM/APNs).
+            </li>
+          </ul>
           <h2 className="text-base font-semibold">Contact</h2>
           <p className="text-muted-foreground">
             Questions about this policy: your HR team or the Developer Admin for Anytime Workforce.
@@ -85,6 +105,10 @@ function PrivacyPage() {
           {" · "}
           <Link to="/terms" className="font-medium text-primary hover:underline">
             Terms of use
+          </Link>
+          {" · "}
+          <Link to="/account-deletion" className="font-medium text-primary hover:underline">
+            Account deletion
           </Link>
         </p>
       </article>
