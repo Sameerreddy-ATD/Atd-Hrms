@@ -147,6 +147,15 @@ VAPID_PRIVATE_KEY="PRIVATE_VAPID_KEY"
 VAPID_SUBJECT="mailto:responsible-company-email@anytimediesel.com"
 ```
 
+Never set `ALLOW_INSECURE_DEV_SECRETS=true` on a real server. That flag is only for local development when default JWT placeholders are still in `.env`. Production must use unique 32+ character secrets; the backend refuses to start otherwise.
+
+Optional native push (after Play/App Store):
+```text
+FCM_SERVICE_ACCOUNT_JSON="..."
+FCM_PROJECT_ID="atd-workforce"
+```
+```
+
 Generate VAPID keys once with `npx web-push generate-vapid-keys`. Keep the private key secret. `VAPID_SUBJECT` is a responsible contact URI, not a generated email.
 
 Generate JWT secrets with a secure password generator or `openssl rand -base64 48`.
