@@ -24,6 +24,7 @@ in the same commit.
 - Mobile QA/support: [Device Compatibility](DEVICE_COMPATIBILITY.md)
 - Store release owners: [Mobile Store Release](MOBILE_STORE_RELEASE.md)
 - Launch status (Play packaging progress): [Play Launch Status](PLAY_LAUNCH_STATUS.md)
+- Security hardening batch (12 Aug 2026): [Security Hardening](SECURITY_HARDENING_2026-08-12.md)
 - Security, HR, and attendance owners:
   [Face Registration and Verified Attendance](FACE_ATTENDANCE_SECURITY.md) and
   [Attendance, Leave, and Face Policy](ATTENDANCE_LEAVE_AND_FACE_POLICY.md)

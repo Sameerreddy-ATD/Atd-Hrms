@@ -282,6 +282,7 @@ model User {
   taskAssignmentsMade              TaskAssignment[]          @relation("TaskAssignedBy")
   announcements                    Announcement[]            @relation("AnnouncementAuthor")
   pushSubscriptions                PushSubscription[]
+  privateFiles                     PrivateFile[]             @relation("PrivateFileUploader")
   reviewedExpenseClaims            ExpenseClaim[]            @relation("ExpenseReviewer")
   reviewedDocumentRequests         CertificateRequest[]      @relation("DocumentReviewer")
   reviewedLeaveRequests            LeaveRequest[]            @relation("LeaveReviewer")
@@ -300,6 +301,21 @@ model User {
 
   @@index([status, role])
   @@map("users")
+}
+
+model PrivateFile {
+  fileId           String   @id @default(cuid()) @map("file_id")
+  storageKey       String   @unique @map("storage_key") @db.VarChar(255)
+  /// medical | receipt
+  kind             String   @db.VarChar(16)
+  uploadedByUserId String   @map("uploaded_by_user_id")
+  uploadedBy       User     @relation("PrivateFileUploader", fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+  mimeType         String   @map("mime_type") @db.VarChar(120)
+  sizeBytes        Int      @map("size_bytes")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([uploadedByUserId, kind])
+  @@map("private_files")
 }
 
 model Announcement {

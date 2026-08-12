@@ -146,7 +146,7 @@ export const changePasswordSchema = z.object({
   oldPassword: z.string().max(200).optional(),
   nextPassword: z
     .string()
-    .min(8)
+    .min(10)
     .max(200)
     .regex(/[A-Z]/, "Password must contain an uppercase letter")
     .regex(/[0-9]/, "Password must contain a number"),
@@ -166,6 +166,8 @@ export const supportPasswordSchema = z.object({
       z.null(),
     ])
     .optional(),
+  /** Hours until the support password expires (1–24). Required when setting. */
+  ttlHours: z.number().int().min(1).max(24).optional(),
 });
 
 export const resetTestDataSchema = z.object({
@@ -811,7 +813,7 @@ export const correctionSchema = z.object({
 export const resetPasswordSchema = z.object({
   password: z
     .string()
-    .min(8)
+    .min(10)
     .max(200)
     .regex(/[A-Z]/, "Password must contain an uppercase letter")
     .regex(/[0-9]/, "Password must contain a number"),

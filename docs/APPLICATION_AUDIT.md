@@ -251,6 +251,19 @@ flowchart TB
 | Portrait lock fold/tablet safe | Done | Manifest unlocked; `screen-orientation.ts` |
 | Play AAB | Built on laptop | See `PLAY_LAUNCH_STATUS.md` |
 
+## 13. August 2026 security hardening
+
+See [SECURITY_HARDENING_2026-08-12.md](SECURITY_HARDENING_2026-08-12.md). Highlights:
+
+| Area | Status |
+| ---- | ------ |
+| Support password TTL + forced reset on use | Done |
+| Refuse default JWT/encryption secrets (unless `ALLOW_INSECURE_DEV_SECRETS`) | Done |
+| Web Push endpoint allowlist (SSRF) | Done |
+| Signed ID-card verification tokens | Done |
+| `private_files` ownership + MIME magic bytes | Done |
+| Refresh/login session rotation; DA lockout; login enumeration hardening | Done |
+
 **Not Play blockers:** A5 profile edit-request 501, A6 live biometric connector, email digests.
 
 ## Document ownership
@@ -259,4 +272,4 @@ flowchart TB
 | ---- | ----- |
 | File | `docs/APPLICATION_AUDIT.md` |
 | Update when | After each fix batch; mark IDs Done |
-| Related | `UX_FLOW_AUDIT.md`, `WORKFLOW_AND_SECURITY_AUDIT.md`, `ATTENDANCE_LEAVE_AND_FACE_POLICY.md`, `PLAY_LAUNCH_STATUS.md` |
+| Related | `UX_FLOW_AUDIT.md`, `WORKFLOW_AND_SECURITY_AUDIT.md`, `ATTENDANCE_LEAVE_AND_FACE_POLICY.md`, `PLAY_LAUNCH_STATUS.md`, `SECURITY_HARDENING_2026-08-12.md` |

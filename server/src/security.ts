@@ -21,12 +21,21 @@ const cookieOptions = {
   path: "/",
 };
 
+/** Precomputed bcrypt hash used only to equalize login timing for unknown emails. */
+const LOGIN_TIMING_DUMMY_HASH =
+  "$2a$12$CdGAMCWpSeIMX4GNum3D1eKMGW2Wv29eVWFWsVtTODtDuwliModBe";
+
 export async function hashPassword(password: string) {
   return bcrypt.hash(password, 12);
 }
 
 export async function verifyPassword(password: string, hash: string) {
   return bcrypt.compare(password, hash);
+}
+
+/** Run a password compare even when the account is unknown (timing hardening). */
+export async function verifyPasswordForLoginTiming(password: string) {
+  await verifyPassword(password, LOGIN_TIMING_DUMMY_HASH);
 }
 
 export function issueCookies(
@@ -51,11 +60,14 @@ export function issueCookies(
     mustChangePassword: user.firstLoginPasswordChangeRequired,
     sessionVersion: user.sessionVersion,
   };
-  const access = jwt.sign(payload, config.accessSecret, { expiresIn: "15m" });
+  const access = jwt.sign(payload, config.accessSecret, {
+    expiresIn: "15m",
+    algorithm: "HS256",
+  });
   const refresh = jwt.sign(
     { id: user.id, sessionVersion: user.sessionVersion },
     config.refreshSecret,
-    { expiresIn: "7d" },
+    { expiresIn: "7d", algorithm: "HS256" },
   );
   res.cookie(config.sessionCookie, access, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
   res.cookie(config.refreshCookie, refresh, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
@@ -67,9 +79,11 @@ export function clearCookies(res: Response) {
 }
 
 export function verifyAccessToken(token: string): SessionUser {
-  return jwt.verify(token, config.accessSecret) as SessionUser;
+  return jwt.verify(token, config.accessSecret, { algorithms: ["HS256"] }) as SessionUser;
 }
 
 export function verifyRefreshToken(token: string): { id: string; sessionVersion: number } {
-  return jwt.verify(token, config.refreshSecret) as { id: string; sessionVersion: number };
+  return jwt.verify(token, config.refreshSecret, {
+    algorithms: ["HS256"],
+  }) as { id: string; sessionVersion: number };
 }

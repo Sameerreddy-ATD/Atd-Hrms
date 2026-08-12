@@ -18,12 +18,12 @@ interface VerificationData {
   designation?: string;
   department: string;
   companyEntity: CompanyEntity;
-  companyPhone?: string;
   status: string;
 }
 
 function VerifyIdCardPage() {
-  const { employeeId } = Route.useParams();
+  // Path param historically named employeeId; it now carries a signed verification token.
+  const { employeeId: token } = Route.useParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [data, setData] = useState<VerificationData | null>(null);
@@ -32,7 +32,7 @@ function VerifyIdCardPage() {
     setLoading(true);
     setError("");
     attendanceApi
-      .verifyIdCard(employeeId)
+      .verifyIdCard(decodeURIComponent(token))
       .then((res) => {
         setData(res);
       })
@@ -42,7 +42,7 @@ function VerifyIdCardPage() {
       .finally(() => {
         setLoading(false);
       });
-  }, [employeeId]);
+  }, [token]);
 
   if (loading) {
     return (
@@ -86,7 +86,6 @@ function VerifyIdCardPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4 text-foreground">
       <Card className="w-full max-w-md border-border bg-card text-card-foreground shadow-2xl overflow-hidden relative">
-        {/* Decorative background pulse */}
         <div className="absolute top-0 right-0 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
 
         <div className="flex items-center justify-between border-b border-border bg-muted/40 px-6 py-4">
@@ -120,7 +119,6 @@ function VerifyIdCardPage() {
             <div className="min-[420px]:col-span-2">
               <Row label="Group" value={PARENT_COMPANY_NAME} />
             </div>
-            {data.companyPhone && <Row label="Company phone" value={data.companyPhone} />}
             <Row label="Status" value={data.status === "ACTIVE" ? "Active" : data.status} />
           </div>
 

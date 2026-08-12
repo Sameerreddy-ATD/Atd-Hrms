@@ -54,7 +54,6 @@ export function userDto(
     | "role"
     | "status"
     | "firstLoginPasswordChangeRequired"
-    | "failedLoginAttempts"
     | "lastLoginAt"
     | "createdAt"
     | "suspendedUntil"
@@ -103,7 +102,6 @@ export function userDto(
     role: roleToUi(user.role),
     status: user.status,
     loginLifecycle,
-    failedLoginAttempts: user.failedLoginAttempts,
     deactivatedAt: user.deactivatedAt ? user.deactivatedAt.toISOString() : null,
     employeeStatus: user.employee?.status ?? undefined,
     active:

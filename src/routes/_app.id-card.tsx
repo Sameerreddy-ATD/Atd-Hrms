@@ -32,6 +32,7 @@ function IdCardPage() {
     email?: string;
     joiningDate?: string;
     bloodGroup?: string;
+    verificationToken?: string;
   } | null>(null);
   useEffect(() => {
     if (!user?.employeeId) return;
@@ -47,8 +48,8 @@ function IdCardPage() {
     .slice(0, 2)
     .join("");
   const verificationUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/verify-id/${user.employeeId || user.id}`
+    typeof window !== "undefined" && employee?.verificationToken
+      ? `${window.location.origin}/verify-id/${encodeURIComponent(employee.verificationToken)}`
       : "";
 
   return (
@@ -124,21 +125,29 @@ function IdCardPage() {
             </div>
 
             <div className="mt-5 flex flex-col items-center justify-center">
-              <div
-                className="rounded-md border bg-white p-2"
-                aria-label="Employee verification QR code"
-              >
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(verificationUrl)}`}
-                  alt="Verification QR Code"
-                  className="h-28 w-28"
-                  draggable={false}
-                />
-              </div>
-              <span className="mt-2 flex items-center gap-1 text-[10px] font-semibold uppercase text-muted-foreground">
-                <ShieldCheck className="h-3 w-3 text-emerald-600 dark:text-emerald-400" /> Scan from
-                another device to verify this ID
-              </span>
+              {verificationUrl ? (
+                <>
+                  <div
+                    className="rounded-md border bg-white p-2"
+                    aria-label="Employee verification QR code"
+                  >
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(verificationUrl)}`}
+                      alt="Verification QR Code"
+                      className="h-28 w-28"
+                      draggable={false}
+                    />
+                  </div>
+                  <span className="mt-2 flex items-center gap-1 text-[10px] font-semibold uppercase text-muted-foreground">
+                    <ShieldCheck className="h-3 w-3 text-emerald-600 dark:text-emerald-400" /> Scan
+                    from another device to verify this ID
+                  </span>
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Verification QR is available on your own ID card after it loads.
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>

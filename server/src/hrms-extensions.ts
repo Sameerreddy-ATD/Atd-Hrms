@@ -7,11 +7,12 @@ import { z } from "zod";
 import { prisma } from "./prisma.js";
 import { asyncHandler, HttpError } from "./errors.js";
 import { requireAuth, requireRoles, getOrganizationTeamEmployeeIds } from "./rbac.js";
-import { config } from "./config.js";
 import { ensureChecklistInstance } from "./checklistService.js";
 import { assertCanAccessTask, boardAccessWhere } from "./taskBoardAccess.js";
-import { readPrivateFile, storePrivateFile } from "./privateFiles.js";
+import { readPrivateFile, storePrivateFile, assertCanAccessPrivateFile } from "./privateFiles.js";
 import { audit } from "./audit.js";
+import { config } from "./config.js";
+import rateLimit from "express-rate-limit";
 
 function roleIn(userRole: Role, allowed: Role[]) {
   return allowed.includes(userRole);
@@ -562,9 +563,18 @@ export function registerHrmsExtensions(app: Express) {
     }),
   );
 
+  const uploadLimiter = rateLimit({
+    windowMs: config.uploadRateLimitWindowMs,
+    limit: config.uploadRateLimitMax,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many uploads. Please try again shortly." },
+  });
+
   app.post(
     "/expense-claims/receipts",
     requireAuth,
+    uploadLimiter,
     asyncHandler(async (req, res) => {
       const body = z
         .object({
@@ -575,14 +585,17 @@ export function registerHrmsExtensions(app: Express) {
         .parse(req.body);
       const stored = await storePrivateFile({
         dir: receiptsDir,
-        prefix: req.user!.id.slice(0, 8),
+        prefix: req.user!.id,
         fileName: body.fileName,
         contentBase64: body.contentBase64,
+        kind: "receipt",
+        uploadedByUserId: req.user!.id,
+        claimedMimeType: body.mimeType,
       });
       res.status(201).json({
         url: `/expense-claims/receipts/${stored.storageKey}`,
         fileName: body.fileName,
-        mimeType: body.mimeType,
+        mimeType: stored.mimeType,
         sizeBytes: stored.sizeBytes,
       });
     }),
@@ -593,14 +606,16 @@ export function registerHrmsExtensions(app: Express) {
     requireAuth,
     asyncHandler(async (req, res) => {
       const key = String(req.params.key);
-      const canManage = roleIn(req.user!.role, [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR]);
-      if (!canManage && !key.startsWith(req.user!.id.slice(0, 8))) {
-        // Still allow reviewers/managers who can see claims — HR/admin only for arbitrary keys;
-        // employees can only fetch their own upload prefix.
-        throw new HttpError(403, "Receipt not available");
-      }
+      const record = await assertCanAccessPrivateFile({
+        storageKey: key,
+        kind: "receipt",
+        userId: req.user!.id,
+        role: req.user!.role,
+      });
       const buffer = await readPrivateFile(receiptsDir, key);
-      res.setHeader("Content-Type", "application/octet-stream");
+      res.setHeader("Content-Type", record?.mimeType ?? "application/octet-stream");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("Content-Disposition", "attachment");
       res.send(buffer);
     }),
   );
@@ -608,6 +623,7 @@ export function registerHrmsExtensions(app: Express) {
   app.post(
     "/leave/medical-files",
     requireAuth,
+    uploadLimiter,
     asyncHandler(async (req, res) => {
       const body = z
         .object({
@@ -618,14 +634,17 @@ export function registerHrmsExtensions(app: Express) {
         .parse(req.body);
       const stored = await storePrivateFile({
         dir: medicalDir,
-        prefix: req.user!.id.slice(0, 8),
+        prefix: req.user!.id,
         fileName: body.fileName,
         contentBase64: body.contentBase64,
+        kind: "medical",
+        uploadedByUserId: req.user!.id,
+        claimedMimeType: body.mimeType,
       });
       res.status(201).json({
         url: `/leave/medical-files/${stored.storageKey}`,
         fileName: body.fileName,
-        mimeType: body.mimeType,
+        mimeType: stored.mimeType,
         sizeBytes: stored.sizeBytes,
       });
     }),
@@ -636,22 +655,32 @@ export function registerHrmsExtensions(app: Express) {
     requireAuth,
     asyncHandler(async (req, res) => {
       const key = String(req.params.key);
-      const canManage = roleIn(req.user!.role, [
-        Role.DEVELOPER_ADMIN,
-        Role.MAIN_ADMIN,
-        Role.HR,
-        Role.MANAGER,
-      ]);
-      if (!canManage && !key.startsWith(req.user!.id.slice(0, 8))) {
-        throw new HttpError(403, "Medical file not available");
+      let allowManagerMedical = false;
+      if (req.user!.role === Role.MANAGER && req.user!.employeeId) {
+        const linked = await prisma.leaveRequest.findFirst({
+          where: {
+            medicalDocumentUrl: `/leave/medical-files/${key}`,
+            employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) },
+          },
+          select: { leaveRequestId: true },
+        });
+        allowManagerMedical = Boolean(linked);
       }
+      const record = await assertCanAccessPrivateFile({
+        storageKey: key,
+        kind: "medical",
+        userId: req.user!.id,
+        role: req.user!.role,
+        allowManagerMedical,
+      });
       const buffer = await readPrivateFile(medicalDir, key);
-      res.setHeader("Content-Type", "application/octet-stream");
+      res.setHeader("Content-Type", record?.mimeType ?? "application/octet-stream");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("Content-Disposition", "attachment");
       res.send(buffer);
     }),
   );
 
-  void config;
   void Prisma;
   void randomBytes;
   void writeFile;

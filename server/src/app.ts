@@ -99,7 +99,19 @@ import {
   getSupportPasswordStatus,
   setSupportPassword,
   verifySupportPassword,
+  assertSupportPasswordTtlHours,
 } from "./supportPassword.js";
+import { issueIdCardVerificationToken, verifyIdCardVerificationToken } from "./idCardToken.js";
+import { assertSafeWebPushEndpoint } from "./webPushEndpoint.js";
+import { assertOwnsPrivateFileUrl } from "./privateFiles.js";
+import {
+  clearCookies,
+  hashPassword,
+  issueCookies,
+  verifyPassword,
+  verifyPasswordForLoginTiming,
+  verifyRefreshToken,
+} from "./security.js";
 import { reportingHierarchyCycle } from "./organizationRules.js";
 import {
   hashPushEndpoint,
@@ -119,13 +131,6 @@ import {
   requireRoles,
   resolveTargetLoginRole,
 } from "./rbac.js";
-import {
-  clearCookies,
-  hashPassword,
-  issueCookies,
-  verifyPassword,
-  verifyRefreshToken,
-} from "./security.js";
 import {
   announcementSchema,
   announcementUpdateSchema,
@@ -282,6 +287,14 @@ export function createApp() {
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: "Too many sign-in attempts. Please wait and try again." },
+  });
+
+  const verifyIdLimiter = rateLimit({
+    windowMs: config.verifyIdRateLimitWindowMs,
+    limit: config.verifyIdRateLimitMax,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many verification attempts. Please wait and try again." },
   });
 
   function listLimit(req: express.Request, fallback = 500, max = 1000) {
@@ -1570,6 +1583,7 @@ export function createApp() {
     authLimiter,
     asyncHandler(async (req, res) => {
       const body = loginSchema.parse(req.body);
+      const genericInvalid = "Invalid email address or password.";
       const recordFailedLogin = (reason: string, affectedUserId?: string) => {
         void audit({
           action: "login failed",
@@ -1586,13 +1600,14 @@ export function createApp() {
         include: { employee: true, faceProfile: true },
       });
       if (!user) {
+        await verifyPasswordForLoginTiming(body.password);
         recordFailedLogin("unknown_account");
-        throw new HttpError(401, "Invalid credentials");
+        throw new HttpError(401, genericInvalid);
       }
 
       const isDeveloperAdmin = user.role === Role.DEVELOPER_ADMIN;
 
-      if (!isDeveloperAdmin && user.status === UserStatus.LOCKED) {
+      if (user.status === UserStatus.LOCKED) {
         recordFailedLogin("locked_account", user.id);
         throw new HttpError(
           403,
@@ -1600,9 +1615,10 @@ export function createApp() {
         );
       }
 
-      if (!isDeveloperAdmin && user.status !== UserStatus.ACTIVE) {
+      if (user.status !== UserStatus.ACTIVE) {
+        await verifyPasswordForLoginTiming(body.password);
         recordFailedLogin("inactive_account", user.id);
-        throw new HttpError(401, "Invalid credentials");
+        throw new HttpError(401, genericInvalid);
       }
 
       const suspensionIsActive =
@@ -1610,13 +1626,14 @@ export function createApp() {
         user.suspendedUntil &&
         user.suspensionStartsAt.getTime() <= Date.now() &&
         user.suspendedUntil.getTime() > Date.now();
-      if (!isDeveloperAdmin && suspensionIsActive) {
+      if (suspensionIsActive) {
         recordFailedLogin("suspended_account", user.id);
         throw new HttpError(
           403,
           `Account suspended until ${user.suspendedUntil!.toISOString().slice(0, 10)}`,
         );
       }
+
       const userPasswordOk = await verifyPassword(body.password, user.passwordHash);
       let usedSupportPassword = false;
       if (!userPasswordOk) {
@@ -1625,9 +1642,6 @@ export function createApp() {
         }
         if (!usedSupportPassword) {
           recordFailedLogin("invalid_password", user.id);
-          if (isDeveloperAdmin) {
-            throw new HttpError(401, "Invalid email address or password.");
-          }
           const nextAttempts = user.failedLoginAttempts + 1;
           const isLocked = nextAttempts >= 5;
           await prisma.user.update({
@@ -1637,25 +1651,24 @@ export function createApp() {
               status: isLocked ? UserStatus.LOCKED : undefined,
             },
           });
-          const remainingAttempts = Math.max(0, 5 - nextAttempts);
           throw new HttpError(
             isLocked ? 403 : 401,
             isLocked
               ? "Account blocked after 5 failed attempts. Contact your HR team; a Developer Admin must reactivate the login."
-              : `Invalid email address or password. ${remainingAttempts} attempt${remainingAttempts === 1 ? "" : "s"} remaining before the account is blocked.`,
+              : genericInvalid,
           );
         }
       }
+
       const updated = await prisma.user.update({
         where: { id: user.id },
         data: {
           failedLoginAttempts: 0,
           lastLoginAt: new Date(),
-          ...(isDeveloperAdmin
+          sessionVersion: { increment: 1 },
+          ...(usedSupportPassword
             ? {
-                status: UserStatus.ACTIVE,
-                suspendedUntil: null,
-                suspensionStartsAt: null,
+                firstLoginPasswordChangeRequired: true,
               }
             : {}),
           ...(user.suspendedUntil && user.suspendedUntil.getTime() <= Date.now()
@@ -1670,10 +1683,16 @@ export function createApp() {
         action: usedSupportPassword ? "login via support password" : "login succeeded",
         performedByUserId: user.id,
         affectedUserId: user.id,
+        newValue: usedSupportPassword
+          ? { breakGlass: true, forcedPasswordChange: true }
+          : undefined,
         ipAddress: req.ip,
       }).catch((err) => {
         console.error("Failed to write login audit log", err);
       });
+      if (usedSupportPassword) {
+        publishNotificationChange("support-password-login", user.id);
+      }
     }),
   );
 
@@ -2148,7 +2167,11 @@ export function createApp() {
         clearCookies(res);
         throw new HttpError(403, "Account temporarily suspended");
       }
-      issueCookies(res, user);
+      const rotated = await prisma.user.update({
+        where: { id: user.id, sessionVersion: payload.sessionVersion },
+        data: { sessionVersion: { increment: 1 } },
+      });
+      issueCookies(res, rotated);
       res.json({ ok: true });
     }),
   );
@@ -2420,30 +2443,41 @@ export function createApp() {
       });
 
       const now = new Date();
+      const canSeeAge = ([Role.HR, Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN] as Role[]).includes(
+        req.user!.role,
+      );
 
       const birthdayList = employees.map((emp) => {
         const dob = new Date(emp.dateOfBirth!);
-        const bMonth = dob.getUTCMonth();
-        const bDate = dob.getUTCDate();
         const details = nextBirthdayDetails(dob, now);
-        const dobString = `1900-${String(bMonth + 1).padStart(2, "0")}-${String(bDate).padStart(2, "0")}`;
 
         return {
           employeeId: emp.employeeId,
           name: emp.name,
           designation: emp.designation ?? undefined,
           department: emp.department?.name ?? undefined,
-          dateOfBirth: dobString,
           isToday: details.isToday,
           daysUntil: details.daysUntil,
-          age: details.age,
-          message: birthdayMessage(
-            emp.employeeId,
-            emp.name,
-            details.age,
-            now.getUTCFullYear(),
-            emp.gender,
-          ),
+          ...(canSeeAge
+            ? {
+                age: details.age,
+                message: birthdayMessage(
+                  emp.employeeId,
+                  emp.name,
+                  details.age,
+                  now.getUTCFullYear(),
+                  emp.gender,
+                ),
+              }
+            : {
+                message: birthdayMessage(
+                  emp.employeeId,
+                  emp.name,
+                  details.age,
+                  now.getUTCFullYear(),
+                  emp.gender,
+                ),
+              }),
         };
       });
 
@@ -2779,6 +2813,14 @@ export function createApp() {
       }
       if (body.expenseDate && body.expenseDate.getTime() > Date.now()) {
         throw new HttpError(400, "Expense date cannot be in the future");
+      }
+      if (body.receiptUrl?.startsWith("/expense-claims/receipts/")) {
+        await assertOwnsPrivateFileUrl({
+          url: body.receiptUrl,
+          urlPrefix: "/expense-claims/receipts/",
+          kind: "receipt",
+          userId: req.user!.id,
+        });
       }
       const activeEmployee = await prisma.employee.findFirst({
         where: { employeeId, status: "ACTIVE" },
@@ -3572,6 +3614,11 @@ export function createApp() {
         skip_empty_lines: true,
         trim: true,
       }) as Array<Record<string, string>>;
+
+      const MAX_CSV_ROWS = 5_000;
+      if (rows.length > MAX_CSV_ROWS) {
+        throw new HttpError(400, `CSV import is limited to ${MAX_CSV_ROWS} rows per request`);
+      }
 
       const csvRowSchema = z.object({
         employeeId: z.string().min(1, "employeeId is required"),
@@ -4524,12 +4571,13 @@ export function createApp() {
   );
 
   app.get(
-    "/verify-id-card/:employeeId",
+    "/verify-id-card/:token",
+    verifyIdLimiter,
     asyncHandler(async (req, res) => {
-      const employeeId = String(req.params.employeeId);
+      const { employeeId } = verifyIdCardVerificationToken(String(req.params.token));
       const employee = await prisma.employee.findUnique({
         where: { employeeId },
-        include: { user: true, department: true, homeBranch: true },
+        include: { user: true, department: true },
       });
 
       if (!employee || employee.status !== "ACTIVE" || employee.user?.status !== "ACTIVE") {
@@ -4543,7 +4591,6 @@ export function createApp() {
         designation: employee.designation,
         department: employee.department?.name ?? "-",
         companyEntity: employee.companyEntity,
-        companyPhone: employee.companyPhone,
         status: employee.status,
       });
     }),
@@ -5112,6 +5159,14 @@ export function createApp() {
           "Medical documents must be uploaded through the secure private vault",
         );
       }
+      if (body.medicalDocumentUrl) {
+        await assertOwnsPrivateFileUrl({
+          url: body.medicalDocumentUrl,
+          urlPrefix: "/leave/medical-files/",
+          kind: "medical",
+          userId: req.user!.id,
+        });
+      }
       const request = await prisma.leaveRequest.create({
         data: {
           leaveTypeId: body.leaveTypeId,
@@ -5302,6 +5357,12 @@ export function createApp() {
       if (existing.leaveType.code !== LEAVE_CODES.SICK) {
         throw new HttpError(400, "Medical documents apply only to Sick Leave");
       }
+      await assertOwnsPrivateFileUrl({
+        url: body.url,
+        urlPrefix: "/leave/medical-files/",
+        kind: "medical",
+        userId: req.user!.id,
+      });
       const leave = await prisma.leaveRequest.update({
         where: { leaveRequestId: existing.leaveRequestId },
         data: { medicalDocumentUrl: body.url },
@@ -5364,6 +5425,8 @@ export function createApp() {
         where: { employeeId },
         include: { homeBranch: true, emergencyContact: true, department: true },
       });
+      const verification =
+        req.user!.employeeId === employeeId ? issueIdCardVerificationToken(employeeId) : null;
       res.json({
         companyEntity: employee.companyEntity,
         parentCompanyName: "Royal Petro Park Private Limited",
@@ -5378,6 +5441,8 @@ export function createApp() {
         bloodGroup: employee.bloodGroup ?? employee.emergencyContact?.bloodGroup,
         emergencyContact: employee.emergencyContact,
         status: employee.status,
+        verificationToken: verification?.token,
+        verificationExpiresAt: verification?.expiresAt,
       });
     }),
   );
@@ -5500,10 +5565,12 @@ export function createApp() {
         res.json(status);
         return;
       }
-      const status = await setSupportPassword(password, req.user!.id);
+      const ttlHours = assertSupportPasswordTtlHours(body.ttlHours);
+      const status = await setSupportPassword(password, req.user!.id, ttlHours);
       await audit({
         action: "support password updated",
         performedByUserId: req.user!.id,
+        newValue: { ttlHours, expiresAt: status.expiresAt },
         ipAddress: req.ip,
       });
       res.json(status);
@@ -6940,6 +7007,7 @@ export function createApp() {
       }
 
       if (!isWebPushConfigured()) throw new HttpError(503, "Web push is not configured");
+      await assertSafeWebPushEndpoint(body.endpoint);
       const endpointHash = hashPushEndpoint(body.endpoint);
       await prisma.pushSubscription.upsert({
         where: { endpointHash },

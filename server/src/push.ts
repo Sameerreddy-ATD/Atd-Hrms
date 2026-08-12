@@ -2,6 +2,7 @@ import { createHash, createPrivateKey, createSign, sign } from "node:crypto";
 import webPush from "web-push";
 import { config } from "./config.js";
 import { prisma } from "./prisma.js";
+import { assertSafeWebPushEndpoint } from "./webPushEndpoint.js";
 
 type PushPayload = {
   title: string;
@@ -278,6 +279,15 @@ async function sendPush(payload: PushPayload, userIds?: string[]) {
           return;
         }
         if (!webReady) return;
+        try {
+          await assertSafeWebPushEndpoint(subscription.endpoint);
+        } catch {
+          await prisma.pushSubscription.delete({
+            where: { subscriptionId: subscription.subscriptionId },
+          });
+          removed += 1;
+          return;
+        }
         await webPush.sendNotification(
           {
             endpoint: subscription.endpoint,

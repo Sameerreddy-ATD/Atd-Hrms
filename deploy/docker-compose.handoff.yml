@@ -58,9 +58,11 @@ services:
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL with mysql as the hostname}
       BACKEND_PORT: 4000
       FACE_EVIDENCE_DIR: /data/face-evidence
-      # The handoff stack is HTTP-only on localhost. Production must use HTTPS
-      # and NODE_ENV=production behind its real ingress/load balancer.
+      # Local handoff only. Forces insecure-dev secret allowance so assertSecureConfig
+      # can start without production secrets. NEVER point this compose stack at a public
+      # hostname or real employee data — use NODE_ENV=production + strong secrets instead.
       NODE_ENV: development
+      ALLOW_INSECURE_DEV_SECRETS: "true"
       TRUST_PROXY: "1"
     depends_on:
       migrate:

@@ -15,6 +15,7 @@ Canonical product docs remain in the rest of `docs/`. Credentials stay on the la
 - Native push subscribe API (`web` | `fcm` | `apns`) + DB migration `push_subscriptions.channel`
 - Backend FCM HTTP v1 sender (`FCM_SERVICE_ACCOUNT_JSON` / `FCM_PROJECT_ID`) with legacy key fallback
 - Digital Asset Links: `public/.well-known/assetlinks.json` (upload-key SHA-256)
+- Security hardening (12 Aug 2026): TTL support password, secret startup checks, Web Push SSRF allowlist, signed ID-card tokens, private-file ownership — see `docs/SECURITY_HARDENING_2026-08-12.md`
 - Deploy host: `ubuntu@13.204.5.57` via `InsidesalesHRMS.pem` → `/opt/anytime-crew-hub` (rsync; no `.git` on server), PM2 `atd-backend` / `atd-frontend`
 
 ### Android / Play packaging

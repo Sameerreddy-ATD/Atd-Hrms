@@ -327,6 +327,8 @@ export const employeesApi = {
       joiningDate?: string;
       bloodGroup?: string;
       status: string;
+      verificationToken?: string;
+      verificationExpiresAt?: string;
       emergencyContact?: {
         contactName: string;
         relationship: string;
@@ -719,17 +721,16 @@ export const attendanceApi = {
     }),
   recalculate: (employeeId: string, date: string) =>
     request<AttendanceRecord>(`/attendance/recalculate/${employeeId}/${date}`, { method: "POST" }),
-  verifyIdCard: (employeeId: string) =>
+  verifyIdCard: (token: string) =>
     request<{
       verified: boolean;
       name: string;
       employeeCode: string;
-      designation: string;
+      designation?: string;
       department: string;
       companyEntity: CompanyEntity;
-      companyPhone?: string;
       status: string;
-    }>(`/verify-id-card/${employeeId}`),
+    }>(`/verify-id-card/${encodeURIComponent(token)}`),
 };
 
 export const branchesApi = {
@@ -1048,12 +1049,17 @@ export const systemApi = {
       body: JSON.stringify(payload),
     }),
   supportPasswordStatus: () =>
-    request<{ enabled: boolean; updatedAt: string | null }>("/system/support-password"),
-  setSupportPassword: (password: string | null) =>
-    request<{ enabled: boolean; updatedAt: string | null }>("/system/support-password", {
-      method: "PUT",
-      body: JSON.stringify({ password }),
-    }),
+    request<{ enabled: boolean; updatedAt: string | null; expiresAt: string | null }>(
+      "/system/support-password",
+    ),
+  setSupportPassword: (password: string | null, ttlHours?: number) =>
+    request<{ enabled: boolean; updatedAt: string | null; expiresAt: string | null }>(
+      "/system/support-password",
+      {
+        method: "PUT",
+        body: JSON.stringify({ password, ttlHours }),
+      },
+    ),
 };
 
 export const notificationsApi = {

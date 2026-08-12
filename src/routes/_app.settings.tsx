@@ -134,8 +134,10 @@ function SettingsPage() {
   const [generatedApiKey, setGeneratedApiKey] = useState("");
   const [supportEnabled, setSupportEnabled] = useState(false);
   const [supportUpdatedAt, setSupportUpdatedAt] = useState<string | null>(null);
+  const [supportExpiresAt, setSupportExpiresAt] = useState<string | null>(null);
   const [supportPassword, setSupportPassword] = useState("");
   const [supportPasswordConfirm, setSupportPasswordConfirm] = useState("");
+  const [supportTtlHours, setSupportTtlHours] = useState(4);
   const [supportSaving, setSupportSaving] = useState(false);
   const [supportLoading, setSupportLoading] = useState(false);
 
@@ -222,6 +224,7 @@ function SettingsPage() {
       .then((status) => {
         setSupportEnabled(status.enabled);
         setSupportUpdatedAt(status.updatedAt);
+        setSupportExpiresAt(status.expiresAt);
       })
       .catch((err) => toast.error((err as Error).message))
       .finally(() => setSupportLoading(false));
@@ -477,12 +480,13 @@ function SettingsPage() {
                   </span>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Temporary company password for non–Developer Admin accounts. Employees keep their
-                  own passwords. This is not shown anywhere else in the app.
+                  Time-limited break-glass password for non–Developer Admin accounts (1–24 hours).
+                  Using it forces a password change and bumps that user’s sessions. Clear when done.
                 </p>
                 {supportEnabled && supportUpdatedAt && (
                   <p className="mt-1 text-xs text-muted-foreground">
                     Last updated {formatDisplayDateTime(supportUpdatedAt)}
+                    {supportExpiresAt ? ` · expires ${formatDisplayDateTime(supportExpiresAt)}` : ""}
                   </p>
                 )}
               </div>
@@ -512,10 +516,26 @@ function SettingsPage() {
                   disabled={supportSaving}
                 />
               </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="support-ttl">Expires after</Label>
+                <select
+                  id="support-ttl"
+                  className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm sm:h-9"
+                  value={supportTtlHours}
+                  onChange={(event) => setSupportTtlHours(Number(event.target.value))}
+                  disabled={supportSaving}
+                >
+                  <option value={1}>1 hour</option>
+                  <option value={4}>4 hours (recommended)</option>
+                  <option value={8}>8 hours</option>
+                  <option value={12}>12 hours</option>
+                  <option value={24}>24 hours (maximum)</option>
+                </select>
+              </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              At least 10 characters with an uppercase letter and a number. Clear when no longer
-              needed.
+              At least 10 characters with an uppercase letter and a number. Legacy unlimited support
+              passwords are rejected until you set a new one with an expiry.
             </p>
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
               {supportEnabled && (
@@ -548,6 +568,7 @@ function SettingsPage() {
                             .then((status) => {
                               setSupportEnabled(status.enabled);
                               setSupportUpdatedAt(status.updatedAt);
+                              setSupportExpiresAt(status.expiresAt);
                               setSupportPassword("");
                               setSupportPasswordConfirm("");
                               toast.success("Support password cleared");
@@ -583,14 +604,17 @@ function SettingsPage() {
                   }
                   setSupportSaving(true);
                   void systemApi
-                    .setSupportPassword(supportPassword)
+                    .setSupportPassword(supportPassword, supportTtlHours)
                     .then((status) => {
                       setSupportEnabled(status.enabled);
                       setSupportUpdatedAt(status.updatedAt);
+                      setSupportExpiresAt(status.expiresAt);
                       setSupportPassword("");
                       setSupportPasswordConfirm("");
                       toast.success(
-                        status.enabled ? "Support password saved" : "Support password cleared",
+                        status.enabled
+                          ? `Support password saved (expires ${status.expiresAt ? formatDisplayDateTime(status.expiresAt) : "soon"})`
+                          : "Support password cleared",
                       );
                     })
                     .catch((err) => toast.error((err as Error).message))
