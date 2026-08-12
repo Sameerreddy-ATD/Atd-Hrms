@@ -56,9 +56,14 @@ function getOrientationApi(): LockableOrientation | null {
   return (window.screen?.orientation as LockableOrientation | undefined) ?? null;
 }
 
+let lastNativeLockAt = 0;
+const NATIVE_LOCK_COOLDOWN_MS = 2_500;
+
 /**
  * Ask the browser / native shell to keep the phone in upright portrait.
  * Safe to call repeatedly — failures are ignored (common outside installed PWAs).
+ * On native Android we cooldown so keyboard-dismiss resize storms cannot spam
+ * ScreenOrientation.lock (a known Samsung One UI WebView crash trigger).
  */
 export function lockPortraitOrientation() {
   if (!shouldLockPortraitOrientation()) {
@@ -68,6 +73,9 @@ export function lockPortraitOrientation() {
     return;
   }
   if (isNativeApp()) {
+    const now = Date.now();
+    if (now - lastNativeLockAt < NATIVE_LOCK_COOLDOWN_MS) return;
+    lastNativeLockAt = now;
     void CapScreenOrientation.lock({ orientation: "portrait" }).catch(() => undefined);
     return;
   }
@@ -84,31 +92,37 @@ export function lockPortraitOrientation() {
 export function startPortraitOrientationLock() {
   const apply = () => lockPortraitOrientation();
   // Defer the very first native lock: locking during cold start crashes some
-  // Android 12–15 OEM WebView builds (mirrors bootstrapNativeApp's delay). Later
-  // resume/rotation events still re-lock immediately, which is safe post-boot.
+  // Android OEM WebView builds (mirrors bootstrapNativeApp's delay). Later
+  // resume/rotation events still re-lock (with cooldown).
   if (isNativeApp()) {
-    window.setTimeout(apply, 900);
+    window.setTimeout(apply, 1_500);
   } else {
     apply();
   }
 
+  let resizeTimer: number | undefined;
   const onVisible = () => {
     if (document.visibilityState === "visible") apply();
+  };
+  const onResize = () => {
+    // Keyboard dismiss fires many resize events — debounce hard on native.
+    if (resizeTimer !== undefined) window.clearTimeout(resizeTimer);
+    resizeTimer = window.setTimeout(apply, isNativeApp() ? 800 : 0);
   };
 
   document.addEventListener("visibilitychange", onVisible);
   window.addEventListener("pageshow", apply);
-  window.addEventListener("focus", apply);
+  // Do NOT lock on every window focus — that races keyboard/login on Samsung.
   window.addEventListener("orientationchange", apply);
-  window.addEventListener("resize", apply);
+  window.addEventListener("resize", onResize);
   getOrientationApi()?.addEventListener?.("change", apply);
 
   return () => {
     document.removeEventListener("visibilitychange", onVisible);
     window.removeEventListener("pageshow", apply);
-    window.removeEventListener("focus", apply);
     window.removeEventListener("orientationchange", apply);
-    window.removeEventListener("resize", apply);
+    window.removeEventListener("resize", onResize);
+    if (resizeTimer) window.clearTimeout(resizeTimer);
     getOrientationApi()?.removeEventListener?.("change", apply);
   };
 }

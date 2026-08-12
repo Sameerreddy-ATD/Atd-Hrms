@@ -2,7 +2,7 @@
 // public/app-version.json. Bumping it changes sw.js bytes -> a new SW installs,
 // activate purges the old cache, and cache-first shell/static assets (icons,
 // manifest, fonts, face-models) refresh on already-installed apps.
-self.ATD_BUILD_ID = "2026-08-12-device-hardening";
+self.ATD_BUILD_ID = "2026-08-12-samsung-login-harden";
 self.ATD_STATIC_CACHE = `atd-static-${self.ATD_BUILD_ID}`;
 self.ATD_SHELL_ASSETS = [
   "/manifest.webmanifest",

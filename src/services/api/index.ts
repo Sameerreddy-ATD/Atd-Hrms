@@ -40,6 +40,7 @@ import type {
   FaceVerificationSession,
   FaceEvidenceRecord,
 } from "@/types/domain";
+import { isNativeApp } from "@/lib/native-app";
 
 export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
 const REQUEST_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS ?? 20000);
@@ -207,16 +208,27 @@ export async function warmAuthenticatedWorkspace(user: User) {
     day: "2-digit",
   }).format(new Date());
   const attendanceQuery = toQuery({ from: today, to: today });
-  const paths = [
-    ownAttendance
-      ? `/attendance/my/report${attendanceQuery}`
-      : `/attendance/hr/daily${attendanceQuery}`,
-    "/branches",
-    user.role === "developer_admin" ? "/users" : "/employees",
-    "/employees/birthdays",
-    "/leave/requests",
-  ];
-  if (user.employeeId && !["ceo", "developer_admin"].includes(user.role)) {
+  // On native (especially Samsung), avoid stampeding the WebView with large
+  // parallel JSON payloads right after login — that correlates with process death.
+  const native = isNativeApp();
+  const paths = native
+    ? [
+        ownAttendance
+          ? `/attendance/my/today`
+          : `/attendance/hr/daily${attendanceQuery}`,
+        "/branches",
+        "/employees/birthdays",
+      ]
+    : [
+        ownAttendance
+          ? `/attendance/my/report${attendanceQuery}`
+          : `/attendance/hr/daily${attendanceQuery}`,
+        "/branches",
+        user.role === "developer_admin" ? "/users" : "/employees",
+        "/employees/birthdays",
+        "/leave/requests",
+      ];
+  if (!native && user.employeeId && !["ceo", "developer_admin"].includes(user.role)) {
     paths.push("/attendance/my/timeline");
   }
   const warmup = Promise.allSettled(paths.map((path) => warmPath(path)));
@@ -224,7 +236,7 @@ export async function warmAuthenticatedWorkspace(user: User) {
   await Promise.race([
     warmup,
     new Promise<void>((resolve) => {
-      timeoutId = setTimeout(resolve, 3_500);
+      timeoutId = setTimeout(resolve, native ? 2_000 : 3_500);
     }),
   ]);
   if (timeoutId) clearTimeout(timeoutId);

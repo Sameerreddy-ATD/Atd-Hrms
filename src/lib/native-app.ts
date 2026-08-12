@@ -46,9 +46,18 @@ let lastNavActivityAt = Date.now();
 // Timestamp of the last Back press while already at a root screen (double-press
 // to background pattern).
 let lastRootBackAt = 0;
+// After login the keyboard dismisses and Samsung often fires Back + resize.
+// Block minimize for a grace window so the app never "closes" mid-login.
+let loginGraceUntil = 0;
 
 function markNavActivity() {
   lastNavActivityAt = Date.now();
+}
+
+/** Call right after a successful native login / password change. */
+export function markNativeLoginGrace(ms = 5_000) {
+  loginGraceUntil = Date.now() + ms;
+  markNavActivity();
 }
 
 /** Patch history + popstate so any route change refreshes the nav timestamp. */
@@ -151,7 +160,11 @@ export async function bootstrapNativeApp() {
     if (!isActive) return;
     markNavActivity();
     void configureStatusBar();
-    void lockNativePortrait();
+    // Debounce orientation re-lock on resume — immediate lock during keyboard /
+    // activity transitions crashes some Samsung One UI WebView builds.
+    window.setTimeout(() => {
+      void lockNativePortrait();
+    }, 1_200);
   });
 
   // Track route changes so a Back event that lands immediately after login /
@@ -169,6 +182,16 @@ export async function bootstrapNativeApp() {
   const kbHide = await Keyboard.addListener("keyboardWillHide", () => {
     keyboardVisible = false;
     keyboardHiddenAt = Date.now();
+    markNavActivity();
+  }).catch(() => null);
+  // Android often only fires keyboardDid* (not Will*). Listen to both.
+  const kbShowDid = await Keyboard.addListener("keyboardDidShow", () => {
+    keyboardVisible = true;
+  }).catch(() => null);
+  const kbHideDid = await Keyboard.addListener("keyboardDidHide", () => {
+    keyboardVisible = false;
+    keyboardHiddenAt = Date.now();
+    markNavActivity();
   }).catch(() => null);
 
   // Hardware / gesture Back. Never exitApp; only a deliberate Back at an app root
@@ -177,12 +200,15 @@ export async function bootstrapNativeApp() {
   const backHandle = await CapApp.addListener("backButton", ({ canGoBack }) => {
     const now = Date.now();
 
+    // 0) Absolute grace after login — ignore all Back (including double-press).
+    if (now < loginGraceUntil) return;
+
     // 1) Back that is really just the keyboard closing → ignore.
-    if (keyboardVisible || now - keyboardHiddenAt < 800) return;
+    if (keyboardVisible || now - keyboardHiddenAt < 1_500) return;
 
     // 2) Back that arrives right after a route change (login redirect, etc.) is an
     //    OEM artifact, not a user intent → ignore.
-    if (now - lastNavActivityAt < 1000) return;
+    if (now - lastNavActivityAt < 2_000) return;
 
     const pathname = window.location.pathname || "/";
     if (!isAppRootPath(pathname) && canGoBack) {
@@ -192,7 +218,7 @@ export async function bootstrapNativeApp() {
 
     // At a root screen: require a deliberate double Back before backgrounding so a
     // single stray event can never drop the app to the background.
-    if (now - lastRootBackAt < 1500) {
+    if (now - lastRootBackAt < 2_000) {
       void CapApp.minimizeApp().catch(() => undefined);
       lastRootBackAt = 0;
       return;
@@ -206,5 +232,7 @@ export async function bootstrapNativeApp() {
     stopNavTracking();
     void kbShow?.remove();
     void kbHide?.remove();
+    void kbShowDid?.remove();
+    void kbHideDid?.remove();
   };
 }

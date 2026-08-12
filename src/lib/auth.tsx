@@ -16,6 +16,7 @@ import {
 } from "react";
 import type { Role, User } from "@/types/domain";
 import { authApi, warmAuthenticatedWorkspace } from "@/services/api";
+import { isNativeApp, markNativeLoginGrace } from "@/lib/native-app";
 
 const SESSION_USER_KEY = "atd.session.user";
 
@@ -86,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const { user } = await authApi.login(email, password);
+    if (isNativeApp()) markNativeLoginGrace();
     setUser(user);
     writeSessionUser(user);
     void warmAuthenticatedWorkspace(user);
@@ -94,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginAsRole = useCallback(async (role: Role) => {
     const { user } = await authApi.loginAsRole(role);
+    if (isNativeApp()) markNativeLoginGrace();
     setUser(user);
     writeSessionUser(user);
     return user;
@@ -101,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const changePassword = useCallback(async (oldPassword: string, nextPassword: string) => {
     const { user } = await authApi.changePassword(oldPassword, nextPassword);
+    if (isNativeApp()) markNativeLoginGrace();
     setUser(user);
     writeSessionUser(user);
     void warmAuthenticatedWorkspace(user);

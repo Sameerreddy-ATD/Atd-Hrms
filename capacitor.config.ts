@@ -39,8 +39,11 @@ const config: CapacitorConfig = {
       presentationOptions: ["badge", "sound", "alert"],
     },
     Keyboard: {
-      resize: "native",
-      resizeOnFullScreen: true,
+      // "body" + resizeOnFullScreen:false avoids Samsung One UI WebView crashes /
+      // ANRs that happen when the soft keyboard dismisses right after Sign-in
+      // (native resize + orientation re-lock storm).
+      resize: "body",
+      resizeOnFullScreen: false,
     },
   },
   android: {

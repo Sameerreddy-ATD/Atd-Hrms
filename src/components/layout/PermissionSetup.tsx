@@ -18,6 +18,7 @@ import {
   type DevicePermissionState,
 } from "@/lib/device-permissions";
 import { getDeviceLocation } from "@/lib/geolocation";
+import { isNativeApp } from "@/lib/native-app";
 import { cn } from "@/lib/utils";
 
 const DISMISSED_KEY = "adh_permission_setup_dismissed_v5";
@@ -60,18 +61,27 @@ export function PermissionSetup() {
   useEffect(() => {
     if (!isMobileDeviceShell()) return;
     const dismissed = window.localStorage.getItem(DISMISSED_KEY) === "true";
-    void (async () => {
-      const nextLocation = await readLocationPermission();
-      setLocation(nextLocation);
-      setNotifications(getNotificationPermission());
-      if (!dismissed && nextLocation !== "granted" && nextLocation !== "unsupported") {
-        setOpen(true);
-      }
-    })();
+    let cancelled = false;
+    // On native, wait until after login keyboard / route settle so the permission
+    // sheet + Geolocation.checkPermissions cannot race Samsung WebView resize.
+    const delayMs = isNativeApp() ? 2_500 : 0;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        const nextLocation = await readLocationPermission();
+        if (cancelled) return;
+        setLocation(nextLocation);
+        setNotifications(getNotificationPermission());
+        if (!dismissed && nextLocation !== "granted" && nextLocation !== "unsupported") {
+          setOpen(true);
+        }
+      })();
+    }, delayMs);
     const onVisible = () => document.visibilityState === "visible" && void refresh();
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", onVisible);
     return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", onVisible);
     };
