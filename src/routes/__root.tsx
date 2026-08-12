@@ -18,6 +18,7 @@ import { registerAppServiceWorker } from "@/lib/browser-notifications";
 import { detectPwaPlatform, ensureLatestAppBuild } from "@/lib/pwa-install";
 import { bootstrapNativeApp, isNativeApp } from "@/lib/native-app";
 import { installClientErrorReporter, reportClientError } from "@/lib/client-error-reporter";
+import { recoverFromChunkError } from "@/lib/chunk-reload";
 import { PortraitOrientationGuard } from "@/components/layout/PortraitOrientationGuard";
 
 const SITE_TITLE = "Anytime Workforce";
@@ -52,6 +53,9 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
 
   useEffect(() => {
+    // A stale-deploy chunk failure surfaces here as a route boundary error.
+    // Reload fresh instead of showing the error screen.
+    if (recoverFromChunkError(error)) return;
     reportClientError(error, "route-boundary");
   }, [error]);
 
@@ -178,16 +182,21 @@ function RootComponent() {
   }, []);
 
   useEffect(() => {
-    if (isNativeApp()) return;
-    void registerAppServiceWorker().catch(() => undefined);
+    // Service worker is web-only. The build-version check runs on native too so a
+    // native WebView holding a stale cached bundle force-refreshes on cold start
+    // (native has no SW, so this is its only proactive update path).
+    if (!isNativeApp()) {
+      void registerAppServiceWorker().catch(() => undefined);
+    }
     void ensureLatestAppBuild().catch(() => undefined);
   }, []);
 
   useEffect(() => {
-    // Drop the hard-refresh cache-bust param so the URL stays clean.
+    // Drop the hard-refresh / chunk-recovery cache-bust params so the URL stays clean.
     const url = new URL(window.location.href);
-    if (!url.searchParams.has("_r")) return;
+    if (!url.searchParams.has("_r") && !url.searchParams.has("_cb")) return;
     url.searchParams.delete("_r");
+    url.searchParams.delete("_cb");
     window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
   }, []);
 

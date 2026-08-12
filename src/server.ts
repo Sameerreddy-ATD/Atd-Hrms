@@ -44,12 +44,50 @@ function isH3SwallowedErrorBody(body: string): boolean {
   }
 }
 
+/**
+ * Ensure the HTML document is always revalidated and hashed build assets are cached
+ * hard. Without this the native WebView (no service worker) can serve a stale
+ * document that references JS chunk hashes deleted by a later deploy, producing
+ * "Failed to fetch dynamically imported module" and a broken screen after login.
+ */
+function withCacheHeaders(response: Response, request: Request): Response {
+  try {
+    const url = new URL(request.url);
+    const contentType = response.headers.get("content-type") ?? "";
+
+    if (url.pathname.startsWith("/assets/")) {
+      if (response.headers.has("cache-control")) return response;
+      const headers = new Headers(response.headers);
+      headers.set("cache-control", "public, max-age=31536000, immutable");
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+      });
+    }
+
+    if (contentType.includes("text/html")) {
+      const headers = new Headers(response.headers);
+      headers.set("cache-control", "no-cache, must-revalidate");
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+      });
+    }
+  } catch {
+    // Never let header shaping break the response.
+  }
+  return response;
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      const normalized = await normalizeCatastrophicSsrResponse(response);
+      return withCacheHeaders(normalized, request);
     } catch (error) {
       console.error(error);
       return new Response(renderErrorPage(), {

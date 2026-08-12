@@ -1,5 +1,6 @@
 import { APP_BUILD_ID } from "@/lib/app-build";
 import { getNativePlatform, isNativeApp } from "@/lib/native-app";
+import { recoverFromChunkError } from "@/lib/chunk-reload";
 import { API_BASE } from "@/services/api";
 
 // POST target. In production VITE_API_BASE_URL="/api" (nginx strips the prefix);
@@ -99,10 +100,14 @@ export function installClientErrorReporter(): () => void {
   installed = true;
 
   const onError = (event: ErrorEvent) => {
-    reportClientError(event.error ?? event.message, "window.onerror");
+    const error = event.error ?? event.message;
+    reportClientError(error, "window.onerror");
+    // Stale-deploy chunk failure — heal by reloading fresh (esp. native WebView).
+    recoverFromChunkError(error);
   };
   const onRejection = (event: PromiseRejectionEvent) => {
     reportClientError(event.reason, "unhandledrejection");
+    recoverFromChunkError(event.reason);
   };
 
   window.addEventListener("error", onError);
