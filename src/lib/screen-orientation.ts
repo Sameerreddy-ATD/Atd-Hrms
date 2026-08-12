@@ -83,7 +83,14 @@ export function lockPortraitOrientation() {
  */
 export function startPortraitOrientationLock() {
   const apply = () => lockPortraitOrientation();
-  apply();
+  // Defer the very first native lock: locking during cold start crashes some
+  // Android 12–15 OEM WebView builds (mirrors bootstrapNativeApp's delay). Later
+  // resume/rotation events still re-lock immediately, which is safe post-boot.
+  if (isNativeApp()) {
+    window.setTimeout(apply, 900);
+  } else {
+    apply();
+  }
 
   const onVisible = () => {
     if (document.visibilityState === "visible") apply();

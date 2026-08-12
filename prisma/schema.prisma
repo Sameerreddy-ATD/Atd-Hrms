@@ -1110,6 +1110,34 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+/// Append-only client-side crash/error reports from web, PWA, and native shells.
+/// No FK to users so logs survive account deletion; userId is best-effort context only.
+model ClientErrorLog {
+  logId      String    @id @default(cuid()) @map("log_id")
+  /// error | unhandledrejection | route-boundary | manual
+  kind       String    @default("error") @db.VarChar(32)
+  message    String    @db.Text
+  stack      String?   @db.Text
+  path       String?   @db.VarChar(512)
+  appBuildId String?   @map("app_build_id") @db.VarChar(64)
+  platform   String?   @db.VarChar(16)
+  isNative   Boolean   @default(false) @map("is_native")
+  userAgent  String?   @map("user_agent") @db.Text
+  viewport   String?   @db.VarChar(24)
+  userId     String?   @map("user_id") @db.VarChar(191)
+  role       String?   @db.VarChar(32)
+  ipHash     String?   @map("ip_hash") @db.VarChar(64)
+  occurredAt DateTime? @map("occurred_at")
+  resolved   Boolean   @default(false)
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([platform, createdAt])
+  @@index([appBuildId])
+  @@index([resolved, createdAt])
+  @@map("client_error_logs")
+}
+
 model WorkTask {
   taskId          String           @id @default(cuid()) @map("task_id")
   title           String

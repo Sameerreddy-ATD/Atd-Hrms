@@ -180,7 +180,7 @@ function AppLayout() {
         <main
           id="main-content"
           tabIndex={-1}
-          className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain p-0 pb-[max(1.25rem,env(safe-area-inset-bottom))] outline-none sm:p-3 sm:pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:p-4"
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain p-0 pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] outline-none sm:p-3 sm:pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:p-4"
         >
           <div className="aw-enter flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden bg-background/95 p-4 pb-6 text-card-foreground sm:rounded-xl sm:border sm:border-border/80 sm:bg-background sm:p-5 sm:pb-5 sm:shadow-sm lg:p-6">
             {moduleBlocked ? (

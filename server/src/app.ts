@@ -81,6 +81,7 @@ import {
   verifyFaceCapture,
 } from "./faceAttendance.js";
 import { registerAssetRoutes } from "./assetRoutes.js";
+import { registerClientLogRoutes } from "./clientLogs.js";
 import { registerIntegrationRoutes } from "./integration-api.js";
 import {
   attendanceRecordDto,
@@ -2098,7 +2099,13 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       const token = req.cookies?.[config.refreshCookie];
       if (!token) throw new HttpError(401, "Refresh token missing");
-      const payload = verifyRefreshToken(token);
+      let payload: { id: string; sessionVersion: number };
+      try {
+        payload = verifyRefreshToken(token);
+      } catch {
+        clearCookies(res);
+        throw new HttpError(401, "Session expired. Sign in again");
+      }
       const user = await prisma.user.findUniqueOrThrow({
         where: { id: payload.id },
         include: { employee: true, faceProfile: true },
@@ -2151,7 +2158,13 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       const token = req.cookies?.[config.refreshCookie];
       if (!token) throw new HttpError(401, "Refresh token missing");
-      const payload = verifyRefreshToken(token);
+      let payload: { id: string; sessionVersion: number };
+      try {
+        payload = verifyRefreshToken(token);
+      } catch {
+        clearCookies(res);
+        throw new HttpError(401, "Session expired. Sign in again");
+      }
       const user = await prisma.user.findUniqueOrThrow({ where: { id: payload.id } });
       if (payload.sessionVersion !== user.sessionVersion) {
         clearCookies(res);
@@ -7954,6 +7967,7 @@ export function createApp() {
   );
 
   registerHrmsExtensions(app);
+  registerClientLogRoutes(app);
   app.use(errorHandler);
   return app;
 }

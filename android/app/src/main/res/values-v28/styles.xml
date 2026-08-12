@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- API 28+: allow content near the cutout only on the splash/launch path if needed.
+         Day-to-day chrome uses a normal status bar (no overlay) to avoid white gaps. -->
+    <style name="AppTheme.NoActionBarLaunch">
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+</resources>

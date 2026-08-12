@@ -56,8 +56,13 @@ Anytime Workforce is operated by Anytime Diesel for internal employees and autho
 
 | Asset | Path |
 | ----- | ---- |
-| App icon 512 | `mobile/assets/play-icon-512.png` |
+| App icon 512 | `mobile/assets/play-icon-512.png` (full-bleed red + white diesel mark) |
 | Feature graphic 1024×500 | `mobile/assets/play-feature-graphic-1024x500.png` |
+
+In Play Console → Grow → Store listing:
+1. **App name:** `Anytime Workforce` (this replaces the temporary `com.anytimediesel.workforce (unreviewed)` label)
+2. Upload the 512 icon and feature graphic above
+3. Short / full description from this file
 
 ## Screenshots you still need to capture on a phone
 

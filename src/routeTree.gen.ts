@@ -9,83 +9,59 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AppRouteImport } from './routes/_app'
-import { Route as AccountDeletionRouteImport } from './routes/account-deletion'
-import { Route as FirstLoginRouteImport } from './routes/first-login'
-import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as TermsRouteImport } from './routes/terms'
-import { Route as AppAnnouncementsRouteImport } from './routes/_app.announcements'
-import { Route as AppAssetsRouteImport } from './routes/_app.assets'
-import { Route as AppAttendanceRouteImport } from './routes/_app.attendance'
-import { Route as AppAuditRouteImport } from './routes/_app.audit'
-import { Route as AppBranchesRouteImport } from './routes/_app.branches'
-import { Route as AppChecklistsRouteImport } from './routes/_app.checklists'
-import { Route as AppCompanySetupRouteImport } from './routes/_app.company-setup'
-import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
-import { Route as AppDepartmentsRouteImport } from './routes/_app.departments'
-import { Route as AppDevicesRouteImport } from './routes/_app.devices'
-import { Route as AppEmergencyContactRouteImport } from './routes/_app.emergency-contact'
-import { Route as AppEmployeeServicesRouteImport } from './routes/_app.employee-services'
-import { Route as AppEmployeesRouteImport } from './routes/_app.employees'
-import { Route as AppFaceEnrollmentRouteImport } from './routes/_app.face-enrollment'
-import { Route as AppFaceSecurityRouteImport } from './routes/_app.face-security'
-import { Route as AppHolidaysRouteImport } from './routes/_app.holidays'
-import { Route as AppIdCardRouteImport } from './routes/_app.id-card'
-import { Route as AppMyAssetsRouteImport } from './routes/_app.my-assets'
-import { Route as AppNotificationsRouteImport } from './routes/_app.notifications'
-import { Route as AppProfileRouteImport } from './routes/_app.profile'
-import { Route as AppRolesRouteImport } from './routes/_app.roles'
-import { Route as AppSettingsRouteImport } from './routes/_app.settings'
-import { Route as AppTasksRouteImport } from './routes/_app.tasks'
-import { Route as AppUsersRouteImport } from './routes/_app.users'
+import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as FirstLoginRouteImport } from './routes/first-login'
+import { Route as AccountDeletionRouteImport } from './routes/account-deletion'
+import { Route as AppRouteImport } from './routes/_app'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as VerifyIdEmployeeIdRouteImport } from './routes/verify-id.$employeeId'
+import { Route as AppUsersRouteImport } from './routes/_app.users'
+import { Route as AppTasksRouteImport } from './routes/_app.tasks'
+import { Route as AppSettingsRouteImport } from './routes/_app.settings'
+import { Route as AppRolesRouteImport } from './routes/_app.roles'
+import { Route as AppProfileRouteImport } from './routes/_app.profile'
+import { Route as AppNotificationsRouteImport } from './routes/_app.notifications'
+import { Route as AppMyAssetsRouteImport } from './routes/_app.my-assets'
+import { Route as AppIdCardRouteImport } from './routes/_app.id-card'
+import { Route as AppHolidaysRouteImport } from './routes/_app.holidays'
+import { Route as AppFaceSecurityRouteImport } from './routes/_app.face-security'
+import { Route as AppFaceEnrollmentRouteImport } from './routes/_app.face-enrollment'
+import { Route as AppEmployeesRouteImport } from './routes/_app.employees'
+import { Route as AppEmployeeServicesRouteImport } from './routes/_app.employee-services'
+import { Route as AppEmergencyContactRouteImport } from './routes/_app.emergency-contact'
+import { Route as AppDevicesRouteImport } from './routes/_app.devices'
+import { Route as AppDepartmentsRouteImport } from './routes/_app.departments'
+import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
+import { Route as AppCompanySetupRouteImport } from './routes/_app.company-setup'
+import { Route as AppChecklistsRouteImport } from './routes/_app.checklists'
+import { Route as AppBranchesRouteImport } from './routes/_app.branches'
+import { Route as AppAuditRouteImport } from './routes/_app.audit'
+import { Route as AppAttendanceRouteImport } from './routes/_app.attendance'
+import { Route as AppAssetsRouteImport } from './routes/_app.assets'
+import { Route as AppAnnouncementsRouteImport } from './routes/_app.announcements'
 import { Route as AppAttendanceIndexRouteImport } from './routes/_app.attendance.index'
-import { Route as AppAttendanceBranchRouteImport } from './routes/_app.attendance.branch'
-import { Route as AppAttendanceCorrectionsRouteImport } from './routes/_app.attendance.corrections'
-import { Route as AppAttendanceFieldRouteImport } from './routes/_app.attendance.field'
-import { Route as AppAttendanceLocationsRouteImport } from './routes/_app.attendance.locations'
-import { Route as AppAttendanceMineRouteImport } from './routes/_app.attendance.mine'
-import { Route as AppAttendanceMissedPunchRouteImport } from './routes/_app.attendance.missed-punch'
-import { Route as AppDevicesMappingRouteImport } from './routes/_app.devices.mapping'
-import { Route as AppLeaveApplyRouteImport } from './routes/_app.leave.apply'
-import { Route as AppLeaveApprovalsRouteImport } from './routes/_app.leave.approvals'
-import { Route as AppLeaveBalanceRouteImport } from './routes/_app.leave.balance'
-import { Route as AppLeaveHistoryRouteImport } from './routes/_app.leave.history'
-import { Route as AppLeavePolicyRouteImport } from './routes/_app.leave.policy'
-import { Route as AppLeaveReportsRouteImport } from './routes/_app.leave.reports'
-import { Route as AppSettingsDevicesRouteImport } from './routes/_app.settings.devices'
 import { Route as AppUsersNewRouteImport } from './routes/_app.users.new'
+import { Route as AppSettingsDevicesRouteImport } from './routes/_app.settings.devices'
+import { Route as AppLeaveReportsRouteImport } from './routes/_app.leave.reports'
+import { Route as AppLeavePolicyRouteImport } from './routes/_app.leave.policy'
+import { Route as AppLeaveHistoryRouteImport } from './routes/_app.leave.history'
+import { Route as AppLeaveBalanceRouteImport } from './routes/_app.leave.balance'
+import { Route as AppLeaveApprovalsRouteImport } from './routes/_app.leave.approvals'
+import { Route as AppLeaveApplyRouteImport } from './routes/_app.leave.apply'
+import { Route as AppDevicesMappingRouteImport } from './routes/_app.devices.mapping'
+import { Route as AppAttendanceMissedPunchRouteImport } from './routes/_app.attendance.missed-punch'
+import { Route as AppAttendanceMineRouteImport } from './routes/_app.attendance.mine'
+import { Route as AppAttendanceLocationsRouteImport } from './routes/_app.attendance.locations'
+import { Route as AppAttendanceFieldRouteImport } from './routes/_app.attendance.field'
+import { Route as AppAttendanceCorrectionsRouteImport } from './routes/_app.attendance.corrections'
+import { Route as AppAttendanceBranchRouteImport } from './routes/_app.attendance.branch'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AppRoute = AppRouteImport.update({
-  id: '/_app',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AccountDeletionRoute = AccountDeletionRouteImport.update({
-  id: '/account-deletion',
-  path: '/account-deletion',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FirstLoginRoute = FirstLoginRouteImport.update({
-  id: '/first-login',
-  path: '/first-login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
-  id: '/forgot-password',
-  path: '/forgot-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -93,119 +69,43 @@ const PrivacyRoute = PrivacyRouteImport.update({
   path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TermsRoute = TermsRouteImport.update({
-  id: '/terms',
-  path: '/terms',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppAnnouncementsRoute = AppAnnouncementsRouteImport.update({
-  id: '/announcements',
-  path: '/announcements',
-  getParentRoute: () => AppRoute,
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AppAssetsRoute = AppAssetsRouteImport.update({
-  id: '/assets',
-  path: '/assets',
-  getParentRoute: () => AppRoute,
+const FirstLoginRoute = FirstLoginRouteImport.update({
+  id: '/first-login',
+  path: '/first-login',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AppAttendanceRoute = AppAttendanceRouteImport.update({
-  id: '/attendance',
-  path: '/attendance',
-  getParentRoute: () => AppRoute,
+const AccountDeletionRoute = AccountDeletionRouteImport.update({
+  id: '/account-deletion',
+  path: '/account-deletion',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AppAuditRoute = AppAuditRouteImport.update({
-  id: '/audit',
-  path: '/audit',
-  getParentRoute: () => AppRoute,
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AppBranchesRoute = AppBranchesRouteImport.update({
-  id: '/branches',
-  path: '/branches',
-  getParentRoute: () => AppRoute,
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AppChecklistsRoute = AppChecklistsRouteImport.update({
-  id: '/checklists',
-  path: '/checklists',
-  getParentRoute: () => AppRoute,
+const VerifyIdEmployeeIdRoute = VerifyIdEmployeeIdRouteImport.update({
+  id: '/verify-id/$employeeId',
+  path: '/verify-id/$employeeId',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AppCompanySetupRoute = AppCompanySetupRouteImport.update({
-  id: '/company-setup',
-  path: '/company-setup',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppDashboardRoute = AppDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppDepartmentsRoute = AppDepartmentsRouteImport.update({
-  id: '/departments',
-  path: '/departments',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppDevicesRoute = AppDevicesRouteImport.update({
-  id: '/devices',
-  path: '/devices',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppEmergencyContactRoute = AppEmergencyContactRouteImport.update({
-  id: '/emergency-contact',
-  path: '/emergency-contact',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppEmployeeServicesRoute = AppEmployeeServicesRouteImport.update({
-  id: '/employee-services',
-  path: '/employee-services',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppEmployeesRoute = AppEmployeesRouteImport.update({
-  id: '/employees',
-  path: '/employees',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppFaceEnrollmentRoute = AppFaceEnrollmentRouteImport.update({
-  id: '/face-enrollment',
-  path: '/face-enrollment',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppFaceSecurityRoute = AppFaceSecurityRouteImport.update({
-  id: '/face-security',
-  path: '/face-security',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppHolidaysRoute = AppHolidaysRouteImport.update({
-  id: '/holidays',
-  path: '/holidays',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppIdCardRoute = AppIdCardRouteImport.update({
-  id: '/id-card',
-  path: '/id-card',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppMyAssetsRoute = AppMyAssetsRouteImport.update({
-  id: '/my-assets',
-  path: '/my-assets',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppNotificationsRoute = AppNotificationsRouteImport.update({
-  id: '/notifications',
-  path: '/notifications',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppProfileRoute = AppProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppRolesRoute = AppRolesRouteImport.update({
-  id: '/roles',
-  path: '/roles',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppSettingsRoute = AppSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
+const AppUsersRoute = AppUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
   getParentRoute: () => AppRoute,
 } as any)
 const AppTasksRoute = AppTasksRouteImport.update({
@@ -213,24 +113,185 @@ const AppTasksRoute = AppTasksRouteImport.update({
   path: '/tasks',
   getParentRoute: () => AppRoute,
 } as any)
-const AppUsersRoute = AppUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
-const VerifyIdEmployeeIdRoute = VerifyIdEmployeeIdRouteImport.update({
-  id: '/verify-id/$employeeId',
-  path: '/verify-id/$employeeId',
-  getParentRoute: () => rootRouteImport,
+const AppRolesRoute = AppRolesRouteImport.update({
+  id: '/roles',
+  path: '/roles',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProfileRoute = AppProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppNotificationsRoute = AppNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMyAssetsRoute = AppMyAssetsRouteImport.update({
+  id: '/my-assets',
+  path: '/my-assets',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppIdCardRoute = AppIdCardRouteImport.update({
+  id: '/id-card',
+  path: '/id-card',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppHolidaysRoute = AppHolidaysRouteImport.update({
+  id: '/holidays',
+  path: '/holidays',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFaceSecurityRoute = AppFaceSecurityRouteImport.update({
+  id: '/face-security',
+  path: '/face-security',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFaceEnrollmentRoute = AppFaceEnrollmentRouteImport.update({
+  id: '/face-enrollment',
+  path: '/face-enrollment',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEmployeesRoute = AppEmployeesRouteImport.update({
+  id: '/employees',
+  path: '/employees',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEmployeeServicesRoute = AppEmployeeServicesRouteImport.update({
+  id: '/employee-services',
+  path: '/employee-services',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEmergencyContactRoute = AppEmergencyContactRouteImport.update({
+  id: '/emergency-contact',
+  path: '/emergency-contact',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDevicesRoute = AppDevicesRouteImport.update({
+  id: '/devices',
+  path: '/devices',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDepartmentsRoute = AppDepartmentsRouteImport.update({
+  id: '/departments',
+  path: '/departments',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDashboardRoute = AppDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCompanySetupRoute = AppCompanySetupRouteImport.update({
+  id: '/company-setup',
+  path: '/company-setup',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppChecklistsRoute = AppChecklistsRouteImport.update({
+  id: '/checklists',
+  path: '/checklists',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBranchesRoute = AppBranchesRouteImport.update({
+  id: '/branches',
+  path: '/branches',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAuditRoute = AppAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAttendanceRoute = AppAttendanceRouteImport.update({
+  id: '/attendance',
+  path: '/attendance',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAssetsRoute = AppAssetsRouteImport.update({
+  id: '/assets',
+  path: '/assets',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAnnouncementsRoute = AppAnnouncementsRouteImport.update({
+  id: '/announcements',
+  path: '/announcements',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppAttendanceIndexRoute = AppAttendanceIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppAttendanceRoute,
 } as any)
-const AppAttendanceBranchRoute = AppAttendanceBranchRouteImport.update({
-  id: '/branch',
-  path: '/branch',
+const AppUsersNewRoute = AppUsersNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AppUsersRoute,
+} as any)
+const AppSettingsDevicesRoute = AppSettingsDevicesRouteImport.update({
+  id: '/devices',
+  path: '/devices',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppLeaveReportsRoute = AppLeaveReportsRouteImport.update({
+  id: '/leave/reports',
+  path: '/leave/reports',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppLeavePolicyRoute = AppLeavePolicyRouteImport.update({
+  id: '/leave/policy',
+  path: '/leave/policy',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppLeaveHistoryRoute = AppLeaveHistoryRouteImport.update({
+  id: '/leave/history',
+  path: '/leave/history',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppLeaveBalanceRoute = AppLeaveBalanceRouteImport.update({
+  id: '/leave/balance',
+  path: '/leave/balance',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppLeaveApprovalsRoute = AppLeaveApprovalsRouteImport.update({
+  id: '/leave/approvals',
+  path: '/leave/approvals',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppLeaveApplyRoute = AppLeaveApplyRouteImport.update({
+  id: '/leave/apply',
+  path: '/leave/apply',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDevicesMappingRoute = AppDevicesMappingRouteImport.update({
+  id: '/mapping',
+  path: '/mapping',
+  getParentRoute: () => AppDevicesRoute,
+} as any)
+const AppAttendanceMissedPunchRoute =
+  AppAttendanceMissedPunchRouteImport.update({
+    id: '/missed-punch',
+    path: '/missed-punch',
+    getParentRoute: () => AppAttendanceRoute,
+  } as any)
+const AppAttendanceMineRoute = AppAttendanceMineRouteImport.update({
+  id: '/mine',
+  path: '/mine',
+  getParentRoute: () => AppAttendanceRoute,
+} as any)
+const AppAttendanceLocationsRoute = AppAttendanceLocationsRouteImport.update({
+  id: '/locations',
+  path: '/locations',
+  getParentRoute: () => AppAttendanceRoute,
+} as any)
+const AppAttendanceFieldRoute = AppAttendanceFieldRouteImport.update({
+  id: '/field',
+  path: '/field',
   getParentRoute: () => AppAttendanceRoute,
 } as any)
 const AppAttendanceCorrectionsRoute =
@@ -239,71 +300,10 @@ const AppAttendanceCorrectionsRoute =
     path: '/corrections',
     getParentRoute: () => AppAttendanceRoute,
   } as any)
-const AppAttendanceFieldRoute = AppAttendanceFieldRouteImport.update({
-  id: '/field',
-  path: '/field',
+const AppAttendanceBranchRoute = AppAttendanceBranchRouteImport.update({
+  id: '/branch',
+  path: '/branch',
   getParentRoute: () => AppAttendanceRoute,
-} as any)
-const AppAttendanceLocationsRoute = AppAttendanceLocationsRouteImport.update({
-  id: '/locations',
-  path: '/locations',
-  getParentRoute: () => AppAttendanceRoute,
-} as any)
-const AppAttendanceMineRoute = AppAttendanceMineRouteImport.update({
-  id: '/mine',
-  path: '/mine',
-  getParentRoute: () => AppAttendanceRoute,
-} as any)
-const AppAttendanceMissedPunchRoute =
-  AppAttendanceMissedPunchRouteImport.update({
-    id: '/missed-punch',
-    path: '/missed-punch',
-    getParentRoute: () => AppAttendanceRoute,
-  } as any)
-const AppDevicesMappingRoute = AppDevicesMappingRouteImport.update({
-  id: '/mapping',
-  path: '/mapping',
-  getParentRoute: () => AppDevicesRoute,
-} as any)
-const AppLeaveApplyRoute = AppLeaveApplyRouteImport.update({
-  id: '/leave/apply',
-  path: '/leave/apply',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppLeaveApprovalsRoute = AppLeaveApprovalsRouteImport.update({
-  id: '/leave/approvals',
-  path: '/leave/approvals',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppLeaveBalanceRoute = AppLeaveBalanceRouteImport.update({
-  id: '/leave/balance',
-  path: '/leave/balance',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppLeaveHistoryRoute = AppLeaveHistoryRouteImport.update({
-  id: '/leave/history',
-  path: '/leave/history',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppLeavePolicyRoute = AppLeavePolicyRouteImport.update({
-  id: '/leave/policy',
-  path: '/leave/policy',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppLeaveReportsRoute = AppLeaveReportsRouteImport.update({
-  id: '/leave/reports',
-  path: '/leave/reports',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppSettingsDevicesRoute = AppSettingsDevicesRouteImport.update({
-  id: '/devices',
-  path: '/devices',
-  getParentRoute: () => AppSettingsRoute,
-} as any)
-const AppUsersNewRoute = AppUsersNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => AppUsersRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -624,46 +624,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_app': {
-      id: '/_app'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AppRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/account-deletion': {
-      id: '/account-deletion'
-      path: '/account-deletion'
-      fullPath: '/account-deletion'
-      preLoaderRoute: typeof AccountDeletionRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/first-login': {
-      id: '/first-login'
-      path: '/first-login'
-      fullPath: '/first-login'
-      preLoaderRoute: typeof FirstLoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/forgot-password': {
-      id: '/forgot-password'
-      path: '/forgot-password'
-      fullPath: '/forgot-password'
-      preLoaderRoute: typeof ForgotPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -673,165 +638,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/terms': {
-      id: '/terms'
-      path: '/terms'
-      fullPath: '/terms'
-      preLoaderRoute: typeof TermsRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app/announcements': {
-      id: '/_app/announcements'
-      path: '/announcements'
-      fullPath: '/announcements'
-      preLoaderRoute: typeof AppAnnouncementsRouteImport
-      parentRoute: typeof AppRoute
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_app/assets': {
-      id: '/_app/assets'
-      path: '/assets'
-      fullPath: '/assets'
-      preLoaderRoute: typeof AppAssetsRouteImport
-      parentRoute: typeof AppRoute
+    '/first-login': {
+      id: '/first-login'
+      path: '/first-login'
+      fullPath: '/first-login'
+      preLoaderRoute: typeof FirstLoginRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_app/attendance': {
-      id: '/_app/attendance'
-      path: '/attendance'
-      fullPath: '/attendance'
-      preLoaderRoute: typeof AppAttendanceRouteImport
-      parentRoute: typeof AppRoute
+    '/account-deletion': {
+      id: '/account-deletion'
+      path: '/account-deletion'
+      fullPath: '/account-deletion'
+      preLoaderRoute: typeof AccountDeletionRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_app/audit': {
-      id: '/_app/audit'
-      path: '/audit'
-      fullPath: '/audit'
-      preLoaderRoute: typeof AppAuditRouteImport
-      parentRoute: typeof AppRoute
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_app/branches': {
-      id: '/_app/branches'
-      path: '/branches'
-      fullPath: '/branches'
-      preLoaderRoute: typeof AppBranchesRouteImport
-      parentRoute: typeof AppRoute
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_app/checklists': {
-      id: '/_app/checklists'
-      path: '/checklists'
-      fullPath: '/checklists'
-      preLoaderRoute: typeof AppChecklistsRouteImport
-      parentRoute: typeof AppRoute
+    '/verify-id/$employeeId': {
+      id: '/verify-id/$employeeId'
+      path: '/verify-id/$employeeId'
+      fullPath: '/verify-id/$employeeId'
+      preLoaderRoute: typeof VerifyIdEmployeeIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_app/company-setup': {
-      id: '/_app/company-setup'
-      path: '/company-setup'
-      fullPath: '/company-setup'
-      preLoaderRoute: typeof AppCompanySetupRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/dashboard': {
-      id: '/_app/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AppDashboardRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/departments': {
-      id: '/_app/departments'
-      path: '/departments'
-      fullPath: '/departments'
-      preLoaderRoute: typeof AppDepartmentsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/devices': {
-      id: '/_app/devices'
-      path: '/devices'
-      fullPath: '/devices'
-      preLoaderRoute: typeof AppDevicesRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/emergency-contact': {
-      id: '/_app/emergency-contact'
-      path: '/emergency-contact'
-      fullPath: '/emergency-contact'
-      preLoaderRoute: typeof AppEmergencyContactRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/employee-services': {
-      id: '/_app/employee-services'
-      path: '/employee-services'
-      fullPath: '/employee-services'
-      preLoaderRoute: typeof AppEmployeeServicesRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/employees': {
-      id: '/_app/employees'
-      path: '/employees'
-      fullPath: '/employees'
-      preLoaderRoute: typeof AppEmployeesRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/face-enrollment': {
-      id: '/_app/face-enrollment'
-      path: '/face-enrollment'
-      fullPath: '/face-enrollment'
-      preLoaderRoute: typeof AppFaceEnrollmentRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/face-security': {
-      id: '/_app/face-security'
-      path: '/face-security'
-      fullPath: '/face-security'
-      preLoaderRoute: typeof AppFaceSecurityRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/holidays': {
-      id: '/_app/holidays'
-      path: '/holidays'
-      fullPath: '/holidays'
-      preLoaderRoute: typeof AppHolidaysRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/id-card': {
-      id: '/_app/id-card'
-      path: '/id-card'
-      fullPath: '/id-card'
-      preLoaderRoute: typeof AppIdCardRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/my-assets': {
-      id: '/_app/my-assets'
-      path: '/my-assets'
-      fullPath: '/my-assets'
-      preLoaderRoute: typeof AppMyAssetsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/notifications': {
-      id: '/_app/notifications'
-      path: '/notifications'
-      fullPath: '/notifications'
-      preLoaderRoute: typeof AppNotificationsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/profile': {
-      id: '/_app/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof AppProfileRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/roles': {
-      id: '/_app/roles'
-      path: '/roles'
-      fullPath: '/roles'
-      preLoaderRoute: typeof AppRolesRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/settings': {
-      id: '/_app/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AppSettingsRouteImport
+    '/_app/users': {
+      id: '/_app/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof AppUsersRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/tasks': {
@@ -841,19 +701,159 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTasksRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/users': {
-      id: '/_app/users'
-      path: '/users'
-      fullPath: '/users'
-      preLoaderRoute: typeof AppUsersRouteImport
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
-    '/verify-id/$employeeId': {
-      id: '/verify-id/$employeeId'
-      path: '/verify-id/$employeeId'
-      fullPath: '/verify-id/$employeeId'
-      preLoaderRoute: typeof VerifyIdEmployeeIdRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_app/roles': {
+      id: '/_app/roles'
+      path: '/roles'
+      fullPath: '/roles'
+      preLoaderRoute: typeof AppRolesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/profile': {
+      id: '/_app/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AppProfileRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/notifications': {
+      id: '/_app/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AppNotificationsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/my-assets': {
+      id: '/_app/my-assets'
+      path: '/my-assets'
+      fullPath: '/my-assets'
+      preLoaderRoute: typeof AppMyAssetsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/id-card': {
+      id: '/_app/id-card'
+      path: '/id-card'
+      fullPath: '/id-card'
+      preLoaderRoute: typeof AppIdCardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/holidays': {
+      id: '/_app/holidays'
+      path: '/holidays'
+      fullPath: '/holidays'
+      preLoaderRoute: typeof AppHolidaysRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/face-security': {
+      id: '/_app/face-security'
+      path: '/face-security'
+      fullPath: '/face-security'
+      preLoaderRoute: typeof AppFaceSecurityRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/face-enrollment': {
+      id: '/_app/face-enrollment'
+      path: '/face-enrollment'
+      fullPath: '/face-enrollment'
+      preLoaderRoute: typeof AppFaceEnrollmentRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/employees': {
+      id: '/_app/employees'
+      path: '/employees'
+      fullPath: '/employees'
+      preLoaderRoute: typeof AppEmployeesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/employee-services': {
+      id: '/_app/employee-services'
+      path: '/employee-services'
+      fullPath: '/employee-services'
+      preLoaderRoute: typeof AppEmployeeServicesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/emergency-contact': {
+      id: '/_app/emergency-contact'
+      path: '/emergency-contact'
+      fullPath: '/emergency-contact'
+      preLoaderRoute: typeof AppEmergencyContactRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/devices': {
+      id: '/_app/devices'
+      path: '/devices'
+      fullPath: '/devices'
+      preLoaderRoute: typeof AppDevicesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/departments': {
+      id: '/_app/departments'
+      path: '/departments'
+      fullPath: '/departments'
+      preLoaderRoute: typeof AppDepartmentsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/dashboard': {
+      id: '/_app/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AppDashboardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/company-setup': {
+      id: '/_app/company-setup'
+      path: '/company-setup'
+      fullPath: '/company-setup'
+      preLoaderRoute: typeof AppCompanySetupRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/checklists': {
+      id: '/_app/checklists'
+      path: '/checklists'
+      fullPath: '/checklists'
+      preLoaderRoute: typeof AppChecklistsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/branches': {
+      id: '/_app/branches'
+      path: '/branches'
+      fullPath: '/branches'
+      preLoaderRoute: typeof AppBranchesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/audit': {
+      id: '/_app/audit'
+      path: '/audit'
+      fullPath: '/audit'
+      preLoaderRoute: typeof AppAuditRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/attendance': {
+      id: '/_app/attendance'
+      path: '/attendance'
+      fullPath: '/attendance'
+      preLoaderRoute: typeof AppAttendanceRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/assets': {
+      id: '/_app/assets'
+      path: '/assets'
+      fullPath: '/assets'
+      preLoaderRoute: typeof AppAssetsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/announcements': {
+      id: '/_app/announcements'
+      path: '/announcements'
+      fullPath: '/announcements'
+      preLoaderRoute: typeof AppAnnouncementsRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/attendance/': {
       id: '/_app/attendance/'
@@ -862,81 +862,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAttendanceIndexRouteImport
       parentRoute: typeof AppAttendanceRoute
     }
-    '/_app/attendance/branch': {
-      id: '/_app/attendance/branch'
-      path: '/branch'
-      fullPath: '/attendance/branch'
-      preLoaderRoute: typeof AppAttendanceBranchRouteImport
-      parentRoute: typeof AppAttendanceRoute
+    '/_app/users/new': {
+      id: '/_app/users/new'
+      path: '/new'
+      fullPath: '/users/new'
+      preLoaderRoute: typeof AppUsersNewRouteImport
+      parentRoute: typeof AppUsersRoute
     }
-    '/_app/attendance/corrections': {
-      id: '/_app/attendance/corrections'
-      path: '/corrections'
-      fullPath: '/attendance/corrections'
-      preLoaderRoute: typeof AppAttendanceCorrectionsRouteImport
-      parentRoute: typeof AppAttendanceRoute
+    '/_app/settings/devices': {
+      id: '/_app/settings/devices'
+      path: '/devices'
+      fullPath: '/settings/devices'
+      preLoaderRoute: typeof AppSettingsDevicesRouteImport
+      parentRoute: typeof AppSettingsRoute
     }
-    '/_app/attendance/field': {
-      id: '/_app/attendance/field'
-      path: '/field'
-      fullPath: '/attendance/field'
-      preLoaderRoute: typeof AppAttendanceFieldRouteImport
-      parentRoute: typeof AppAttendanceRoute
-    }
-    '/_app/attendance/locations': {
-      id: '/_app/attendance/locations'
-      path: '/locations'
-      fullPath: '/attendance/locations'
-      preLoaderRoute: typeof AppAttendanceLocationsRouteImport
-      parentRoute: typeof AppAttendanceRoute
-    }
-    '/_app/attendance/mine': {
-      id: '/_app/attendance/mine'
-      path: '/mine'
-      fullPath: '/attendance/mine'
-      preLoaderRoute: typeof AppAttendanceMineRouteImport
-      parentRoute: typeof AppAttendanceRoute
-    }
-    '/_app/attendance/missed-punch': {
-      id: '/_app/attendance/missed-punch'
-      path: '/missed-punch'
-      fullPath: '/attendance/missed-punch'
-      preLoaderRoute: typeof AppAttendanceMissedPunchRouteImport
-      parentRoute: typeof AppAttendanceRoute
-    }
-    '/_app/devices/mapping': {
-      id: '/_app/devices/mapping'
-      path: '/mapping'
-      fullPath: '/devices/mapping'
-      preLoaderRoute: typeof AppDevicesMappingRouteImport
-      parentRoute: typeof AppDevicesRoute
-    }
-    '/_app/leave/apply': {
-      id: '/_app/leave/apply'
-      path: '/leave/apply'
-      fullPath: '/leave/apply'
-      preLoaderRoute: typeof AppLeaveApplyRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/leave/approvals': {
-      id: '/_app/leave/approvals'
-      path: '/leave/approvals'
-      fullPath: '/leave/approvals'
-      preLoaderRoute: typeof AppLeaveApprovalsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/leave/balance': {
-      id: '/_app/leave/balance'
-      path: '/leave/balance'
-      fullPath: '/leave/balance'
-      preLoaderRoute: typeof AppLeaveBalanceRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/leave/history': {
-      id: '/_app/leave/history'
-      path: '/leave/history'
-      fullPath: '/leave/history'
-      preLoaderRoute: typeof AppLeaveHistoryRouteImport
+    '/_app/leave/reports': {
+      id: '/_app/leave/reports'
+      path: '/leave/reports'
+      fullPath: '/leave/reports'
+      preLoaderRoute: typeof AppLeaveReportsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/leave/policy': {
@@ -946,26 +890,82 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppLeavePolicyRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/leave/reports': {
-      id: '/_app/leave/reports'
-      path: '/leave/reports'
-      fullPath: '/leave/reports'
-      preLoaderRoute: typeof AppLeaveReportsRouteImport
+    '/_app/leave/history': {
+      id: '/_app/leave/history'
+      path: '/leave/history'
+      fullPath: '/leave/history'
+      preLoaderRoute: typeof AppLeaveHistoryRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/settings/devices': {
-      id: '/_app/settings/devices'
-      path: '/devices'
-      fullPath: '/settings/devices'
-      preLoaderRoute: typeof AppSettingsDevicesRouteImport
-      parentRoute: typeof AppSettingsRoute
+    '/_app/leave/balance': {
+      id: '/_app/leave/balance'
+      path: '/leave/balance'
+      fullPath: '/leave/balance'
+      preLoaderRoute: typeof AppLeaveBalanceRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/_app/users/new': {
-      id: '/_app/users/new'
-      path: '/new'
-      fullPath: '/users/new'
-      preLoaderRoute: typeof AppUsersNewRouteImport
-      parentRoute: typeof AppUsersRoute
+    '/_app/leave/approvals': {
+      id: '/_app/leave/approvals'
+      path: '/leave/approvals'
+      fullPath: '/leave/approvals'
+      preLoaderRoute: typeof AppLeaveApprovalsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/leave/apply': {
+      id: '/_app/leave/apply'
+      path: '/leave/apply'
+      fullPath: '/leave/apply'
+      preLoaderRoute: typeof AppLeaveApplyRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/devices/mapping': {
+      id: '/_app/devices/mapping'
+      path: '/mapping'
+      fullPath: '/devices/mapping'
+      preLoaderRoute: typeof AppDevicesMappingRouteImport
+      parentRoute: typeof AppDevicesRoute
+    }
+    '/_app/attendance/missed-punch': {
+      id: '/_app/attendance/missed-punch'
+      path: '/missed-punch'
+      fullPath: '/attendance/missed-punch'
+      preLoaderRoute: typeof AppAttendanceMissedPunchRouteImport
+      parentRoute: typeof AppAttendanceRoute
+    }
+    '/_app/attendance/mine': {
+      id: '/_app/attendance/mine'
+      path: '/mine'
+      fullPath: '/attendance/mine'
+      preLoaderRoute: typeof AppAttendanceMineRouteImport
+      parentRoute: typeof AppAttendanceRoute
+    }
+    '/_app/attendance/locations': {
+      id: '/_app/attendance/locations'
+      path: '/locations'
+      fullPath: '/attendance/locations'
+      preLoaderRoute: typeof AppAttendanceLocationsRouteImport
+      parentRoute: typeof AppAttendanceRoute
+    }
+    '/_app/attendance/field': {
+      id: '/_app/attendance/field'
+      path: '/field'
+      fullPath: '/attendance/field'
+      preLoaderRoute: typeof AppAttendanceFieldRouteImport
+      parentRoute: typeof AppAttendanceRoute
+    }
+    '/_app/attendance/corrections': {
+      id: '/_app/attendance/corrections'
+      path: '/corrections'
+      fullPath: '/attendance/corrections'
+      preLoaderRoute: typeof AppAttendanceCorrectionsRouteImport
+      parentRoute: typeof AppAttendanceRoute
+    }
+    '/_app/attendance/branch': {
+      id: '/_app/attendance/branch'
+      path: '/branch'
+      fullPath: '/attendance/branch'
+      preLoaderRoute: typeof AppAttendanceBranchRouteImport
+      parentRoute: typeof AppAttendanceRoute
     }
   }
 }
@@ -1112,3 +1112,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

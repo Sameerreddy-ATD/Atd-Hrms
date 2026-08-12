@@ -3,8 +3,7 @@ import { App as CapApp } from "@capacitor/app";
 import { SplashScreen } from "@capacitor/splash-screen";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { ScreenOrientation } from "@capacitor/screen-orientation";
-
-const BRAND_RED = "#dc2f20";
+import { Keyboard } from "@capacitor/keyboard";
 
 /** True when running inside the Capacitor Android/iOS shell. */
 export function isNativeApp() {
@@ -36,17 +35,74 @@ function shouldLockNativePortrait() {
   return false;
 }
 
+function isDocumentDark() {
+  if (typeof document === "undefined") return false;
+  return document.documentElement.classList.contains("dark");
+}
+
+// Timestamp of the last navigation / resume, used to reject the spurious Back
+// events that Samsung and other OEMs emit right after a route change.
+let lastNavActivityAt = Date.now();
+// Timestamp of the last Back press while already at a root screen (double-press
+// to background pattern).
+let lastRootBackAt = 0;
+
+function markNavActivity() {
+  lastNavActivityAt = Date.now();
+}
+
+/** Patch history + popstate so any route change refreshes the nav timestamp. */
+function installNavTracking(): () => void {
+  if (typeof window === "undefined") return () => undefined;
+  const originalPush = window.history.pushState;
+  const originalReplace = window.history.replaceState;
+
+  window.history.pushState = function patchedPush(...args) {
+    markNavActivity();
+    return originalPush.apply(this, args as Parameters<typeof originalPush>);
+  };
+  window.history.replaceState = function patchedReplace(...args) {
+    markNavActivity();
+    return originalReplace.apply(this, args as Parameters<typeof originalReplace>);
+  };
+  window.addEventListener("popstate", markNavActivity);
+
+  return () => {
+    window.history.pushState = originalPush;
+    window.history.replaceState = originalReplace;
+    window.removeEventListener("popstate", markNavActivity);
+  };
+}
+
+function isAppRootPath(pathname: string) {
+  return (
+    pathname === "/" ||
+    pathname === "/login" ||
+    pathname === "/dashboard" ||
+    pathname === "/first-login" ||
+    pathname === "/forgot-password"
+  );
+}
+
 async function configureStatusBar() {
   if (!isNativeApp()) return;
   try {
-    await StatusBar.setStyle({ style: Style.Light });
-    await StatusBar.setBackgroundColor({ color: BRAND_RED });
+    const dark = isDocumentDark();
+    // Do NOT overlay the WebView — overlay + light pad caused the white strip under
+    // the camera/status bar on many Android OEMs and contributed to startup crashes.
     if (getNativePlatform() === "android") {
       await StatusBar.setOverlaysWebView({ overlay: false });
     }
+    await StatusBar.setBackgroundColor({ color: dark ? "#1a1f2a" : "#F6F8FC" });
+    await StatusBar.setStyle({ style: dark ? Style.Light : Style.Dark });
   } catch {
     // Plugin may be unavailable on unsupported platforms.
   }
+}
+
+/** Re-apply status-bar contrast after theme changes. */
+export async function syncNativeChrome() {
+  await configureStatusBar();
 }
 
 async function lockNativePortrait() {
@@ -54,14 +110,14 @@ async function lockNativePortrait() {
   try {
     await ScreenOrientation.lock({ orientation: "portrait" });
   } catch {
-    // Some tablets ignore portrait lock; the web guard remains as fallback.
+    // Some tablets / OEMs reject portrait lock; web guard remains.
   }
 }
 
 async function hideSplashWhenReady() {
   if (!isNativeApp()) return;
   try {
-    await SplashScreen.hide();
+    await SplashScreen.hide({ fadeOutDuration: 200 });
   } catch {
     // Ignore if splash already dismissed.
   }
@@ -74,32 +130,81 @@ async function hideSplashWhenReady() {
 export async function bootstrapNativeApp() {
   if (!isNativeApp()) return () => undefined;
 
-  await configureStatusBar();
-  await lockNativePortrait();
+  // Status bar first (cheap). Delay orientation lock — locking during cold start
+  // crashes some Android 12–15 OEM WebView builds.
+  try {
+    await configureStatusBar();
+  } catch {
+    // continue boot
+  }
 
-  // Let the first paint settle, then drop the splash over the live web UI.
+  window.setTimeout(() => {
+    void lockNativePortrait();
+  }, 800);
+
+  // Keep splash until the remote web UI has had time to paint.
   window.setTimeout(() => {
     void hideSplashWhenReady();
-  }, 400);
+  }, 700);
 
   const resumeHandle = await CapApp.addListener("appStateChange", ({ isActive }) => {
     if (!isActive) return;
+    markNavActivity();
     void configureStatusBar();
     void lockNativePortrait();
   });
 
+  // Track route changes so a Back event that lands immediately after login /
+  // navigation can be recognised as spurious and ignored.
+  const stopNavTracking = installNavTracking();
+
+  // Track keyboard visibility. On Samsung One UI and other OEMs, dismissing the
+  // soft keyboard (e.g. after tapping "Sign in") synthesizes a Back event. That
+  // must only close the keyboard — never navigate or background the app.
+  let keyboardVisible = false;
+  let keyboardHiddenAt = 0;
+  const kbShow = await Keyboard.addListener("keyboardWillShow", () => {
+    keyboardVisible = true;
+  }).catch(() => null);
+  const kbHide = await Keyboard.addListener("keyboardWillHide", () => {
+    keyboardVisible = false;
+    keyboardHiddenAt = Date.now();
+  }).catch(() => null);
+
+  // Hardware / gesture Back. Never exitApp; only a deliberate Back at an app root
+  // minimizes (like Home). Spurious Back from keyboard-dismiss or a fresh
+  // navigation is swallowed so the app never "closes" right after login.
   const backHandle = await CapApp.addListener("backButton", ({ canGoBack }) => {
-    if (canGoBack) {
+    const now = Date.now();
+
+    // 1) Back that is really just the keyboard closing → ignore.
+    if (keyboardVisible || now - keyboardHiddenAt < 800) return;
+
+    // 2) Back that arrives right after a route change (login redirect, etc.) is an
+    //    OEM artifact, not a user intent → ignore.
+    if (now - lastNavActivityAt < 1000) return;
+
+    const pathname = window.location.pathname || "/";
+    if (!isAppRootPath(pathname) && canGoBack) {
       window.history.back();
       return;
     }
-    void CapApp.minimizeApp().catch(() => {
-      void CapApp.exitApp();
-    });
+
+    // At a root screen: require a deliberate double Back before backgrounding so a
+    // single stray event can never drop the app to the background.
+    if (now - lastRootBackAt < 1500) {
+      void CapApp.minimizeApp().catch(() => undefined);
+      lastRootBackAt = 0;
+      return;
+    }
+    lastRootBackAt = now;
   });
 
   return () => {
     void resumeHandle.remove();
     void backHandle.remove();
+    stopNavTracking();
+    void kbShow?.remove();
+    void kbHide?.remove();
   };
 }

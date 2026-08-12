@@ -11,7 +11,7 @@
   "display_override": ["standalone", "minimal-ui", "browser"],
   "prefer_related_applications": false,
   "background_color": "#F6F8FC",
-  "theme_color": "#dc2f20",
+  "theme_color": "#F6F8FC",
   "orientation": "portrait",
   "categories": ["business", "productivity"],
   "launch_handler": {

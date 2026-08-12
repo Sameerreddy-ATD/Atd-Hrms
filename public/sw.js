@@ -1,5 +1,9 @@
-self.ATD_STATIC_CACHE = "atd-static-v8";
-self.ATD_BUILD_ID = "2026-08-05-f1";
+// Keep ATD_BUILD_ID in sync with src/lib/app-build.ts APP_BUILD_ID and
+// public/app-version.json. Bumping it changes sw.js bytes -> a new SW installs,
+// activate purges the old cache, and cache-first shell/static assets (icons,
+// manifest, fonts, face-models) refresh on already-installed apps.
+self.ATD_BUILD_ID = "2026-08-12-device-hardening";
+self.ATD_STATIC_CACHE = `atd-static-${self.ATD_BUILD_ID}`;
 self.ATD_SHELL_ASSETS = [
   "/manifest.webmanifest",
   "/atd-logo.png",
@@ -58,10 +62,11 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   // Never cache API / health / streams / build version / SW — always hit the live server.
+  // NOTE: the API is a separate origin (cross-origin requests are already ignored above),
+  // so do NOT list same-origin app routes like /attendance/* here or their navigations
+  // would skip the network-first navigation handler and the offline fallback shell.
   if (
     url.pathname.startsWith("/api/") ||
-    url.pathname.startsWith("/attendance/") ||
-    url.pathname.startsWith("/auth/") ||
     url.pathname.includes("/stream") ||
     url.pathname === "/health" ||
     url.pathname.startsWith("/health/") ||

@@ -34,7 +34,7 @@ import {
   filterVisibleNotifications,
   NOTIFICATION_COUNT_CHANGED_EVENT,
 } from "@/lib/browser-notifications";
-import { hardRefreshApp, isAppInstalled } from "@/lib/pwa-install";
+import { hardRefreshApp } from "@/lib/pwa-install";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -52,7 +52,6 @@ export function AppHeader() {
   const [notificationCount, setNotificationCount] = useState(0);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const installedApp = typeof window !== "undefined" && isAppInstalled();
 
   async function refreshApp() {
     if (refreshing) return;
@@ -113,7 +112,7 @@ export function AppHeader() {
   const roleLabel = user ? ROLE_LABELS[user.role] : "";
 
   return (
-    <header className="sticky top-0 z-30 flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center justify-between gap-1 border-b border-border/80 bg-background/85 px-2 pt-[env(safe-area-inset-top)] backdrop-blur-xl transition-[background-color,border-color] duration-[var(--motion-ui)] dark:bg-card/90 dark:shadow-[0_1px_0_0_color-mix(in_oklab,white_6%,transparent)] sm:h-[calc(4rem+env(safe-area-inset-top))] sm:gap-3 sm:px-4 md:px-6">
+    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-1 border-b border-border/80 bg-background/85 px-2 backdrop-blur-xl transition-[background-color,border-color] duration-[var(--motion-ui)] dark:bg-card/90 dark:shadow-[0_1px_0_0_color-mix(in_oklab,white_6%,transparent)] sm:h-16 sm:gap-3 sm:px-4 md:px-6">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <Button
           variant="ghost"
@@ -151,21 +150,6 @@ export function AppHeader() {
           onClick={() => setPaletteOpen(true)}
         >
           <Search className="h-[18px] w-[18px]" />
-        </Button>
-
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn(
-            "h-10 w-10 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground",
-            installedApp ? "inline-flex" : "hidden sm:inline-flex",
-          )}
-          aria-label="Refresh app"
-          title="Refresh app (hard reload)"
-          disabled={refreshing}
-          onClick={() => void refreshApp()}
-        >
-          <RefreshCw className={cn("h-[18px] w-[18px]", refreshing && "animate-spin")} />
         </Button>
 
         <Button

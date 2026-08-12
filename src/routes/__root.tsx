@@ -17,6 +17,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { registerAppServiceWorker } from "@/lib/browser-notifications";
 import { detectPwaPlatform, ensureLatestAppBuild } from "@/lib/pwa-install";
 import { bootstrapNativeApp, isNativeApp } from "@/lib/native-app";
+import { installClientErrorReporter, reportClientError } from "@/lib/client-error-reporter";
 import { PortraitOrientationGuard } from "@/components/layout/PortraitOrientationGuard";
 
 const SITE_TITLE = "Anytime Workforce";
@@ -49,6 +50,10 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
+
+  useEffect(() => {
+    reportClientError(error, "route-boundary");
+  }, [error]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -99,7 +104,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "format-detection", content: "telephone=no" },
-      { name: "theme-color", content: "#dc2f20", media: "(prefers-color-scheme: light)" },
+      { name: "theme-color", content: "#F6F8FC", media: "(prefers-color-scheme: light)" },
       { name: "theme-color", content: "#1a1f2a", media: "(prefers-color-scheme: dark)" },
       { name: "robots", content: "noindex,nofollow" },
       { property: "og:site_name", content: SITE_TITLE },
@@ -157,6 +162,8 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => installClientErrorReporter(), []);
 
   useEffect(() => {
     let disposeNative: (() => void) | undefined;
@@ -221,7 +228,12 @@ function RootComponent() {
         <PortraitOrientationGuard />
         <SystemThemeSync />
         <NotificationBridge />
-        <Toaster position="top-center" richColors closeButton />
+        <Toaster
+          position="top-center"
+          richColors
+          closeButton
+          offset="calc(env(safe-area-inset-top, 0px) + 12px)"
+        />
       </AuthProvider>
     </QueryClientProvider>
   );

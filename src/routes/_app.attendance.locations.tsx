@@ -38,7 +38,8 @@ type SavedDayLogSelection = {
 };
 
 function readSavedSelection(): SavedDayLogSelection | null {
-  const raw = sessionStorage.getItem("attendance-day-log-selection");
+  if (typeof window === "undefined") return null;
+  const raw = window.sessionStorage.getItem("attendance-day-log-selection");
   if (!raw) return null;
   try {
     return JSON.parse(raw) as SavedDayLogSelection;

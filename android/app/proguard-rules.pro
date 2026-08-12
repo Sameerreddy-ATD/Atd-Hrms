@@ -33,3 +33,7 @@
     public static *** d(...);
     public static *** v(...);
 }
+
+# Play "Repackage classes" — compact DEX by moving kept/obfuscated types
+-repackageclasses ''
+-allowaccessmodification

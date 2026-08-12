@@ -150,12 +150,14 @@ export async function hardRefreshApp(): Promise<void> {
           try {
             await registration.update();
           } catch {
-            // Offline or blocked — still unregister below.
+            // Offline or blocked — the reload below still refreshes the shell.
           }
           if (registration.waiting) {
             registration.waiting.postMessage({ type: "SKIP_WAITING" });
           }
-          await registration.unregister().catch(() => false);
+          // Keep the registration so the page stays controlled — unregistering
+          // triggers an extra uncontrolled->claim->controllerchange reload on
+          // every deploy.
         }),
       );
     }

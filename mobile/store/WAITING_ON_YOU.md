@@ -25,10 +25,11 @@ Play Console is **verified**. Upload can proceed. Below is what is already done 
 4. Paste legal URLs (privacy / terms / account deletion)
 5. Complete Data Safety + content rating (drafts in `docs/MOBILE_STORE_RELEASE.md`)
 6. Create **Internal testing** release → upload  
-   `~/Anytime-Workforce-Credentials/play-upload/AnytimeWorkforce-1.0.1.aab`  
-   (or `~/Downloads/AnytimeWorkforce-1.0.1.aab`)
+   `~/Anytime-Workforce-Credentials/play-upload/AnytimeWorkforce-1.0.3.aab`  
+   (or `~/Downloads/AnytimeWorkforce-1.0.3.aab`)
 7. Add your Google account as a tester, install from the testing link, smoke-test login + attendance
-8. Prepare a **normal employee** reviewer login (not Developer Admin); pause Face Security for that user if needed
+8. Store listing: set **App name** to Anytime Workforce, upload `mobile/assets/play-icon-512.png` + feature graphic
+9. Prepare a **normal employee** reviewer login (not Developer Admin); pause Face Security for that user if needed
 
 ## Optional before / after first ship
 

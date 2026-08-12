@@ -3,6 +3,7 @@ import { Camera, CheckCircle2, LoaderCircle, ScanFace, ShieldCheck, X } from "lu
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { lockPortraitOrientation } from "@/lib/screen-orientation";
+import { blockedPermissionHint, requestNativeCameraPermission } from "@/lib/device-permissions";
 import type { FaceCapturePayload, FaceChallenge, FaceVerificationSession } from "@/types/domain";
 
 type HumanInstance = InstanceType<typeof import("@vladmandic/human").default>;
@@ -56,6 +57,11 @@ function loadHuman() {
       await human.load();
       await human.warmup();
       return human;
+    });
+    // A transient WebGL / model-fetch failure must not poison the cached promise,
+    // or "Try again" and remounts would forever return the same rejection.
+    humanPromise.catch(() => {
+      humanPromise = null;
     });
   }
   return humanPromise;
@@ -226,6 +232,8 @@ export function FaceCapture({
         const human = await loadHuman();
         if (!active) return;
         setMessage("Requesting camera access…");
+        await requestNativeCameraPermission();
+        if (!active) return;
         let stream: MediaStream;
         try {
           stream = await navigator.mediaDevices.getUserMedia({
@@ -547,7 +555,7 @@ export function FaceCapture({
       } catch (caught) {
         const text =
           caught instanceof DOMException && caught.name === "NotAllowedError"
-            ? "Camera permission was denied. Allow camera access in your browser and try again."
+            ? blockedPermissionHint("camera")
             : caught instanceof Error
               ? caught.message
               : "The camera could not be opened.";

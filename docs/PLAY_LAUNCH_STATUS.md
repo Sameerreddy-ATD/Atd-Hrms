@@ -23,13 +23,17 @@ Canonical product docs remain in the rest of `docs/`. Credentials stay on the la
 - Capacitor 7 shell loading production HTTPS (cookie auth preserved)
 - `compileSdk` / `targetSdk` **36** (Play current-API readiness)
 - Manifest: no hard `screenOrientation=portrait` (phones lock via JS/Capacitor; tablets/folds free)
-- Branded launcher icons + Play 512 icon + feature graphic `1024×500`
+- Branded launcher icons + Play 512 icon + feature graphic `1024×500` from `atd-app-icon-512.png` (black + ATD diesel mark)
+- Black splash (no Capacitor blue/white default logo)
+- Status bar does **not** overlay WebView (removes white strip under notch/status bar)
+- Startup hardened: delayed portrait lock, delayed splash hide, stock `BridgeActivity` (no edge-to-edge flags)
 - `google-services.json` installed locally (gitignored)
 - Upload keystore created; signed **AAB** built (rebuild after each Play-hygiene change):
-  - Latest: **1.0.1** (`versionCode` 2) with R8 minify/shrink — re-upload for Internal testing
-  - `~/Downloads/AnytimeWorkforce-1.0.1.aab`
-  - `~/Anytime-Workforce-Credentials/play-upload/AnytimeWorkforce-1.0.1.aab`
-- Release hardening: `minifyEnabled` + `shrinkResources`, Capacitor ProGuard keep rules, AGP **8.9.2** (not AGP 9 — Capacitor 7-safe), arm-only ABIs
+  - Latest: **1.0.6** (`versionCode` 7) — device hardening: `targetSdk 35` + edge-to-edge opt-out (fixes white bar on Android 15/16), splash safety-net (no infinite black screen offline), deferred cold-start orientation lock, dark-mode native bars (`values-night`), old-device nav bar fix (`values-v27`), keyboard/nav-guarded back button, client crash logging
+  - `~/Downloads/AnytimeWorkforce-1.0.6.aab`
+  - `~/Anytime-Workforce-Credentials/play-upload/AnytimeWorkforce-1.0.6.aab`
+- Client crash/error logging: `POST /api/client-logs` (unauth, rate-limited, CSRF-guarded) → `client_error_logs` table; view via `GET /api/client-logs` (Developer Admin only), 90-day retention
+- Release hardening: `minifyEnabled` + `shrinkResources`, Capacitor ProGuard keep rules, AGP **8.9.2** (AGP 9 breaks Capacitor plugins; same repackage via ProGuard), arm-only ABIs
 - Play hygiene: `allowBackup=false`, AD_ID removed, no background location, FileProvider paths narrowed
 - Offline Capacitor shell page improved (`mobile/www/index.html`)
 - Listing copy: `mobile/store/PLAY_LISTING_COPY.md`

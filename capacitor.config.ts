@@ -18,20 +18,28 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchAutoHide: false,
-      backgroundColor: "#F6F8FC",
+      // Safety-net auto-hide: online, bootstrapNativeApp() hides the splash ~700ms
+      // after mount (nothing visible changes). Offline/DNS/TLS failure at cold start
+      // means the remote JS never runs, so this timeout reveals the WebView error
+      // page instead of an infinite black splash ("app won't open").
+      launchAutoHide: true,
+      launchShowDuration: 8000,
+      backgroundColor: "#000000",
       showSpinner: false,
-      androidScaleType: "CENTER_CROP",
+      androidScaleType: "CENTER",
+      splashFullScreen: true,
+      splashImmersive: false,
     },
     StatusBar: {
-      style: "LIGHT",
-      backgroundColor: "#dc2f20",
+      style: "DARK",
+      backgroundColor: "#F6F8FC",
+      overlaysWebView: false,
     },
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"],
     },
     Keyboard: {
-      resize: "body",
+      resize: "native",
       resizeOnFullScreen: true,
     },
   },
