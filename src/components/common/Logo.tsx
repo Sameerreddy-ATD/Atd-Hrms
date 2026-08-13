@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 
 export function Logo({
@@ -43,7 +44,7 @@ export function BrandLockup({
   return (
     <div className={cn("flex min-w-0 items-center gap-2", className)}>
       <Logo variant="mark" className={cn("h-8 w-8 shrink-0", markClassName)} />
-      <BrandWordmark className="min-w-0" />
+      <BrandWordmark className="shrink-0" />
     </div>
   );
 }
@@ -58,9 +59,33 @@ export function BrandReveal({
   className?: string;
   markClassName?: string;
 }) {
+  const measureRef = useRef<HTMLSpanElement>(null);
+  const [wordWidth, setWordWidth] = useState(0);
+
+  useLayoutEffect(() => {
+    const el = measureRef.current;
+    if (!el) return;
+
+    const measure = () => {
+      // Italic + skew paint past the layout box; keep a little ink inside the clip.
+      setWordWidth(Math.ceil(el.scrollWidth) + 8);
+    };
+
+    measure();
+    const fonts = document.fonts?.ready;
+    void fonts?.then(measure);
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
   return (
     <div
       className={cn("atd-reveal", open && "atd-reveal--open", className)}
+      style={
+        wordWidth > 0
+          ? ({ "--atd-word-width": `${wordWidth}px` } as CSSProperties)
+          : undefined
+      }
       aria-label="AnyTime Diesel"
     >
       <img
@@ -69,7 +94,9 @@ export function BrandReveal({
         className={cn("atd-reveal__mark", markClassName)}
       />
       <span className="atd-reveal__word">
-        <BrandWordmark className="atd-wordmark--lockup" />
+        <span ref={measureRef} className="atd-reveal__measure">
+          <BrandWordmark className="atd-wordmark--lockup" />
+        </span>
       </span>
     </div>
   );

@@ -306,11 +306,11 @@
   display: inline-flex;
   align-items: center;
   gap: 0.22em;
-  min-width: 0;
+  min-width: max-content;
   font-family: var(--font-brand);
   font-style: italic;
   font-weight: 800;
-  line-height: 0.88;
+  line-height: 1.05;
   letter-spacing: 0.02em;
 }
 
@@ -324,6 +324,7 @@
 .atd-wordmark--header {
   gap: 0.2em;
   font-size: 1.05rem;
+  padding-right: 0.18em;
 }
 
 .atd-wordmark__anytime {
@@ -346,7 +347,8 @@
   min-width: max-content;
   flex-shrink: 0;
   gap: 0.2em;
-  font-size: clamp(2.05rem, 8vw, 2.85rem);
+  font-size: clamp(2.05rem, 6.2vw, 2.75rem);
+  padding: 0.12em 0.55em 0.16em 0.08em;
   transform: skewX(-6deg);
   transform-origin: left center;
 }
@@ -384,21 +386,31 @@
 
 .atd-reveal__word {
   overflow: hidden;
+  flex: 0 0 auto;
   width: 0;
+  max-width: 0;
   opacity: 0;
   transform: translateX(-8px);
   white-space: nowrap;
   pointer-events: none;
   transition:
     width 720ms cubic-bezier(0.22, 1, 0.36, 1),
+    max-width 720ms cubic-bezier(0.22, 1, 0.36, 1),
     opacity 380ms 90ms ease,
     transform 720ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .atd-reveal--open .atd-reveal__word {
-  width: 13.25rem;
+  width: var(--atd-word-width, 24rem);
+  max-width: var(--atd-word-width, 24rem);
   opacity: 1;
   transform: translateX(0);
+}
+
+.atd-reveal__measure {
+  display: inline-flex;
+  width: max-content;
+  min-width: max-content;
 }
 
 .atd-reveal__word .atd-wordmark {
@@ -408,7 +420,6 @@
   flex-shrink: 0;
   min-width: max-content;
   white-space: nowrap;
-  padding-right: 0.18em;
 }
 
 .atd-open-splash {
@@ -837,7 +848,8 @@
   }
 
   .atd-reveal__word {
-    width: 13.25rem;
+    width: var(--atd-word-width, 24rem);
+    max-width: var(--atd-word-width, 24rem);
     opacity: 1;
     transform: none;
   }

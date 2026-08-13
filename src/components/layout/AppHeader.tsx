@@ -136,7 +136,7 @@ export function AppHeader() {
               alt=""
               className="h-6 w-6 shrink-0 rounded-md object-contain ring-1 ring-border/60"
             />
-            <span className="hidden min-w-0 sm:inline">
+            <span className="hidden shrink-0 sm:inline">
               <span className="atd-wordmark atd-wordmark--header">
                 <span className="atd-wordmark__anytime">AnyTime</span>
                 <span className="atd-wordmark__diesel">Diesel</span>
