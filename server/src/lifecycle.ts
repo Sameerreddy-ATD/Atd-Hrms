@@ -327,7 +327,7 @@ async function applyEmployeeChange(
 export function registerLifecycleRoutes(app: Express) {
   const talentGate = requireRoles(...TALENT_ROLES);
   const opsGate = requireRoles(...PEOPLE_OPS);
-  const changeGate = requireRoles(...CHANGE_ROLES, Role.EMPLOYEE, Role.SALES, Role.DRIVER, Role.FIELD_STAFF);
+  const changeGate = requireRoles(...CHANGE_ROLES);
 
   app.get(
     "/lifecycle/jobs",

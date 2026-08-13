@@ -22,7 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { DateField } from "@/components/ui/date-field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
-import { CHANGE_KIND_LABELS, CHANGE_KINDS, fileToPayload, isPeopleOpsRole, labelize, timeToMinutes } from "@/lib/lifecycle";
+import { CHANGE_KIND_LABELS, CHANGE_KINDS, fileToPayload, isPeopleLeaderRole, isPeopleOpsRole, labelize, timeToMinutes } from "@/lib/lifecycle";
 import { branchesApi, employeesApi, lifecycleApi } from "@/services/api";
 import type { Branch, Department, User } from "@/types/domain";
 
@@ -31,6 +31,7 @@ export const Route = createFileRoute("/_app/people-changes")({ component: People
 function PeopleChangesPage() {
   const { user } = useAuth();
   const isHr = isPeopleOpsRole(user?.role);
+  const canOpen = isPeopleLeaderRole(user?.role);
   const canApprove = isHr || user?.role === "manager";
   const [rows, setRows] = useState<Array<Record<string, unknown>>>([]);
   const [employees, setEmployees] = useState<User[]>([]);
@@ -83,8 +84,18 @@ function PeopleChangesPage() {
   }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (canOpen) void load();
+  }, [canOpen, load]);
+
+  if (!canOpen) {
+    return (
+      <EmptyState
+        icon={ArrowLeftRight}
+        title="HR and managers only"
+        description="People data changes are raised and approved by People Ops and reporting managers."
+      />
+    );
+  }
 
   function payload() {
     const data: Record<string, unknown> = {};

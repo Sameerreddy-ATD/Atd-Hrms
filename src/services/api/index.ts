@@ -1098,6 +1098,11 @@ export const systemApi = {
 
 export const notificationsApi = {
   list: () => request<NotificationItem[]>("/notifications"),
+  clear: (ids: string[]) =>
+    request<{ ok: boolean; dismissedIds: string[]; inboxClearedAt: string | null }>(
+      "/notifications/clear",
+      { method: "POST", body: JSON.stringify({ ids }) },
+    ),
 };
 
 export const announcementsApi = {
@@ -1340,9 +1345,12 @@ export const searchApi = {
 
 export const notificationPreferencesApi = {
   get: () =>
-    request<{ digestMode: string; categories: Record<string, boolean> }>(
-      "/notification-preferences",
-    ),
+    request<{
+      digestMode: string;
+      categories: Record<string, boolean>;
+      dismissedIds?: string[];
+      inboxClearedAt?: string | null;
+    }>("/notification-preferences"),
   save: (payload: { digestMode: string; categories: Record<string, boolean> }) =>
     request<{ digestMode: string; categories: Record<string, boolean> }>(
       "/notification-preferences",

@@ -7427,6 +7427,7 @@ export function createApp() {
                   select: {
                     kind: true,
                     instanceId: true,
+                    createdAt: true,
                     employee: { select: { name: true, employeeCode: true } },
                   },
                 },
@@ -7594,7 +7595,7 @@ export function createApp() {
             id: `suspension-${account.id}-${endDate}`,
             title: "Account suspension notice",
             desc: `Your account will be suspended in ${daysRemaining} day${daysRemaining === 1 ? "" : "s"}, from ${startDate} through ${endDate}. Contact HR if you need help.`,
-            time: new Date().toISOString(),
+            time: account.suspensionStartsAt!.toISOString(),
             type: "system" as const,
           };
         }),
@@ -7706,7 +7707,7 @@ export function createApp() {
               ? "Offboarding step open"
               : "Onboarding step open",
           desc: `${item.instance.employee.name} (${item.instance.employee.employeeCode}): ${item.title}`,
-          time: new Date().toISOString(),
+          time: item.instance.createdAt.toISOString(),
           type: "system" as const,
           href: "/checklists",
         })),
@@ -7714,7 +7715,63 @@ export function createApp() {
         .sort((a, b) => +new Date(b.time) - +new Date(a.time))
         .slice(0, 20);
 
-      res.json(items);
+      const inbox = await prisma.notificationPreference.findUnique({
+        where: { userId: req.user!.id },
+        select: { dismissedIds: true, inboxClearedAt: true },
+      });
+      const dismissed = new Set(
+        Array.isArray(inbox?.dismissedIds)
+          ? inbox.dismissedIds.filter((id): id is string => typeof id === "string")
+          : [],
+      );
+      const clearedAt = inbox?.inboxClearedAt?.getTime() ?? 0;
+      res.json(
+        items.filter((item) => {
+          if (dismissed.has(item.id)) return false;
+          if (clearedAt && +new Date(item.time) <= clearedAt) return false;
+          return true;
+        }),
+      );
+    }),
+  );
+
+  app.post(
+    "/notifications/clear",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const body = z
+        .object({
+          ids: z.array(z.string().trim().min(1).max(200)).max(400).default([]),
+        })
+        .parse(req.body ?? {});
+      const existing = await prisma.notificationPreference.findUnique({
+        where: { userId: req.user!.id },
+        select: { dismissedIds: true },
+      });
+      const previous = Array.isArray(existing?.dismissedIds)
+        ? existing.dismissedIds.filter((id): id is string => typeof id === "string")
+        : [];
+      const dismissedIds = [...new Set([...previous, ...body.ids])].slice(-400);
+      const pref = await prisma.notificationPreference.upsert({
+        where: { userId: req.user!.id },
+        create: {
+          userId: req.user!.id,
+          dismissedIds,
+          inboxClearedAt: new Date(),
+        },
+        update: {
+          dismissedIds,
+          inboxClearedAt: new Date(),
+        },
+      });
+      const stored = Array.isArray(pref.dismissedIds)
+        ? pref.dismissedIds.filter((id): id is string => typeof id === "string")
+        : dismissedIds;
+      res.json({
+        ok: true,
+        dismissedIds: stored,
+        inboxClearedAt: pref.inboxClearedAt?.toISOString() ?? null,
+      });
     }),
   );
 

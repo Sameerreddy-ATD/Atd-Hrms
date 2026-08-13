@@ -94,7 +94,6 @@ export const DEFAULT_MODULE_ACCESS: ModuleAccessMatrix = {
     "LEAVE",
     "PROFILE",
     "COMMUNICATIONS",
-    "LIFECYCLE",
     "PERFORMANCE",
     "LMS",
   ],
@@ -106,7 +105,6 @@ export const DEFAULT_MODULE_ACCESS: ModuleAccessMatrix = {
     "LEAVE",
     "PROFILE",
     "COMMUNICATIONS",
-    "LIFECYCLE",
     "PERFORMANCE",
     "LMS",
   ],
@@ -118,7 +116,6 @@ export const DEFAULT_MODULE_ACCESS: ModuleAccessMatrix = {
     "LEAVE",
     "PROFILE",
     "COMMUNICATIONS",
-    "LIFECYCLE",
     "PERFORMANCE",
     "LMS",
   ],
@@ -130,11 +127,13 @@ export const DEFAULT_MODULE_ACCESS: ModuleAccessMatrix = {
     "LEAVE",
     "PROFILE",
     "COMMUNICATIONS",
-    "LIFECYCLE",
     "PERFORMANCE",
     "LMS",
   ],
 };
+
+const STAFF_ROLES: Role[] = [Role.EMPLOYEE, Role.SALES, Role.DRIVER, Role.FIELD_STAFF];
+const STAFF_HIDDEN_MODULES: ModuleKey[] = ["TALENT", "LIFECYCLE"];
 
 const SETTING_KEY = "module_access_matrix";
 let cached: { value: ModuleAccessMatrix; expiresAt: number } | null = null;
@@ -153,7 +152,10 @@ function normalize(value: unknown): ModuleAccessMatrix {
       const merged = hasLifecycleKeys
         ? allowed
         : [...allowed, ...DEFAULT_MODULE_ACCESS[role].filter((key) => LIFECYCLE_MODULES.includes(key))];
-      return [role, role === Role.DEVELOPER_ADMIN ? ALL_MODULES : [...new Set(merged)]];
+      const scoped = STAFF_ROLES.includes(role)
+        ? merged.filter((key) => !STAFF_HIDDEN_MODULES.includes(key))
+        : merged;
+      return [role, role === Role.DEVELOPER_ADMIN ? ALL_MODULES : [...new Set(scoped)]];
     }),
   ) as ModuleAccessMatrix;
 }

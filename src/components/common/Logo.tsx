@@ -59,10 +59,13 @@ export function BrandReveal({
   return (
     <div className={cn("atd-lockup", className)} aria-label="AnyTime Diesel">
       <span className="atd-lockup__mark">
-        <Logo variant="mark" className={cn("h-16 w-16 sm:h-[4.5rem] sm:w-[4.5rem]", markClassName)} />
+        <Logo
+          variant="mark"
+          className={cn("h-[4.75rem] w-[4.75rem] sm:h-[5.5rem] sm:w-[5.5rem]", markClassName)}
+        />
       </span>
       <span className="atd-lockup__word">
-        <BrandWordmark stacked />
+        <BrandWordmark className="atd-wordmark--lockup" />
       </span>
     </div>
   );

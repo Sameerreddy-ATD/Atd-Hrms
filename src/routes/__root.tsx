@@ -20,6 +20,7 @@ import { detectPwaPlatform, ensureLatestAppBuild } from "@/lib/pwa-install";
 import { bootstrapNativeApp, isNativeApp } from "@/lib/native-app";
 import { installClientErrorReporter, reportClientError } from "@/lib/client-error-reporter";
 import { recoverFromChunkError } from "@/lib/chunk-reload";
+import { AppOpenSplash } from "@/components/layout/AppOpenSplash";
 import { PortraitOrientationGuard } from "@/components/layout/PortraitOrientationGuard";
 import { StoreUpdateGate } from "@/components/layout/StoreUpdateGate";
 
@@ -139,6 +140,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "shortcut icon", href: "/atd-favicon.png", type: "image/png" },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
       { rel: "preload", href: "/atd-logo.png", as: "image", type: "image/png" },
+      { rel: "preload", href: "/atd-mark.png", as: "image", type: "image/png" },
       { rel: "manifest", href: "/manifest.webmanifest" },
     ],
   }),
@@ -245,6 +247,7 @@ function RootComponent() {
       <AuthProvider>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <div className="h-full min-h-0">
+        <AppOpenSplash />
         <Outlet />
         <PortraitOrientationGuard />
         <StoreUpdateGate />

@@ -222,121 +222,95 @@ export function AppHeader() {
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
-            sideOffset={8}
-            className="w-[min(20rem,calc(100vw-1.25rem))] overflow-hidden rounded-2xl border border-border/80 bg-popover/95 p-0 shadow-xl shadow-black/10 backdrop-blur-xl dark:shadow-black/40"
+            sideOffset={6}
+            className="w-[min(16.5rem,calc(100vw-1rem))] overflow-hidden rounded-xl border border-border/80 bg-popover p-1 shadow-lg"
           >
-            <div className="relative overflow-hidden border-b border-border/70 bg-gradient-to-br from-primary/[0.12] via-transparent to-transparent px-4 pb-4 pt-4">
-              <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
-              <div className="relative flex items-start gap-3">
-                <Avatar className="h-12 w-12 ring-2 ring-background shadow-md">
-                  <AvatarFallback className="bg-gradient-to-br from-primary to-[color-mix(in_oklab,var(--primary)_72%,black)] text-sm font-bold text-primary-foreground">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 flex-1 pt-0.5">
-                  <p className="truncate text-sm font-semibold tracking-tight text-foreground">
-                    {user?.name}
-                  </p>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{user?.email}</p>
-                  <span className="mt-2 inline-flex max-w-full truncate rounded-md border border-primary/15 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-                    {roleLabel}
-                  </span>
-                </div>
+            <div className="flex items-center gap-2 px-2 py-1.5">
+              <Avatar className="h-8 w-8 shrink-0">
+                <AvatarFallback className="bg-primary text-[11px] font-semibold text-primary-foreground">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] font-semibold leading-tight text-foreground">
+                  {user?.name}
+                </p>
+                <p className="mt-0.5 truncate text-[11px] leading-tight text-muted-foreground">
+                  {roleLabel ? `${roleLabel} · ` : ""}
+                  {user?.email}
+                </p>
               </div>
             </div>
 
-            <div className="space-y-0.5 p-2">
-              <DropdownMenuItem
-                onClick={() => navigate({ to: "/profile" })}
-                className="cursor-pointer rounded-lg px-2.5 py-2.5"
-              >
-                <UserIcon className="mr-2.5 h-4 w-4 text-muted-foreground" />
-                <span className="font-medium">My profile</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => navigate({ to: "/id-card" })}
-                className="cursor-pointer rounded-lg px-2.5 py-2.5"
-              >
-                <IdCard className="mr-2.5 h-4 w-4 text-muted-foreground" />
-                <span className="font-medium">ID card</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => navigate({ to: "/notifications" })}
-                className="cursor-pointer rounded-lg px-2.5 py-2.5"
-              >
-                <Bell className="mr-2.5 h-4 w-4 text-muted-foreground" />
-                <span className="flex-1 font-medium">Notifications</span>
-                {notificationCount > 0 && (
-                  <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
-                    {notificationCount > 99 ? "99+" : notificationCount}
-                  </span>
-                )}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={refreshing}
-                onSelect={(event) => {
-                  event.preventDefault();
-                  void refreshApp();
-                }}
-                className="cursor-pointer rounded-lg px-2.5 py-2.5"
-              >
-                <RefreshCw
-                  className={cn("mr-2.5 h-4 w-4 text-muted-foreground", refreshing && "animate-spin")}
-                />
-                <span className="font-medium">
-                  {refreshing ? "Refreshing…" : "Refresh app"}
+            <DropdownMenuSeparator className="my-1" />
+
+            <DropdownMenuItem
+              onClick={() => navigate({ to: "/profile" })}
+              className="h-8 cursor-pointer rounded-md px-2 text-[13px]"
+            >
+              <UserIcon className="text-muted-foreground" />
+              My profile
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => navigate({ to: "/id-card" })}
+              className="h-8 cursor-pointer rounded-md px-2 text-[13px]"
+            >
+              <IdCard className="text-muted-foreground" />
+              ID card
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => navigate({ to: "/notifications" })}
+              className="h-8 cursor-pointer rounded-md px-2 text-[13px]"
+            >
+              <Bell className="text-muted-foreground" />
+              <span className="flex-1">Notifications</span>
+              {notificationCount > 0 && (
+                <span className="rounded-full bg-primary px-1.5 text-[10px] font-semibold leading-4 text-primary-foreground">
+                  {notificationCount > 99 ? "99+" : notificationCount}
                 </span>
-              </DropdownMenuItem>
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={refreshing}
+              onSelect={(event) => {
+                event.preventDefault();
+                void refreshApp();
+              }}
+              className="h-8 cursor-pointer rounded-md px-2 text-[13px]"
+            >
+              <RefreshCw className={cn("text-muted-foreground", refreshing && "animate-spin")} />
+              {refreshing ? "Refreshing…" : "Refresh app"}
+            </DropdownMenuItem>
+
+            <div
+              className="flex h-8 items-center gap-2 rounded-md px-2 text-[13px]"
+              onPointerDown={(event) => event.preventDefault()}
+            >
+              {darkMode ? (
+                <Moon className="h-4 w-4 shrink-0 text-muted-foreground" />
+              ) : (
+                <Sun className="h-4 w-4 shrink-0 text-muted-foreground" />
+              )}
+              <span className="min-w-0 flex-1">Dark mode</span>
+              <Switch
+                checked={darkMode}
+                onCheckedChange={handleDarkModeToggle}
+                aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+              />
             </div>
 
-            <div className="px-3 pb-3 pt-1">
-              <p className="mb-2 px-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Appearance
-              </p>
-              <div className="flex items-center justify-between gap-3 rounded-xl border border-border/80 bg-muted/50 px-3 py-2.5">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <span
-                    className={cn(
-                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
-                      darkMode
-                        ? "bg-sky-500/15 text-sky-400"
-                        : "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-                    )}
-                    aria-hidden
-                  >
-                    {darkMode ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground">
-                      {darkMode ? "Dark mode" : "Light mode"}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {darkMode ? "Easier on the eyes at night" : "Bright and clear for daytime"}
-                    </p>
-                  </div>
-                </div>
-                <Switch
-                  checked={darkMode}
-                  onCheckedChange={handleDarkModeToggle}
-                  aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-                  className="data-[state=checked]:bg-sky-500 data-[state=unchecked]:bg-amber-500/80"
-                />
-              </div>
-            </div>
+            <DropdownMenuSeparator className="my-1" />
 
-            <DropdownMenuSeparator className="m-0" />
-            <div className="p-2">
-              <DropdownMenuItem
-                onClick={() => {
-                  logout();
-                  navigate({ to: "/login" });
-                }}
-                className="cursor-pointer rounded-lg px-2.5 py-2.5 font-semibold text-destructive focus:bg-destructive/10 focus:text-destructive"
-              >
-                <LogOut className="mr-2.5 h-4 w-4" />
-                Sign out
-              </DropdownMenuItem>
-            </div>
+            <DropdownMenuItem
+              onClick={() => {
+                logout();
+                navigate({ to: "/login" });
+              }}
+              className="h-8 cursor-pointer rounded-md px-2 text-[13px] text-destructive focus:bg-destructive/10 focus:text-destructive"
+            >
+              <LogOut />
+              Sign out
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

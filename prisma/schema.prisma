@@ -1401,13 +1401,15 @@ model EmployeeChangeEvent {
 }
 
 model NotificationPreference {
-  preferenceId String   @id @default(cuid()) @map("preference_id")
-  userId       String   @unique @map("user_id")
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  digestMode   String   @default("immediate") @map("digest_mode")
-  categories   Json     @default("{}")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-  createdAt    DateTime @default(now()) @map("created_at")
+  preferenceId     String    @id @default(cuid()) @map("preference_id")
+  userId           String    @unique @map("user_id")
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  digestMode       String    @default("immediate") @map("digest_mode")
+  categories       Json      @default("{}")
+  dismissedIds     Json      @default("[]") @map("dismissed_ids")
+  inboxClearedAt   DateTime? @map("inbox_cleared_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
 
   @@map("notification_preferences")
 }

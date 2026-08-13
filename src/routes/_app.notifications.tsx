@@ -17,6 +17,7 @@ import {
   enableDesktopAlerts,
   filterVisibleNotifications,
   getDesktopAlertStatus,
+  hydrateNotificationInbox,
   syncDesktopAlertsWithPermission,
   NOTIFICATION_COUNT_CHANGED_EVENT,
 } from "@/lib/browser-notifications";
@@ -184,7 +185,14 @@ function NotificationsPage() {
   const phone = platform === "ios" || platform === "android";
 
   const loadNotifications = useCallback(() => {
-    return notificationsApi.list().then((data) => setItems(filterVisibleNotifications(data)));
+    return notificationPreferencesApi
+      .get()
+      .then((pref) => {
+        hydrateNotificationInbox({ ids: pref.dismissedIds, at: pref.inboxClearedAt });
+      })
+      .catch(() => undefined)
+      .then(() => notificationsApi.list())
+      .then((data) => setItems(filterVisibleNotifications(data)));
   }, []);
 
   const refreshAlertStatus = useCallback(() => {
@@ -268,8 +276,10 @@ function NotificationsPage() {
             size="sm"
             disabled={items.length === 0}
             onClick={() => {
-              clearNotifications(items);
+              const snapshot = items;
+              clearNotifications(snapshot);
               setItems([]);
+              void notificationsApi.clear(snapshot.map((item) => item.id)).catch(() => undefined);
               void clearAppBadgeSafe();
               toast.success("Notifications cleared");
             }}

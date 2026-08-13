@@ -60,6 +60,11 @@ const ALL: Role[] = [
   "field_staff",
 ];
 
+/** HR / admin / CEO — run hire-to-exit operations. */
+const PEOPLE_OPS: Role[] = ["developer_admin", "main_admin", "ceo", "hr"];
+/** People ops plus managers who approve team changes and see joining. */
+const PEOPLE_LEADERS: Role[] = [...PEOPLE_OPS, "manager"];
+
 export const menuGroups: MenuGroup[] = [
   {
     label: "Overview",
@@ -103,7 +108,7 @@ export const menuGroups: MenuGroup[] = [
         label: "Onboarding",
         to: "/onboarding",
         icon: ClipboardPen,
-        roles: ALL,
+        roles: PEOPLE_LEADERS,
       },
     ],
   },
@@ -114,7 +119,7 @@ export const menuGroups: MenuGroup[] = [
         label: "People Changes",
         to: "/people-changes",
         icon: ArrowLeftRight,
-        roles: ALL,
+        roles: PEOPLE_LEADERS,
       },
       {
         label: "Performance",
@@ -397,8 +402,6 @@ function itemOrderForRole(role: Role): string[] {
         "/leave/approvals",
         "/tasks",
         "/employee-services",
-        "/onboarding",
-        "/people-changes",
         "/performance",
         "/lms",
         "/announcements",

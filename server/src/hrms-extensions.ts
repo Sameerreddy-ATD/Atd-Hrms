@@ -136,18 +136,21 @@ export function registerHrmsExtensions(app: Express) {
       const pref = await prisma.notificationPreference.findUnique({
         where: { userId: req.user!.id },
       });
-      res.json(
-        pref ?? {
-          digestMode: "immediate",
-          categories: {
-            leave: true,
-            tasks: true,
-            claims: true,
-            checklists: true,
-            corrections: true,
-          },
+      const dismissedIds = Array.isArray(pref?.dismissedIds)
+        ? pref.dismissedIds.filter((id): id is string => typeof id === "string")
+        : [];
+      res.json({
+        digestMode: pref?.digestMode ?? "immediate",
+        categories: pref?.categories ?? {
+          leave: true,
+          tasks: true,
+          claims: true,
+          checklists: true,
+          corrections: true,
         },
-      );
+        dismissedIds,
+        inboxClearedAt: pref?.inboxClearedAt?.toISOString() ?? null,
+      });
     }),
   );
 

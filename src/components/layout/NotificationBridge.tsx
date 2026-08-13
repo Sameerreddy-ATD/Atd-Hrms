@@ -1,15 +1,16 @@
 import { useEffect, useRef } from "react";
-import { notificationsApi } from "@/services/api";
+import { notificationPreferencesApi, notificationsApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
 import {
   areDesktopAlertsEnabled,
   filterVisibleNotifications,
   getSeenNotificationIds,
+  hydrateNotificationInbox,
   setSeenNotificationIds,
   showDesktopNotification,
   syncDesktopAlertsWithPermission,
+  NOTIFICATION_COUNT_CHANGED_EVENT,
 } from "@/lib/browser-notifications";
-import { NOTIFICATION_COUNT_CHANGED_EVENT } from "@/lib/browser-notifications";
 import { subscribeToNotificationChanges } from "@/lib/notification-live";
 
 export function NotificationBridge() {
@@ -21,6 +22,17 @@ export function NotificationBridge() {
     initialized.current = false;
 
     let cancelled = false;
+
+    async function hydrateInbox() {
+      try {
+        const pref = await notificationPreferencesApi.get();
+        if (cancelled) return;
+        hydrateNotificationInbox({ ids: pref.dismissedIds, at: pref.inboxClearedAt });
+        window.dispatchEvent(new Event(NOTIFICATION_COUNT_CHANGED_EVENT));
+      } catch {
+        // Local dismiss state still applies if the server is unreachable.
+      }
+    }
 
     async function syncNotifications() {
       syncDesktopAlertsWithPermission();
@@ -50,6 +62,7 @@ export function NotificationBridge() {
       }
     }
 
+    void hydrateInbox();
     void syncNotifications();
     // Prefer live SSE; slow fallback only when the tab is visible.
     const intervalId = window.setInterval(() => {

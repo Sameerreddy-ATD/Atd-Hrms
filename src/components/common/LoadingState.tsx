@@ -1,4 +1,4 @@
-import { BrandReveal, Logo } from "@/components/common/Logo";
+import { BrandLockup, Logo } from "@/components/common/Logo";
 import { cn } from "@/lib/utils";
 
 export function LoadingState({
@@ -18,7 +18,8 @@ export function LoadingState({
       aria-live="polite"
       aria-busy="true"
       className={cn(
-        "relative flex w-full items-center justify-center overflow-hidden",
+        "relative flex w-full items-center justify-center",
+        !showBrandStory && "overflow-hidden",
         showBrandStory && "atd-boot",
         compact ? "min-h-16 py-3" : showBrandStory ? "min-h-[100dvh] py-12" : "min-h-36 py-8",
         className,
@@ -32,7 +33,7 @@ export function LoadingState({
         )}
       >
         {showBrandStory ? (
-          <BrandReveal />
+          <BrandLockup className="justify-center" markClassName="h-14 w-14 sm:h-16 sm:w-16" />
         ) : (
           <div
             className={cn(

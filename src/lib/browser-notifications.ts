@@ -3,10 +3,48 @@ import { pushApi } from "@/services/api";
 import { getNativePlatform, isNativeApp } from "@/lib/native-app";
 
 const CLEARED_AT_KEY = "adh_notifications_cleared_at";
+const INBOX_KEY = "adh_notifications_inbox";
+const SESSION_USER_KEY = "atd.session.user";
 const DESKTOP_ALERTS_KEY = "adh_desktop_alerts_enabled";
 const SEEN_NOTIFICATION_IDS_KEY = "adh_seen_notification_ids";
 const NATIVE_PUSH_TOKEN_KEY = "adh_native_push_token";
 export const NOTIFICATION_COUNT_CHANGED_EVENT = "adh:notification-count-changed";
+
+type InboxState = { at: string; ids: string[] };
+
+function currentUserId() {
+  try {
+    const raw =
+      window.sessionStorage.getItem(SESSION_USER_KEY) ?? window.localStorage.getItem(SESSION_USER_KEY);
+    if (!raw) return "";
+    const parsed = JSON.parse(raw) as { id?: string };
+    return parsed.id ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function inboxStorageKey(userId = currentUserId()) {
+  return userId ? `${INBOX_KEY}:${userId}` : INBOX_KEY;
+}
+
+function readInboxState(): InboxState {
+  const raw = readLocalStorage(inboxStorageKey()) ?? readLocalStorage(CLEARED_AT_KEY);
+  if (!raw) return { at: "", ids: [] };
+  try {
+    const parsed = JSON.parse(raw) as InboxState;
+    if (parsed && typeof parsed === "object" && Array.isArray(parsed.ids)) {
+      return { at: typeof parsed.at === "string" ? parsed.at : "", ids: parsed.ids.filter(Boolean) };
+    }
+  } catch {
+    // Legacy value was a timestamp string.
+  }
+  return { at: raw, ids: [] };
+}
+
+function writeInboxState(state: InboxState) {
+  writeLocalStorage(inboxStorageKey(), JSON.stringify({ at: state.at, ids: state.ids.slice(-400) }));
+}
 
 function readLocalStorage(key: string) {
   try {
@@ -37,19 +75,33 @@ function nativePushChannel(): "fcm" | "apns" {
 }
 
 export function getNotificationsClearedAt() {
-  return readLocalStorage(CLEARED_AT_KEY);
+  return readInboxState().at || readLocalStorage(CLEARED_AT_KEY);
+}
+
+export function hydrateNotificationInbox(state: { ids?: string[]; at?: string | null }) {
+  const current = readInboxState();
+  const ids = [...new Set([...(state.ids ?? []), ...current.ids])];
+  const at = state.at && (!current.at || +new Date(state.at) >= +new Date(current.at)) ? state.at : current.at;
+  writeInboxState({ at: at || current.at, ids });
 }
 
 export function clearNotifications(items: NotificationItem[]) {
-  const newestTime = items.map((item) => item.time).sort((a, b) => +new Date(b) - +new Date(a))[0];
-  if (newestTime) writeLocalStorage(CLEARED_AT_KEY, newestTime);
+  const at = new Date().toISOString();
+  const ids = [...new Set([...readInboxState().ids, ...items.map((item) => item.id).filter(Boolean)])];
+  writeInboxState({ at, ids });
   window.dispatchEvent(new Event(NOTIFICATION_COUNT_CHANGED_EVENT));
 }
 
 export function filterVisibleNotifications(items: NotificationItem[]) {
-  const clearedAt = getNotificationsClearedAt();
-  if (!clearedAt) return items;
-  return items.filter((item) => +new Date(item.time) > +new Date(clearedAt));
+  const inbox = readInboxState();
+  const clearedAt = inbox.at ? +new Date(inbox.at) : 0;
+  const dismissed = new Set(inbox.ids);
+  if (!clearedAt && dismissed.size === 0) return items;
+  return items.filter((item) => {
+    if (dismissed.has(item.id)) return false;
+    if (clearedAt && +new Date(item.time) <= clearedAt) return false;
+    return true;
+  });
 }
 
 export function areDesktopAlertsEnabled() {

@@ -70,6 +70,10 @@ export function isPeopleOpsRole(role: string | undefined) {
   return role === "hr" || role === "developer_admin" || role === "main_admin" || role === "ceo";
 }
 
+export function isPeopleLeaderRole(role: string | undefined) {
+  return isPeopleOpsRole(role) || role === "manager";
+}
+
 export function timeToMinutes(value: string) {
   const [hours, minutes] = value.split(":").map(Number);
   if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return 540;

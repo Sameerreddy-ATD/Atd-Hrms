@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { DateField } from "@/components/ui/date-field";
 import { useAuth } from "@/lib/auth";
-import { fileToPayload, isPeopleOpsRole, labelize, ONBOARDING_DOC_LABELS } from "@/lib/lifecycle";
+import { fileToPayload, isPeopleLeaderRole, isPeopleOpsRole, labelize, ONBOARDING_DOC_LABELS } from "@/lib/lifecycle";
 import { employeesApi, lifecycleApi } from "@/services/api";
 import type { User } from "@/types/domain";
 
@@ -23,6 +23,7 @@ export const Route = createFileRoute("/_app/onboarding")({ component: Onboarding
 function OnboardingPage() {
   const { user } = useAuth();
   const isHr = isPeopleOpsRole(user?.role);
+  const canOpen = isPeopleLeaderRole(user?.role);
   const [cases, setCases] = useState<Array<Record<string, unknown>>>([]);
   const [nho, setNho] = useState<Array<Record<string, unknown>>>([]);
   const [employees, setEmployees] = useState<User[]>([]);
@@ -82,8 +83,18 @@ function OnboardingPage() {
   }, [employeeId, isHr, user?.employeeId, user?.name]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (canOpen) void load();
+  }, [canOpen, load]);
+
+  if (!canOpen) {
+    return (
+      <EmptyState
+        icon={ClipboardPen}
+        title="HR and managers only"
+        description="Onboarding is run by People Ops. Ask HR if you need to complete joining documents."
+      />
+    );
+  }
 
   if (loading) return <LoadingState label="Loading onboarding" />;
 

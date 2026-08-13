@@ -142,6 +142,11 @@ describe("task boards and module access", () => {
     expect(moduleForApiPath("/tasks/123")).toBe("TASKS");
     expect(moduleForApiPath("/leave/requests")).toBe("LEAVE");
     expect(DEFAULT_MODULE_ACCESS.DEVELOPER_ADMIN).toContain("SYSTEM");
+    expect(DEFAULT_MODULE_ACCESS.EMPLOYEE).not.toContain("LIFECYCLE");
+    expect(DEFAULT_MODULE_ACCESS.EMPLOYEE).not.toContain("TALENT");
+    expect(DEFAULT_MODULE_ACCESS.EMPLOYEE).toContain("PERFORMANCE");
+    expect(DEFAULT_MODULE_ACCESS.EMPLOYEE).toContain("LMS");
+    expect(DEFAULT_MODULE_ACCESS.HR).toContain("LIFECYCLE");
   });
 });
 

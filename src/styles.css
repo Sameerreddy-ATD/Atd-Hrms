@@ -290,12 +290,12 @@
   }
 }
 
-@keyframes atd-mark-to-left {
+@keyframes atd-lockup-gap {
   from {
-    transform: translateX(4.75rem);
+    gap: 0;
   }
   to {
-    transform: translateX(0);
+    gap: 0.9rem;
   }
 }
 
@@ -303,14 +303,24 @@
   from {
     max-width: 0;
     opacity: 0;
-    transform: translateX(-10px);
+    transform: translateX(-12px);
     filter: blur(6px);
   }
   to {
-    max-width: 14rem;
+    max-width: 24rem;
     opacity: 1;
     transform: translateX(0);
     filter: blur(0);
+  }
+}
+
+@keyframes atd-open-splash-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    visibility: hidden;
   }
 }
 
@@ -342,24 +352,28 @@
 
 .atd-wordmark__diesel {
   font-weight: 700;
-  background: linear-gradient(135deg, var(--primary) 0%, color-mix(in oklab, var(--primary) 70%, #7a1f12) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--primary);
+}
+
+.atd-wordmark--lockup {
+  min-width: max-content;
+  flex-shrink: 0;
+  font-size: clamp(1.7rem, 7vw, 2.45rem);
+  gap: 0.38em;
+  letter-spacing: -0.05em;
 }
 
 .atd-lockup {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.85rem;
+  gap: 0;
+  animation: atd-lockup-gap 800ms cubic-bezier(0.22, 1, 0.36, 1) 280ms forwards;
 }
 
 .atd-lockup__mark {
   display: grid;
   place-items: center;
-  animation: atd-mark-to-left 780ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  will-change: transform;
 }
 
 .atd-lockup__mark img {
@@ -368,19 +382,44 @@
 
 .atd-lockup__word {
   overflow: hidden;
+  max-width: 0;
+  opacity: 0;
   white-space: nowrap;
-  animation: atd-word-reveal 720ms cubic-bezier(0.22, 1, 0.36, 1) 220ms both;
-  will-change: max-width, opacity, transform, filter;
+  animation: atd-word-reveal 820ms cubic-bezier(0.22, 1, 0.36, 1) 300ms forwards;
 }
 
-.atd-lockup__word .atd-wordmark--stacked {
-  font-size: 1.55rem;
+.atd-lockup__word .atd-wordmark {
+  display: inline-flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  min-width: max-content;
+  white-space: nowrap;
 }
 
-@media (min-width: 640px) {
-  .atd-lockup__word .atd-wordmark--stacked {
-    font-size: 1.85rem;
-  }
+.atd-open-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background:
+    radial-gradient(ellipse 95% 70% at 50% -8%, color-mix(in oklab, var(--primary) 22%, transparent), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 100% 90%, color-mix(in oklab, var(--primary) 12%, transparent), transparent 70%),
+    linear-gradient(168deg, oklch(0.99 0.005 70) 0%, oklch(0.97 0.008 255) 45%, oklch(0.955 0.01 40) 100%);
+}
+
+.dark .atd-open-splash {
+  background:
+    radial-gradient(ellipse 95% 70% at 50% -8%, color-mix(in oklab, var(--primary) 28%, transparent), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 100% 90%, color-mix(in oklab, var(--primary) 14%, transparent), transparent 70%),
+    linear-gradient(168deg, oklch(0.2 0.016 255), oklch(0.16 0.014 255));
+}
+
+.atd-open-splash--exit {
+  animation: atd-open-splash-out 420ms ease forwards;
+  pointer-events: none;
 }
 
 @keyframes aw-fade-up {
@@ -774,17 +813,25 @@
   .atd-boot__content,
   .atd-boot__copy,
   .atd-boot__status,
-  .atd-lockup__mark,
+  .atd-lockup,
   .atd-lockup__word,
+  .atd-open-splash--exit,
   .loading-progress__bar,
   .login-crew__stage {
     animation: none;
   }
 
+  .atd-lockup {
+    gap: 0.9rem;
+  }
+
+  .atd-lockup__word {
+    max-width: 24rem;
+  }
+
   .atd-boot__content,
   .atd-boot__copy,
   .atd-boot__status,
-  .atd-lockup__mark,
   .atd-lockup__word {
     opacity: 1;
     transform: none;
