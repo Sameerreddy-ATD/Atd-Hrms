@@ -20,6 +20,8 @@
 
 @theme inline {
   --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-brand: Sora, "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-brand-accent: Oswald, Sora, ui-sans-serif, system-ui, sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -303,11 +305,10 @@
 .atd-wordmark {
   display: inline-flex;
   align-items: baseline;
-  gap: 0.35em;
+  gap: 0.32em;
   min-width: 0;
-  font-family: Outfit, "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
-  line-height: 1;
-  letter-spacing: -0.045em;
+  line-height: 0.92;
+  letter-spacing: -0.03em;
 }
 
 .atd-wordmark--stacked {
@@ -322,21 +323,28 @@
 }
 
 .atd-wordmark__anytime {
+  font-family: var(--font-brand);
   font-weight: 800;
   color: var(--foreground);
+  letter-spacing: -0.04em;
 }
 
 .atd-wordmark__diesel {
-  font-weight: 700;
+  font-family: var(--font-brand-accent);
+  font-weight: 600;
   color: var(--primary);
+  letter-spacing: 0.04em;
 }
 
 .atd-wordmark--lockup {
   min-width: max-content;
   flex-shrink: 0;
-  font-size: clamp(1.7rem, 7vw, 2.45rem);
-  gap: 0.38em;
-  letter-spacing: -0.05em;
+  font-size: clamp(1.85rem, 7.2vw, 2.55rem);
+  gap: 0.34em;
+}
+
+.atd-wordmark--lockup .atd-wordmark__diesel {
+  font-size: 1.08em;
 }
 
 .atd-reveal {
@@ -380,7 +388,7 @@
 }
 
 .atd-reveal--open .atd-reveal__word {
-  width: 12.75rem;
+  width: 14rem;
   opacity: 1;
   transform: translateX(0);
 }
@@ -820,7 +828,7 @@
   }
 
   .atd-reveal__word {
-    width: 12.75rem;
+    width: 14rem;
     opacity: 1;
     transform: none;
   }

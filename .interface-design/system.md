@@ -24,7 +24,7 @@ forms, attendance, leave). Not a marketing site.
 
 ## Typography
 
-- Use fonts already loaded by the app
+- UI: Plus Jakarta Sans. Brand lockup: Sora (AnyTime) + Oswald (Diesel). Do not introduce Inter/Roboto/Arial.
 - Hierarchy: page title > section accordion/trigger > field label > helper text
 - Avoid introducing Inter/Roboto/Arial as new defaults
 
