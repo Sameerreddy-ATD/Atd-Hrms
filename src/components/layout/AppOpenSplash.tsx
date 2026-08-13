@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 const PLAYED_KEY = `atd.boot.lockup.played:${APP_BUILD_ID}`;
 
 export function AppOpenSplash() {
-  const [phase, setPhase] = useState<"show" | "exit" | "done">("show");
+  const [phase, setPhase] = useState<"hold" | "open" | "exit" | "done">("hold");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -20,9 +20,13 @@ export function AppOpenSplash() {
     }
 
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const holdMs = reduceMotion ? 700 : 2200;
-    const exitMs = reduceMotion ? 180 : 420;
-    const leave = window.setTimeout(() => setPhase("exit"), holdMs);
+    const holdMs = reduceMotion ? 80 : 700;
+    const openMs = reduceMotion ? 200 : 900;
+    const restMs = reduceMotion ? 280 : 750;
+    const exitMs = reduceMotion ? 160 : 380;
+
+    const open = window.setTimeout(() => setPhase("open"), holdMs);
+    const leave = window.setTimeout(() => setPhase("exit"), holdMs + openMs + restMs);
     const done = window.setTimeout(() => {
       setPhase("done");
       try {
@@ -30,9 +34,10 @@ export function AppOpenSplash() {
       } catch {
         // Ignore.
       }
-    }, holdMs + exitMs);
+    }, holdMs + openMs + restMs + exitMs);
 
     return () => {
+      window.clearTimeout(open);
       window.clearTimeout(leave);
       window.clearTimeout(done);
     };
@@ -46,7 +51,7 @@ export function AppOpenSplash() {
       role="img"
       aria-label="AnyTime Diesel"
     >
-      <BrandReveal />
+      <BrandReveal open={phase === "open" || phase === "exit"} />
     </div>
   );
 }

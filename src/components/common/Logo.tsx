@@ -48,23 +48,27 @@ export function BrandLockup({
   );
 }
 
-/** Boot animation: mark starts centered, then slides left as the name reveals. */
+/** Boot animation: the red app icon starts centered, then slides left as the name opens to its right. */
 export function BrandReveal({
+  open = false,
   className,
   markClassName,
 }: {
+  open?: boolean;
   className?: string;
   markClassName?: string;
 }) {
   return (
-    <div className={cn("atd-lockup", className)} aria-label="AnyTime Diesel">
-      <span className="atd-lockup__mark">
-        <Logo
-          variant="mark"
-          className={cn("h-[4.75rem] w-[4.75rem] sm:h-[5.5rem] sm:w-[5.5rem]", markClassName)}
-        />
-      </span>
-      <span className="atd-lockup__word">
+    <div
+      className={cn("atd-reveal", open && "atd-reveal--open", className)}
+      aria-label="AnyTime Diesel"
+    >
+      <img
+        src="/atd-app-icon.png"
+        alt=""
+        className={cn("atd-reveal__mark", markClassName)}
+      />
+      <span className="atd-reveal__word">
         <BrandWordmark className="atd-wordmark--lockup" />
       </span>
     </div>

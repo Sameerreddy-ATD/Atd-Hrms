@@ -1,4 +1,4 @@
-import { BrandLockup, Logo } from "@/components/common/Logo";
+import { Logo } from "@/components/common/Logo";
 import { cn } from "@/lib/utils";
 
 export function LoadingState({
@@ -33,7 +33,7 @@ export function LoadingState({
         )}
       >
         {showBrandStory ? (
-          <BrandLockup className="justify-center" markClassName="h-14 w-14 sm:h-16 sm:w-16" />
+          <Logo variant="mark" className="h-16 w-16 sm:h-[4.5rem] sm:w-[4.5rem]" />
         ) : (
           <div
             className={cn(
