@@ -127,10 +127,10 @@ async function lockNativePortrait() {
   }
 }
 
-async function hideSplashWhenReady() {
+export async function hideNativeSplash(fadeOutDuration = 180) {
   if (!isNativeApp()) return;
   try {
-    await SplashScreen.hide({ fadeOutDuration: 200 });
+    await SplashScreen.hide({ fadeOutDuration });
   } catch {
     // Ignore if splash already dismissed.
   }
@@ -157,10 +157,11 @@ export async function bootstrapNativeApp() {
     }, 800);
   }
 
-  // Keep splash until the remote web UI has had time to paint.
+  // Safety-net only. AppOpenSplash hides the native splash, then plays the
+  // lockup. If JS never reaches that component, reveal the WebView anyway.
   window.setTimeout(() => {
-    void hideSplashWhenReady();
-  }, 700);
+    void hideNativeSplash(200);
+  }, 6_000);
 
   const resumeHandle = await CapApp.addListener("appStateChange", ({ isActive }) => {
     if (!isActive) return;
