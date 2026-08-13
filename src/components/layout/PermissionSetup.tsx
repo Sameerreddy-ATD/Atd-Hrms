@@ -96,7 +96,7 @@ export function PermissionSetup() {
     setRequesting("location");
     try {
       await getDeviceLocation({ allowRecent: false });
-      toast.success("Location is on for check-in");
+      toast.success("Precise location is on for check-in");
       close();
     } catch (error) {
       toast.error((error as Error).message || blockedPermissionHint("location"));
@@ -124,8 +124,9 @@ export function PermissionSetup() {
       [
         {
           key: "location" as const,
-          title: "Location",
-          blurb: "Used only while you check in or out, to match your branch. Not used in the background.",
+          title: "Precise location",
+          blurb:
+            "Required for check-in and check-out. Approximate location is not enough — turn on Precise. Used only while punching, never in the background.",
           state: location,
           required: true,
         },
@@ -152,10 +153,10 @@ export function PermissionSetup() {
         <div className="px-5 pb-2 pt-5 sm:px-6">
           <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-border" aria-hidden />
           <SheetHeader className="space-y-1.5 text-left">
-            <SheetTitle className="text-xl tracking-tight">Allow location for check-in</SheetTitle>
+            <SheetTitle className="text-xl tracking-tight">Allow precise location</SheetTitle>
             <SheetDescription className="text-sm leading-relaxed">
-              Anytime Workforce asks for GPS only when you mark attendance. Camera is requested later,
-              and only if Face Security is enabled for your account.
+              Attendance needs precise GPS against your branch. If Android offers Approximate, switch
+              to Precise. Camera is requested later only if Face Security is enabled for your account.
             </SheetDescription>
           </SheetHeader>
         </div>

@@ -119,6 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     writeSessionUser(null);
     setUser(null);
+    void import("@/lib/offline-punch-queue").then(({ clearPunchTicket }) => clearPunchTicket());
     void authApi.logout();
   }, []);
 

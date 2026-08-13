@@ -1,5 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import { Geolocation } from "@capacitor/geolocation";
+import { preciseLocationRequiredHint } from "@/lib/device-permissions";
 
 const CACHE_KEY = "atd.last-location";
 const CACHE_MAX_AGE_MS = 15_000;
@@ -120,8 +121,15 @@ async function getNativeDeviceLocation(
   });
   if (browserAttempt === "ok") return;
 
-  // 2) Capacitor plugin fallback — fully isolated so a plugin crash cannot
-  //    become an unhandled rejection that tears down the WebView.
+  // Samsung Galaxy S25 Ultra (Android 16): Capacitor Geolocation.checkPermissions
+  // NPEs inside Bridge.getPermissionStates and kills the process. Never call it.
+  if (Capacitor.getPlatform() === "android") {
+    reject(Object.assign(new Error(preciseLocationRequiredHint()), { code: 1 }));
+    return;
+  }
+
+  // 2) Capacitor plugin fallback (iOS only) — isolated so a plugin failure
+  //    cannot become an unhandled rejection that tears down the WebView.
   try {
     const permission = await Promise.race([
       Geolocation.checkPermissions(),
@@ -129,15 +137,16 @@ async function getNativeDeviceLocation(
         window.setTimeout(() => fail(new Error("Location permission check timed out.")), 4_000),
       ),
     ]);
-    if (permission.location !== "granted" && permission.coarseLocation !== "granted") {
+    // Fine/precise only — approximate (coarse) location cannot verify branch geofence.
+    if (permission.location !== "granted") {
       const requested = await Promise.race([
         Geolocation.requestPermissions(),
         new Promise<never>((_, fail) =>
           window.setTimeout(() => fail(new Error("Location permission request timed out.")), 15_000),
         ),
       ]);
-      if (requested.location !== "granted" && requested.coarseLocation !== "granted") {
-        reject(Object.assign(new Error("Location permission was denied."), { code: 1 }));
+      if (requested.location !== "granted") {
+        reject(Object.assign(new Error(preciseLocationRequiredHint()), { code: 1 }));
         return;
       }
     }
@@ -157,7 +166,7 @@ async function getNativeDeviceLocation(
     reject(
       error instanceof Error
         ? error
-        : Object.assign(new Error("Precise location is required to mark attendance."), { code: 1 }),
+        : Object.assign(new Error(preciseLocationRequiredHint()), { code: 1 }),
     );
   }
 }

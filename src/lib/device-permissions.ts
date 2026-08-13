@@ -30,16 +30,16 @@ export async function readLocationPermission(): Promise<DevicePermissionState> {
       // fall through
     }
   }
-  if (isNativeApp()) {
+  // Do not call Capacitor Geolocation.checkPermissions on Android — it NPEs on
+  // Samsung One UI (Android 16) inside Bridge.getPermissionStates.
+  if (isNativeApp() && Capacitor.getPlatform() !== "android") {
     try {
       const { Geolocation } = await import("@capacitor/geolocation");
       const permission = await withTimeout(Geolocation.checkPermissions(), 3_000, "Location check");
-      if (permission.location === "granted" || permission.coarseLocation === "granted") {
-        return "granted";
-      }
-      if (permission.location === "denied" || permission.coarseLocation === "denied") {
-        return "denied";
-      }
+      // Attendance requires precise (fine) location only — approximate/coarse is not enough.
+      if (permission.location === "granted") return "granted";
+      if (permission.location === "denied") return "denied";
+      if (permission.coarseLocation === "granted") return "prompt";
       return "prompt";
     } catch {
       return "prompt";
@@ -50,6 +50,8 @@ export async function readLocationPermission(): Promise<DevicePermissionState> {
 }
 
 export async function readCameraPermission(): Promise<DevicePermissionState> {
+  // Prefer Permissions API only. Capacitor Camera.checkPermissions has crashed
+  // Samsung One UI WebViews — never call it for status reads.
   if ("permissions" in navigator) {
     try {
       const state = (await navigator.permissions.query({ name: "camera" as PermissionName })).state;
@@ -58,43 +60,18 @@ export async function readCameraPermission(): Promise<DevicePermissionState> {
       // fall through
     }
   }
-  if (isNativeApp()) {
-    try {
-      const { Camera } = await import("@capacitor/camera");
-      const permission = await withTimeout(Camera.checkPermissions(), 3_000, "Camera check");
-      if (permission.camera === "granted") return "granted";
-      if (permission.camera === "denied") return "denied";
-      return "prompt";
-    } catch {
-      return "prompt";
-    }
-  }
   if (!navigator.mediaDevices?.getUserMedia) return "unsupported";
   return "prompt";
 }
 
 /**
- * Ensure camera access without relying on Capacitor Camera.requestPermissions,
- * which has crashed Samsung One UI WebViews. Prefer getUserMedia (WebView prompt).
- * Capacitor is only a best-effort pre-grant and never required for success.
+ * Face / check-in camera uses getUserMedia only.
+ * Do NOT call Capacitor Camera.checkPermissions / requestPermissions — those
+ * native bridges have killed Samsung One UI WebViews. Chrome WebView still
+ * prompts via the app's CAMERA manifest permission.
  */
 export async function requestNativeCameraPermission() {
-  if (!isNativeApp()) return;
-
-  // Soft Capacitor pre-grant — never throw from plugin failures.
-  try {
-    const { Camera } = await import("@capacitor/camera");
-    const permission = await withTimeout(Camera.checkPermissions(), 3_000, "Camera check");
-    if (permission.camera !== "granted") {
-      await withTimeout(
-        Camera.requestPermissions({ permissions: ["camera"] }),
-        15_000,
-        "Camera permission",
-      );
-    }
-  } catch {
-    // Continue — getUserMedia below is the real gate.
-  }
+  // Intentionally a no-op. Kept so call sites stay stable.
 }
 
 export async function requestCameraAccess() {
@@ -105,14 +82,20 @@ export async function requestCameraAccess() {
     throw new Error("Camera needs HTTPS. Open the app with your secure domain.");
   }
 
-  // Best-effort native pre-grant (isolated).
-  await requestNativeCameraPermission().catch(() => undefined);
-
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: { facingMode: "user" },
-    });
+    // Probe with minimal constraints — some Android WebViews reject "ideal" shapes.
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: "user" },
+      });
+    } catch {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: true,
+      });
+    }
     stream.getTracks().forEach((track) => track.stop());
   } catch (error) {
     const name = error instanceof DOMException ? error.name : "";
@@ -123,13 +106,26 @@ export async function requestCameraAccess() {
   }
 }
 
-export function blockedPermissionHint(kind: "location" | "camera") {
+/** How to turn on Precise location (Android Approximate / iOS Precise off). */
+export function preciseLocationRequiredHint() {
   if (isNativeApp() && Capacitor.getPlatform() === "android") {
-    return kind === "location"
-      ? "Location is blocked. Open Settings → Apps → Anytime Workforce → Permissions and allow Location."
-      : "Camera is blocked. Open Settings → Apps → Anytime Workforce → Permissions and allow Camera.";
+    return "Precise location is required for attendance. Open Settings → Apps → Anytime Workforce → Permissions → Location and turn on Precise (not Approximate only).";
   }
-  return kind === "location"
-    ? "Location is blocked. Enable it in this site’s settings, then return here."
-    : "Camera is blocked. Enable it in this site’s settings, then return here.";
+  if (isNativeApp() && Capacitor.getPlatform() === "ios") {
+    return "Precise Location is required for attendance. Open Settings → Anytime Workforce → Location and turn on Precise Location.";
+  }
+  return "Precise location is required for attendance. Allow precise/exact location for this site (not approximate), then try again.";
+}
+
+export function formatImpreciseLocationError(accuracyMeters: number, maxMeters: number) {
+  const rounded = Math.round(accuracyMeters);
+  return `Location accuracy is about ${rounded} m (need within ${maxMeters} m). ${preciseLocationRequiredHint()} Move outdoors or near a window if Precise is already on.`;
+}
+
+export function blockedPermissionHint(kind: "location" | "camera") {
+  if (kind === "location") return preciseLocationRequiredHint();
+  if (isNativeApp() && Capacitor.getPlatform() === "android") {
+    return "Camera is blocked. Open Settings → Apps → Anytime Workforce → Permissions and allow Camera.";
+  }
+  return "Camera is blocked. Enable it in this site’s settings, then return here.";
 }

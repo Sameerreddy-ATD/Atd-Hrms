@@ -521,15 +521,22 @@ function MarkAttendanceCard({
     let cancelled = false;
     async function flushQueue() {
       if (!navigator.onLine) return;
-      const { listOfflinePunches, removeOfflinePunch } = await import("@/lib/offline-punch-queue");
-      const queue = await listOfflinePunches();
+      const { listOfflinePunches, removeOfflinePunch, writePunchTicket } = await import(
+        "@/lib/offline-punch-queue"
+      );
+      try {
+        const nextTicket = await attendanceApi.punchTicket();
+        writePunchTicket(nextTicket.ticket, nextTicket.expiresAt);
+      } catch {
+        /* keep the last valid ticket if refresh fails */
+      }
+      const queue = await listOfflinePunches(user.employeeId);
       for (const entry of queue) {
         if (cancelled) return;
         try {
           if (entry.kind === "check-in") {
-            const payload = entry.payload as Parameters<typeof attendanceApi.checkIn>[0];
+            const payload = entry.payload;
             if (payload.faceVerification) {
-              // Face sessions expire quickly; never keep a dead face punch blocking the queue.
               await removeOfflinePunch(entry.id);
               toast.error(
                 "A queued face check-in expired. Please check in again while online.",
@@ -537,14 +544,26 @@ function MarkAttendanceCard({
               continue;
             }
             await attendanceApi.checkIn({
-              ...payload,
+              employeeId: entry.employeeId || user.employeeId || "",
+              latitude: payload.latitude,
+              longitude: payload.longitude,
+              locationAccuracy: payload.locationAccuracy,
+              mobileDeviceId: payload.mobileDeviceId,
+              confirmLeaveCancellation: payload.confirmLeaveCancellation,
               eventTime: payload.eventTime ?? entry.createdAt,
+              punchTicket: entry.ticket,
+              captureNonce: entry.nonce,
+              deferred: true,
             });
           } else {
             await attendanceApi.checkOut({
-              ...(entry.payload as Parameters<typeof attendanceApi.checkOut>[0]),
-              eventTime:
-                (entry.payload as { eventTime?: string }).eventTime ?? entry.createdAt,
+              latitude: entry.payload.latitude,
+              longitude: entry.payload.longitude,
+              locationAccuracy: entry.payload.locationAccuracy,
+              eventTime: entry.payload.eventTime ?? entry.createdAt,
+              punchTicket: entry.ticket,
+              captureNonce: entry.nonce,
+              deferred: true,
             });
           }
           await removeOfflinePunch(entry.id);
@@ -569,12 +588,21 @@ function MarkAttendanceCard({
     }
     void flushQueue();
     const onOnline = () => void flushQueue();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void flushQueue();
+    };
     window.addEventListener("online", onOnline);
+    document.addEventListener("visibilitychange", onVisible);
+    const timer = window.setInterval(() => {
+      if (navigator.onLine) void flushQueue();
+    }, 30_000);
     return () => {
       cancelled = true;
       window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.clearInterval(timer);
     };
-  }, [onAttendanceChanged]);
+  }, [onAttendanceChanged, user.employeeId]);
 
   async function submitCheckIn(capture: AttendanceCapture, confirmLeaveCancellation = false) {
     if (!user.employeeId) return;
@@ -606,12 +634,8 @@ function MarkAttendanceCard({
           return;
         }
         await enqueueOfflinePunch({
-          id: crypto.randomUUID(),
           kind: "check-in",
-          createdAt:
-            "eventTime" in capture && capture.eventTime
-              ? capture.eventTime
-              : new Date().toISOString(),
+          employeeId: user.employeeId,
           payload: {
             employeeId: user.employeeId,
             ...capture,
@@ -673,12 +697,8 @@ function MarkAttendanceCard({
           );
           if (isLikelyNetworkError(error)) {
             await enqueueOfflinePunch({
-              id: crypto.randomUUID(),
               kind: "check-out",
-              createdAt:
-                "eventTime" in capture && capture.eventTime
-                  ? capture.eventTime
-                  : new Date().toISOString(),
+              employeeId: user.employeeId ?? "",
               payload: {
                 ...capture,
                 eventTime:

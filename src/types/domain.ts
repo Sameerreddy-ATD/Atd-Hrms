@@ -22,7 +22,11 @@ export type ModuleKey =
   | "COMPANY"
   | "PROFILE"
   | "COMMUNICATIONS"
-  | "SYSTEM";
+  | "SYSTEM"
+  | "TALENT"
+  | "LIFECYCLE"
+  | "PERFORMANCE"
+  | "LMS";
 
 export type IntegrationScope = "employees:read" | "employees:write" | "employee-events:read";
 
@@ -121,6 +125,16 @@ export interface User {
   aadhaarNumberLast4?: string;
   uanNumber?: string;
   uanNumberLast4?: string;
+  fatherName?: string;
+  presentAddress?: string;
+  presentCity?: string;
+  presentState?: string;
+  presentPincode?: string;
+  permanentAddress?: string;
+  permanentCity?: string;
+  permanentState?: string;
+  permanentPincode?: string;
+  lifecycleStage?: string;
   shiftType?: "DAY" | "NIGHT";
   shiftStartMinutes?: number;
   shiftEndMinutes?: number;

@@ -232,7 +232,8 @@ export function FaceCapture({
         const human = await loadHuman();
         if (!active) return;
         setMessage("Requesting camera access…");
-        await requestNativeCameraPermission();
+        // WebView getUserMedia only — never Capacitor Camera.*Permissions (Samsung crash).
+        await requestNativeCameraPermission().catch(() => undefined);
         if (!active) return;
         let stream: MediaStream;
         try {
@@ -245,12 +246,36 @@ export function FaceCapture({
               aspectRatio: { ideal: 0.5625 },
             },
           });
-        } catch {
-          // Some Android WebViews reject ideal constraints — fall back to a basic user camera.
-          stream = await navigator.mediaDevices.getUserMedia({
-            audio: false,
-            video: { facingMode: "user" },
-          });
+        } catch (firstError) {
+          const denied =
+            firstError instanceof DOMException &&
+            (firstError.name === "NotAllowedError" || firstError.name === "PermissionDeniedError");
+          if (denied) throw new Error(blockedPermissionHint("camera"));
+          try {
+            // Some Android WebViews reject ideal constraints — fall back to a basic user camera.
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: false,
+              video: { facingMode: "user" },
+            });
+          } catch (fallbackError) {
+            const name = fallbackError instanceof DOMException ? fallbackError.name : "";
+            if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+              throw new Error(blockedPermissionHint("camera"));
+            }
+            // Last resort: any video device (facingMode unsupported on some OEMs).
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({
+                audio: false,
+                video: true,
+              });
+            } catch (lastError) {
+              const lastName = lastError instanceof DOMException ? lastError.name : "";
+              if (lastName === "NotAllowedError" || lastName === "PermissionDeniedError") {
+                throw new Error(blockedPermissionHint("camera"));
+              }
+              throw lastError instanceof Error ? lastError : new Error("Camera could not start.");
+            }
+          }
         }
         if (!active) {
           stream.getTracks().forEach((track) => track.stop());

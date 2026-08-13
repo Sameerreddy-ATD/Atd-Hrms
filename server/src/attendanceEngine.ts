@@ -7,6 +7,7 @@ import {
   WorkType,
 } from "@prisma/client";
 import { prisma } from "./prisma.js";
+import { HttpError } from "./errors.js";
 import { publishAttendanceChange } from "./attendanceLive.js";
 import {
   cancelApprovedLeaveForDay,
@@ -132,14 +133,20 @@ export async function inferThumbEventType(employeeId: string, branchId: string, 
  * Prefer the client's punch instant (when they completed check-in/out), not server
  * time after face verify / network delay. Clamp absurd clock skew.
  */
-export function resolveMobileEventTime(clientTime?: Date | null) {
+export function resolveMobileEventTime(
+  clientTime?: Date | null,
+  options: { deferred?: boolean } = {},
+) {
   const now = new Date();
   if (!clientTime || Number.isNaN(clientTime.getTime())) return now;
   const skewMs = clientTime.getTime() - now.getTime();
   // More than 2 minutes in the future → use server now (bad device clock).
   if (skewMs > 2 * 60_000) return now;
-  // Offline queue may be up to 48h old; older than that → server now.
-  if (skewMs < -48 * 3600_000) return now;
+  // Live punches: 5 minutes of clock / network lag. Deferred punches use the signed ticket window.
+  if (!options.deferred && skewMs < -5 * 60_000) return now;
+  if (options.deferred && skewMs < -16 * 3600_000) {
+    throw new HttpError(400, "Queued punch is too old to sync. Check out again while online.");
+  }
   return clientTime;
 }
 

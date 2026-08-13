@@ -46,7 +46,7 @@ function BirthdayCard({
       )}
     >
       <div className="flex items-center justify-between gap-3 border-b border-primary/15 bg-primary/[0.04] px-4 py-2.5 sm:px-5">
-        <Logo className="h-6 w-auto" />
+        <Logo variant="mark" className="h-6 w-6" />
         <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary">
           {isSelf ? "Your birthday" : "Birthday today"}
         </span>

@@ -161,8 +161,7 @@ function AppLayout() {
   const moduleBlocked = Array.isArray(allowedModules) && !allowedModules.includes(activeModule);
   const fallbackRoute = user
     ? menuForRole(user.role, { allowedModules: allowedModules ?? undefined })
-        .flatMap((group) => group.items)
-        .at(0)?.to
+        .flatMap((group) => group.items)[0]?.to
     : undefined;
 
   return (
@@ -175,12 +174,12 @@ function AppLayout() {
       </a>
       <AppSidebar />
       <PermissionSetup />
-      <SidebarInset className="aw-shell-canvas flex h-svh max-h-svh min-h-0 min-w-0 flex-col overflow-hidden bg-muted/35 dark:bg-background">
+      <SidebarInset className="aw-shell-canvas flex h-full max-h-full min-h-0 min-w-0 flex-col overflow-hidden bg-muted/35 dark:bg-background">
         <AppHeader />
         <main
           id="main-content"
           tabIndex={-1}
-          className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain p-0 pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] outline-none sm:p-3 sm:pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:p-4"
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain p-0 pb-[max(1.25rem,var(--atd-sab))] pl-[var(--atd-sal)] pr-[var(--atd-sar)] outline-none sm:p-3 sm:pb-[max(0.75rem,var(--atd-sab))] lg:p-4"
         >
           <div className="aw-enter flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden bg-background/95 p-4 pb-6 text-card-foreground sm:rounded-xl sm:border sm:border-border/80 sm:bg-background sm:p-5 sm:pb-5 sm:shadow-sm lg:p-6">
             {moduleBlocked ? (

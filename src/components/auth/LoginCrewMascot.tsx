@@ -48,13 +48,13 @@ export function LoginCrewMascot({
           </>
         ) : (
           <div className="login-crew__fallback">
-            <img src="/atd-logo.png" alt="" className="login-crew__fallback-logo" />
+            <img src="/atd-mark.png" alt="" className="login-crew__fallback-logo" />
           </div>
         )}
       </div>
       {mode !== "hiding" && (
         <p className="login-crew__caption">
-          {mode === "peeking" ? "Password visible" : "Welcome to Anytime Diesel"}
+          {mode === "peeking" ? "Password visible" : "Welcome to AnyTime Diesel Workforce"}
         </p>
       )}
     </div>

@@ -24,16 +24,16 @@ const config: CapacitorConfig = {
       // page instead of an infinite black splash ("app won't open").
       launchAutoHide: true,
       launchShowDuration: 8000,
-      backgroundColor: "#000000",
+      backgroundColor: "#FFFFFF",
       showSpinner: false,
       androidScaleType: "CENTER",
-      splashFullScreen: true,
+      splashFullScreen: false,
       splashImmersive: false,
     },
     StatusBar: {
       style: "DARK",
       backgroundColor: "#F6F8FC",
-      overlaysWebView: false,
+      overlaysWebView: true,
     },
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"],

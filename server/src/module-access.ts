@@ -12,6 +12,10 @@ export const MODULE_KEYS = [
   "PROFILE",
   "COMMUNICATIONS",
   "SYSTEM",
+  "TALENT",
+  "LIFECYCLE",
+  "PERFORMANCE",
+  "LMS",
 ] as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[number];
@@ -31,6 +35,10 @@ export const DEFAULT_MODULE_ACCESS: ModuleAccessMatrix = {
     "PROFILE",
     "COMMUNICATIONS",
     "SYSTEM",
+    "TALENT",
+    "LIFECYCLE",
+    "PERFORMANCE",
+    "LMS",
   ],
   // CEO: company-wide executive overview (no System). Attendance not required for the account.
   CEO: [
@@ -43,6 +51,10 @@ export const DEFAULT_MODULE_ACCESS: ModuleAccessMatrix = {
     "COMPANY",
     "PROFILE",
     "COMMUNICATIONS",
+    "TALENT",
+    "LIFECYCLE",
+    "PERFORMANCE",
+    "LMS",
   ],
   HR: [
     "DASHBOARD",
@@ -54,6 +66,10 @@ export const DEFAULT_MODULE_ACCESS: ModuleAccessMatrix = {
     "COMPANY",
     "PROFILE",
     "COMMUNICATIONS",
+    "TALENT",
+    "LIFECYCLE",
+    "PERFORMANCE",
+    "LMS",
   ],
   // Department heads (MANAGER): team People/Attendance/Leave; no Company or System.
   MANAGER: [
@@ -65,6 +81,10 @@ export const DEFAULT_MODULE_ACCESS: ModuleAccessMatrix = {
     "LEAVE",
     "PROFILE",
     "COMMUNICATIONS",
+    "TALENT",
+    "LIFECYCLE",
+    "PERFORMANCE",
+    "LMS",
   ],
   EMPLOYEE: [
     "DASHBOARD",
@@ -74,6 +94,9 @@ export const DEFAULT_MODULE_ACCESS: ModuleAccessMatrix = {
     "LEAVE",
     "PROFILE",
     "COMMUNICATIONS",
+    "LIFECYCLE",
+    "PERFORMANCE",
+    "LMS",
   ],
   SALES: [
     "DASHBOARD",
@@ -83,6 +106,9 @@ export const DEFAULT_MODULE_ACCESS: ModuleAccessMatrix = {
     "LEAVE",
     "PROFILE",
     "COMMUNICATIONS",
+    "LIFECYCLE",
+    "PERFORMANCE",
+    "LMS",
   ],
   DRIVER: [
     "DASHBOARD",
@@ -92,6 +118,9 @@ export const DEFAULT_MODULE_ACCESS: ModuleAccessMatrix = {
     "LEAVE",
     "PROFILE",
     "COMMUNICATIONS",
+    "LIFECYCLE",
+    "PERFORMANCE",
+    "LMS",
   ],
   FIELD_STAFF: [
     "DASHBOARD",
@@ -101,11 +130,16 @@ export const DEFAULT_MODULE_ACCESS: ModuleAccessMatrix = {
     "LEAVE",
     "PROFILE",
     "COMMUNICATIONS",
+    "LIFECYCLE",
+    "PERFORMANCE",
+    "LMS",
   ],
 };
 
 const SETTING_KEY = "module_access_matrix";
 let cached: { value: ModuleAccessMatrix; expiresAt: number } | null = null;
+
+const LIFECYCLE_MODULES: ModuleKey[] = ["TALENT", "LIFECYCLE", "PERFORMANCE", "LMS"];
 
 function normalize(value: unknown): ModuleAccessMatrix {
   const source = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
@@ -115,7 +149,11 @@ function normalize(value: unknown): ModuleAccessMatrix {
       const allowed = configured.filter((item): item is ModuleKey =>
         MODULE_KEYS.includes(item as ModuleKey),
       );
-      return [role, role === Role.DEVELOPER_ADMIN ? ALL_MODULES : [...new Set(allowed)]];
+      const hasLifecycleKeys = allowed.some((key) => LIFECYCLE_MODULES.includes(key));
+      const merged = hasLifecycleKeys
+        ? allowed
+        : [...allowed, ...DEFAULT_MODULE_ACCESS[role].filter((key) => LIFECYCLE_MODULES.includes(key))];
+      return [role, role === Role.DEVELOPER_ADMIN ? ALL_MODULES : [...new Set(merged)]];
     }),
   ) as ModuleAccessMatrix;
 }
@@ -155,6 +193,15 @@ export function moduleForApiPath(path: string, method = "GET"): ModuleKey | null
     return "EMPLOYEE_REQUESTS";
   if (path.startsWith("/search") || path.startsWith("/notification-preferences")) return null;
   if (path.startsWith("/checklists")) return "PEOPLE";
+  if (
+    path.startsWith("/lifecycle/jobs") ||
+    path.startsWith("/lifecycle/candidates") ||
+    path.startsWith("/lifecycle/offers")
+  )
+    return "TALENT";
+  if (path.startsWith("/lifecycle/performance")) return "PERFORMANCE";
+  if (path.startsWith("/lifecycle/lms")) return "LMS";
+  if (path.startsWith("/lifecycle/")) return "LIFECYCLE";
   if (
     path.startsWith("/leave/") ||
     path.startsWith("/weekly-offs") ||

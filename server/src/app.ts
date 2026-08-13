@@ -51,6 +51,7 @@ import {
   recalculateDailySummary,
   resolveMobileEventTime,
 } from "./attendanceEngine.js";
+import { issuePunchTicket, verifyPunchTicket } from "./punchTicket.js";
 import { classifyMobileSource, ensureEmployeeShiftAssignment, locationSourceLabel } from "./attendancePolicy.js";
 import { closePriorOpenPunchForNewDay } from "./attendanceSettlement.js";
 import { openAttendanceStream } from "./attendanceLive.js";
@@ -181,6 +182,7 @@ import {
   weeklyOffRequestSchema,
 } from "./schemas.js";
 import { registerHrmsExtensions } from "./hrms-extensions.js";
+import { registerLifecycleRoutes } from "./lifecycle.js";
 import {
   consumeCompOffCredits,
   leavePolicyDescription,
@@ -3681,7 +3683,7 @@ export function createApp() {
     if (body.locationAccuracy > faceSettings.maxGpsAccuracyMeters) {
       throw new HttpError(
         422,
-        `Location accuracy must be within ${faceSettings.maxGpsAccuracyMeters} metres.`,
+        `Precise location accuracy must be within ${faceSettings.maxGpsAccuracyMeters} metres. Turn on Precise location and try again.`,
       );
     }
     let nearbyBranchId: string | undefined;
@@ -3710,7 +3712,32 @@ export function createApp() {
         }
       }
     }
-    const punchAt = resolveMobileEventTime(body.eventTime ?? null);
+    const capturedAt = body.eventTime ?? null;
+    const looksDeferred =
+      Boolean(body.deferred) ||
+      Boolean(capturedAt && Date.now() - capturedAt.getTime() > 30_000);
+    if (looksDeferred) {
+      if (!body.punchTicket || !body.captureNonce) {
+        throw new HttpError(400, "Offline punches require a signed ticket. Reconnect and try again.");
+      }
+      verifyPunchTicket(body.punchTicket, employeeId, req.user!.id);
+      try {
+        await prisma.deferredPunchReceipt.create({
+          data: {
+            employeeId,
+            nonce: body.captureNonce,
+            kind: isCheckOut ? "check-out" : "check-in",
+            capturedAt: capturedAt ?? new Date(),
+          },
+        });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+          throw new HttpError(409, "This queued punch was already synced.");
+        }
+        throw error;
+      }
+    }
+    const punchAt = resolveMobileEventTime(capturedAt, { deferred: looksDeferred });
     const eventDate = await attendanceDateForEmployee(employeeId, punchAt);
     if (!isCheckOut) {
       await ensureEmployeeShiftAssignment(employeeId, eventDate, req.user!.employeeId);
@@ -3832,6 +3859,14 @@ export function createApp() {
     res.status(201).json(event);
   }
 
+  app.get(
+    "/attendance/punch-ticket",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      if (!req.user?.employeeId) throw new HttpError(400, "An employee profile is required");
+      res.json(issuePunchTicket(req.user.employeeId, req.user.id));
+    }),
+  );
   app.post(
     "/attendance/mobile/check-in",
     requireAuth,
@@ -7966,6 +8001,7 @@ export function createApp() {
     }),
   );
 
+  registerLifecycleRoutes(app);
   registerHrmsExtensions(app);
   registerClientLogRoutes(app);
   app.use(errorHandler);

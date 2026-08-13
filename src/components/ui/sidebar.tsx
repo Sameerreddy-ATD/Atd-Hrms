@@ -135,7 +135,7 @@ const SidebarProvider = React.forwardRef<
               } as React.CSSProperties
             }
             className={cn(
-              "group/sidebar-wrapper flex min-h-svh w-full has-[[data-variant=inset]]:bg-sidebar",
+              "group/sidebar-wrapper flex h-full min-h-full w-full has-[[data-variant=inset]]:bg-sidebar",
               className,
             )}
             ref={ref}
@@ -188,14 +188,19 @@ const Sidebar = React.forwardRef<
 
     if (isMobile) {
       return (
-        <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
+        <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props} modal={false}>
           <SheetContent
             data-sidebar="sidebar"
             data-mobile="true"
-            className="w-(--sidebar-width) bg-sidebar p-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] text-sidebar-foreground [&>button]:hidden"
+            overlayClassName="atd-drawer-under-header bg-foreground/40"
+            className="atd-drawer-panel-under-header w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
             style={
               {
                 "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
+                top: "calc(var(--atd-sat) + var(--atd-header-row))",
+                height: "calc(100dvh - var(--atd-sat) - var(--atd-header-row) - var(--atd-sab))",
+                maxHeight: "calc(100dvh - var(--atd-sat) - var(--atd-header-row) - var(--atd-sab))",
+                bottom: "auto",
               } as React.CSSProperties
             }
             side={side}
@@ -232,7 +237,7 @@ const Sidebar = React.forwardRef<
         />
         <div
           className={cn(
-            "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear md:flex",
+            "fixed inset-y-0 z-10 hidden h-full w-(--sidebar-width) pt-[var(--atd-sat)] pb-[var(--atd-sab)] transition-[left,right,width] duration-200 ease-linear md:flex",
             side === "left"
               ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
               : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",

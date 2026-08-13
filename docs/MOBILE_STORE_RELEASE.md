@@ -24,7 +24,7 @@ The store apps load the live production site inside Capacitor so HTTP-only sessi
 
 1. [ ] Create upload keystore (never commit). Copy `android/keystore.properties.example` → `android/keystore.properties`.
 2. [ ] Add Firebase Android app for `com.anytimediesel.workforce` and place `android/app/google-services.json` (gitignored).
-3. [ ] `npm run mobile:sync` then `npm run mobile:android:bundle` → upload the `.aab`.
+3. [ ] `npm run mobile:sync` then `npm run mobile:android:bundle` → upload the `.aab`. When the track is live, bump `androidVersionCode` / `androidVersionName` in `public/app-version.json` to match `android/app/build.gradle` so outdated phones are prompted to update on next open.
 4. [ ] Store listing icons: use `mobile/assets/play-icon-512.png` (branded).
 5. [ ] Feature graphic 1024×500 + phone screenshots: login, dashboard, My Attendance (GPS), face check-in (if enabled), leave apply, Profile → account deletion.
 6. [ ] Privacy policy URL, Terms URL, Account deletion URL (all public, no login).
@@ -43,7 +43,8 @@ The store apps load the live production site inside Capacitor so HTTP-only sessi
 | Data type | Collected | Shared | Purpose | Optional? | Notes |
 | --------- | --------- | ------ | ------- | --------- | ----- |
 | Name, email | Yes | No (except employer processors) | App functionality | Required for login | Company accounts |
-| Precise location | Yes | No | App functionality | Required for attendance | **While in use only** — no background location |
+| Precise location | Yes | No | App functionality | **Required** for attendance | **While in use only** — no background location. Approximate/coarse alone is **not** accepted. |
+| Approximate location | No (not used for product features) | No | — | — | App may declare `ACCESS_COARSE` as an Android dependency of fine location, but check-in/out require **Precise** |
 | Photos / videos | Yes when face mode on | No | App functionality | Required only if Face Security enabled | Encrypted evidence; retention in Face Security |
 | Device / push IDs | Yes if alerts on | Yes — Google FCM | App functionality | Optional (user enables alerts) | FCM is a third-party processor for delivery |
 | Other HR / employment data | Yes | No | App functionality | Required for role | Encrypted statutory fields where configured |
@@ -59,10 +60,26 @@ The store apps load the live production site inside Capacitor so HTTP-only sessi
 
 | Permission | Declared use |
 | ---------- | ------------ |
-| Location (fine/coarse) | Foreground attendance check-in/out geofencing |
+| Location (`ACCESS_FINE_LOCATION`; coarse may appear as dependency) | **Precise** foreground attendance check-in/out geofencing only. Reject Approximate-only. |
 | Camera | Face registration / check-in when enabled by admin |
 | Notifications | Optional workforce alerts |
 | Background location | **Not requested** |
+
+### Play Console — paste these answers
+
+**Data safety → Location**
+
+- Collect precise location: **Yes**
+- Collect approximate location for a feature: **No** (not used; attendance requires precise)
+- Shared: **No**
+- Purpose: App functionality (branch attendance verification)
+- Ephemeral / processed ephemerally if asked: No — stored with the attendance punch for HR audit
+- Required or optional: **Required** for attendance features
+- Users can request deletion: Yes (account deletion flow)
+
+**App content → Sensitive permissions (Location)** if Google asks why fine location:
+
+> Anytime Workforce is an internal employee attendance app. Precise (fine) location is required while the employee checks in or out so the punch can be matched to the assigned branch geofence. Approximate location is not accurate enough for this internal workforce control. Location is used only in the foreground during the punch; background location is not requested.
 
 ### Reviewer notes (paste into Console if asked)
 

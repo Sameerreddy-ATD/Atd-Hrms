@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/common/PasswordInput";
-import { Logo } from "@/components/common/Logo";
 import { LoginCrewMascot, type LoginCrewMode } from "@/components/auth/LoginCrewMascot";
 import { PwaInstallBanner } from "@/components/layout/PwaInstallBanner";
 import { useAuth } from "@/lib/auth";
@@ -69,32 +68,17 @@ function LoginPage() {
   }
 
   return (
-    <div className="aw-auth-canvas flex min-h-[100dvh] items-center justify-center px-4 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))]">
-      <div className="aw-enter mx-auto flex w-full max-w-md flex-col justify-center space-y-5">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <Logo className="h-auto w-36 sm:w-40" />
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-[1.75rem]">
-              Anytime Workforce
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Workforce and operations platform
-            </p>
-          </div>
-        </div>
-
-        <LoginCrewMascot mode={crewMode} className="mx-auto w-full max-w-[11rem] sm:max-w-[12.5rem]" />
+    <div className="aw-auth-canvas flex min-h-[100dvh] items-center justify-center px-4 py-8 pb-[max(2rem,var(--atd-sab))] pt-[max(2rem,var(--atd-sat))]">
+      <div className="aw-enter mx-auto flex w-full max-w-md flex-col justify-center space-y-4">
+        <LoginCrewMascot mode={crewMode} className="mx-auto w-full max-w-[7.5rem] sm:max-w-[8.5rem]" />
 
         <PwaInstallBanner alwaysOffer className="w-full" />
 
         <Card className="aw-enter-delayed border-border/70 bg-card/95 shadow-sm backdrop-blur-sm">
           <CardContent className="p-6 sm:p-8">
             <h2 className="text-lg font-semibold tracking-tight text-foreground">Sign in</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Use the work email and password issued by your administrator.
-            </p>
 
-            <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
+            <form onSubmit={handleSubmit} className="mt-5 space-y-4" noValidate>
               <div className="space-y-1.5">
                 <Label htmlFor="email">Work email</Label>
                 <Input
@@ -146,7 +130,7 @@ function LoginPage() {
             </form>
 
             <p className="mt-6 text-center text-[11px] text-muted-foreground/70">
-              Anytime Diesel · Anytime Workforce
+              AnyTime Diesel Workforce
             </p>
             <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-[11px]">
               <Link to="/privacy" className="text-muted-foreground hover:text-primary hover:underline">

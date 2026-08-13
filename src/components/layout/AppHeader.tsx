@@ -112,7 +112,7 @@ export function AppHeader() {
   const roleLabel = user ? ROLE_LABELS[user.role] : "";
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-1 border-b border-border/80 bg-background/85 px-2 backdrop-blur-xl transition-[background-color,border-color] duration-[var(--motion-ui)] dark:bg-card/90 dark:shadow-[0_1px_0_0_color-mix(in_oklab,white_6%,transparent)] sm:h-16 sm:gap-3 sm:px-4 md:px-6">
+    <header className="sticky top-0 z-[60] flex min-h-[calc(var(--atd-header-row)+var(--atd-sat))] shrink-0 items-center justify-between gap-1 border-b border-border/80 bg-background px-2 pt-[var(--atd-sat)] pointer-events-auto transition-[background-color,border-color] duration-[var(--motion-ui)] dark:bg-card dark:shadow-[0_1px_0_0_color-mix(in_oklab,white_6%,transparent)] sm:gap-3 sm:px-4 md:px-6">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <Button
           variant="ghost"
@@ -124,14 +124,27 @@ export function AppHeader() {
           <Menu className="h-5 w-5 text-foreground/80" />
         </Button>
         <div className="flex min-w-0 items-center gap-2 pl-0.5 sm:pl-1">
-          <img
-            src="/atd-favicon.png"
-            alt="Anytime Workforce"
-            className="h-6 w-6 shrink-0 rounded-md object-contain ring-1 ring-border/60"
-          />
-          <span className="truncate text-sm font-semibold tracking-tight text-foreground sm:text-base">
-            <span className="sm:hidden">{toTitle(pathname)}</span>
-            <span className="hidden sm:inline">Anytime Workforce</span>
+          <button
+            type="button"
+            onClick={() => navigate({ to: "/dashboard" })}
+            aria-label="Go to dashboard"
+            title="Go to dashboard"
+            className="flex h-10 min-w-0 shrink-0 items-center gap-2 rounded-lg px-1.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <img
+              src="/atd-favicon.png"
+              alt=""
+              className="h-6 w-6 shrink-0 rounded-md object-contain ring-1 ring-border/60"
+            />
+            <span className="hidden min-w-0 sm:inline">
+              <span className="atd-wordmark atd-wordmark--header">
+                <span className="atd-wordmark__anytime">AnyTime</span>
+                <span className="atd-wordmark__diesel">Diesel</span>
+              </span>
+            </span>
+          </button>
+          <span className="min-w-0 truncate text-sm font-semibold tracking-tight text-foreground sm:hidden">
+            {toTitle(pathname)}
           </span>
           <span className="hidden shrink-0 text-border sm:inline">|</span>
           <span className="hidden max-w-[10rem] truncate capitalize text-xs font-medium text-muted-foreground sm:inline sm:text-sm lg:max-w-none lg:whitespace-nowrap">

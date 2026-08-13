@@ -439,9 +439,9 @@ export async function verifyFaceCapture(input: {
       capture.longitude === undefined ||
       capture.locationAccuracy === undefined
     ) {
-      failureReason = "Live location permission is required for attendance.";
+      failureReason = "Precise location is required for attendance. Approximate location is not enough.";
     } else if (capture.locationAccuracy > settings.maxGpsAccuracyMeters) {
-      failureReason = `Location accuracy must be within ${settings.maxGpsAccuracyMeters} metres.`;
+      failureReason = `Precise location accuracy must be within ${settings.maxGpsAccuracyMeters} metres. Turn on Precise location and try again near a window or outdoors.`;
     } else {
       const registered = await approvedDescriptorsForUser(input.userId);
       similarityScore = descriptorSetSimilarity(registered, capturedDescriptors(capture));

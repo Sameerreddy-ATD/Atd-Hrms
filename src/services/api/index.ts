@@ -76,18 +76,21 @@ async function refreshSession() {
   return refreshRequest;
 }
 
-async function requestNetwork<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const headers = new Headers(options.headers);
-  if (options.body && !headers.has("Content-Type")) {
+type ApiRequestOptions = RequestInit & { timeoutMs?: number };
+
+async function requestNetwork<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+  const { timeoutMs, ...fetchInit } = options;
+  const headers = new Headers(fetchInit.headers);
+  if (fetchInit.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
   const controller = new AbortController();
-  const timeout = globalThis.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs ?? REQUEST_TIMEOUT_MS);
   let res: Response;
   try {
     const fetchOptions: RequestInit = {
-      ...options,
+      ...fetchInit,
       credentials: "include",
       headers,
       signal: controller.signal,
@@ -159,7 +162,7 @@ export async function fetchAuthenticatedBlob(path: string): Promise<Blob> {
   }
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+async function request<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const method = (options.method ?? "GET").toUpperCase();
   if (method !== "GET") {
     responseCache.clear();
@@ -230,6 +233,16 @@ export async function warmAuthenticatedWorkspace(user: User) {
       ];
   if (!native && user.employeeId && !["ceo", "developer_admin"].includes(user.role)) {
     paths.push("/attendance/my/timeline");
+  }
+  if (user.employeeId) {
+    void attendanceApi
+      .punchTicket()
+      .then(({ ticket, expiresAt }) => {
+        void import("@/lib/offline-punch-queue").then(({ writePunchTicket }) => {
+          writePunchTicket(ticket, expiresAt);
+        });
+      })
+      .catch(() => undefined);
   }
   const warmup = Promise.allSettled(paths.map((path) => warmPath(path)));
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -655,6 +668,7 @@ export const attendanceApi = {
     request<AttendanceTimelineEvent[]>(`/attendance/my/timeline${date ? `?date=${date}` : ""}`),
   teamTimeline: (employeeId: string, date?: string) =>
     request<AttendanceTimelineEvent[]>(`/attendance/team/timeline${toQuery({ employeeId, date })}`),
+  punchTicket: () => request<{ ticket: string; expiresAt: string }>("/attendance/punch-ticket"),
   checkIn: (payload: {
     employeeId: string;
     latitude: number;
@@ -664,9 +678,13 @@ export const attendanceApi = {
     confirmLeaveCancellation?: boolean;
     eventTime?: string;
     faceVerification?: FaceCapturePayload;
+    punchTicket?: string;
+    captureNonce?: string;
+    deferred?: boolean;
   }) =>
     request<{ eventId: string }>("/attendance/mobile/check-in", {
       method: "POST",
+      timeoutMs: 5000,
       body: JSON.stringify({
         ...payload,
         mobileDeviceId: payload.mobileDeviceId ?? navigator.userAgent.slice(0, 120),
@@ -677,9 +695,13 @@ export const attendanceApi = {
     longitude: number;
     locationAccuracy: number;
     eventTime?: string;
+    punchTicket?: string;
+    captureNonce?: string;
+    deferred?: boolean;
   }) =>
     request<{ eventId: string }>("/attendance/mobile/check-out", {
       method: "POST",
+      timeoutMs: 5000,
       body: JSON.stringify({
         ...payload,
         mobileDeviceId: navigator.userAgent.slice(0, 120),
@@ -1406,4 +1428,77 @@ export const checklistsApi = {
       `/checklists/templates/${id}`,
       { method: "DELETE" },
     ),
+};
+
+type LifecycleFile = { fileName: string; contentBase64: string; mimeType: string };
+
+export const lifecycleApi = {
+  jobs: () => request<Array<Record<string, unknown>>>("/lifecycle/jobs"),
+  createJob: (payload: Record<string, unknown>) =>
+    request("/lifecycle/jobs", { method: "POST", body: JSON.stringify(payload) }),
+  updateJob: (id: string, payload: Record<string, unknown>) =>
+    request(`/lifecycle/jobs/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  candidates: (filters: { jobId?: string; stage?: string } = {}) =>
+    request<Array<Record<string, unknown>>>(`/lifecycle/candidates${toQuery(filters)}`),
+  createCandidate: (payload: Record<string, unknown>) =>
+    request("/lifecycle/candidates", { method: "POST", body: JSON.stringify(payload) }),
+  updateCandidate: (id: string, payload: Record<string, unknown>) =>
+    request(`/lifecycle/candidates/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  addInterview: (id: string, payload: Record<string, unknown>) =>
+    request(`/lifecycle/candidates/${id}/interviews`, { method: "POST", body: JSON.stringify(payload) }),
+  createOffer: (id: string, payload: Record<string, unknown>) =>
+    request(`/lifecycle/candidates/${id}/offers`, { method: "POST", body: JSON.stringify(payload) }),
+  signOffer: (id: string) => request(`/lifecycle/offers/${id}/sign`, { method: "POST", body: "{}" }),
+  onboarding: () => request<Array<Record<string, unknown>>>("/lifecycle/onboarding"),
+  startOnboarding: (payload: { employeeId: string; candidateId?: string }) =>
+    request("/lifecycle/onboarding", { method: "POST", body: JSON.stringify(payload) }),
+  signOnboardingDoc: (id: string, payload: { file?: LifecycleFile; notes?: string }) =>
+    request(`/lifecycle/onboarding/documents/${id}/sign`, { method: "POST", body: JSON.stringify(payload) }),
+  verifyOnboardingDoc: (id: string, payload: { approved: boolean; notes?: string }) =>
+    request(`/lifecycle/onboarding/documents/${id}/verify`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  nho: () => request<Array<Record<string, unknown>>>("/lifecycle/nho"),
+  saveNho: (employeeId: string, payload: Record<string, unknown>) =>
+    request(`/lifecycle/nho/${employeeId}`, { method: "PUT", body: JSON.stringify(payload) }),
+  verifyNho: (employeeId: string, payload: { approved: boolean; hrNotes?: string }) =>
+    request(`/lifecycle/nho/${employeeId}/verify`, { method: "POST", body: JSON.stringify(payload) }),
+  changes: () => request<Array<Record<string, unknown>>>("/lifecycle/changes"),
+  createChange: (payload: Record<string, unknown>) =>
+    request("/lifecycle/changes", { method: "POST", body: JSON.stringify(payload) }),
+  decideChange: (id: string, payload: Record<string, unknown>) =>
+    request(`/lifecycle/changes/${id}/decide`, { method: "POST", body: JSON.stringify(payload) }),
+  cycles: () => request<Array<Record<string, unknown>>>("/lifecycle/performance/cycles"),
+  createCycle: (payload: Record<string, unknown>) =>
+    request("/lifecycle/performance/cycles", { method: "POST", body: JSON.stringify(payload) }),
+  assignReview: (cycleId: string, payload: Record<string, unknown>) =>
+    request(`/lifecycle/performance/cycles/${cycleId}/assign`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  reviews: (cycleId?: string) =>
+    request<Array<Record<string, unknown>>>(`/lifecycle/performance/reviews${toQuery({ cycleId })}`),
+  updateReview: (id: string, payload: Record<string, unknown>) =>
+    request(`/lifecycle/performance/reviews/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  offboarding: () => request<Array<Record<string, unknown>>>("/lifecycle/offboarding"),
+  startOffboarding: (payload: Record<string, unknown>) =>
+    request("/lifecycle/offboarding", { method: "POST", body: JSON.stringify(payload) }),
+  advanceOffboarding: (id: string, payload: Record<string, unknown>) =>
+    request(`/lifecycle/offboarding/${id}/advance`, { method: "POST", body: JSON.stringify(payload) }),
+  lms: (kind?: string) => request<Array<Record<string, unknown>>>(`/lifecycle/lms${toQuery({ kind })}`),
+  createLms: (payload: Record<string, unknown>) =>
+    request("/lifecycle/lms", { method: "POST", body: JSON.stringify(payload) }),
+  markLmsRead: (id: string) => request(`/lifecycle/lms/${id}/read`, { method: "POST", body: "{}" }),
+  downloadFile: async (key: string, fileName = "download") => {
+    const blob = await fetchAuthenticatedBlob(`/lifecycle/files/${encodeURIComponent(key)}`);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  },
 };

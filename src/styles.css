@@ -138,12 +138,34 @@
   --sidebar-ring: oklch(0.68 0.2 29);
 }
 
+:root {
+  /* Cap insets so a broken WebView cannot report "full screen" as the status bar. */
+  --atd-sat: min(env(safe-area-inset-top, 0px), 4rem);
+  --atd-sab: min(env(safe-area-inset-bottom, 0px), 3rem);
+  --atd-sal: min(env(safe-area-inset-left, 0px), 1.5rem);
+  --atd-sar: min(env(safe-area-inset-right, 0px), 1.5rem);
+  --atd-header-row: 3.5rem;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --atd-header-row: 4rem;
+  }
+}
+
 @layer base {
   html {
     font-size: 100%;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
     height: 100%;
+  }
+
+  html.atd-native,
+  html.atd-native body {
+    height: 100%;
+    max-height: 100%;
+    overflow: hidden;
   }
 
   * {
@@ -268,6 +290,99 @@
   }
 }
 
+@keyframes atd-mark-to-left {
+  from {
+    transform: translateX(4.75rem);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes atd-word-reveal {
+  from {
+    max-width: 0;
+    opacity: 0;
+    transform: translateX(-10px);
+    filter: blur(6px);
+  }
+  to {
+    max-width: 14rem;
+    opacity: 1;
+    transform: translateX(0);
+    filter: blur(0);
+  }
+}
+
+.atd-wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35em;
+  min-width: 0;
+  font-family: Outfit, "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+
+.atd-wordmark--stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.08em;
+}
+
+.atd-wordmark--header {
+  gap: 0.3em;
+  font-size: 0.95rem;
+}
+
+.atd-wordmark__anytime {
+  font-weight: 800;
+  color: var(--foreground);
+}
+
+.atd-wordmark__diesel {
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--primary) 0%, color-mix(in oklab, var(--primary) 70%, #7a1f12) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.atd-lockup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+}
+
+.atd-lockup__mark {
+  display: grid;
+  place-items: center;
+  animation: atd-mark-to-left 780ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform;
+}
+
+.atd-lockup__mark img {
+  filter: drop-shadow(0 10px 18px color-mix(in oklab, var(--primary) 28%, transparent));
+}
+
+.atd-lockup__word {
+  overflow: hidden;
+  white-space: nowrap;
+  animation: atd-word-reveal 720ms cubic-bezier(0.22, 1, 0.36, 1) 220ms both;
+  will-change: max-width, opacity, transform, filter;
+}
+
+.atd-lockup__word .atd-wordmark--stacked {
+  font-size: 1.55rem;
+}
+
+@media (min-width: 640px) {
+  .atd-lockup__word .atd-wordmark--stacked {
+    font-size: 1.85rem;
+  }
+}
+
 @keyframes aw-fade-up {
   from {
     opacity: 0;
@@ -285,6 +400,16 @@
 
 .aw-enter-delayed {
   animation: aw-fade-up var(--motion-enter) var(--ease-out) 80ms both;
+}
+
+.aw-auth-canvas button:not(:disabled),
+.aw-shell-canvas main button:not(:disabled) {
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.aw-auth-canvas button:not(:disabled):active,
+.aw-shell-canvas main button:not(:disabled):active {
+  transform: scale(0.985);
 }
 
 /* Premium UI Utility Classes */
@@ -339,6 +464,23 @@
     radial-gradient(ellipse 90% 55% at 0% -10%, color-mix(in oklab, var(--primary) 8%, transparent), transparent 55%),
     radial-gradient(ellipse 70% 45% at 100% 0%, color-mix(in oklab, var(--primary) 5%, transparent), transparent 50%),
     var(--color-background);
+}
+
+/* Mobile menu sits under AppHeader so hamburger, bell, and profile stay visible. */
+.atd-drawer-under-header {
+  top: calc(var(--atd-sat) + var(--atd-header-row)) !important;
+  right: 0 !important;
+  bottom: var(--atd-sab) !important;
+  left: 0 !important;
+}
+
+.atd-drawer-panel-under-header {
+  top: calc(var(--atd-sat) + var(--atd-header-row)) !important;
+  right: auto !important;
+  bottom: auto !important;
+  height: calc(100dvh - var(--atd-sat) - var(--atd-header-row) - var(--atd-sab)) !important;
+  max-height: calc(100dvh - var(--atd-sat) - var(--atd-header-row) - var(--atd-sab)) !important;
+  padding-top: 0 !important;
 }
 
 .dark .aw-shell-canvas {
@@ -480,7 +622,7 @@
 
 .login-crew__stage {
   position: relative;
-  width: min(100%, 10.5rem);
+  width: min(100%, 7.75rem);
   aspect-ratio: 356 / 560;
   overflow: hidden;
   border-radius: 1rem;
@@ -534,10 +676,12 @@
 .login-crew__caption {
   margin: 0;
   min-height: 1.1rem;
+  max-width: 16rem;
   text-align: center;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
   transition: color 0.25s ease;
 }
 
@@ -561,13 +705,13 @@
 
 @media (min-width: 640px) {
   .login-crew__stage {
-    width: min(100%, 12rem);
+    width: min(100%, 8.5rem);
   }
 }
 
 @media (max-width: 380px) {
   .login-crew__stage {
-    width: min(100%, 9rem);
+    width: min(100%, 6.75rem);
   }
 }
 
@@ -630,6 +774,8 @@
   .atd-boot__content,
   .atd-boot__copy,
   .atd-boot__status,
+  .atd-lockup__mark,
+  .atd-lockup__word,
   .loading-progress__bar,
   .login-crew__stage {
     animation: none;
@@ -637,9 +783,13 @@
 
   .atd-boot__content,
   .atd-boot__copy,
-  .atd-boot__status {
+  .atd-boot__status,
+  .atd-lockup__mark,
+  .atd-lockup__word {
     opacity: 1;
     transform: none;
+    filter: none;
+    max-width: none;
   }
 
   .loading-progress__bar {

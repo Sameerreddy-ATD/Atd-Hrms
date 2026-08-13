@@ -151,6 +151,10 @@ describe("asset and HR-document persistence integrity", () => {
     expect(moduleForApiPath("/employees/employee-1", "PATCH")).toBe("PEOPLE");
     expect(moduleForApiPath("/notifications")).toBe("COMMUNICATIONS");
     expect(moduleForApiPath("/module-access/me")).toBeNull();
+    expect(moduleForApiPath("/lifecycle/jobs")).toBe("TALENT");
+    expect(moduleForApiPath("/lifecycle/onboarding")).toBe("LIFECYCLE");
+    expect(moduleForApiPath("/lifecycle/performance/reviews")).toBe("PERFORMANCE");
+    expect(moduleForApiPath("/lifecycle/lms")).toBe("LMS");
   });
 });
 

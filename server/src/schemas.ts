@@ -694,6 +694,9 @@ export const mobileEventSchema = z.object({
   mobileDeviceId: z.string().min(3).max(200),
   remarks: z.string().max(1000).optional(),
   eventTime: z.coerce.date().optional(),
+  punchTicket: z.string().min(20).max(800).optional(),
+  captureNonce: z.string().min(16).max(80).optional(),
+  deferred: z.boolean().optional(),
   confirmLeaveCancellation: z.boolean().optional(),
   faceVerification: z
     .object({

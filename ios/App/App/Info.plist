@@ -25,7 +25,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Anytime Workforce uses the camera for face registration and attendance check-in when face verification is enabled by your company.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Anytime Workforce uses your location while you check in or check out so attendance can be verified against your branch. Location is not used in the background.</string>
+	<string>Anytime Workforce needs precise location while you check in or check out so attendance can be verified against your branch. Approximate location is not enough. Location is not used in the background.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Anytime Workforce may access photos only when you attach an image to an expense or HR document request.</string>
 	<key>UIBackgroundModes</key>

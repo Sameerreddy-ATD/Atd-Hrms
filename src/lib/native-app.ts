@@ -5,9 +5,12 @@ import { StatusBar, Style } from "@capacitor/status-bar";
 import { ScreenOrientation } from "@capacitor/screen-orientation";
 import { Keyboard } from "@capacitor/keyboard";
 
-/** True when running inside the Capacitor Android/iOS shell. */
+/** True when running inside the Capacitor Android/iOS shell (Play / App Store). */
 export function isNativeApp() {
   try {
+    if (typeof document !== "undefined" && document.documentElement.classList.contains("atd-native")) {
+      return true;
+    }
     return Capacitor.isNativePlatform();
   } catch {
     return false;
@@ -97,15 +100,16 @@ async function configureStatusBar() {
   if (!isNativeApp()) return;
   try {
     const dark = isDocumentDark();
-    // Do NOT overlay the WebView — overlay + light pad caused the white strip under
-    // the camera/status bar on many Android OEMs and contributed to startup crashes.
+    document.documentElement.classList.add("atd-native");
+    // Overlay so the header background fills the status-bar region. The header
+    // itself stays compact via clamped --atd-sat (never a full-screen top bar).
     if (getNativePlatform() === "android") {
-      await StatusBar.setOverlaysWebView({ overlay: false });
+      await StatusBar.setOverlaysWebView({ overlay: true });
     }
     await StatusBar.setBackgroundColor({ color: dark ? "#1a1f2a" : "#F6F8FC" });
     await StatusBar.setStyle({ style: dark ? Style.Light : Style.Dark });
   } catch {
-    // Plugin may be unavailable on unsupported platforms.
+    document.documentElement.classList.add("atd-native");
   }
 }
 

@@ -79,6 +79,10 @@ const MODULE_LABELS: Record<ModuleKey, string> = {
   PROFILE: "Profile",
   COMMUNICATIONS: "Updates",
   SYSTEM: "System",
+  TALENT: "Talent",
+  LIFECYCLE: "Lifecycle",
+  PERFORMANCE: "Performance",
+  LMS: "Learning",
 };
 
 const BACKEND_ROLE_TO_UI: Record<string, Role> = {

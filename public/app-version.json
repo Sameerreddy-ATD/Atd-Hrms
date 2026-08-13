@@ -1,4 +1,8 @@
 {
-  "buildId": "2026-08-12-perm-harden",
-  "forceReload": true
+  "buildId": "2026-08-13-login-motion",
+  "forceReload": true,
+  "androidVersionCode": 15,
+  "androidVersionName": "1.0.14",
+  "minAndroidVersionCode": 15,
+  "playStoreUrl": "https://play.google.com/store/apps/details?id=com.anytimediesel.workforce"
 }

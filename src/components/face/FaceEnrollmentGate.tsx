@@ -153,8 +153,8 @@ export function FaceEnrollmentGate({ onUnlocked }: { onUnlocked?: () => void }) 
                   },
                   {
                     icon: MapPin,
-                    title: "Location at attendance",
-                    body: "GPS is requested only when you check in or check out.",
+                    title: "Precise location at attendance",
+                    body: "Precise GPS is required when you check in or check out (Approximate is not enough).",
                   },
                   {
                     icon: LockKeyhole,

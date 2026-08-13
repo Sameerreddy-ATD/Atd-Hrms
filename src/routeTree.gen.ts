@@ -37,6 +37,12 @@ import { Route as AppDepartmentsRouteImport } from './routes/_app.departments'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppCompanySetupRouteImport } from './routes/_app.company-setup'
 import { Route as AppChecklistsRouteImport } from './routes/_app.checklists'
+import { Route as AppTalentRouteImport } from './routes/_app.talent'
+import { Route as AppOnboardingRouteImport } from './routes/_app.onboarding'
+import { Route as AppPeopleChangesRouteImport } from './routes/_app.people-changes'
+import { Route as AppPerformanceRouteImport } from './routes/_app.performance'
+import { Route as AppOffboardingRouteImport } from './routes/_app.offboarding'
+import { Route as AppLmsRouteImport } from './routes/_app.lms'
 import { Route as AppBranchesRouteImport } from './routes/_app.branches'
 import { Route as AppAuditRouteImport } from './routes/_app.audit'
 import { Route as AppAttendanceRouteImport } from './routes/_app.attendance'
@@ -198,6 +204,36 @@ const AppChecklistsRoute = AppChecklistsRouteImport.update({
   path: '/checklists',
   getParentRoute: () => AppRoute,
 } as any)
+const AppTalentRoute = AppTalentRouteImport.update({
+  id: '/talent',
+  path: '/talent',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOnboardingRoute = AppOnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPeopleChangesRoute = AppPeopleChangesRouteImport.update({
+  id: '/people-changes',
+  path: '/people-changes',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPerformanceRoute = AppPerformanceRouteImport.update({
+  id: '/performance',
+  path: '/performance',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOffboardingRoute = AppOffboardingRouteImport.update({
+  id: '/offboarding',
+  path: '/offboarding',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppLmsRoute = AppLmsRouteImport.update({
+  id: '/lms',
+  path: '/lms',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppBranchesRoute = AppBranchesRouteImport.update({
   id: '/branches',
   path: '/branches',
@@ -320,6 +356,12 @@ export interface FileRoutesByFullPath {
   '/audit': typeof AppAuditRoute
   '/branches': typeof AppBranchesRoute
   '/checklists': typeof AppChecklistsRoute
+  '/talent': typeof AppTalentRoute
+  '/onboarding': typeof AppOnboardingRoute
+  '/people-changes': typeof AppPeopleChangesRoute
+  '/performance': typeof AppPerformanceRoute
+  '/offboarding': typeof AppOffboardingRoute
+  '/lms': typeof AppLmsRoute
   '/company-setup': typeof AppCompanySetupRoute
   '/dashboard': typeof AppDashboardRoute
   '/departments': typeof AppDepartmentsRoute
@@ -369,6 +411,12 @@ export interface FileRoutesByTo {
   '/audit': typeof AppAuditRoute
   '/branches': typeof AppBranchesRoute
   '/checklists': typeof AppChecklistsRoute
+  '/talent': typeof AppTalentRoute
+  '/onboarding': typeof AppOnboardingRoute
+  '/people-changes': typeof AppPeopleChangesRoute
+  '/performance': typeof AppPerformanceRoute
+  '/offboarding': typeof AppOffboardingRoute
+  '/lms': typeof AppLmsRoute
   '/company-setup': typeof AppCompanySetupRoute
   '/dashboard': typeof AppDashboardRoute
   '/departments': typeof AppDepartmentsRoute
@@ -421,6 +469,12 @@ export interface FileRoutesById {
   '/_app/audit': typeof AppAuditRoute
   '/_app/branches': typeof AppBranchesRoute
   '/_app/checklists': typeof AppChecklistsRoute
+  '/_app/talent': typeof AppTalentRoute
+  '/_app/onboarding': typeof AppOnboardingRoute
+  '/_app/people-changes': typeof AppPeopleChangesRoute
+  '/_app/performance': typeof AppPerformanceRoute
+  '/_app/offboarding': typeof AppOffboardingRoute
+  '/_app/lms': typeof AppLmsRoute
   '/_app/company-setup': typeof AppCompanySetupRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/departments': typeof AppDepartmentsRoute
@@ -473,6 +527,12 @@ export interface FileRouteTypes {
     | '/audit'
     | '/branches'
     | '/checklists'
+    | '/talent'
+    | '/onboarding'
+    | '/people-changes'
+    | '/performance'
+    | '/offboarding'
+    | '/lms'
     | '/company-setup'
     | '/dashboard'
     | '/departments'
@@ -522,6 +582,12 @@ export interface FileRouteTypes {
     | '/audit'
     | '/branches'
     | '/checklists'
+    | '/talent'
+    | '/onboarding'
+    | '/people-changes'
+    | '/performance'
+    | '/offboarding'
+    | '/lms'
     | '/company-setup'
     | '/dashboard'
     | '/departments'
@@ -573,6 +639,12 @@ export interface FileRouteTypes {
     | '/_app/audit'
     | '/_app/branches'
     | '/_app/checklists'
+    | '/_app/talent'
+    | '/_app/onboarding'
+    | '/_app/people-changes'
+    | '/_app/performance'
+    | '/_app/offboarding'
+    | '/_app/lms'
     | '/_app/company-setup'
     | '/_app/dashboard'
     | '/_app/departments'
@@ -820,6 +892,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppChecklistsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/talent': {
+      id: '/_app/talent'
+      path: '/talent'
+      fullPath: '/talent'
+      preLoaderRoute: typeof AppTalentRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/onboarding': {
+      id: '/_app/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof AppOnboardingRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/people-changes': {
+      id: '/_app/people-changes'
+      path: '/people-changes'
+      fullPath: '/people-changes'
+      preLoaderRoute: typeof AppPeopleChangesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/performance': {
+      id: '/_app/performance'
+      path: '/performance'
+      fullPath: '/performance'
+      preLoaderRoute: typeof AppPerformanceRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/offboarding': {
+      id: '/_app/offboarding'
+      path: '/offboarding'
+      fullPath: '/offboarding'
+      preLoaderRoute: typeof AppOffboardingRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/lms': {
+      id: '/_app/lms'
+      path: '/lms'
+      fullPath: '/lms'
+      preLoaderRoute: typeof AppLmsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/branches': {
       id: '/_app/branches'
       path: '/branches'
@@ -1037,6 +1151,12 @@ interface AppRouteChildren {
   AppAuditRoute: typeof AppAuditRoute
   AppBranchesRoute: typeof AppBranchesRoute
   AppChecklistsRoute: typeof AppChecklistsRoute
+  AppTalentRoute: typeof AppTalentRoute
+  AppOnboardingRoute: typeof AppOnboardingRoute
+  AppPeopleChangesRoute: typeof AppPeopleChangesRoute
+  AppPerformanceRoute: typeof AppPerformanceRoute
+  AppOffboardingRoute: typeof AppOffboardingRoute
+  AppLmsRoute: typeof AppLmsRoute
   AppCompanySetupRoute: typeof AppCompanySetupRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppDepartmentsRoute: typeof AppDepartmentsRoute
@@ -1070,6 +1190,12 @@ const AppRouteChildren: AppRouteChildren = {
   AppAuditRoute: AppAuditRoute,
   AppBranchesRoute: AppBranchesRoute,
   AppChecklistsRoute: AppChecklistsRoute,
+  AppTalentRoute: AppTalentRoute,
+  AppOnboardingRoute: AppOnboardingRoute,
+  AppPeopleChangesRoute: AppPeopleChangesRoute,
+  AppPerformanceRoute: AppPerformanceRoute,
+  AppOffboardingRoute: AppOffboardingRoute,
+  AppLmsRoute: AppLmsRoute,
   AppCompanySetupRoute: AppCompanySetupRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppDepartmentsRoute: AppDepartmentsRoute,

@@ -56,7 +56,7 @@ Anytime Workforce is operated by Anytime Diesel for internal employees and autho
 
 | Asset | Path |
 | ----- | ---- |
-| App icon 512 | `mobile/assets/play-icon-512.png` (full-bleed red + white diesel mark) |
+| App icon 512 | `mobile/assets/play-icon-512.png` (white tile + red diesel lightning mark) |
 | Feature graphic 1024×500 | `mobile/assets/play-feature-graphic-1024x500.png` |
 
 In Play Console → Grow → Store listing:

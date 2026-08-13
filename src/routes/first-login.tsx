@@ -4,7 +4,6 @@ import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Logo } from "@/components/common/Logo";
 import { PasswordInput } from "@/components/common/PasswordInput";
 import { LoginCrewMascot, type LoginCrewMode } from "@/components/auth/LoginCrewMascot";
 import { useAuth } from "@/lib/auth";
@@ -56,13 +55,9 @@ function FirstLoginPage() {
   }
 
   return (
-    <div className="aw-auth-canvas flex min-h-[100dvh] items-center justify-center px-4 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))]">
-      <div className="aw-enter w-full max-w-md space-y-5">
-        <div className="flex flex-col items-center gap-2 text-center">
-          <Logo className="h-9 w-auto" />
-          <h1 className="text-xl font-semibold tracking-tight">Anytime Workforce</h1>
-        </div>
-        <LoginCrewMascot mode={crewMode} className="mx-auto w-full max-w-[11rem] sm:max-w-[12.5rem]" />
+    <div className="aw-auth-canvas flex min-h-[100dvh] items-center justify-center px-4 py-8 pb-[max(2rem,var(--atd-sab))] pt-[max(2rem,var(--atd-sat))]">
+      <div className="aw-enter w-full max-w-md space-y-4">
+        <LoginCrewMascot mode={crewMode} className="mx-auto w-full max-w-[7.5rem] sm:max-w-[8.5rem]" />
         <Card className="aw-enter-delayed border-border/70 bg-card/95 shadow-sm backdrop-blur-sm">
           <CardContent className="p-6 sm:p-8">
             <h2 className="text-lg font-semibold">Set a new password</h2>

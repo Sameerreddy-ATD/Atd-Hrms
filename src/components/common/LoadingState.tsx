@@ -1,4 +1,4 @@
-import { Logo } from "@/components/common/Logo";
+import { BrandReveal, Logo } from "@/components/common/Logo";
 import { cn } from "@/lib/utils";
 
 export function LoadingState({
@@ -31,45 +31,32 @@ export function LoadingState({
           compact && "gap-2.5",
         )}
       >
-        <div
-          className={cn(
-            "atd-loader-mark",
-            showBrandStory && "atd-loader-mark--hero",
-            compact && "atd-loader-mark--compact",
-            !showBrandStory && !compact && "atd-loader-mark--module",
-          )}
-          aria-hidden="true"
-        >
-          <span className="atd-loader-mark__plate">
-            <Logo
-              className={cn(
-                "relative z-[1] h-auto",
-                showBrandStory ? "w-36 sm:w-40" : compact ? "w-24" : "w-28",
-              )}
-            />
-          </span>
-        </div>
+        {showBrandStory ? (
+          <BrandReveal />
+        ) : (
+          <div
+            className={cn(
+              "atd-loader-mark",
+              compact && "atd-loader-mark--compact",
+              !compact && "atd-loader-mark--module",
+            )}
+            aria-hidden="true"
+          >
+            <span className="atd-loader-mark__plate">
+              <Logo
+                variant="mark"
+                className={cn("relative z-[1] h-auto", compact ? "w-14" : "w-16")}
+              />
+            </span>
+          </div>
+        )}
 
         <div className={cn("w-full", showBrandStory ? "space-y-6" : "space-y-3", compact && "space-y-2")}>
-          {showBrandStory && (
-            <div className="atd-boot__copy space-y-2">
-              <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.2em] text-primary">
-                Workforce and Operations
-              </p>
-              <p className="text-[1.75rem] font-semibold leading-none tracking-[-0.03em] text-foreground sm:text-[2rem]">
-                Anytime Workforce
-              </p>
-              <p className="mx-auto max-w-[18rem] text-sm font-medium leading-snug text-muted-foreground">
-                People, attendance, and day-to-day operations in one place.
-              </p>
-            </div>
-          )}
-
           <div className={cn("atd-boot__status mx-auto w-full", showBrandStory ? "max-w-[14rem]" : "max-w-[11rem]")}>
             <p
               className={cn(
                 "font-medium tracking-tight text-muted-foreground",
-                showBrandStory ? "text-sm" : "text-sm",
+                "text-sm",
                 compact && "text-xs",
               )}
             >

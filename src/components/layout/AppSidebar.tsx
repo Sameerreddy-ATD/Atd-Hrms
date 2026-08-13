@@ -18,7 +18,7 @@ import { menuForRole } from "@/lib/menu";
 import { ROLE_LABELS, type ModuleKey } from "@/types/domain";
 import { employeesApi, moduleAccessApi } from "@/services/api";
 import { cn } from "@/lib/utils";
-import { Logo } from "@/components/common/Logo";
+import { BrandLockup, Logo } from "@/components/common/Logo";
 
 export function AppSidebar() {
   const { user } = useAuth();
@@ -60,11 +60,16 @@ export function AppSidebar() {
       collapsible="icon"
       className="border-r border-border/70 bg-sidebar/90 backdrop-blur-md dark:border-sidebar-border dark:bg-sidebar dark:shadow-[8px_0_24px_rgba(0,0,0,0.12)]"
     >
-      <SidebarHeader className="flex min-h-16 w-full items-center justify-start border-b border-sidebar-border/70 bg-transparent px-3 py-3">
-        {collapsed && !isMobile ? (
-          <img src="/atd-favicon.png" alt="Anytime Workforce" className="mx-auto h-8 w-8 object-contain" />
+      <SidebarHeader
+        className={cn(
+          "flex w-full items-center justify-start border-b border-sidebar-border/70 bg-transparent px-3 py-3",
+          isMobile ? "hidden" : "min-h-16",
+        )}
+      >
+        {collapsed ? (
+          <Logo variant="mark" className="mx-auto h-8 w-8" />
         ) : (
-          <Logo className="h-9 w-auto px-1" />
+          <BrandLockup className="px-1" markClassName="h-8 w-8" />
         )}
       </SidebarHeader>
 
@@ -151,7 +156,7 @@ export function AppSidebar() {
               </div>
             </div>
             <div className="text-center text-[10px] font-medium text-muted-foreground/60">
-              Anytime Workforce
+              AnyTime Diesel
             </div>
           </>
         ) : (

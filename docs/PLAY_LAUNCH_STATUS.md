@@ -21,7 +21,7 @@ Canonical product docs remain in the rest of `docs/`. Credentials stay on the la
 ### Android / Play packaging
 - App id `com.anytimediesel.workforce`
 - Capacitor 7 shell loading production HTTPS (cookie auth preserved)
-- `compileSdk` / `targetSdk` **36** (Play current-API readiness)
+- `compileSdk` / `targetSdk` **36** (Play Android 16 requirement; 1.0.9+)
 - Manifest: no hard `screenOrientation=portrait` (phones lock via JS/Capacitor; tablets/folds free)
 - Branded launcher icons + Play 512 icon + feature graphic `1024×500` from `atd-app-icon-512.png` (black + ATD diesel mark)
 - Black splash (no Capacitor blue/white default logo)

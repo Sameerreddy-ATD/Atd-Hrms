@@ -10,6 +10,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { faceApi } from "@/services/api";
+import {
+  formatImpreciseLocationError,
+  preciseLocationRequiredHint,
+} from "@/lib/device-permissions";
 import { getDeviceLocation } from "@/lib/geolocation";
 import type { FaceCapturePayload, FaceVerificationSession } from "@/types/domain";
 
@@ -72,7 +76,10 @@ export function FaceAttendanceDialog({
         if (!active) return;
         if (nextPosition.coords.accuracy > status.maxGpsAccuracyMeters) {
           throw new Error(
-            `Location accuracy is ${Math.round(nextPosition.coords.accuracy)} m. Move near a window, enable precise location, and try again.`,
+            formatImpreciseLocationError(
+              nextPosition.coords.accuracy,
+              status.maxGpsAccuracyMeters,
+            ),
           );
         }
         setPosition(nextPosition);
@@ -101,7 +108,7 @@ export function FaceAttendanceDialog({
             : null;
         const message =
           geolocationCode === 1
-            ? "Precise location permission is required to mark attendance."
+            ? preciseLocationRequiredHint()
             : caught instanceof Error
               ? caught.message
               : "Attendance could not start.";

@@ -21,16 +21,29 @@ function writeLocalStorage(key: string, value: string) {
   }
 }
 
-export function isAppInstalled() {
-  if (typeof window === "undefined") return false;
-  // Capacitor store builds are already installed — never show the PWA banner.
-  if (isNativeApp()) return true;
+/** Add-to-Home-Screen / installed PWA (not the Play/App Store shell). */
+export function isStandalonePwa() {
+  if (typeof window === "undefined" || isNativeApp()) return false;
   const standaloneDisplay = window.matchMedia("(display-mode: standalone)").matches;
-  const standaloneIos = "standalone" in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
+  const standaloneIos =
+    "standalone" in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
   const windowControls =
     window.matchMedia("(display-mode: window-controls-overlay)").matches ||
     window.matchMedia("(display-mode: minimal-ui)").matches;
   return standaloneDisplay || standaloneIos || windowControls;
+}
+
+export function isAppInstalled() {
+  if (typeof window === "undefined") return false;
+  // Capacitor store builds and installed PWAs are already installed.
+  return isNativeApp() || isStandalonePwa();
+}
+
+/** native = Play/App Store, pwa = Add to Home Screen, browser = Safari/Chrome tab. */
+export function getAppSurface(): "native" | "pwa" | "browser" {
+  if (isNativeApp()) return "native";
+  if (isStandalonePwa()) return "pwa";
+  return "browser";
 }
 
 export function detectPwaPlatform(): PwaPlatform {
@@ -187,7 +200,7 @@ export async function checkForAppUpdate(): Promise<"updated" | "current" | "unav
   }
 }
 
-import { APP_BUILD_ID } from "@/lib/app-build";
+import { APP_BUILD_ID, fetchAppVersionManifest } from "@/lib/app-build";
 
 const FORCED_BUILD_SESSION_KEY = "adh_forced_build";
 const STORED_BUILD_KEY = "adh_app_build_id";
@@ -201,14 +214,8 @@ export async function ensureLatestAppBuild(): Promise<void> {
   if (import.meta.env.DEV) return;
 
   try {
-    const response = await fetch(`/app-version.json?_=${Date.now()}`, {
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    });
-    if (!response.ok) return;
-
-    const remote = (await response.json()) as { buildId?: string; forceReload?: boolean };
-    if (!remote.buildId) return;
+    const remote = await fetchAppVersionManifest();
+    if (!remote?.buildId) return;
 
     try {
       window.localStorage.setItem(STORED_BUILD_KEY, APP_BUILD_ID);

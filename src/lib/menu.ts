@@ -23,6 +23,12 @@ import {
   HandCoins,
   ScanFace,
   ListChecks,
+  UserPlus,
+  ClipboardPen,
+  ArrowLeftRight,
+  Target,
+  DoorOpen,
+  GraduationCap,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -81,6 +87,52 @@ export const menuGroups: MenuGroup[] = [
         to: "/departments",
         icon: Briefcase,
         roles: ["developer_admin"],
+      },
+    ],
+  },
+  {
+    label: "Hire",
+    items: [
+      {
+        label: "Talent Acquisition",
+        to: "/talent",
+        icon: UserPlus,
+        roles: ["developer_admin", "main_admin", "ceo", "hr", "manager"],
+      },
+      {
+        label: "Onboarding",
+        to: "/onboarding",
+        icon: ClipboardPen,
+        roles: ALL,
+      },
+    ],
+  },
+  {
+    label: "Career",
+    items: [
+      {
+        label: "People Changes",
+        to: "/people-changes",
+        icon: ArrowLeftRight,
+        roles: ALL,
+      },
+      {
+        label: "Performance",
+        to: "/performance",
+        icon: Target,
+        roles: ALL,
+      },
+      {
+        label: "Offboarding",
+        to: "/offboarding",
+        icon: DoorOpen,
+        roles: ["developer_admin", "main_admin", "ceo", "hr"],
+      },
+      {
+        label: "Learning",
+        to: "/lms",
+        icon: GraduationCap,
+        roles: ALL,
       },
     ],
   },
@@ -311,19 +363,19 @@ function groupOrderForRole(role: Role): string[] {
     case "sales":
     case "driver":
     case "field_staff":
-      return ["Overview", "Attendance", "Leave", "Work", "Me", "Company", "People", "System"];
+      return ["Overview", "Attendance", "Leave", "Work", "Hire", "Career", "Me", "Company", "People", "System"];
     case "manager":
-      return ["Overview", "Attendance", "Leave", "Work", "People", "Me", "Company", "System"];
+      return ["Overview", "Attendance", "Leave", "Work", "Hire", "Career", "People", "Me", "Company", "System"];
     case "hr":
-      return ["Overview", "People", "Leave", "Attendance", "Work", "Company", "Me", "System"];
+      return ["Overview", "People", "Hire", "Career", "Leave", "Attendance", "Work", "Company", "Me", "System"];
     case "ceo":
-      return ["Overview", "People", "Attendance", "Leave", "Work", "Company", "Me", "System"];
+      return ["Overview", "People", "Hire", "Career", "Attendance", "Leave", "Work", "Company", "Me", "System"];
     case "main_admin":
-      return ["Overview", "People", "Attendance", "Leave", "Company", "System", "Work", "Me"];
+      return ["Overview", "People", "Hire", "Career", "Attendance", "Leave", "Company", "System", "Work", "Me"];
     case "developer_admin":
-      return ["Overview", "People", "Attendance", "Leave", "Work", "Company", "System", "Me"];
+      return ["Overview", "People", "Hire", "Career", "Attendance", "Leave", "Work", "Company", "System", "Me"];
     default:
-      return ["Overview", "Attendance", "Leave", "Work", "People", "Company", "Me", "System"];
+      return ["Overview", "Attendance", "Leave", "Work", "Hire", "Career", "People", "Company", "Me", "System"];
   }
 }
 
@@ -345,6 +397,10 @@ function itemOrderForRole(role: Role): string[] {
         "/leave/approvals",
         "/tasks",
         "/employee-services",
+        "/onboarding",
+        "/people-changes",
+        "/performance",
+        "/lms",
         "/announcements",
         "/notifications",
         "/my-assets",
@@ -363,6 +419,11 @@ function itemOrderForRole(role: Role): string[] {
         "/leave/approvals",
         "/tasks",
         "/employee-services",
+        "/talent",
+        "/onboarding",
+        "/people-changes",
+        "/performance",
+        "/lms",
         "/employees",
         "/announcements",
         "/notifications",
@@ -374,6 +435,12 @@ function itemOrderForRole(role: Role): string[] {
       return [
         "/dashboard",
         "/employees",
+        "/talent",
+        "/onboarding",
+        "/people-changes",
+        "/performance",
+        "/offboarding",
+        "/lms",
         "/checklists",
         "/leave/apply",
         "/leave/history",
@@ -400,6 +467,12 @@ function itemOrderForRole(role: Role): string[] {
       return [
         "/dashboard",
         "/employees",
+        "/talent",
+        "/onboarding",
+        "/people-changes",
+        "/performance",
+        "/offboarding",
+        "/lms",
         "/attendance/locations",
         "/leave/approvals",
         "/leave/reports",
@@ -415,6 +488,12 @@ function itemOrderForRole(role: Role): string[] {
       return [
         "/dashboard",
         "/employees",
+        "/talent",
+        "/onboarding",
+        "/people-changes",
+        "/performance",
+        "/offboarding",
+        "/lms",
         "/attendance/mine",
         "/attendance/locations",
         "/attendance/corrections",
@@ -441,6 +520,12 @@ function itemOrderForRole(role: Role): string[] {
         "/users",
         "/employees",
         "/departments",
+        "/talent",
+        "/onboarding",
+        "/people-changes",
+        "/performance",
+        "/offboarding",
+        "/lms",
         "/attendance/locations",
         "/attendance/corrections",
         "/leave/reports",
@@ -473,6 +558,11 @@ export function moduleForRoute(path: string): ModuleKey {
     )
   )
     return "PEOPLE";
+  if (path === "/talent" || path.startsWith("/talent/")) return "TALENT";
+  if (["/onboarding", "/people-changes", "/offboarding"].some((entry) => path === entry || path.startsWith(`${entry}/`)))
+    return "LIFECYCLE";
+  if (path === "/performance" || path.startsWith("/performance/")) return "PERFORMANCE";
+  if (path === "/lms" || path.startsWith("/lms/")) return "LMS";
   if (path === "/attendance" || path.startsWith("/attendance/") || path === "/devices")
     return "ATTENDANCE";
   if (path === "/tasks" || path.startsWith("/tasks/")) return "TASKS";

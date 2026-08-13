@@ -9,6 +9,7 @@ import {
   isIosSafari,
   wasInstallDismissedRecently,
 } from "@/lib/pwa-install";
+import { isNativeApp } from "@/lib/native-app";
 import { cn } from "@/lib/utils";
 
 type BeforeInstallPromptEvent = Event & {
@@ -37,7 +38,8 @@ export function PwaInstallBanner({
   const isPhone = platform === "ios" || platform === "android";
 
   useEffect(() => {
-    if (!isPhone || isAppInstalled()) return;
+    // Play/App Store shell: never show browser “Add to Home Screen”.
+    if (isNativeApp() || !isPhone || isAppInstalled()) return;
     if (!alwaysOffer && wasInstallDismissedRecently()) return;
 
     function onBeforeInstallPrompt(event: Event) {
@@ -69,7 +71,7 @@ export function PwaInstallBanner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [alwaysOffer, isPhone, platform]);
 
-  if (!isPhone || !visible || isAppInstalled()) return null;
+  if (isNativeApp() || !isPhone || !visible || isAppInstalled()) return null;
 
   async function install() {
     if (!deferredPrompt) {

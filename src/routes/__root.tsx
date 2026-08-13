@@ -1,3 +1,4 @@
+import "@/lib/array-at-polyfill";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -14,12 +15,13 @@ import { AuthProvider } from "@/lib/auth";
 import { NotificationBridge } from "@/components/layout/NotificationBridge";
 import { SystemThemeSync } from "@/components/layout/SystemThemeSync";
 import { Toaster } from "@/components/ui/sonner";
-import { registerAppServiceWorker } from "@/lib/browser-notifications";
+import { registerAppServiceWorker, unregisterAppServiceWorker } from "@/lib/browser-notifications";
 import { detectPwaPlatform, ensureLatestAppBuild } from "@/lib/pwa-install";
 import { bootstrapNativeApp, isNativeApp } from "@/lib/native-app";
 import { installClientErrorReporter, reportClientError } from "@/lib/client-error-reporter";
 import { recoverFromChunkError } from "@/lib/chunk-reload";
 import { PortraitOrientationGuard } from "@/components/layout/PortraitOrientationGuard";
+import { StoreUpdateGate } from "@/components/layout/StoreUpdateGate";
 
 const SITE_TITLE = "Anytime Workforce";
 const SITE_DESCRIPTION =
@@ -102,10 +104,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "Anytime Workforce, Anytime Diesel, workforce operations, attendance management, leave management, biometric attendance, GPS attendance, tasks, assets",
       },
-      { name: "application-name", content: "Workforce" },
-      { name: "apple-mobile-web-app-title", content: "Workforce" },
+      { name: "application-name", content: SITE_TITLE },
+      { name: "apple-mobile-web-app-title", content: SITE_TITLE },
       { name: "apple-mobile-web-app-capable", content: "yes" },
-      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "format-detection", content: "telephone=no" },
       { name: "theme-color", content: "#F6F8FC", media: "(prefers-color-scheme: light)" },
@@ -116,7 +118,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:description", content: SITE_DESCRIPTION },
       { property: "og:type", content: "website" },
       { property: "og:image", content: SITE_IMAGE },
-      { property: "og:image:alt", content: "Anytime Diesel logo" },
+      { property: "og:image:alt", content: "Anytime Workforce logo" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: SITE_TITLE },
       { name: "twitter:description", content: SITE_DESCRIPTION },
@@ -127,7 +129,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap",
       },
       {
         rel: "stylesheet",
@@ -147,7 +149,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 // Runs before first paint so a stored dark preference never flashes white.
-const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem("theme");var d=t==="dark"||(t!=="light"&&(!t||t==="system")&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(t!=="light"&&t!=="dark"){try{localStorage.setItem("theme",d?"dark":"light");}catch(e){}}document.documentElement.classList.toggle("dark",d);document.documentElement.style.colorScheme=d?"dark":"light";}catch(e){}})();`;
+const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem("theme");var d=t==="dark"||(t!=="light"&&(!t||t==="system")&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(t!=="light"&&t!=="dark"){try{localStorage.setItem("theme",d?"dark":"light");}catch(e){}}document.documentElement.classList.toggle("dark",d);document.documentElement.style.colorScheme=d?"dark":"light";if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){document.documentElement.classList.add("atd-native");}}catch(e){}})();`;
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
@@ -156,7 +158,7 @@ function RootShell({ children }: { children: ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
       </head>
-      <body>
+      <body className="h-full">
         {children}
         <Scripts />
       </body>
@@ -185,7 +187,9 @@ function RootComponent() {
     // Service worker is web-only. The build-version check runs on native too so a
     // native WebView holding a stale cached bundle force-refreshes on cold start
     // (native has no SW, so this is its only proactive update path).
-    if (!isNativeApp()) {
+    if (isNativeApp()) {
+      void unregisterAppServiceWorker().catch(() => undefined);
+    } else {
       void registerAppServiceWorker().catch(() => undefined);
     }
     void ensureLatestAppBuild().catch(() => undefined);
@@ -218,8 +222,15 @@ function RootComponent() {
   }, []);
 
   useEffect(() => {
-    // Suppress Chrome/Edge install mini-infobar on laptop/desktop; users can still install
-    // from the browser address bar / menu if they choose.
+    // Store app: never show Chrome “Add to Home Screen”. Desktop: suppress the mini-infobar.
+    // Phone browsers still receive beforeinstallprompt for the PWA banner.
+    if (isNativeApp()) {
+      function suppressNativeInstall(event: Event) {
+        event.preventDefault();
+      }
+      window.addEventListener("beforeinstallprompt", suppressNativeInstall);
+      return () => window.removeEventListener("beforeinstallprompt", suppressNativeInstall);
+    }
     const platform = detectPwaPlatform();
     if (platform === "ios" || platform === "android") return;
     function suppressDesktopInstall(event: Event) {
@@ -233,16 +244,19 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <div className="h-full min-h-0">
         <Outlet />
         <PortraitOrientationGuard />
+        <StoreUpdateGate />
         <SystemThemeSync />
         <NotificationBridge />
         <Toaster
           position="top-center"
           richColors
           closeButton
-          offset="calc(env(safe-area-inset-top, 0px) + 12px)"
+          offset="calc(var(--atd-sat, 0px) + 12px)"
         />
+        </div>
       </AuthProvider>
     </QueryClientProvider>
   );

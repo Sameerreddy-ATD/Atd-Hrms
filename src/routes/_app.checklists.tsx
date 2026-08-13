@@ -66,6 +66,12 @@ const LINK_OPTIONS = [
   { value: "/leave/policy", label: "Leave policy" },
   { value: "/checklists", label: "Checklists" },
   { value: "/dashboard", label: "Dashboard" },
+  { value: "/talent", label: "Talent acquisition" },
+  { value: "/onboarding", label: "Onboarding" },
+  { value: "/people-changes", label: "People changes" },
+  { value: "/performance", label: "Performance" },
+  { value: "/offboarding", label: "Offboarding" },
+  { value: "/lms", label: "Learning" },
 ];
 
 type TemplateDraft = {

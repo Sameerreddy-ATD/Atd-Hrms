@@ -131,8 +131,19 @@ export function setSeenNotificationIds(ids: string[]) {
   writeLocalStorage(SEEN_NOTIFICATION_IDS_KEY, JSON.stringify(ids.slice(-100)));
 }
 
+export async function unregisterAppServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  const registrations = await navigator.serviceWorker.getRegistrations();
+  await Promise.all(registrations.map((registration) => registration.unregister()));
+}
+
 export async function registerAppServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
+  // Play / App Store shell must never run the PWA worker or browser push.
+  if (isNativeApp()) {
+    await unregisterAppServiceWorker().catch(() => undefined);
+    return;
+  }
   if (import.meta.env.DEV) {
     const registrations = await navigator.serviceWorker.getRegistrations();
     await Promise.all(
@@ -194,6 +205,8 @@ export async function registerAppServiceWorker() {
 }
 
 export async function showDesktopNotification(item: NotificationItem) {
+  // Native store app uses FCM / in-app alerts — never Chrome WebView toasts.
+  if (isNativeApp()) return;
   if (!("Notification" in window) || Notification.permission !== "granted") return;
   if (!("serviceWorker" in navigator)) return;
   const registration = await navigator.serviceWorker.ready;
@@ -219,43 +232,47 @@ export async function showDesktopNotification(item: NotificationItem) {
 
 export async function enableDesktopAlerts() {
   if (isNativeApp()) {
-    // Samsung One UI has crashed inside PushNotifications.register / requestPermissions.
-    // Keep every Cap call isolated; still enable in-app alerts if FCM setup fails.
+    // Samsung S25 Ultra (Android 16): PushNotifications.checkPermissions NPEs in
+    // Bridge.getPermissionStates and kills the app. Skip Cap permission APIs on Android.
     try {
       const { PushNotifications } = await import("@capacitor/push-notifications");
+      const { Capacitor } = await import("@capacitor/core");
+      const android = Capacitor.getPlatform() === "android";
 
       let permission: { receive?: string } = { receive: "prompt" };
-      try {
-        permission = await Promise.race([
-          PushNotifications.checkPermissions(),
-          new Promise<never>((_, reject) =>
-            window.setTimeout(() => reject(new Error("Notification check timed out.")), 4_000),
-          ),
-        ]);
-      } catch {
-        permission = { receive: "prompt" };
-      }
-
-      if (permission.receive === "prompt" || permission.receive === "prompt-with-rationale") {
+      if (!android) {
         try {
           permission = await Promise.race([
-            PushNotifications.requestPermissions(),
+            PushNotifications.checkPermissions(),
             new Promise<never>((_, reject) =>
-              window.setTimeout(
-                () => reject(new Error("Notification permission timed out.")),
-                20_000,
-              ),
+              window.setTimeout(() => reject(new Error("Notification check timed out.")), 4_000),
             ),
           ]);
         } catch {
-          // User dismissed or OEM hung — fall through.
+          permission = { receive: "prompt" };
         }
-      }
 
-      if (permission.receive && permission.receive !== "granted") {
-        throw new Error(
-          "Notification permission was not granted. Open Settings → Apps → Anytime Workforce → Notifications and allow them.",
-        );
+        if (permission.receive === "prompt" || permission.receive === "prompt-with-rationale") {
+          try {
+            permission = await Promise.race([
+              PushNotifications.requestPermissions(),
+              new Promise<never>((_, reject) =>
+                window.setTimeout(
+                  () => reject(new Error("Notification permission timed out.")),
+                  20_000,
+                ),
+              ),
+            ]);
+          } catch {
+            // User dismissed or OEM hung — fall through.
+          }
+        }
+
+        if (permission.receive && permission.receive !== "granted") {
+          throw new Error(
+            "Notification permission was not granted. Open Settings → Apps → Anytime Workforce → Notifications and allow them.",
+          );
+        }
       }
 
       try {
@@ -283,12 +300,15 @@ export async function enableDesktopAlerts() {
         // Listeners optional.
       }
 
-      // Defer register so the UI can finish the tap handler before FCM runs.
-      window.setTimeout(() => {
-        void PushNotifications.register().catch((error) => {
-          console.error("Native push register failed", error);
-        });
-      }, 400);
+      // Android: do not call register() either — some OEM WebViews still route
+      // it through getPermissionStates (S25 Ultra NPE). In-app alerts still work.
+      if (!android) {
+        window.setTimeout(() => {
+          void PushNotifications.register().catch((error) => {
+            console.error("Native push register failed", error);
+          });
+        }, 400);
+      }
 
       setDesktopAlertsEnabled(true);
       return;
@@ -334,7 +354,7 @@ export async function enableDesktopAlerts() {
   await showDesktopNotification({
     id: "alerts-enabled",
     title: "Anytime Workforce alerts enabled",
-    desc: "Browser alerts are ready while the app is open.",
+    desc: "You will get alerts from this browser or home-screen app.",
     time: new Date().toISOString(),
     type: "system",
   });

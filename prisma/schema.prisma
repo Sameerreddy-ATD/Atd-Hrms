@@ -388,6 +388,17 @@ model Employee {
   aadhaarNumberLast4         String?                       @map("aadhaar_number_last4") @db.VarChar(4)
   uanNumberEncrypted         String?                       @map("uan_number_encrypted") @db.Text
   uanNumberLast4             String?                       @map("uan_number_last4") @db.VarChar(4)
+  fatherName                 String?                       @map("father_name")
+  presentAddress             String?                       @map("present_address") @db.Text
+  presentCity                String?                       @map("present_city")
+  presentState               String?                       @map("present_state")
+  presentPincode             String?                       @map("present_pincode") @db.VarChar(12)
+  permanentAddress           String?                       @map("permanent_address") @db.Text
+  permanentCity              String?                       @map("permanent_city")
+  permanentState             String?                       @map("permanent_state")
+  permanentPincode           String?                       @map("permanent_pincode") @db.VarChar(12)
+  /// APPLIED | INTERVIEW | OFFER | PRE_ONBOARDING | ONBOARDING | NHO | ACTIVE | NOTICE | OFFBOARDING | EXITED
+  lifecycleStage             String                        @default("ACTIVE") @map("lifecycle_stage") @db.VarChar(24)
   attendanceMode             AttendanceMode                @default(BOTH) @map("attendance_mode")
   attendanceRequired         Boolean                       @default(true) @map("attendance_required")
   shiftType                  ShiftType                     @default(DAY) @map("shift_type")
@@ -433,7 +444,18 @@ model Employee {
   candidatesHired            Candidate[]                 @relation("HiredEmployee")
   shiftAssignments           EmployeeShiftAssignment[]
   leaveLedgerEntries         LeaveLedgerEntry[]
+  onboardingCases            OnboardingCase[]
+  nhoProfile                 NewHireProfile?
+  compensationRecords        EmployeeCompensation[]
+  recurringAllowances        RecurringAllowance[]
+  oneTimePayments            OneTimePayment[]
+  shiftSwapsRequested        ShiftSwapRequest[]          @relation("SwapRequester")
+  shiftSwapsAsCounterpart    ShiftSwapRequest[]          @relation("SwapCounterpart")
+  changeRequests             EmployeeChangeRequest[]
+  offboardingCases           OffboardingCase[]
+  offerLetters               OfferLetter[]
 
+  @@index([lifecycleStage, status])
   @@map("employees")
 }
 
@@ -1535,29 +1557,61 @@ model AppraisalCycle {
 }
 
 model AppraisalReview {
-  reviewId         String         @id @default(cuid()) @map("review_id")
-  cycleId          String         @map("cycle_id")
-  cycle            AppraisalCycle @relation(fields: [cycleId], references: [cycleId], onDelete: Cascade)
-  employeeId       String         @map("employee_id")
-  employee         Employee       @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
-  managerUserId    String         @map("manager_user_id")
-  manager          User           @relation("AppraisalManager", fields: [managerUserId], references: [id])
-  rating           Int?
-  comments         String?        @db.Text
-  status           String         @default("DRAFT")
-  submittedAt      DateTime?      @map("submitted_at")
-  createdAt        DateTime       @default(now()) @map("created_at")
-  updatedAt        DateTime       @updatedAt @map("updated_at")
+  reviewId              String            @id @default(cuid()) @map("review_id")
+  cycleId               String            @map("cycle_id")
+  cycle                 AppraisalCycle    @relation(fields: [cycleId], references: [cycleId], onDelete: Cascade)
+  employeeId            String            @map("employee_id")
+  employee              Employee          @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  managerUserId         String            @map("manager_user_id")
+  manager               User              @relation("AppraisalManager", fields: [managerUserId], references: [id])
+  rating                Int?
+  comments              String?           @db.Text
+  employeeComment       String?           @map("employee_comment") @db.Text
+  managerComment        String?           @map("manager_comment") @db.Text
+  skipLevelUserId       String?           @map("skip_level_user_id")
+  skipLevelComment      String?           @map("skip_level_comment") @db.Text
+  skipLevelApprovedAt   DateTime?         @map("skip_level_approved_at")
+  signedOffAt           DateTime?         @map("signed_off_at")
+  signedOffByUserId     String?           @map("signed_off_by_user_id")
+  /// DRAFT | EMPLOYEE_SUBMITTED | MANAGER_REVIEWED | SKIP_LEVEL_PENDING | SIGNED_OFF
+  status                String            @default("DRAFT")
+  submittedAt           DateTime?         @map("submitted_at")
+  goals                 PerformanceGoal[]
+  createdAt             DateTime          @default(now()) @map("created_at")
+  updatedAt             DateTime          @updatedAt @map("updated_at")
 
   @@unique([cycleId, employeeId])
   @@index([managerUserId, status])
   @@map("appraisal_reviews")
 }
 
+model PerformanceGoal {
+  goalId           String          @id @default(cuid()) @map("goal_id")
+  reviewId         String          @map("review_id")
+  review           AppraisalReview @relation(fields: [reviewId], references: [reviewId], onDelete: Cascade)
+  kra              String
+  kpi              String          @db.Text
+  targetPercent    Decimal         @default(100) @map("target_percent") @db.Decimal(6, 2)
+  achievedPercent  Decimal?        @map("achieved_percent") @db.Decimal(6, 2)
+  employeeComment  String?         @map("employee_comment") @db.Text
+  managerComment   String?         @map("manager_comment") @db.Text
+  sortOrder        Int             @default(0) @map("sort_order")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  @@index([reviewId, sortOrder])
+  @@map("performance_goals")
+}
+
 model SopArticle {
   articleId     String    @id @default(cuid()) @map("article_id")
   title         String
+  /// SOP | TRAINING
+  kind          String    @default("SOP") @db.VarChar(16)
+  category      String?
   body          String    @db.Text
+  fileName      String?   @map("file_name")
+  storageKey    String?   @map("storage_key")
   audienceRoles Json      @default("[]") @map("audience_roles")
   published     Boolean   @default(false)
   authorUserId  String    @map("author_user_id")
@@ -1566,7 +1620,7 @@ model SopArticle {
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  @@index([published, updatedAt])
+  @@index([published, kind, updatedAt])
   @@map("sop_articles")
 }
 
@@ -1583,35 +1637,297 @@ model SopRead {
 }
 
 model RecruitmentJob {
-  jobId           String     @id @default(cuid()) @map("job_id")
+  jobId           String      @id @default(cuid()) @map("job_id")
   title           String
-  departmentName  String?    @map("department_name")
-  description     String?    @db.Text
-  status          String     @default("OPEN")
-  createdByUserId String     @map("created_by_user_id")
-  createdBy       User       @relation("JobCreator", fields: [createdByUserId], references: [id])
+  departmentName  String?     @map("department_name")
+  description     String?     @db.Text
+  employmentType  String?     @map("employment_type") @db.VarChar(24)
+  openings        Int         @default(1)
+  /// OPEN | ON_HOLD | CLOSED
+  status          String      @default("OPEN")
+  createdByUserId String      @map("created_by_user_id")
+  createdBy       User        @relation("JobCreator", fields: [createdByUserId], references: [id])
   candidates      Candidate[]
-  createdAt       DateTime   @default(now()) @map("created_at")
-  updatedAt       DateTime   @updatedAt @map("updated_at")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
 
   @@index([status, createdAt])
   @@map("recruitment_jobs")
 }
 
 model Candidate {
-  candidateId       String         @id @default(cuid()) @map("candidate_id")
-  jobId             String         @map("job_id")
-  job               RecruitmentJob @relation(fields: [jobId], references: [jobId], onDelete: Cascade)
-  name              String
-  email             String?
-  phone             String?
-  stage             String         @default("APPLIED")
-  notes             String?        @db.Text
-  hiredEmployeeId   String?        @map("hired_employee_id")
-  hiredEmployee     Employee?      @relation("HiredEmployee", fields: [hiredEmployeeId], references: [employeeId], onDelete: SetNull)
-  createdAt         DateTime       @default(now()) @map("created_at")
-  updatedAt         DateTime       @updatedAt @map("updated_at")
+  candidateId        String                @id @default(cuid()) @map("candidate_id")
+  jobId              String                @map("job_id")
+  job                RecruitmentJob        @relation(fields: [jobId], references: [jobId], onDelete: Cascade)
+  name               String
+  email              String?
+  phone              String?
+  /// APPLIED | SCREENING | INTERVIEW | OFFER | ACCEPTED | REJECTED | WITHDRAWN | HIRED
+  stage              String                @default("APPLIED")
+  source             String?
+  notes              String?               @db.Text
+  resumeFileName     String?               @map("resume_file_name")
+  resumeStorageKey   String?               @map("resume_storage_key")
+  currentCtc         Decimal?              @map("current_ctc") @db.Decimal(12, 2)
+  expectedCtc        Decimal?              @map("expected_ctc") @db.Decimal(12, 2)
+  noticeDays         Int?                  @map("notice_days")
+  hiredEmployeeId    String?               @map("hired_employee_id")
+  hiredEmployee      Employee?             @relation("HiredEmployee", fields: [hiredEmployeeId], references: [employeeId], onDelete: SetNull)
+  interviews         CandidateInterview[]
+  offers             OfferLetter[]
+  createdAt          DateTime              @default(now()) @map("created_at")
+  updatedAt          DateTime              @updatedAt @map("updated_at")
 
   @@index([jobId, stage])
   @@map("candidates")
+}
+
+model CandidateInterview {
+  interviewId       String    @id @default(cuid()) @map("interview_id")
+  candidateId       String    @map("candidate_id")
+  candidate         Candidate @relation(fields: [candidateId], references: [candidateId], onDelete: Cascade)
+  roundName         String    @map("round_name")
+  scheduledAt       DateTime? @map("scheduled_at")
+  interviewerName   String?   @map("interviewer_name")
+  interviewerUserId String?   @map("interviewer_user_id")
+  /// SCHEDULED | COMPLETED | NO_SHOW | CANCELLED
+  outcome           String    @default("SCHEDULED")
+  score             Int?
+  feedback          String?   @db.Text
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@index([candidateId, scheduledAt])
+  @@map("candidate_interviews")
+}
+
+model OfferLetter {
+  offerId          String     @id @default(cuid()) @map("offer_id")
+  candidateId      String     @map("candidate_id")
+  candidate        Candidate  @relation(fields: [candidateId], references: [candidateId], onDelete: Cascade)
+  employeeId       String?    @map("employee_id")
+  employee         Employee?  @relation(fields: [employeeId], references: [employeeId], onDelete: SetNull)
+  ctcAnnual        Decimal    @map("ctc_annual") @db.Decimal(12, 2)
+  designation      String?
+  joiningDate      DateTime?  @map("joining_date") @db.Date
+  body             String?    @db.Text
+  fileName         String?    @map("file_name")
+  storageKey       String?    @map("storage_key")
+  /// DRAFT | SENT | SIGNED | WITHDRAWN | EXPIRED
+  status           String     @default("DRAFT")
+  sentAt           DateTime?  @map("sent_at")
+  signedAt         DateTime?  @map("signed_at")
+  createdByUserId  String     @map("created_by_user_id")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  @@index([candidateId, status])
+  @@index([employeeId])
+  @@map("offer_letters")
+}
+
+model OnboardingCase {
+  caseId          String                @id @default(cuid()) @map("case_id")
+  employeeId      String                @map("employee_id")
+  employee        Employee              @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  candidateId     String?               @map("candidate_id")
+  /// PRE_ONBOARDING | ONBOARDING | COMPLETED | CANCELLED
+  status          String                @default("PRE_ONBOARDING")
+  startedByUserId String                @map("started_by_user_id")
+  completedAt     DateTime?             @map("completed_at")
+  documents       OnboardingDocument[]
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+
+  @@index([employeeId, status])
+  @@map("onboarding_cases")
+}
+
+model OnboardingDocument {
+  documentId       String         @id @default(cuid()) @map("document_id")
+  caseId           String         @map("case_id")
+  case             OnboardingCase @relation(fields: [caseId], references: [caseId], onDelete: Cascade)
+  /// OFFER_LETTER | NDA | AADHAAR | PAN | HANDBOOK
+  docType          String         @map("doc_type") @db.VarChar(24)
+  /// PENDING | SENT | UPLOADED | SIGNED | VERIFIED | REJECTED
+  status           String         @default("PENDING")
+  fileName         String?        @map("file_name")
+  storageKey       String?        @map("storage_key")
+  employeeNotes    String?        @map("employee_notes") @db.Text
+  verifiedByUserId String?        @map("verified_by_user_id")
+  verifiedAt       DateTime?      @map("verified_at")
+  signedAt         DateTime?      @map("signed_at")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  @@unique([caseId, docType])
+  @@map("onboarding_documents")
+}
+
+model NewHireProfile {
+  profileId          String    @id @default(cuid()) @map("profile_id")
+  employeeId         String    @unique @map("employee_id")
+  employee           Employee  @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  fullName           String?
+  fatherName         String?   @map("father_name")
+  dateOfBirth        DateTime? @map("date_of_birth") @db.Date
+  ageYears           Int?      @map("age_years")
+  gender             String?
+  presentAddress     String?   @map("present_address") @db.Text
+  presentCity        String?   @map("present_city")
+  presentState       String?   @map("present_state")
+  presentPincode     String?   @map("present_pincode") @db.VarChar(12)
+  permanentAddress   String?   @map("permanent_address") @db.Text
+  permanentCity      String?   @map("permanent_city")
+  permanentState     String?   @map("permanent_state")
+  permanentPincode   String?   @map("permanent_pincode") @db.VarChar(12)
+  panNumber          String?   @map("pan_number")
+  aadhaarLast4       String?   @map("aadhaar_last4") @db.VarChar(4)
+  /// DRAFT | SUBMITTED | HR_VERIFIED | REJECTED
+  status             String    @default("DRAFT")
+  submittedAt        DateTime? @map("submitted_at")
+  verifiedAt         DateTime? @map("verified_at")
+  verifiedByUserId   String?   @map("verified_by_user_id")
+  hrNotes            String?   @map("hr_notes") @db.Text
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@map("new_hire_profiles")
+}
+
+model EmployeeCompensation {
+  compensationId   String    @id @default(cuid()) @map("compensation_id")
+  employeeId       String    @map("employee_id")
+  employee         Employee  @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  effectiveFrom    DateTime  @map("effective_from") @db.Date
+  ctcAnnual        Decimal   @map("ctc_annual") @db.Decimal(12, 2)
+  basicMonthly     Decimal?  @map("basic_monthly") @db.Decimal(12, 2)
+  notes            String?   @db.Text
+  createdByUserId  String    @map("created_by_user_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  @@index([employeeId, effectiveFrom])
+  @@map("employee_compensation")
+}
+
+model RecurringAllowance {
+  allowanceId      String    @id @default(cuid()) @map("allowance_id")
+  employeeId       String    @map("employee_id")
+  employee         Employee  @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  name             String
+  amountMonthly    Decimal   @map("amount_monthly") @db.Decimal(12, 2)
+  effectiveFrom    DateTime  @map("effective_from") @db.Date
+  effectiveTo      DateTime? @map("effective_to") @db.Date
+  /// ACTIVE | ENDED
+  status           String    @default("ACTIVE")
+  createdByUserId  String    @map("created_by_user_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@index([employeeId, status])
+  @@map("recurring_allowances")
+}
+
+model OneTimePayment {
+  paymentId        String    @id @default(cuid()) @map("payment_id")
+  employeeId       String    @map("employee_id")
+  employee         Employee  @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  name             String
+  amount           Decimal   @db.Decimal(12, 2)
+  paymentDate      DateTime  @map("payment_date") @db.Date
+  reason           String?   @db.Text
+  /// PENDING | APPROVED | PAID | CANCELLED
+  status           String    @default("PENDING")
+  createdByUserId  String    @map("created_by_user_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@index([employeeId, paymentDate])
+  @@map("one_time_payments")
+}
+
+model ShiftSwapRequest {
+  swapId                 String    @id @default(cuid()) @map("swap_id")
+  employeeId             String    @map("employee_id")
+  employee               Employee  @relation("SwapRequester", fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  counterpartEmployeeId  String    @map("counterpart_employee_id")
+  counterpart            Employee  @relation("SwapCounterpart", fields: [counterpartEmployeeId], references: [employeeId], onDelete: Cascade)
+  workDate               DateTime  @map("work_date") @db.Date
+  reason                 String?   @db.Text
+  /// PENDING | APPROVED | REJECTED | CANCELLED
+  status                 String    @default("PENDING")
+  reviewedByUserId       String?   @map("reviewed_by_user_id")
+  reviewedAt             DateTime? @map("reviewed_at")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  @@index([employeeId, workDate])
+  @@index([counterpartEmployeeId, workDate])
+  @@map("shift_swap_requests")
+}
+
+model EmployeeChangeRequest {
+  changeId             String    @id @default(cuid()) @map("change_id")
+  employeeId           String    @map("employee_id")
+  employee             Employee  @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  /// SHIFT_CHANGE | SHIFT_SWAP | PROMOTION | DEPARTMENT_CHANGE | EMPLOYMENT_TYPE_CHANGE | SALARY_CHANGE | DESIGNATION_CHANGE | BRANCH_CHANGE | ADDRESS_CHANGE | MANAGER_CHANGE | HIERARCHY_CHANGE | RECURRING_ALLOWANCE | ONE_TIME_PAYMENT
+  kind                 String    @db.VarChar(40)
+  effectiveDate        DateTime  @map("effective_date") @db.Date
+  payload              Json
+  reason               String?   @db.Text
+  hrLetterFileName     String?   @map("hr_letter_file_name")
+  hrLetterStorageKey   String?   @map("hr_letter_storage_key")
+  /// DRAFT | PENDING_MANAGER | PENDING_HR | APPROVED | REJECTED | APPLIED
+  status               String    @default("PENDING_HR")
+  requestedByUserId    String    @map("requested_by_user_id")
+  managerApprovedById  String?   @map("manager_approved_by_id")
+  managerApprovedAt    DateTime? @map("manager_approved_at")
+  hrApprovedById       String?   @map("hr_approved_by_id")
+  hrApprovedAt         DateTime? @map("hr_approved_at")
+  appliedAt            DateTime? @map("applied_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  @@index([employeeId, status])
+  @@index([kind, status])
+  @@map("employee_change_requests")
+}
+
+model OffboardingCase {
+  caseId                   String    @id @default(cuid()) @map("case_id")
+  employeeId               String    @map("employee_id")
+  employee                 Employee  @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  /// RESIGNATION | TERMINATION | INTERN_COMPLETE | ABSCONDING
+  reason                   String    @db.VarChar(24)
+  endDate                  DateTime  @map("end_date") @db.Date
+  /// OPEN | ACCESS_REMOVED | ASSETS_CLEARED | NO_DUES | LETTERS_ISSUED | CLOSED
+  status                   String    @default("OPEN")
+  accessRemovedAt          DateTime? @map("access_removed_at")
+  assetsClearedAt          DateTime? @map("assets_cleared_at")
+  noDuesAt                 DateTime? @map("no_dues_at")
+  resignationLetterKey     String?   @map("resignation_letter_key")
+  resignationLetterName    String?   @map("resignation_letter_name")
+  experienceLetterKey      String?   @map("experience_letter_key")
+  experienceLetterName     String?   @map("experience_letter_name")
+  internCertificateKey     String?   @map("intern_certificate_key")
+  internCertificateName    String?   @map("intern_certificate_name")
+  notes                    String?   @db.Text
+  startedByUserId          String    @map("started_by_user_id")
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
+
+  @@index([employeeId, status])
+  @@map("offboarding_cases")
+}
+
+model DeferredPunchReceipt {
+  receiptId  String   @id @default(cuid()) @map("receipt_id")
+  employeeId String   @map("employee_id")
+  nonce      String   @unique
+  kind       String
+  capturedAt DateTime @map("captured_at")
+  syncedAt   DateTime @default(now()) @map("synced_at")
+
+  @@index([employeeId, capturedAt])
+  @@map("deferred_punch_receipts")
 }
