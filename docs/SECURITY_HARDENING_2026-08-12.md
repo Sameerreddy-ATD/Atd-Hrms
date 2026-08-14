@@ -18,7 +18,7 @@ White-box findings from the audit were patched as follows (no live exploit run).
 | Unauthenticated ID-card PII | Signed HMAC verification token (30d); rate-limited; company phone removed from public response |
 | 8-char file ownership | Full userId prefix + `private_files` ownership table; managers only for linked team medical URLs |
 | Attach another user’s vault URL | Ownership check on leave/expense attach |
-| Refresh reuse | Login + refresh rotate `sessionVersion` |
+| Refresh reuse | Login rotates `sessionVersion`; refresh re-issues cookies without bumping (avoids native WebView parallel-refresh logout races). Logout / password / suspend still revoke. |
 | DA lockout gap | Lockout/suspension apply to Developer Admin; no auto-clear of suspension on DA login |
 | Login enumeration | Generic error + dummy bcrypt for unknown users |
 | Upload MIME trust | Magic-byte allowlist (PDF/JPEG/PNG/WebP) + `nosniff` + attachment disposition |

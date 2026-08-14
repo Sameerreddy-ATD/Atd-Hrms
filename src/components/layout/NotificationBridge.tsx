@@ -14,11 +14,13 @@ import {
 import { subscribeToNotificationChanges } from "@/lib/notification-live";
 
 export function NotificationBridge() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const initialized = useRef(false);
 
   useEffect(() => {
-    if (!user || user.mustChangePassword) return;
+    // Wait for cookie restore so we never stampede /auth/refresh before the
+    // session cookies are confirmed (that race was logging users out on reopen).
+    if (loading || !user || user.mustChangePassword) return;
     initialized.current = false;
 
     let cancelled = false;
@@ -83,7 +85,7 @@ export function NotificationBridge() {
       document.removeEventListener("visibilitychange", onVisible);
       unsubscribe();
     };
-  }, [user]);
+  }, [user, loading]);
 
   return null;
 }

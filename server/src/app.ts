@@ -2182,11 +2182,12 @@ export function createApp() {
         clearCookies(res);
         throw new HttpError(403, "Account temporarily suspended");
       }
-      const rotated = await prisma.user.update({
-        where: { id: user.id, sessionVersion: payload.sessionVersion },
-        data: { sessionVersion: { increment: 1 } },
-      });
-      issueCookies(res, rotated);
+      // Re-issue cookies with the same sessionVersion. Bumping on every refresh
+      // races with parallel WebView requests (restore + warm APIs) and clears
+      // cookies when a second refresh sees a stale version — forcing re-login
+      // every time the native app is closed and reopened. Revocation still
+      // happens on login, logout, password change, and account status changes.
+      issueCookies(res, user);
       res.json({ ok: true });
     }),
   );

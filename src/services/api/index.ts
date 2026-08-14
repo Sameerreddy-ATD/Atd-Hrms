@@ -116,7 +116,9 @@ async function requestNetwork<T>(path: string, options: ApiRequestOptions = {}):
   if (
     res.status === 401 &&
     typeof window !== "undefined" &&
-    !window.location.pathname.includes("/login")
+    !window.location.pathname.includes("/login") &&
+    path !== "/auth/restore" &&
+    path !== "/auth/refresh"
   ) {
     window.location.assign("/login");
   }

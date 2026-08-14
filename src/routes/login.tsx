@@ -22,7 +22,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const { login, user } = useAuth();
+  const { login, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,9 +39,10 @@ function LoginPage() {
   }, [passwordFocused, passwordVisible]);
 
   useEffect(() => {
+    if (authLoading) return;
     if (user?.mustChangePassword) navigate({ to: "/first-login", replace: true });
     else if (user) navigate({ to: "/dashboard", replace: true });
-  }, [user, navigate]);
+  }, [user, authLoading, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

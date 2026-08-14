@@ -65,24 +65,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const cachedUser = readSessionUser();
+    // Paint identity early, but keep loading=true until /auth/restore finishes.
+    // Warming APIs or notification hydrate before restore races the refresh
+    // cookie and was forcing a login screen on every native cold start.
     if (cachedUser) {
       setUser(cachedUser);
-      setLoading(false);
-      void warmAuthenticatedWorkspace(cachedUser);
     }
 
+    let cancelled = false;
     authApi
       .restore()
-      .then(({ user }) => {
-        setUser(user);
-        writeSessionUser(user);
-        if (cachedUser?.id !== user.id) void warmAuthenticatedWorkspace(user);
+      .then(({ user: restored }) => {
+        if (cancelled) return;
+        setUser(restored);
+        writeSessionUser(restored);
+        void warmAuthenticatedWorkspace(restored);
       })
       .catch(() => {
+        if (cancelled) return;
         setUser(null);
         writeSessionUser(null);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
