@@ -90,7 +90,8 @@ function AppLayout() {
         if (active) setAllowedModules(result.modules);
       })
       .catch(() => {
-        if (active) setAllowedModules([]);
+        // Do not treat a transient failure as "no modules" (that locks the whole app).
+        if (active) setAllowedModules(undefined);
       });
     return () => {
       active = false;

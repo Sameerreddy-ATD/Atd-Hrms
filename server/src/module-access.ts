@@ -200,6 +200,7 @@ export function moduleForApiPath(path: string, method = "GET"): ModuleKey | null
     return "EMPLOYEE_REQUESTS";
   if (path.startsWith("/search") || path.startsWith("/notification-preferences")) return null;
   if (path.startsWith("/checklists")) return "PEOPLE";
+  if (path.includes("/lifecycle/offers/") && path.endsWith("/sign")) return "LIFECYCLE";
   if (
     path.startsWith("/lifecycle/jobs") ||
     path.startsWith("/lifecycle/candidates") ||

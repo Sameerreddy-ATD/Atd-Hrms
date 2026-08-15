@@ -9,6 +9,17 @@ export const CANDIDATE_STAGES = [
   "HIRED",
 ] as const;
 
+/** Stages that can be set from the pipeline dropdown (Hire action sets HIRED). */
+export const CANDIDATE_PIPELINE_STAGES = [
+  "APPLIED",
+  "SCREENING",
+  "INTERVIEW",
+  "OFFER",
+  "ACCEPTED",
+  "REJECTED",
+  "WITHDRAWN",
+] as const;
+
 export const CHANGE_KINDS = [
   "SHIFT_CHANGE",
   "SHIFT_SWAP",

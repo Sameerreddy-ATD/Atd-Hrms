@@ -470,7 +470,7 @@ export function registerLifecycleRoutes(app: Express) {
       const body = z
         .object({
           stage: z
-            .enum(["APPLIED", "SCREENING", "INTERVIEW", "OFFER", "ACCEPTED", "REJECTED", "WITHDRAWN", "HIRED"])
+            .enum(["APPLIED", "SCREENING", "INTERVIEW", "OFFER", "ACCEPTED", "REJECTED", "WITHDRAWN"])
             .optional(),
           notes: z.string().max(4000).nullable().optional(),
           hiredEmployeeId: z.string().nullable().optional(),
@@ -653,9 +653,10 @@ export function registerLifecycleRoutes(app: Express) {
         data: { stage: "OFFER" },
       });
       if (body.employeeId) {
+        // Offer can link a future login, but onboarding starts only via Hire.
         await prisma.employee.update({
           where: { employeeId: body.employeeId },
-          data: { lifecycleStage: "PRE_ONBOARDING", designation: body.designation },
+          data: { designation: body.designation || undefined },
         });
       }
       await audit({
@@ -832,7 +833,8 @@ export function registerLifecycleRoutes(app: Express) {
           status: body.approved ? "VERIFIED" : "REJECTED",
           verifiedAt: new Date(),
           verifiedByUserId: req.user!.id,
-          employeeNotes: body.notes,
+          // Keep employee upload notes; only overwrite when HR supplies verify/reject notes.
+          ...(body.notes !== undefined ? { employeeNotes: body.notes } : {}),
         },
         include: { case: { include: { documents: true } } },
       });
@@ -959,10 +961,29 @@ export function registerLifecycleRoutes(app: Express) {
     opsGate,
     asyncHandler(async (req, res) => {
       const body = z.object({ approved: z.boolean(), hrNotes: z.string().max(2000).optional() }).parse(req.body);
-      const profile = await prisma.newHireProfile.findUnique({ where: { employeeId: routeParam(req, "employeeId") } });
+      const employeeId = routeParam(req, "employeeId");
+      const profile = await prisma.newHireProfile.findUnique({ where: { employeeId } });
       if (!profile) throw new HttpError(404, "New-hire form not found");
+      if (body.approved) {
+        if (profile.status !== "SUBMITTED" && profile.status !== "HR_VERIFIED") {
+          throw new HttpError(400, "New-hire form must be submitted before HR verification");
+        }
+        const openCase = await prisma.onboardingCase.findFirst({
+          where: { employeeId, status: { in: ["PRE_ONBOARDING", "ONBOARDING"] } },
+          include: { documents: true },
+        });
+        if (openCase) {
+          throw new HttpError(400, "Verify all onboarding documents before activating the hire");
+        }
+        const completed = await prisma.onboardingCase.findFirst({
+          where: { employeeId, status: "COMPLETED" },
+        });
+        if (!completed) {
+          throw new HttpError(400, "Complete onboarding documents before activating the hire");
+        }
+      }
       const updated = await prisma.newHireProfile.update({
-        where: { employeeId: routeParam(req, "employeeId") },
+        where: { employeeId },
         data: {
           status: body.approved ? "HR_VERIFIED" : "REJECTED",
           verifiedAt: new Date(),
@@ -972,7 +993,7 @@ export function registerLifecycleRoutes(app: Express) {
       });
       if (body.approved) {
         await prisma.employee.update({
-          where: { employeeId: routeParam(req, "employeeId") },
+          where: { employeeId },
           data: {
             name: profile.fullName || undefined,
             fatherName: profile.fatherName,
@@ -1084,6 +1105,14 @@ export function registerLifecycleRoutes(app: Express) {
       if (!change) throw new HttpError(404, "Change request not found");
       await assertCanSeeEmployee(req.user!, change.employeeId);
 
+      if (change.status === "APPLIED") {
+        res.json({ id: change.changeId, status: change.status });
+        return;
+      }
+      if (change.status === "REJECTED") {
+        throw new HttpError(400, "This change request was already rejected");
+      }
+
       if (body.decision === "REJECT") {
         const updated = await prisma.employeeChangeRequest.update({
           where: { changeId: change.changeId },
@@ -1094,6 +1123,9 @@ export function registerLifecycleRoutes(app: Express) {
       }
 
       if (body.decision === "APPROVE" && !isPeopleOps(req.user!.role)) {
+        if (change.status !== "PENDING_MANAGER") {
+          throw new HttpError(400, "Only manager-pending requests can be approved here");
+        }
         const updated = await prisma.employeeChangeRequest.update({
           where: { changeId: change.changeId },
           data: {
@@ -1108,6 +1140,9 @@ export function registerLifecycleRoutes(app: Express) {
 
       if (!isPeopleOps(req.user!.role)) {
         throw new HttpError(403, "HR must apply employment changes");
+      }
+      if (change.status !== "PENDING_HR" && change.status !== "APPROVED" && change.status !== "PENDING_MANAGER") {
+        throw new HttpError(400, "This change request cannot be applied from its current status");
       }
       let hrLetterFileName = change.hrLetterFileName;
       let hrLetterStorageKey = change.hrLetterStorageKey;
@@ -1386,8 +1421,21 @@ export function registerLifecycleRoutes(app: Express) {
       if (action === "MANAGER_SUBMIT" && (isManager || isPeopleOps(req.user!.role))) {
         status = review.skipLevelUserId ? "SKIP_LEVEL_PENDING" : "MANAGER_REVIEWED";
       }
-      if (action === "SKIP_APPROVE" && (isSkip || isPeopleOps(req.user!.role))) status = "MANAGER_REVIEWED";
-      if (action === "SIGN_OFF" && (isManager || isPeopleOps(req.user!.role) || isSkip)) status = "SIGNED_OFF";
+      if (action === "SKIP_APPROVE" && (isSkip || isPeopleOps(req.user!.role))) {
+        if (review.status !== "SKIP_LEVEL_PENDING" && !isPeopleOps(req.user!.role)) {
+          throw new HttpError(400, "Review is not waiting for skip-level approval");
+        }
+        status = "MANAGER_REVIEWED";
+      }
+      if (action === "SIGN_OFF" && (isManager || isPeopleOps(req.user!.role) || isSkip)) {
+        if (review.status === "SKIP_LEVEL_PENDING") {
+          throw new HttpError(400, "Skip-level approval is still pending");
+        }
+        if (review.status !== "MANAGER_REVIEWED" && review.status !== "SIGNED_OFF") {
+          throw new HttpError(400, "Manager review must finish before sign-off");
+        }
+        status = "SIGNED_OFF";
+      }
 
       const updated = await prisma.appraisalReview.update({
         where: { reviewId: review.reviewId },

@@ -524,12 +524,14 @@
     var(--color-background);
 }
 
-/* Mobile menu sits under AppHeader so hamburger, bell, and profile stay visible. */
+/* Mobile menu sits under AppHeader so hamburger, bell, and profile stay visible.
+   Keep z below header (60) even though product sheets/dialogs use z-[70]. */
 .atd-drawer-under-header {
   top: calc(var(--atd-sat) + var(--atd-header-row)) !important;
   right: 0 !important;
   bottom: var(--atd-sab) !important;
   left: 0 !important;
+  z-index: 50 !important;
 }
 
 .atd-drawer-panel-under-header {
@@ -539,6 +541,7 @@
   height: calc(100dvh - var(--atd-sat) - var(--atd-header-row) - var(--atd-sab)) !important;
   max-height: calc(100dvh - var(--atd-sat) - var(--atd-header-row) - var(--atd-sab)) !important;
   padding-top: 0 !important;
+  z-index: 50 !important;
 }
 
 .dark .aw-shell-canvas {

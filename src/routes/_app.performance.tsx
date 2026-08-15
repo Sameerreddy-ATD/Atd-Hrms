@@ -261,7 +261,7 @@ function PerformancePage() {
                     </Button>
                   ) : null}
                   {(isHr || review.managerUserId === user?.id || review.skipLevelUserId === user?.id) &&
-                  ["MANAGER_REVIEWED", "SKIP_LEVEL_PENDING"].includes(String(review.status)) ? (
+                  String(review.status) === "MANAGER_REVIEWED" ? (
                     <Button
                       className="h-11 flex-1"
                       onClick={async () => {

@@ -174,9 +174,13 @@ function PeopleChangesPage() {
                 </p>
                 {canApprove && String(row.status) !== "APPLIED" && String(row.status) !== "REJECTED" ? (
                   <div className="mt-3 flex flex-col gap-2">
-                    <Button className="h-11 w-full" onClick={() => void decide(String(row.id), isHr ? "APPLY" : "APPROVE")}>
-                      {isHr ? "Approve and apply" : "Manager approve"}
-                    </Button>
+                    {(isHr
+                      ? ["PENDING_HR", "PENDING_MANAGER", "APPROVED"].includes(String(row.status))
+                      : String(row.status) === "PENDING_MANAGER") ? (
+                      <Button className="h-11 w-full" onClick={() => void decide(String(row.id), isHr ? "APPLY" : "APPROVE")}>
+                        {isHr ? "Approve and apply" : "Manager approve"}
+                      </Button>
+                    ) : null}
                     <Button variant="outline" className="h-11 w-full" onClick={() => void decide(String(row.id), "REJECT")}>
                       Reject
                     </Button>
@@ -211,9 +215,13 @@ function PeopleChangesPage() {
                     <td className="px-4 py-3 text-right">
                       {canApprove && String(row.status) !== "APPLIED" && String(row.status) !== "REJECTED" ? (
                         <div className="flex justify-end gap-2">
-                          <Button size="sm" onClick={() => void decide(String(row.id), isHr ? "APPLY" : "APPROVE")}>
-                            {isHr ? "Apply" : "Approve"}
-                          </Button>
+                          {(isHr
+                            ? ["PENDING_HR", "PENDING_MANAGER", "APPROVED"].includes(String(row.status))
+                            : String(row.status) === "PENDING_MANAGER") ? (
+                            <Button size="sm" onClick={() => void decide(String(row.id), isHr ? "APPLY" : "APPROVE")}>
+                              {isHr ? "Apply" : "Approve"}
+                            </Button>
+                          ) : null}
                           <Button size="sm" variant="outline" onClick={() => void decide(String(row.id), "REJECT")}>
                             Reject
                           </Button>

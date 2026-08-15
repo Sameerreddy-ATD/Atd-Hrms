@@ -22,7 +22,7 @@ import { DateField } from "@/components/ui/date-field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EmployeePicker } from "@/components/common/EmployeePicker";
 import { useAuth } from "@/lib/auth";
-import { CANDIDATE_STAGES, isPeopleOpsRole, labelize } from "@/lib/lifecycle";
+import { CANDIDATE_PIPELINE_STAGES, isPeopleLeaderRole, isPeopleOpsRole, labelize } from "@/lib/lifecycle";
 import { employeesApi, lifecycleApi } from "@/services/api";
 import type { User } from "@/types/domain";
 
@@ -32,6 +32,7 @@ function TalentPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const canEdit = isPeopleOpsRole(user?.role);
+  const canRecruit = isPeopleLeaderRole(user?.role);
   const [jobs, setJobs] = useState<Array<Record<string, unknown>>>([]);
   const [candidates, setCandidates] = useState<Array<Record<string, unknown>>>([]);
   const [employees, setEmployees] = useState<User[]>([]);
@@ -122,11 +123,13 @@ function TalentPage() {
         title="Talent acquisition"
         description="Openings → candidates → interview → offer → hire → onboarding."
         actions={
-          canEdit ? (
+          canRecruit ? (
             <>
-              <Button variant="outline" onClick={() => setJobOpen(true)}>
-                New opening
-              </Button>
+              {canEdit ? (
+                <Button variant="outline" onClick={() => setJobOpen(true)}>
+                  New opening
+                </Button>
+              ) : null}
               <Button onClick={() => setCandidateOpen(true)} disabled={!jobId}>
                 <Plus className="h-4 w-4" />
                 Add candidate
@@ -262,6 +265,10 @@ function TalentPage() {
                           <Select
                             value={String(row.stage)}
                             onValueChange={async (stage) => {
+                              if (stage === "HIRED") {
+                                toast.message("Use Hire to convert the candidate and open onboarding.");
+                                return;
+                              }
                               await lifecycleApi.updateCandidate(String(row.id), { stage });
                               setCandidates(await lifecycleApi.candidates({ jobId }));
                             }}
@@ -270,11 +277,16 @@ function TalentPage() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {CANDIDATE_STAGES.map((stage) => (
+                              {CANDIDATE_PIPELINE_STAGES.map((stage) => (
                                 <SelectItem key={stage} value={stage}>
                                   {labelize(stage)}
                                 </SelectItem>
                               ))}
+                              {String(row.stage) === "HIRED" ? (
+                                <SelectItem value="HIRED" disabled>
+                                  Hired
+                                </SelectItem>
+                              ) : null}
                             </SelectContent>
                           </Select>
                         </td>

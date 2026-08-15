@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { DoorOpen } from "lucide-react";
@@ -13,7 +13,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DateField } from "@/components/ui/date-field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { fileToPayload, labelize } from "@/lib/lifecycle";
+import { fileToPayload, isPeopleOpsRole, labelize } from "@/lib/lifecycle";
+import { useAuth } from "@/lib/auth";
 import { employeesApi, lifecycleApi } from "@/services/api";
 import type { User } from "@/types/domain";
 
@@ -22,13 +23,21 @@ export const Route = createFileRoute("/_app/offboarding")({ component: Offboardi
 const STEPS = ["ACCESS_REMOVED", "ASSETS_CLEARED", "NO_DUES", "LETTERS_ISSUED", "CLOSED"] as const;
 
 function OffboardingPage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const allowed = isPeopleOpsRole(user?.role);
   const [rows, setRows] = useState<Array<Record<string, unknown>>>([]);
   const [employees, setEmployees] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ employeeId: "", reason: "RESIGNATION", endDate: "", notes: "" });
 
+  useEffect(() => {
+    if (user && !allowed) navigate({ to: "/dashboard", replace: true });
+  }, [user, allowed, navigate]);
+
   const load = useCallback(async () => {
+    if (!allowed) return;
     setLoading(true);
     try {
       const [caseRows, people] = await Promise.all([lifecycleApi.offboarding(), employeesApi.list()]);
@@ -39,12 +48,13 @@ function OffboardingPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [allowed]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  if (!allowed) return <LoadingState label="Redirecting" />;
   if (loading) return <LoadingState label="Loading offboarding" />;
 
   return (

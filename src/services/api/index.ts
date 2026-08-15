@@ -152,6 +152,9 @@ export async function fetchAuthenticatedBlob(path: string): Promise<Blob> {
       const refreshed = await refreshSession();
       if (refreshed) res = await fetch(`${API_BASE}${path}`, fetchOptions);
     }
+    if (res.status === 401 && typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+      window.location.assign("/login");
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.blob();
   } catch (err) {
