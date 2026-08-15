@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ import {
 } from "@/components/ui/accordion";
 import { useAuth } from "@/lib/auth";
 import { formatDisplayDate } from "@/lib/india-date";
+import { cn } from "@/lib/utils";
 import {
   COMPANY_LABELS,
   PARENT_COMPANY_NAME,
@@ -32,7 +34,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Eye, EyeOff, Key, Loader2 } from "lucide-react";
+import {
+  BriefcaseBusiness,
+  Building2,
+  ChevronRight,
+  CreditCard,
+  Eye,
+  EyeOff,
+  IdCard,
+  KeyRound,
+  Landmark,
+  Loader2,
+  PencilLine,
+  ShieldAlert,
+  UserRound,
+} from "lucide-react";
 import { PasswordInput } from "@/components/common/PasswordInput";
 import { PasswordMatchHint } from "@/components/common/PasswordMatchHint";
 import { EmergencyContactSection } from "@/components/profile/EmergencyContactSection";
@@ -40,6 +56,8 @@ import { EmergencyContactSection } from "@/components/profile/EmergencyContactSe
 export const Route = createFileRoute("/_app/profile")({
   component: ProfilePage,
 });
+
+const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
 
 function ProfilePage() {
   const { user, updateCurrentUser, changePassword } = useAuth();
@@ -59,12 +77,12 @@ function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [selfEditPolicy, setSelfEditPolicy] = useState<ProfileSelfEditPolicy | null>(null);
 
-  // Self change password states
   const [oldPw, setOldPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
   const [pwSaving, setPwSaving] = useState(false);
   const [openSections, setOpenSections] = useState<string[]>(["identity"]);
+  const [securityOpen, setSecurityOpen] = useState<string>("");
 
   useEffect(() => {
     void profileSelfEditApi
@@ -124,8 +142,7 @@ function ProfilePage() {
     canSaveDirectly || (selfEditEnabled && allowedSelfFields.has(field));
   const canEditAnyProfileField =
     canSaveDirectly ||
-    (selfEditEnabled &&
-      [...allowedSelfFields].some((field) => field !== "emergencyContact"));
+    (selfEditEnabled && [...allowedSelfFields].some((field) => field !== "emergencyContact"));
   const canEditEmergencyContact =
     canSaveDirectly || user.role === "hr" || canEditField("emergencyContact");
   const profile = employee ?? user;
@@ -133,7 +150,8 @@ function ProfilePage() {
     .split(" ")
     .map((s) => s[0])
     .slice(0, 2)
-    .join("");
+    .join("")
+    .toUpperCase();
 
   const rules = [
     { label: "At least 8 characters", ok: newPw.length >= 8 },
@@ -159,6 +177,7 @@ function ProfilePage() {
       setOldPw("");
       setNewPw("");
       setConfirmPw("");
+      setSecurityOpen("");
     } catch (err) {
       toast.error((err as Error).message || "Failed to change password");
     } finally {
@@ -166,53 +185,438 @@ function ProfilePage() {
     }
   }
 
+  async function handleProfileSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canEditAnyProfileField) return;
+    setSaving(true);
+    try {
+      let updatedEmployee = employee;
+      let updatedProfile: User;
+      if (user.employeeId) {
+        const patch: Record<string, string | undefined> = {};
+        if (canEditField("name")) patch.name = name;
+        if (canSaveDirectly) patch.email = email;
+        if (canEditField("phone")) patch.phone = phone || undefined;
+        if (canEditField("companyPhone")) patch.companyPhone = companyPhone || undefined;
+        if (canEditField("dateOfBirth")) patch.dateOfBirth = dob || undefined;
+        if (canEditField("bloodGroup")) patch.bloodGroup = bloodGroup || undefined;
+        if (canEditField("bankAccountHolderName")) {
+          patch.bankAccountHolderName = bankAccountHolderName || undefined;
+        }
+        if (canEditField("bankAccountNumber")) {
+          patch.bankAccountNumber = bankAccountNumber || undefined;
+        }
+        if (canEditField("bankIfscCode")) patch.bankIfscCode = bankIfscCode || undefined;
+        if (canEditField("panNumber")) patch.panNumber = panNumber || undefined;
+        if (canEditField("aadhaarNumber")) patch.aadhaarNumber = aadhaarNumber || undefined;
+        if (canEditField("uanNumber")) patch.uanNumber = uanNumber || undefined;
+
+        if (Object.keys(patch).length === 0) {
+          toast.error("No editable fields to save");
+          return;
+        }
+
+        updatedEmployee = await employeesApi.update(user.employeeId, patch);
+        setEmployee(updatedEmployee);
+        updatedProfile = { ...user, ...updatedEmployee };
+      } else if (canSaveDirectly) {
+        updatedProfile = await usersApi.update(user.id, {
+          name,
+          email,
+          phone: phone || undefined,
+        });
+      } else {
+        toast.error("No employee record is linked to this login");
+        return;
+      }
+      updateCurrentUser(updatedProfile);
+      toast.success("Profile updated");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const metaBits = [
+    profile.designation,
+    profile.department,
+    profile.employeeCode ?? user.employeeId,
+  ].filter(Boolean) as string[];
+
   return (
-    <div>
+    <div className="mx-auto max-w-5xl space-y-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:space-y-5">
       <PageHeader
+        className="mb-0 border-border/50 pb-3 sm:mb-0 sm:pb-4"
         title="My Profile"
         description={
           canSaveDirectly
-            ? "Developer Admin can update profile fields and emergency contact directly."
+            ? "Update your details and emergency contact directly."
             : canEditAnyProfileField || canEditEmergencyContact
-              ? "You can update the fields your organization has enabled. Employment and login fields stay admin-controlled. You can still change your own password."
-              : "Profile details are view-only unless Developer Admin enables employee editing in System Settings. Emergency contact may still be updated by HR. You can still change your own password."
+              ? "Edit the fields your organization has enabled. Employment data stays admin-controlled."
+              : "View your workforce identity. Ask Developer Admin if you need a field unlocked."
         }
       />
-      <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
-        <div className="space-y-4">
-          <Card>
-            <CardContent className="flex flex-col items-center gap-3 p-5 text-center sm:p-6">
-              <Avatar className="h-20 w-20">
-                <AvatarFallback className="bg-primary text-primary-foreground text-lg">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <p className="text-lg font-semibold">{user.name}</p>
-                <p className="text-sm text-muted-foreground">{ROLE_LABELS[user.role]}</p>
-                <p className="mt-1 font-mono text-xs text-muted-foreground">
-                  {profile.employeeCode ?? user.employeeId ?? "-"}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
 
-          <Card>
-            <CardHeader className="py-4">
-              <CardTitle className="text-sm flex items-center gap-1.5">
-                <Key className="h-4 w-4" /> Security
+      {/* Identity badge — compact hero inspired by ID-card / iOS Settings header */}
+      <section className="aw-enter relative overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_0%_0%,color-mix(in_oklab,var(--primary)_14%,transparent),transparent_55%),linear-gradient(180deg,color-mix(in_oklab,var(--muted)_55%,transparent),transparent)]"
+        />
+        <div className="relative flex flex-col items-center gap-4 p-5 text-center sm:flex-row sm:items-center sm:gap-5 sm:p-6 sm:text-left">
+          <Avatar className="size-20 border-2 border-background shadow-md ring-1 ring-border/80 sm:size-[4.5rem]">
+            <AvatarFallback className="bg-primary text-lg font-semibold tracking-wide text-primary-foreground sm:text-xl">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+              <h2 className="truncate text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+                {user.name}
+              </h2>
+              {canEditAnyProfileField && (
+                <Badge
+                  variant="outline"
+                  className="border-primary/25 bg-primary/8 text-[10px] font-semibold uppercase tracking-wide text-primary"
+                >
+                  <PencilLine className="mr-1 size-3" />
+                  Editing on
+                </Badge>
+              )}
+            </div>
+            <p className="text-sm font-medium text-muted-foreground">
+              {ROLE_LABELS[user.role]}
+              {profile.companyEntity ? ` · ${COMPANY_LABELS[profile.companyEntity]}` : ""}
+            </p>
+            {metaBits.length > 0 && (
+              <div className="flex flex-wrap items-center justify-center gap-1.5 sm:justify-start">
+                {metaBits.map((bit) => (
+                  <span
+                    key={bit}
+                    className="rounded-md border border-border/70 bg-background/80 px-2 py-0.5 font-mono text-[11px] text-muted-foreground"
+                  >
+                    {bit}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[10.5rem]">
+            <Button asChild variant="outline" className="h-11 w-full justify-between sm:h-10">
+              <Link to="/id-card">
+                <span className="inline-flex items-center gap-2">
+                  <IdCard className="size-4" />
+                  ID card
+                </span>
+                <ChevronRight className="size-4 text-muted-foreground" />
+              </Link>
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-11 w-full justify-between sm:h-10"
+              onClick={() => {
+                setSecurityOpen("change-password");
+                window.requestAnimationFrame(() => {
+                  document
+                    .getElementById("profile-security")
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                });
+              }}
+            >
+              <span className="inline-flex items-center gap-2">
+                <KeyRound className="size-4" />
+                Password
+              </span>
+              <ChevronRight className="size-4 text-muted-foreground" />
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_19rem]">
+        <Card className="overflow-hidden border-border/70 shadow-sm">
+          <CardHeader className="space-y-1 border-b border-border/60 bg-muted/25 px-4 py-3.5 sm:px-5">
+            <CardTitle className="text-base">Personal details</CardTitle>
+            <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
+              {canEditAnyProfileField
+                ? "Open a section to review or update the fields available to you."
+                : "Open a section to review your saved workforce details."}
+            </p>
+          </CardHeader>
+          <CardContent className="p-0">
+            <form onSubmit={(e) => void handleProfileSave(e)}>
+              <Accordion
+                type="multiple"
+                value={openSections}
+                onValueChange={setOpenSections}
+                className="w-full"
+              >
+                <ProfileSection
+                  value="identity"
+                  icon={UserRound}
+                  title="Identity and contact"
+                  hint="Name, phones, date of birth"
+                >
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field
+                      label="Full name"
+                      value={name}
+                      onChange={setName}
+                      editable={canEditField("name")}
+                    />
+                    <Field label="Employee code" value={profile.employeeCode ?? "-"} />
+                    <Field
+                      label="Email"
+                      value={email}
+                      onChange={setEmail}
+                      editable={canSaveDirectly}
+                    />
+                    <Field
+                      label="Personal phone"
+                      value={phone}
+                      onChange={setPhone}
+                      editable={canEditField("phone")}
+                    />
+                    <Field
+                      label="Company phone"
+                      value={
+                        canEditField("companyPhone")
+                          ? companyPhone
+                          : companyPhone || "Not provided"
+                      }
+                      onChange={setCompanyPhone}
+                      editable={canEditField("companyPhone")}
+                    />
+                    <Field
+                      label="Date of birth"
+                      value={dob}
+                      onChange={setDob}
+                      editable={canEditField("dateOfBirth")}
+                      type="date"
+                    />
+                    <Field label="Gender" value={formatGender(profile.gender)} />
+                    {canEditField("bloodGroup") ? (
+                      <div className="space-y-1.5">
+                        <Label>Blood group</Label>
+                        <Select
+                          value={bloodGroup || "none"}
+                          onValueChange={(next) => setBloodGroup(next === "none" ? "" : next)}
+                        >
+                          <SelectTrigger className="h-11 sm:h-9">
+                            <SelectValue placeholder="Select" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Not provided</SelectItem>
+                            {BLOOD_GROUPS.map((group) => (
+                              <SelectItem key={group} value={group}>
+                                {group}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : (
+                      <Field
+                        label="Blood group"
+                        value={bloodGroup || profile.bloodGroup || "Not provided"}
+                      />
+                    )}
+                  </div>
+                </ProfileSection>
+
+                <ProfileSection
+                  value="employment"
+                  icon={BriefcaseBusiness}
+                  title="Employment"
+                  hint="Company, role, reporting line"
+                >
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field
+                      label="Employer company"
+                      value={
+                        profile.companyEntity
+                          ? COMPANY_LABELS[profile.companyEntity]
+                          : "Not assigned"
+                      }
+                    />
+                    <Field label="Parent group" value={PARENT_COMPANY_NAME} />
+                    <Field label="Role" value={ROLE_LABELS[user.role]} />
+                    <Field
+                      label="Employment type"
+                      value={formatEmployment(profile.employmentType)}
+                    />
+                    <Field
+                      label="Organization level"
+                      value={formatOrganizationLevel(profile.organizationLevel)}
+                    />
+                    <Field label="Department" value={profile.department ?? "-"} />
+                    <Field label="Designation" value={profile.designation ?? "-"} />
+                    <Field
+                      label="Reporting manager"
+                      value={profile.managerName ?? "Not assigned"}
+                    />
+                    <Field
+                      label="Joining date"
+                      value={
+                        profile.joiningDate ? formatDisplayDate(profile.joiningDate) : "-"
+                      }
+                    />
+                  </div>
+                </ProfileSection>
+
+                <ProfileSection
+                  value="banking"
+                  icon={Landmark}
+                  title="Banking"
+                  hint="Account holder, IFSC, account number"
+                >
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field
+                      label="Account holder name"
+                      value={
+                        canEditField("bankAccountHolderName")
+                          ? bankAccountHolderName
+                          : bankAccountHolderName || "Not provided"
+                      }
+                      onChange={setBankAccountHolderName}
+                      editable={canEditField("bankAccountHolderName")}
+                    />
+                    <Field label="Account type" value={formatLabel(profile.bankAccountType)} />
+                    {canEditField("bankAccountNumber") ? (
+                      <Field
+                        label="Account number"
+                        value={bankAccountNumber}
+                        onChange={setBankAccountNumber}
+                        editable
+                      />
+                    ) : (
+                      <SensitiveField label="Account number" value={bankAccountNumber} />
+                    )}
+                    <Field
+                      label="IFSC code"
+                      value={
+                        canEditField("bankIfscCode")
+                          ? bankIfscCode
+                          : bankIfscCode || "Not provided"
+                      }
+                      onChange={setBankIfscCode}
+                      editable={canEditField("bankIfscCode")}
+                    />
+                  </div>
+                </ProfileSection>
+
+                <ProfileSection
+                  value="statutory"
+                  icon={CreditCard}
+                  title="Statutory"
+                  hint="PAN, Aadhaar, UAN"
+                >
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {canEditField("panNumber") ? (
+                      <Field label="PAN" value={panNumber} onChange={setPanNumber} editable />
+                    ) : (
+                      <SensitiveField label="PAN" value={panNumber} />
+                    )}
+                    {canEditField("aadhaarNumber") ? (
+                      <Field
+                        label="Aadhaar number"
+                        value={aadhaarNumber}
+                        onChange={setAadhaarNumber}
+                        editable
+                      />
+                    ) : (
+                      <SensitiveField label="Aadhaar number" value={aadhaarNumber} />
+                    )}
+                    {canEditField("uanNumber") ? (
+                      <Field
+                        label="UAN number"
+                        value={uanNumber}
+                        onChange={setUanNumber}
+                        editable
+                      />
+                    ) : (
+                      <SensitiveField label="UAN number" value={uanNumber} />
+                    )}
+                  </div>
+                </ProfileSection>
+
+                {user.employeeId && (
+                  <ProfileSection
+                    value="emergency-contact"
+                    icon={ShieldAlert}
+                    title="Emergency contact"
+                    hint="Used on the employee ID card"
+                    last
+                  >
+                    <p className="mb-3 text-xs text-muted-foreground">
+                      {canEditEmergencyContact
+                        ? "Keep this current for workplace emergencies."
+                        : "View-only. Ask HR or Developer Admin to update it, or enable it in System Settings."}
+                    </p>
+                    <EmergencyContactSection
+                      employeeId={user.employeeId}
+                      value={employee?.emergencyContact}
+                      canEdit={canEditEmergencyContact}
+                      hideHeader
+                      onSaved={(next) =>
+                        setEmployee((current) =>
+                          current ? { ...current, emergencyContact: next } : current,
+                        )
+                      }
+                    />
+                  </ProfileSection>
+                )}
+              </Accordion>
+
+              {canEditAnyProfileField && (
+                <div
+                  className={cn(
+                    "border-t border-border/70 bg-card/95 p-4 backdrop-blur-sm",
+                    "sticky bottom-[max(0.5rem,env(safe-area-inset-bottom))] z-20 shadow-[0_-8px_24px_rgba(15,23,42,0.06)]",
+                    "md:static md:shadow-none md:backdrop-blur-none",
+                  )}
+                >
+                  <Button type="submit" disabled={saving} className="h-11 w-full md:ml-auto md:flex md:w-auto md:min-w-40">
+                    {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+                    Save profile
+                  </Button>
+                </div>
+              )}
+            </form>
+          </CardContent>
+        </Card>
+
+        <aside className="space-y-4">
+          <Card id="profile-security" className="scroll-mt-24 border-border/70 shadow-sm">
+            <CardHeader className="space-y-1 border-b border-border/60 bg-muted/25 px-4 py-3.5">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <KeyRound className="size-4 text-primary" />
+                Security
               </CardTitle>
+              <p className="text-xs text-muted-foreground">Change the password for this login.</p>
             </CardHeader>
-            <CardContent className="pt-0">
-              <Accordion type="single" collapsible className="w-full">
-                <AccordionItem value="change-password" className="border-b-0">
-                  <AccordionTrigger className="py-3 text-sm hover:no-underline">
+            <CardContent className="p-0">
+              <Accordion
+                type="single"
+                collapsible
+                value={securityOpen}
+                onValueChange={setSecurityOpen}
+              >
+                <AccordionItem value="change-password" className="border-0">
+                  <AccordionTrigger
+                    className={cn(
+                      "px-4 py-3.5 text-sm font-semibold hover:no-underline",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                    )}
+                  >
                     Change password
                   </AccordionTrigger>
-                  <AccordionContent>
+                  <AccordionContent className="px-4 pb-4">
                     <form onSubmit={handlePasswordChange} className="space-y-3.5">
                       <div className="space-y-1.5">
-                        <Label htmlFor="current-pw">Current Password</Label>
+                        <Label htmlFor="current-pw">Current password</Label>
                         <PasswordInput
                           id="current-pw"
                           value={oldPw}
@@ -220,7 +624,7 @@ function ProfilePage() {
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label htmlFor="new-pw">New Password</Label>
+                        <Label htmlFor="new-pw">New password</Label>
                         <PasswordInput
                           id="new-pw"
                           value={newPw}
@@ -228,7 +632,7 @@ function ProfilePage() {
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label htmlFor="confirm-pw">Confirm New Password</Label>
+                        <Label htmlFor="confirm-pw">Confirm new password</Label>
                         <PasswordInput
                           id="confirm-pw"
                           value={confirmPw}
@@ -242,7 +646,7 @@ function ProfilePage() {
                             key={r.label}
                             className={
                               r.ok
-                                ? "text-emerald-600 dark:text-emerald-400 font-medium"
+                                ? "font-medium text-emerald-600 dark:text-emerald-400"
                                 : "text-muted-foreground"
                             }
                           >
@@ -253,10 +657,10 @@ function ProfilePage() {
                       <Button
                         type="submit"
                         disabled={pwSaving || !rules.every((r) => r.ok)}
-                        className="w-full"
+                        className="h-11 w-full"
                       >
-                        {pwSaving && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
-                        Change Password
+                        {pwSaving && <Loader2 className="mr-2 size-3.5 animate-spin" />}
+                        Update password
                       </Button>
                     </form>
                   </AccordionContent>
@@ -264,361 +668,105 @@ function ProfilePage() {
               </Accordion>
             </CardContent>
           </Card>
-        </div>
 
-        <Card className="h-fit lg:col-span-2">
-          <CardContent className="p-4 sm:p-6">
-            <div className="mb-4 border-b pb-4">
-              <h2 className="font-semibold">Personal and employment details</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {canEditAnyProfileField
-                  ? "Open a section below to view or update the fields available to you."
-                  : "Open a section below to view your details."}
+          <Card className="border-border/70 shadow-sm">
+            <CardHeader className="space-y-1 pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Building2 className="size-4 text-muted-foreground" />
+                Privacy and access
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm text-muted-foreground">
+              <p className="leading-relaxed">
+                Accounts are employer-provisioned. When employment ends, HR or Developer Admin
+                offboards your login. You can request deletion of personal app data.
               </p>
-            </div>
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                if (!canEditAnyProfileField) return;
-                setSaving(true);
-                try {
-                  let updatedEmployee = employee;
-                  let updatedProfile: User;
-                  if (user.employeeId) {
-                    const patch: Record<string, string | undefined> = {};
-                    if (canEditField("name")) patch.name = name;
-                    if (canSaveDirectly) patch.email = email;
-                    if (canEditField("phone")) patch.phone = phone || undefined;
-                    if (canEditField("companyPhone")) {
-                      patch.companyPhone = companyPhone || undefined;
-                    }
-                    if (canEditField("dateOfBirth")) patch.dateOfBirth = dob || undefined;
-                    if (canEditField("bloodGroup")) patch.bloodGroup = bloodGroup || undefined;
-                    if (canEditField("bankAccountHolderName")) {
-                      patch.bankAccountHolderName = bankAccountHolderName || undefined;
-                    }
-                    if (canEditField("bankAccountNumber")) {
-                      patch.bankAccountNumber = bankAccountNumber || undefined;
-                    }
-                    if (canEditField("bankIfscCode")) {
-                      patch.bankIfscCode = bankIfscCode || undefined;
-                    }
-                    if (canEditField("panNumber")) patch.panNumber = panNumber || undefined;
-                    if (canEditField("aadhaarNumber")) {
-                      patch.aadhaarNumber = aadhaarNumber || undefined;
-                    }
-                    if (canEditField("uanNumber")) patch.uanNumber = uanNumber || undefined;
-
-                    if (Object.keys(patch).length === 0) {
-                      toast.error("No editable fields to save");
-                      return;
-                    }
-
-                    updatedEmployee = await employeesApi.update(user.employeeId, patch);
-                    setEmployee(updatedEmployee);
-                    updatedProfile = { ...user, ...updatedEmployee };
-                  } else if (canSaveDirectly) {
-                    updatedProfile = await usersApi.update(user.id, {
-                      name,
-                      email,
-                      phone: phone || undefined,
-                    });
-                  } else {
-                    toast.error("No employee record is linked to this login");
-                    return;
-                  }
-                  updateCurrentUser(updatedProfile);
-                  toast.success("Profile updated");
-                } catch (err) {
-                  toast.error((err as Error).message);
-                } finally {
-                  setSaving(false);
-                }
-              }}
-            >
-              <Accordion
-                type="multiple"
-                value={openSections}
-                onValueChange={setOpenSections}
-                className="w-full"
-              >
-                <AccordionItem value="identity">
-                  <AccordionTrigger className="text-sm hover:no-underline">
-                    Identity and contact
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field
-                        label="Full name"
-                        value={name}
-                        onChange={setName}
-                        editable={canEditField("name")}
-                      />
-                      <Field label="Employee code" value={profile.employeeCode ?? "-"} />
-                      <Field
-                        label="Email"
-                        value={email}
-                        onChange={setEmail}
-                        editable={canSaveDirectly}
-                      />
-                      <Field
-                        label="Personal phone number"
-                        value={phone}
-                        onChange={setPhone}
-                        editable={canEditField("phone")}
-                      />
-                      <Field
-                        label="Company phone number"
-                        value={
-                          canEditField("companyPhone")
-                            ? companyPhone
-                            : companyPhone || "Not provided"
-                        }
-                        onChange={setCompanyPhone}
-                        editable={canEditField("companyPhone")}
-                      />
-                      <Field
-                        label="Date of Birth"
-                        value={dob}
-                        onChange={setDob}
-                        editable={canEditField("dateOfBirth")}
-                        type="date"
-                      />
-                      <Field label="Gender" value={formatGender(profile.gender)} />
-                      {canEditField("bloodGroup") ? (
-                        <div className="space-y-1.5">
-                          <Label>Blood group</Label>
-                          <Select
-                            value={bloodGroup || "none"}
-                            onValueChange={(next) =>
-                              setBloodGroup(next === "none" ? "" : next)
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">Not provided</SelectItem>
-                              {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((group) => (
-                                <SelectItem key={group} value={group}>
-                                  {group}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      ) : (
-                        <Field
-                          label="Blood group"
-                          value={bloodGroup || profile.bloodGroup || "Not provided"}
-                        />
-                      )}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="employment">
-                  <AccordionTrigger className="text-sm hover:no-underline">
-                    Employment
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field
-                        label="Employer company"
-                        value={
-                          profile.companyEntity
-                            ? COMPANY_LABELS[profile.companyEntity]
-                            : "Not assigned"
-                        }
-                      />
-                      <Field label="Parent group" value={PARENT_COMPANY_NAME} />
-                      <Field label="Role" value={ROLE_LABELS[user.role]} />
-                      <Field
-                        label="Employment type"
-                        value={formatEmployment(profile.employmentType)}
-                      />
-                      <Field
-                        label="Organization level"
-                        value={formatOrganizationLevel(profile.organizationLevel)}
-                      />
-                      <Field label="Department" value={profile.department ?? "-"} />
-                      <Field label="Designation" value={profile.designation ?? "-"} />
-                      <Field
-                        label="Reporting manager"
-                        value={profile.managerName ?? "Not assigned"}
-                      />
-                      <Field
-                        label="Joining date"
-                        value={
-                          profile.joiningDate ? formatDisplayDate(profile.joiningDate) : "-"
-                        }
-                      />
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="banking">
-                  <AccordionTrigger className="text-sm hover:no-underline">
-                    Banking details
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field
-                        label="Account holder name"
-                        value={
-                          canEditField("bankAccountHolderName")
-                            ? bankAccountHolderName
-                            : bankAccountHolderName || "Not provided"
-                        }
-                        onChange={setBankAccountHolderName}
-                        editable={canEditField("bankAccountHolderName")}
-                      />
-                      <Field label="Account type" value={formatLabel(profile.bankAccountType)} />
-                      {canEditField("bankAccountNumber") ? (
-                        <Field
-                          label="Account number"
-                          value={bankAccountNumber}
-                          onChange={setBankAccountNumber}
-                          editable
-                        />
-                      ) : (
-                        <SensitiveField label="Account number" value={bankAccountNumber} />
-                      )}
-                      <Field
-                        label="IFSC code"
-                        value={
-                          canEditField("bankIfscCode")
-                            ? bankIfscCode
-                            : bankIfscCode || "Not provided"
-                        }
-                        onChange={setBankIfscCode}
-                        editable={canEditField("bankIfscCode")}
-                      />
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="statutory">
-                  <AccordionTrigger className="text-sm hover:no-underline">
-                    Statutory details
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {canEditField("panNumber") ||
-                      canEditField("aadhaarNumber") ||
-                      canEditField("uanNumber") ? (
-                        <>
-                          {canEditField("panNumber") ? (
-                            <Field
-                              label="PAN"
-                              value={panNumber}
-                              onChange={setPanNumber}
-                              editable
-                            />
-                          ) : (
-                            <SensitiveField label="PAN" value={panNumber} />
-                          )}
-                          {canEditField("aadhaarNumber") ? (
-                            <Field
-                              label="Aadhaar number"
-                              value={aadhaarNumber}
-                              onChange={setAadhaarNumber}
-                              editable
-                            />
-                          ) : (
-                            <SensitiveField label="Aadhaar number" value={aadhaarNumber} />
-                          )}
-                          {canEditField("uanNumber") ? (
-                            <Field
-                              label="UAN number"
-                              value={uanNumber}
-                              onChange={setUanNumber}
-                              editable
-                            />
-                          ) : (
-                            <SensitiveField label="UAN number" value={uanNumber} />
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <SensitiveField label="PAN" value={panNumber} />
-                          <SensitiveField label="Aadhaar number" value={aadhaarNumber} />
-                          <SensitiveField label="UAN number" value={uanNumber} />
-                        </>
-                      )}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-
-                {user.employeeId && (
-                  <AccordionItem value="emergency-contact" className="border-b-0">
-                    <AccordionTrigger className="text-sm hover:no-underline">
-                      Emergency contact
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <p className="mb-3 text-xs text-muted-foreground">
-                        {canEditEmergencyContact
-                          ? "Used for workplace emergencies and the employee ID card."
-                          : "View-only. Ask HR or Developer Admin to update these details, or ask Developer Admin to enable emergency-contact editing."}
-                      </p>
-                      <EmergencyContactSection
-                        employeeId={user.employeeId}
-                        value={employee?.emergencyContact}
-                        canEdit={canEditEmergencyContact}
-                        hideHeader
-                        onSaved={(next) =>
-                          setEmployee((current) =>
-                            current ? { ...current, emergencyContact: next } : current,
-                          )
-                        }
-                      />
-                    </AccordionContent>
-                  </AccordionItem>
-                )}
-              </Accordion>
-
-              {canEditAnyProfileField && (
-                <div className="mt-4 flex justify-end border-t border-border pt-4">
-                  <Button type="submit" disabled={saving}>
-                    {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Save profile
-                  </Button>
-                </div>
-              )}
-            </form>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Privacy and account access</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm text-muted-foreground">
-            <p>
-              Accounts are employer-provisioned. When employment ends, HR or Developer Admin
-              offboards your login. You can also request deletion of your account and associated
-              personal app data.
-            </p>
-            <div className="flex flex-wrap gap-x-4 gap-y-2">
-              <Link to="/privacy" className="font-medium text-primary hover:underline">
-                Privacy policy
-              </Link>
-              <Link to="/terms" className="font-medium text-primary hover:underline">
-                Terms of use
-              </Link>
-              <Link to="/account-deletion" className="font-medium text-primary hover:underline">
-                Request account deletion
-              </Link>
-            </div>
-            <Button asChild variant="outline" size="sm" className="mt-1">
-              <a href="mailto:hrms@anytimediesel.com?subject=Anytime%20Workforce%20account%20deletion%20request">
-                Email HR to request deletion
-              </a>
-            </Button>
-          </CardContent>
-        </Card>
+              <div className="flex flex-col gap-1">
+                <Link
+                  to="/privacy"
+                  className="inline-flex h-11 items-center justify-between rounded-md border border-border/70 px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted/50"
+                >
+                  Privacy policy
+                  <ChevronRight className="size-4 text-muted-foreground" />
+                </Link>
+                <Link
+                  to="/terms"
+                  className="inline-flex h-11 items-center justify-between rounded-md border border-border/70 px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted/50"
+                >
+                  Terms of use
+                  <ChevronRight className="size-4 text-muted-foreground" />
+                </Link>
+                <Link
+                  to="/account-deletion"
+                  className="inline-flex h-11 items-center justify-between rounded-md border border-border/70 px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted/50"
+                >
+                  Request account deletion
+                  <ChevronRight className="size-4 text-muted-foreground" />
+                </Link>
+              </div>
+              <Button asChild variant="outline" className="h-11 w-full">
+                <a href="mailto:hrms@anytimediesel.com?subject=Anytime%20Workforce%20account%20deletion%20request">
+                  Email HR
+                </a>
+              </Button>
+            </CardContent>
+          </Card>
+        </aside>
       </div>
     </div>
+  );
+}
+
+function ProfileSection({
+  value,
+  icon: Icon,
+  title,
+  hint,
+  children,
+  last = false,
+}: {
+  value: string;
+  icon: typeof UserRound;
+  title: string;
+  hint: string;
+  children: ReactNode;
+  last?: boolean;
+}) {
+  return (
+    <AccordionItem
+      value={value}
+      className={cn(
+        "border-border/60",
+        last && "border-b-0",
+        "data-[state=open]:bg-muted/20",
+      )}
+    >
+      <AccordionTrigger
+        className={cn(
+          "group gap-3 px-4 py-3.5 hover:no-underline sm:px-5",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+          "data-[state=open]:bg-primary/[0.04] data-[state=open]:shadow-[inset_3px_0_0_var(--primary)]",
+        )}
+      >
+        <span className="flex min-w-0 flex-1 items-center gap-3 text-left">
+          <span
+            className={cn(
+              "grid size-10 shrink-0 place-items-center rounded-xl border border-border/70 bg-background text-muted-foreground transition-colors",
+              "group-data-[state=open]:border-primary/25 group-data-[state=open]:bg-primary/10 group-data-[state=open]:text-primary",
+            )}
+          >
+            <Icon className="size-4" aria-hidden />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-foreground">{title}</span>
+            <span className="mt-0.5 block text-xs font-normal text-muted-foreground">{hint}</span>
+          </span>
+        </span>
+      </AccordionTrigger>
+      <AccordionContent className="px-4 pb-4 sm:px-5">
+        <div className="rounded-xl border border-border/60 bg-background/80 p-3 sm:p-4">{children}</div>
+      </AccordionContent>
+    </AccordionItem>
   );
 }
 
@@ -657,21 +805,23 @@ function SensitiveField({ label, value }: { label: string; value: string }) {
       ? value
       : `${"•".repeat(Math.max(4, value.length - 4))}${value.slice(-4)}`;
   return (
-    <div className="min-w-0 rounded-md border bg-muted/20 px-3 py-2.5">
+    <div className="min-w-0 rounded-xl border border-border/70 bg-muted/25 px-3 py-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {label}
+        </p>
         {value && (
           <button
             type="button"
-            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="grid size-9 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             onClick={() => setRevealed((current) => !current)}
             aria-label={`${revealed ? "Hide" : "Show"} ${label}`}
           >
-            {revealed ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+            {revealed ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
           </button>
         )}
       </div>
-      <p className="mt-0.5 break-all text-sm font-medium text-foreground">{displayValue}</p>
+      <p className="mt-1 break-all text-sm font-semibold text-foreground">{displayValue}</p>
     </div>
   );
 }
@@ -696,13 +846,20 @@ function Field({
       {isDate ? (
         <DateField value={value} onChange={(next) => onChange?.(next)} aria-label={label} />
       ) : (
-        <Input type={type} value={value} onChange={(event) => onChange?.(event.target.value)} />
+        <Input
+          type={type}
+          value={value}
+          onChange={(event) => onChange?.(event.target.value)}
+          className="h-11 sm:h-9"
+        />
       )}
     </div>
   ) : (
-    <div className="min-w-0 rounded-md border bg-muted/20 px-3 py-2.5">
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className="mt-0.5 break-words text-sm font-medium text-foreground">
+    <div className="min-w-0 rounded-xl border border-border/70 bg-muted/25 px-3 py-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 break-words text-sm font-semibold text-foreground">
         {isDate ? formatDisplayDate(value) : value}
       </p>
     </div>
