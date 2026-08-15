@@ -5,13 +5,21 @@
 - Repository: `Sameerreddy-ATD/Atd-Hrms` (`https://github.com/Sameerreddy-ATD/Atd-Hrms.git`)
 - Production / final branch: `main` (deploy from this branch)
 - Mirror / future UAT branch: `version-1` (keep identical to `main` until a separate UAT host exists)
-- Server checkout: `/opt/anytime-crew-hub`
-- Server remote: `https://github.com/Sameerreddy-ATD/Atd-Hrms.git`
+- Server application directory: `/opt/anytime-crew-hub`
+
+> **The live Lightsail host is not a git checkout.** As verified on 15 August 2026,
+> `/opt/anytime-crew-hub` contains no `.git`, the host has no deploy key in `~/.ssh`, no git
+> credential helper, and `ssh -T git@github.com` is refused. The `git fetch` / `git pull --ff-only`
+> steps in [Standard Production Update](#standard-production-update) therefore **cannot run there
+> today**. Ship releases as a code archive instead — see
+> [Production Deployment — 15 August 2026](PRODUCTION_DEPLOYMENT_2026-08-15.md), which records the
+> live host layout, the archive procedure, and the verification and rollback steps that go with it.
+> Provision a read-only deploy key and restore a real checkout to return to the git-based path.
 
 Company AWS migration (RDS, S3, CI/CD): [AWS Deployment Patterns](AWS_DEPLOYMENT_PATTERNS.md).
 Host and RDS install commands: [Linux and AWS Deployment](LINUX_LOCAL_DEPLOYMENT.md).
 
-The production server uses a read-only GitHub deploy key. Do not copy a personal GitHub token into `.env` or the repository.
+When a deploy key is in place, the production server uses a read-only GitHub deploy key. Do not copy a personal GitHub token into `.env` or the repository.
 
 ## Before Every Release
 
@@ -114,6 +122,32 @@ new backend.
 Migration `20260729120000_jira_work_planner_keys` is additive. It adds project `key_prefix`,
 `next_issue_number`, and issue `issue_key` / `issue_number` / `issue_type` / `rank`, and backfills
 existing board issues. Deploy with a verified MySQL backup.
+
+### Per-device session migration
+
+Migration `20260815120000_user_device_sessions` is additive. It creates `user_sessions` so one
+account can stay signed in on several devices at once and Developer Admin can revoke a single
+device instead of all of them.
+
+Access tokens now carry a session id. Tokens issued before this release do not, so **every signed-in
+user is signed out once** when the backend restarts. This is expected and safe: the apps redirect to
+the login screen rather than erroring, and a refresh attempt with a pre-release cookie returns 401.
+
+### Server-side face inference
+
+From the 15 August 2026 release, face liveness, anti-spoof, confidence, and the descriptor are
+computed on the server from the uploaded frame. Client-reported scores are ignored. Two variables
+control it, both matching the code defaults:
+
+```
+FACE_SERVER_INFERENCE=true
+FACE_MODELS_DIR=/opt/anytime-crew-hub/public/face-models
+```
+
+Set `FACE_SERVER_INFERENCE=false` and `pm2 restart atd-backend` to fall back to the previous
+client-trust model without redeploying. Inference is CPU-bound: roughly 1.1 s cold and 0.45 s warm
+per frame on the 2 vCPU Lightsail host. Add swap before switching face verification on for the whole
+workforce. Details in [Face Registration and Verified Attendance](FACE_ATTENDANCE_SECURITY.md).
 
 ### Leave-policy migration warning
 
@@ -228,13 +262,13 @@ Production is not “set and forget.” After go-live, use at least this schedul
 (RDS snapshots, S3 growth, CloudWatch) are also summarized in
 [AWS Deployment Patterns § Post-Deploy Maintenance](AWS_DEPLOYMENT_PATTERNS.md#16-post-deploy-maintenance-on-aws).
 
-| Cadence | Work |
-| ------- | ---- |
-| Daily | Confirm PM2/ECS healthy; hit `/health` and `/health/db`; skim error logs; watch disk (or S3) growth |
-| Weekly | Confirm backups completed; review alarms; glance at dependency/security notices |
-| Every release | Backup/snapshot → `db:deploy` → restart → smoke login, attendance, leave, checklists |
-| Monthly | Apply OS security updates; review RDS storage and connections; rotate secrets if policy requires; prune old logs/backups; check TLS renewal |
-| Quarterly | Restore a backup into a throwaway database; review IAM/security groups; revisit CPU/RAM/storage |
+| Cadence       | Work                                                                                                                                        |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Daily         | Confirm PM2/ECS healthy; hit `/health` and `/health/db`; skim error logs; watch disk (or S3) growth                                         |
+| Weekly        | Confirm backups completed; review alarms; glance at dependency/security notices                                                             |
+| Every release | Backup/snapshot → `db:deploy` → restart → smoke login, attendance, leave, checklists                                                        |
+| Monthly       | Apply OS security updates; review RDS storage and connections; rotate secrets if policy requires; prune old logs/backups; check TLS renewal |
+| Quarterly     | Restore a backup into a throwaway database; review IAM/security groups; revisit CPU/RAM/storage                                             |
 
 Named ownership must include one person who can restore the database and redeploy the last
 known-good Git commit.

@@ -5,6 +5,20 @@ Branch: `stabilize/full-end-to-end-ui-security-face-attendance`
 This records what was audited across the app, what was fixed, and what is knowingly left. It is
 written for whoever picks this up next, including the version of us that has forgotten the details.
 
+**Status: deployed to production on 15 August 2026** at commit `c90a3d0`, on the live Lightsail host
+`hrms.anytime-diesel.com` with its existing data. The host layout, the release procedure, the
+post-deploy verification results, and the rollback levers are recorded in
+[docs/PRODUCTION_DEPLOYMENT_2026-08-15.md](docs/PRODUCTION_DEPLOYMENT_2026-08-15.md).
+
+Two things were found and fixed during that deployment rather than during the audits:
+
+- Human's frame-skip cache would have let one employee's face result be reused for the next
+  request, because its defaults assume a webcam loop watching a single person.
+- The missed check-in sweep re-sent the same push notification on every tick. Its idempotency guard
+  read on three columns while the unique index covers one, so the insert conflicted forever, the
+  conflict was swallowed, and execution carried on to notify anyway. Production logs had been
+  showing the constraint error all along.
+
 ## How the audit was run
 
 Seven parallel deep audits covered backend/RBAC, security infrastructure, frontend UI, mobile/PWA/
@@ -123,24 +137,30 @@ Each of these was a deliberate call, not an oversight.
 4. **Play Store submission.** Screenshots do not exist. App Links claim the whole host including
    `/privacy` and `/terms`, which reviewers need to reach as web pages. Maskable icons lack the
    80% safe zone.
-5. **SPA security headers.** `vite preview` serves without helmet/CSP/HSTS.
+5. ~~**SPA security headers.**~~ Fixed at the edge on 15 Aug 2026: HSTS, `X-Content-Type-Options`,
+   `X-Frame-Options`, `Referrer-Policy`, and `Permissions-Policy` are now set by Caddy on the SPA
+   route. **A CSP is still missing** and needs device testing first, because the app uses WASM, blob
+   workers, and camera streams.
 6. **Integration tests for board access.** Coverage is schema-only; every board P0 above would have
    been caught by a modest route-level suite.
+7. **Production host hygiene.** No swap on a 2 vCPU box that now runs CPU-bound face inference; no
+   GitHub deploy key, so releases cannot be pulled on the host; and `_prisma_migrations` carries two
+   rows for `20260725190000_leave_review_metadata`, which does not exist in `prisma/migrations`.
 
 ## Acceptance suite
 
-| Check | Command | Status |
-| --- | --- | --- |
-| Prisma schema | `npx prisma validate` | pass |
-| Types | `npm run typecheck` | pass |
-| Lint | `npm run lint` | 0 errors, 10 warnings (shadcn `react-refresh`) |
-| Unit/integration | `npm test` | 151 pass |
-| Frontend build | `npm run build` | pass |
-| Backend build | `npm run build:backend` | pass |
-| Dependencies | `npm run audit:deps` | 0 vulnerabilities |
-| Database | `npm run db:verify && npm run db:audit` | pass |
-| API flows | `node scripts/verify-api-flows.mjs` | 44/44 |
-| Responsive | `npx playwright test tests/e2e/responsive.spec.ts` | 320 assertions pass |
+| Check            | Command                                            | Status                                         |
+| ---------------- | -------------------------------------------------- | ---------------------------------------------- |
+| Prisma schema    | `npx prisma validate`                              | pass                                           |
+| Types            | `npm run typecheck`                                | pass                                           |
+| Lint             | `npm run lint`                                     | 0 errors, 10 warnings (shadcn `react-refresh`) |
+| Unit/integration | `npm test`                                         | 152 pass                                       |
+| Frontend build   | `npm run build`                                    | pass                                           |
+| Backend build    | `npm run build:backend`                            | pass                                           |
+| Dependencies     | `npm run audit:deps`                               | 0 vulnerabilities                              |
+| Database         | `npm run db:verify && npm run db:audit`            | pass                                           |
+| API flows        | `node scripts/verify-api-flows.mjs`                | 44/44                                          |
+| Responsive       | `npx playwright test tests/e2e/responsive.spec.ts` | 320 assertions pass                            |
 
 ## Gotchas for the next person
 

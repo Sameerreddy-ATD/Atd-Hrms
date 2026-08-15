@@ -22,6 +22,8 @@ in the same commit.
 - AWS/DevOps teams: [AWS Deployment Patterns](AWS_DEPLOYMENT_PATTERNS.md) (VPS→company AWS, RDS, S3, CI/CD, maintenance)
 - Server administrators: [Linux and AWS Deployment](LINUX_LOCAL_DEPLOYMENT.md) (includes company RDS wiring)
 - Release owners: [Upgrade and Maintenance](UPGRADE_AND_MAINTENANCE.md) (releases, CI/CD, ops cadence)
+- Live-host owners: [Production Deployment — 15 Aug 2026](PRODUCTION_DEPLOYMENT_2026-08-15.md)
+  (Lightsail layout, archive-based release procedure, verification, rollback)
 - Mobile QA/support: [Device Compatibility](DEVICE_COMPATIBILITY.md)
 - Store release owners: [Mobile Store Release](MOBILE_STORE_RELEASE.md)
 - Launch status (Play packaging progress): [Play Launch Status](PLAY_LAUNCH_STATUS.md)
@@ -50,15 +52,16 @@ in the same commit.
 | `EMPLOYEE_PROFILE_AND_ID_CARD.md`      | Profile field order, company hierarchy, encrypted identifiers, permissions, and ID-card contract  |
 | `DATABASE_INTEGRITY_AUDIT.md`          | Full storage assurance, automated integrity checks, Task v2 rules, and repair policy              |
 | `openapi.employee-v1.yaml`             | Machine-readable Employee API v1 contract                                                         |
-| `PRODUCT_NAMING.md`                    | Canonical **Anytime Workforce** product name and professional interface terminology           |
+| `PRODUCT_NAMING.md`                    | Canonical **Anytime Workforce** product name and professional interface terminology               |
 | `RESET_AND_GO_LIVE.md`                 | Safe test-data reset, verification, and step-by-step real-company setup                           |
 | `THIRD_PARTY_HANDOVER.md`              | Transfer inventory, environment contract, acceptance, ownership, and handover definition          |
 | `CLOUD_DEPLOYMENT_OPTIONS.md`          | Hosting methods, INR costs, **~150-employee VPS/storage capacity**, security, provider selection  |
 | `AWS_DEPLOYMENT_PATTERNS.md`           | VPS→company AWS path, EC2/RDS/S3, ECS, CI/CD, secrets, go-live, and post-deploy maintenance       |
 | `LINUX_LOCAL_DEPLOYMENT.md`            | Fresh Linux/AWS installation, company RDS wiring, Nginx, TLS, PM2, and optional containers        |
 | `UPGRADE_AND_MAINTENANCE.md`           | Production updates, backups, verification, rollback, CI/CD gates, and maintenance cadence         |
-| `DEVICE_COMPATIBILITY.md`              | Supported browsers, PWA/store apps, permissions, low-network behavior, and QA matrix |
-| `MOBILE_STORE_RELEASE.md`              | Capacitor Android/iOS builds, signing, push env, and Play/App Store checklist          |
+| `PRODUCTION_DEPLOYMENT_2026-08-15.md`  | The live Lightsail host as it actually is, and the archive-based release procedure used on it     |
+| `DEVICE_COMPATIBILITY.md`              | Supported browsers, PWA/store apps, permissions, low-network behavior, and QA matrix              |
+| `MOBILE_STORE_RELEASE.md`              | Capacitor Android/iOS builds, signing, push env, and Play/App Store checklist                     |
 | `RESPONSIVE_UI_AUDIT.md`               | Shared responsive rules, audited surfaces, resolved issues, and UI release checklist              |
 | `FACE_ATTENDANCE_SECURITY.md`          | Mandatory enrollment, liveness/GPS flow, encrypted storage, retention, admin, and deployment      |
 | `ATTENDANCE_LEAVE_AND_FACE_POLICY.md`  | Authoritative Full Day/Half Day/Absent, Missed Checkout, leave, Comp Off, and face photo rules    |

@@ -43,6 +43,33 @@ used.
 the descriptor space, which would silently break matching against every stored template — treat any
 bump as a migration that requires re-enrollment, not a routine dependency update.
 
+### Per-request isolation
+
+Human's defaults reuse the previous result when a frame looks similar to the last one or was seen
+within the last few seconds — `skipFrames: 99`, `skipTime: 2500-3000 ms`, `cacheSensitivity: 0.7`.
+Those defaults are written for a webcam loop watching one person. On the API, consecutive calls are
+different employees, so a cache hit could hand one person's descriptor to another person's request.
+The server therefore forces `cacheSensitivity: 0`, `skipAllowed: false`, and `skipFrames`/`skipTime`
+of `0` on every submodel, so each request is analysed from scratch. `tests/faceInference.test.ts`
+guards this.
+
+Image filters and detector rotation were measured against the browser's configuration and produce
+byte-identical embeddings under Node — the browser's filters are canvas/WebGL features that are a
+no-op there — so a server-derived descriptor is comparable with a browser-enrolled template.
+
+### Running it in production
+
+| Aspect          | Value                                                                       |
+| --------------- | --------------------------------------------------------------------------- |
+| Enable / revert | `FACE_SERVER_INFERENCE` (`true` by default; `false` restores client trust)  |
+| Model weights   | `FACE_MODELS_DIR`, default `public/face-models`, ~11 MB                     |
+| Warm-up         | Models load at backend start; the log line is `Face inference models ready` |
+| Latency         | ~1.1 s cold, ~0.45 s warm per frame on 2 vCPU                               |
+| Concurrency     | Requests are serialised through one chain so a burst cannot saturate CPU    |
+
+Because inference is CPU-bound and holds the models in the backend process, give the host swap
+before enabling face verification for a full workforce on a 2 vCPU box.
+
 ## Account Activation Flow
 
 1. A normal user signs in with the login created by Developer Admin.
