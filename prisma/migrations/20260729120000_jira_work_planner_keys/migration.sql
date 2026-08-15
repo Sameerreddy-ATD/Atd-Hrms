@@ -39,11 +39,14 @@ ALTER TABLE `work_tasks`
   ADD COLUMN `rank` DOUBLE NOT NULL DEFAULT 0;
 
 -- Backfill issue numbers/keys one board at a time via temporary numbering table.
+-- The collation must be stated explicitly: an unqualified temporary table
+-- inherits the database default (utf8mb4_0900_ai_ci on a stock MySQL 8), which
+-- cannot be joined against the utf8mb4_unicode_ci columns the baseline creates.
 CREATE TEMPORARY TABLE `_task_issue_backfill` (
-  `task_id` VARCHAR(191) NOT NULL PRIMARY KEY,
-  `board_id` VARCHAR(191) NOT NULL,
+  `task_id` VARCHAR(191) COLLATE utf8mb4_unicode_ci NOT NULL PRIMARY KEY,
+  `board_id` VARCHAR(191) COLLATE utf8mb4_unicode_ci NOT NULL,
   `seq_num` INTEGER NOT NULL
-);
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 INSERT INTO `_task_issue_backfill` (`task_id`, `board_id`, `seq_num`)
 SELECT

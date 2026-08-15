@@ -102,6 +102,18 @@ try {
     }),
   ]);
 
+  // Tables are created as utf8mb4_unicode_ci. A table on a different collation
+  // cannot be joined against the rest, which surfaces as MySQL error 1267 part
+  // way through a migration rather than at connection time.
+  const mixedCollationTables = await prisma.$queryRaw`
+    SELECT TABLE_NAME AS tableName, TABLE_COLLATION AS collation
+    FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_TYPE = 'BASE TABLE'
+      AND TABLE_COLLATION <> 'utf8mb4_unicode_ci'
+    LIMIT 20
+  `;
+
   const result = {
     provider: "mysql",
     reachable: true,
@@ -130,9 +142,13 @@ try {
       invalidApprovedFaceProfiles: invalidApprovedFaces,
       invalidFaceEvidence,
       usersExceedingFiveRetainedFaceImages: excessiveRetainedFaceImages.length,
+      tablesNotOnUtf8mb4UnicodeCi: mixedCollationTables.length,
       sampleMismatchedEmployeeIds: [
         ...new Set([...profileMismatches, ...statusMismatches].map((row) => row.employeeId)),
       ],
+      sampleMixedCollationTables: mixedCollationTables.map(
+        (row) => `${row.tableName} (${row.collation})`,
+      ),
     },
     predefinedPasswordConfigured: Boolean(settings),
   };
@@ -145,7 +161,8 @@ try {
     invalidFaceTemplates ||
     invalidApprovedFaces ||
     invalidFaceEvidence ||
-    excessiveRetainedFaceImages.length
+    excessiveRetainedFaceImages.length ||
+    mixedCollationTables.length
   )
     process.exitCode = 1;
 } finally {
