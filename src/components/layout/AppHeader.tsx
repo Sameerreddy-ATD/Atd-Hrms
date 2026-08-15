@@ -35,7 +35,7 @@ import {
   NOTIFICATION_COUNT_CHANGED_EVENT,
 } from "@/lib/browser-notifications";
 import { hardRefreshApp } from "@/lib/pwa-install";
-import { Logo, BrandWordmark } from "@/components/common/Logo";
+import { Logo } from "@/components/common/Logo";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -128,12 +128,11 @@ export function AppHeader() {
           <button
             type="button"
             onClick={() => navigate({ to: "/dashboard" })}
-            aria-label="AnyTime Diesel — go to dashboard"
+            aria-label="Go to dashboard"
             title="Go to dashboard"
-            className="flex h-10 min-w-0 shrink-0 items-center gap-2 rounded-lg px-1.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-10 shrink-0 items-center rounded-lg px-1.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Logo variant="mark" className="h-7 w-7 shrink-0 rounded-md ring-1 ring-border/60" />
-            <BrandWordmark className="atd-wordmark--header hidden shrink-0 md:inline-flex" />
           </button>
           <span className="min-w-0 truncate text-sm font-semibold tracking-tight text-foreground md:hidden">
             {toTitle(pathname)}
