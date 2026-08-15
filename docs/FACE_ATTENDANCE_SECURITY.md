@@ -1,20 +1,47 @@
 # Face Registration and Verified Attendance
 
+## Security boundary — read this first
+
+The API runs its own face inference. Every value the verification decision rests on — the face
+descriptor, the liveness score, the anti-spoof score, and the face confidence — is computed server
+side from the submitted frame by `server/src/faceInference.ts`. The browser sends its own numbers
+too, but they are recorded for diagnostics only and are never compared against a threshold. A
+crafted HTTP request cannot claim a liveness score, and a descriptor captured from devtools cannot
+be replayed, because the descriptor used for matching is the one the server derived from the pixels
+it decoded.
+
+What this still is not: a normal RGB phone camera is not depth-sensing Face ID, and GPS coordinates
+are client-supplied and spoofable on a rooted device. The anti-spoof and liveness models raise the
+cost of a printed photo or a screen replay considerably; they do not make it impossible. Treat face
+attendance as a strong deterrent against buddy-punching, not as regulated identity proofing.
+
+`FACE_SERVER_INFERENCE=false` reverts to the old model in which the browser's scores are trusted.
+That flag exists as an operational escape hatch. Do not run production with it off.
+
 ## Purpose
 
 Face registration is an account-activation step for every normal application account while the
 Developer Admin verification switch is enabled. Developer Admin is explicitly exempt. When enabled,
-mobile check-in requires a randomized live-face challenge, an approved encrypted multi-sample
-template match, and precise location. When paused, enrollment gating and check-in camera
-verification are disabled at both frontend and backend, but precise GPS remains required. Check-out
-is always camera-free and location-verified.
+mobile check-in requires a blink challenge, an approved encrypted multi-sample template match, and
+precise location. When paused, enrollment gating and check-in camera verification are disabled at
+both frontend and backend, but precise GPS remains required. Check-out is currently camera-free and
+location-verified only, so half of each attendance pair is unverified — the verification plumbing
+supports check-out and is simply not enabled.
 
-**Storage rule:** encrypted registration photos (centre, left, right) are saved **once** per person.
-Daily check-in **verifies only** and does **not** store a new photo.
+**Storage rule:** encrypted registration photos (eyes open, eyes closed) are saved **once** per
+person. Daily check-in uploads a frame so the server can analyse it, and **discards** it after
+inference — no check-in photo is written to disk. The metadata row (scores, GPS, outcome) is kept
+until the retention sweep clears it.
 
 This implementation is self-hosted and has no per-check cloud charge. It uses the MIT-licensed
-`@vladmandic/human` browser library and models bundled during the frontend build. AWS Rekognition
-Face Liveness is not used.
+`@vladmandic/human` library in both places: in the browser for live capture feedback, and on the API
+via the tfjs WASM backend for the authoritative analysis. Models are served from `FACE_MODELS_DIR`
+(`public/face-models`, populated by `npm run face:models`). AWS Rekognition Face Liveness is not
+used.
+
+`@vladmandic/human` and the tfjs packages are pinned to exact versions. A minor upgrade can change
+the descriptor space, which would silently break matching against every stored template — treat any
+bump as a migration that requires re-enrollment, not a routine dependency update.
 
 ## Account Activation Flow
 
@@ -27,13 +54,15 @@ Face Liveness is not used.
    does not store photos).
 6. The server creates a two-minute, single-use enrollment session with a cryptographically random
    nonce. Attendance sessions use a `BLINK` challenge only (no head turns).
-7. Enrollment captures three directions in order: **centre**, **left**, **right**. Each angle must
-   show exactly one face, pass size/lighting/anti-spoof/liveness checks, and hold stable descriptors.
-8. The browser submits the centre image as the primary evidence image, left/right images as
-   additional enrollment evidence, and descriptors from all angles as the multi-sample template.
-9. The backend consumes the session once, enforces thresholds, rejects a face already assigned to
-   another approved account, encrypts the template, encrypts the three JPEGs, and creates evidence
-   rows linked to the same session.
+7. Enrollment captures two front views: **eyes open** and **eyes closed**. Each must show exactly
+   one face, pass size/lighting/anti-spoof/liveness checks, and hold stable descriptors.
+8. The browser submits the eyes-open image as the primary evidence image and the eyes-closed image
+   as additional enrollment evidence.
+9. The backend consumes the session once, runs its own inference over each submitted photo, builds
+   the template from the descriptors **it** derived (so the approved template is bound to the images
+   the admin reviews), enforces thresholds, rejects a face already registered to another account in
+   any state, encrypts the template, encrypts the JPEGs, and creates evidence rows linked to the
+   same session.
 10. Normal accounts enter `PENDING`; the application remains blocked.
 11. Developer Admin reviews the images and scores under **Face Security**, then approves or rejects.
 12. Approval changes the profile to `APPROVED`; the waiting screen refreshes automatically and opens
@@ -61,11 +90,13 @@ accounts that do not already have an approved registration.
 ## Attendance Flow
 
 1. For **Check In**, the browser requests the front-facing camera and fresh, high-accuracy GPS.
-2. Live descriptors are sampled after the head-turn challenge. The backend compares the strongest
-   sample pairs against the approved multi-angle template. **No JPEG is uploaded or stored** for
+2. The browser guides capture with a blink challenge, then uploads one verified frame. The server
+   decodes it, runs detection itself, and compares the descriptor **it** derived against the
+   approved template. The uploaded JPEG is analysed in memory and **never written to disk** for
    attendance verify.
-3. The server issues a single-use head-turn challenge and verifies session ownership, liveness,
-   anti-spoofing, the approved encrypted template, similarity, GPS coordinates, and accuracy.
+3. The server issues a single-use session and verifies session ownership, then its own liveness,
+   anti-spoof, and confidence scores, the approved encrypted template, similarity, GPS coordinates,
+   and accuracy. A frame containing no face, or more than one face, is rejected.
 4. A matching face creates the `attendance_events` row and links a photo-less `face_evidence` audit
    row (scores only).
 5. A mismatch displays **Another face detected**, stores a short-lived blocked security event for
@@ -125,8 +156,9 @@ One row per submitted registration or attendance verification:
   are never served from the public frontend directory. Attendance verify may create scores-only
   rows with `image_key` null (no daily photo storage);
 - passed check-in evidence has a unique one-to-one relationship with `attendance_events` when linked;
-- registration may store multiple evidence rows per session (centre/left/right);
-- no more than the newest encrypted registration pictures are retained per user (default cap six).
+- registration may store multiple evidence rows per session (eyes open / eyes closed);
+- no more than the newest **two** encrypted registration pictures are retained per user
+  (`MAX_RETAINED_IMAGES_PER_USER` in `server/src/faceAttendance.ts`; not admin-configurable).
 
 The Employee Integration API intentionally excludes face templates, evidence, consent, and
 verification sessions. A future application must integrate employee master data through `/api/v1`,
@@ -150,15 +182,24 @@ not read biometric tables or MySQL directly.
 ## Retention
 
 The default retention for **registration photos** is five days. Developer Admin can select 1–30 days
-in **Face Security**. A second limit retains only the newest encrypted pictures per person (default
-cap six, covering multi-angle enrollment). Daily check-in does not add pictures. Changing the time
-policy recalculates active evidence expiry times. The backend runs cleanup at startup and hourly:
+in **Face Security**. A second limit retains only the newest two encrypted pictures per person.
+Daily check-in does not add pictures, but it does add a metadata row carrying GPS, and that row is
+subject to the same time-based retention. Changing the time policy recalculates active evidence
+expiry times. The backend runs cleanup at startup and hourly:
 
 1. finds evidence older than the current retention period or outside a user's latest retained set;
-2. deletes the encrypted file;
+2. deletes the encrypted file, if the row has one;
 3. clears `image_key`;
-4. records `deleted_at`;
-5. changes the evidence outcome to `EXPIRED`.
+4. clears `latitude`, `longitude`, and `location_accuracy`;
+5. records `deleted_at`.
+
+The evidence `outcome` is deliberately **not** rewritten. The row survives the image so the record
+can still answer whether the verification passed; overwriting that with `EXPIRED` would discard the
+one audit-relevant field the row exists for.
+
+Resetting a face registration (Developer Admin → Face Security) deletes the profile **and** its
+evidence files and rows immediately, rather than waiting for the sweep. The pre-deletion consent
+version and timestamp are copied into the audit entry so the consent history outlives the reset.
 
 The metadata row remains for auditability without retaining the picture. The approved face template
 remains until registration is reset or the account lifecycle removes it; otherwise attendance could
@@ -199,8 +240,10 @@ Every approval, rejection, reset, enrollment, and policy change writes `audit_lo
 | `POST`   | `/attendance/mobile/check-out`           | Create check-out with fresh precise GPS                      |
 
 All endpoints use the existing HTTP-only cookie authentication, origin validation, rate limiting,
-backend role checks, and audit conventions. JSON request size is capped at 2 MB; decoded JPEGs are
-capped at 700 KB.
+backend role checks, and audit conventions. `/face/session` and `/face/enrollment` additionally sit
+behind a per-account limiter (40 attempts per hour) so a failed match cannot be used as a
+high-volume pass/fail oracle. JSON request size is capped at 8 MB; a submitted JPEG is capped at
+950 KB encoded and decoded frames must be between 160 and 4096 pixels on each side.
 
 ## Browser and Device Requirements
 
@@ -210,8 +253,9 @@ capped at 700 KB.
 - Only one person may be visible.
 - Use even lighting and remove masks or dark/tinted glasses. Normal clear spectacles are supported;
   tilt the screen or face slightly if glare covers the eyes.
-- The optimized model set is about 10.2 MB, starts preloading after the dashboard opens, compiles in
-  the background, and is browser-cacheable for later scans.
+- The optimized model set is about 10.7 MB. The browser begins loading it when the user opens the
+  check-in dialog, and the service worker caches it for later scans. The API loads its own copy from
+  `FACE_MODELS_DIR` at boot, so the first punch of the day does not pay the load cost.
 - Low-power phones may take longer per detection frame; the UI remains in the verification dialog
   until a stable result is obtained.
 
@@ -297,16 +341,21 @@ documentation describes similarity above `0.50` as a match under default normali
 The five-sample matcher improves stability without adding a paid cloud dependency or sending face
 data to a third party. It does not turn a normal RGB phone camera into depth-sensing Face ID.
 
-## Security Boundary
+## Known gaps
 
-Self-hosted browser inference avoids cloud charges but browser-reported liveness and GPS are not
-equivalent to hardware-backed identity proofing or a managed server-side liveness service. The
-random nonce, purpose-bound single-use session, short expiry, randomized movement, anti-spoof
-model, encrypted storage, duplicate-template check, backend match, and audit trail materially reduce
-casual replay. A user controlling a modified browser/device can still falsify client-computed
-signals or device location.
+These are understood and accepted rather than overlooked. Revisit them if the threat model changes.
+
+- **Check-out is not face-verified.** Only check-in is gated, so worked-hours pairs are half
+  verified. `ATTENDANCE_CHECK_OUT` already flows through the same verifier; enabling it is a policy
+  decision, not new code.
+- **Geofencing is computed but not enforced.** A punch outside every branch radius is recorded as an
+  unattributed "Mobile" punch rather than rejected. GPS accuracy is enforced; position is not.
+- **GPS is client-supplied** and spoofable on a rooted device or through devtools.
+- **The blink challenge has one value.** `CHALLENGES` holds only `BLINK`, so it is predictable. It
+  is a UX prompt for the capture loop, not an unpredictability defence.
+- **No check-in image is retained**, so a disputed punch has scores and GPS to examine but no photo.
+  This is a deliberate privacy trade-off disclosed in the consent text.
 
 If the business later requires regulated or high-assurance identity proofing, commission a privacy
-and threat-model review and replace the capture verifier with a managed/server-side liveness
-provider. Keep the current API and table boundaries so the attendance workflow can evolve without
-exposing biometric data to the Employee API.
+and threat-model review and consider a managed liveness provider. Keep the current API and table
+boundaries so the attendance workflow can evolve without exposing biometric data to the Employee API.
