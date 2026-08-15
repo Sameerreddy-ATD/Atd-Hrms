@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Plus, UserPlus } from "lucide-react";
@@ -30,6 +30,7 @@ export const Route = createFileRoute("/_app/talent")({ component: TalentPage });
 
 function TalentPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const canEdit = isPeopleOpsRole(user?.role);
   const [jobs, setJobs] = useState<Array<Record<string, unknown>>>([]);
   const [candidates, setCandidates] = useState<Array<Record<string, unknown>>>([]);
@@ -40,6 +41,7 @@ function TalentPage() {
   const [candidateOpen, setCandidateOpen] = useState(false);
   const [interviewFor, setInterviewFor] = useState<string | null>(null);
   const [offerFor, setOfferFor] = useState<string | null>(null);
+  const [hireFor, setHireFor] = useState<string | null>(null);
   const [jobForm, setJobForm] = useState({ title: "", departmentName: "", openings: "1", description: "" });
   const [candidateForm, setCandidateForm] = useState({
     name: "",
@@ -50,6 +52,7 @@ function TalentPage() {
   });
   const [interviewForm, setInterviewForm] = useState({ roundName: "HR round", interviewerName: "", feedback: "" });
   const [offerForm, setOfferForm] = useState({ ctcAnnual: "", designation: "", joiningDate: "", employeeId: "" });
+  const [hireForm, setHireForm] = useState({ employeeId: "", designation: "", startOnboarding: true });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -57,9 +60,10 @@ function TalentPage() {
       const [jobRows, people] = await Promise.all([lifecycleApi.jobs(), employeesApi.list().catch(() => [])]);
       setJobs(jobRows);
       setEmployees(people);
-      const nextJob = jobId || String(jobRows[0]?.id ?? "");
+      const nextJob = jobId && jobRows.some((job) => job.id === jobId) ? jobId : String(jobRows[0]?.id ?? "");
       setJobId(nextJob);
       if (nextJob) setCandidates(await lifecycleApi.candidates({ jobId: nextJob }));
+      else setCandidates([]);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not load talent");
     } finally {
@@ -83,6 +87,7 @@ function TalentPage() {
       });
       toast.success("Job opening saved");
       setJobOpen(false);
+      setJobForm({ title: "", departmentName: "", openings: "1", description: "" });
       await load();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not save opening");
@@ -101,6 +106,7 @@ function TalentPage() {
       });
       toast.success("Candidate added");
       setCandidateOpen(false);
+      setCandidateForm({ name: "", email: "", phone: "", source: "", expectedCtc: "" });
       setCandidates(await lifecycleApi.candidates({ jobId }));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not add candidate");
@@ -114,7 +120,7 @@ function TalentPage() {
       <PageHeader
         eyebrow="Hire"
         title="Talent acquisition"
-        description="Track openings from screening through interview and offer."
+        description="Openings → candidates → interview → offer → hire → onboarding."
         actions={
           canEdit ? (
             <>
@@ -130,123 +136,189 @@ function TalentPage() {
         }
       />
 
-      <div className="mb-4 grid gap-2 sm:grid-cols-2">
-        <div>
-          <Label>Opening</Label>
-          <Select
-            value={jobId}
-            onValueChange={async (value) => {
-              setJobId(value);
-              setCandidates(await lifecycleApi.candidates({ jobId: value }));
-            }}
-          >
-            <SelectTrigger className="mt-1 h-11">
-              <SelectValue placeholder="Select a job" />
-            </SelectTrigger>
-            <SelectContent>
-              {jobs.map((job) => (
-                <SelectItem key={String(job.id)} value={String(job.id)}>
-                  {String(job.title)} ({Number(job.candidateCount ?? 0)})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        {selectedJob ? (
-          <p className="self-end text-sm text-muted-foreground">
-            {String(selectedJob.departmentName || "Company")} · {Number(selectedJob.openings ?? 1)} opening
-            {Number(selectedJob.openings ?? 1) === 1 ? "" : "s"} · {labelize(String(selectedJob.status))}
-          </p>
-        ) : null}
-      </div>
-
-      {candidates.length === 0 ? (
-        <EmptyState icon={UserPlus} title="No candidates yet" description="Add a candidate to start the TA process." />
+      {jobs.length === 0 ? (
+        <EmptyState
+          icon={UserPlus}
+          title="No openings yet"
+          description={canEdit ? "Create a job opening to start hiring." : "HR has not published openings yet."}
+        />
       ) : (
-        <ResponsiveListShell>
-          <MobileList>
-            {candidates.map((row) => (
-              <MobileListItem key={String(row.id)}>
-                <MobileListHeader
-                  title={String(row.name)}
-                  meta={String(row.email || row.phone || "")}
-                  trailing={<StatusBadge status={labelize(String(row.stage))} />}
-                />
-                <div className="mt-3 flex flex-col gap-2">
-                  <Button size="sm" variant="outline" onClick={() => setInterviewFor(String(row.id))}>
-                    Log interview
-                  </Button>
-                  {canEdit ? (
-                    <Button size="sm" onClick={() => setOfferFor(String(row.id))}>
-                      Send offer
-                    </Button>
-                  ) : null}
-                </div>
-              </MobileListItem>
-            ))}
-          </MobileList>
-          <DesktopTable>
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3">Candidate</th>
-                  <th className="px-4 py-3">Stage</th>
-                  <th className="px-4 py-3">Interviews</th>
-                  <th className="px-4 py-3">Offer</th>
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody>
+        <>
+          <div className="mb-4 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
+            <div>
+              <Label>Opening</Label>
+              <Select
+                value={jobId}
+                onValueChange={async (value) => {
+                  setJobId(value);
+                  setCandidates(await lifecycleApi.candidates({ jobId: value }));
+                }}
+              >
+                <SelectTrigger className="mt-1 h-11">
+                  <SelectValue placeholder="Select a job" />
+                </SelectTrigger>
+                <SelectContent>
+                  {jobs.map((job) => (
+                    <SelectItem key={String(job.id)} value={String(job.id)}>
+                      {String(job.title)} ({Number(job.candidateCount ?? 0)}) · {labelize(String(job.status))}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {selectedJob && canEdit ? (
+              <Select
+                value={String(selectedJob.status)}
+                onValueChange={async (status) => {
+                  try {
+                    await lifecycleApi.updateJob(String(selectedJob.id), { status });
+                    toast.success(`Opening marked ${labelize(status)}`);
+                    await load();
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Could not update opening");
+                  }
+                }}
+              >
+                <SelectTrigger className="h-11 w-full sm:w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="OPEN">Open</SelectItem>
+                  <SelectItem value="ON_HOLD">On hold</SelectItem>
+                  <SelectItem value="CLOSED">Closed</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : null}
+          </div>
+          {selectedJob ? (
+            <p className="mb-4 text-sm text-muted-foreground">
+              {String(selectedJob.departmentName || "Company")} · {Number(selectedJob.openings ?? 1)} opening
+              {Number(selectedJob.openings ?? 1) === 1 ? "" : "s"} · {labelize(String(selectedJob.status))}
+            </p>
+          ) : null}
+
+          {candidates.length === 0 ? (
+            <EmptyState icon={UserPlus} title="No candidates yet" description="Add a candidate to start the TA process." />
+          ) : (
+            <ResponsiveListShell>
+              <MobileList>
                 {candidates.map((row) => (
-                  <tr key={String(row.id)} className="border-t">
-                    <td className="px-4 py-3">
-                      <p className="font-medium">{String(row.name)}</p>
-                      <p className="text-xs text-muted-foreground">{String(row.email || row.phone || "—")}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Select
-                        value={String(row.stage)}
-                        onValueChange={async (stage) => {
-                          await lifecycleApi.updateCandidate(String(row.id), { stage });
-                          setCandidates(await lifecycleApi.candidates({ jobId }));
-                        }}
-                      >
-                        <SelectTrigger className="h-10 w-40">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {CANDIDATE_STAGES.map((stage) => (
-                            <SelectItem key={stage} value={stage}>
-                              {labelize(stage)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </td>
-                    <td className="px-4 py-3">{Array.isArray(row.interviews) ? row.interviews.length : 0}</td>
-                    <td className="px-4 py-3">
-                      {Array.isArray(row.offers) && row.offers[0]
-                        ? labelize(String((row.offers[0] as { status: string }).status))
-                        : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button size="sm" variant="outline" onClick={() => setInterviewFor(String(row.id))}>
-                          Interview
-                        </Button>
-                        {canEdit ? (
-                          <Button size="sm" onClick={() => setOfferFor(String(row.id))}>
-                            Offer
+                  <MobileListItem key={String(row.id)}>
+                    <MobileListHeader
+                      title={String(row.name)}
+                      meta={String(row.email || row.phone || "")}
+                      trailing={<StatusBadge status={labelize(String(row.stage))} />}
+                    />
+                    <div className="mt-3 flex flex-col gap-2">
+                      <Button size="sm" variant="outline" onClick={() => setInterviewFor(String(row.id))}>
+                        Log interview
+                      </Button>
+                      {canEdit ? (
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => setOfferFor(String(row.id))}>
+                            Send offer
                           </Button>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setHireForm({
+                                employeeId: String(row.hiredEmployeeId || ""),
+                                designation: "",
+                                startOnboarding: true,
+                              });
+                              setHireFor(String(row.id));
+                            }}
+                          >
+                            Convert to hire
+                          </Button>
+                        </>
+                      ) : null}
+                    </div>
+                  </MobileListItem>
                 ))}
-              </tbody>
-            </table>
-          </DesktopTable>
-        </ResponsiveListShell>
+              </MobileList>
+              <DesktopTable>
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                    <tr>
+                      <th className="px-4 py-3">Candidate</th>
+                      <th className="px-4 py-3">Stage</th>
+                      <th className="px-4 py-3">Interviews</th>
+                      <th className="px-4 py-3">Offer</th>
+                      <th className="px-4 py-3" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {candidates.map((row) => (
+                      <tr key={String(row.id)} className="border-t">
+                        <td className="px-4 py-3">
+                          <p className="font-medium">{String(row.name)}</p>
+                          <p className="text-xs text-muted-foreground">{String(row.email || row.phone || "—")}</p>
+                          {row.hiredEmployeeName ? (
+                            <p className="text-xs text-muted-foreground">Linked: {String(row.hiredEmployeeName)}</p>
+                          ) : null}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Select
+                            value={String(row.stage)}
+                            onValueChange={async (stage) => {
+                              await lifecycleApi.updateCandidate(String(row.id), { stage });
+                              setCandidates(await lifecycleApi.candidates({ jobId }));
+                            }}
+                          >
+                            <SelectTrigger className="h-10 w-40">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {CANDIDATE_STAGES.map((stage) => (
+                                <SelectItem key={stage} value={stage}>
+                                  {labelize(stage)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td className="px-4 py-3">{Array.isArray(row.interviews) ? row.interviews.length : 0}</td>
+                        <td className="px-4 py-3">
+                          {Array.isArray(row.offers) && row.offers[0]
+                            ? labelize(String((row.offers[0] as { status: string }).status))
+                            : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button size="sm" variant="outline" onClick={() => setInterviewFor(String(row.id))}>
+                              Interview
+                            </Button>
+                            {canEdit ? (
+                              <>
+                                <Button size="sm" variant="outline" onClick={() => setOfferFor(String(row.id))}>
+                                  Offer
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    setHireForm({
+                                      employeeId: String(row.hiredEmployeeId || ""),
+                                      designation: "",
+                                      startOnboarding: true,
+                                    });
+                                    setHireFor(String(row.id));
+                                  }}
+                                >
+                                  Hire
+                                </Button>
+                              </>
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </DesktopTable>
+            </ResponsiveListShell>
+          )}
+        </>
       )}
 
       <Dialog open={jobOpen} onOpenChange={setJobOpen}>
@@ -261,15 +333,28 @@ function TalentPage() {
             </div>
             <div>
               <Label>Department</Label>
-              <Input className="mt-1 h-11" value={jobForm.departmentName} onChange={(e) => setJobForm({ ...jobForm, departmentName: e.target.value })} />
+              <Input
+                className="mt-1 h-11"
+                value={jobForm.departmentName}
+                onChange={(e) => setJobForm({ ...jobForm, departmentName: e.target.value })}
+              />
             </div>
             <div>
               <Label>Openings</Label>
-              <Input className="mt-1 h-11" type="number" value={jobForm.openings} onChange={(e) => setJobForm({ ...jobForm, openings: e.target.value })} />
+              <Input
+                className="mt-1 h-11"
+                type="number"
+                value={jobForm.openings}
+                onChange={(e) => setJobForm({ ...jobForm, openings: e.target.value })}
+              />
             </div>
             <div>
               <Label>Description</Label>
-              <Textarea className="mt-1" value={jobForm.description} onChange={(e) => setJobForm({ ...jobForm, description: e.target.value })} />
+              <Textarea
+                className="mt-1"
+                value={jobForm.description}
+                onChange={(e) => setJobForm({ ...jobForm, description: e.target.value })}
+              />
             </div>
           </div>
           <DialogFooter>
@@ -288,23 +373,51 @@ function TalentPage() {
           <div className="space-y-3">
             <div>
               <Label>Name</Label>
-              <Input className="mt-1 h-11" value={candidateForm.name} onChange={(e) => setCandidateForm({ ...candidateForm, name: e.target.value })} />
+              <Input
+                className="mt-1 h-11"
+                value={candidateForm.name}
+                onChange={(e) => setCandidateForm({ ...candidateForm, name: e.target.value })}
+              />
             </div>
             <div>
               <Label>Email</Label>
-              <Input className="mt-1 h-11" value={candidateForm.email} onChange={(e) => setCandidateForm({ ...candidateForm, email: e.target.value })} />
+              <Input
+                className="mt-1 h-11"
+                value={candidateForm.email}
+                onChange={(e) => setCandidateForm({ ...candidateForm, email: e.target.value })}
+              />
             </div>
             <div>
               <Label>Phone</Label>
-              <Input className="mt-1 h-11" value={candidateForm.phone} onChange={(e) => setCandidateForm({ ...candidateForm, phone: e.target.value })} />
+              <Input
+                className="mt-1 h-11"
+                value={candidateForm.phone}
+                onChange={(e) => setCandidateForm({ ...candidateForm, phone: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Source</Label>
+              <Input
+                className="mt-1 h-11"
+                value={candidateForm.source}
+                onChange={(e) => setCandidateForm({ ...candidateForm, source: e.target.value })}
+              />
             </div>
             <div>
               <Label>Expected CTC</Label>
-              <Input className="mt-1 h-11" value={candidateForm.expectedCtc} onChange={(e) => setCandidateForm({ ...candidateForm, expectedCtc: e.target.value })} />
+              <Input
+                className="mt-1 h-11"
+                value={candidateForm.expectedCtc}
+                onChange={(e) => setCandidateForm({ ...candidateForm, expectedCtc: e.target.value })}
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button className="h-11 w-full sm:w-auto" onClick={() => void createCandidate()} disabled={!candidateForm.name}>
+            <Button
+              className="h-11 w-full sm:w-auto"
+              onClick={() => void createCandidate()}
+              disabled={!candidateForm.name}
+            >
               Save candidate
             </Button>
           </DialogFooter>
@@ -319,15 +432,27 @@ function TalentPage() {
           <div className="space-y-3">
             <div>
               <Label>Round</Label>
-              <Input className="mt-1 h-11" value={interviewForm.roundName} onChange={(e) => setInterviewForm({ ...interviewForm, roundName: e.target.value })} />
+              <Input
+                className="mt-1 h-11"
+                value={interviewForm.roundName}
+                onChange={(e) => setInterviewForm({ ...interviewForm, roundName: e.target.value })}
+              />
             </div>
             <div>
               <Label>Interviewer</Label>
-              <Input className="mt-1 h-11" value={interviewForm.interviewerName} onChange={(e) => setInterviewForm({ ...interviewForm, interviewerName: e.target.value })} />
+              <Input
+                className="mt-1 h-11"
+                value={interviewForm.interviewerName}
+                onChange={(e) => setInterviewForm({ ...interviewForm, interviewerName: e.target.value })}
+              />
             </div>
             <div>
               <Label>Feedback</Label>
-              <Textarea className="mt-1" value={interviewForm.feedback} onChange={(e) => setInterviewForm({ ...interviewForm, feedback: e.target.value })} />
+              <Textarea
+                className="mt-1"
+                value={interviewForm.feedback}
+                onChange={(e) => setInterviewForm({ ...interviewForm, feedback: e.target.value })}
+              />
             </div>
           </div>
           <DialogFooter>
@@ -359,17 +484,34 @@ function TalentPage() {
           <div className="space-y-3">
             <div>
               <Label>Annual CTC</Label>
-              <Input className="mt-1 h-11" value={offerForm.ctcAnnual} onChange={(e) => setOfferForm({ ...offerForm, ctcAnnual: e.target.value })} />
+              <Input
+                className="mt-1 h-11"
+                value={offerForm.ctcAnnual}
+                onChange={(e) => setOfferForm({ ...offerForm, ctcAnnual: e.target.value })}
+              />
             </div>
             <div>
               <Label>Designation</Label>
-              <Input className="mt-1 h-11" value={offerForm.designation} onChange={(e) => setOfferForm({ ...offerForm, designation: e.target.value })} />
+              <Input
+                className="mt-1 h-11"
+                value={offerForm.designation}
+                onChange={(e) => setOfferForm({ ...offerForm, designation: e.target.value })}
+              />
             </div>
             <div>
               <Label>Joining date</Label>
-              <DateField className="mt-1" value={offerForm.joiningDate} onChange={(joiningDate) => setOfferForm({ ...offerForm, joiningDate })} />
+              <DateField
+                className="mt-1"
+                value={offerForm.joiningDate}
+                onChange={(joiningDate) => setOfferForm({ ...offerForm, joiningDate })}
+              />
             </div>
-            <EmployeePicker employees={employees} value={offerForm.employeeId} onChange={(employeeId) => setOfferForm({ ...offerForm, employeeId })} label="Link employee login (optional)" />
+            <EmployeePicker
+              employees={employees}
+              value={offerForm.employeeId}
+              onChange={(employeeId) => setOfferForm({ ...offerForm, employeeId })}
+              label="Link employee login (optional)"
+            />
           </div>
           <DialogFooter>
             <Button
@@ -384,7 +526,7 @@ function TalentPage() {
                     employeeId: offerForm.employeeId || undefined,
                     send: true,
                   });
-                  toast.success("Offer sent — employee can sign it during onboarding");
+                  toast.success("Offer sent");
                   setOfferFor(null);
                   setCandidates(await lifecycleApi.candidates({ jobId }));
                 } catch (error) {
@@ -394,6 +536,53 @@ function TalentPage() {
               disabled={!offerForm.ctcAnnual}
             >
               Send offer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(hireFor)} onOpenChange={() => setHireFor(null)}>
+        <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Convert to hire</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Link an existing User Login (employee profile), mark the candidate Hired, and open onboarding documents.
+          </p>
+          <EmployeePicker
+            employees={employees}
+            value={hireForm.employeeId}
+            onChange={(employeeId) => setHireForm({ ...hireForm, employeeId })}
+            label="Employee login"
+          />
+          <Input
+            className="h-11"
+            placeholder="Designation (optional)"
+            value={hireForm.designation}
+            onChange={(e) => setHireForm({ ...hireForm, designation: e.target.value })}
+          />
+          <DialogFooter>
+            <Button
+              className="h-11 w-full sm:w-auto"
+              disabled={!hireForm.employeeId}
+              onClick={async () => {
+                if (!hireFor) return;
+                try {
+                  await lifecycleApi.hireCandidate(hireFor, {
+                    employeeId: hireForm.employeeId,
+                    designation: hireForm.designation || undefined,
+                    startOnboarding: hireForm.startOnboarding,
+                  });
+                  toast.success("Candidate hired — onboarding is ready");
+                  setHireFor(null);
+                  setCandidates(await lifecycleApi.candidates({ jobId }));
+                  void navigate({ to: "/onboarding" });
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : "Could not convert hire");
+                }
+              }}
+            >
+              Hire and open onboarding
             </Button>
           </DialogFooter>
         </DialogContent>

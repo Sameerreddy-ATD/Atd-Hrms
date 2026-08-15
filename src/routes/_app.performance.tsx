@@ -32,7 +32,10 @@ function PerformancePage() {
   const [cycleOpen, setCycleOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [cycleForm, setCycleForm] = useState({ name: "", startsOn: "", endsOn: "" });
-  const [assignForm, setAssignForm] = useState({ employeeId: "", kra: "", kpi: "", targetPercent: "100" });
+  const [assignForm, setAssignForm] = useState({
+    employeeId: "",
+    goals: [{ kra: "", kpi: "", targetPercent: "100" }],
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -316,27 +319,83 @@ function PerformancePage() {
       </Dialog>
 
       <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Assign KRA pack</DialogTitle>
           </DialogHeader>
-          <EmployeePicker employees={employees} value={assignForm.employeeId} onChange={(employeeId) => setAssignForm({ ...assignForm, employeeId })} />
-          <Input className="h-11" placeholder="KRA" value={assignForm.kra} onChange={(e) => setAssignForm({ ...assignForm, kra: e.target.value })} />
-          <Textarea placeholder="KPI" value={assignForm.kpi} onChange={(e) => setAssignForm({ ...assignForm, kpi: e.target.value })} />
-          <Input className="h-11" placeholder="Target %" value={assignForm.targetPercent} onChange={(e) => setAssignForm({ ...assignForm, targetPercent: e.target.value })} />
+          <EmployeePicker
+            employees={employees}
+            value={assignForm.employeeId}
+            onChange={(employeeId) => setAssignForm({ ...assignForm, employeeId })}
+          />
+          <div className="space-y-3">
+            {assignForm.goals.map((goal, index) => (
+              <div key={index} className="space-y-2 rounded-lg border p-3">
+                <Input
+                  className="h-11"
+                  placeholder="KRA"
+                  value={goal.kra}
+                  onChange={(e) => {
+                    const goals = [...assignForm.goals];
+                    goals[index] = { ...goal, kra: e.target.value };
+                    setAssignForm({ ...assignForm, goals });
+                  }}
+                />
+                <Textarea
+                  placeholder="KPI"
+                  value={goal.kpi}
+                  onChange={(e) => {
+                    const goals = [...assignForm.goals];
+                    goals[index] = { ...goal, kpi: e.target.value };
+                    setAssignForm({ ...assignForm, goals });
+                  }}
+                />
+                <Input
+                  className="h-11"
+                  placeholder="Target %"
+                  value={goal.targetPercent}
+                  onChange={(e) => {
+                    const goals = [...assignForm.goals];
+                    goals[index] = { ...goal, targetPercent: e.target.value };
+                    setAssignForm({ ...assignForm, goals });
+                  }}
+                />
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 w-full"
+              onClick={() =>
+                setAssignForm({
+                  ...assignForm,
+                  goals: [...assignForm.goals, { kra: "", kpi: "", targetPercent: "100" }],
+                })
+              }
+            >
+              Add another KRA
+            </Button>
+          </div>
           <DialogFooter>
             <Button
               className="h-11 w-full sm:w-auto"
-              disabled={!assignForm.employeeId || !assignForm.kra}
+              disabled={!assignForm.employeeId || !assignForm.goals.some((goal) => goal.kra && goal.kpi)}
               onClick={async () => {
                 const person = employees.find((item) => item.employeeId === assignForm.employeeId);
                 try {
                   await lifecycleApi.assignReview(cycleId, {
                     employeeId: assignForm.employeeId,
-                    goals: [{ kra: assignForm.kra, kpi: assignForm.kpi, targetPercent: Number(assignForm.targetPercent || 100) }],
+                    goals: assignForm.goals
+                      .filter((goal) => goal.kra && goal.kpi)
+                      .map((goal) => ({
+                        kra: goal.kra,
+                        kpi: goal.kpi,
+                        targetPercent: Number(goal.targetPercent || 100),
+                      })),
                   });
                   toast.success(`Assigned to ${person?.name ?? "employee"}`);
                   setAssignOpen(false);
+                  setAssignForm({ employeeId: "", goals: [{ kra: "", kpi: "", targetPercent: "100" }] });
                   setReviews(await lifecycleApi.reviews(cycleId));
                 } catch (error) {
                   toast.error(error instanceof Error ? error.message : "Could not assign review");

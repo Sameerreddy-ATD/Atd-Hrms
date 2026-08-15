@@ -1458,6 +1458,8 @@ export const lifecycleApi = {
     request(`/lifecycle/candidates/${id}/interviews`, { method: "POST", body: JSON.stringify(payload) }),
   createOffer: (id: string, payload: Record<string, unknown>) =>
     request(`/lifecycle/candidates/${id}/offers`, { method: "POST", body: JSON.stringify(payload) }),
+  hireCandidate: (id: string, payload: Record<string, unknown>) =>
+    request(`/lifecycle/candidates/${id}/hire`, { method: "POST", body: JSON.stringify(payload) }),
   signOffer: (id: string) => request(`/lifecycle/offers/${id}/sign`, { method: "POST", body: "{}" }),
   onboarding: () => request<Array<Record<string, unknown>>>("/lifecycle/onboarding"),
   startOnboarding: (payload: { employeeId: string; candidateId?: string }) =>

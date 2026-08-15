@@ -94,6 +94,7 @@ export const DEFAULT_MODULE_ACCESS: ModuleAccessMatrix = {
     "LEAVE",
     "PROFILE",
     "COMMUNICATIONS",
+    "LIFECYCLE",
     "PERFORMANCE",
     "LMS",
   ],
@@ -105,6 +106,7 @@ export const DEFAULT_MODULE_ACCESS: ModuleAccessMatrix = {
     "LEAVE",
     "PROFILE",
     "COMMUNICATIONS",
+    "LIFECYCLE",
     "PERFORMANCE",
     "LMS",
   ],
@@ -116,6 +118,7 @@ export const DEFAULT_MODULE_ACCESS: ModuleAccessMatrix = {
     "LEAVE",
     "PROFILE",
     "COMMUNICATIONS",
+    "LIFECYCLE",
     "PERFORMANCE",
     "LMS",
   ],
@@ -127,13 +130,15 @@ export const DEFAULT_MODULE_ACCESS: ModuleAccessMatrix = {
     "LEAVE",
     "PROFILE",
     "COMMUNICATIONS",
+    "LIFECYCLE",
     "PERFORMANCE",
     "LMS",
   ],
 };
 
 const STAFF_ROLES: Role[] = [Role.EMPLOYEE, Role.SALES, Role.DRIVER, Role.FIELD_STAFF];
-const STAFF_HIDDEN_MODULES: ModuleKey[] = ["TALENT", "LIFECYCLE"];
+/** Staff may complete their own onboarding (LIFECYCLE) but never open TA hiring tools. */
+const STAFF_HIDDEN_MODULES: ModuleKey[] = ["TALENT"];
 
 const SETTING_KEY = "module_access_matrix";
 let cached: { value: ModuleAccessMatrix; expiresAt: number } | null = null;

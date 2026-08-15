@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ClipboardPen } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -20,17 +20,9 @@ import type { User } from "@/types/domain";
 
 export const Route = createFileRoute("/_app/onboarding")({ component: OnboardingPage });
 
-function OnboardingPage() {
-  const { user } = useAuth();
-  const isHr = isPeopleOpsRole(user?.role);
-  const canOpen = isPeopleLeaderRole(user?.role);
-  const [cases, setCases] = useState<Array<Record<string, unknown>>>([]);
-  const [nho, setNho] = useState<Array<Record<string, unknown>>>([]);
-  const [employees, setEmployees] = useState<User[]>([]);
-  const [employeeId, setEmployeeId] = useState(user?.employeeId ?? "");
-  const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({
-    fullName: user?.name ?? "",
+function emptyForm(name = "") {
+  return {
+    fullName: name,
     fatherName: "",
     dateOfBirth: "",
     ageYears: "",
@@ -43,7 +35,38 @@ function OnboardingPage() {
     permanentState: "",
     permanentPincode: "",
     panNumber: "",
-  });
+  };
+}
+
+function formFromNho(row: Record<string, unknown> | undefined, fallbackName = "") {
+  if (!row) return emptyForm(fallbackName);
+  return {
+    fullName: String(row.fullName || fallbackName || ""),
+    fatherName: String(row.fatherName || ""),
+    dateOfBirth: String(row.dateOfBirth || ""),
+    ageYears: row.ageYears != null ? String(row.ageYears) : "",
+    presentAddress: String(row.presentAddress || ""),
+    presentCity: String(row.presentCity || ""),
+    presentState: String(row.presentState || ""),
+    presentPincode: String(row.presentPincode || ""),
+    permanentAddress: String(row.permanentAddress || ""),
+    permanentCity: String(row.permanentCity || ""),
+    permanentState: String(row.permanentState || ""),
+    permanentPincode: String(row.permanentPincode || ""),
+    panNumber: String(row.panNumber || ""),
+  };
+}
+
+function OnboardingPage() {
+  const { user } = useAuth();
+  const isHr = isPeopleOpsRole(user?.role);
+  const canManage = isPeopleLeaderRole(user?.role);
+  const [cases, setCases] = useState<Array<Record<string, unknown>>>([]);
+  const [nho, setNho] = useState<Array<Record<string, unknown>>>([]);
+  const [employees, setEmployees] = useState<User[]>([]);
+  const [employeeId, setEmployeeId] = useState(user?.employeeId ?? "");
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState(emptyForm(user?.name ?? ""));
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -51,59 +74,60 @@ function OnboardingPage() {
       const [caseRows, nhoRows, people] = await Promise.all([
         lifecycleApi.onboarding(),
         lifecycleApi.nho(),
-        isHr ? employeesApi.list() : Promise.resolve([]),
+        canManage ? employeesApi.list() : Promise.resolve([]),
       ]);
       setCases(caseRows);
       setNho(nhoRows);
       setEmployees(people);
-      const targetId = employeeId || user?.employeeId;
+      const targetId = employeeId || user?.employeeId || "";
       const mine = nhoRows.find((row) => row.employeeId === targetId) ?? nhoRows[0];
-      if (mine) {
-        setForm({
-          fullName: String(mine.fullName || user?.name || ""),
-          fatherName: String(mine.fatherName || ""),
-          dateOfBirth: String(mine.dateOfBirth || ""),
-          ageYears: mine.ageYears != null ? String(mine.ageYears) : "",
-          presentAddress: String(mine.presentAddress || ""),
-          presentCity: String(mine.presentCity || ""),
-          presentState: String(mine.presentState || ""),
-          presentPincode: String(mine.presentPincode || ""),
-          permanentAddress: String(mine.permanentAddress || ""),
-          permanentCity: String(mine.permanentCity || ""),
-          permanentState: String(mine.permanentState || ""),
-          permanentPincode: String(mine.permanentPincode || ""),
-          panNumber: String(mine.panNumber || ""),
-        });
+      if (mine && (!employeeId || mine.employeeId === targetId || isHr)) {
+        if (!employeeId && mine.employeeId) setEmployeeId(String(mine.employeeId));
+        setForm(formFromNho(mine, user?.name ?? ""));
+      } else if (!mine && user?.name) {
+        setForm(emptyForm(user.name));
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not load onboarding");
     } finally {
       setLoading(false);
     }
-  }, [employeeId, isHr, user?.employeeId, user?.name]);
+  }, [canManage, employeeId, isHr, user?.employeeId, user?.name]);
 
   useEffect(() => {
-    if (canOpen) void load();
-  }, [canOpen, load]);
+    void load();
+  }, [load]);
 
-  if (!canOpen) {
+  const selectedNho = useMemo(
+    () => nho.find((row) => row.employeeId === (employeeId || user?.employeeId)) ?? nho[0],
+    [employeeId, nho, user?.employeeId],
+  );
+
+  if (loading) return <LoadingState label="Loading onboarding" />;
+
+  const hasWork =
+    cases.length > 0 || nho.length > 0 || Boolean(user?.employeeId) || canManage;
+
+  if (!hasWork) {
     return (
       <EmptyState
         icon={ClipboardPen}
-        title="HR and managers only"
-        description="Onboarding is run by People Ops. Ask HR if you need to complete joining documents."
+        title="No onboarding yet"
+        description="When HR starts your joining case, documents and the new-hire form appear here."
       />
     );
   }
-
-  if (loading) return <LoadingState label="Loading onboarding" />;
 
   return (
     <div>
       <PageHeader
         eyebrow="Hire"
         title="Onboarding"
-        description="Pre-onboarding offer, document sign-off, then the new-hire form."
+        description={
+          canManage
+            ? "Start joining for a new hire, verify documents, then approve the new-hire form."
+            : "Sign joining documents and submit your new-hire form."
+        }
         actions={
           isHr ? (
             <div className="flex w-full flex-col gap-2 sm:flex-row">
@@ -135,7 +159,15 @@ function OnboardingPage() {
         </TabsList>
         <TabsContent value="documents" className="space-y-3">
           {cases.length === 0 ? (
-            <EmptyState icon={ClipboardPen} title="No onboarding cases" description="HR starts onboarding after the offer is sent." />
+            <EmptyState
+              icon={ClipboardPen}
+              title="No onboarding cases"
+              description={
+                isHr
+                  ? "Start onboarding after Talent links a candidate to an employee login."
+                  : "HR has not opened your joining case yet."
+              }
+            />
           ) : (
             cases.map((row) => (
               <article key={String(row.id)} className="rounded-xl border bg-card p-4">
@@ -150,29 +182,35 @@ function OnboardingPage() {
                   {(row.documents as Array<Record<string, unknown>> | undefined)?.map((doc) => (
                     <li key={String(doc.id)} className="rounded-lg border p-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-sm font-medium">{ONBOARDING_DOC_LABELS[String(doc.docType)] ?? String(doc.docType)}</p>
+                        <p className="text-sm font-medium">
+                          {ONBOARDING_DOC_LABELS[String(doc.docType)] ?? String(doc.docType)}
+                        </p>
                         <StatusBadge status={labelize(String(doc.status))} />
                       </div>
                       <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                        <label className="inline-flex h-11 flex-1 items-center justify-center rounded-md border text-sm">
-                          Upload / sign
-                          <input
-                            type="file"
-                            accept="application/pdf,image/*"
-                            className="sr-only"
-                            onChange={async (event) => {
-                              const file = event.target.files?.[0];
-                              if (!file) return;
-                              try {
-                                await lifecycleApi.signOnboardingDoc(String(doc.id), { file: await fileToPayload(file) });
-                                toast.success("Document submitted");
-                                await load();
-                              } catch (error) {
-                                toast.error(error instanceof Error ? error.message : "Upload failed");
-                              }
-                            }}
-                          />
-                        </label>
+                        {["PENDING", "SENT", "REJECTED", "UPLOADED", "SIGNED"].includes(String(doc.status)) ? (
+                          <label className="inline-flex h-11 flex-1 cursor-pointer items-center justify-center rounded-md border text-sm">
+                            Upload / sign
+                            <input
+                              type="file"
+                              accept="application/pdf,image/*"
+                              className="sr-only"
+                              onChange={async (event) => {
+                                const file = event.target.files?.[0];
+                                if (!file) return;
+                                try {
+                                  await lifecycleApi.signOnboardingDoc(String(doc.id), {
+                                    file: await fileToPayload(file),
+                                  });
+                                  toast.success("Document submitted");
+                                  await load();
+                                } catch (error) {
+                                  toast.error(error instanceof Error ? error.message : "Upload failed");
+                                }
+                              }}
+                            />
+                          </label>
+                        ) : null}
                         {doc.fileKey ? (
                           <Button
                             variant="outline"
@@ -180,28 +218,47 @@ function OnboardingPage() {
                             onClick={() =>
                               void lifecycleApi
                                 .downloadFile(String(doc.fileKey), String(doc.fileName || "document"))
-                                .catch((error) => toast.error(error instanceof Error ? error.message : "Download failed"))
+                                .catch((error) =>
+                                  toast.error(error instanceof Error ? error.message : "Download failed"),
+                                )
                             }
                           >
                             Download
                           </Button>
                         ) : null}
-                        {isHr ? (
-                          <Button
-                            variant="outline"
-                            className="h-11"
-                            onClick={async () => {
-                              try {
-                                await lifecycleApi.verifyOnboardingDoc(String(doc.id), { approved: true });
-                                toast.success("Verified");
-                                await load();
-                              } catch (error) {
-                                toast.error(error instanceof Error ? error.message : "Verify failed");
-                              }
-                            }}
-                          >
-                            Verify
-                          </Button>
+                        {isHr && ["UPLOADED", "SIGNED"].includes(String(doc.status)) ? (
+                          <>
+                            <Button
+                              variant="outline"
+                              className="h-11"
+                              onClick={async () => {
+                                try {
+                                  await lifecycleApi.verifyOnboardingDoc(String(doc.id), { approved: true });
+                                  toast.success("Verified");
+                                  await load();
+                                } catch (error) {
+                                  toast.error(error instanceof Error ? error.message : "Verify failed");
+                                }
+                              }}
+                            >
+                              Verify
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              className="h-11"
+                              onClick={async () => {
+                                try {
+                                  await lifecycleApi.verifyOnboardingDoc(String(doc.id), { approved: false });
+                                  toast.message("Document rejected — ask the hire to re-upload");
+                                  await load();
+                                } catch (error) {
+                                  toast.error(error instanceof Error ? error.message : "Reject failed");
+                                }
+                              }}
+                            >
+                              Reject
+                            </Button>
+                          </>
                         ) : null}
                       </div>
                     </li>
@@ -213,69 +270,116 @@ function OnboardingPage() {
         </TabsContent>
         <TabsContent value="nho">
           <div className="grid gap-3 rounded-xl border bg-card p-4 sm:grid-cols-2">
-            {isHr ? (
+            {canManage ? (
               <div className="sm:col-span-2">
                 <EmployeePicker
                   employees={employees}
                   value={employeeId}
                   onChange={(next) => {
                     setEmployeeId(next);
-                    const mine = nho.find((row) => row.employeeId === next);
-                    if (mine) {
-                      setForm({
-                        fullName: String(mine.fullName || ""),
-                        fatherName: String(mine.fatherName || ""),
-                        dateOfBirth: String(mine.dateOfBirth || ""),
-                        ageYears: mine.ageYears != null ? String(mine.ageYears) : "",
-                        presentAddress: String(mine.presentAddress || ""),
-                        presentCity: String(mine.presentCity || ""),
-                        presentState: String(mine.presentState || ""),
-                        presentPincode: String(mine.presentPincode || ""),
-                        permanentAddress: String(mine.permanentAddress || ""),
-                        permanentCity: String(mine.permanentCity || ""),
-                        permanentState: String(mine.permanentState || ""),
-                        permanentPincode: String(mine.permanentPincode || ""),
-                        panNumber: String(mine.panNumber || ""),
-                      });
-                    }
+                    setForm(formFromNho(nho.find((row) => row.employeeId === next), user?.name ?? ""));
                   }}
                   label="New hire"
                 />
               </div>
             ) : null}
+            {selectedNho ? (
+              <div className="sm:col-span-2">
+                <StatusBadge status={labelize(String(selectedNho.status))} />
+              </div>
+            ) : null}
             <div className="sm:col-span-2">
               <Label>Full name</Label>
-              <Input className="mt-1 h-11" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} />
+              <Input
+                className="mt-1 h-11"
+                value={form.fullName}
+                onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+              />
             </div>
             <div>
               <Label>Father name</Label>
-              <Input className="mt-1 h-11" value={form.fatherName} onChange={(e) => setForm({ ...form, fatherName: e.target.value })} />
+              <Input
+                className="mt-1 h-11"
+                value={form.fatherName}
+                onChange={(e) => setForm({ ...form, fatherName: e.target.value })}
+              />
             </div>
             <div>
               <Label>Age</Label>
-              <Input className="mt-1 h-11" type="number" value={form.ageYears} onChange={(e) => setForm({ ...form, ageYears: e.target.value })} />
+              <Input
+                className="mt-1 h-11"
+                type="number"
+                value={form.ageYears}
+                onChange={(e) => setForm({ ...form, ageYears: e.target.value })}
+              />
             </div>
             <div className="sm:col-span-2">
               <Label>Date of birth</Label>
-              <DateField className="mt-1" value={form.dateOfBirth} onChange={(dateOfBirth) => setForm({ ...form, dateOfBirth })} />
+              <DateField
+                className="mt-1"
+                value={form.dateOfBirth}
+                onChange={(dateOfBirth) => setForm({ ...form, dateOfBirth })}
+              />
             </div>
             <div className="sm:col-span-2">
               <Label>Present address</Label>
-              <Textarea className="mt-1" value={form.presentAddress} onChange={(e) => setForm({ ...form, presentAddress: e.target.value })} />
+              <Textarea
+                className="mt-1"
+                value={form.presentAddress}
+                onChange={(e) => setForm({ ...form, presentAddress: e.target.value })}
+              />
             </div>
-            <Input placeholder="City" className="h-11" value={form.presentCity} onChange={(e) => setForm({ ...form, presentCity: e.target.value })} />
-            <Input placeholder="State" className="h-11" value={form.presentState} onChange={(e) => setForm({ ...form, presentState: e.target.value })} />
-            <Input placeholder="PIN" className="h-11" value={form.presentPincode} onChange={(e) => setForm({ ...form, presentPincode: e.target.value })} />
+            <Input
+              placeholder="City"
+              className="h-11"
+              value={form.presentCity}
+              onChange={(e) => setForm({ ...form, presentCity: e.target.value })}
+            />
+            <Input
+              placeholder="State"
+              className="h-11"
+              value={form.presentState}
+              onChange={(e) => setForm({ ...form, presentState: e.target.value })}
+            />
+            <Input
+              placeholder="PIN"
+              className="h-11"
+              value={form.presentPincode}
+              onChange={(e) => setForm({ ...form, presentPincode: e.target.value })}
+            />
             <div className="sm:col-span-2">
               <Label>Permanent address</Label>
-              <Textarea className="mt-1" value={form.permanentAddress} onChange={(e) => setForm({ ...form, permanentAddress: e.target.value })} />
+              <Textarea
+                className="mt-1"
+                value={form.permanentAddress}
+                onChange={(e) => setForm({ ...form, permanentAddress: e.target.value })}
+              />
             </div>
-            <Input placeholder="City" className="h-11" value={form.permanentCity} onChange={(e) => setForm({ ...form, permanentCity: e.target.value })} />
-            <Input placeholder="State" className="h-11" value={form.permanentState} onChange={(e) => setForm({ ...form, permanentState: e.target.value })} />
-            <Input placeholder="PIN" className="h-11" value={form.permanentPincode} onChange={(e) => setForm({ ...form, permanentPincode: e.target.value })} />
+            <Input
+              placeholder="City"
+              className="h-11"
+              value={form.permanentCity}
+              onChange={(e) => setForm({ ...form, permanentCity: e.target.value })}
+            />
+            <Input
+              placeholder="State"
+              className="h-11"
+              value={form.permanentState}
+              onChange={(e) => setForm({ ...form, permanentState: e.target.value })}
+            />
+            <Input
+              placeholder="PIN"
+              className="h-11"
+              value={form.permanentPincode}
+              onChange={(e) => setForm({ ...form, permanentPincode: e.target.value })}
+            />
             <div>
               <Label>PAN</Label>
-              <Input className="mt-1 h-11" value={form.panNumber} onChange={(e) => setForm({ ...form, panNumber: e.target.value })} />
+              <Input
+                className="mt-1 h-11"
+                value={form.panNumber}
+                onChange={(e) => setForm({ ...form, panNumber: e.target.value })}
+              />
             </div>
             <div className="sm:col-span-2 flex flex-col gap-2 sm:flex-row">
               <Button
@@ -303,7 +407,9 @@ function OnboardingPage() {
                   variant="outline"
                   className="h-12"
                   onClick={async () => {
-                    const target = employeeId || String(nho.find((row) => row.employeeId === employeeId)?.employeeId || nho[0]?.employeeId || "");
+                    const target =
+                      employeeId ||
+                      String(nho.find((row) => row.employeeId === employeeId)?.employeeId || nho[0]?.employeeId || "");
                     if (!target) return toast.error("Select the new hire first");
                     try {
                       await lifecycleApi.verifyNho(target, { approved: true });

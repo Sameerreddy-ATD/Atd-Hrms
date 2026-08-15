@@ -1770,7 +1770,7 @@ model NewHireProfile {
   profileId          String    @id @default(cuid()) @map("profile_id")
   employeeId         String    @unique @map("employee_id")
   employee           Employee  @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
-  fullName           String?
+  fullName           String?   @map("full_name")
   fatherName         String?   @map("father_name")
   dateOfBirth        DateTime? @map("date_of_birth") @db.Date
   ageYears           Int?      @map("age_years")

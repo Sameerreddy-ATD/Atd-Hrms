@@ -169,6 +169,9 @@ function PeopleChangesPage() {
                   trailing={<StatusBadge status={labelize(String(row.status))} />}
                 />
                 <p className="mt-2 text-xs text-muted-foreground">Effective {String(row.effectiveDate)}</p>
+                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                  {JSON.stringify(row.payload ?? {})}
+                </p>
                 {canApprove && String(row.status) !== "APPLIED" && String(row.status) !== "REJECTED" ? (
                   <div className="mt-3 flex flex-col gap-2">
                     <Button className="h-11 w-full" onClick={() => void decide(String(row.id), isHr ? "APPLY" : "APPROVE")}>

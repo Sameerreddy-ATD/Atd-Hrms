@@ -497,6 +497,95 @@ export function registerLifecycleRoutes(app: Express) {
   );
 
   app.post(
+    "/lifecycle/candidates/:id/hire",
+    requireAuth,
+    opsGate,
+    asyncHandler(async (req, res) => {
+      const body = z
+        .object({
+          employeeId: z.string().min(1),
+          startOnboarding: z.boolean().optional(),
+          designation: z.string().max(120).optional(),
+        })
+        .parse(req.body);
+      const candidateId = routeParam(req, "id");
+      const employee = await prisma.employee.findUnique({ where: { employeeId: body.employeeId } });
+      if (!employee) throw new HttpError(404, "Employee login not found — create the user login first");
+
+      const row = await prisma.$transaction(async (tx) => {
+        const candidate = await tx.candidate.update({
+          where: { candidateId },
+          data: {
+            stage: "HIRED",
+            hiredEmployeeId: body.employeeId,
+          },
+          include: {
+            job: true,
+            interviews: { orderBy: { createdAt: "asc" } },
+            offers: { orderBy: { createdAt: "desc" } },
+            hiredEmployee: { select: { employeeId: true, name: true, employeeCode: true } },
+          },
+        });
+        await tx.employee.update({
+          where: { employeeId: body.employeeId },
+          data: {
+            lifecycleStage: "PRE_ONBOARDING",
+            designation: body.designation || employee.designation,
+          },
+        });
+        await tx.offerLetter.updateMany({
+          where: { candidateId, employeeId: null },
+          data: { employeeId: body.employeeId },
+        });
+        return candidate;
+      });
+
+      let onboardingId: string | null = null;
+      if (body.startOnboarding !== false) {
+        const existing = await prisma.onboardingCase.findFirst({
+          where: { employeeId: body.employeeId, status: { in: ["PRE_ONBOARDING", "ONBOARDING"] } },
+        });
+        if (existing) {
+          onboardingId = existing.caseId;
+        } else {
+          const created = await prisma.$transaction(async (tx) => {
+            const onboarding = await tx.onboardingCase.create({
+              data: {
+                employeeId: body.employeeId,
+                candidateId,
+                startedByUserId: req.user!.id,
+                status: "PRE_ONBOARDING",
+              },
+            });
+            await tx.onboardingDocument.createMany({
+              data: ONBOARDING_DOC_TYPES.map((docType) => ({
+                caseId: onboarding.caseId,
+                docType,
+                status: docType === "OFFER_LETTER" ? "SENT" : "PENDING",
+              })),
+            });
+            await tx.newHireProfile.upsert({
+              where: { employeeId: body.employeeId },
+              create: { employeeId: body.employeeId, fullName: employee.name },
+              update: {},
+            });
+            return onboarding;
+          });
+          onboardingId = created.caseId;
+          await ensureChecklistInstance(body.employeeId, "ONBOARDING");
+        }
+      }
+
+      await audit({
+        action: "LIFECYCLE_CANDIDATE_HIRE",
+        performedByUserId: req.user!.id,
+        newValue: { candidateId, employeeId: body.employeeId, onboardingId },
+      });
+      res.json({ ...candidateDto(row), onboardingId });
+    }),
+  );
+
+  app.post(
     "/lifecycle/candidates/:id/interviews",
     requireAuth,
     talentGate,
@@ -602,11 +691,15 @@ export function registerLifecycleRoutes(app: Express) {
   app.get(
     "/lifecycle/onboarding",
     requireAuth,
-    changeGate,
     asyncHandler(async (req, res) => {
-      const ownOnly = !isPeopleOps(req.user!.role);
+      const ownOnly = !isPeopleOps(req.user!.role) && req.user!.role !== Role.MANAGER;
+      const team = req.user!.role === Role.MANAGER ? await teamIdsFor(req.user!) : [];
       const rows = await prisma.onboardingCase.findMany({
-        where: ownOnly && req.user!.employeeId ? { employeeId: req.user!.employeeId } : {},
+        where: ownOnly
+          ? { employeeId: req.user!.employeeId ?? "__none__" }
+          : req.user!.role === Role.MANAGER
+            ? { employeeId: { in: [...team, req.user!.employeeId].filter(Boolean) as string[] } }
+            : {},
         orderBy: { updatedAt: "desc" },
         include: {
           employee: { select: { employeeId: true, name: true, employeeCode: true, lifecycleStage: true } },
@@ -743,9 +836,10 @@ export function registerLifecycleRoutes(app: Express) {
         },
         include: { case: { include: { documents: true } } },
       });
-      const allVerified = doc.case.documents.every(
-        (item) => item.documentId === doc.documentId || item.status === "VERIFIED",
-      );
+      const allVerified = doc.case.documents.every((item) => {
+        const status = item.documentId === doc.documentId ? doc.status : item.status;
+        return status === "VERIFIED";
+      });
       if (body.approved && allVerified) {
         await prisma.onboardingCase.update({
           where: { caseId: doc.caseId },
@@ -763,11 +857,15 @@ export function registerLifecycleRoutes(app: Express) {
   app.get(
     "/lifecycle/nho",
     requireAuth,
-    changeGate,
     asyncHandler(async (req, res) => {
-      const ownOnly = !isPeopleOps(req.user!.role);
+      const ownOnly = !isPeopleOps(req.user!.role) && req.user!.role !== Role.MANAGER;
+      const team = req.user!.role === Role.MANAGER ? await teamIdsFor(req.user!) : [];
       const rows = await prisma.newHireProfile.findMany({
-        where: ownOnly && req.user!.employeeId ? { employeeId: req.user!.employeeId } : {},
+        where: ownOnly
+          ? { employeeId: req.user!.employeeId ?? "__none__" }
+          : req.user!.role === Role.MANAGER
+            ? { employeeId: { in: [...team, req.user!.employeeId].filter(Boolean) as string[] } }
+            : {},
         include: { employee: { select: { name: true, employeeCode: true, lifecycleStage: true } } },
         orderBy: { updatedAt: "desc" },
       });
@@ -1148,6 +1246,26 @@ export function registerLifecycleRoutes(app: Express) {
             sortOrder: index,
           })),
         });
+      } else {
+        // Append any newly supplied goals when HR re-opens assign for the same review.
+        const existing = await prisma.performanceGoal.findMany({
+          where: { reviewId: review.reviewId },
+          select: { kra: true, kpi: true },
+        });
+        const fresh = body.goals.filter(
+          (goal) => !existing.some((row) => row.kra === goal.kra && row.kpi === goal.kpi),
+        );
+        if (fresh.length) {
+          await prisma.performanceGoal.createMany({
+            data: fresh.map((goal, index) => ({
+              reviewId: review.reviewId,
+              kra: goal.kra,
+              kpi: goal.kpi,
+              targetPercent: goal.targetPercent ?? 100,
+              sortOrder: goalCount + index,
+            })),
+          });
+        }
       }
       res.json({ id: review.reviewId });
     }),
