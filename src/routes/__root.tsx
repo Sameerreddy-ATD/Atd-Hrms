@@ -135,7 +135,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,700;0,800;1,700;1,800&family=Noto+Sans+Telugu:wght@400;500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,700;0,800;1,700;1,800&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Sans+Telugu:wght@400;500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap",
       },
       {
         rel: "stylesheet",
@@ -157,7 +157,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 // Runs before first paint so a stored dark preference never flashes white.
-const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem("theme");var d=t==="dark"||(t!=="light"&&(!t||t==="system")&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(t!=="light"&&t!=="dark"){try{localStorage.setItem("theme",d?"dark":"light");}catch(e){}}document.documentElement.classList.toggle("dark",d);document.documentElement.style.colorScheme=d?"dark":"light";var loc=localStorage.getItem("atd-locale");if(loc!=="en"&&loc!=="te")loc="en";document.documentElement.lang=loc==="te"?"te":"en";document.documentElement.dataset.locale=loc;if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){document.documentElement.classList.add("atd-native");}}catch(e){}})();`;
+const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem("theme");var d=t==="dark"||(t!=="light"&&(!t||t==="system")&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(t!=="light"&&t!=="dark"){try{localStorage.setItem("theme",d?"dark":"light");}catch(e){}}document.documentElement.classList.toggle("dark",d);document.documentElement.style.colorScheme=d?"dark":"light";var loc=localStorage.getItem("atd-locale");if(loc!=="en"&&loc!=="te"&&loc!=="hi")loc="en";document.documentElement.lang=loc==="te"?"te":loc==="hi"?"hi":"en";document.documentElement.dataset.locale=loc;if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){document.documentElement.classList.add("atd-native");}}catch(e){}})();`;
 
 function RootShell({ children }: { children: ReactNode }) {
   return (

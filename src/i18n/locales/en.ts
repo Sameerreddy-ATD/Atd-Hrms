@@ -108,11 +108,12 @@ const en = {
     "title": "Preferences",
     "subtitle": "Choose how Anytime Workforce looks and which language you use.",
     "languageTitle": "Language",
-    "languageHelp": "English is the default. Switch to Telugu anytime — your choice is saved on this device.",
+    "languageHelp": "English is the default. Switch to Hindi or Telugu anytime — your choice is saved on this device.",
     "themeTitle": "Theme",
     "themeHelp": "Light or dark appearance for the whole app.",
     "english": "English",
     "telugu": "Telugu",
+    "hindi": "Hindi",
     "light": "Light",
     "dark": "Dark",
     "applied": "Preferences updated"
@@ -148,7 +149,7 @@ const en = {
     "expires": "Expires",
     "message": "Message",
     "titleLabel": "Title",
-    "contentNote": "Announcement text is shown as written. Compose in English or Telugu for your audience."
+    "contentNote": "Announcement text is shown as written. Compose in English, Hindi, or Telugu for your audience."
   },
   "dashboard": {
     "title": "Dashboard",

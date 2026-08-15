@@ -196,6 +196,12 @@
     line-height: 1.65;
   }
 
+  html[data-locale="hi"] body {
+    font-family: "Noto Sans Devanagari", var(--font-sans);
+    letter-spacing: 0;
+    line-height: 1.65;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);

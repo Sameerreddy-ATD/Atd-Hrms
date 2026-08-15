@@ -11,9 +11,11 @@ import { getTheme, setTheme, type Theme } from "@/lib/system-theme";
 import {
   LOCALES,
   LOCALE_LABELS,
+  LOCALE_PREF_KEYS,
   setAppLocale,
   type AppLocale,
   getStoredLocale,
+  isAppLocale,
 } from "@/i18n";
 import { useEffect, useState } from "react";
 
@@ -28,7 +30,7 @@ function PreferencesPage() {
 
   useEffect(() => {
     setActiveTheme(getTheme());
-    setLocale((i18n.language as AppLocale) === "te" ? "te" : "en");
+    setLocale(isAppLocale(i18n.language) ? i18n.language : getStoredLocale());
   }, [i18n.language]);
 
   async function chooseLocale(next: AppLocale) {
@@ -59,7 +61,7 @@ function PreferencesPage() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5">
+        <CardContent className="grid gap-3 px-4 py-4 sm:grid-cols-3 sm:px-5">
           {LOCALES.map((code) => {
             const selected = locale === code;
             return (
@@ -75,9 +77,7 @@ function PreferencesPage() {
                 )}
               >
                 <div>
-                  <Label className="text-sm font-semibold">
-                    {code === "en" ? t("preferences.english") : t("preferences.telugu")}
-                  </Label>
+                  <Label className="text-sm font-semibold">{t(LOCALE_PREF_KEYS[code])}</Label>
                   <p className="text-xs text-muted-foreground">{LOCALE_LABELS[code]}</p>
                 </div>
                 <span
