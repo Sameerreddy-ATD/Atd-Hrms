@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { ClipboardPen } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -64,6 +65,7 @@ function formFromNho(row: Record<string, unknown> | undefined, fallbackName = ""
 }
 
 function OnboardingPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const isHr = isPeopleOpsRole(user?.role);
   const canManage = isPeopleLeaderRole(user?.role);
@@ -94,11 +96,11 @@ function OnboardingPage() {
         setForm(emptyForm(user.name));
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not load onboarding");
+      toast.error(error instanceof Error ? error.message : t("pages.onboarding.toastCouldNotLoad"));
     } finally {
       setLoading(false);
     }
-  }, [canManage, employeeId, isHr, user?.employeeId, user?.name]);
+  }, [canManage, employeeId, isHr, t, user?.employeeId, user?.name]);
 
   useEffect(() => {
     void load();
@@ -109,7 +111,7 @@ function OnboardingPage() {
     [employeeId, nho, user?.employeeId],
   );
 
-  if (loading) return <LoadingState label="Loading onboarding" />;
+  if (loading) return <LoadingState label={t("pages.loading.onboarding")} />;
 
   const hasWork = cases.length > 0 || nho.length > 0 || Boolean(user?.employeeId) || canManage;
 
@@ -117,8 +119,8 @@ function OnboardingPage() {
     return (
       <EmptyState
         icon={ClipboardPen}
-        title="No onboarding yet"
-        description="When HR starts your joining case, documents and the new-hire form appear here."
+        title={t("pages.onboarding.empty")}
+        description={t("pages.onboarding.emptyHelp")}
       />
     );
   }
@@ -126,12 +128,10 @@ function OnboardingPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Hire"
-        title="Onboarding"
+        eyebrow={t("pages.onboarding.eyebrow")}
+        title={t("pages.onboarding.title")}
         description={
-          canManage
-            ? "Start joining for a new hire, verify documents, then approve the new-hire form."
-            : "Sign joining documents and submit your new-hire form."
+          canManage ? t("pages.onboarding.subtitleHr") : t("pages.onboarding.subtitleEmp")
         }
         actions={
           isHr ? (
@@ -143,16 +143,16 @@ function OnboardingPage() {
                 onClick={async () => {
                   try {
                     await lifecycleApi.startOnboarding({ employeeId });
-                    toast.success("Onboarding started — documents are ready to sign");
+                    toast.success(t("pages.onboarding.toastStarted"));
                     await load();
                   } catch (error) {
                     toast.error(
-                      error instanceof Error ? error.message : "Could not start onboarding",
+                      error instanceof Error ? error.message : t("pages.onboarding.toastCouldNotStart"),
                     );
                   }
                 }}
               >
-                Start onboarding
+                {t("pages.onboarding.startOnboarding")}
               </Button>
             </div>
           ) : null
@@ -161,18 +161,18 @@ function OnboardingPage() {
 
       <Tabs defaultValue="documents">
         <TabsList className="mb-4 w-full flex-wrap justify-start">
-          <TabsTrigger value="documents">Documents</TabsTrigger>
-          <TabsTrigger value="nho">New hire form</TabsTrigger>
+          <TabsTrigger value="documents">{t("pages.onboarding.tabDocuments")}</TabsTrigger>
+          <TabsTrigger value="nho">{t("pages.onboarding.tabNho")}</TabsTrigger>
         </TabsList>
         <TabsContent value="documents" className="space-y-3">
           {cases.length === 0 ? (
             <EmptyState
               icon={ClipboardPen}
-              title="No onboarding cases"
+              title={t("pages.onboarding.emptyCases")}
               description={
                 isHr
-                  ? "Start onboarding after Talent links a candidate to an employee login."
-                  : "HR has not opened your joining case yet."
+                  ? t("pages.onboarding.emptyCasesHelpHr")
+                  : t("pages.onboarding.emptyCasesHelpEmp")
               }
             />
           ) : (
@@ -199,7 +199,7 @@ function OnboardingPage() {
                           String(doc.status),
                         ) ? (
                           <label className="inline-flex h-11 flex-1 cursor-pointer items-center justify-center rounded-md border text-sm">
-                            Upload / sign
+                            {t("pages.onboarding.uploadSign")}
                             <input
                               type="file"
                               accept="application/pdf,image/*"
@@ -211,11 +211,11 @@ function OnboardingPage() {
                                   await lifecycleApi.signOnboardingDoc(String(doc.id), {
                                     file: await fileToPayload(file),
                                   });
-                                  toast.success("Document submitted");
+                                  toast.success(t("pages.onboarding.toastDocumentSubmitted"));
                                   await load();
                                 } catch (error) {
                                   toast.error(
-                                    error instanceof Error ? error.message : "Upload failed",
+                                    error instanceof Error ? error.message : t("pages.onboarding.toastUploadFailed"),
                                   );
                                 }
                               }}
@@ -239,7 +239,7 @@ function OnboardingPage() {
                                 )
                             }
                           >
-                            Download
+                            {t("pages.onboarding.download")}
                           </Button>
                         ) : null}
                         {isHr && ["UPLOADED", "SIGNED"].includes(String(doc.status)) ? (
@@ -252,16 +252,16 @@ function OnboardingPage() {
                                   await lifecycleApi.verifyOnboardingDoc(String(doc.id), {
                                     approved: true,
                                   });
-                                  toast.success("Verified");
+                                  toast.success(t("pages.onboarding.toastVerified"));
                                   await load();
                                 } catch (error) {
                                   toast.error(
-                                    error instanceof Error ? error.message : "Verify failed",
+                                    error instanceof Error ? error.message : t("pages.onboarding.toastVerifyFailed"),
                                   );
                                 }
                               }}
                             >
-                              Verify
+                              {t("pages.onboarding.verify")}
                             </Button>
                             <Button
                               variant="ghost"
@@ -271,16 +271,16 @@ function OnboardingPage() {
                                   await lifecycleApi.verifyOnboardingDoc(String(doc.id), {
                                     approved: false,
                                   });
-                                  toast.message("Document rejected — ask the hire to re-upload");
+                                  toast.message(t("pages.onboarding.toastDocumentRejected"));
                                   await load();
                                 } catch (error) {
                                   toast.error(
-                                    error instanceof Error ? error.message : "Reject failed",
+                                    error instanceof Error ? error.message : t("pages.onboarding.toastRejectFailed"),
                                   );
                                 }
                               }}
                             >
-                              Reject
+                              {t("pages.onboarding.reject")}
                             </Button>
                           </>
                         ) : null}
@@ -308,7 +308,7 @@ function OnboardingPage() {
                       ),
                     );
                   }}
-                  label="New hire"
+                  label={t("pages.onboarding.newHire")}
                 />
               </div>
             ) : null}
@@ -415,21 +415,21 @@ function OnboardingPage() {
                 className="h-12 flex-1"
                 onClick={async () => {
                   const target = employeeId || user?.employeeId;
-                  if (!target) return toast.error("No employee profile on this login");
+                  if (!target) return toast.error(t("pages.onboarding.toastNoProfile"));
                   try {
                     await lifecycleApi.saveNho(target, {
                       ...form,
                       ageYears: form.ageYears ? Number(form.ageYears) : undefined,
                       submit: true,
                     });
-                    toast.success("New-hire form submitted");
+                    toast.success(t("pages.onboarding.toastNhoSubmitted"));
                     await load();
                   } catch (error) {
-                    toast.error(error instanceof Error ? error.message : "Could not submit NHO");
+                    toast.error(error instanceof Error ? error.message : t("pages.onboarding.toastCouldNotSubmitNho"));
                   }
                 }}
               >
-                Submit NHO form
+                {t("pages.onboarding.submitNho")}
               </Button>
               {isHr ? (
                 <Button
@@ -443,17 +443,17 @@ function OnboardingPage() {
                           nho[0]?.employeeId ||
                           "",
                       );
-                    if (!target) return toast.error("Select the new hire first");
+                    if (!target) return toast.error(t("pages.onboarding.toastSelectNewHire"));
                     try {
                       await lifecycleApi.verifyNho(target, { approved: true });
-                      toast.success("NHO verified — employee is active");
+                      toast.success(t("pages.onboarding.toastNhoVerified"));
                       await load();
                     } catch (error) {
-                      toast.error(error instanceof Error ? error.message : "Could not verify NHO");
+                      toast.error(error instanceof Error ? error.message : t("pages.onboarding.toastCouldNotVerifyNho"));
                     }
                   }}
                 >
-                  HR verify
+                  {t("pages.onboarding.hrVerify")}
                 </Button>
               ) : null}
             </div>

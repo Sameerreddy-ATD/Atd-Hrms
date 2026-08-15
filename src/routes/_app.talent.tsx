@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Plus, UserPlus } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -46,6 +47,7 @@ import type { User } from "@/types/domain";
 export const Route = createFileRoute("/_app/talent")({ component: TalentPage });
 
 function TalentPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
   const canEdit = isPeopleOpsRole(user?.role);
@@ -105,11 +107,11 @@ function TalentPage() {
       if (nextJob) setCandidates(await lifecycleApi.candidates({ jobId: nextJob }));
       else setCandidates([]);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not load talent");
+      toast.error(error instanceof Error ? error.message : t("pages.talent.toastCouldNotLoad"));
     } finally {
       setLoading(false);
     }
-  }, [jobId]);
+  }, [jobId, t]);
 
   useEffect(() => {
     void load();
@@ -125,12 +127,14 @@ function TalentPage() {
         openings: Number(jobForm.openings || 1),
         description: jobForm.description || undefined,
       });
-      toast.success("Job opening saved");
+      toast.success(t("pages.talent.toastJobSaved"));
       setJobOpen(false);
       setJobForm({ title: "", departmentName: "", openings: "1", description: "" });
       await load();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save opening");
+      toast.error(
+        error instanceof Error ? error.message : t("pages.talent.toastCouldNotSaveOpening"),
+      );
     }
   }
 
@@ -144,34 +148,36 @@ function TalentPage() {
         source: candidateForm.source || undefined,
         expectedCtc: candidateForm.expectedCtc ? Number(candidateForm.expectedCtc) : undefined,
       });
-      toast.success("Candidate added");
+      toast.success(t("pages.talent.toastCandidateAdded"));
       setCandidateOpen(false);
       setCandidateForm({ name: "", email: "", phone: "", source: "", expectedCtc: "" });
       setCandidates(await lifecycleApi.candidates({ jobId }));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not add candidate");
+      toast.error(
+        error instanceof Error ? error.message : t("pages.talent.toastCouldNotAddCandidate"),
+      );
     }
   }
 
-  if (loading) return <LoadingState label="Loading talent pipeline" />;
+  if (loading) return <LoadingState label={t("pages.loading.talent")} />;
 
   return (
     <div>
       <PageHeader
-        eyebrow="Hire"
-        title="Talent acquisition"
-        description="Openings → candidates → interview → offer → hire → onboarding."
+        eyebrow={t("pages.talent.eyebrow")}
+        title={t("pages.talent.title")}
+        description={t("pages.talent.subtitle")}
         actions={
           canRecruit ? (
             <>
               {canEdit ? (
                 <Button variant="outline" onClick={() => setJobOpen(true)}>
-                  New opening
+                  {t("pages.talent.newOpening")}
                 </Button>
               ) : null}
               <Button onClick={() => setCandidateOpen(true)} disabled={!jobId}>
                 <Plus className="h-4 w-4" />
-                Add candidate
+                {t("pages.talent.addCandidate")}
               </Button>
             </>
           ) : null
@@ -181,9 +187,9 @@ function TalentPage() {
       {jobs.length === 0 ? (
         <EmptyState
           icon={UserPlus}
-          title="No openings yet"
+          title={t("pages.talent.emptyOpenings")}
           description={
-            canEdit ? "Create a job opening to start hiring." : "HR has not published openings yet."
+            canEdit ? t("pages.talent.emptyOpeningsHelp") : t("pages.talent.emptyOpeningsEmp")
           }
         />
       ) : (
@@ -249,8 +255,8 @@ function TalentPage() {
           {candidates.length === 0 ? (
             <EmptyState
               icon={UserPlus}
-              title="No candidates yet"
-              description="Add a candidate to start the TA process."
+              title={t("pages.talent.emptyCandidates")}
+              description={t("pages.talent.emptyCandidatesHelp")}
             />
           ) : (
             <ResponsiveListShell>

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -33,6 +34,7 @@ export const Route = createFileRoute("/_app/devices/mapping")({
 });
 
 function DeviceMappingPage() {
+  const { t } = useTranslation();
   const [devices, setDevices] = useState<BiometricDevice[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [employees, setEmployees] = useState<User[]>([]);
@@ -78,7 +80,7 @@ function DeviceMappingPage() {
   async function saveMapping(e: React.FormEvent) {
     e.preventDefault();
     if (!employeeId || !biometricUserId) {
-      toast.error("Employee and biometric user ID are required");
+      toast.error(t("pages.mapping.toastFieldsRequired"));
       return;
     }
     setSaving(true);
@@ -93,7 +95,9 @@ function DeviceMappingPage() {
         ? await biometricApi.updateMapping(editingMapping.id, payload)
         : await biometricApi.saveMapping(payload);
       setMappings((prev) => [saved, ...prev.filter((mapping) => mapping.id !== saved.id)]);
-      toast.success(editingMapping ? "Biometric mapping updated" : "Biometric mapping saved");
+      toast.success(
+        editingMapping ? t("pages.mapping.toastUpdated") : t("pages.mapping.toastSaved"),
+      );
       setBiometricUserId("");
       setEditingMapping(null);
     } catch (err) {
@@ -110,7 +114,7 @@ function DeviceMappingPage() {
     try {
       const updated = await biometricApi.deactivateMapping(mapping.id);
       setMappings((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
-      toast.success("Mapping deactivated");
+      toast.success(t("pages.mapping.toastDeactivated"));
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -120,7 +124,7 @@ function DeviceMappingPage() {
     try {
       const updated = await biometricApi.updateMapping(mapping.id, { status: "ACTIVE" });
       setMappings((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
-      toast.success("Mapping reactivated");
+      toast.success(t("pages.mapping.toastReactivated"));
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -129,10 +133,10 @@ function DeviceMappingPage() {
   return (
     <div>
       <PageHeader
-        title="Biometric Mapping"
-        description="Map employee profiles to biometric device user IDs."
+        title={t("pages.mapping.title")}
+        description={t("pages.mapping.subtitle")}
       />
-      {loading && <LoadingState label="Loading biometric mappings" />}
+      {loading && <LoadingState label={t("pages.loading.mapping")} />}
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <form
@@ -179,7 +183,7 @@ function DeviceMappingPage() {
         </div>
         <div className="flex items-end">
           <Button type="submit" disabled={saving} className="w-full">
-            {editingMapping ? "Update mapping" : "Save mapping"}
+            {editingMapping ? t("pages.mapping.update") : t("pages.mapping.save")}
           </Button>
         </div>
         {editingMapping && (
@@ -193,7 +197,7 @@ function DeviceMappingPage() {
                 setBiometricUserId("");
               }}
             >
-              Cancel edit
+              {t("pages.mapping.cancelEdit")}
             </Button>
           </div>
         )}
@@ -243,21 +247,21 @@ function DeviceMappingPage() {
                     setBiometricUserId(mapping.biometricUserId);
                   }}
                 >
-                  <Pencil className="mr-2 h-4 w-4" /> Edit
+                  <Pencil className="mr-2 h-4 w-4" /> {t("common.edit")}
                 </Button>
                 {mapping.status === "INACTIVE" ? (
                   <Button
                     className="bg-emerald-600 text-white hover:bg-emerald-700"
                     onClick={() => reactivateMapping(mapping)}
                   >
-                    Reactivate
+                    {t("pages.mapping.reactivate")}
                   </Button>
                 ) : (
                   <Button
                     className="bg-red-600 text-white hover:bg-red-700"
                     onClick={() => deactivateMapping(mapping)}
                   >
-                    Deactivate
+                    {t("pages.mapping.deactivate")}
                   </Button>
                 )}
               </div>
@@ -268,8 +272,8 @@ function DeviceMappingPage() {
       {!loading && mappings.length === 0 && (
         <div className="rounded-lg border bg-card p-6 md:hidden">
           <EmptyState
-            title="No biometric mappings"
-            description="Create a mapping above to connect an employee to a biometric device user ID."
+            title={t("pages.mapping.empty")}
+            description={t("pages.mapping.emptyHelp")}
           />
         </div>
       )}
@@ -314,7 +318,7 @@ function DeviceMappingPage() {
                           setBiometricUserId(mapping.biometricUserId);
                         }}
                       >
-                        <Pencil className="mr-2 h-4 w-4" /> Edit
+                        <Pencil className="mr-2 h-4 w-4" /> {t("common.edit")}
                       </Button>
                       {mapping.status === "INACTIVE" ? (
                         <Button
@@ -322,7 +326,7 @@ function DeviceMappingPage() {
                           className="bg-emerald-600 text-white hover:bg-emerald-700"
                           onClick={() => reactivateMapping(mapping)}
                         >
-                          Reactivate
+                          {t("pages.mapping.reactivate")}
                         </Button>
                       ) : (
                         <Button
@@ -330,7 +334,7 @@ function DeviceMappingPage() {
                           className="bg-red-600 text-white hover:bg-red-700"
                           onClick={() => deactivateMapping(mapping)}
                         >
-                          Deactivate
+                          {t("pages.mapping.deactivate")}
                         </Button>
                       )}
                     </div>
@@ -343,8 +347,8 @@ function DeviceMappingPage() {
         {!loading && mappings.length === 0 && (
           <div className="p-6">
             <EmptyState
-              title="No biometric mappings"
-              description="Create a mapping above to connect an employee to a biometric device user ID."
+              title={t("pages.mapping.empty")}
+              description={t("pages.mapping.emptyHelp")}
             />
           </div>
         )}

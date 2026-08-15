@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Download, Share, Smartphone, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +31,7 @@ export function PwaInstallBanner({
   className?: string;
   alwaysOffer?: boolean;
 }) {
+  const { t } = useTranslation();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [visible, setVisible] = useState(false);
   const [showSteps, setShowSteps] = useState(false);
@@ -99,7 +101,7 @@ export function PwaInstallBanner({
         "overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-br from-primary/[0.1] via-background to-background shadow-sm animate-in fade-in slide-in-from-top-2 duration-500",
         className,
       )}
-      aria-label="Install or create shortcut"
+      aria-label={t("pages.shell.installAria")}
     >
       <div className="flex items-start gap-3 p-3.5 sm:p-4">
         <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
@@ -108,8 +110,7 @@ export function PwaInstallBanner({
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold tracking-tight text-foreground">{copy.title}</p>
           <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            Install or create a home-screen shortcut for faster attendance — no login required to
-            install.
+            {t("pages.shell.installBlurb")}
           </p>
           {showSteps && (
             <ol className="mt-3 space-y-1.5 rounded-lg border bg-background/80 p-3 text-sm text-muted-foreground">
@@ -121,7 +122,7 @@ export function PwaInstallBanner({
               ))}
               {platform === "ios" && (
                 <li className="mt-2 flex items-center gap-2 text-xs text-foreground">
-                  <Share className="h-3.5 w-3.5 text-primary" /> Look for the Share icon in Safari
+                  <Share className="h-3.5 w-3.5 text-primary" /> {t("pages.shell.iosShareHint")}
                 </li>
               )}
             </ol>
@@ -129,17 +130,17 @@ export function PwaInstallBanner({
           <div className="mt-3 flex flex-col gap-2 min-[420px]:flex-row">
             <Button className="w-full min-[420px]:w-auto" onClick={() => void install()}>
               <Download className="mr-2 h-4 w-4" />
-              {deferredPrompt ? "Install app" : "Create shortcut"}
+              {deferredPrompt ? t("pages.shell.installApp") : t("pages.shell.createShortcut")}
             </Button>
             <Button
               variant="ghost"
               className="w-full min-[420px]:w-auto"
               onClick={() => setShowSteps((value) => !value)}
             >
-              {showSteps ? "Hide steps" : "How to install"}
+              {showSteps ? t("pages.shell.hideSteps") : t("pages.shell.howToInstall")}
             </Button>
             <Button variant="ghost" className="w-full min-[420px]:w-auto" onClick={dismiss}>
-              Not now
+              {t("pages.shell.notNow")}
             </Button>
           </div>
         </div>
@@ -147,7 +148,7 @@ export function PwaInstallBanner({
           variant="ghost"
           size="icon"
           className="shrink-0"
-          aria-label="Dismiss install tip"
+          aria-label={t("pages.shell.dismissInstall")}
           onClick={dismiss}
         >
           <X className="h-4 w-4" />

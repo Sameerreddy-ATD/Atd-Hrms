@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -51,6 +52,7 @@ export const Route = createFileRoute("/_app/devices")({
 });
 
 function DevicesPage() {
+  const { t } = useTranslation();
   const [devices, setDevices] = useState<BiometricDevice[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -127,7 +129,7 @@ function DevicesPage() {
   async function saveDevice(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name || !form.code || !form.branchId) {
-      toast.error("Device name, serial/code and branch are required");
+      toast.error(t("pages.devices.toastFieldsRequired"));
       return;
     }
     const payload = {
@@ -146,7 +148,7 @@ function DevicesPage() {
       setDevices((prev) =>
         editing ? prev.map((row) => (row.id === saved.id ? saved : row)) : [saved, ...prev],
       );
-      toast.success(editing ? "Device updated" : "Device added");
+      toast.success(editing ? t("pages.devices.toastUpdated") : t("pages.devices.toastAdded"));
       resetForm();
     } catch (err) {
       toast.error((err as Error).message);
@@ -158,7 +160,7 @@ function DevicesPage() {
     try {
       const updated = await biometricApi.deactivateDevice(device.id);
       setDevices((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
-      toast.success("Device deactivated");
+      toast.success(t("pages.devices.toastDeactivated"));
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -167,26 +169,25 @@ function DevicesPage() {
   return (
     <div>
       <PageHeader
-        title="eSSL Biometric Devices"
-        description="Inventory for office fingerprint devices and employee biometric IDs. Live device sync is not connected yet — keep records ready for installation."
+        title={t("pages.devices.title")}
+        description={t("pages.devices.subtitle")}
         actions={
           <div className="flex flex-wrap gap-2">
             <Button asChild size="sm" variant="outline">
               <Link to="/devices/mapping">
-                <Fingerprint className="mr-2 h-4 w-4" /> Employee mapping
+                <Fingerprint className="mr-2 h-4 w-4" /> {t("pages.devices.employeeMapping")}
               </Link>
             </Button>
             <Button size="sm" onClick={openCreateDialog}>
-              <Plus className="mr-2 h-4 w-4" /> Add device
+              <Plus className="mr-2 h-4 w-4" /> {t("pages.devices.addDevice")}
             </Button>
           </div>
         }
       />
       <div className="mb-4 rounded-xl border border-border/80 bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-        Office biometric hardware is not linked to this system yet. You can store device and mapping
-        details now; automatic punch sync will be enabled after installation.
+        {t("pages.devices.syncNotice")}
       </div>
-      {loading && <LoadingState label="Loading biometric devices" />}
+      {loading && <LoadingState label={t("pages.loading.devices")} />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="grid gap-3 md:hidden">
         {devices.map((device) => (
@@ -207,7 +208,7 @@ function DevicesPage() {
                       : "border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400"
                   }
                 >
-                  {device.status === "online" ? "Online" : "Offline"}
+                  {device.status === "online" ? t("pages.devices.online") : t("pages.devices.offline")}
                 </Badge>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-3 rounded-md bg-muted/40 p-3 text-sm">
@@ -232,14 +233,14 @@ function DevicesPage() {
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <Button variant="outline" onClick={() => openEditDialog(device)}>
-                  <Pencil className="mr-2 h-4 w-4" /> Edit
+                  <Pencil className="mr-2 h-4 w-4" /> {t("common.edit")}
                 </Button>
                 <Button
                   className="bg-red-600 text-white hover:bg-red-700"
                   onClick={() => setDeleteDeviceTarget(device)}
                   disabled={device.status === "offline"}
                 >
-                  <Trash2 className="mr-2 h-4 w-4" /> Deactivate
+                  <Trash2 className="mr-2 h-4 w-4" /> {t("pages.mapping.deactivate")}
                 </Button>
               </div>
             </CardContent>
@@ -248,7 +249,7 @@ function DevicesPage() {
       </div>
       {!loading && devices.length === 0 && (
         <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground md:hidden">
-          No devices found.
+          {t("pages.devices.empty")}
         </div>
       )}
       <div className="hidden overflow-hidden rounded-lg border border-border bg-card md:block">
@@ -280,14 +281,14 @@ function DevicesPage() {
                         variant="outline"
                         className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-400"
                       >
-                        Online
+                        {t("pages.devices.online")}
                       </Badge>
                     ) : (
                       <Badge
                         variant="outline"
                         className="border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400"
                       >
-                        Offline
+                        {t("pages.devices.offline")}
                       </Badge>
                     )}
                   </TableCell>
@@ -295,7 +296,7 @@ function DevicesPage() {
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button size="sm" variant="outline" onClick={() => openEditDialog(d)}>
-                        <Pencil className="mr-2 h-4 w-4" /> Edit
+                        <Pencil className="mr-2 h-4 w-4" /> {t("common.edit")}
                       </Button>
                       <Button
                         size="sm"
@@ -303,7 +304,7 @@ function DevicesPage() {
                         onClick={() => setDeleteDeviceTarget(d)}
                         disabled={d.status === "offline"}
                       >
-                        <Trash2 className="mr-2 h-4 w-4" /> Deactivate
+                        <Trash2 className="mr-2 h-4 w-4" /> {t("pages.mapping.deactivate")}
                       </Button>
                     </div>
                   </TableCell>
@@ -313,14 +314,14 @@ function DevicesPage() {
           </Table>
         </div>
         {!loading && devices.length === 0 && (
-          <div className="p-6 text-sm text-muted-foreground">No devices found.</div>
+          <div className="p-6 text-sm text-muted-foreground">{t("pages.devices.empty")}</div>
         )}
       </div>
 
       <Dialog open={showForm} onOpenChange={(open) => !open && resetForm()}>
         <DialogContent className="max-h-[90dvh] max-w-3xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editing ? "Edit biometric device" : "Add biometric device"}</DialogTitle>
+            <DialogTitle>{editing ? t("pages.devices.edit") : t("pages.devices.add")}</DialogTitle>
             <DialogDescription>
               Configure branch mapping, connectivity, and operational status in one popup.
             </DialogDescription>
@@ -397,9 +398,11 @@ function DevicesPage() {
             </div>
             <DialogFooter className="sm:col-span-2">
               <Button type="button" variant="outline" onClick={resetForm}>
-                Cancel
+                {t("common.cancel")}
               </Button>
-              <Button type="submit">{editing ? "Update device" : "Create device"}</Button>
+              <Button type="submit">
+                {editing ? t("pages.devices.updateDevice") : t("pages.devices.createDevice")}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -411,7 +414,7 @@ function DevicesPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Deactivate biometric device?</AlertDialogTitle>
+            <AlertDialogTitle>{t("pages.devices.deactivateTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
               {deleteDeviceTarget
                 ? `This will mark ${deleteDeviceTarget.name} as inactive and remove it from active attendance capture.`
@@ -419,7 +422,7 @@ function DevicesPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 text-white hover:bg-red-700"
               onClick={() => {
@@ -428,7 +431,7 @@ function DevicesPage() {
                 setDeleteDeviceTarget(null);
               }}
             >
-              Deactivate
+              {t("pages.mapping.deactivate")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

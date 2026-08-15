@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { ArrowLeftRight } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -50,6 +51,7 @@ import type { Branch, Department, User } from "@/types/domain";
 export const Route = createFileRoute("/_app/people-changes")({ component: PeopleChangesPage });
 
 function PeopleChangesPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const isHr = isPeopleOpsRole(user?.role);
   const canOpen = isPeopleLeaderRole(user?.role);
@@ -99,11 +101,11 @@ function PeopleChangesPage() {
       setDepartments(departmentRows);
       setBranches(branchRows);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not load changes");
+      toast.error(error instanceof Error ? error.message : t("pages.peopleChanges.toastCouldNotLoad"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (canOpen) void load();
@@ -113,8 +115,8 @@ function PeopleChangesPage() {
     return (
       <EmptyState
         icon={ArrowLeftRight}
-        title="HR and managers only"
-        description="People data changes are raised and approved by People Ops and reporting managers."
+        title={t("pages.peopleChanges.accessTitle")}
+        description={t("pages.peopleChanges.accessHelp")}
       />
     );
   }
@@ -196,37 +198,37 @@ function PeopleChangesPage() {
       });
       toast.success(
         decision === "REJECT"
-          ? "Rejected"
+          ? t("pages.peopleChanges.toastRejected")
           : decision === "APPLY"
-            ? "Applied to employee record"
-            : "Sent to HR",
+            ? t("pages.peopleChanges.toastApplied")
+            : t("pages.peopleChanges.toastSentToHr"),
       );
       setHrLetter(undefined);
       await load();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not update request");
+      toast.error(error instanceof Error ? error.message : t("pages.peopleChanges.toastCouldNotUpdate"));
     }
   }
 
-  if (loading) return <LoadingState label="Loading people changes" />;
+  if (loading) return <LoadingState label={t("pages.loading.peopleChanges")} />;
 
   return (
     <div>
       <PageHeader
-        eyebrow="Career"
-        title="People changes"
-        description="Shift swaps, promotions, department, salary, branch, manager, and allowance changes — with manager then HR approval."
+        eyebrow={t("pages.peopleChanges.eyebrow")}
+        title={t("pages.peopleChanges.title")}
+        description={t("pages.peopleChanges.subtitle")}
         actions={
           <Button className="h-11" onClick={() => setOpen(true)}>
-            Request change
+            {t("pages.peopleChanges.requestChange")}
           </Button>
         }
       />
       {rows.length === 0 ? (
         <EmptyState
           icon={ArrowLeftRight}
-          title="No change requests"
-          description="Raise a change when employment data needs an effective-dated update."
+          title={t("pages.peopleChanges.empty")}
+          description={t("pages.peopleChanges.emptyHelp")}
         />
       ) : (
         <ResponsiveListShell>
@@ -272,7 +274,7 @@ function PeopleChangesPage() {
                         className="h-11 w-full"
                         onClick={() => void decide(String(row.id), isHr ? "APPLY" : "APPROVE")}
                       >
-                        {isHr ? "Approve and apply" : "Manager approve"}
+                        {isHr ? t("pages.peopleChanges.approveApply") : t("pages.peopleChanges.managerApprove")}
                       </Button>
                     ) : null}
                     {canReject(String(row.status)) ? (
@@ -281,7 +283,7 @@ function PeopleChangesPage() {
                         className="h-11 w-full"
                         onClick={() => void decide(String(row.id), "REJECT")}
                       >
-                        Reject
+                        {t("pages.peopleChanges.reject")}
                       </Button>
                     ) : null}
                   </div>
@@ -327,7 +329,7 @@ function PeopleChangesPage() {
                                 void decide(String(row.id), isHr ? "APPLY" : "APPROVE")
                               }
                             >
-                              {isHr ? "Apply" : "Approve"}
+                              {isHr ? t("pages.peopleChanges.apply") : t("pages.peopleChanges.approve")}
                             </Button>
                           ) : null}
                           {canReject(String(row.status)) ? (
@@ -336,7 +338,7 @@ function PeopleChangesPage() {
                               variant="outline"
                               onClick={() => void decide(String(row.id), "REJECT")}
                             >
-                              Reject
+                              {t("pages.peopleChanges.reject")}
                             </Button>
                           ) : null}
                         </div>
@@ -353,7 +355,7 @@ function PeopleChangesPage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Employment change</DialogTitle>
+            <DialogTitle>{t("pages.peopleChanges.employmentChangeTitle")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             {isHr || user?.role === "manager" ? (
@@ -608,15 +610,15 @@ function PeopleChangesPage() {
                     payload: payload(),
                     reason: form.reason || undefined,
                   });
-                  toast.success("Change request submitted");
+                  toast.success(t("pages.peopleChanges.toastSubmitted"));
                   setOpen(false);
                   await load();
                 } catch (error) {
-                  toast.error(error instanceof Error ? error.message : "Could not submit change");
+                  toast.error(error instanceof Error ? error.message : t("pages.peopleChanges.toastCouldNotSubmit"));
                 }
               }}
             >
-              Submit request
+              {t("pages.peopleChanges.submitRequest")}
             </Button>
           </DialogFooter>
         </DialogContent>

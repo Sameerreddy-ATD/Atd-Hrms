@@ -1,3 +1,5 @@
+import pages from "./pages-en";
+
 const en = {
   "app": {
     "name": "Anytime Workforce",
@@ -108,7 +110,7 @@ const en = {
     "title": "Preferences",
     "subtitle": "Choose how Anytime Workforce looks and which language you use.",
     "languageTitle": "Language",
-    "languageHelp": "English is the default. Switch to Hindi or Telugu anytime — your choice is saved on this device.",
+    "languageHelp": "Choose English, Hindi, or Telugu anytime — your choice is saved on this device.",
     "themeTitle": "Theme",
     "themeHelp": "Light or dark appearance for the whole app.",
     "english": "English",
@@ -189,6 +191,7 @@ const en = {
   },
   "login": {
     "tagline": "AnyTime Diesel Workforce"
-  }
+  },
+  pages,
 } as const;
 export default en;

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   Check,
@@ -50,6 +51,7 @@ const statusTone: Record<string, string> = {
 };
 
 function FaceSecurityPage() {
+  const { t } = useTranslation();
   const [profiles, setProfiles] = useState<FaceAdminProfile[]>([]);
   const [settings, setSettings] = useState<FaceSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -131,7 +133,7 @@ function FaceSecurityPage() {
     setSaving(true);
     try {
       setSettings(await faceApi.admin.updateSettings(settings));
-      toast.success("Face attendance settings updated");
+      toast.success(t("pages.faceSecurity.settingsUpdated"));
     } catch (error) {
       toast.error((error as Error).message);
     } finally {
@@ -149,8 +151,8 @@ function FaceSecurityPage() {
       setSettings(await faceApi.admin.updateSettings(next));
       toast.success(
         verificationEnabled
-          ? "Face verification enabled for employees"
-          : "Face verification paused; precise location remains required",
+          ? t("pages.faceSecurity.verificationEnabledToast")
+          : t("pages.faceSecurity.verificationPausedToast"),
       );
     } catch (error) {
       setSettings(previous);
@@ -160,17 +162,17 @@ function FaceSecurityPage() {
     }
   }
 
-  if (loading) return <LoadingState label="Loading face security" />;
+  if (loading) return <LoadingState label={t("pages.loading.faceSecurity")} />;
 
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Face Security"
-        description="Approve registrations, review face photos, and manage verification controls."
+        title={t("pages.faceSecurity.title")}
+        description={t("pages.faceSecurity.subtitle")}
         actions={
           <Button variant="outline" onClick={() => void refresh()}>
             <RefreshCw className="mr-2 size-4" />
-            Refresh
+            {t("common.refresh")}
           </Button>
         }
       />
@@ -178,20 +180,25 @@ function FaceSecurityPage() {
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         {[
           {
-            label: "Approved",
+            label: t("pages.faceSecurity.approved"),
             value: counts.approved,
             icon: UserRoundCheck,
             tone: "text-emerald-700",
           },
-          { label: "Pending", value: counts.pending, icon: Clock3, tone: "text-amber-700" },
           {
-            label: "Required",
+            label: t("pages.faceSecurity.pending"),
+            value: counts.pending,
+            icon: Clock3,
+            tone: "text-amber-700",
+          },
+          {
+            label: t("pages.faceSecurity.required"),
             value: counts.required,
             icon: ShieldCheck,
             tone: "text-blue-700",
           },
           {
-            label: "Face alerts",
+            label: t("pages.faceSecurity.faceAlerts"),
             value: counts.alerts,
             icon: ShieldAlert,
             tone: "text-red-700",
@@ -232,18 +239,20 @@ function FaceSecurityPage() {
               </div>
               <div>
                 <div className="font-semibold">
-                  Face verification {settings.verificationEnabled ? "is active" : "is paused"}
+                  {settings.verificationEnabled
+                    ? t("pages.faceSecurity.verificationActive")
+                    : t("pages.faceSecurity.verificationPaused")}
                 </div>
                 <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
                   {settings.verificationEnabled
-                    ? "Employees must have an approved face profile and complete a live face match at check-in. Two front registration photos (eyes open and eyes closed) are kept for review; daily check-in does not store new photos."
-                    : "Employees can open the application and check in without a camera. Precise GPS is still required; existing face profiles and evidence are retained."}
+                    ? t("pages.faceSecurity.verificationEnabledHelp")
+                    : t("pages.faceSecurity.verificationPausedHelp")}
                 </p>
               </div>
             </div>
             <div className="flex shrink-0 items-center justify-between gap-3 rounded-xl border bg-background px-4 py-3 sm:justify-start">
               <Label htmlFor="faceVerificationEnabled" className="cursor-pointer">
-                Employee verification
+                {t("pages.faceSecurity.employeeVerification")}
               </Label>
               <Switch
                 id="faceVerificationEnabled"
@@ -260,14 +269,13 @@ function FaceSecurityPage() {
         <Card>
           <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
             <div>
-              <div className="font-semibold">Face registration approval</div>
+              <div className="font-semibold">{t("pages.faceSecurity.registrationApproval")}</div>
               <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                Manual keeps new registrations pending until you approve them. Automatic approves
-                valid liveness registrations immediately and records them in auto-approved history.
+                {t("pages.faceSecurity.registrationApprovalHelp")}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-3 rounded-xl border bg-background px-4 py-3">
-              <Label htmlFor="registrationApprovalMode">Mode</Label>
+              <Label htmlFor="registrationApprovalMode">{t("pages.faceSecurity.mode")}</Label>
               <select
                 id="registrationApprovalMode"
                 className="h-9 rounded-md border bg-background px-3 text-sm"
@@ -282,15 +290,15 @@ function FaceSecurityPage() {
                     .then(() =>
                       toast.success(
                         registrationApprovalMode === "AUTOMATIC"
-                          ? "Automatic face approval enabled"
-                          : "Manual face approval enabled",
+                          ? t("pages.faceSecurity.automaticEnabled")
+                          : t("pages.faceSecurity.manualEnabled"),
                       ),
                     )
                     .catch((error) => toast.error((error as Error).message));
                 }}
               >
-                <option value="MANUAL">Manual</option>
-                <option value="AUTOMATIC">Automatic</option>
+                <option value="MANUAL">{t("pages.faceSecurity.manual")}</option>
+                <option value="AUTOMATIC">{t("pages.faceSecurity.automatic")}</option>
               </select>
             </div>
           </CardContent>
@@ -300,11 +308,11 @@ function FaceSecurityPage() {
       {settings && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Privacy and verification policy</CardTitle>
+            <CardTitle className="text-base">{t("pages.faceSecurity.privacyPolicyTitle")}</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-2">
-              <Label htmlFor="retentionDays">Capture retention (days)</Label>
+              <Label htmlFor="retentionDays">{t("pages.faceSecurity.retentionLabel")}</Label>
               <Input
                 id="retentionDays"
                 type="number"
@@ -315,10 +323,10 @@ function FaceSecurityPage() {
                   setSettings({ ...settings, retentionDays: Number(event.target.value) })
                 }
               />
-              <p className="text-xs text-muted-foreground">Default is 5; allowed range is 1–30.</p>
+              <p className="text-xs text-muted-foreground">{t("pages.faceSecurity.retentionHelp")}</p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="matchThreshold">Face-match threshold</Label>
+              <Label htmlFor="matchThreshold">{t("pages.faceSecurity.thresholdLabel")}</Label>
               <Input
                 id="matchThreshold"
                 type="number"
@@ -331,11 +339,11 @@ function FaceSecurityPage() {
                 }
               />
               <p className="text-xs text-muted-foreground">
-                Recommended: 0.50. Raising this is stricter but can reject the correct employee.
+                {t("pages.faceSecurity.thresholdHelp")}
               </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="gpsAccuracy">Maximum GPS error (metres)</Label>
+              <Label htmlFor="gpsAccuracy">{t("pages.faceSecurity.gpsLabel")}</Label>
               <Input
                 id="gpsAccuracy"
                 type="number"
@@ -349,7 +357,7 @@ function FaceSecurityPage() {
             </div>
             <div className="flex items-end">
               <Button className="w-full" disabled={saving} onClick={() => void saveSettings()}>
-                {saving ? "Saving…" : "Save policy"}
+                {saving ? t("pages.faceSecurity.saving") : t("pages.faceSecurity.savePolicy")}
               </Button>
             </div>
           </CardContent>
@@ -362,22 +370,22 @@ function FaceSecurityPage() {
           <Input
             value={profileSearch}
             onChange={(event) => setProfileSearch(event.target.value)}
-            placeholder="Search employee, email, ID, or role"
-            aria-label="Search face profiles"
+            placeholder={t("pages.faceSecurity.search")}
+            aria-label={t("pages.faceSecurity.searchAria")}
             className="h-11 pl-9 sm:h-10"
           />
         </div>
         <div
           className="scrollbar-none flex max-w-full snap-x gap-1 overflow-x-auto rounded-lg bg-muted/55 p-1"
-          aria-label="Filter face profiles"
+          aria-label={t("pages.faceSecurity.filterAria")}
         >
           {[
-            { value: "all", label: "All", count: profiles.length },
-            { value: "pending", label: "Pending", count: counts.pending },
-            { value: "alerts", label: "Alerts", count: counts.alerts },
+            { value: "all", label: t("common.all"), count: profiles.length },
+            { value: "pending", label: t("pages.faceSecurity.pending"), count: counts.pending },
+            { value: "alerts", label: t("pages.faceSecurity.alerts"), count: counts.alerts },
             {
               value: "unregistered",
-              label: "Not registered",
+              label: t("pages.faceSecurity.notRegistered"),
               count: profiles.filter((profile) => profile.status === "NOT_REGISTERED").length,
             },
           ].map((filter) => (
@@ -416,8 +424,10 @@ function FaceSecurityPage() {
                     <div className="truncate font-semibold text-foreground">{profile.name}</div>
                     <div className="truncate text-sm text-muted-foreground">{profile.email}</div>
                     <div className="mt-1 text-xs text-muted-foreground">
-                      {profile.employeeCode ?? profile.employeeId ?? "System account"} ·{" "}
-                      {profile.role.replaceAll("_", " ")}
+                      {profile.employeeCode ??
+                        profile.employeeId ??
+                        t("pages.faceSecurity.systemAccount")}{" "}
+                      · {profile.role.replaceAll("_", " ")}
                     </div>
                   </div>
                   <Badge variant="outline" className={statusTone[profile.status]}>
@@ -428,25 +438,33 @@ function FaceSecurityPage() {
                 {latest && (
                   <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-muted/45 p-3 text-xs sm:grid-cols-4">
                     <div>
-                      <div className="text-muted-foreground">Face</div>
+                      <div className="text-muted-foreground">
+                        {t("pages.faceSecurity.confidenceFace")}
+                      </div>
                       <div className="mt-1 font-semibold">
                         {Math.round(latest.faceConfidence * 100)}%
                       </div>
                     </div>
                     <div>
-                      <div className="text-muted-foreground">Liveness</div>
+                      <div className="text-muted-foreground">
+                        {t("pages.faceSecurity.confidenceLiveness")}
+                      </div>
                       <div className="mt-1 font-semibold">
                         {Math.round(latest.livenessScore * 100)}%
                       </div>
                     </div>
                     <div>
-                      <div className="text-muted-foreground">Anti-spoof</div>
+                      <div className="text-muted-foreground">
+                        {t("pages.faceSecurity.confidenceAntiSpoof")}
+                      </div>
                       <div className="mt-1 font-semibold">
                         {Math.round(latest.antiSpoofScore * 100)}%
                       </div>
                     </div>
                     <div>
-                      <div className="text-muted-foreground">Captured</div>
+                      <div className="text-muted-foreground">
+                        {t("pages.faceSecurity.confidenceCaptured")}
+                      </div>
                       <div className="mt-1 font-semibold">
                         {formatDisplayDate(latest.capturedAt)}
                       </div>
@@ -464,9 +482,9 @@ function FaceSecurityPage() {
                   <div className="mt-3 flex gap-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900">
                     <ShieldAlert className="mt-0.5 size-4 shrink-0" />
                     <div>
-                      <div className="font-semibold">Another face detected</div>
+                      <div className="font-semibold">{t("pages.faceSecurity.anotherFaceAlert")}</div>
                       <div className="mt-0.5 text-xs">
-                        A check-in attempt was blocked because the face did not match this employee
+                        {t("pages.faceSecurity.blockedAlertDetail")}
                         {" · "}
                         {formatDisplayDateTime(profile.latestAlert.capturedAt)}.
                       </div>
@@ -478,7 +496,9 @@ function FaceSecurityPage() {
                   {photos.some((photo) => photo.imageAvailable) && (
                     <Button variant="outline" size="sm" onClick={() => setEvidence(profile)}>
                       <Eye className="mr-1.5 size-4" />
-                      View photos ({photos.filter((photo) => photo.imageAvailable).length})
+                      {t("pages.faceSecurity.viewPhotos", {
+                        count: photos.filter((photo) => photo.imageAvailable).length,
+                      })}
                     </Button>
                   )}
                   {profile.status === "PENDING" && (
@@ -490,12 +510,12 @@ function FaceSecurityPage() {
                           void updateProfile(
                             profile.userId,
                             () => faceApi.admin.approve(profile.userId),
-                            `${profile.name} is approved`,
+                            t("pages.faceSecurity.approvedToast", { name: profile.name }),
                           )
                         }
                       >
                         <Check className="mr-1.5 size-4" />
-                        Approve
+                        {t("common.approve")}
                       </Button>
                       <Button
                         variant="destructive"
@@ -507,7 +527,7 @@ function FaceSecurityPage() {
                         }}
                       >
                         <X className="mr-1.5 size-4" />
-                        Reject
+                        {t("common.reject")}
                       </Button>
                     </>
                   )}
@@ -517,16 +537,21 @@ function FaceSecurityPage() {
                       size="sm"
                       disabled={busy}
                       onClick={() => {
-                        if (!window.confirm(`Reset face registration for ${profile.name}?`)) return;
+                        if (
+                          !window.confirm(
+                            t("pages.faceSecurity.resetConfirm", { name: profile.name }),
+                          )
+                        )
+                          return;
                         void updateProfile(
                           profile.userId,
                           () => faceApi.admin.reset(profile.userId),
-                          `${profile.name} must register again`,
+                          t("pages.faceSecurity.resetToast", { name: profile.name }),
                         );
                       }}
                     >
                       <RotateCcw className="mr-1.5 size-4" />
-                      Reset
+                      {t("pages.faceSecurity.reset")}
                     </Button>
                   )}
                 </div>
@@ -537,9 +562,9 @@ function FaceSecurityPage() {
         {!visibleProfiles.length && (
           <div className="col-span-full rounded-xl border border-dashed bg-muted/20 px-4 py-10 text-center">
             <Search className="mx-auto size-6 text-muted-foreground" />
-            <div className="mt-3 font-medium">No matching face profiles</div>
+            <div className="mt-3 font-medium">{t("pages.faceSecurity.noMatchingProfiles")}</div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Change the search text or select another filter.
+              {t("pages.faceSecurity.noMatchingProfilesHelp")}
             </p>
           </div>
         )}
@@ -548,14 +573,14 @@ function FaceSecurityPage() {
       <Dialog open={Boolean(evidence)} onOpenChange={(open) => !open && setEvidence(null)}>
         <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[92dvh] sm:max-w-4xl">
           <DialogHeader className="shrink-0 border-b px-4 py-4 pr-14 text-left sm:px-5">
-            <DialogTitle>Registration photos</DialogTitle>
+            <DialogTitle>{t("pages.faceSecurity.registrationPhotosTitle")}</DialogTitle>
             <DialogDescription>
               {evidence?.name}
               {evidence?.latestEvidence
                 ? ` · ${formatDisplayDateTime(evidence.latestEvidence.capturedAt)}`
                 : ""}
               {" · "}
-              Two front registration photos (eyes open, eyes closed)
+              {t("pages.faceSecurity.registrationPhotosHelp")}
             </DialogDescription>
           </DialogHeader>
           <div className="min-h-0 flex-1 overflow-y-auto bg-slate-950 p-3 sm:p-4">
@@ -588,7 +613,7 @@ function FaceSecurityPage() {
             ) : (
               <div className="flex min-h-64 flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
                 <ImageOff className="size-6" />
-                No photo available
+                {t("pages.faceSecurity.noPhotoAvailable")}
               </div>
             )}
           </div>
@@ -598,23 +623,23 @@ function FaceSecurityPage() {
       <Dialog open={Boolean(rejecting)} onOpenChange={(open) => !open && setRejecting(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reject face registration</DialogTitle>
+            <DialogTitle>{t("pages.faceSecurity.rejectDialogTitle")}</DialogTitle>
             <DialogDescription>
-              Explain what {rejecting?.name} should correct before registering again.
+              {t("pages.faceSecurity.rejectDialogHelp", { name: rejecting?.name })}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="rejectionReason">Reason</Label>
+            <Label htmlFor="rejectionReason">{t("pages.faceSecurity.reasonLabel")}</Label>
             <Textarea
               id="rejectionReason"
               value={rejectionReason}
               onChange={(event) => setRejectionReason(event.target.value)}
-              placeholder="For example: face is partly covered or the image is too dark."
+              placeholder={t("pages.faceSecurity.reasonPlaceholder")}
             />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRejecting(null)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               variant="destructive"
@@ -624,11 +649,11 @@ function FaceSecurityPage() {
                 void updateProfile(
                   rejecting.userId,
                   () => faceApi.admin.reject(rejecting.userId, rejectionReason.trim()),
-                  `${rejecting.name}'s registration was rejected`,
+                  t("pages.faceSecurity.rejectedToast", { name: rejecting.name }),
                 ).then(() => setRejecting(null));
               }}
             >
-              Reject registration
+              {t("pages.faceSecurity.rejectRegistration")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -650,6 +675,7 @@ function EvidencePhoto({
   className?: string;
   onOpen?: () => void;
 }) {
+  const { t } = useTranslation();
   const [imageFailed, setImageFailed] = useState(false);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
 
@@ -692,7 +718,13 @@ function EvidencePhoto({
   ) : (
     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-muted text-sm text-muted-foreground">
       <ImageOff className="size-6" />
-      <span>{imageFailed ? "Could not load" : imageAvailable ? "Loading…" : "Expired"}</span>
+      <span>
+        {imageFailed
+          ? t("pages.faceSecurity.couldNotLoad")
+          : imageAvailable
+            ? t("pages.faceSecurity.loadingPhoto")
+            : t("pages.faceSecurity.expiredPhoto")}
+      </span>
     </div>
   );
 

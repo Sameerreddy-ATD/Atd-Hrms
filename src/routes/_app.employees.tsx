@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -55,6 +56,7 @@ export const Route = createFileRoute("/_app/employees")({
 const PAGE_SIZE = 100;
 
 function EmployeesPage() {
+  const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const [employees, setEmployees] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -185,7 +187,7 @@ function EmployeesPage() {
         ),
       );
       setHrManagingEmployee((current) => (current ? { ...current, ...updated } : current));
-      toast.success("Reporting manager updated");
+      toast.success(t("pages.employees.toastManagerUpdated"));
     } catch (error) {
       toast.error((error as Error).message);
     } finally {
@@ -271,7 +273,7 @@ function EmployeesPage() {
       setEmployees((prev) =>
         prev.map((row) => (row.employeeId === updated.employeeId ? { ...row, ...updated } : row)),
       );
-      toast.success("Employee details updated");
+      toast.success(t("pages.employees.toastEmployeeUpdated"));
       setEditingEmployee(null);
     } catch (err) {
       toast.error((err as Error).message);
@@ -304,18 +306,18 @@ function EmployeesPage() {
   return (
     <div>
       <PageHeader
-        title="Employees"
+        title={t("pages.employees.title")}
         description={
           canEdit
-            ? "Developer Admin can edit full employee profiles and emergency contacts."
+            ? t("pages.employees.subtitleDeveloperAdmin")
             : canHrManage
-              ? "HR can set reporting managers and update emergency contacts for employees in scope. Full profile edits remain with Developer Admin."
+              ? t("pages.employees.subtitleHrManage")
               : canSeeCompanyDirectory
-                ? "Directory of employees across branches and organization units."
-                : "Employees in your organization unit and its child teams."
+                ? t("pages.employees.subtitleDirectory")
+                : t("pages.employees.subtitleScoped")
         }
       />
-      {loading && <LoadingState label="Loading employees" />}
+      {loading && <LoadingState label={t("pages.loading.employees")} />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <TableToolbar>
         <div className="relative min-w-52 flex-1">
@@ -323,16 +325,16 @@ function EmployeesPage() {
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search name, email, ID"
+            placeholder={t("pages.employees.search")}
             className="pl-8"
           />
         </div>
         <Select value={branch} onValueChange={setBranch}>
           <SelectTrigger className="sm:w-44">
-            <SelectValue placeholder="Branch" />
+            <SelectValue placeholder={t("pages.employees.filterBranch")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All locations</SelectItem>
+            <SelectItem value="all">{t("pages.employees.allLocations")}</SelectItem>
             {branches.map((b) => (
               <SelectItem key={b.id} value={b.id}>
                 {formatBranchLocationLabel(b)}
@@ -342,10 +344,10 @@ function EmployeesPage() {
         </Select>
         <Select value={dept} onValueChange={setDept}>
           <SelectTrigger className="sm:w-44">
-            <SelectValue placeholder="Department" />
+            <SelectValue placeholder={t("pages.employees.filterDepartment")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All departments</SelectItem>
+            <SelectItem value="all">{t("pages.employees.allDepartments")}</SelectItem>
             {visibleDepartments.map((d) => (
               <SelectItem key={d.id} value={d.id}>
                 {d.name}
@@ -371,19 +373,19 @@ function EmployeesPage() {
               </div>
               <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
                 <div>
-                  <p className="text-muted-foreground">Employee ID</p>
+                  <p className="text-muted-foreground">{t("common.employeeId")}</p>
                   <p className="mt-0.5 font-mono">{employee.employeeCode ?? employee.employeeId}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Role</p>
+                  <p className="text-muted-foreground">{t("common.role")}</p>
                   <p className="mt-0.5">{ROLE_LABELS[employee.role]}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Department</p>
+                  <p className="text-muted-foreground">{t("common.department")}</p>
                   <p className="mt-0.5 break-words">{employee.department ?? "-"}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Location</p>
+                  <p className="text-muted-foreground">{t("common.branch")}</p>
                   <p className="mt-0.5 break-words">
                     {formatBranchLocationLabelById(
                       branches,
@@ -404,11 +406,11 @@ function EmployeesPage() {
                 >
                   {canEdit ? (
                     <>
-                      <Pencil className="h-4 w-4" /> Edit details
+                      <Pencil className="h-4 w-4" /> {t("pages.employees.editDetails")}
                     </>
                   ) : (
                     <>
-                      <UserCog className="h-4 w-4" /> Manager & emergency
+                      <UserCog className="h-4 w-4" /> {t("pages.employees.managerEmergencyShort")}
                     </>
                   )}
                 </Button>
@@ -420,14 +422,16 @@ function EmployeesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Employee</TableHead>
-                <TableHead>Employee ID</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Department</TableHead>
-                <TableHead>Location</TableHead>
+                <TableHead>{t("common.employee")}</TableHead>
+                <TableHead>{t("common.employeeId")}</TableHead>
+                <TableHead>{t("common.role")}</TableHead>
+                <TableHead>{t("common.department")}</TableHead>
+                <TableHead>{t("common.branch")}</TableHead>
                 <TableHead>Phone</TableHead>
-                <TableHead>Status</TableHead>
-                {canOpenEmployeeActions && <TableHead className="w-[80px]">Actions</TableHead>}
+                <TableHead>{t("common.status")}</TableHead>
+                {canOpenEmployeeActions && (
+                  <TableHead className="w-[80px]">{t("common.actions")}</TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -464,7 +468,11 @@ function EmployeesPage() {
                         onClick={() =>
                           canEdit ? void openEditDialog(u) : void openHrManageDialog(u)
                         }
-                        title={canEdit ? "Edit details" : "Manager and emergency contact"}
+                        title={
+                          canEdit
+                            ? t("pages.employees.editDetails")
+                            : t("pages.employees.managerEmergency")
+                        }
                       >
                         {canEdit ? <Pencil className="h-4 w-4" /> : <UserCog className="h-4 w-4" />}
                       </Button>
@@ -476,12 +484,16 @@ function EmployeesPage() {
           </Table>
         </div>
         {!loading && rows.length === 0 && (
-          <div className="p-6 text-sm text-muted-foreground">No employees found.</div>
+          <div className="p-6 text-sm text-muted-foreground">
+            {t("pages.employees.noneFound")}
+          </div>
         )}
         {hasMore && !q && branch === "all" && dept === "all" && (
           <div className="border-t p-3 text-center">
             <Button variant="outline" onClick={() => void loadMore()} disabled={loadingMore}>
-              {loadingMore ? "Loading employees..." : "Load more employees"}
+              {loadingMore
+                ? t("pages.employees.loadingMore")
+                : t("pages.employees.loadMore")}
             </Button>
           </div>
         )}
@@ -491,7 +503,7 @@ function EmployeesPage() {
         <Dialog open={!!editingEmployee} onOpenChange={(open) => !open && setEditingEmployee(null)}>
           <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[92dvh]">
             <DialogHeader className="border-b border-border px-5 py-4 sm:px-6">
-              <DialogTitle>Edit Employee Details</DialogTitle>
+              <DialogTitle>{t("pages.employees.editEmployeeDetailsTitle")}</DialogTitle>
             </DialogHeader>
             <form onSubmit={saveEmployee} className="flex min-h-0 flex-1 flex-col">
               <div className="grid flex-1 grid-cols-1 gap-x-5 gap-y-4 overflow-y-auto px-3 py-4 sm:grid-cols-2 sm:px-6 sm:py-5">
@@ -911,9 +923,9 @@ function EmployeesPage() {
               </div>
               <DialogFooter className="border-t border-border bg-background px-5 py-4 sm:px-6">
                 <Button type="button" variant="outline" onClick={() => setEditingEmployee(null)}>
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
-                <Button type="submit">Save Changes</Button>
+                <Button type="submit">{t("pages.employees.saveChanges")}</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -927,9 +939,11 @@ function EmployeesPage() {
         >
           <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-h-[92dvh]">
             <DialogHeader className="border-b border-border px-5 py-4 sm:px-6">
-              <DialogTitle>HR employee update</DialogTitle>
+              <DialogTitle>{t("pages.employees.hrEmployeeUpdateTitle")}</DialogTitle>
               <DialogDescription>
-                {hrManagingEmployee.name} · reporting manager and emergency contact only.
+                {t("pages.employees.hrEmployeeUpdateDescription", {
+                  name: hrManagingEmployee.name,
+                })}
               </DialogDescription>
             </DialogHeader>
             <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4 sm:px-6">
@@ -944,7 +958,9 @@ function EmployeesPage() {
                       <SelectValue placeholder="Select manager" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">No reporting manager</SelectItem>
+                      <SelectItem value="none">
+                        {t("pages.employees.noReportingManager")}
+                      </SelectItem>
                       {employees
                         .filter(
                           (candidate) =>
@@ -963,11 +979,13 @@ function EmployeesPage() {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    Current: {hrManagingEmployee.managerName ?? "Not assigned"}
+                    {t("pages.employees.current", {
+                      name: hrManagingEmployee.managerName ?? t("pages.employees.notAssigned"),
+                    })}
                   </p>
                 </div>
                 <Button type="submit" disabled={hrSaving} className="w-full sm:w-auto">
-                  {hrSaving ? "Saving…" : "Save reporting manager"}
+                  {hrSaving ? t("pages.employees.saving") : t("pages.employees.saveManager")}
                 </Button>
               </form>
               <EmergencyContactSection
@@ -983,7 +1001,7 @@ function EmployeesPage() {
             </div>
             <DialogFooter className="border-t border-border bg-background px-5 py-4 sm:px-6">
               <Button type="button" variant="outline" onClick={() => setHrManagingEmployee(null)}>
-                Close
+                {t("common.close")}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -994,6 +1012,7 @@ function EmployeesPage() {
 }
 
 function EmployeeAccountStatus({ employee }: { employee: User }) {
+  const { t } = useTranslation();
   const scheduledSuspension =
     employee.suspensionStartsAt && new Date(employee.suspensionStartsAt).getTime() > Date.now();
   if (scheduledSuspension) {
@@ -1047,7 +1066,7 @@ function EmployeeAccountStatus({ employee }: { employee: User }) {
       <Badge
         variant="outline"
         className="border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-300"
-        title="Account created; awaiting first sign-in"
+        title={t("pages.users.createdAwaiting")}
       >
         Created
       </Badge>
@@ -1058,7 +1077,7 @@ function EmployeeAccountStatus({ employee }: { employee: User }) {
       <Badge
         variant="outline"
         className="border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300"
-        title="Signed in once; must set a new password"
+        title={t("pages.users.mustSetPassword")}
       >
         Password change
       </Badge>

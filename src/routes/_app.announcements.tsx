@@ -109,7 +109,7 @@ function AnnouncementsPage() {
   async function publish(event: React.FormEvent) {
     event.preventDefault();
     if (!form.expiresAt || new Date(form.expiresAt) <= new Date()) {
-      toast.error("Select a future display-until date and time");
+      toast.error(t("pages.announcementsPage.toastFutureDate"));
       return;
     }
     setSaving(true);
@@ -123,7 +123,7 @@ function AnnouncementsPage() {
       setForm({ title: "", message: "", priority: "NORMAL", expiresAt: "" });
       setShowComposer(false);
       await load();
-      toast.success("Announcement published to everyone");
+      toast.success(t("pages.announcementsPage.toastPublished"));
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -139,7 +139,7 @@ function AnnouncementsPage() {
       setDeleteTarget(null);
       setDeleteConfirmation("");
       await load();
-      toast.success("Announcement permanently deleted");
+      toast.success(t("pages.announcementsPage.toastDeleted"));
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -160,9 +160,9 @@ function AnnouncementsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="expired">Expired</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="active">{t("pages.announcementsPage.filterActive")}</SelectItem>
+                  <SelectItem value="expired">{t("pages.announcementsPage.filterExpired")}</SelectItem>
+                  <SelectItem value="inactive">{t("pages.announcementsPage.filterInactive")}</SelectItem>
                 </SelectContent>
               </Select>
               <Button onClick={() => setShowComposer((current) => !current)}>
@@ -177,9 +177,9 @@ function AnnouncementsPage() {
       {canManage && !loading && !error && (
         <div className="mb-5 grid grid-cols-1 divide-y rounded-lg border bg-muted/25 min-[400px]:grid-cols-3 min-[400px]:divide-x min-[400px]:divide-y-0">
           {[
-            ["Active", summary.active],
-            ["Urgent", summary.urgent],
-            ["Expired", summary.expired],
+            [t("pages.announcementsPage.summaryActive"), summary.active],
+            [t("pages.announcementsPage.summaryUrgent"), summary.urgent],
+            [t("pages.announcementsPage.summaryExpired"), summary.expired],
           ].map(([label, value]) => (
             <div key={label} className="min-w-0 px-3 py-3 text-center sm:px-4">
               <p className="text-lg font-semibold tabular-nums sm:text-xl">{value}</p>
@@ -195,7 +195,7 @@ function AnnouncementsPage() {
           className="mb-5 grid gap-4 rounded-lg border border-primary/20 bg-primary/[0.025] p-4 sm:p-5 lg:grid-cols-2"
         >
           <div className="lg:col-span-2">
-            <h2 className="font-semibold">Publish company announcement</h2>
+            <h2 className="font-semibold">{t("pages.announcementsPage.publishTitle")}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {t("announcements.contentNote")}
             </p>
@@ -213,7 +213,7 @@ function AnnouncementsPage() {
               minLength={3}
               maxLength={TITLE_LIMIT}
               value={form.title}
-              placeholder="Clear announcement title"
+              placeholder={t("pages.announcementsPage.titlePlaceholder")}
               onChange={(event) =>
                 setForm((current) => ({ ...current, title: event.target.value }))
               }
@@ -233,14 +233,14 @@ function AnnouncementsPage() {
               maxLength={MESSAGE_LIMIT}
               rows={5}
               value={form.message}
-              placeholder="Write the update employees need to know."
+              placeholder={t("pages.announcementsPage.messagePlaceholder")}
               onChange={(event) =>
                 setForm((current) => ({ ...current, message: event.target.value }))
               }
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Priority</Label>
+            <Label>{t("pages.announcementsPage.priority")}</Label>
             <Select
               value={form.priority}
               onValueChange={(priority: Announcement["priority"]) =>
@@ -251,14 +251,14 @@ function AnnouncementsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="NORMAL">Normal</SelectItem>
-                <SelectItem value="IMPORTANT">Important</SelectItem>
-                <SelectItem value="URGENT">Urgent</SelectItem>
+                <SelectItem value="NORMAL">{t("common.normal")}</SelectItem>
+                <SelectItem value="IMPORTANT">{t("pages.announcementsPage.important")}</SelectItem>
+                <SelectItem value="URGENT">{t("common.urgent")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="announcement-page-expiry">Display until</Label>
+            <Label htmlFor="announcement-page-expiry">{t("pages.announcementsPage.displayUntil")}</Label>
             <Input
               id="announcement-page-expiry"
               required
@@ -276,13 +276,13 @@ function AnnouncementsPage() {
               ) : (
                 <Send className="mr-2 h-4 w-4" />
               )}
-              {saving ? "Publishing..." : "Publish Announcement"}
+              {saving ? t("pages.announcementsPage.publishing") : t("pages.announcementsPage.publishAnnouncement")}
             </Button>
           </div>
         </form>
       )}
 
-      {loading && <LoadingState label="Loading announcements" />}
+      {loading && <LoadingState label={t("pages.loading.announcements")} />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       {!loading && !error && visible.length === 0 && (
         <EmptyState
@@ -326,13 +326,14 @@ function AnnouncementsPage() {
                     {announcement.message}
                   </p>
                   <div className="mt-4 grid gap-2 border-t pt-3 text-xs text-muted-foreground sm:grid-cols-2 sm:items-center">
-                    <span>Published by {announcement.authorName}</span>
+                    <span>{t("pages.announcementsPage.publishedBy", { name: announcement.authorName })}</span>
                     <span className="flex items-start gap-1.5 sm:justify-self-end sm:text-right">
                       <CalendarClock className="h-3.5 w-3.5" />
-                      Until{" "}
                       {announcement.expiresAt
-                        ? formatDisplayDateTime(announcement.expiresAt)
-                        : "further notice"}
+                        ? t("pages.announcementsPage.until", {
+                            when: formatDisplayDateTime(announcement.expiresAt),
+                          })
+                        : t("pages.announcementsPage.furtherNotice")}
                     </span>
                   </div>
                   {canManage && (
@@ -348,8 +349,8 @@ function AnnouncementsPage() {
                             await load();
                             toast.success(
                               announcement.isActive
-                                ? "Announcement deactivated"
-                                : "Announcement reactivated",
+                                ? t("pages.announcementsPage.toastDeactivated")
+                                : t("pages.announcementsPage.toastReactivated"),
                             );
                           } catch (err) {
                             toast.error((err as Error).message);
@@ -357,14 +358,16 @@ function AnnouncementsPage() {
                         }}
                       >
                         <Power className="mr-2 h-4 w-4" />
-                        {announcement.isActive ? "Deactivate" : "Reactivate"}
+                        {announcement.isActive
+                          ? t("pages.announcementsPage.deactivate")
+                          : t("pages.announcementsPage.reactivate")}
                       </Button>
                       <Button
                         size="sm"
                         variant="destructive"
                         onClick={() => setDeleteTarget(announcement)}
                       >
-                        <Trash2 className="mr-2 h-4 w-4" /> Permanently delete
+                        <Trash2 className="mr-2 h-4 w-4" /> {t("pages.announcementsPage.permanentlyDelete")}
                       </Button>
                     </div>
                   )}
@@ -386,33 +389,32 @@ function AnnouncementsPage() {
       >
         <AlertDialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto sm:max-w-lg">
           <AlertDialogHeader>
-            <AlertDialogTitle>Permanently delete announcement?</AlertDialogTitle>
+            <AlertDialogTitle>{t("pages.announcementsPage.deleteTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              &quot;{deleteTarget?.title}&quot; will be removed from every employee&apos;s
-              announcement and notification history. This cannot be undone.
+              {t("pages.announcementsPage.deleteDescription", { title: deleteTarget?.title ?? "" })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-2">
             <Label htmlFor="announcement-delete-confirmation">
-              Type <span className="font-mono font-semibold">DELETE</span> to confirm
+              {t("pages.announcementsPage.deleteConfirmLabel")}
             </Label>
             <Input
               id="announcement-delete-confirmation"
               autoComplete="off"
               value={deleteConfirmation}
               onChange={(event) => setDeleteConfirmation(event.target.value)}
-              placeholder="DELETE"
+              placeholder={t("pages.announcementsPage.deleteConfirmPlaceholder")}
             />
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 text-white hover:bg-red-700"
               disabled={deleteConfirmation !== "DELETE" || deleting}
               onClick={() => void deleteAnnouncement()}
             >
               {deleting && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-              Permanently delete
+              {t("pages.announcementsPage.permanentlyDelete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

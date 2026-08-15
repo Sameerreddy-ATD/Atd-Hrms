@@ -1,5 +1,6 @@
 import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ShieldX } from "lucide-react";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
@@ -25,6 +26,7 @@ export const Route = createFileRoute("/_app")({
 });
 
 function AppLayout() {
+  const { t } = useTranslation();
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [faceRequired, setFaceRequired] = useState<boolean | null>(null);
@@ -115,7 +117,11 @@ function AppLayout() {
   if (loading || !user || user.mustChangePassword) {
     return (
       <div className="aw-scroll-page">
-        <LoadingState label="Preparing your workspace" showBrandStory className="min-h-full" />
+        <LoadingState
+          label={t("pages.loading.workspace")}
+          showBrandStory
+          className="min-h-full"
+        />
       </div>
     );
   }
@@ -124,7 +130,9 @@ function AppLayout() {
     return (
       <div className="aw-scroll-page flex flex-col items-center justify-center gap-4 px-4 py-[env(safe-area-inset-top)]">
         <LoadingState
-          label={facePolicyError ? "Security policy unavailable" : "Checking security policy"}
+          label={
+            facePolicyError ? t("pages.loading.securityUnavailable") : t("pages.loading.security")
+          }
           showBrandStory
           className="min-h-0 flex-1"
         />
@@ -148,7 +156,7 @@ function AppLayout() {
                   });
               }}
             >
-              Retry security check
+              {t("pages.shell.retrySecurity")}
             </Button>
           </div>
         )}
@@ -163,7 +171,11 @@ function AppLayout() {
   if (allowedModules === null) {
     return (
       <div className="aw-scroll-page">
-        <LoadingState label="Loading module access" showBrandStory className="min-h-full" />
+        <LoadingState
+          label={t("pages.loading.moduleAccess")}
+          showBrandStory
+          className="min-h-full"
+        />
       </div>
     );
   }
@@ -185,7 +197,7 @@ function AppLayout() {
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-[100] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-ring"
       >
-        Skip to main content
+        {t("pages.shell.skipToMain")}
       </a>
       <AppSidebar />
       <PermissionSetup />
@@ -209,14 +221,13 @@ function AppLayout() {
                 <span className="grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
                   <ShieldX className="h-6 w-6" />
                 </span>
-                <h1 className="mt-4 text-xl font-semibold">Module access is disabled</h1>
+                <h1 className="mt-4 text-xl font-semibold">{t("pages.shell.moduleDisabled")}</h1>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Developer Admin has disabled this module for your role. Contact the system owner
-                  if your work requires access.
+                  {t("pages.shell.moduleDisabledHelp")}
                 </p>
                 {fallbackRoute && fallbackRoute !== pathname && (
                   <Button asChild className="mt-5 w-full sm:w-auto">
-                    <Link to={fallbackRoute}>Open an available workspace</Link>
+                    <Link to={fallbackRoute}>{t("pages.shell.openWorkspace")}</Link>
                   </Button>
                 )}
               </div>

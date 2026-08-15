@@ -153,30 +153,33 @@ function ProfilePage() {
     .toUpperCase();
 
   const rules = [
-    { label: "At least 8 characters", ok: newPw.length >= 8 },
-    { label: "Contains a number", ok: /\d/.test(newPw) },
-    { label: "Contains uppercase letter", ok: /[A-Z]/.test(newPw) },
-    { label: "Matches confirmation", ok: newPw.length > 0 && newPw === confirmPw },
+    { label: t("pages.authExtra.atLeast8"), ok: newPw.length >= 8 },
+    { label: t("pages.authExtra.containsNumber"), ok: /\d/.test(newPw) },
+    { label: t("pages.authExtra.containsUpper"), ok: /[A-Z]/.test(newPw) },
+    {
+      label: t("pages.authExtra.matchesConfirm"),
+      ok: newPw.length > 0 && newPw === confirmPw,
+    },
   ];
 
   async function handlePasswordChange() {
     if (!oldPw) {
-      toast.error("Please enter your current password");
+      toast.error(t("pages.profilePage.toastEnterCurrentPassword"));
       return;
     }
     if (rules.some((r) => !r.ok)) {
-      toast.error("Please meet all password requirements");
+      toast.error(t("pages.authExtra.meetPasswordRules"));
       return;
     }
     setPwSaving(true);
     try {
       await changePassword(oldPw, newPw);
-      toast.success("Password changed successfully");
+      toast.success(t("pages.profilePage.toastPasswordChanged"));
       setOldPw("");
       setNewPw("");
       setConfirmPw("");
     } catch (err) {
-      toast.error((err as Error).message || "Failed to change password");
+      toast.error((err as Error).message || t("pages.profilePage.toastPasswordChangeFailed"));
     } finally {
       setPwSaving(false);
     }
@@ -209,7 +212,7 @@ function ProfilePage() {
         if (canEditField("uanNumber")) patch.uanNumber = uanNumber || undefined;
 
         if (Object.keys(patch).length === 0) {
-          toast.error("No editable fields to save");
+          toast.error(t("pages.profilePage.toastNoEditableFields"));
           return;
         }
 
@@ -223,11 +226,11 @@ function ProfilePage() {
           phone: phone || undefined,
         });
       } else {
-        toast.error("No employee record is linked to this login");
+        toast.error(t("pages.profilePage.toastNoEmployeeRecord"));
         return;
       }
       updateCurrentUser(updatedProfile);
-      toast.success("Profile updated");
+      toast.success(t("pages.profilePage.toastProfileUpdated"));
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -237,41 +240,53 @@ function ProfilePage() {
 
   const identityFields = (
     <FieldGrid>
-      <Field label="Full name" value={name} onChange={setName} editable={canEditField("name")} />
-      <Field label="Employee code" value={profile.employeeCode ?? "—"} />
-      <Field label="Email" value={email} onChange={setEmail} editable={canSaveDirectly} />
       <Field
-        label="Personal phone"
+        label={t("pages.profilePage.fullName")}
+        value={name}
+        onChange={setName}
+        editable={canEditField("name")}
+      />
+      <Field label={t("pages.profilePage.employeeCode")} value={profile.employeeCode ?? "—"} />
+      <Field
+        label={t("pages.profilePage.email")}
+        value={email}
+        onChange={setEmail}
+        editable={canSaveDirectly}
+      />
+      <Field
+        label={t("pages.profilePage.personalPhone")}
         value={phone}
         onChange={setPhone}
         editable={canEditField("phone")}
       />
       <Field
-        label="Company phone"
+        label={t("pages.profilePage.companyPhone")}
         value={canEditField("companyPhone") ? companyPhone : companyPhone || "—"}
         onChange={setCompanyPhone}
         editable={canEditField("companyPhone")}
       />
       <Field
-        label="Date of birth"
+        label={t("pages.profilePage.dateOfBirth")}
         value={dob}
         onChange={setDob}
         editable={canEditField("dateOfBirth")}
         type="date"
       />
-      <Field label="Gender" value={formatGender(profile.gender)} />
+      <Field label={t("pages.profilePage.gender")} value={formatGender(profile.gender, t)} />
       {canEditField("bloodGroup") ? (
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Blood group</Label>
+          <Label className="text-xs text-muted-foreground">
+            {t("pages.profilePage.bloodGroup")}
+          </Label>
           <Select
             value={bloodGroup || "none"}
             onValueChange={(next) => setBloodGroup(next === "none" ? "" : next)}
           >
             <SelectTrigger className="h-11 md:h-9">
-              <SelectValue placeholder="Select" />
+              <SelectValue placeholder={t("pages.profilePage.select")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">Not provided</SelectItem>
+              <SelectItem value="none">{t("pages.profilePage.notProvided")}</SelectItem>
               {BLOOD_GROUPS.map((group) => (
                 <SelectItem key={group} value={group}>
                   {group}
@@ -281,7 +296,10 @@ function ProfilePage() {
           </Select>
         </div>
       ) : (
-        <Field label="Blood group" value={bloodGroup || profile.bloodGroup || "—"} />
+        <Field
+          label={t("pages.profilePage.bloodGroup")}
+          value={bloodGroup || profile.bloodGroup || "—"}
+        />
       )}
     </FieldGrid>
   );
@@ -289,21 +307,27 @@ function ProfilePage() {
   const employmentFields = (
     <FieldGrid>
       <Field
-        label="Employer"
+        label={t("pages.profilePage.employer")}
         value={profile.companyEntity ? COMPANY_LABELS[profile.companyEntity] : "—"}
       />
-      <Field label="Parent group" value={PARENT_COMPANY_NAME} />
-      <Field label="Role" value={ROLE_LABELS[user.role]} />
-      <Field label="Employment type" value={formatEmployment(profile.employmentType)} />
+      <Field label={t("pages.profilePage.parentGroup")} value={PARENT_COMPANY_NAME} />
+      <Field label={t("pages.profilePage.role")} value={ROLE_LABELS[user.role]} />
       <Field
-        label="Organization level"
+        label={t("pages.profilePage.employmentType")}
+        value={formatEmployment(profile.employmentType, t)}
+      />
+      <Field
+        label={t("pages.profilePage.orgLevel")}
         value={formatOrganizationLevel(profile.organizationLevel)}
       />
-      <Field label="Department" value={profile.department ?? "—"} />
-      <Field label="Designation" value={profile.designation ?? "—"} />
-      <Field label="Reporting manager" value={profile.managerName ?? "—"} />
+      <Field label={t("common.department")} value={profile.department ?? "—"} />
+      <Field label={t("pages.profilePage.designation")} value={profile.designation ?? "—"} />
       <Field
-        label="Joining date"
+        label={t("pages.profilePage.reportingManager")}
+        value={profile.managerName ?? "—"}
+      />
+      <Field
+        label={t("pages.profilePage.joiningDate")}
         value={profile.joiningDate ? formatDisplayDate(profile.joiningDate) : "—"}
       />
     </FieldGrid>
@@ -312,7 +336,7 @@ function ProfilePage() {
   const bankingFields = (
     <FieldGrid>
       <Field
-        label="Account holder"
+        label={t("pages.profilePage.accountHolder")}
         value={
           canEditField("bankAccountHolderName")
             ? bankAccountHolderName
@@ -321,19 +345,19 @@ function ProfilePage() {
         onChange={setBankAccountHolderName}
         editable={canEditField("bankAccountHolderName")}
       />
-      <Field label="Account type" value={formatLabel(profile.bankAccountType)} />
+      <Field label={t("pages.profilePage.accountType")} value={formatLabel(profile.bankAccountType)} />
       {canEditField("bankAccountNumber") ? (
         <Field
-          label="Account number"
+          label={t("pages.profilePage.accountNumber")}
           value={bankAccountNumber}
           onChange={setBankAccountNumber}
           editable
         />
       ) : (
-        <SensitiveField label="Account number" value={bankAccountNumber} />
+        <SensitiveField label={t("pages.profilePage.accountNumber")} value={bankAccountNumber} />
       )}
       <Field
-        label="IFSC"
+        label={t("pages.profilePage.ifsc")}
         value={canEditField("bankIfscCode") ? bankIfscCode : bankIfscCode || "—"}
         onChange={setBankIfscCode}
         editable={canEditField("bankIfscCode")}
@@ -344,19 +368,24 @@ function ProfilePage() {
   const statutoryFields = (
     <FieldGrid>
       {canEditField("panNumber") ? (
-        <Field label="PAN" value={panNumber} onChange={setPanNumber} editable />
+        <Field label={t("pages.profilePage.pan")} value={panNumber} onChange={setPanNumber} editable />
       ) : (
-        <SensitiveField label="PAN" value={panNumber} />
+        <SensitiveField label={t("pages.profilePage.pan")} value={panNumber} />
       )}
       {canEditField("aadhaarNumber") ? (
-        <Field label="Aadhaar" value={aadhaarNumber} onChange={setAadhaarNumber} editable />
+        <Field
+          label={t("pages.profilePage.aadhaar")}
+          value={aadhaarNumber}
+          onChange={setAadhaarNumber}
+          editable
+        />
       ) : (
-        <SensitiveField label="Aadhaar" value={aadhaarNumber} />
+        <SensitiveField label={t("pages.profilePage.aadhaar")} value={aadhaarNumber} />
       )}
       {canEditField("uanNumber") ? (
-        <Field label="UAN" value={uanNumber} onChange={setUanNumber} editable />
+        <Field label={t("pages.profilePage.uan")} value={uanNumber} onChange={setUanNumber} editable />
       ) : (
-        <SensitiveField label="UAN" value={uanNumber} />
+        <SensitiveField label={t("pages.profilePage.uan")} value={uanNumber} />
       )}
     </FieldGrid>
   );
@@ -365,7 +394,7 @@ function ProfilePage() {
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="space-y-1.5 sm:col-span-2">
         <Label htmlFor="current-pw" className="text-xs text-muted-foreground">
-          Current password
+          {t("pages.profilePage.currentPassword")}
         </Label>
         <PasswordInput
           id="current-pw"
@@ -377,7 +406,7 @@ function ProfilePage() {
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="new-pw" className="text-xs text-muted-foreground">
-          New password
+          {t("pages.profilePage.newPassword")}
         </Label>
         <PasswordInput
           id="new-pw"
@@ -389,7 +418,7 @@ function ProfilePage() {
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="confirm-pw" className="text-xs text-muted-foreground">
-          Confirm password
+          {t("pages.profilePage.confirmPassword")}
         </Label>
         <PasswordInput
           id="confirm-pw"
@@ -418,7 +447,7 @@ function ProfilePage() {
           onClick={() => void handlePasswordChange()}
         >
           {pwSaving && <Loader2 className="mr-2 size-4 animate-spin" />}
-          Update password
+          {t("pages.profilePage.updatePassword")}
         </Button>
       </div>
     </div>
@@ -437,8 +466,8 @@ function ProfilePage() {
         title={t("profile.title")}
         description={
           canEditAnyProfileField || canEditEmergencyContact
-            ? "Update the fields available to you. Employment details stay admin-controlled."
-            : "Your workforce details. Change your password in the security card."
+            ? t("pages.profilePage.descriptionEditable")
+            : t("pages.profilePage.descriptionViewOnly")
         }
         actions={
           <Button
@@ -526,7 +555,7 @@ function ProfilePage() {
                 />
               </MobileSectionCard>
             )}
-            <MobileSectionCard value="password" icon={KeyRound} title="Password">
+            <MobileSectionCard value="password" icon={KeyRound} title={t("pages.profilePage.password")}>
               {passwordFields}
             </MobileSectionCard>
           </Accordion>
@@ -569,7 +598,7 @@ function ProfilePage() {
               />
             </DesktopSectionCard>
           )}
-          <DesktopSectionCard icon={KeyRound} title="Password">
+          <DesktopSectionCard icon={KeyRound} title={t("pages.profilePage.password")}>
             {passwordFields}
           </DesktopSectionCard>
           <Card className="border-border/70 shadow-sm">
@@ -744,17 +773,18 @@ function FieldGrid({ children }: { children: ReactNode }) {
   return <div className="grid gap-3 sm:grid-cols-2">{children}</div>;
 }
 
-function formatGender(gender?: User["gender"]) {
-  if (gender === "FEMALE") return "Female";
-  if (gender === "MALE") return "Male";
-  if (gender === "PREFER_NOT_TO_SAY") return "Prefer not to say";
+function formatGender(gender?: User["gender"], t?: (key: string) => string) {
+  if (gender === "FEMALE") return t ? t("pages.profilePage.genderFemale") : "Female";
+  if (gender === "MALE") return t ? t("pages.profilePage.genderMale") : "Male";
+  if (gender === "PREFER_NOT_TO_SAY")
+    return t ? t("pages.profilePage.genderPreferNot") : "Prefer not to say";
   return "—";
 }
 
-function formatEmployment(type?: User["employmentType"]) {
-  if (type === "FULL_TIME") return "Full-time";
-  if (type === "PART_TIME") return "Part-time";
-  if (type === "INTERN") return "Intern";
+function formatEmployment(type?: User["employmentType"], t?: (key: string) => string) {
+  if (type === "FULL_TIME") return t ? t("pages.profilePage.employmentFullTime") : "Full-time";
+  if (type === "PART_TIME") return t ? t("pages.profilePage.employmentPartTime") : "Part-time";
+  if (type === "INTERN") return t ? t("pages.profilePage.employmentIntern") : "Intern";
   return "—";
 }
 

@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { formatDisplayDate, formatDisplayDateRange, indiaDateKey } from "@/lib/india-date";
@@ -146,6 +147,7 @@ function countStatusIncludes(rows: AttendanceRecord[], fragment: string) {
 }
 
 function DashboardPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [reloadKey, setReloadKey] = useState(0);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
@@ -238,9 +240,9 @@ function DashboardPage() {
     return (
       <div>
         <PageHeader
-          eyebrow="Anytime Workforce"
-          title={`Welcome, ${user.name?.split(" ")[0] ?? "there"}`}
-          description={`${ROLE_LABELS[user.role]} · Loading today's workspace`}
+          eyebrow={t("pages.dashboard.eyebrow")}
+          title={t("pages.dashboard.welcome", { name: user.name?.split(" ")[0] ?? "there" })}
+          description={`${ROLE_LABELS[user.role]} · ${t("pages.dashboard.loadingWorkspace")}`}
         />
         <DashboardSkeleton />
       </div>
@@ -269,8 +271,8 @@ function DashboardPage() {
   return (
     <div className="aw-enter space-y-1">
       <PageHeader
-        eyebrow="Anytime Workforce"
-        title={`Welcome, ${user.name?.split(" ")[0] ?? "there"}`}
+        eyebrow={t("pages.dashboard.eyebrow")}
+        title={t("pages.dashboard.welcome", { name: user.name?.split(" ")[0] ?? "there" })}
         description={`${ROLE_LABELS[user.role]} · ${formatDisplayDate(new Date())}`}
       />
 
@@ -279,7 +281,7 @@ function DashboardPage() {
 
       {secondaryLoading && (
         <div className="mb-3 text-xs font-medium text-muted-foreground">
-          Updating operational details...
+          {t("pages.dashboard.updating")}
         </div>
       )}
       {error && (
@@ -375,8 +377,9 @@ function DashboardPage() {
 }
 
 function DashboardSkeleton() {
+  const { t } = useTranslation();
   return (
-    <div className="space-y-4" aria-label="Loading dashboard data">
+    <div className="space-y-4" aria-label={t("pages.dashboard.loadingAria")}>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
           <div key={index} className="rounded-md border bg-card p-4">
@@ -454,6 +457,7 @@ function MarkAttendanceCard({
   className?: string;
   attendanceReady: boolean;
 }) {
+  const { t } = useTranslation();
   const [actionLoading, setActionLoading] = useState(false);
   const [faceAction, setFaceAction] = useState<"check-in" | "check-out" | null>(null);
   const [clockNow, setClockNow] = useState(() => Date.now());
@@ -482,7 +486,7 @@ function MarkAttendanceCard({
         hour12: true,
         timeZone: "Asia/Kolkata",
       }).format(effectiveFirstCheckIn)
-    : "Not checked in";
+    : t("pages.dashboard.notCheckedIn");
   const homeBranch = branches.find((branch) => branch.id === user.homeBranchId);
   const branchName = formatBranchLocationLabel(homeBranch);
 
@@ -530,7 +534,7 @@ function MarkAttendanceCard({
             const payload = entry.payload;
             if (payload.faceVerification) {
               await removeOfflinePunch(entry.id);
-              toast.error("A queued face check-in expired. Please check in again while online.");
+              toast.error(t("pages.dashboard.toastFaceExpired"));
               continue;
             }
             await attendanceApi.checkIn({
@@ -558,7 +562,9 @@ function MarkAttendanceCard({
           }
           await removeOfflinePunch(entry.id);
           toast.success(
-            entry.kind === "check-in" ? "Queued check-in synced" : "Queued check-out synced",
+            entry.kind === "check-in"
+              ? t("pages.dashboard.toastQueuedSyncedIn")
+              : t("pages.dashboard.toastQueuedSyncedOut"),
           );
           onAttendanceChanged();
         } catch (error) {
@@ -568,7 +574,7 @@ function MarkAttendanceCard({
             /expired|already submitted|face verification/i.test(message)
           ) {
             await removeOfflinePunch(entry.id);
-            toast.error("A queued face check-in could not be synced. Please check in again.");
+            toast.error(t("pages.dashboard.toastFaceFailed"));
             continue;
           }
           // Keep in queue for the next online attempt.
@@ -605,7 +611,7 @@ function MarkAttendanceCard({
       setOptimisticSession({ state: "CHECKED_IN", startedAt: Date.now() });
       setClockNow(Date.now());
       setLeaveCheckIn(null);
-      toast.success("You are checked in");
+      toast.success(t("pages.dashboard.toastCheckedIn"));
       onAttendanceChanged();
     } catch (err) {
       const message = (err as Error).message;
@@ -617,9 +623,7 @@ function MarkAttendanceCard({
         await import("@/lib/offline-punch-queue");
       if (isLikelyNetworkError(err)) {
         if ("faceVerification" in capture && capture.faceVerification) {
-          toast.error(
-            "Face check-in needs an internet connection. Stay online and try again — offline queue cannot reuse an expired face session.",
-          );
+          toast.error(t("pages.dashboard.toastFaceOffline"));
           return;
         }
         await enqueueOfflinePunch({
@@ -637,7 +641,7 @@ function MarkAttendanceCard({
           },
         });
         setOptimisticSession({ state: "CHECKED_IN", startedAt: Date.now() });
-        toast.success("Check-in queued offline — will sync when you reconnect");
+        toast.success(t("pages.dashboard.toastQueuedIn"));
         return;
       }
       throw err;
@@ -646,7 +650,7 @@ function MarkAttendanceCard({
 
   function checkIn() {
     if (!user.employeeId) {
-      toast.error("You must have an employee profile to mark attendance.");
+      toast.error(t("pages.dashboard.toastNeedProfile"));
       return;
     }
     setFaceAction("check-in");
@@ -678,7 +682,7 @@ function MarkAttendanceCard({
         try {
           await attendanceApi.checkOut(capture);
           setOptimisticSession({ state: "CHECKED_OUT" });
-          toast.success("You are checked out");
+          toast.success(t("pages.dashboard.toastCheckedOut"));
           onAttendanceChanged();
         } catch (error) {
           const { enqueueOfflinePunch, isLikelyNetworkError } =
@@ -697,7 +701,7 @@ function MarkAttendanceCard({
               },
             });
             setOptimisticSession({ state: "CHECKED_OUT" });
-            toast.success("Check-out queued offline — will sync when you reconnect");
+            toast.success(t("pages.dashboard.toastQueuedOut"));
           } else {
             throw error;
           }
@@ -706,8 +710,8 @@ function MarkAttendanceCard({
     } catch (error) {
       const message = error instanceof Error ? error.message : "Attendance could not be saved.";
       if (message.startsWith("Another face detected")) {
-        toast.error("Another face detected", {
-          description: "Check-in was blocked and the security event is visible to Developer Admin.",
+        toast.error(t("pages.dashboard.toastAnotherFace"), {
+          description: t("pages.dashboard.toastAnotherFaceDesc"),
         });
       } else {
         toast.error(message);
@@ -722,8 +726,10 @@ function MarkAttendanceCard({
     <Card className={`border-border shadow-sm ${className ?? ""}`}>
       <CardHeader className="p-4 sm:p-5">
         <div className="min-w-0">
-          <CardTitle className="text-base font-semibold text-foreground">Mark Attendance</CardTitle>
-          <p className="mt-0.5 text-xs text-muted-foreground">Today&apos;s live work session</p>
+          <CardTitle className="text-base font-semibold text-foreground">
+            {t("pages.dashboard.markAttendance")}
+          </CardTitle>
+          <p className="mt-0.5 text-xs text-muted-foreground">{t("pages.dashboard.liveSession")}</p>
         </div>
       </CardHeader>
       <CardContent className="grid gap-4 p-4 pt-0 sm:p-5 sm:pt-0 md:grid-cols-[minmax(0,1fr)_minmax(260px,0.72fr)]">
@@ -735,11 +741,13 @@ function MarkAttendanceCard({
               <Clock3 className="h-5 w-5" />
             </span>
             <div className="min-w-0">
-              <p className="text-xs font-medium text-muted-foreground">Worked today</p>
+              <p className="text-xs font-medium text-muted-foreground">
+                {t("pages.dashboard.workedToday")}
+              </p>
               <p
                 className="font-mono text-2xl font-semibold tabular-nums text-foreground min-[360px]:text-3xl sm:text-4xl"
                 aria-live="polite"
-                aria-label={`Worked today ${formatWorkedTime(workedMilliseconds)}`}
+                aria-label={`${t("pages.dashboard.workedToday")} ${formatWorkedTime(workedMilliseconds)}`}
               >
                 {formatWorkedTime(workedMilliseconds)}
               </p>
@@ -747,13 +755,13 @@ function MarkAttendanceCard({
           </div>
           <div className="grid grid-cols-2 divide-x divide-border/60">
             <div className="min-w-0 p-3 sm:p-4">
-              <p className="text-xs text-muted-foreground">First check-in</p>
+              <p className="text-xs text-muted-foreground">{t("pages.dashboard.firstCheckIn")}</p>
               <p className="mt-1 truncate text-sm font-medium text-foreground">
                 {firstCheckInLabel}
               </p>
             </div>
             <div className="min-w-0 p-3 sm:p-4">
-              <p className="text-xs text-muted-foreground">Home branch</p>
+              <p className="text-xs text-muted-foreground">{t("pages.dashboard.homeBranch")}</p>
               <p className="mt-1 truncate text-sm font-medium text-foreground">{branchName}</p>
             </div>
           </div>
@@ -763,7 +771,7 @@ function MarkAttendanceCard({
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Fingerprint className="h-4 w-4 text-primary" />
-              Attendance status
+              {t("pages.dashboard.attendanceStatus")}
             </div>
             <span
               className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${isCheckedIn ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}
@@ -771,7 +779,7 @@ function MarkAttendanceCard({
               <span
                 className={`h-1.5 w-1.5 rounded-full ${isCheckedIn ? "animate-pulse bg-emerald-600 dark:bg-emerald-400" : "bg-muted-foreground/60"}`}
               />
-              {isCheckedIn ? "Checked in" : "Checked out"}
+              {isCheckedIn ? t("pages.dashboard.checkedIn") : t("pages.dashboard.checkedOut")}
             </span>
           </div>
           <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
@@ -782,10 +790,10 @@ function MarkAttendanceCard({
             >
               <LogIn className="mr-2 h-4 w-4" />
               {!attendanceReady
-                ? "Checking status..."
+                ? t("pages.dashboard.checkingStatus")
                 : actionLoading
-                  ? "Verifying..."
-                  : "Check In"}
+                  ? t("pages.dashboard.verifying")
+                  : t("pages.dashboard.checkIn")}
             </Button>
             <Button
               variant="outline"
@@ -795,10 +803,10 @@ function MarkAttendanceCard({
             >
               <LogOut className="mr-2 h-4 w-4 text-destructive" />
               {!attendanceReady
-                ? "Checking status..."
+                ? t("pages.dashboard.checkingStatus")
                 : actionLoading
-                  ? "Verifying..."
-                  : "Check Out"}
+                  ? t("pages.dashboard.verifying")
+                  : t("pages.dashboard.checkOut")}
             </Button>
           </div>
         </div>
@@ -806,16 +814,15 @@ function MarkAttendanceCard({
       <AlertDialog open={!!leaveCheckIn} onOpenChange={(open) => !open && setLeaveCheckIn(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancel leave for today?</AlertDialogTitle>
-            <AlertDialogDescription>
-              You have approved leave today. Continuing with mobile check-in will cancel leave only
-              for today and record your attendance. Other leave dates will remain unchanged.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t("pages.dashboard.cancelLeaveTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("pages.dashboard.cancelLeaveHelp")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={actionLoading}>Keep leave</AlertDialogCancel>
+            <AlertDialogCancel disabled={actionLoading}>
+              {t("pages.dashboard.keepLeave")}
+            </AlertDialogCancel>
             <AlertDialogAction disabled={actionLoading} onClick={confirmLeaveCheckIn}>
-              Check in and cancel today&apos;s leave
+              {t("pages.dashboard.checkInCancelLeave")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -853,23 +860,29 @@ function ManagerDashboard({
   onAttendanceChanged: () => void;
   attendanceReady: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-4">
       <div className="aw-enter-delayed grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        <StatCard label="Team present" value={data.present} icon={UserCheck} tone="success" />
-        <StatCard label="On leave" value={data.onLeave} icon={PlaneTakeoff} tone="info" />
         <StatCard
-          label="Pending leave approvals"
+          label={t("pages.dashboard.teamPresent")}
+          value={data.present}
+          icon={UserCheck}
+          tone="success"
+        />
+        <StatCard label={t("pages.dashboard.onLeave")} value={data.onLeave} icon={PlaneTakeoff} tone="info" />
+        <StatCard
+          label={t("pages.dashboard.pendingLeaveApprovals")}
           value={data.pendingLeaves}
           icon={CalendarClock}
           tone="warning"
         />
         <StatCard
-          label="Missed punch alerts"
+          label={t("pages.dashboard.missedPunchAlerts")}
           value={data.missed}
           icon={AlertTriangle}
           tone="warning"
-          hint="Open sessions or missed punch corrections"
+          hint={t("pages.dashboard.missedPunchHint")}
         />
       </div>
       <div className="grid gap-3 lg:grid-cols-2">
@@ -882,7 +895,11 @@ function ManagerDashboard({
           className="lg:col-span-2"
         />
         <div className="lg:col-span-2">
-          <TeamAttendanceCard rows={attendance} branches={branches} title="Team attendance today" />
+          <TeamAttendanceCard
+            rows={attendance}
+            branches={branches}
+            title={t("pages.dashboard.teamAttendanceToday")}
+          />
         </div>
         <div className="lg:col-span-2">
           <UpcomingBirthdaysCard birthdays={birthdays} />
@@ -920,27 +937,38 @@ function HRDashboard({
   onAttendanceChanged: () => void;
   attendanceReady: boolean;
 }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   return (
     <div className="space-y-4">
       <div className="aw-enter-delayed grid grid-cols-2 gap-3 min-[480px]:grid-cols-3 lg:grid-cols-6">
-        <StatCard label="Total employees" value={data.total} icon={Users} />
+        <StatCard label={t("pages.dashboard.totalEmployees")} value={data.total} icon={Users} />
         <StatCard
-          label="Present today"
+          label={t("pages.dashboard.presentToday")}
           value={data.present}
           icon={UserCheck}
           tone="success"
-          hint="Office and field"
+          hint={t("pages.dashboard.officeAndField")}
         />
-        <StatCard label="On leave today" value={data.onLeave} icon={PlaneTakeoff} tone="info" />
         <StatCard
-          label="Pending leave requests"
+          label={t("pages.dashboard.onLeaveToday")}
+          value={data.onLeave}
+          icon={PlaneTakeoff}
+          tone="info"
+        />
+        <StatCard
+          label={t("pages.dashboard.pendingLeaveRequests")}
           value={data.pendingLeaves}
           icon={CalendarClock}
           tone="warning"
         />
-        <StatCard label="Missed punch" value={data.missed} icon={AlertTriangle} tone="warning" />
-        <StatCard label="Field present" value={data.fieldPresent} icon={MapPin} />
+        <StatCard
+          label={t("pages.dashboard.missedPunch")}
+          value={data.missed}
+          icon={AlertTriangle}
+          tone="warning"
+        />
+        <StatCard label={t("pages.dashboard.fieldPresent")} value={data.fieldPresent} icon={MapPin} />
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2">
@@ -950,7 +978,7 @@ function HRDashboard({
           onClick={() => void navigate({ to: "/attendance/locations" })}
         >
           <MapPin className="mr-2 size-4" />
-          Day logs
+          {t("pages.dashboard.dayLogs")}
         </Button>
         <Button
           variant="outline"
@@ -958,7 +986,7 @@ function HRDashboard({
           onClick={() => void navigate({ to: "/leave/reports" })}
         >
           <CalendarClock className="mr-2 size-4" />
-          Leave requests
+          {t("pages.dashboard.leaveRequests")}
         </Button>
       </div>
 
@@ -979,18 +1007,18 @@ function HRDashboard({
         />
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
-            <CardTitle className="text-sm">Pending leave requests</CardTitle>
+            <CardTitle className="text-sm">{t("pages.dashboard.pendingLeaveRequests")}</CardTitle>
             <Button
               size="sm"
               variant="outline"
               onClick={() => void navigate({ to: "/leave/reports" })}
             >
-              View all
+              {t("pages.dashboard.viewAll")}
             </Button>
           </CardHeader>
           <CardContent className="space-y-2">
             {pendingLeaveRows.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No pending leave requests.</p>
+              <p className="text-sm text-muted-foreground">{t("pages.dashboard.noPendingLeave")}</p>
             ) : (
               pendingLeaveRows.map((leave) => (
                 <div
@@ -1044,6 +1072,7 @@ function CEODashboard({
   tasks: WorkTask[];
   investments: EmployeeAssetInvestment[];
 }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const accountedFor = Math.min(
     data.attendanceRequiredTotal,
@@ -1072,21 +1101,36 @@ function CEODashboard({
     { monthly: 0, firstYear: 0 },
   );
   const executiveLinks = [
-    { label: "Workforce", detail: "People and organization", to: "/employees", icon: Users },
     {
-      label: "Attendance",
-      detail: "Daily attendance detail",
+      label: t("pages.dashboard.navWorkforce"),
+      detail: t("pages.dashboard.navWorkforceHelp"),
+      to: "/employees",
+      icon: Users,
+    },
+    {
+      label: t("pages.dashboard.navAttendance"),
+      detail: t("pages.dashboard.navAttendanceHelp"),
       to: "/attendance/locations",
       icon: UserCheck,
     },
-    { label: "Work Planner", detail: "Tasks, owners, and due dates", to: "/tasks", icon: ListTodo },
     {
-      label: "Leave overview",
-      detail: "Requests and status",
+      label: t("pages.dashboard.navWorkPlanner"),
+      detail: t("pages.dashboard.navWorkPlannerHelp"),
+      to: "/tasks",
+      icon: ListTodo,
+    },
+    {
+      label: t("pages.dashboard.navLeave"),
+      detail: t("pages.dashboard.navLeaveHelp"),
       to: "/leave/reports",
       icon: CalendarClock,
     },
-    { label: "Investment", detail: "Assets by employee", to: "/assets", icon: Package },
+    {
+      label: t("pages.dashboard.navInvestment"),
+      detail: t("pages.dashboard.navInvestmentHelp"),
+      to: "/assets",
+      icon: Package,
+    },
   ] as const;
 
   return (
@@ -1095,38 +1139,48 @@ function CEODashboard({
         <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 id="executive-summary-title" className="text-base font-semibold tracking-tight">
-              Executive summary
+              {t("pages.dashboard.executiveSummary")}
             </h2>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              Workforce health and decisions requiring attention today.
+              {t("pages.dashboard.executiveHelp")}
             </p>
           </div>
           <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-            {attendanceCoverage}% attendance accounted for
+            {t("pages.dashboard.attendanceAccounted", { pct: attendanceCoverage })}
           </p>
         </div>
         <div className="aw-enter-delayed grid grid-cols-2 gap-3 min-[480px]:grid-cols-3 xl:grid-cols-6">
-          <StatCard label="Total workforce" value={data.total} icon={Users} />
-          <StatCard label="Present today" value={data.present} icon={UserCheck} tone="success" />
-          <StatCard label="On leave today" value={data.onLeave} icon={PlaneTakeoff} tone="info" />
+          <StatCard label={t("pages.dashboard.totalWorkforce")} value={data.total} icon={Users} />
           <StatCard
-            label="Pending leave decisions"
+            label={t("pages.dashboard.presentToday")}
+            value={data.present}
+            icon={UserCheck}
+            tone="success"
+          />
+          <StatCard
+            label={t("pages.dashboard.onLeaveToday")}
+            value={data.onLeave}
+            icon={PlaneTakeoff}
+            tone="info"
+          />
+          <StatCard
+            label={t("pages.dashboard.pendingLeaveDecisions")}
             value={data.pendingLeaves}
             icon={CalendarClock}
             tone="warning"
           />
           <StatCard
-            label="Attendance exceptions"
+            label={t("pages.dashboard.attendanceExceptions")}
             value={data.missed}
             icon={AlertTriangle}
             tone="warning"
-            hint={`${data.missed} missed punch`}
+            hint={t("pages.dashboard.missedPunchCount", { count: data.missed })}
           />
           <StatCard
-            label="Awaiting attendance"
+            label={t("pages.dashboard.awaitingAttendance")}
             value={awaitingAttendance}
             icon={Clock3}
-            hint="Active employees without a settled attendance status"
+            hint={t("pages.dashboard.awaitingAttendanceHint")}
           />
         </div>
       </section>
@@ -1157,34 +1211,44 @@ function CEODashboard({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-sm">
-              <BriefcaseBusiness className="h-4 w-4 text-primary" /> Work delivery
+              <BriefcaseBusiness className="h-4 w-4 text-primary" /> {t("pages.dashboard.workDelivery")}
             </CardTitle>
-            <p className="text-xs text-muted-foreground">Organization-wide task status.</p>
+            <p className="text-xs text-muted-foreground">{t("pages.dashboard.workDeliveryHelp")}</p>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <ExecutiveMetric label="Active" value={taskSummary.active} />
-            <ExecutiveMetric label="Overdue" value={taskSummary.overdue} tone="danger" />
-            <ExecutiveMetric label="In review" value={taskSummary.review} tone="warning" />
-            <ExecutiveMetric label="Completed" value={taskSummary.completed} tone="success" />
+            <ExecutiveMetric label={t("pages.dashboard.active")} value={taskSummary.active} />
+            <ExecutiveMetric
+              label={t("pages.dashboard.overdue")}
+              value={taskSummary.overdue}
+              tone="danger"
+            />
+            <ExecutiveMetric
+              label={t("pages.dashboard.inReview")}
+              value={taskSummary.review}
+              tone="warning"
+            />
+            <ExecutiveMetric
+              label={t("pages.dashboard.completed")}
+              value={taskSummary.completed}
+              tone="success"
+            />
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-sm">
-              <IndianRupee className="h-4 w-4 text-primary" /> Investment in employees
+              <IndianRupee className="h-4 w-4 text-primary" /> {t("pages.dashboard.investment")}
             </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Current assigned physical and online assets.
-            </p>
+            <p className="text-xs text-muted-foreground">{t("pages.dashboard.investmentHelp")}</p>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <ExecutiveMetric label="Employees equipped" value={investments.length} />
+            <ExecutiveMetric label={t("pages.dashboard.employeesEquipped")} value={investments.length} />
             <ExecutiveMetric
-              label="Monthly recurring"
+              label={t("pages.dashboard.monthlyRecurring")}
               value={formatCompactInr(investmentSummary.monthly)}
             />
             <ExecutiveMetric
-              label="First-year value"
+              label={t("pages.dashboard.firstYearValue")}
               value={formatCompactInr(investmentSummary.firstYear)}
             />
           </CardContent>
@@ -1194,9 +1258,9 @@ function CEODashboard({
       <Card>
         <CardHeader className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle className="text-sm">Company operations today</CardTitle>
+            <CardTitle className="text-sm">{t("pages.dashboard.companyOps")}</CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
-              Attendance coverage across every active branch and field operation.
+              {t("pages.dashboard.companyOpsHelp")}
             </p>
           </div>
           <Button
@@ -1223,25 +1287,29 @@ function CEODashboard({
               ])
             }
           >
-            Download report
+            {t("pages.dashboard.downloadReport")}
           </Button>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-2">
-            <MetricBar label="Present" value={data.present} total={data.attendanceRequiredTotal} />
             <MetricBar
-              label="On leave"
+              label={t("pages.dashboard.present")}
+              value={data.present}
+              total={data.attendanceRequiredTotal}
+            />
+            <MetricBar
+              label={t("pages.dashboard.onLeave")}
               value={data.onLeave}
               total={data.attendanceRequiredTotal}
               tone="bg-blue-600"
             />
             <MetricBar
-              label="Field present"
+              label={t("pages.dashboard.fieldPresent")}
               value={data.fieldPresent}
               total={data.attendanceRequiredTotal}
             />
             <MetricBar
-              label="Absent"
+              label={t("pages.dashboard.absent")}
               value={data.absent}
               total={data.attendanceRequiredTotal}
               tone="bg-red-500"
@@ -1249,7 +1317,7 @@ function CEODashboard({
           </div>
           <div className="mt-5 border-t border-border pt-4">
             <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">
-              Location presence
+              {t("pages.dashboard.locationPresence")}
             </p>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {data.branchPresentCounts.map(({ branch, present }) => (
@@ -1261,12 +1329,12 @@ function CEODashboard({
                     {formatBranchLocationLabel(branch)}
                   </span>
                   <span className="shrink-0 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-                    {present} present
+                    {t("pages.dashboard.nPresent", { count: present })}
                   </span>
                 </div>
               ))}
               {!data.branchPresentCounts.length && (
-                <p className="text-sm text-muted-foreground">No active locations are configured.</p>
+                <p className="text-sm text-muted-foreground">{t("pages.dashboard.noLocations")}</p>
               )}
             </div>
           </div>
@@ -1275,7 +1343,7 @@ function CEODashboard({
       <TeamAttendanceCard
         rows={attendance}
         branches={branches}
-        title="Company attendance detail"
+        title={t("pages.dashboard.companyAttendanceDetail")}
         viewAllHref="/attendance/locations"
       />
       <div className="mt-4">
@@ -1343,14 +1411,15 @@ function AdminDashboard({
   onAttendanceChanged: () => void;
   attendanceReady: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-        <StatCard label="Total users" value={data.users} icon={Users} />
-        <StatCard label="Total employees" value={data.total} icon={UserCheck} />
-        <StatCard label="Branches" value={data.branches} icon={Building2} />
+        <StatCard label={t("pages.dashboard.totalUsers")} value={data.users} icon={Users} />
+        <StatCard label={t("pages.dashboard.totalEmployees")} value={data.total} icon={UserCheck} />
+        <StatCard label={t("pages.dashboard.branches")} value={data.branches} icon={Building2} />
         <StatCard
-          label="Pending approvals"
+          label={t("pages.dashboard.pendingApprovals")}
           value={data.pendingLeaves}
           icon={CalendarClock}
           tone="warning"
@@ -1384,25 +1453,30 @@ function BranchFieldAttendanceCard({
   branchPresentCounts: Array<{ branch: Branch; present: number }>;
   fieldPresent: number;
 }) {
+  const { t } = useTranslation();
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">Location & field attendance (today)</CardTitle>
+        <CardTitle className="text-sm">{t("pages.dashboard.locationFieldToday")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {branchPresentCounts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No location attendance data for today.</p>
+          <p className="text-sm text-muted-foreground">{t("pages.dashboard.noLocationData")}</p>
         ) : (
           branchPresentCounts.map(({ branch, present }) => (
             <div key={branch.id} className="flex items-center justify-between text-sm">
               <span className="font-medium">{formatBranchLocationLabel(branch)}</span>
-              <span className="text-muted-foreground">{present} present</span>
+              <span className="text-muted-foreground">
+                {t("pages.dashboard.nPresent", { count: present })}
+              </span>
             </div>
           ))
         )}
         <div className="flex items-center justify-between border-t border-border pt-3 text-sm">
-          <span className="font-medium">Field</span>
-          <span className="text-muted-foreground">{fieldPresent} present</span>
+          <span className="font-medium">{t("pages.dashboard.field")}</span>
+          <span className="text-muted-foreground">
+            {t("pages.dashboard.nPresent", { count: fieldPresent })}
+          </span>
         </div>
       </CardContent>
     </Card>
@@ -1410,14 +1484,15 @@ function BranchFieldAttendanceCard({
 }
 
 function RecentAttendanceCard({ rows }: { rows: AttendanceRecord[] }) {
+  const { t } = useTranslation();
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">Recent attendance activity</CardTitle>
+        <CardTitle className="text-sm">{t("pages.dashboard.recentActivity")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
         {rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No recent attendance activity.</p>
+          <p className="text-sm text-muted-foreground">{t("pages.dashboard.noRecentActivity")}</p>
         ) : (
           rows.slice(0, 5).map((a) => (
             <div
@@ -1450,6 +1525,7 @@ function TeamAttendanceCard({
   title: string;
   viewAllHref?: string;
 }) {
+  const { t } = useTranslation();
   const todayParts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Kolkata",
     year: "numeric",
@@ -1470,7 +1546,7 @@ function TeamAttendanceCard({
         <CardTitle className="text-sm">{title}</CardTitle>
         {viewAllHref && (
           <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
-            <a href={viewAllHref}>View all employees</a>
+            <a href={viewAllHref}>{t("pages.dashboard.viewAllEmployees")}</a>
           </Button>
         )}
       </CardHeader>
@@ -1510,12 +1586,12 @@ function TeamAttendanceCard({
           <Table className="min-w-[760px]">
             <TableHeader>
               <TableRow>
-                <TableHead>Employee</TableHead>
-                <TableHead>In</TableHead>
-                <TableHead>Out</TableHead>
-                <TableHead>Branch</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>{t("pages.dashboard.colEmployee")}</TableHead>
+                <TableHead>{t("pages.dashboard.colIn")}</TableHead>
+                <TableHead>{t("pages.dashboard.colOut")}</TableHead>
+                <TableHead>{t("pages.dashboard.colBranch")}</TableHead>
+                <TableHead>{t("pages.dashboard.colSource")}</TableHead>
+                <TableHead>{t("pages.dashboard.colStatus")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1540,7 +1616,7 @@ function TeamAttendanceCard({
           </Table>
         </div>
         {todayRows.length === 0 && (
-          <p className="p-5 text-sm text-muted-foreground">No attendance recorded today.</p>
+          <p className="p-5 text-sm text-muted-foreground">{t("pages.dashboard.noAttendanceToday")}</p>
         )}
       </CardContent>
     </Card>
@@ -1548,6 +1624,7 @@ function TeamAttendanceCard({
 }
 
 function AttendanceAnalyticsCard({ rows }: { rows: AttendanceRecord[] }) {
+  const { t } = useTranslation();
   const total = Math.max(rows.length, 1);
   const present = rows.filter(
     (row) =>
@@ -1559,12 +1636,27 @@ function AttendanceAnalyticsCard({ rows }: { rows: AttendanceRecord[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">Attendance analytics</CardTitle>
+        <CardTitle className="text-sm">{t("pages.dashboard.attendanceAnalytics")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <MetricBar label="Present" value={present} total={total} tone="bg-emerald-600" />
-        <MetricBar label="On leave" value={leave} total={total} tone="bg-blue-600" />
-        <MetricBar label="Missed punch" value={missed} total={total} tone="bg-amber-600" />
+        <MetricBar
+          label={t("pages.dashboard.present")}
+          value={present}
+          total={total}
+          tone="bg-emerald-600"
+        />
+        <MetricBar
+          label={t("pages.dashboard.onLeave")}
+          value={leave}
+          total={total}
+          tone="bg-blue-600"
+        />
+        <MetricBar
+          label={t("pages.dashboard.missedPunch")}
+          value={missed}
+          total={total}
+          tone="bg-amber-600"
+        />
       </CardContent>
     </Card>
   );
@@ -1610,6 +1702,7 @@ function UpcomingBirthdaysCard({
     daysUntil: number;
   }>;
 }) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const birthdaysToday = birthdays
     .filter((birthday) => birthday.isToday)
@@ -1648,9 +1741,11 @@ function UpcomingBirthdaysCard({
     <Card className="h-full">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          <Cake className="h-4 w-4 text-primary" /> Upcoming Birthdays
+          <Cake className="h-4 w-4 text-primary" /> {t("pages.dashboard.upcomingBirthdays")}
         </CardTitle>
-        <span className="text-xs text-muted-foreground">Next {BIRTHDAY_LOOKAHEAD_DAYS} days</span>
+        <span className="text-xs text-muted-foreground">
+          {t("pages.dashboard.nextNDays", { count: BIRTHDAY_LOOKAHEAD_DAYS })}
+        </span>
       </CardHeader>
       <CardContent className="space-y-4">
         {birthdaysToday.length > 0 && (
@@ -1668,14 +1763,14 @@ function UpcomingBirthdaysCard({
                     </div>
                     <div className="min-w-0">
                       <p className="truncate font-semibold text-foreground">
-                        {isSelf ? "Your birthday" : birthday.name}
+                        {isSelf ? t("pages.dashboard.yourBirthday") : birthday.name}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">
                         {isSelf
-                          ? "The Anytime Diesel team wishes you a very happy birthday."
+                          ? t("pages.dashboard.birthdayWish")
                           : [birthday.designation, birthday.department]
                               .filter(Boolean)
-                              .join(" · ") || "Team member"}
+                              .join(" · ") || t("pages.dashboard.teamMember")}
                       </p>
                     </div>
                   </div>
@@ -1684,7 +1779,7 @@ function UpcomingBirthdaysCard({
                       {formatDob(birthday.dateOfBirth)}
                     </p>
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">
-                      Today
+                      {t("pages.dashboard.today")}
                     </p>
                   </div>
                 </div>
@@ -1696,8 +1791,8 @@ function UpcomingBirthdaysCard({
         {upcoming.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             {birthdaysToday.length > 0
-              ? `No other birthdays in the next ${BIRTHDAY_LOOKAHEAD_DAYS} days.`
-              : `No upcoming birthdays in the next ${BIRTHDAY_LOOKAHEAD_DAYS} days.`}
+              ? t("pages.dashboard.noOtherBirthdays", { count: BIRTHDAY_LOOKAHEAD_DAYS })
+              : t("pages.dashboard.noBirthdays")}
           </p>
         ) : (
           <div className="max-h-[300px] space-y-2.5 overflow-y-auto pr-1">
@@ -1715,25 +1810,29 @@ function UpcomingBirthdaysCard({
                     </div>
                     <div className="min-w-0">
                       <p className="flex flex-wrap items-center gap-1.5 font-medium">
-                        <span className="truncate">{isSelf ? "Your birthday" : b.name}</span>
+                        <span className="truncate">
+                          {isSelf ? t("pages.dashboard.yourBirthday") : b.name}
+                        </span>
                         {isSelf && (
                           <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
-                            You
+                            {t("pages.dashboard.you")}
                           </span>
                         )}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">
                         {isSelf
-                          ? "Coming up soon"
+                          ? t("pages.dashboard.comingSoon")
                           : [b.designation, b.department].filter(Boolean).join(" · ") ||
-                            "Team member"}
+                            t("pages.dashboard.teamMember")}
                       </p>
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="font-semibold text-foreground">{formatDob(b.dateOfBirth)}</p>
                     <p className="text-[10px] text-muted-foreground">
-                      {isSelf ? `In ${b.daysUntil} days` : `${b.daysUntil} days left`}
+                      {isSelf
+                        ? t("pages.dashboard.inNDays", { count: b.daysUntil })
+                        : t("pages.dashboard.daysLeft", { count: b.daysUntil })}
                     </p>
                   </div>
                 </div>

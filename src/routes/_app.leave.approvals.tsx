@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -48,6 +49,7 @@ export const Route = createFileRoute("/_app/leave/approvals")({
 });
 
 function LeaveBalancePanel({ leave }: { leave: LeaveRequest }) {
+  const { t } = useTranslation();
   const balances = leave.leaveBalances ?? [];
   const requested = leave.requestedDays ?? leave.days;
   const available = leave.availableBalance ?? 0;
@@ -58,15 +60,19 @@ function LeaveBalancePanel({ leave }: { leave: LeaveRequest }) {
     <div className="space-y-3">
       <div className="grid grid-cols-3 gap-2 rounded-md border bg-muted/30 p-3 text-sm">
         <div>
-          <p className="text-xs text-muted-foreground">Available ({leave.type})</p>
+          <p className="text-xs text-muted-foreground">
+            {t("pages.leaveApprovals.availableFor", { type: leave.type })}
+          </p>
           <p className="text-lg font-semibold tabular-nums">{available}</p>
         </div>
         <div>
-          <p className="text-xs text-muted-foreground">Applying for</p>
+          <p className="text-xs text-muted-foreground">{t("pages.leaveApprovals.applyingFor")}</p>
           <p className="text-lg font-semibold tabular-nums">{requested}</p>
         </div>
         <div>
-          <p className="text-xs text-muted-foreground">After approval</p>
+          <p className="text-xs text-muted-foreground">
+            {t("pages.leaveApprovals.afterApproval")}
+          </p>
           <p
             className={`text-lg font-semibold tabular-nums ${after < 0 ? "text-destructive" : ""}`}
           >
@@ -85,15 +91,15 @@ function LeaveBalancePanel({ leave }: { leave: LeaveRequest }) {
                   : "bg-background"
               }`}
             >
-              {balance.type}: <span className="tabular-nums">{balance.balance}</span> left
+              {balance.type}: <span className="tabular-nums">{balance.balance}</span>{" "}
+              {t("pages.leaveApprovals.left")}
             </span>
           ))}
         </div>
       )}
       {otherPending > 0 && (
         <p className="text-xs text-amber-800 dark:text-amber-300">
-          Also has {otherPending} other pending leave request
-          {otherPending === 1 ? "" : "s"}.
+          {t("pages.leaveApprovals.otherPending", { count: otherPending })}
         </p>
       )}
     </div>
@@ -101,6 +107,7 @@ function LeaveBalancePanel({ leave }: { leave: LeaveRequest }) {
 }
 
 function LeaveApprovalsPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [rows, setRows] = useState<LeaveRequest[]>([]);
@@ -175,7 +182,11 @@ function LeaveApprovalsPage() {
         action === "Approved" ? await leaveApi.approve(id) : await leaveApi.reject(id);
       setRows((prev) => prev.filter((r) => r.id !== id));
       setHistory((prev) => [updated, ...prev.filter((request) => request.id !== id)]);
-      toast.success(`Request ${action.toLowerCase()}`);
+      toast.success(
+        action === "Approved"
+          ? t("pages.leaveApprovals.toastRequestApproved")
+          : t("pages.leaveApprovals.toastRequestRejected"),
+      );
       setConfirm(null);
     } catch (err) {
       toast.error((err as Error).message);
@@ -188,7 +199,11 @@ function LeaveApprovalsPage() {
         ? await leaveApi.approveWeeklyOff(id)
         : await leaveApi.rejectWeeklyOff(id);
       setWeeklyOffs((current) => current.map((row) => (row.id === id ? updated : row)));
-      toast.success(`Weekly off ${approve ? "approved" : "rejected"}`);
+      toast.success(
+        approve
+          ? t("pages.leaveApprovals.toastWeeklyOffApproved")
+          : t("pages.leaveApprovals.toastWeeklyOffRejected"),
+      );
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -200,14 +215,14 @@ function LeaveApprovalsPage() {
     return (
       <div className="space-y-4">
         <PageHeader
-          title="Leave Approvals"
-          description="Approve leave and weekly-off for people in your reporting chain."
+          title={t("pages.leaveApprovals.title")}
+          description={t("pages.leaveApprovals.subtitleChain")}
         />
         <LoadingState
           label={
             accessChecked
-              ? "Redirecting to Leave Tracking"
-              : "Checking organization approval access"
+              ? t("pages.leaveApprovals.redirectingToTracking")
+              : t("pages.leaveApprovals.checkingAccess")
           }
         />
       </div>
@@ -216,24 +231,26 @@ function LeaveApprovalsPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Leave Approvals"
-        description="Approve leave and weekly-off for your unit and people under heads below you. HR monitors company-wide leave in Leave Tracking."
-      />
-      {loading && <LoadingState label="Loading leave approvals" />}
+      <PageHeader title={t("pages.leaveApprovals.title")} description={t("pages.leaveApprovals.subtitle")} />
+      {loading && <LoadingState label={t("pages.loading.leaveApprovals")} />}
       {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
       {!loading && (
         <>
           <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <StatCard label="Pending leave" value={rows.length} icon={Clock3} tone="warning" />
             <StatCard
-              label="Pending weekly off"
+              label={t("pages.leaveApprovals.pendingLeave")}
+              value={rows.length}
+              icon={Clock3}
+              tone="warning"
+            />
+            <StatCard
+              label={t("pages.leaveApprovals.pendingWeekly")}
               value={pendingWeekly.length}
               icon={CalendarClock}
               tone="info"
             />
             <StatCard
-              label="Approved leave"
+              label={t("pages.leaveApprovals.approvedLeave")}
               value={history.filter((request) => request.status === "Approved").length}
               icon={CheckCircle2}
               tone="success"
@@ -242,16 +259,22 @@ function LeaveApprovalsPage() {
 
           <Tabs defaultValue="pending-leave" className="space-y-4">
             <TabsList className="h-auto w-full flex-wrap justify-start">
-              <TabsTrigger value="pending-leave">Pending leave ({rows.length})</TabsTrigger>
-              <TabsTrigger value="weekly-off">Weekly off ({pendingWeekly.length})</TabsTrigger>
-              <TabsTrigger value="history">History ({history.length})</TabsTrigger>
+              <TabsTrigger value="pending-leave">
+                {t("pages.leaveApprovals.pendingLeaveTab", { count: rows.length })}
+              </TabsTrigger>
+              <TabsTrigger value="weekly-off">
+                {t("pages.leaveApprovals.weeklyOffTab", { count: pendingWeekly.length })}
+              </TabsTrigger>
+              <TabsTrigger value="history">
+                {t("pages.leaveApprovals.historyTab", { count: history.length })}
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="pending-leave" className="space-y-3">
               {rows.length === 0 ? (
                 <EmptyState
-                  title="No pending leave"
-                  description="Leave requests waiting for your decision will appear here."
+                  title={t("pages.leaveApprovals.emptyLeave")}
+                  description={t("pages.leaveApprovals.emptyLeaveHelp")}
                 />
               ) : (
                 rows.map((leave) => (
@@ -262,12 +285,13 @@ function LeaveApprovalsPage() {
                           <p className="text-lg font-semibold">{leave.employeeName}</p>
                           <p className="text-sm text-muted-foreground">
                             {leave.type} · {formatDisplayDateRange(leave.from, leave.to)} ·{" "}
-                            {leave.days} day
-                            {leave.days === 1 ? "" : "s"}
+                            {t("pages.leaveApply.dayCount", { count: leave.days })}
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            Applied {formatDisplayDate(leave.appliedOn)}
-                            {leave.approverName ? ` · Primary head: ${leave.approverName}` : ""}
+                            {t("pages.leaveHistory.applied")} {formatDisplayDate(leave.appliedOn)}
+                            {leave.approverName
+                              ? ` · ${t("pages.leaveApprovals.primaryHead", { name: leave.approverName })}`
+                              : ""}
                           </p>
                         </div>
                         <StatusBadge status={leave.status} />
@@ -316,8 +340,8 @@ function LeaveApprovalsPage() {
               </p>
               {pendingWeekly.length === 0 ? (
                 <EmptyState
-                  title="No pending weekly offs"
-                  description="Weekly-off requests waiting for approval will appear here."
+                  title={t("pages.leaveApprovals.emptyWeekly")}
+                  description={t("pages.leaveApprovals.emptyWeeklyHelp")}
                 />
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -428,8 +452,8 @@ function LeaveApprovalsPage() {
                 </DesktopTable>
                 {history.length === 0 && (
                   <EmptyState
-                    title="No completed approvals"
-                    description="Approved and rejected leave will appear here."
+                    title={t("pages.leaveApprovals.emptyDone")}
+                    description={t("pages.leaveApprovals.emptyDoneHelp")}
                   />
                 )}
               </ResponsiveListShell>

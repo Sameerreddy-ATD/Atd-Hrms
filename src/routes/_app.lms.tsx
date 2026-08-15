@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { GraduationCap } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -25,6 +26,7 @@ import { lifecycleApi } from "@/services/api";
 export const Route = createFileRoute("/_app/lms")({ component: LmsPage });
 
 function LmsPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const canPublish = isPeopleOpsRole(user?.role);
   const [kind, setKind] = useState<"SOP" | "TRAINING">("SOP");
@@ -43,11 +45,11 @@ function LmsPage() {
     try {
       setRows(await lifecycleApi.lms(kind));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not load learning");
+      toast.error(error instanceof Error ? error.message : t("pages.lms.toastCouldNotLoad"));
     } finally {
       setLoading(false);
     }
-  }, [kind]);
+  }, [kind, t]);
 
   useEffect(() => {
     void load();
@@ -56,30 +58,30 @@ function LmsPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Career"
-        title="Learning"
-        description="SOPs and training materials for the role. Mark as read after you finish."
+        eyebrow={t("pages.lms.eyebrow")}
+        title={t("pages.lms.title")}
+        description={t("pages.lms.subtitle")}
         actions={
           canPublish ? (
             <Button className="h-11" onClick={() => setOpen(true)}>
-              Publish material
+              {t("pages.lms.publishMaterial")}
             </Button>
           ) : null
         }
       />
       <Tabs value={kind} onValueChange={(value) => setKind(value as "SOP" | "TRAINING")}>
         <TabsList className="mb-4">
-          <TabsTrigger value="SOP">SOPs</TabsTrigger>
-          <TabsTrigger value="TRAINING">Training</TabsTrigger>
+          <TabsTrigger value="SOP">{t("pages.lms.sops")}</TabsTrigger>
+          <TabsTrigger value="TRAINING">{t("pages.lms.training")}</TabsTrigger>
         </TabsList>
         <TabsContent value={kind}>
           {loading ? (
-            <LoadingState label="Loading materials" />
+            <LoadingState label={t("pages.loading.lms")} />
           ) : rows.length === 0 ? (
             <EmptyState
               icon={GraduationCap}
-              title="Nothing published yet"
-              description="HR can add SOPs and training packs here."
+              title={t("pages.lms.empty")}
+              description={t("pages.lms.emptyHelp")}
             />
           ) : (
             <div className="space-y-3">
@@ -93,7 +95,13 @@ function LmsPage() {
                       </p>
                     </div>
                     <StatusBadge
-                      status={row.read ? "Read" : row.published ? "Published" : "Draft"}
+                      status={
+                        row.read
+                          ? t("pages.lms.read")
+                          : row.published
+                            ? t("pages.lms.published")
+                            : t("pages.lms.draft")
+                      }
                     />
                   </div>
                   <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
@@ -109,12 +117,14 @@ function LmsPage() {
                             .downloadFile(String(row.fileKey), String(row.fileName || "material"))
                             .catch((error) =>
                               toast.error(
-                                error instanceof Error ? error.message : "Download failed",
+                                error instanceof Error
+                                  ? error.message
+                                  : t("pages.lms.toastDownloadFailed"),
                               ),
                             )
                         }
                       >
-                        Download attachment
+                        {t("pages.lms.downloadAttachment")}
                       </Button>
                     ) : null}
                     <Button
@@ -123,16 +133,18 @@ function LmsPage() {
                       onClick={async () => {
                         try {
                           await lifecycleApi.markLmsRead(String(row.id));
-                          toast.success("Marked as read");
+                          toast.success(t("pages.lms.toastMarkedRead"));
                           await load();
                         } catch (error) {
                           toast.error(
-                            error instanceof Error ? error.message : "Could not mark as read",
+                            error instanceof Error
+                              ? error.message
+                              : t("pages.lms.toastCouldNotMarkRead"),
                           );
                         }
                       }}
                     >
-                      {row.read ? "Read again" : "Mark as read"}
+                      {row.read ? t("pages.lms.readAgain") : t("pages.lms.markRead")}
                     </Button>
                   </div>
                 </article>
@@ -145,7 +157,9 @@ function LmsPage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Publish {kind === "SOP" ? "SOP" : "training"}</DialogTitle>
+            <DialogTitle>
+              {kind === "SOP" ? t("pages.lms.publishSopTitle") : t("pages.lms.publishTrainingTitle")}
+            </DialogTitle>
           </DialogHeader>
           <Input
             className="h-11"
@@ -187,16 +201,18 @@ function LmsPage() {
                     published: true,
                     file: form.file ? await fileToPayload(form.file) : undefined,
                   });
-                  toast.success("Published");
+                  toast.success(t("pages.lms.toastPublished"));
                   setOpen(false);
                   setForm({ title: "", category: "", body: "", file: undefined });
                   await load();
                 } catch (error) {
-                  toast.error(error instanceof Error ? error.message : "Could not publish");
+                  toast.error(
+                    error instanceof Error ? error.message : t("pages.lms.toastCouldNotPublish"),
+                  );
                 }
               }}
             >
-              Publish
+              {t("pages.lms.publish")}
             </Button>
           </DialogFooter>
         </DialogContent>

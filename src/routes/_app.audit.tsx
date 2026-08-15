@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -56,16 +57,6 @@ export const Route = createFileRoute("/_app/audit")({
 });
 
 type AuditCategory = "all" | "auth" | "people" | "leave" | "attendance" | "security" | "system";
-
-const CATEGORY_FILTERS: { id: AuditCategory; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "auth", label: "Sign-in" },
-  { id: "people", label: "People" },
-  { id: "leave", label: "Leave" },
-  { id: "attendance", label: "Attendance" },
-  { id: "security", label: "Security" },
-  { id: "system", label: "System" },
-];
 
 function humanizeAction(action: string) {
   const trimmed = action.trim();
@@ -135,22 +126,25 @@ function ChangeDetails({
   oldValue?: Record<string, unknown> | null;
   newValue?: Record<string, unknown> | null;
 }) {
+  const { t } = useTranslation();
   const before = summarizeValue(oldValue);
   const after = summarizeValue(newValue);
   if (before.length === 0 && after.length === 0) {
-    return <span className="text-xs text-muted-foreground">Activity recorded</span>;
+    return <span className="text-xs text-muted-foreground">{t("pages.audit.activityRecorded")}</span>;
   }
 
   return (
     <details className="group text-xs">
       <summary className="cursor-pointer list-none text-primary outline-none transition-colors hover:text-primary/80 [&::-webkit-details-marker]:hidden">
-        <span className="underline-offset-2 group-open:underline">View change details</span>
+        <span className="underline-offset-2 group-open:underline">
+          {t("pages.audit.viewChangeDetails")}
+        </span>
       </summary>
       <div className="mt-2 space-y-2">
         {before.length > 0 && (
           <div className="rounded-md border border-border/70 bg-muted/40 p-2">
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Before
+              {t("pages.audit.before")}
             </p>
             <dl className="space-y-1">
               {before.map((row) => (
@@ -165,7 +159,7 @@ function ChangeDetails({
         {after.length > 0 && (
           <div className="rounded-md border border-border/70 bg-muted/40 p-2">
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              After
+              {t("pages.audit.after")}
             </p>
             <dl className="space-y-1">
               {after.map((row) => (
@@ -183,6 +177,16 @@ function ChangeDetails({
 }
 
 function AuditPage() {
+  const { t } = useTranslation();
+  const categoryFilters: { id: AuditCategory; label: string }[] = [
+    { id: "all", label: t("common.all") },
+    { id: "auth", label: t("pages.audit.signIn") },
+    { id: "people", label: t("pages.audit.people") },
+    { id: "leave", label: t("pages.audit.leave") },
+    { id: "attendance", label: t("pages.audit.attendance") },
+    { id: "security", label: t("pages.audit.security") },
+    { id: "system", label: t("pages.audit.system") },
+  ];
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -229,7 +233,8 @@ function AuditPage() {
     });
   }, [auditLogs, category, query]);
 
-  const formatDate = (value?: string) => (value ? formatDisplayDateTime(value) : "No records yet");
+  const formatDate = (value?: string) =>
+    value ? formatDisplayDateTime(value) : t("pages.audit.noRecordsYet");
 
   async function clearAuditLogs() {
     if (clearConfirmation !== "CLEAR") return;
@@ -254,8 +259,8 @@ function AuditPage() {
   return (
     <div>
       <PageHeader
-        title="Audit Logs"
-        description="Protected history of sign-ins, people changes, and admin actions across Anytime Workforce."
+        title={t("pages.audit.title")}
+        description={t("pages.audit.subtitle")}
         actions={
           <>
             <Button
@@ -269,7 +274,7 @@ function AuditPage() {
               ) : (
                 <RefreshCw className="mr-2 h-4 w-4" />
               )}
-              Refresh
+              {t("common.refresh")}
             </Button>
             <Button
               type="button"
@@ -281,13 +286,13 @@ function AuditPage() {
               }}
             >
               <Trash2 className="mr-2 h-4 w-4" />
-              Clear audit logs
+              {t("pages.audit.clearAuditLogs")}
             </Button>
           </>
         }
       />
 
-      {loading && <LoadingState label="Loading audit logs" />}
+      {loading && <LoadingState label={t("pages.loading.audit")} />}
       {error && !loading && (
         <p className="mb-4 text-sm text-destructive" role="alert">
           {error}
@@ -296,7 +301,7 @@ function AuditPage() {
 
       {!loading && summary && (
         <div className="mb-4 grid gap-3 sm:grid-cols-3">
-          <StatCard label="Saved records" value={summary.count} icon={Database} />
+          <StatCard label={t("pages.audit.savedRecords")} value={summary.count} icon={Database} />
           <Card>
             <CardContent className="flex items-start gap-3 p-4">
               <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
@@ -304,7 +309,7 @@ function AuditPage() {
               </span>
               <div className="min-w-0">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Oldest saved
+                  {t("pages.audit.oldestSaved")}
                 </p>
                 <p className="mt-1 text-sm font-medium leading-snug">
                   {formatDate(summary.oldest)}
@@ -319,7 +324,7 @@ function AuditPage() {
               </span>
               <div className="min-w-0">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Latest saved
+                  {t("pages.audit.latestSaved")}
                 </p>
                 <p className="mt-1 text-sm font-medium leading-snug">
                   {formatDate(summary.latest)}
@@ -337,13 +342,13 @@ function AuditPage() {
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search actor, action, role, target, or IP"
+              placeholder={t("pages.audit.search")}
               className="pl-9"
-              aria-label="Search audit logs"
+              aria-label={t("pages.audit.search")}
             />
           </div>
           <div className="flex flex-wrap gap-2">
-            {CATEGORY_FILTERS.map((item) => (
+            {categoryFilters.map((item) => (
               <Button
                 key={item.id}
                 type="button"
@@ -357,8 +362,8 @@ function AuditPage() {
             ))}
           </div>
           <p className="text-xs text-muted-foreground">
-            Showing {rows.length} of {auditLogs.length} loaded
-            {auditLogs.length >= 250 ? " (latest 250)" : ""}
+            {t("pages.audit.showingLoaded", { shown: rows.length, total: auditLogs.length })}
+            {auditLogs.length >= 250 ? t("pages.audit.showingLatest") : ""}
           </p>
         </div>
       )}
@@ -366,11 +371,9 @@ function AuditPage() {
       {!loading && rows.length === 0 ? (
         <EmptyState
           icon={ScrollText}
-          title={auditLogs.length === 0 ? "No audit logs yet" : "No matching audit logs"}
+          title={auditLogs.length === 0 ? t("pages.audit.empty") : t("pages.audit.emptyMatch")}
           description={
-            auditLogs.length === 0
-              ? "Activity such as sign-ins, people changes, and admin updates will appear here."
-              : "Try another search or category filter."
+            auditLogs.length === 0 ? t("pages.audit.emptyHelp") : t("pages.audit.emptyMatchHelp")
           }
         />
       ) : (
@@ -389,14 +392,14 @@ function AuditPage() {
                     }
                   />
                   <MobileListFields>
-                    <MobileListField label="Actor" value={l.actor} />
-                    <MobileListField label="Target" value={l.target || "—"} />
+                    <MobileListField label={t("pages.audit.actor")} value={l.actor} />
+                    <MobileListField label={t("pages.audit.target")} value={l.target || "—"} />
                     <MobileListField
                       className="col-span-2"
-                      label="Change"
+                      label={t("pages.audit.change")}
                       value={<ChangeDetails oldValue={l.oldValue} newValue={l.newValue} />}
                     />
-                    <MobileListField label="IP" value={l.ipAddress ?? "—"} mono />
+                    <MobileListField label={t("pages.audit.ip")} value={l.ipAddress ?? "—"} mono />
                   </MobileListFields>
                 </MobileListItem>
               ))}
@@ -405,13 +408,13 @@ function AuditPage() {
               <Table className="min-w-[980px]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>When</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Actor</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Target</TableHead>
-                    <TableHead>Change</TableHead>
-                    <TableHead>IP</TableHead>
+                    <TableHead>{t("pages.audit.when")}</TableHead>
+                    <TableHead>{t("pages.audit.action")}</TableHead>
+                    <TableHead>{t("pages.audit.actor")}</TableHead>
+                    <TableHead>{t("common.role")}</TableHead>
+                    <TableHead>{t("pages.audit.target")}</TableHead>
+                    <TableHead>{t("pages.audit.change")}</TableHead>
+                    <TableHead>{t("pages.audit.ip")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -462,16 +465,13 @@ function AuditPage() {
       >
         <AlertDialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto sm:max-w-lg">
           <AlertDialogHeader>
-            <AlertDialogTitle>Clear all audit logs?</AlertDialogTitle>
+            <AlertDialogTitle>{t("pages.audit.clearTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently removes all {summary?.count ?? 0} saved audit records. A single
-              &quot;Audit logs cleared&quot; entry will be written afterward. This cannot be undone.
+              {t("pages.audit.clearDescription", { count: summary?.count ?? 0 })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="audit-clear-confirmation">
-              Type <span className="font-mono font-semibold">CLEAR</span> to confirm
-            </Label>
+            <Label htmlFor="audit-clear-confirmation">{t("pages.audit.clearConfirmLabel")}</Label>
             <Input
               id="audit-clear-confirmation"
               autoComplete="off"
@@ -481,7 +481,7 @@ function AuditPage() {
             />
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={clearing}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={clearing}>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 text-white hover:bg-red-700"
               disabled={clearConfirmation !== "CLEAR" || clearing}
@@ -491,7 +491,7 @@ function AuditPage() {
               }}
             >
               {clearing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-              Clear audit logs
+              {t("pages.audit.clearAuditLogs")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Smartphone } from "lucide-react";
 
 import { isPhoneLandscapeViewport, startPortraitOrientationLock } from "@/lib/screen-orientation";
@@ -8,6 +9,7 @@ import { isPhoneLandscapeViewport, startPortraitOrientationLock } from "@/lib/sc
  * OS/browser still flips to landscape (common when rotation lock is ignored).
  */
 export function PortraitOrientationGuard() {
+  const { t } = useTranslation();
   const [showLandscapePrompt, setShowLandscapePrompt] = useState(false);
 
   useEffect(() => startPortraitOrientationLock(), []);
@@ -41,10 +43,8 @@ export function PortraitOrientationGuard() {
     >
       <div className="portrait-orientation-guard__card">
         <Smartphone className="portrait-orientation-guard__icon" aria-hidden="true" />
-        <h2 id="portrait-lock-title">Turn your phone upright</h2>
-        <p id="portrait-lock-desc">
-          Anytime Workforce is designed for portrait. Rotate your device back to continue.
-        </p>
+        <h2 id="portrait-lock-title">{t("pages.shell.turnUpright")}</h2>
+        <p id="portrait-lock-desc">{t("pages.shell.portraitRotate")}</p>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Camera,
   CheckCircle2,
@@ -16,13 +17,12 @@ import { useAuth } from "@/lib/auth";
 import type { FaceCapturePayload, FaceVerificationSession } from "@/types/domain";
 
 export function FaceEnrollmentGate({ onUnlocked }: { onUnlocked?: () => void }) {
+  const { t } = useTranslation();
   const { user, logout, updateCurrentUser } = useAuth();
   const [session, setSession] = useState<FaceVerificationSession | null>(null);
   const [consent, setConsent] = useState(false);
   const [consentVersion, setConsentVersion] = useState("2026-07");
-  const [consentText, setConsentText] = useState(
-    "I consent to secure face-template processing for identity verification and attendance.",
-  );
+  const [consentText, setConsentText] = useState(t("pages.faceEnrollment.consentDefault"));
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,7 +85,7 @@ export function FaceEnrollmentGate({ onUnlocked }: { onUnlocked?: () => void }) 
 
   const startEnrollment = async () => {
     if (!consent) {
-      setError("Accept the biometric consent statement to continue.");
+      setError(t("pages.faceEnrollment.consentRequired"));
       return;
     }
     setStarting(true);
@@ -93,7 +93,9 @@ export function FaceEnrollmentGate({ onUnlocked }: { onUnlocked?: () => void }) 
     try {
       setSession(await faceApi.createSession("ENROLLMENT", navigator.userAgent.slice(0, 120)));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Face registration could not start.");
+      setError(
+        caught instanceof Error ? caught.message : t("pages.faceEnrollment.startError"),
+      );
     } finally {
       setStarting(false);
     }
@@ -134,37 +136,36 @@ export function FaceEnrollmentGate({ onUnlocked }: { onUnlocked?: () => void }) 
                 <Fingerprint className="size-7" />
               </div>
               <p className="mt-6 text-xs font-semibold uppercase tracking-[.18em] text-primary">
-                Secure account activation
+                {t("pages.faceEnrollment.secureActivation")}
               </p>
               <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
-                Register your face to continue
+                {t("pages.faceEnrollment.registerContinue")}
               </h1>
               <p className="mt-3 max-w-md text-sm leading-6 text-background/70">
-                Photos are saved once during registration (eyes open and eyes closed). Later
-                check-ins only verify your live face—no new photos are stored.
+                {t("pages.faceEnrollment.photosSavedNote")}
               </p>
 
               <div className="mt-8 space-y-4 text-sm">
                 {[
                   {
                     icon: Camera,
-                    title: "Two front photos",
-                    body: "Eyes-open and eyes-closed photos are captured quickly from the front.",
+                    title: t("pages.faceEnrollment.twoFrontPhotosTitle"),
+                    body: t("pages.faceEnrollment.twoFrontPhotosBody"),
                   },
                   {
                     icon: MapPin,
-                    title: "Precise location at attendance",
-                    body: "Precise GPS is required when you check in or check out (Approximate is not enough).",
+                    title: t("pages.faceEnrollment.preciseLocationTitle"),
+                    body: t("pages.faceEnrollment.preciseLocationBody"),
                   },
                   {
                     icon: LockKeyhole,
-                    title: "Encrypted storage",
-                    body: "Your face template and registration photos are encrypted at rest.",
+                    title: t("pages.faceEnrollment.encryptedStorageTitle"),
+                    body: t("pages.faceEnrollment.encryptedStorageBody"),
                   },
                   {
                     icon: Clock3,
-                    title: "Verify without saving",
-                    body: "Daily check-in matches your live face only. No attendance photos are kept.",
+                    title: t("pages.faceEnrollment.verifyWithoutSavingTitle"),
+                    body: t("pages.faceEnrollment.verifyWithoutSavingBody"),
                   },
                 ].map(({ icon: Icon, title, body }) => (
                   <div key={title} className="flex gap-3">
@@ -186,14 +187,13 @@ export function FaceEnrollmentGate({ onUnlocked }: { onUnlocked?: () => void }) 
               <>
                 <div className="mb-4">
                   <p className="text-xs font-semibold uppercase tracking-[.16em] text-primary">
-                    Registration photos
+                    {t("pages.faceEnrollment.registrationPhotos")}
                   </p>
                   <h2 className="mt-1 text-xl font-bold tracking-tight text-foreground">
-                    Eyes open, then eyes closed
+                    {t("pages.faceEnrollment.eyesOpenClosed")}
                   </h2>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Stay facing the camera. Each photo captures quickly — open eyes first, then
-                    close both eyes.
+                    {t("pages.faceEnrollment.stayFacingCamera")}
                   </p>
                 </div>
                 <FaceCapture
@@ -208,19 +208,18 @@ export function FaceEnrollmentGate({ onUnlocked }: { onUnlocked?: () => void }) 
                   <Clock3 className="size-8" />
                 </div>
                 <h2 className="mt-5 text-2xl font-bold tracking-tight text-foreground">
-                  Registration submitted
+                  {t("pages.faceEnrollment.submitted")}
                 </h2>
                 <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                  A Developer Admin must approve your face registration. This page checks
-                  automatically, so you can leave it open.
+                  {t("pages.faceEnrollment.pendingBody")}
                 </p>
                 <div className="mt-6 flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
                   <span className="size-2 animate-pulse rounded-full bg-amber-500" />
-                  Waiting for approval
+                  {t("pages.faceEnrollment.waitingApproval")}
                 </div>
                 <Button variant="outline" className="mt-6 w-full" onClick={logout}>
                   <LogOut className="mr-2 size-4" />
-                  Sign out
+                  {t("pages.faceEnrollment.signOut")}
                 </Button>
               </div>
             ) : (
@@ -231,7 +230,7 @@ export function FaceEnrollmentGate({ onUnlocked }: { onUnlocked?: () => void }) 
                   </div>
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[.14em] text-muted-foreground">
-                      Signed in as
+                      {t("pages.faceEnrollment.signedInAs")}
                     </p>
                     <h2 className="font-bold tracking-tight text-foreground">{user?.name}</h2>
                   </div>
@@ -239,10 +238,9 @@ export function FaceEnrollmentGate({ onUnlocked }: { onUnlocked?: () => void }) 
 
                 {rejected && (
                   <div className="mt-6 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-                    <div className="font-semibold">Registration needs to be repeated</div>
+                    <div className="font-semibold">{t("pages.faceEnrollment.repeat")}</div>
                     <p className="mt-1 text-destructive/90">
-                      {user?.faceEnrollmentReason ??
-                        "The previous capture could not be approved. Please submit a clearer capture."}
+                      {user?.faceEnrollmentReason ?? t("pages.faceEnrollment.rejectedDefault")}
                     </p>
                   </div>
                 )}
@@ -275,17 +273,17 @@ export function FaceEnrollmentGate({ onUnlocked }: { onUnlocked?: () => void }) 
                   onClick={() => void startEnrollment()}
                 >
                   {starting
-                    ? "Preparing camera…"
+                    ? t("pages.faceEnrollment.preparingCamera")
                     : rejected
-                      ? "Register again"
-                      : "Start registration"}
+                      ? t("pages.faceEnrollment.registerAgain")
+                      : t("pages.faceEnrollment.startRegistration")}
                 </Button>
                 <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">
                   <CheckCircle2 className="size-3.5 text-primary" />
-                  Use a well-lit area and remove masks or dark glasses.
+                  {t("pages.faceEnrollment.tip")}
                 </div>
                 <Button variant="ghost" className="mt-3 w-full" onClick={logout}>
-                  Sign out
+                  {t("pages.faceEnrollment.signOut")}
                 </Button>
               </div>
             )}

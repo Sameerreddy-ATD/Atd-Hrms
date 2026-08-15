@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -47,6 +48,7 @@ const emptyForm = {
 };
 
 function BranchesPage() {
+  const { t } = useTranslation();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [editing, setEditing] = useState<Branch | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -95,14 +97,14 @@ function BranchesPage() {
     if (!form.name || !form.code || !form.address) {
       toast.error(
         form.isHub
-          ? "Hub name, code and address are required"
-          : "Branch name, code and address are required",
+          ? t("pages.branches.toastHubFieldsRequired")
+          : t("pages.branches.toastBranchFieldsRequired"),
       );
       return;
     }
     try {
       if ((form.latitude && !form.longitude) || (!form.latitude && form.longitude)) {
-        toast.error("Enter both latitude and longitude");
+        toast.error(t("pages.branches.toastLatLongBoth"));
         return;
       }
       const payload = {
@@ -125,11 +127,11 @@ function BranchesPage() {
       toast.success(
         editing
           ? form.isHub
-            ? "Hub updated"
-            : "Branch updated"
+            ? t("pages.branches.toastHubUpdated")
+            : t("pages.branches.toastBranchUpdated")
           : form.isHub
-            ? "Hub added"
-            : "Branch added",
+            ? t("pages.branches.toastHubAdded")
+            : t("pages.branches.toastBranchAdded"),
       );
       resetForm();
     } catch (err) {
@@ -141,7 +143,11 @@ function BranchesPage() {
     try {
       await branchesApi.delete(branch.id);
       setBranches((prev) => prev.filter((row) => row.id !== branch.id));
-      toast.success(branch.isHub ? "Hub deactivated" : "Branch deactivated");
+      toast.success(
+        branch.isHub
+          ? t("pages.branches.toastHubDeactivated")
+          : t("pages.branches.toastBranchDeactivated"),
+      );
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -150,15 +156,15 @@ function BranchesPage() {
   return (
     <div>
       <PageHeader
-        title="Branches"
-        description="Add and maintain company branches and parking hubs with mobile attendance locations."
+        title={t("pages.branches.title")}
+        description={t("pages.branches.subtitle")}
         actions={
           <Button size="sm" onClick={openCreateDialog}>
-            <Plus className="mr-2 h-4 w-4" /> Add branch
+            <Plus className="mr-2 h-4 w-4" /> {t("pages.branches.addBranch")}
           </Button>
         }
       />
-      {loading && <LoadingState label="Loading branches" />}
+      {loading && <LoadingState label={t("pages.loading.branches")} />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="grid gap-4 sm:grid-cols-2">
         {branches.map((b) => (
@@ -194,14 +200,14 @@ function BranchesPage() {
               </div>
               <div className="mt-4 flex justify-end gap-2">
                 <Button size="sm" variant="outline" onClick={() => openEditDialog(b)}>
-                  <Pencil className="mr-2 h-4 w-4" /> Edit
+                  <Pencil className="mr-2 h-4 w-4" /> {t("common.edit")}
                 </Button>
                 <Button
                   size="sm"
                   className="bg-red-600 text-white hover:bg-red-700"
                   onClick={() => setDeleteBranchTarget(b)}
                 >
-                  <Trash2 className="mr-2 h-4 w-4" /> Deactivate
+                  <Trash2 className="mr-2 h-4 w-4" /> {t("pages.branches.deactivate")}
                 </Button>
               </div>
             </CardContent>
@@ -209,7 +215,7 @@ function BranchesPage() {
         ))}
       </div>
       {!loading && branches.length === 0 && (
-        <p className="text-sm text-muted-foreground">No branches or hubs found.</p>
+        <p className="text-sm text-muted-foreground">{t("pages.branches.empty")}</p>
       )}
 
       <Dialog open={showForm} onOpenChange={(open) => !open && resetForm()}>
@@ -218,11 +224,11 @@ function BranchesPage() {
             <DialogTitle>
               {editing
                 ? form.isHub
-                  ? "Edit hub"
-                  : "Edit branch"
+                  ? t("pages.branches.editHub")
+                  : t("pages.branches.editBranch")
                 : form.isHub
-                  ? "Add parking hub"
-                  : "Add branch"}
+                  ? t("pages.branches.addHub")
+                  : t("pages.branches.addBranch")}
             </DialogTitle>
             <DialogDescription>
               Maintain identity, location, and code. Mark parking hubs with the checkbox — mobile
@@ -310,16 +316,16 @@ function BranchesPage() {
             </div>
             <DialogFooter className="sm:col-span-2">
               <Button type="button" variant="outline" onClick={resetForm}>
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button type="submit">
                 {editing
                   ? form.isHub
-                    ? "Update hub"
-                    : "Update branch"
+                    ? t("pages.branches.updateHub")
+                    : t("pages.branches.updateBranch")
                   : form.isHub
-                    ? "Create hub"
-                    : "Create branch"}
+                    ? t("pages.branches.createHub")
+                    : t("pages.branches.createBranch")}
               </Button>
             </DialogFooter>
           </form>
@@ -333,7 +339,9 @@ function BranchesPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {deleteBranchTarget?.isHub ? "Deactivate hub?" : "Deactivate branch?"}
+              {deleteBranchTarget?.isHub
+                ? t("pages.branches.deactivateHubTitle")
+                : t("pages.branches.deactivateBranchTitle")}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {deleteBranchTarget
@@ -344,7 +352,7 @@ function BranchesPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 text-white hover:bg-red-700"
               onClick={() => {
@@ -353,7 +361,7 @@ function BranchesPage() {
                 setDeleteBranchTarget(null);
               }}
             >
-              Deactivate
+              {t("pages.branches.deactivate")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

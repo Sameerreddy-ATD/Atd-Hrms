@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { InfoButton } from "@/components/common/InfoButton";
@@ -34,6 +35,7 @@ export const Route = createFileRoute("/_app/leave/policy")({ component: PolicyPa
 type BalanceRow = Awaited<ReturnType<typeof leaveApi.listAllBalances>>[number];
 
 function PolicyPage() {
+  const { t } = useTranslation();
   const [types, setTypes] = useState<LeaveTypeOption[]>([]);
   const [employees, setEmployees] = useState<User[]>([]);
   const [balances, setBalances] = useState<BalanceRow[]>([]);
@@ -88,13 +90,13 @@ function PolicyPage() {
   }
 
   async function createCustomType() {
-    if (newTypeName.trim().length < 2) return toast.error("Enter a leave type name");
+    if (newTypeName.trim().length < 2) return toast.error(t("pages.leavePolicy.toastEnterTypeName"));
     setCreatingType(true);
     try {
       const created = await leaveApi.createType({ name: newTypeName.trim(), paid: newTypePaid });
       setTypes((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
       setNewTypeName("");
-      toast.success("Custom leave type created");
+      toast.success(t("pages.leavePolicy.toastCustomTypeCreated"));
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -106,7 +108,11 @@ function PolicyPage() {
     try {
       const updated = await leaveApi.updateType(type.id, { active: !type.active });
       setTypes((current) => current.map((row) => (row.id === type.id ? updated : row)));
-      toast.success(updated.active ? "Leave type activated" : "Leave type deactivated");
+      toast.success(
+        updated.active
+          ? t("pages.leavePolicy.toastTypeActivated")
+          : t("pages.leavePolicy.toastTypeDeactivated"),
+      );
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -119,13 +125,13 @@ function PolicyPage() {
   }
 
   async function saveAdjustment() {
-    if (!editing || reason.trim().length < 3) return toast.error("Enter an adjustment reason");
+    if (!editing || reason.trim().length < 3) return toast.error(t("pages.leavePolicy.toastEnterReason"));
     const amount = Number(adjustment);
-    if (!Number.isFinite(amount)) return toast.error("Enter a valid credit adjustment");
+    if (!Number.isFinite(amount)) return toast.error(t("pages.leavePolicy.toastEnterValidAdjustment"));
     setSaving(true);
     try {
       await leaveApi.adjustBalance(editing.employeeId, editing.leaveTypeId, amount, reason.trim());
-      toast.success("Leave credit updated and recorded in Audit Logs");
+      toast.success(t("pages.leavePolicy.toastCreditUpdated"));
       setEditing(null);
       setReason("");
       await loadBalances(editing.employeeId, false);
@@ -160,13 +166,11 @@ function PolicyPage() {
   return (
     <div>
       <PageHeader
-        title="Leave Policies & Credits"
-        description="Review leave types and manage employee credits."
+        title={t("pages.leavePolicy.title")}
+        description={t("pages.leavePolicy.subtitle")}
         actions={
-          <InfoButton title="Managing leave credits">
-            Choose an employee and adjust only the required leave type. Positive adjustments add
-            credit and negative adjustments reduce it. Every change requires a reason and is saved
-            in Audit Logs.
+          <InfoButton title={t("pages.leavePolicy.managing")}>
+            {t("pages.leavePolicy.managingHelp")}
           </InfoButton>
         }
       />
@@ -181,13 +185,13 @@ function PolicyPage() {
               <div className="flex items-start justify-between gap-2">
                 <p className="text-sm font-semibold">{type.name}</p>
                 <InfoButton title={type.name} className="-mr-1 -mt-0.5">
-                  {type.description || "This leave type follows the active company policy."}
+                  {type.description || t("pages.leavePolicy.defaultTypeDescription")}
                 </InfoButton>
               </div>
               <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
                 <CalendarCheck className="h-3 w-3 text-primary" />
-                {type.paid ? "Credit based" : "Recorded separately"}
-                {!type.active ? " · Inactive" : ""}
+                {type.paid ? t("pages.leavePolicy.creditBased") : t("pages.leavePolicy.recordedSeparately")}
+                {!type.active ? ` · ${t("pages.leavePolicy.inactive")}` : ""}
               </p>
               <Button
                 size="sm"
@@ -195,14 +199,14 @@ function PolicyPage() {
                 className="mt-2 h-7 px-2 text-xs"
                 onClick={() => void toggleTypeActive(type)}
               >
-                {type.active ? "Deactivate" : "Activate"}
+                {type.active ? t("pages.leavePolicy.deactivate") : t("pages.leavePolicy.activate")}
               </Button>
             </div>
           ))}
         </div>
         <div className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-end">
           <div className="min-w-0 flex-1 space-y-1.5">
-            <Label htmlFor="new-leave-type">Add custom leave type</Label>
+            <Label htmlFor="new-leave-type">{t("pages.leavePolicy.addCustomType")}</Label>
             <Input
               id="new-leave-type"
               value={newTypeName}
@@ -216,28 +220,23 @@ function PolicyPage() {
               checked={newTypePaid}
               onChange={(event) => setNewTypePaid(event.target.checked)}
             />
-            Paid / credit based
+            {t("pages.leavePolicy.paidCreditBased")}
           </label>
           <Button type="button" disabled={creatingType} onClick={() => void createCustomType()}>
-            {creatingType ? "Creating..." : "Create type"}
+            {creatingType ? t("pages.leavePolicy.creating") : t("pages.leavePolicy.createType")}
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Casual, Sick, Comp Off, and Unpaid codes stay system-protected. Custom types can be added
-          or deactivated.
-        </p>
+        <p className="text-xs text-muted-foreground">{t("pages.leavePolicy.protectedTypesNote")}</p>
       </section>
 
       <section className="overflow-hidden rounded-md border border-border bg-background">
         <div className="border-b border-border px-4 py-4 sm:px-5">
-          <h2 className="font-semibold">Employee leave credits</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Choose an employee, then update the required leave type. Every change is audited.
-          </p>
+          <h2 className="font-semibold">{t("pages.leavePolicy.employeeCreditsTitle")}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t("pages.leavePolicy.employeeCreditsHelp")}</p>
         </div>
 
         {directoryLoading ? (
-          <LoadingState label="Loading employees" />
+          <LoadingState label={t("pages.loading.leavePolicy")} />
         ) : (
           <div className="grid min-h-0 lg:min-h-[420px] lg:grid-cols-[minmax(260px,0.34fr)_minmax(0,1fr)]">
             <aside className="border-b border-border lg:border-b-0 lg:border-r">
@@ -245,7 +244,7 @@ function PolicyPage() {
                 <div className="mb-2 lg:hidden">
                   <Select value={selectedEmployeeId} onValueChange={selectEmployee}>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Choose an employee" />
+                      <SelectValue placeholder={t("pages.leavePolicy.chooseEmployee")} />
                     </SelectTrigger>
                     <SelectContent>
                       {filteredEmployees.map((employee) => {
@@ -264,7 +263,7 @@ function PolicyPage() {
                   <Input
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search employees"
+                    placeholder={t("pages.leavePolicy.searchEmployees")}
                     className="pl-9"
                   />
                 </div>
@@ -299,7 +298,7 @@ function PolicyPage() {
                         </span>
                         <span className="block truncate text-xs text-muted-foreground">
                           {employee.employeeCode ?? employee.employeeId} ·{" "}
-                          {employee.department ?? "No unit"}
+                          {employee.department ?? t("pages.leavePolicy.noUnit")}
                         </span>
                       </span>
                       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -308,7 +307,7 @@ function PolicyPage() {
                 })}
                 {!filteredEmployees.length && (
                   <p className="px-3 py-8 text-center text-sm text-muted-foreground">
-                    No employees match this search.
+                    {t("pages.leavePolicy.noEmployeesMatch")}
                   </p>
                 )}
               </div>
@@ -320,32 +319,36 @@ function PolicyPage() {
                   <span className="flex h-12 w-12 items-center justify-center rounded-md bg-muted text-muted-foreground">
                     <UserRound className="h-6 w-6" />
                   </span>
-                  <p className="mt-3 font-semibold">Select an employee</p>
+                  <p className="mt-3 font-semibold">{t("pages.leavePolicy.selectEmployee")}</p>
                   <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                    Their current credits and leave types will appear here.
+                    {t("pages.leavePolicy.selectEmployeeHelp")}
                   </p>
                 </div>
               ) : balancesLoading ? (
-                <LoadingState label={`Loading ${selectedEmployee.name}'s credits`} />
+                <LoadingState
+                  label={t("pages.leavePolicy.loadingEmployeeCredits", {
+                    name: selectedEmployee.name,
+                  })}
+                />
               ) : (
                 <div>
                   <div className="mb-4 flex flex-col gap-1 border-b border-border pb-4">
                     <h3 className="text-lg font-semibold">{selectedEmployee.name}</h3>
                     <p className="text-sm text-muted-foreground">
                       {selectedEmployee.employeeCode ?? selectedEmployee.employeeId} ·{" "}
-                      {selectedEmployee.department ?? "No organization unit"}
+                      {selectedEmployee.department ?? t("pages.leavePolicy.noOrganizationUnit")}
                     </p>
                   </div>
                   {creditTotals && (
                     <div className="mb-4 grid gap-3 sm:grid-cols-3">
                       <StatCard
-                        label="Credited"
+                        label={t("pages.leavePolicy.credited")}
                         value={creditTotals.credited}
                         icon={CalendarCheck}
                       />
-                      <StatCard label="Used" value={creditTotals.used} icon={Pencil} />
+                      <StatCard label={t("pages.leavePolicy.used")} value={creditTotals.used} icon={Pencil} />
                       <StatCard
-                        label="Available"
+                        label={t("pages.leavePolicy.available")}
                         value={creditTotals.available}
                         icon={UserRound}
                         tone="success"
@@ -361,12 +364,14 @@ function PolicyPage() {
                         <div className="min-w-0">
                           <p className="font-semibold">{row.leaveType}</p>
                           <p className="mt-0.5 text-xs text-muted-foreground">
-                            Manual adjustment: {row.manualAdjustment}
+                            {t("pages.leavePolicy.manualAdjustment", {
+                              value: row.manualAdjustment,
+                            })}
                           </p>
                         </div>
-                        <CreditValue label="Credited" value={row.entitled} />
-                        <CreditValue label="Used" value={row.used} />
-                        <CreditValue label="Available" value={row.balance} emphasize />
+                        <CreditValue label={t("pages.leavePolicy.credited")} value={row.entitled} />
+                        <CreditValue label={t("pages.leavePolicy.used")} value={row.used} />
+                        <CreditValue label={t("pages.leavePolicy.available")} value={row.balance} emphasize />
                         <Button
                           size="sm"
                           variant="outline"
@@ -377,19 +382,19 @@ function PolicyPage() {
                           }}
                         >
                           <Pencil className="mr-2 h-4 w-4" />
-                          Edit credit
+                          {t("pages.leavePolicy.editCredit")}
                         </Button>
                       </div>
                     ))}
                     {!balances.length && (
                       <p className="py-10 text-center text-sm text-muted-foreground">
-                        No leave credits are configured for this employee.
+                        {t("pages.leavePolicy.noCreditsConfigured")}
                       </p>
                     )}
                   </div>
                   {compOffCredits.length > 0 && (
                     <div className="mt-6 space-y-2">
-                      <h4 className="text-sm font-semibold">Comp Off credit ledger</h4>
+                      <h4 className="text-sm font-semibold">{t("pages.leavePolicy.compOffLedger")}</h4>
                       {compOffCredits.slice(0, 12).map((credit) => (
                         <div
                           key={credit.id}
@@ -413,7 +418,7 @@ function PolicyPage() {
       <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Update leave credit</DialogTitle>
+            <DialogTitle>{t("pages.leavePolicy.updateCreditTitle")}</DialogTitle>
           </DialogHeader>
           {editing && (
             <div className="space-y-4">
@@ -422,7 +427,7 @@ function PolicyPage() {
                 <p className="text-sm text-muted-foreground">{editing.leaveType}</p>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="manual-adjustment">Manual credit adjustment</Label>
+                <Label htmlFor="manual-adjustment">{t("pages.leavePolicy.manualCreditAdjustment")}</Label>
                 <Input
                   id="manual-adjustment"
                   type="number"
@@ -430,17 +435,15 @@ function PolicyPage() {
                   value={adjustment}
                   onChange={(event) => setAdjustment(event.target.value)}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Enter the total manual adjustment. Positive adds credit; negative reduces it.
-                </p>
+                <p className="text-xs text-muted-foreground">{t("pages.leavePolicy.adjustmentHelp")}</p>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="adjustment-reason">Reason</Label>
+                <Label htmlFor="adjustment-reason">{t("pages.leavePolicy.reason")}</Label>
                 <Textarea
                   id="adjustment-reason"
                   rows={3}
                   maxLength={500}
-                  placeholder="Why is this credit changing?"
+                  placeholder={t("pages.leavePolicy.reasonPlaceholder")}
                   value={reason}
                   onChange={(event) => setReason(event.target.value)}
                 />
@@ -450,10 +453,10 @@ function PolicyPage() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)} disabled={saving}>
-              Cancel
+              {t("pages.leavePolicy.cancel")}
             </Button>
             <Button onClick={saveAdjustment} disabled={saving}>
-              {saving ? "Saving..." : "Save credit"}
+              {saving ? t("pages.leavePolicy.saving") : t("pages.leavePolicy.saveCredit")}
             </Button>
           </DialogFooter>
         </DialogContent>

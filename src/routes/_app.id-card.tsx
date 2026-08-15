@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -20,6 +21,7 @@ export const Route = createFileRoute("/_app/id-card")({
 });
 
 function IdCardPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [employee, setEmployee] = useState<{
     companyEntity: CompanyEntity;
@@ -54,19 +56,16 @@ function IdCardPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Employee ID Card"
-        description="Your official digital company identification."
-      />
+      <PageHeader title={t("pages.idCard.title")} description={t("pages.idCard.subtitle")} />
       <div className="mx-auto w-full max-w-lg print:max-w-md">
         <Card className="overflow-hidden border-red-200 shadow-md dark:border-red-900/50 print:shadow-none">
           <div className="flex items-center justify-between border-b border-red-100 bg-red-50 px-5 py-3 dark:border-red-900/40 dark:bg-red-950/30">
             <Logo className="h-8 w-auto" />
             <div className="text-right">
               <span className="block text-xs font-semibold uppercase text-red-700 dark:text-red-400">
-                Employee ID
+                {t("pages.idCard.employeeId")}
               </span>
-              <span className="text-[10px] text-muted-foreground">Anytime Workforce</span>
+              <span className="text-[10px] text-muted-foreground">{t("app.name")}</span>
             </div>
           </div>
           <CardContent className="p-6">
@@ -88,7 +87,7 @@ function IdCardPage() {
             </div>
             <div className="mt-5 grid grid-cols-1 gap-x-4 gap-y-3 border-y border-dashed py-4 text-sm min-[400px]:grid-cols-2 sm:grid-cols-3">
               <Row
-                label="Company"
+                label={t("pages.idCard.company")}
                 value={
                   employee?.companyEntity
                     ? COMPANY_LABELS[employee.companyEntity]
@@ -97,20 +96,26 @@ function IdCardPage() {
                       : "-"
                 }
               />
-              <Row label="Group" value={PARENT_COMPANY_NAME} />
-              <Row label="Department" value={employee?.department ?? user.department ?? "-"} />
-              <Row label="Role" value={ROLE_LABELS[user.role]} />
+              <Row label={t("pages.idCard.group")} value={PARENT_COMPANY_NAME} />
               <Row
-                label="Joining date"
+                label={t("common.department")}
+                value={employee?.department ?? user.department ?? "-"}
+              />
+              <Row label={t("common.role")} value={ROLE_LABELS[user.role]} />
+              <Row
+                label={t("pages.profilePage.joiningDate")}
                 value={
                   employee?.joiningDate || user.joiningDate
                     ? formatDisplayDate(employee?.joiningDate ?? user.joiningDate)
                     : "-"
                 }
               />
-              <Row label="Blood group" value={employee?.bloodGroup ?? user.bloodGroup ?? "-"} />
               <Row
-                label="Phone"
+                label={t("pages.profilePage.bloodGroup")}
+                value={employee?.bloodGroup ?? user.bloodGroup ?? "-"}
+              />
+              <Row
+                label={t("pages.idCard.phone")}
                 value={
                   employee?.companyPhone ??
                   employee?.personalPhone ??
@@ -120,7 +125,7 @@ function IdCardPage() {
                 }
               />
               <div className="min-[400px]:col-span-2 sm:col-span-3">
-                <Row label="Email" value={employee?.email ?? user.email} />
+                <Row label={t("common.email")} value={employee?.email ?? user.email} />
               </div>
             </div>
 
@@ -129,24 +134,22 @@ function IdCardPage() {
                 <>
                   <div
                     className="rounded-md border bg-white p-2"
-                    aria-label="Employee verification QR code"
+                    aria-label={t("pages.idCard.verificationQr")}
                   >
                     <img
                       src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(verificationUrl)}`}
-                      alt="Verification QR Code"
+                      alt={t("pages.idCard.verificationQrTitle")}
                       className="h-28 w-28"
                       draggable={false}
                     />
                   </div>
                   <span className="mt-2 flex items-center gap-1 text-[10px] font-semibold uppercase text-muted-foreground">
-                    <ShieldCheck className="h-3 w-3 text-emerald-600 dark:text-emerald-400" /> Scan
-                    from another device to verify this ID
+                    <ShieldCheck className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />{" "}
+                    {t("pages.idCard.scanToVerify")}
                   </span>
                 </>
               ) : (
-                <p className="text-xs text-muted-foreground">
-                  Verification QR is available on your own ID card after it loads.
-                </p>
+                <p className="text-xs text-muted-foreground">{t("pages.idCard.qrUnavailable")}</p>
               )}
             </div>
           </CardContent>

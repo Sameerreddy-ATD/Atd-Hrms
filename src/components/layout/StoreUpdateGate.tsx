@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { App as CapApp } from "@capacitor/app";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import {
  * build and send the user to Play so attendance / notifications keep working.
  */
 export function StoreUpdateGate() {
+  const { t } = useTranslation();
   const [update, setUpdate] = useState<StoreUpdateStatus | null>(null);
 
   const refresh = useCallback(async () => {
@@ -69,28 +71,30 @@ export function StoreUpdateGate() {
           <img src="/atd-mark.png" alt="" className="h-8 w-8 object-contain" />
         </div>
         <h2 id="store-update-title" className="text-center text-xl font-semibold tracking-tight">
-          Update Anytime Workforce
+          {t("pages.shell.updateTitle")}
         </h2>
         <p
           id="store-update-copy"
           className="mt-2 text-center text-sm leading-relaxed text-muted-foreground"
         >
-          A newer app is on Google Play. Update now so attendance, notifications, and the latest
-          fixes work on this phone.
+          {t("pages.shell.updateHelpNative")}
         </p>
         <p className="mt-3 text-center text-xs font-medium text-muted-foreground">
-          Installed {update.installedVersion || update.installedBuild} → {update.latestVersion}
+          {t("pages.shell.installedVersion", {
+            installed: update.installedVersion || update.installedBuild,
+            latest: update.latestVersion,
+          })}
         </p>
         <Button
           className="mt-5 h-12 w-full text-base"
           onClick={() => openPlayStoreListing(update.playStoreUrl)}
         >
           <Download className="h-4 w-4" />
-          Update on Play Store
+          {t("pages.shell.updatePlay")}
         </Button>
         {!update.required ? (
           <Button variant="ghost" className="mt-2 h-11 w-full" onClick={() => setUpdate(null)}>
-            Not now
+            {t("pages.shell.notNow")}
           </Button>
         ) : null}
       </div>

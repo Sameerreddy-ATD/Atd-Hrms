@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
 import { AttendanceDayList } from "@/components/attendance/AttendanceDayList";
@@ -25,6 +26,7 @@ export const Route = createFileRoute("/_app/attendance/mine")({
 });
 
 function MyAttendancePage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { tab: tabSearch } = useSearch({ from: "/_app/attendance/mine" });
@@ -89,11 +91,11 @@ function MyAttendancePage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <PageHeader
-        title="My Attendance"
-        description="This month’s log. Check in and out from the dashboard."
+        title={t("pages.attendanceMine.title")}
+        description={t("pages.attendanceMine.subtitle")}
       />
 
-      {loading && <LoadingState label="Loading your attendance data" />}
+      {loading && <LoadingState label={t("pages.loading.attendanceMine")} />}
 
       {error && (
         <div className="rounded-lg border border-destructive/10 bg-destructive/5 p-4 text-sm text-destructive">
@@ -118,13 +120,13 @@ function MyAttendancePage() {
               value="history"
               className="min-h-11 rounded-lg py-2.5 text-xs font-semibold sm:text-sm"
             >
-              Log
+              {t("pages.attendanceMine.tabLog")}
             </TabsTrigger>
             <TabsTrigger
               value="requests"
               className="min-h-11 rounded-lg py-2.5 text-xs font-semibold sm:text-sm"
             >
-              Missed punch
+              {t("pages.attendanceMine.tabMissed")}
               {pendingCount > 0 ? (
                 <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
                   {pendingCount}
@@ -137,27 +139,27 @@ function MyAttendancePage() {
             <Card className="border-border shadow-sm">
               <CardHeader className="space-y-1 px-4 pb-3 pt-4 sm:px-6">
                 <CardTitle className="text-base font-semibold text-foreground">
-                  This month
+                  {t("pages.attendanceMine.thisMonth")}
                 </CardTitle>
                 <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
-                  Tap a day for punch detail. Apply leave from Leave in the menu.
+                  {t("pages.attendanceMine.tapDayHint")}
                 </p>
               </CardHeader>
               <CardContent className="px-3 pb-4 pt-0 sm:px-4 sm:pb-5">
                 <AttendanceDayList
                   records={records}
                   mine
-                  emptyText="No attendance history records logged yet."
+                  emptyText={t("pages.attendanceMine.noHistory")}
                 />
               </CardContent>
             </Card>
             <p className="px-1 text-center text-xs text-muted-foreground sm:text-left">
-              Need time off?{" "}
+              {t("pages.attendanceMine.needTimeOff")}{" "}
               <Link
                 to="/leave/apply"
                 className="font-semibold text-primary underline-offset-2 hover:underline"
               >
-                Apply leave
+                {t("pages.attendanceMine.applyLeave")}
               </Link>
             </p>
           </TabsContent>

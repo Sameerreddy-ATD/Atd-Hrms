@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -52,6 +53,7 @@ export const Route = createFileRoute("/_app/holidays")({
 });
 
 function HolidaysPage() {
+  const { t } = useTranslation();
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Holiday | null>(null);
@@ -99,7 +101,7 @@ function HolidaysPage() {
   async function saveHoliday(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name || !form.date) {
-      toast.error("Holiday name and date are required");
+      toast.error(t("pages.holidays.toastFieldsRequired"));
       return;
     }
     const payload = {
@@ -116,7 +118,7 @@ function HolidaysPage() {
       setHolidays((prev) =>
         editing ? prev.map((row) => (row.id === saved.id ? saved : row)) : [saved, ...prev],
       );
-      toast.success(editing ? "Holiday updated" : "Holiday added");
+      toast.success(editing ? t("pages.holidays.toastUpdated") : t("pages.holidays.toastAdded"));
       resetForm();
     } catch (err) {
       toast.error((err as Error).message);
@@ -127,24 +129,30 @@ function HolidaysPage() {
     try {
       await reportsApi.deleteHoliday(holiday.id);
       setHolidays((prev) => prev.filter((row) => row.id !== holiday.id));
-      toast.success("Holiday deleted");
+      toast.success(t("pages.holidays.toastDeleted"));
     } catch (err) {
       toast.error((err as Error).message);
     }
   }
 
+  const holidayTypeLabel = (type: Holiday["type"]) => {
+    if (type === "Public") return t("pages.holidays.public");
+    if (type === "Optional") return t("pages.holidays.optional");
+    return t("pages.holidays.restricted");
+  };
+
   return (
     <div>
       <PageHeader
-        title="Holidays"
-        description="Company-wide holiday calendar. Active holidays apply to every attendance-enabled employee."
+        title={t("pages.holidays.title")}
+        description={t("pages.holidays.subtitle")}
         actions={
           <Button size="sm" onClick={openCreateDialog}>
-            <Plus className="mr-2 h-4 w-4" /> Add holiday
+            <Plus className="mr-2 h-4 w-4" /> {t("pages.holidays.addHoliday")}
           </Button>
         }
       />
-      {loading && <LoadingState label="Loading holidays" />}
+      {loading && <LoadingState label={t("pages.loading.holidays")} />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="grid gap-3 md:hidden">
         {holidays.map((holiday) => (
@@ -160,17 +168,17 @@ function HolidaysPage() {
                     <p className="mt-2 text-sm text-muted-foreground">{holiday.description}</p>
                   )}
                 </div>
-                <Badge variant="outline">{holiday.type}</Badge>
+                <Badge variant="outline">{holidayTypeLabel(holiday.type)}</Badge>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <Button variant="outline" onClick={() => openEditDialog(holiday)}>
-                  <Pencil className="mr-2 h-4 w-4" /> Edit
+                  <Pencil className="mr-2 h-4 w-4" /> {t("common.edit")}
                 </Button>
                 <Button
                   className="bg-red-600 text-white hover:bg-red-700"
                   onClick={() => setDeleteHolidayTarget(holiday)}
                 >
-                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                  <Trash2 className="mr-2 h-4 w-4" /> {t("common.delete")}
                 </Button>
               </div>
             </CardContent>
@@ -179,7 +187,7 @@ function HolidaysPage() {
       </div>
       {!loading && holidays.length === 0 && (
         <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground md:hidden">
-          No holidays found.
+          {t("pages.holidays.empty")}
         </div>
       )}
       <div className="hidden overflow-hidden rounded-lg border border-border bg-card md:block">
@@ -200,7 +208,7 @@ function HolidaysPage() {
                   <TableCell>{formatDisplayDate(h.date)}</TableCell>
                   <TableCell className="font-medium">{h.name}</TableCell>
                   <TableCell>
-                    <Badge variant="outline">{h.type}</Badge>
+                    <Badge variant="outline">{holidayTypeLabel(h.type)}</Badge>
                   </TableCell>
                   <TableCell className="max-w-xs truncate text-muted-foreground">
                     {h.description || "—"}
@@ -208,14 +216,14 @@ function HolidaysPage() {
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button size="sm" variant="outline" onClick={() => openEditDialog(h)}>
-                        <Pencil className="mr-2 h-4 w-4" /> Edit
+                        <Pencil className="mr-2 h-4 w-4" /> {t("common.edit")}
                       </Button>
                       <Button
                         size="sm"
                         className="bg-red-600 text-white hover:bg-red-700"
                         onClick={() => setDeleteHolidayTarget(h)}
                       >
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                        <Trash2 className="mr-2 h-4 w-4" /> {t("common.delete")}
                       </Button>
                     </div>
                   </TableCell>
@@ -225,14 +233,14 @@ function HolidaysPage() {
           </Table>
         </div>
         {!loading && holidays.length === 0 && (
-          <div className="p-6 text-sm text-muted-foreground">No holidays found.</div>
+          <div className="p-6 text-sm text-muted-foreground">{t("pages.holidays.empty")}</div>
         )}
       </div>
 
       <Dialog open={showForm} onOpenChange={(open) => !open && resetForm()}>
         <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editing ? "Edit holiday" : "Add holiday"}</DialogTitle>
+            <DialogTitle>{editing ? t("pages.holidays.edit") : t("pages.holidays.add")}</DialogTitle>
             <DialogDescription>
               Holidays are company-wide. Nine hours of holiday work earns one Comp Off credit.
             </DialogDescription>
@@ -265,9 +273,9 @@ function HolidaysPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Public">Public</SelectItem>
-                  <SelectItem value="Optional">Optional</SelectItem>
-                  <SelectItem value="Restricted">Restricted</SelectItem>
+                  <SelectItem value="Public">{t("pages.holidays.public")}</SelectItem>
+                  <SelectItem value="Optional">{t("pages.holidays.optional")}</SelectItem>
+                  <SelectItem value="Restricted">{t("pages.holidays.restricted")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -282,9 +290,11 @@ function HolidaysPage() {
             </div>
             <DialogFooter className="sm:col-span-2">
               <Button type="button" variant="outline" onClick={resetForm}>
-                Cancel
+                {t("common.cancel")}
               </Button>
-              <Button type="submit">{editing ? "Update holiday" : "Create holiday"}</Button>
+              <Button type="submit">
+                {editing ? t("pages.holidays.updateHoliday") : t("pages.holidays.createHoliday")}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -296,7 +306,7 @@ function HolidaysPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete holiday?</AlertDialogTitle>
+            <AlertDialogTitle>{t("pages.holidays.deleteTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
               {deleteHolidayTarget
                 ? `This will remove ${deleteHolidayTarget.name} from the holiday calendar.`
@@ -304,7 +314,7 @@ function HolidaysPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 text-white hover:bg-red-700"
               onClick={() => {
@@ -313,7 +323,7 @@ function HolidaysPage() {
                 setDeleteHolidayTarget(null);
               }}
             >
-              Delete
+              {t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

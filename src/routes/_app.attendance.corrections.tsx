@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -64,6 +65,7 @@ interface CorrectionRequestItem {
 }
 
 function AttendanceCorrectionsPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [rows, setRows] = useState<AttendanceRecord[]>([]);
@@ -133,11 +135,11 @@ function AttendanceCorrectionsPage() {
         eventType,
         remarks: punchOutRemarks.trim(),
       });
-      toast.success("Punch-out added and attendance updated");
+      toast.success(t("pages.corrections.toastPunchOutAdded"));
       setPunchOutTarget(null);
       loadAlerts();
     } catch (err) {
-      toast.error((err as Error).message || "Failed to add punch-out");
+      toast.error((err as Error).message || t("pages.corrections.toastPunchOutFailed"));
     } finally {
       setActionId("");
     }
@@ -148,7 +150,7 @@ function AttendanceCorrectionsPage() {
     try {
       const updated = await attendanceApi.recalculate(row.employeeId, row.date);
       setRows((current) => current.map((item) => (item.id === row.id ? updated : item)));
-      toast.success("Attendance recalculated");
+      toast.success(t("pages.corrections.toastRecalculated"));
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -160,11 +162,11 @@ function AttendanceCorrectionsPage() {
     setActionId(id);
     try {
       await attendanceApi.approveCorrectionRequest(id);
-      toast.success("Correction request approved");
+      toast.success(t("pages.corrections.toastApproved"));
       loadRequests();
       loadAlerts();
     } catch (err) {
-      toast.error((err as Error).message || "Failed to approve request");
+      toast.error((err as Error).message || t("pages.corrections.toastApproveFailed"));
     } finally {
       setActionId("");
     }
@@ -174,10 +176,10 @@ function AttendanceCorrectionsPage() {
     setActionId(id);
     try {
       await attendanceApi.rejectCorrectionRequest(id);
-      toast.success("Correction request rejected");
+      toast.success(t("pages.corrections.toastRejected"));
       loadRequests();
     } catch (err) {
-      toast.error((err as Error).message || "Failed to reject request");
+      toast.error((err as Error).message || t("pages.corrections.toastRejectFailed"));
     } finally {
       setActionId("");
     }
@@ -197,8 +199,8 @@ function AttendanceCorrectionsPage() {
   return (
     <div>
       <PageHeader
-        title="Attendance Corrections"
-        description="Organization heads review their employees' punch requests. HR can track requests and maintain system alerts."
+        title={t("pages.corrections.title")}
+        description={t("pages.corrections.subtitle")}
       />
 
       <Tabs defaultValue="requests" className="mt-6 w-full">
@@ -208,33 +210,38 @@ function AttendanceCorrectionsPage() {
             className="min-h-11 flex-col gap-0.5 rounded-md py-2 text-xs font-semibold sm:flex-row sm:gap-2 sm:text-sm"
           >
             <FileClock className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            <span className="sm:hidden">Requests ({pendingRequests.length})</span>
-            <span className="hidden sm:inline">Pending Requests ({pendingRequests.length})</span>
+            <span className="sm:hidden">
+              {t("pages.corrections.tabRequestsMobile", { count: pendingRequests.length })}
+            </span>
+            <span className="hidden sm:inline">
+              {t("pages.corrections.tabRequestsDesktop", { count: pendingRequests.length })}
+            </span>
           </TabsTrigger>
           <TabsTrigger
             value="alerts"
             className="min-h-11 flex-col gap-0.5 rounded-md py-2 text-xs font-semibold sm:flex-row sm:gap-2 sm:text-sm"
           >
             <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            <span className="sm:hidden">Alerts ({rows.length})</span>
-            <span className="hidden sm:inline">System Alerts ({rows.length})</span>
+            <span className="sm:hidden">
+              {t("pages.corrections.tabAlertsMobile", { count: rows.length })}
+            </span>
+            <span className="hidden sm:inline">
+              {t("pages.corrections.tabAlertsDesktop", { count: rows.length })}
+            </span>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="requests" className="mt-4">
-          {loadingReqs && <LoadingState label="Loading pending requests" compact />}
+          {loadingReqs && <LoadingState label={t("pages.loading.corrections")} compact />}
           {!loadingReqs && pendingRequests.length > 0 && (
             <div className="mb-4 rounded-md border border-border bg-muted/30 px-4 py-3 text-sm">
               {reviewableRequests.length > 0 ? (
                 <p>
-                  <span className="font-semibold">{reviewableRequests.length}</span> request
-                  {reviewableRequests.length === 1 ? " is" : "s are"} waiting for your decision.
+                  <span className="font-semibold">{reviewableRequests.length}</span>{" "}
+                  {t("pages.corrections.waitingDecision", { count: reviewableRequests.length })}
                 </p>
               ) : (
-                <p className="text-muted-foreground">
-                  These requests are visible for tracking. Only the assigned organization head can
-                  approve or reject each request.
-                </p>
+                <p className="text-muted-foreground">{t("pages.corrections.trackingOnly")}</p>
               )}
             </div>
           )}
@@ -256,11 +263,15 @@ function AttendanceCorrectionsPage() {
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                   <div>
-                    <p className="text-xs text-muted-foreground">Requested date</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t("pages.corrections.requestedDate")}
+                    </p>
                     <p className="font-medium">{formatDisplayDate(req.date)}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Punch time</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t("pages.corrections.punchTime")}
+                    </p>
                     <p className="font-medium">
                       {new Date(req.punchTime).toLocaleTimeString("en-IN", {
                         timeZone: "Asia/Kolkata",
@@ -281,7 +292,7 @@ function AttendanceCorrectionsPage() {
                         disabled={actionId === req.id}
                         onClick={() => handleApprove(req.id)}
                       >
-                        <Check className="mr-1 h-4 w-4" /> Approve
+                        <Check className="mr-1 h-4 w-4" /> {t("common.approve")}
                       </Button>
                       <Button
                         variant="destructive"
@@ -289,13 +300,15 @@ function AttendanceCorrectionsPage() {
                         disabled={actionId === req.id}
                         onClick={() => handleReject(req.id)}
                       >
-                        <X className="mr-1 h-4 w-4" /> Reject
+                        <X className="mr-1 h-4 w-4" /> {t("common.reject")}
                       </Button>
                     </div>
                   )}
                   {!req.canReview && (
                     <p className="rounded-md bg-muted px-3 py-2 text-center text-xs text-muted-foreground">
-                      Awaiting {req.approverName || "assigned organization head"}
+                      {t("pages.corrections.awaiting", {
+                        name: req.approverName || t("pages.corrections.assignedHeadFallback"),
+                      })}
                     </p>
                   )}
                   <Button
@@ -303,15 +316,15 @@ function AttendanceCorrectionsPage() {
                     className="min-h-11 w-full"
                     onClick={() => openDayLogs(req.employeeId, req.employeeName, req.date)}
                   >
-                    Open Day Logs <ArrowRight className="ml-1.5 h-4 w-4" />
+                    {t("pages.corrections.openDayLogs")} <ArrowRight className="ml-1.5 h-4 w-4" />
                   </Button>
                 </div>
               </div>
             ))}
             {!loadingReqs && pendingRequests.length === 0 && (
               <EmptyState
-                title="No pending requests"
-                description="There are no punch requests waiting for your review."
+                title={t("pages.corrections.emptyPending")}
+                description={t("pages.corrections.emptyPendingHelp")}
               />
             )}
           </div>
@@ -321,14 +334,14 @@ function AttendanceCorrectionsPage() {
               <Table className="min-w-[800px]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Employee</TableHead>
-                    <TableHead>Requested Date</TableHead>
-                    <TableHead>Punch Time</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Reason</TableHead>
-                    <TableHead>Submitted On</TableHead>
-                    <TableHead>Approver</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>{t("common.employee")}</TableHead>
+                    <TableHead>{t("pages.corrections.requestedDate")}</TableHead>
+                    <TableHead>{t("pages.corrections.punchTime")}</TableHead>
+                    <TableHead>{t("pages.corrections.type")}</TableHead>
+                    <TableHead>{t("pages.corrections.reason")}</TableHead>
+                    <TableHead>{t("pages.corrections.submittedOn")}</TableHead>
+                    <TableHead>{t("pages.leaveApply.approver")}</TableHead>
+                    <TableHead className="text-right">{t("common.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -357,7 +370,9 @@ function AttendanceCorrectionsPage() {
                       </TableCell>
                       <TableCell>{formatDisplayDate(req.createdAt)}</TableCell>
                       <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                        {req.canReview ? "Your decision" : (req.approverName ?? "Not assigned")}
+                        {req.canReview
+                          ? t("pages.corrections.yourDecision")
+                          : (req.approverName ?? t("pages.leaveApply.notAssigned"))}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1.5">
@@ -366,7 +381,8 @@ function AttendanceCorrectionsPage() {
                             variant="outline"
                             onClick={() => openDayLogs(req.employeeId, req.employeeName, req.date)}
                           >
-                            Open Day Logs <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                            {t("pages.corrections.openDayLogs")}{" "}
+                            <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                           </Button>
                           {req.canReview && (
                             <>
@@ -376,7 +392,7 @@ function AttendanceCorrectionsPage() {
                                 disabled={actionId === req.id}
                                 onClick={() => handleApprove(req.id)}
                               >
-                                <Check className="mr-1 h-3.5 w-3.5" /> Approve
+                                <Check className="mr-1 h-3.5 w-3.5" /> {t("common.approve")}
                               </Button>
                               <Button
                                 size="sm"
@@ -384,7 +400,7 @@ function AttendanceCorrectionsPage() {
                                 disabled={actionId === req.id}
                                 onClick={() => handleReject(req.id)}
                               >
-                                <X className="mr-1 h-3.5 w-3.5" /> Reject
+                                <X className="mr-1 h-3.5 w-3.5" /> {t("common.reject")}
                               </Button>
                             </>
                           )}
@@ -398,8 +414,8 @@ function AttendanceCorrectionsPage() {
             {!loadingReqs && pendingRequests.length === 0 && (
               <div className="p-6">
                 <EmptyState
-                  title="No pending requests"
-                  description="There are no punch requests waiting for your review."
+                  title={t("pages.corrections.emptyPending")}
+                  description={t("pages.corrections.emptyPendingHelp")}
                 />
               </div>
             )}
@@ -416,18 +432,18 @@ function AttendanceCorrectionsPage() {
                 if (to && nextFrom && to < nextFrom) setTo(nextFrom);
               }}
               className="sm:w-auto"
-              aria-label="From date"
+              aria-label={t("pages.dayLogs.ariaFromDate")}
             />
             <DateField
               value={to}
               min={from || undefined}
               onChange={setTo}
               className="sm:w-auto"
-              aria-label="To date"
+              aria-label={t("pages.dayLogs.ariaToDate")}
             />
           </TableToolbar>
 
-          {loading && <LoadingState label="Loading system alerts" compact />}
+          {loading && <LoadingState label={t("pages.loading.systemAlerts")} compact />}
           {error && <p className="text-sm text-destructive">{error}</p>}
 
           <ResponsiveListShell>
@@ -440,10 +456,16 @@ function AttendanceCorrectionsPage() {
                     trailing={<StatusBadge status={row.status} />}
                   />
                   <MobileListFields>
-                    <MobileListField label="Date" value={formatDisplayDate(row.date)} />
-                    <MobileListField label="Source" value={row.source} />
-                    <MobileListField label="Punch In" value={row.punchIn ?? "-"} />
-                    <MobileListField label="Punch Out" value={row.punchOut ?? "-"} />
+                    <MobileListField label={t("common.date")} value={formatDisplayDate(row.date)} />
+                    <MobileListField label={t("pages.dashboard.colSource")} value={row.source} />
+                    <MobileListField
+                      label={t("pages.corrections.punchIn")}
+                      value={row.punchIn ?? "-"}
+                    />
+                    <MobileListField
+                      label={t("pages.corrections.punchOut")}
+                      value={row.punchOut ?? "-"}
+                    />
                   </MobileListFields>
                   <MobileListActions>
                     <Button
@@ -452,7 +474,7 @@ function AttendanceCorrectionsPage() {
                       variant="outline"
                       onClick={() => openDayLogs(row.employeeId, row.employeeName, row.date)}
                     >
-                      Open Day Logs <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                      {t("pages.corrections.openDayLogs")} <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                     </Button>
                     {canHrCorrect &&
                       (row.status.includes("Missed Punch") ||
@@ -463,7 +485,7 @@ function AttendanceCorrectionsPage() {
                           disabled={actionId === row.id}
                           onClick={() => setPunchOutTarget(row)}
                         >
-                          Add punch out
+                          {t("pages.corrections.addPunchOut")}
                         </Button>
                       )}
                     {canRecalculate && (
@@ -474,7 +496,7 @@ function AttendanceCorrectionsPage() {
                         disabled={actionId === row.id}
                         onClick={() => recalculate(row)}
                       >
-                        Recalculate
+                        {t("pages.corrections.recalculate")}
                       </Button>
                     )}
                   </MobileListActions>
@@ -485,13 +507,13 @@ function AttendanceCorrectionsPage() {
               <Table className="min-w-[760px]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Employee</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Punch In</TableHead>
-                    <TableHead>Punch Out</TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>{t("common.employee")}</TableHead>
+                    <TableHead>{t("common.date")}</TableHead>
+                    <TableHead>{t("pages.corrections.punchIn")}</TableHead>
+                    <TableHead>{t("pages.corrections.punchOut")}</TableHead>
+                    <TableHead>{t("pages.dashboard.colSource")}</TableHead>
+                    <TableHead>{t("common.status")}</TableHead>
+                    <TableHead className="text-right">{t("common.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -517,7 +539,8 @@ function AttendanceCorrectionsPage() {
                             variant="outline"
                             onClick={() => openDayLogs(row.employeeId, row.employeeName, row.date)}
                           >
-                            Open Day Logs <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                            {t("pages.corrections.openDayLogs")}{" "}
+                            <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                           </Button>
                           {canHrCorrect &&
                             (row.status.includes("Missed Punch") ||
@@ -527,7 +550,7 @@ function AttendanceCorrectionsPage() {
                                 disabled={actionId === row.id}
                                 onClick={() => setPunchOutTarget(row)}
                               >
-                                Add punch out
+                                {t("pages.corrections.addPunchOut")}
                               </Button>
                             )}
                           {canRecalculate && (
@@ -537,7 +560,7 @@ function AttendanceCorrectionsPage() {
                               disabled={actionId === row.id}
                               onClick={() => recalculate(row)}
                             >
-                              Recalculate
+                              {t("pages.corrections.recalculate")}
                             </Button>
                           )}
                         </div>
@@ -550,8 +573,8 @@ function AttendanceCorrectionsPage() {
             {!loading && rows.length === 0 && (
               <div className="p-6">
                 <EmptyState
-                  title="No system alerts"
-                  description="No missed punch or mismatch items detected."
+                  title={t("pages.corrections.emptyAlerts")}
+                  description={t("pages.corrections.emptyAlertsHelp")}
                 />
               </div>
             )}
@@ -562,7 +585,7 @@ function AttendanceCorrectionsPage() {
       <Dialog open={!!punchOutTarget} onOpenChange={(open) => !open && setPunchOutTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add punch out</DialogTitle>
+            <DialogTitle>{t("pages.corrections.addPunchOut")}</DialogTitle>
           </DialogHeader>
           {punchOutTarget && (
             <div className="space-y-4">
@@ -570,7 +593,7 @@ function AttendanceCorrectionsPage() {
                 {punchOutTarget.employeeName} · {formatDisplayDate(punchOutTarget.date)}
               </p>
               <div className="space-y-1.5">
-                <Label htmlFor="punch-out-time">Punch-out time</Label>
+                <Label htmlFor="punch-out-time">{t("pages.corrections.punchOutTime")}</Label>
                 <Input
                   id="punch-out-time"
                   type="time"
@@ -579,7 +602,7 @@ function AttendanceCorrectionsPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="punch-out-remarks">Remarks</Label>
+                <Label htmlFor="punch-out-remarks">{t("pages.corrections.remarks")}</Label>
                 <Textarea
                   id="punch-out-remarks"
                   rows={3}
@@ -591,10 +614,10 @@ function AttendanceCorrectionsPage() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setPunchOutTarget(null)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button onClick={submitPunchOut} disabled={!punchOutRemarks.trim() || !!actionId}>
-              Submit correction
+              {t("pages.corrections.submitCorrection")}
             </Button>
           </DialogFooter>
         </DialogContent>

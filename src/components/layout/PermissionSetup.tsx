@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Bell, Check, CircleAlert, LoaderCircle, LocateFixed } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -24,11 +25,12 @@ import { cn } from "@/lib/utils";
 const DISMISSED_KEY = "adh_permission_setup_dismissed_v5";
 
 function StatusPill({ state }: { state: DevicePermissionState }) {
+  const { t } = useTranslation();
   if (state === "granted") {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/12 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
         <Check className="h-3 w-3" />
-        On
+        {t("pages.shell.statusOn")}
       </span>
     );
   }
@@ -36,18 +38,19 @@ function StatusPill({ state }: { state: DevicePermissionState }) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/12 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:text-amber-300">
         <CircleAlert className="h-3 w-3" />
-        Blocked
+        {t("pages.shell.statusBlocked")}
       </span>
     );
   }
   return (
     <span className="inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-      Needed
+      {t("pages.shell.statusNeeded")}
     </span>
   );
 }
 
 export function PermissionSetup() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [location, setLocation] = useState<DevicePermissionState>("prompt");
   const [notifications, setNotifications] = useState(getNotificationPermission);
@@ -96,7 +99,7 @@ export function PermissionSetup() {
     setRequesting("location");
     try {
       await getDeviceLocation({ allowRecent: false });
-      toast.success("Precise location is on for check-in");
+      toast.success(t("pages.shell.locationOnToast"));
       close();
     } catch (error) {
       toast.error((error as Error).message || blockedPermissionHint("location"));
@@ -110,9 +113,9 @@ export function PermissionSetup() {
     setRequesting("notifications");
     try {
       await enableDesktopAlerts();
-      toast.success("Notifications are on");
+      toast.success(t("pages.shell.notificationsOnToast"));
     } catch (error) {
-      toast.error((error as Error).message || "Notifications were not allowed.");
+      toast.error((error as Error).message || t("pages.shell.notificationsNotAllowed"));
     } finally {
       await refresh();
       setRequesting(null);
@@ -124,21 +127,20 @@ export function PermissionSetup() {
       [
         {
           key: "location" as const,
-          title: "Precise location",
-          blurb:
-            "Required for check-in and check-out. Approximate location is not enough — turn on Precise. Used only while punching, never in the background.",
+          title: t("pages.shell.preciseLocation"),
+          blurb: t("pages.shell.preciseLocationBlurb"),
           state: location,
           required: true,
         },
         {
           key: "notifications" as const,
-          title: "Notifications",
-          blurb: "Optional alerts for leave, tasks, and company updates. You can skip this.",
+          title: t("pages.shell.notificationsTitle"),
+          blurb: t("pages.shell.notificationsBlurb"),
           state: notifications as DevicePermissionState,
           required: false,
         },
       ] as const,
-    [location, notifications],
+    [location, notifications, t],
   );
 
   // Native shell: render nothing (permission sheet is PWA/mobile-web only for now).
@@ -153,11 +155,9 @@ export function PermissionSetup() {
         <div className="px-5 pb-2 pt-5 sm:px-6">
           <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-border" aria-hidden />
           <SheetHeader className="space-y-1.5 text-left">
-            <SheetTitle className="text-xl tracking-tight">Allow precise location</SheetTitle>
+            <SheetTitle className="text-xl tracking-tight">{t("pages.shell.permissionTitle")}</SheetTitle>
             <SheetDescription className="text-sm leading-relaxed">
-              Attendance needs precise GPS against your branch. If Android offers Approximate,
-              switch to Precise. Camera is requested later only if Face Security is enabled for your
-              account.
+              {t("pages.shell.permissionHelp")}
             </SheetDescription>
           </SheetHeader>
         </div>
@@ -198,7 +198,7 @@ export function PermissionSetup() {
                     <StatusPill state={item.state} />
                     {!item.required && (
                       <span className="text-[11px] font-medium text-muted-foreground">
-                        Optional
+                        {t("common.optional")}
                       </span>
                     )}
                   </div>
@@ -215,7 +215,7 @@ export function PermissionSetup() {
                     {requesting === "notifications" ? (
                       <LoaderCircle className="h-4 w-4 animate-spin" />
                     ) : (
-                      "Allow"
+                      t("pages.shell.allow")
                     )}
                   </Button>
                 ) : null}
@@ -240,10 +240,10 @@ export function PermissionSetup() {
               {requesting === "location" ? (
                 <>
                   <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-                  Waiting for system prompt…
+                  {t("pages.shell.waitingForPrompt")}
                 </>
               ) : (
-                "Allow location"
+                t("pages.shell.allowLocation")
               )}
             </Button>
           )}
@@ -253,7 +253,7 @@ export function PermissionSetup() {
             onClick={close}
             disabled={requesting !== null}
           >
-            {locationReady ? "Continue" : "Not now"}
+            {locationReady ? t("pages.shell.continue") : t("pages.shell.notNow")}
           </Button>
         </SheetFooter>
       </SheetContent>

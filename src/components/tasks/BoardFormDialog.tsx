@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronUp, GripVertical, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -122,6 +123,7 @@ export function BoardFormDialog({
   saving,
   onSave,
 }: BoardFormDialogProps) {
+  const { t } = useTranslation();
   const [form, setForm] = useState<BoardForm>(emptyBoardForm);
   const [memberQuery, setMemberQuery] = useState("");
   const [error, setError] = useState("");
@@ -245,7 +247,9 @@ export function BoardFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="grid max-h-[calc(100dvh-1rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-[720px]">
         <DialogHeader className="border-b px-5 py-5 sm:px-7">
-          <DialogTitle>{board ? "Project settings" : "Create project"}</DialogTitle>
+          <DialogTitle>
+            {board ? t("pages.tasks.projectSettings") : t("pages.tasks.createProject")}
+          </DialogTitle>
           <p className="text-sm text-muted-foreground">
             Define the workflow and exactly who can access it.
           </p>
@@ -657,7 +661,7 @@ export function BoardFormDialog({
 
         <DialogFooter className="border-t bg-background px-5 py-4 sm:px-7">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button
             type="button"
@@ -665,7 +669,11 @@ export function BoardFormDialog({
             onClick={() => void submit()}
             className="bg-red-600 hover:bg-red-700"
           >
-            {saving ? "Saving..." : board ? "Save changes" : "Create board"}
+            {saving
+              ? t("pages.tasks.saving")
+              : board
+                ? t("pages.tasks.saveChanges")
+                : t("pages.tasks.createBoard")}
           </Button>
         </DialogFooter>
       </DialogContent>

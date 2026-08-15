@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { FaceEnrollmentGate } from "@/components/face/FaceEnrollmentGate";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ export const Route = createFileRoute("/_app/face-enrollment")({
 });
 
 function FaceEnrollmentPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const needsEnrollment =
     !user?.faceEnrollmentStatus ||
@@ -24,11 +26,11 @@ function FaceEnrollmentPage() {
   return (
     <div className="mx-auto max-w-lg space-y-4 px-4 py-16 text-center sm:px-6">
       <PageHeader
-        title="Face verification"
-        description="Your face enrollment is already approved. Attendance check-in will ask for a live match."
+        title={t("pages.faceEnrollment.title")}
+        description={t("pages.faceEnrollment.subtitle")}
       />
       <Button asChild>
-        <Link to="/dashboard">Back to dashboard</Link>
+        <Link to="/dashboard">{t("pages.faceEnrollment.backToDashboard")}</Link>
       </Button>
     </div>
   );

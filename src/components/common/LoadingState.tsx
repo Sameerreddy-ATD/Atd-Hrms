@@ -1,8 +1,9 @@
 import { Logo } from "@/components/common/Logo";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 export function LoadingState({
-  label = "Loading data",
+  label,
   compact = false,
   showBrandStory = false,
   className,
@@ -12,6 +13,8 @@ export function LoadingState({
   showBrandStory?: boolean;
   className?: string;
 }) {
+  const { t } = useTranslation();
+  const displayLabel = label ?? t("pages.loading.data");
   return (
     <div
       role="status"
@@ -74,7 +77,7 @@ export function LoadingState({
                 compact && "text-xs",
               )}
             >
-              {label}
+              {displayLabel}
             </p>
             <div
               className={cn(
@@ -90,7 +93,7 @@ export function LoadingState({
         </div>
       </div>
 
-      <span className="sr-only">Please wait.</span>
+      <span className="sr-only">{t("pages.loading.wait")}</span>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { CalendarClock, CheckCircle2, Clock3, LogIn, LogOut } from "lucide-react";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -42,10 +43,10 @@ function currentTimeInputValue() {
   return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 }
 
-function requestStatusLabel(status: string) {
-  if (status === "PENDING") return "Pending";
-  if (status === "APPROVED") return "Approved";
-  if (status === "REJECTED") return "Rejected";
+function requestStatusLabel(status: string, t: (key: string) => string) {
+  if (status === "PENDING") return t("common.pending");
+  if (status === "APPROVED") return t("common.approved");
+  if (status === "REJECTED") return t("common.rejected");
   return status;
 }
 
@@ -60,6 +61,7 @@ export function MissedPunchRequestPanel({
   onSubmitted?: () => void | Promise<void>;
   showHistory?: boolean;
 }) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const items = useMemo(() => detectMissedPunchItems(records, requests), [records, requests]);
   const [selected, setSelected] = useState<MissedPunchItem | null>(null);
@@ -89,15 +91,15 @@ export function MissedPunchRequestPanel({
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!user?.employeeId || !selected) {
-      toast.error("You must have an employee profile to submit correction requests.");
+      toast.error(t("pages.missedPunch.toastNeedProfile"));
       return;
     }
     if (!time) {
-      toast.error("Enter the punch time.");
+      toast.error(t("pages.missedPunch.toastEnterTime"));
       return;
     }
     if (reason.trim().length < 3) {
-      toast.error("Reason must be at least 3 characters long.");
+      toast.error(t("pages.missedPunch.toastReasonTooShort"));
       return;
     }
 
@@ -110,7 +112,7 @@ export function MissedPunchRequestPanel({
       punchTime.setDate(punchTime.getDate() + 1);
     }
     if (selected.date > maxDate || punchTime.getTime() > Date.now()) {
-      toast.error("Punch time must be in the past.");
+      toast.error(t("pages.missedPunch.toastPastOnly"));
       return;
     }
 
@@ -123,11 +125,11 @@ export function MissedPunchRequestPanel({
         eventType: selected.eventType,
         remarks: reason.trim(),
       });
-      toast.success("Missed punch request submitted");
+      toast.success(t("pages.missedPunch.toastSubmitted"));
       clearSelection();
       await onSubmitted?.();
     } catch (err) {
-      toast.error((err as Error).message || "Failed to submit request");
+      toast.error((err as Error).message || t("pages.missedPunch.toastSubmitFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -137,17 +139,17 @@ export function MissedPunchRequestPanel({
     <div className="space-y-4">
       <Card className="border-amber-300/80 bg-amber-50/50 shadow-sm dark:border-amber-900 dark:bg-amber-950/20">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Your missing punches</CardTitle>
+          <CardTitle className="text-base">{t("pages.missedPunch.yourMissingPunches")}</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Select a miss, enter the time and reason, then submit. Date and In/Out type stay fixed.
+            {t("pages.missedPunch.selectMissHelp")}
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
           {items.length === 0 ? (
             <EmptyState
               icon={Clock3}
-              title="No missing punches to request right now"
-              description="When the system detects a missed In or Out, it will appear here for you to submit."
+              title={t("pages.missedPunch.empty")}
+              description={t("pages.missedPunch.emptyHelp")}
               className="border-amber-200/80 bg-background dark:border-amber-900"
             />
           ) : (
@@ -186,7 +188,7 @@ export function MissedPunchRequestPanel({
                     <div className="mt-2 grid grid-cols-2 gap-2 sm:hidden">
                       <div className="rounded-md bg-muted/50 px-2 py-1.5">
                         <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                          First in
+                          {t("pages.missedPunch.firstIn")}
                         </p>
                         <p className="mt-0.5 text-sm font-medium tabular-nums">
                           {item.record.punchIn ?? "—"}
@@ -194,7 +196,7 @@ export function MissedPunchRequestPanel({
                       </div>
                       <div className="rounded-md bg-muted/50 px-2 py-1.5">
                         <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                          Last out
+                          {t("pages.missedPunch.lastOut")}
                         </p>
                         <p className="mt-0.5 text-sm font-medium tabular-nums">
                           {item.record.punchOut ?? "—"}
@@ -202,12 +204,14 @@ export function MissedPunchRequestPanel({
                       </div>
                     </div>
                     <p className="mt-1 hidden text-sm text-muted-foreground sm:block">
-                      First in: {item.record.punchIn ?? "Not recorded"} · Last out:{" "}
-                      {item.record.punchOut ?? "Not recorded"}
+                      {t("pages.missedPunch.firstIn")}{" "}
+                      {item.record.punchIn ?? t("pages.missedPunch.notRecorded")} ·{" "}
+                      {t("pages.missedPunch.lastOut")}{" "}
+                      {item.record.punchOut ?? t("pages.missedPunch.notRecorded")}
                     </p>
                   </div>
                   <span className="text-sm font-medium text-primary sm:shrink-0">
-                    {active ? "Selected" : "Add & submit"}
+                    {active ? t("pages.missedPunch.selected") : t("pages.missedPunch.addSubmit")}
                   </span>
                 </button>
               );
@@ -223,29 +227,31 @@ export function MissedPunchRequestPanel({
               <div className="mb-5 flex items-start justify-between gap-3 border-b pb-4">
                 <div>
                   <h2 className="font-semibold">
-                    Submit missed {selected.direction.toLowerCase()}
+                    {t("pages.missedPunch.submitMissedDirection", {
+                      direction: selected.direction.toLowerCase(),
+                    })}
                   </h2>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Date and type are locked from the selected miss. Enter time and reason only.
+                    {t("pages.missedPunch.lockedHelp")}
                   </p>
                 </div>
                 <Button type="button" variant="ghost" size="sm" onClick={clearSelection}>
-                  Clear
+                  {t("pages.missedPunch.clear")}
                 </Button>
               </div>
 
               <form onSubmit={(event) => void handleSubmit(event)} className="space-y-5">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label htmlFor="missed-date-locked">Date</Label>
+                    <Label htmlFor="missed-date-locked">{t("common.date")}</Label>
                     <DateField id="missed-date-locked" value={selected.date} disabled readOnly />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="missed-type-locked">Type</Label>
+                    <Label htmlFor="missed-type-locked">{t("pages.corrections.type")}</Label>
                     <Input id="missed-type-locked" value={selected.direction} disabled readOnly />
                   </div>
                   <div className="space-y-1.5 sm:col-span-2">
-                    <Label htmlFor="missed-time">Time</Label>
+                    <Label htmlFor="missed-time">{t("pages.missedPunch.time")}</Label>
                     <Input
                       id="missed-time"
                       type="time"
@@ -257,18 +263,18 @@ export function MissedPunchRequestPanel({
                     />
                   </div>
                   <div className="space-y-1.5 sm:col-span-2">
-                    <Label htmlFor="missed-reason">Reason</Label>
+                    <Label htmlFor="missed-reason">{t("pages.corrections.reason")}</Label>
                     <Textarea
                       id="missed-reason"
                       rows={3}
                       value={reason}
                       onChange={(event) => setReason(event.target.value)}
-                      placeholder="Explain why the punch was missed..."
+                      placeholder={t("pages.missedPunch.reasonPlaceholder")}
                       maxLength={1000}
                       required
                     />
                     <p className="text-right text-xs tabular-nums text-muted-foreground">
-                      {reason.length}/1,000
+                      {t("pages.missedPunch.charCount", { count: reason.length })}
                     </p>
                   </div>
                 </div>
@@ -281,10 +287,10 @@ export function MissedPunchRequestPanel({
                     onClick={clearSelection}
                     disabled={submitting}
                   >
-                    Cancel
+                    {t("common.cancel")}
                   </Button>
                   <Button className="min-h-11 w-full sm:w-auto" type="submit" disabled={submitting}>
-                    {submitting ? "Submitting..." : "Submit request"}
+                    {submitting ? t("pages.missedPunch.submitting") : t("pages.missedPunch.submit")}
                   </Button>
                 </div>
               </form>
@@ -292,26 +298,26 @@ export function MissedPunchRequestPanel({
           </Card>
 
           <aside className="rounded-lg border bg-muted/20 p-4 lg:sticky lg:top-4">
-            <h2 className="text-sm font-semibold">Request summary</h2>
+            <h2 className="text-sm font-semibold">{t("pages.missedPunch.requestSummary")}</h2>
             <div className="mt-4 space-y-3 text-sm">
               <div className="flex gap-3">
                 <CalendarClock className="mt-0.5 size-4 shrink-0 text-primary" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Date</p>
+                  <p className="text-xs text-muted-foreground">{t("common.date")}</p>
                   <p className="font-medium">{formatDisplayDate(selected.date)}</p>
                 </div>
               </div>
               <div className="flex gap-3">
                 <Clock3 className="mt-0.5 size-4 shrink-0 text-primary" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Time</p>
-                  <p className="font-medium">{time || "Not entered"}</p>
+                  <p className="text-xs text-muted-foreground">{t("pages.missedPunch.time")}</p>
+                  <p className="font-medium">{time || t("pages.missedPunch.notEntered")}</p>
                 </div>
               </div>
               <div className="flex gap-3">
                 <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Punch type</p>
+                  <p className="text-xs text-muted-foreground">{t("pages.missedPunch.punchType")}</p>
                   <p className="font-medium">{selected.direction}</p>
                 </div>
               </div>
@@ -323,16 +329,16 @@ export function MissedPunchRequestPanel({
       {showHistory && (
         <Card className="border-border shadow-sm">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Missed punch requests</CardTitle>
+            <CardTitle className="text-base">{t("pages.missedPunch.requestsTitle")}</CardTitle>
             <p className="text-xs text-muted-foreground">
-              Correction requests submitted for your organization head to review.
+              {t("pages.missedPunch.requestsHelp")}
             </p>
           </CardHeader>
           <CardContent className="p-0">
             <div className="space-y-2 p-3 md:hidden">
               {requests.length === 0 ? (
                 <p className="py-8 text-center text-sm text-muted-foreground">
-                  No missed punch requests submitted yet.
+                  {t("pages.missedPunch.noRequestsYet")}
                 </p>
               ) : (
                 requests.map((request) => (
@@ -351,7 +357,7 @@ export function MissedPunchRequestPanel({
                           })}
                         </p>
                       </div>
-                      <StatusBadge status={requestStatusLabel(request.status)} />
+                      <StatusBadge status={requestStatusLabel(request.status, t)} />
                     </div>
                     <p className="mt-3 break-words text-xs text-muted-foreground">
                       {request.remarks}
@@ -364,12 +370,12 @@ export function MissedPunchRequestPanel({
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/40">
-                    <TableHead>Date</TableHead>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Reason</TableHead>
-                    <TableHead>Submitted</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>{t("common.date")}</TableHead>
+                    <TableHead>{t("pages.missedPunch.time")}</TableHead>
+                    <TableHead>{t("pages.corrections.type")}</TableHead>
+                    <TableHead>{t("pages.corrections.reason")}</TableHead>
+                    <TableHead>{t("pages.missedPunch.submitted")}</TableHead>
+                    <TableHead>{t("common.status")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -379,7 +385,7 @@ export function MissedPunchRequestPanel({
                         colSpan={6}
                         className="py-12 text-center text-xs italic text-muted-foreground"
                       >
-                        No missed punch requests submitted yet.
+                        {t("pages.missedPunch.noRequestsYet")}
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -408,7 +414,7 @@ export function MissedPunchRequestPanel({
                           {formatDisplayDate(request.createdAt)}
                         </TableCell>
                         <TableCell>
-                          <StatusBadge status={requestStatusLabel(request.status)} />
+                          <StatusBadge status={requestStatusLabel(request.status, t)} />
                         </TableCell>
                       </TableRow>
                     ))

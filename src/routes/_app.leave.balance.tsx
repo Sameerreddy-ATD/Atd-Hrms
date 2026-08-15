@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -27,6 +28,7 @@ export const Route = createFileRoute("/_app/leave/balance")({
 type CompOffCredit = Awaited<ReturnType<typeof leaveApi.myCompOffCredits>>[number];
 
 function LeaveBalancePage() {
+  const { t } = useTranslation();
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
   const [credits, setCredits] = useState<CompOffCredit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,38 +50,50 @@ function LeaveBalancePage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="My Leave Balance"
-        description="Your current leave credits, usage, and Comp Off ledger."
+        title={t("pages.leaveBalance.title")}
+        description={t("pages.leaveBalance.subtitle")}
         actions={
           <Button asChild size="sm">
             <Link to="/leave/apply">
               <PlaneTakeoff className="mr-1.5 h-4 w-4" />
-              Apply leave
+              {t("pages.attendanceMine.applyLeave")}
             </Link>
           </Button>
         }
       />
-      {loading && <LoadingState label="Loading leave balances" />}
+      {loading && <LoadingState label={t("pages.loading.leaveBalance")} />}
       {!loading && (
         <>
           <div className="grid gap-3 sm:grid-cols-3">
-            <StatCard label="Available credits" value={available} icon={CalendarCheck} />
-            <StatCard label="Used this cycle" value={used} icon={CalendarCheck} />
-            <StatCard label="Open Comp Off days" value={openCredits} icon={CalendarCheck} />
+            <StatCard
+              label={t("pages.leaveBalance.availableCredits")}
+              value={available}
+              icon={CalendarCheck}
+            />
+            <StatCard
+              label={t("pages.leaveBalance.usedCycle")}
+              value={used}
+              icon={CalendarCheck}
+            />
+            <StatCard
+              label={t("pages.leaveBalance.openCompOff")}
+              value={openCredits}
+              icon={CalendarCheck}
+            />
           </div>
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm">Balances by leave type</CardTitle>
+              <CardTitle className="text-sm">{t("pages.leaveBalance.balancesByType")}</CardTitle>
             </CardHeader>
             <CardContent className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Entitled</TableHead>
-                    <TableHead>Used</TableHead>
-                    <TableHead>Available</TableHead>
+                    <TableHead>{t("pages.corrections.type")}</TableHead>
+                    <TableHead>{t("pages.leaveBalance.entitled")}</TableHead>
+                    <TableHead>{t("pages.leavePolicy.used")}</TableHead>
+                    <TableHead>{t("pages.leavePolicy.available")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -94,7 +108,7 @@ function LeaveBalancePage() {
                   {!balances.length && (
                     <TableRow>
                       <TableCell colSpan={4} className="text-sm text-muted-foreground">
-                        No leave balances are available yet.
+                        {t("pages.leaveBalance.emptyBalances")}
                       </TableCell>
                     </TableRow>
                   )}
@@ -105,15 +119,15 @@ function LeaveBalancePage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm">Comp Off credit ledger</CardTitle>
+              <CardTitle className="text-sm">{t("pages.leaveBalance.compOffLedger")}</CardTitle>
             </CardHeader>
             <CardContent className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Earned on</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Notes</TableHead>
+                    <TableHead>{t("pages.leaveBalance.earnedOn")}</TableHead>
+                    <TableHead>{t("common.status")}</TableHead>
+                    <TableHead>{t("pages.leaveBalance.notes")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -127,9 +141,13 @@ function LeaveBalancePage() {
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {row.revokeReason ||
-                          (row.expiredAt ? `Expired ${formatDisplayDate(row.expiredAt)}` : "") ||
+                          (row.expiredAt
+                            ? t("pages.leaveBalance.expiredOn", {
+                                date: formatDisplayDate(row.expiredAt),
+                              })
+                            : "") ||
                           (row.consumedByLeaveRequestId
-                            ? "Used on an approved Comp Off leave"
+                            ? t("pages.leaveBalance.compOffHint")
                             : "—")}
                       </TableCell>
                     </TableRow>
@@ -137,8 +155,7 @@ function LeaveBalancePage() {
                   {!credits.length && (
                     <TableRow>
                       <TableCell colSpan={3} className="text-sm text-muted-foreground">
-                        No Comp Off credits yet. Credits appear after a Full Day on a company
-                        holiday.
+                        {t("pages.leaveBalance.emptyCredits")}
                       </TableCell>
                     </TableRow>
                   )}

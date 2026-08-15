@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   BadgeIndianRupee,
@@ -76,6 +77,7 @@ const certificateInitial = {
 };
 
 function EmployeeServicesPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const isHr = user?.role === "hr" || user?.role === "developer_admin";
   const canViewAll = isHr || user?.role === "ceo";
@@ -150,7 +152,7 @@ function EmployeeServicesPage() {
       setExpenseForm(expenseInitial);
       if (intent !== "add-more") setExpenseOpen(false);
       await load();
-      toast.success("Expense submitted successfully");
+      toast.success(t("pages.employeeServices.toastExpenseSubmitted"));
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -173,7 +175,7 @@ function EmployeeServicesPage() {
       setAdvanceForm(advanceInitial);
       if (intent !== "add-more") setAdvanceOpen(false);
       await load();
-      toast.success("Advance expense request submitted");
+      toast.success(t("pages.employeeServices.toastAdvanceSubmitted"));
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -185,11 +187,11 @@ function EmployeeServicesPage() {
     event.preventDefault();
     const purpose = certificateForm.purpose.trim();
     if (purpose.length < 5) {
-      toast.error("Purpose must be at least 5 characters");
+      toast.error(t("pages.employeeServices.toastPurposeMin"));
       return;
     }
     if (isHr && !certificateForm.employeeId && !user?.employeeId) {
-      toast.error("Select the employee who needs this document");
+      toast.error(t("pages.employeeServices.toastSelectEmployee"));
       return;
     }
     setSaving(true);
@@ -204,7 +206,7 @@ function EmployeeServicesPage() {
       setCertificateOpen(false);
       setCertificateForm(certificateInitial);
       await load();
-      toast.success("HR document request sent successfully");
+      toast.success(t("pages.employeeServices.toastCertificateSubmitted"));
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -220,7 +222,7 @@ function EmployeeServicesPage() {
       review.documentUrl.trim() &&
       !/^https?:\/\//i.test(review.documentUrl.trim())
     ) {
-      toast.error("Document link must start with http:// or https://");
+      toast.error(t("pages.employeeServices.toastDocumentLinkInvalid"));
       return;
     }
     setSaving(true);
@@ -240,7 +242,7 @@ function EmployeeServicesPage() {
         );
       setReview(null);
       await load();
-      toast.success("Request status updated");
+      toast.success(t("pages.employeeServices.toastStatusUpdated"));
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -255,11 +257,11 @@ function EmployeeServicesPage() {
   return (
     <div>
       <PageHeader
-        title="Expenses & HR Documents"
+        title={t("pages.employeeServices.title")}
         description={
           canViewAll
-            ? "View employee requests across the organization."
-            : "Submit expenses and request official documents from HR."
+            ? t("pages.employeeServices.subtitleHr")
+            : t("pages.employeeServices.subtitleEmp")
         }
       />
       {canViewAll && !isHr && (
@@ -274,40 +276,40 @@ function EmployeeServicesPage() {
         </p>
       )}
       {loading ? (
-        <LoadingState label="Loading employee services" />
+        <LoadingState label={t("pages.loading.employeeServices")} />
       ) : (
         <Tabs defaultValue="expenses" className="space-y-4">
           <TabsList className="grid h-auto w-full grid-cols-2 sm:w-[420px]">
             <TabsTrigger value="expenses" className="min-h-11">
               <BadgeIndianRupee className="mr-2 h-4 w-4" />
-              Expenses
+              {t("pages.employeeServices.expenses")}
             </TabsTrigger>
             <TabsTrigger value="certificates" className="min-h-11">
               <FileBadge className="mr-2 h-4 w-4" />
-              HR Documents
+              {t("pages.employeeServices.hrDocs")}
             </TabsTrigger>
           </TabsList>
           <TabsContent value="expenses" className="space-y-3">
             <SectionHeading
-              title={canViewAll ? "Employee expenses" : "My expenses"}
+              title={canViewAll ? t("pages.employeeServices.expenses") : t("pages.employeeServices.myExpenses")}
               action={
                 canSubmit ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button size="sm">
                         <Plus className="mr-2 h-4 w-4" />
-                        Apply
+                        {t("pages.employeeServices.apply")}
                         <ChevronDown className="ml-2 h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
                       <DropdownMenuItem onSelect={() => setAdvanceOpen(true)}>
                         <WalletCards className="mr-2 h-4 w-4" />
-                        Add advance expense
+                        {t("pages.employeeServices.addAdvance")}
                       </DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => setExpenseOpen(true)}>
                         <BadgeIndianRupee className="mr-2 h-4 w-4" />
-                        Add expense
+                        {t("pages.employeeServices.addExpense")}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -327,13 +329,13 @@ function EmployeeServicesPage() {
               <EmptyPanel
                 title={
                   expenseStatus === "ALL"
-                    ? "No expenses"
+                    ? t("pages.employeeServices.emptyExpenses")
                     : `No ${label(expenseStatus).toLowerCase()} expenses`
                 }
                 description={
                   canViewAll
-                    ? "Employee claims will appear here."
-                    : "You have not submitted an expense claim."
+                    ? t("pages.employeeServices.emptyExpensesHelp")
+                    : t("pages.employeeServices.emptyExpensesMineHelp")
                 }
               />
             ) : (
@@ -354,23 +356,23 @@ function EmployeeServicesPage() {
           </TabsContent>
           <TabsContent value="certificates" className="space-y-3">
             <SectionHeading
-              title={canViewAll ? "HR document requests" : "My HR document requests"}
+              title={canViewAll ? t("pages.employeeServices.hrDocs") : t("pages.employeeServices.myHrDocs")}
               action={
                 canSubmit ? (
                   <Button size="sm" onClick={() => setCertificateOpen(true)}>
                     <Plus className="mr-2 h-4 w-4" />
-                    Request document
+                    {t("pages.employeeServices.requestDocument")}
                   </Button>
                 ) : undefined
               }
             />
             {certificates.length === 0 ? (
               <EmptyPanel
-                title="No HR document requests"
+                title={t("pages.employeeServices.emptyDocs")}
                 description={
                   canViewAll
-                    ? "Employee requests will appear here."
-                    : "You have not requested an HR document."
+                    ? t("pages.employeeServices.emptyDocsHelp")
+                    : t("pages.employeeServices.emptyDocsMineHelp")
                 }
               />
             ) : (
@@ -400,7 +402,7 @@ function EmployeeServicesPage() {
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
           <form onSubmit={submitAdvance}>
             <DialogHeader>
-              <DialogTitle>Add advance expense</DialogTitle>
+              <DialogTitle>{t("pages.employeeServices.addAdvanceTitle")}</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               {isHr && (
@@ -410,7 +412,7 @@ function EmployeeServicesPage() {
                   onChange={(employeeId) => setAdvanceForm((v) => ({ ...v, employeeId }))}
                 />
               )}
-              <Field label="Amount (INR)">
+              <Field label={t("pages.employeeServices.amount")}>
                 <Input
                   type="number"
                   min="1"
@@ -420,7 +422,7 @@ function EmployeeServicesPage() {
                   required
                 />
               </Field>
-              <Field label="Remark">
+              <Field label={t("pages.employeeServices.remark")}>
                 <Textarea
                   rows={4}
                   maxLength={2000}
@@ -432,7 +434,7 @@ function EmployeeServicesPage() {
             </div>
             <DialogFooter>
               <Button type="submit" name="intent" value="exit" disabled={saving}>
-                {saving ? "Submitting..." : "Submit and exit"}
+                {saving ? t("pages.employeeServices.submitting") : t("pages.employeeServices.submitExit")}
               </Button>
               <Button
                 type="submit"
@@ -441,7 +443,7 @@ function EmployeeServicesPage() {
                 variant="outline"
                 disabled={saving}
               >
-                Submit and add more
+                {t("pages.employeeServices.submitAddMore")}
               </Button>
             </DialogFooter>
           </form>
@@ -452,7 +454,7 @@ function EmployeeServicesPage() {
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
           <form onSubmit={submitExpense}>
             <DialogHeader>
-              <DialogTitle>Add expense</DialogTitle>
+              <DialogTitle>{t("pages.employeeServices.addExpenseTitle")}</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4 sm:grid-cols-2">
               {isHr && (
@@ -482,7 +484,7 @@ function EmployeeServicesPage() {
                   required
                 />
               </Field>
-              <Field label="Amount (INR)">
+              <Field label={t("pages.employeeServices.amount")}>
                 <Input
                   type="number"
                   min="1"
@@ -539,7 +541,7 @@ function EmployeeServicesPage() {
                           receiptUrl: stored.url,
                           receiptAccessConfirmed: true,
                         }));
-                        toast.success("Receipt uploaded");
+                        toast.success(t("pages.employeeServices.toastReceiptUploaded"));
                       } catch (error) {
                         toast.error((error as Error).message);
                       }
@@ -588,7 +590,7 @@ function EmployeeServicesPage() {
             </div>
             <DialogFooter>
               <Button type="submit" name="intent" value="exit" disabled={saving}>
-                {saving ? "Submitting..." : "Submit and exit"}
+                {saving ? t("pages.employeeServices.submitting") : t("pages.employeeServices.submitExit")}
               </Button>
               <Button
                 type="submit"
@@ -597,7 +599,7 @@ function EmployeeServicesPage() {
                 variant="outline"
                 disabled={saving}
               >
-                Submit and add more
+                {t("pages.employeeServices.submitAddMore")}
               </Button>
             </DialogFooter>
           </form>
@@ -608,7 +610,7 @@ function EmployeeServicesPage() {
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
           <form onSubmit={submitCertificate}>
             <DialogHeader>
-              <DialogTitle>Request HR document</DialogTitle>
+              <DialogTitle>{t("pages.employeeServices.requestHrDocumentTitle")}</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4 sm:grid-cols-2">
               {isHr && (
@@ -620,7 +622,7 @@ function EmployeeServicesPage() {
                   />
                 </div>
               )}
-              <Field label="Document type">
+              <Field label={t("pages.employeeServices.documentType")}>
                 <Select
                   value={certificateForm.certificateType}
                   onValueChange={(certificateType) =>
@@ -646,7 +648,7 @@ function EmployeeServicesPage() {
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="Delivery">
+              <Field label={t("pages.employeeServices.delivery")}>
                 <Select
                   value={certificateForm.deliveryMode}
                   onValueChange={(deliveryMode: "DIGITAL" | "PRINTED") =>
@@ -671,7 +673,7 @@ function EmployeeServicesPage() {
                 />
               </Field>
               <div className="sm:col-span-2">
-                <Field label="Purpose">
+                <Field label={t("pages.employeeServices.purpose")}>
                   <Textarea
                     rows={4}
                     minLength={5}
@@ -687,7 +689,7 @@ function EmployeeServicesPage() {
             </div>
             <DialogFooter>
               <Button type="submit" disabled={saving}>
-                {saving ? "Submitting..." : "Send request"}
+                {saving ? t("pages.employeeServices.submitting") : t("pages.employeeServices.sendRequest")}
               </Button>
             </DialogFooter>
           </form>
@@ -697,11 +699,11 @@ function EmployeeServicesPage() {
       <Dialog open={Boolean(review)} onOpenChange={(open) => !open && setReview(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Update request</DialogTitle>
+            <DialogTitle>{t("pages.employeeServices.updateRequestTitle")}</DialogTitle>
           </DialogHeader>
           {review && (
             <div className="space-y-4 py-2">
-              <Field label="Status">
+              <Field label={t("common.status")}>
                 <Select
                   value={review.status}
                   onValueChange={(status) => setReview((v) => (v ? { ...v, status } : v))}
@@ -746,7 +748,7 @@ function EmployeeServicesPage() {
           <DialogFooter>
             <Button onClick={() => void saveReview()} disabled={saving}>
               <CheckCircle2 className="mr-2 h-4 w-4" />
-              {saving ? "Saving..." : "Save status"}
+              {saving ? t("pages.employeeServices.saving") : t("pages.employeeServices.saveStatus")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -867,6 +869,7 @@ function ExpenseActions({
     documentUrl: string;
   }) => void;
 }) {
+  const { t } = useTranslation();
   if (["REJECTED", "PAID"].includes(row.status)) return null;
   return (
     <Button
@@ -882,7 +885,7 @@ function ExpenseActions({
         })
       }
     >
-      Review
+      {t("pages.employeeServices.review")}
     </Button>
   );
 }
@@ -900,6 +903,7 @@ function CertificateActions({
     documentUrl: string;
   }) => void;
 }) {
+  const { t } = useTranslation();
   if (["REJECTED", "COLLECTED"].includes(row.status)) return null;
   const next =
     row.status === "PENDING" ? "IN_PROGRESS" : row.status === "IN_PROGRESS" ? "READY" : "COLLECTED";
@@ -917,7 +921,7 @@ function CertificateActions({
         })
       }
     >
-      Review
+      {t("pages.employeeServices.review")}
     </Button>
   );
 }

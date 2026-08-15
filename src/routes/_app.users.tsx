@@ -1,5 +1,6 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { CreateLoginForm } from "@/components/users/CreateLoginForm";
 import { BulkLoginSheet } from "@/components/users/BulkLoginSheet";
@@ -63,6 +64,7 @@ export const Route = createFileRoute("/_app/users")({
 });
 
 function UsersPage() {
+  const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const { create } = useSearch({ from: "/_app/users" });
   const [users, setUsers] = useState<User[]>([]);
@@ -125,11 +127,11 @@ function UsersPage() {
 
   async function suspendUser(user: User) {
     if (user.id === currentUser?.id) {
-      toast.error("You cannot suspend your own login");
+      toast.error(t("pages.users.toastCannotSuspendSelf"));
       return;
     }
     if (!suspensionStartsAt || !suspendedUntil) {
-      toast.error("Choose the suspension start and end dates");
+      toast.error(t("pages.users.toastChooseDates"));
       return;
     }
     try {
@@ -139,7 +141,7 @@ function UsersPage() {
         `${suspendedUntil}T23:59:59.999Z`,
       );
       setUsers((prev) => prev.map((row) => (row.id === user.id ? { ...row, ...updated } : row)));
-      toast.success(`Login suspended until ${suspendedUntil}`);
+      toast.success(t("pages.users.toastSuspendedUntil", { date: suspendedUntil }));
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -153,7 +155,7 @@ function UsersPage() {
         suspendedUntil: null,
       });
       setUsers((prev) => prev.map((row) => (row.id === user.id ? { ...row, ...updated } : row)));
-      toast.success("Login reactivated");
+      toast.success(t("pages.users.toastReactivated"));
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -182,7 +184,7 @@ function UsersPage() {
       );
       setDeleteUser(null);
       setDeleteConfirmation("");
-      toast.success("Employment ended; login closed and history retained");
+      toast.success(t("pages.users.toastEmploymentEnded"));
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -197,11 +199,11 @@ function UsersPage() {
     e.preventDefault();
     if (!resetUser) return;
     if (newPassword.length < 8) {
-      toast.error("Password must be at least 8 characters");
+      toast.error(t("pages.users.toastPasswordTooShort"));
       return;
     }
     if (newPassword !== confirmPassword) {
-      toast.error("Passwords do not match");
+      toast.error(t("pages.users.toastPasswordMismatch"));
       return;
     }
     setResetting(true);
@@ -210,9 +212,7 @@ function UsersPage() {
       setUsers((prev) =>
         prev.map((row) => (row.id === resetUser.id ? { ...row, ...updated } : row)),
       );
-      toast.success(
-        `Password reset for ${resetUser.name}. Status is Created until they sign in again.`,
-      );
+      toast.success(t("pages.users.toastPasswordReset", { name: resetUser.name }));
       setResetUser(null);
       setNewPassword("");
       setConfirmPassword("");
@@ -270,8 +270,8 @@ function UsersPage() {
   return (
     <div>
       <PageHeader
-        title="User Logins"
-        description="Create, suspend, offboard, reactivate, and reset employee accounts. Status moves from Created → Password change → Active."
+        title={t("pages.users.title")}
+        description={t("pages.users.subtitle")}
         actions={
           <>
             <BulkLoginSheet
@@ -287,12 +287,12 @@ function UsersPage() {
               onSaved={loadUsers}
             />
             <Button size="sm" onClick={() => setShowCreate(true)}>
-              <Plus className="mr-2 h-4 w-4" /> Create login
+              <Plus className="mr-2 h-4 w-4" /> {t("pages.users.createLogin")}
             </Button>
           </>
         }
       />
-      {loading && <LoadingState label="Loading user logins" />}
+      {loading && <LoadingState label={t("pages.loading.users")} />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <TableToolbar>
         <div className="relative min-w-52 flex-1">
@@ -301,7 +301,7 @@ function UsersPage() {
             className="pl-8"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search name, email, or employee ID"
+            placeholder={t("pages.users.search")}
           />
         </div>
         <Select value={roleFilter} onValueChange={setRoleFilter}>
@@ -309,7 +309,7 @@ function UsersPage() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All roles</SelectItem>
+            <SelectItem value="all">{t("pages.users.allRoles")}</SelectItem>
             {Object.entries(ROLE_LABELS).map(([value, label]) => (
               <SelectItem key={value} value={value}>
                 {label}
@@ -322,11 +322,13 @@ function UsersPage() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="created">Created</SelectItem>
-            <SelectItem value="password_change">Password change</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Left company / blocked</SelectItem>
+            <SelectItem value="all">{t("pages.users.allStatuses")}</SelectItem>
+            <SelectItem value="created">{t("pages.users.statusCreated")}</SelectItem>
+            <SelectItem value="password_change">
+              {t("pages.users.statusPasswordChange")}
+            </SelectItem>
+            <SelectItem value="active">{t("pages.users.statusActive")}</SelectItem>
+            <SelectItem value="inactive">{t("pages.users.statusInactive")}</SelectItem>
           </SelectContent>
         </Select>
       </TableToolbar>
@@ -373,10 +375,10 @@ function UsersPage() {
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <Button size="sm" variant="outline" onClick={() => openReset(user)}>
-                  <Key className="h-4 w-4" /> Reset password
+                  <Key className="h-4 w-4" /> {t("pages.users.resetPassword")}
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => setDevicesUser(user)}>
-                  <MonitorSmartphone className="h-4 w-4" /> Devices
+                  <MonitorSmartphone className="h-4 w-4" /> {t("pages.users.devicesBtn")}
                 </Button>
                 {user.role !== "developer_admin" &&
                   (user.active && !user.suspensionStartsAt ? (
@@ -386,7 +388,7 @@ function UsersPage() {
                       disabled={user.id === currentUser?.id}
                       onClick={() => openSuspend(user)}
                     >
-                      Suspend
+                      {t("pages.users.suspendBtn")}
                     </Button>
                   ) : (
                     <Button
@@ -394,7 +396,7 @@ function UsersPage() {
                       className="bg-emerald-600 text-white hover:bg-emerald-700"
                       onClick={() => openReactivate(user)}
                     >
-                      Reactivate
+                      {t("pages.users.reactivate")}
                     </Button>
                   ))}
                 {canOffboardUser(user, currentUser?.id) && (
@@ -404,7 +406,7 @@ function UsersPage() {
                     variant="destructive"
                     onClick={() => setDeleteUser(user)}
                   >
-                    <Trash2 className="h-4 w-4" /> Offboard employee
+                    <Trash2 className="h-4 w-4" /> {t("pages.users.offboardConfirmBtn")}
                   </Button>
                 )}
               </div>
@@ -415,14 +417,14 @@ function UsersPage() {
           <Table className="min-w-[860px]">
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Employee ID</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Last login</TableHead>
-                <TableHead>Devices</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t("common.name")}</TableHead>
+                <TableHead>{t("common.email")}</TableHead>
+                <TableHead>{t("common.role")}</TableHead>
+                <TableHead>{t("common.employeeId")}</TableHead>
+                <TableHead>{t("common.status")}</TableHead>
+                <TableHead>{t("pages.users.lastLogin")}</TableHead>
+                <TableHead>{t("pages.users.devicesBtn")}</TableHead>
+                <TableHead className="text-right">{t("common.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -455,7 +457,7 @@ function UsersPage() {
                         size="sm"
                         variant="outline"
                         onClick={() => setDevicesUser(u)}
-                        title="Signed-in devices"
+                        title={t("pages.users.signedInDevices")}
                       >
                         <MonitorSmartphone className="h-4 w-4" />
                       </Button>
@@ -463,7 +465,7 @@ function UsersPage() {
                         size="sm"
                         variant="outline"
                         onClick={() => openReset(u)}
-                        title="Reset Password"
+                        title={t("pages.users.resetPassword")}
                       >
                         <Key className="h-4 w-4" />
                       </Button>
@@ -474,7 +476,7 @@ function UsersPage() {
                           disabled={u.id === currentUser?.id}
                           onClick={() => openSuspend(u)}
                         >
-                          Suspend
+                          {t("pages.users.suspendBtn")}
                         </Button>
                       ) : (
                         <Button
@@ -482,7 +484,7 @@ function UsersPage() {
                           className="bg-emerald-600 text-white hover:bg-emerald-700"
                           onClick={() => openReactivate(u)}
                         >
-                          Reactivate
+                          {t("pages.users.reactivate")}
                         </Button>
                       )}
                       {canOffboardUser(u, currentUser?.id) && (
@@ -490,10 +492,10 @@ function UsersPage() {
                           size="sm"
                           variant="destructive"
                           onClick={() => setDeleteUser(u)}
-                          title="Offboard employee — end employment and close login"
+                          title={t("pages.users.offboard")}
                         >
                           <Trash2 className="h-4 w-4" />
-                          Offboard
+                          {t("pages.users.offboardShort")}
                         </Button>
                       )}
                     </div>
@@ -505,7 +507,7 @@ function UsersPage() {
         </div>
         {!loading && visibleUsers.length === 0 && (
           <div className="p-6 text-center text-sm text-muted-foreground">
-            No user logins match these filters.
+            {t("pages.users.noneFound")}
           </div>
         )}
       </div>
@@ -514,17 +516,19 @@ function UsersPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {confirmAction === "suspend" ? "Temporarily suspend login?" : "Reactivate login?"}
+              {confirmAction === "suspend"
+                ? t("pages.users.suspendTitle")
+                : t("pages.users.reactivateTitle")}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmAction === "suspend"
-                ? `Choose the final suspension day for ${confirmUser?.name}. Login access returns automatically after that day.`
-                : `This will allow ${confirmUser?.name} to sign in again.`}
+                ? t("pages.users.suspendDescription", { name: confirmUser?.name })
+                : t("pages.users.reactivateDescription", { name: confirmUser?.name })}
             </AlertDialogDescription>
             {confirmAction === "suspend" && (
               <div className="grid gap-3 pt-3 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="suspension-start">Suspension starts</Label>
+                  <Label htmlFor="suspension-start">{t("pages.users.suspensionStarts")}</Label>
                   <DateField
                     id="suspension-start"
                     min={indiaDateKeyShift(1)}
@@ -533,7 +537,7 @@ function UsersPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="suspension-end">Suspended through</Label>
+                  <Label htmlFor="suspension-end">{t("pages.users.suspensionEnds")}</Label>
                   <DateField
                     id="suspension-end"
                     min={suspensionStartsAt}
@@ -545,7 +549,7 @@ function UsersPage() {
             )}
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className={
                 confirmAction === "suspend"
@@ -560,7 +564,9 @@ function UsersPage() {
                 setConfirmUser(null);
               }}
             >
-              {confirmAction === "suspend" ? "Suspend account" : "Reactivate"}
+              {confirmAction === "suspend"
+                ? t("pages.users.suspend")
+                : t("pages.users.reactivate")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -577,11 +583,9 @@ function UsersPage() {
       >
         <AlertDialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto sm:max-w-lg">
           <AlertDialogHeader>
-            <AlertDialogTitle>End employment and close login?</AlertDialogTitle>
+            <AlertDialogTitle>{t("pages.users.offboardTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              This marks {deleteUser?.name} as left the company: they cannot sign in, disappear from
-              birthdays and active attendance, and an offboarding checklist is started. Past records
-              are kept.
+              {t("pages.users.offboardDescription", { name: deleteUser?.name })}
             </AlertDialogDescription>
             <div className="rounded-md border bg-muted/30 p-3 text-sm">
               <p className="font-semibold">What changes immediately</p>
@@ -616,7 +620,7 @@ function UsersPage() {
             </div>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 text-white hover:bg-red-700"
               disabled={
@@ -629,7 +633,7 @@ function UsersPage() {
               }}
             >
               {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Offboard employee
+              {t("pages.users.offboardConfirmBtn")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -645,11 +649,13 @@ function UsersPage() {
         <DialogContent className="sm:max-w-md">
           <form onSubmit={performResetPassword}>
             <DialogHeader>
-              <DialogTitle>Reset Password for {resetUser?.name}</DialogTitle>
+              <DialogTitle>
+                {t("pages.users.resetPasswordFor", { name: resetUser?.name })}
+              </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-1.5">
-                <Label htmlFor="new">New Password</Label>
+                <Label htmlFor="new">{t("pages.users.newPassword")}</Label>
                 <PasswordInput
                   id="new"
                   value={newPassword}
@@ -657,7 +663,7 @@ function UsersPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="confirm">Confirm Password</Label>
+                <Label htmlFor="confirm">{t("pages.users.confirmPassword")}</Label>
                 <PasswordInput
                   id="confirm"
                   value={confirmPassword}
@@ -668,11 +674,11 @@ function UsersPage() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setResetUser(null)}>
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button type="submit" disabled={resetting || !canResetPassword}>
                 {resetting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Reset Password
+                {t("pages.users.resetPassword")}
               </Button>
             </DialogFooter>
           </form>
@@ -682,10 +688,8 @@ function UsersPage() {
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[92dvh]">
           <DialogHeader className="border-b border-border px-5 py-4 sm:px-6">
-            <DialogTitle>Create employee account</DialogTitle>
-            <DialogDescription>
-              Set employee ID, week-off policy, organization placement, and sign-in details.
-            </DialogDescription>
+            <DialogTitle>{t("pages.users.createAccountTitle")}</DialogTitle>
+            <DialogDescription>{t("pages.users.createAccountDescription")}</DialogDescription>
           </DialogHeader>
           <CreateLoginForm
             onCreated={(created) => {
@@ -741,6 +745,7 @@ function describeDeviceCount(count?: number) {
 }
 
 function LoginStatus({ user }: { user: User }) {
+  const { t } = useTranslation();
   if (user.role === "developer_admin") {
     return (
       <Badge
@@ -786,7 +791,7 @@ function LoginStatus({ user }: { user: User }) {
         title={
           user.deactivatedAt
             ? `Left company on ${formatDisplayDate(user.deactivatedAt)}`
-            : "Employment ended; login closed"
+            : t("pages.users.employmentEnded")
         }
       >
         Left company
@@ -798,7 +803,7 @@ function LoginStatus({ user }: { user: User }) {
       <Badge
         variant="outline"
         className="shrink-0 border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-300"
-        title="Account created; awaiting first sign-in"
+        title={t("pages.users.createdAwaiting")}
       >
         Created
       </Badge>
@@ -809,7 +814,7 @@ function LoginStatus({ user }: { user: User }) {
       <Badge
         variant="outline"
         className="shrink-0 border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300"
-        title="Signed in once; must set a new password"
+        title={t("pages.users.mustSetPassword")}
       >
         Password change
       </Badge>

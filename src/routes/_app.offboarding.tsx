@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { DoorOpen } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -35,6 +36,7 @@ export const Route = createFileRoute("/_app/offboarding")({ component: Offboardi
 const STEPS = ["ACCESS_REMOVED", "ASSETS_CLEARED", "NO_DUES", "LETTERS_ISSUED", "CLOSED"] as const;
 
 function OffboardingPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
   const allowed = isPeopleOpsRole(user?.role);
@@ -64,36 +66,36 @@ function OffboardingPage() {
       setRows(caseRows);
       setEmployees(people);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not load offboarding");
+      toast.error(error instanceof Error ? error.message : t("pages.offboarding.toastCouldNotLoad"));
     } finally {
       setLoading(false);
     }
-  }, [allowed]);
+  }, [allowed, t]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  if (!allowed) return <LoadingState label="Redirecting" />;
-  if (loading) return <LoadingState label="Loading offboarding" />;
+  if (!allowed) return <LoadingState label={t("pages.loading.redirecting")} />;
+  if (loading) return <LoadingState label={t("pages.loading.offboarding")} />;
 
   return (
     <div>
       <PageHeader
-        eyebrow="Career"
-        title="Offboarding"
-        description="End date, access removal, asset clearance, no-dues, resignation letter, experience letter, and intern completion certificate."
+        eyebrow={t("pages.offboarding.eyebrow")}
+        title={t("pages.offboarding.title")}
+        description={t("pages.offboarding.subtitle")}
         actions={
           <Button className="h-11" onClick={() => setOpen(true)}>
-            Start exit
+            {t("pages.offboarding.startExit")}
           </Button>
         }
       />
       {rows.length === 0 ? (
         <EmptyState
           icon={DoorOpen}
-          title="No exit cases"
-          description="Start offboarding when a resignation or intern completion is confirmed."
+          title={t("pages.offboarding.empty")}
+          description={t("pages.offboarding.emptyHelp")}
         />
       ) : (
         <div className="space-y-3">
@@ -132,12 +134,12 @@ function OffboardingPage() {
                           await load();
                         } catch (error) {
                           toast.error(
-                            error instanceof Error ? error.message : "Could not update case",
+                            error instanceof Error ? error.message : t("pages.offboarding.toastCouldNotUpdate"),
                           );
                         }
                       }}
                     >
-                      {done ? "Done · " : ""}
+                      {done ? t("pages.offboarding.done") : ""}
                       {labelize(step)}
                     </Button>
                   );
@@ -168,7 +170,8 @@ function OffboardingPage() {
                 ).map(([kind, attached, key, name]) => (
                   <div key={kind} className="flex flex-col gap-2">
                     <label className="inline-flex h-11 items-center justify-center rounded-md border text-sm">
-                      {attached ? "Replace" : "Upload"} {labelize(kind)}
+                      {attached ? t("pages.offboarding.replace") : t("pages.offboarding.upload")}{" "}
+                      {labelize(kind)}
                       <input
                         type="file"
                         accept="application/pdf,image/*"
@@ -181,10 +184,10 @@ function OffboardingPage() {
                               step: "LETTERS_ISSUED",
                               letter: { kind, file: await fileToPayload(file) },
                             });
-                            toast.success(`${labelize(kind)} letter attached`);
+                            toast.success(t("pages.offboarding.toastLetterAttached", { kind: labelize(kind) }));
                             await load();
                           } catch (error) {
-                            toast.error(error instanceof Error ? error.message : "Upload failed");
+                            toast.error(error instanceof Error ? error.message : t("pages.offboarding.toastUploadFailed"));
                           }
                         }}
                       />
@@ -198,12 +201,12 @@ function OffboardingPage() {
                             .downloadFile(String(key), String(name || kind))
                             .catch((error) =>
                               toast.error(
-                                error instanceof Error ? error.message : "Download failed",
+                                error instanceof Error ? error.message : t("pages.offboarding.toastDownloadFailed"),
                               ),
                             )
                         }
                       >
-                        Download {labelize(kind)}
+                        {t("pages.offboarding.download")} {labelize(kind)}
                       </Button>
                     ) : null}
                   </div>
@@ -217,7 +220,7 @@ function OffboardingPage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Start offboarding</DialogTitle>
+            <DialogTitle>{t("pages.offboarding.startOffboardingTitle")}</DialogTitle>
           </DialogHeader>
           <EmployeePicker
             employees={employees}
@@ -229,14 +232,14 @@ function OffboardingPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="RESIGNATION">Resignation</SelectItem>
-              <SelectItem value="TERMINATION">Termination</SelectItem>
-              <SelectItem value="INTERN_COMPLETE">Intern completion</SelectItem>
-              <SelectItem value="ABSCONDING">Absconding</SelectItem>
+              <SelectItem value="RESIGNATION">{t("pages.offboarding.resignation")}</SelectItem>
+              <SelectItem value="TERMINATION">{t("pages.offboarding.termination")}</SelectItem>
+              <SelectItem value="INTERN_COMPLETE">{t("pages.offboarding.internCompletion")}</SelectItem>
+              <SelectItem value="ABSCONDING">{t("pages.offboarding.absconding")}</SelectItem>
             </SelectContent>
           </Select>
           <div>
-            <Label>Last working day</Label>
+            <Label>{t("pages.offboarding.lastWorkingDay")}</Label>
             <DateField
               className="mt-1"
               value={form.endDate}
@@ -255,17 +258,17 @@ function OffboardingPage() {
               onClick={async () => {
                 try {
                   await lifecycleApi.startOffboarding(form);
-                  toast.success("Offboarding started");
+                  toast.success(t("pages.offboarding.toastStarted"));
                   setOpen(false);
                   await load();
                 } catch (error) {
                   toast.error(
-                    error instanceof Error ? error.message : "Could not start offboarding",
+                    error instanceof Error ? error.message : t("pages.offboarding.toastCouldNotStart"),
                   );
                 }
               }}
             >
-              Start case
+              {t("pages.offboarding.startCase")}
             </Button>
           </DialogFooter>
         </DialogContent>

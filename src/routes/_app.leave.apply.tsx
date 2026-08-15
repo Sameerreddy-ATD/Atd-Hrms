@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { InfoButton } from "@/components/common/InfoButton";
@@ -28,6 +29,7 @@ export const Route = createFileRoute("/_app/leave/apply")({
 });
 
 function ApplyLeavePage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [types, setTypes] = useState<LeaveTypeOption[]>([]);
@@ -108,23 +110,23 @@ function ApplyLeavePage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const errs: Record<string, string> = {};
-    if (!typeId) errs.type = "Leave type required";
+    if (!typeId) errs.type = t("pages.leaveApply.errTypeRequired");
     if (!from) {
-      errs.from = "Start date required";
+      errs.from = t("pages.leaveApply.errFromRequired");
     } else if (from < todayString) {
-      errs.from = "Start date cannot be in the past";
+      errs.from = t("pages.leaveApply.errFromPast");
     }
     if (!to) {
-      errs.to = "End date required";
+      errs.to = t("pages.leaveApply.errToRequired");
     } else if (to < todayString) {
-      errs.to = "End date cannot be in the past";
+      errs.to = t("pages.leaveApply.errToPast");
     }
-    if (from && to && from > to) errs.to = "End date must be after start";
+    if (from && to && from > to) errs.to = t("pages.leaveApply.errToAfterStart");
     if (isCompOff && from && to && from !== to) {
-      errs.to = "Comp Off can only be taken for a single day";
+      errs.to = t("pages.leaveApply.errCompOffSingleDay");
     }
-    if (reason.trim().length < 3) errs.reason = "Enter at least 3 characters";
-    if (reason.length > 1000) errs.reason = "Reason cannot exceed 1,000 characters";
+    if (reason.trim().length < 3) errs.reason = t("pages.leaveApply.errReasonMin");
+    if (reason.length > 1000) errs.reason = t("pages.leaveApply.errReasonMax");
     setErrors(errs);
     if (Object.keys(errs).length) return;
 
@@ -135,7 +137,7 @@ function ApplyLeavePage() {
       let medicalUrl = medicalDocumentUrl.trim() || undefined;
       if (selectedType?.requiresMedicalDocument && medicalFile) {
         if (medicalFile.size > 1_500_000) {
-          toast.error("Medical file must be under 1.5 MB");
+          toast.error(t("pages.leaveApply.toastMedicalTooLarge"));
           setLoading(false);
           return;
         }
@@ -155,8 +157,8 @@ function ApplyLeavePage() {
       });
       toast.success(
         selectedType?.code === "COMP_OFF"
-          ? "Comp Off request submitted for approval"
-          : "Leave request submitted",
+          ? t("pages.leaveApply.toastCompOffSubmitted")
+          : t("pages.leaveApply.toastLeaveSubmitted"),
       );
       navigate({ to: "/leave/history" });
     } catch (err) {
@@ -168,7 +170,7 @@ function ApplyLeavePage() {
 
   async function submitWeeklyOff(e: React.FormEvent) {
     e.preventDefault();
-    if (!weeklyOffDate) return toast.error("Select a weekly-off date");
+    if (!weeklyOffDate) return toast.error(t("pages.leaveApply.toastSelectWeeklyOffDate"));
     setWeeklyOffSaving(true);
     try {
       const request = await leaveApi.requestWeeklyOff(
@@ -180,8 +182,8 @@ function ApplyLeavePage() {
       setWeeklyOffReason("");
       toast.success(
         request.status === "APPROVED"
-          ? "Sunday weekly off confirmed"
-          : "Weekly-off request sent to your organization head",
+          ? t("pages.leaveApply.toastSundayConfirmed")
+          : t("pages.leaveApply.toastWeeklyOffSent"),
       );
     } catch (err) {
       toast.error((err as Error).message);
@@ -195,7 +197,7 @@ function ApplyLeavePage() {
     try {
       const updated = await leaveApi.cancelWeeklyOff(id);
       setWeeklyOffs((current) => current.map((item) => (item.id === id ? updated : item)));
-      toast.success("Weekly off cancelled and attendance updated");
+      toast.success(t("pages.leaveApply.toastWeeklyOffCancelled"));
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -206,14 +208,11 @@ function ApplyLeavePage() {
   return (
     <div>
       <PageHeader
-        title="Apply for Leave"
-        description="Choose the leave type and dates. Approval follows the policy for that leave type."
+        title={t("pages.leaveApply.title")}
+        description={t("pages.leaveApply.subtitle")}
         actions={
-          <InfoButton title="Leave request process">
-            Leave requests go to your organization head. Higher heads in the same chain can also
-            approve or reject. Comp Off usage also requires Reporting Head approval and is consumed
-            only when approved. Track leave results in Leave History. Weekly-off requests stay on
-            this Apply screen under Weekly off.
+          <InfoButton title={t("pages.leaveApply.process")}>
+            {t("pages.leaveApply.processHelp")}
           </InfoButton>
         }
       />
@@ -224,7 +223,7 @@ function ApplyLeavePage() {
           className="whitespace-normal"
           onClick={() => setRequestKind("leave")}
         >
-          <CalendarDays className="h-4 w-4" /> Leave request
+          <CalendarDays className="h-4 w-4" /> {t("pages.leaveApply.leaveRequestTab")}
         </Button>
         <Button
           type="button"
@@ -232,15 +231,15 @@ function ApplyLeavePage() {
           className="whitespace-normal"
           onClick={() => setRequestKind("weekly-off")}
         >
-          <CalendarClock className="h-4 w-4" /> Weekly off
+          <CalendarClock className="h-4 w-4" /> {t("pages.leaveApply.weeklyOffTab")}
         </Button>
       </div>
-      {typesLoading && <LoadingState label="Loading leave options" />}
+      {typesLoading && <LoadingState label={t("pages.loading.leaveOptions")} />}
       {!typesLoading && requestKind === "leave" && (
         <>
           <section
             className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
-            aria-label="Leave policies"
+            aria-label={t("pages.leaveApply.leavePoliciesAria")}
           >
             {types.map((type) => {
               const balance = balances.find((item) => item.code === type.code)?.balance ?? 0;
@@ -261,20 +260,22 @@ function ApplyLeavePage() {
                     <div>
                       <p className="font-semibold">{type.name}</p>
                       <p className="mt-1 text-2xl font-semibold tabular-nums">{balance}</p>
-                      <p className="text-xs text-muted-foreground">available credit</p>
+                      <p className="text-xs text-muted-foreground">
+                        {t("pages.leaveApply.availableCredit").toLowerCase()}
+                      </p>
                     </div>
                     <InfoButton title={type.name} className="-mr-1 -mt-1">
-                      {type.description || "This leave type follows the company leave policy."}
+                      {type.description || t("pages.leaveApply.defaultTypeDescription")}
                     </InfoButton>
                   </div>
                   <p className="mt-3 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                     {selected ? (
                       <>
                         <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-                        Selected
+                        {t("pages.leaveApply.selected")}
                       </>
                     ) : (
-                      "Tap to select"
+                      t("pages.leaveApply.tapToSelect")
                     )}
                   </p>
                 </button>
@@ -286,28 +287,26 @@ function ApplyLeavePage() {
               <CardContent className="p-4 sm:p-6">
                 {!approverLoading && requiresApprover && !approverName && (
                   <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                    No organization head is available for your unit. Contact HR to complete the
-                    organization chart before applying for leave.
+                    {t("pages.leaveApply.noHeadAvailable")}
                   </p>
                 )}
                 {!approverLoading && requiresApprover && approverName && (
                   <p className="mb-4 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                    This request will be sent to your organization head:{" "}
-                    <span className="font-medium text-foreground">{approverName}</span>. Higher
-                    heads in the same chain can also approve or reject it.
+                    {t("pages.leaveApply.sentToHeadPrefix")}{" "}
+                    <span className="font-medium text-foreground">{approverName}</span>
+                    {t("pages.leaveApply.sentToHeadSuffix")}
                   </p>
                 )}
                 {selectedType?.code === "COMP_OFF" && (
                   <p className="mb-4 flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
                     <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-                    Comp Off requires Reporting Head approval. The credit is reserved only when the
-                    request is approved.
+                    {t("pages.leaveApply.compOffApprovalNote")}
                   </p>
                 )}
                 <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2" noValidate>
                   {!typeId && (
                     <p className="sm:col-span-2 text-sm text-muted-foreground">
-                      Select a leave type above to continue.
+                      {t("pages.leaveApply.selectTypeToContinue")}
                     </p>
                   )}
                   {errors.type && (
@@ -316,7 +315,7 @@ function ApplyLeavePage() {
                   {selectedType?.requiresMedicalDocument && (
                     <div className="space-y-1.5 sm:col-span-2">
                       <Label htmlFor="medical-document-file">
-                        Medical certificate (optional now — required within 48 hours after return)
+                        {t("pages.leaveApply.medicalCertLabel")}
                       </Label>
                       <Input
                         id="medical-document-file"
@@ -328,13 +327,12 @@ function ApplyLeavePage() {
                         }}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Upload a private PDF or image here, or later from Leave History. Public
-                        Drive links are not accepted.
+                        {t("pages.leaveApply.medicalCertHelp")}
                       </p>
                     </div>
                   )}
                   <div className="space-y-1.5">
-                    <Label htmlFor="from">From</Label>
+                    <Label htmlFor="from">{t("pages.leaveApply.from")}</Label>
                     <DateField
                       id="from"
                       value={from}
@@ -349,7 +347,9 @@ function ApplyLeavePage() {
                     {errors.from && <p className="text-xs text-destructive">{errors.from}</p>}
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="to">{isCompOff ? "Date" : "To"}</Label>
+                    <Label htmlFor="to">
+                      {isCompOff ? t("pages.leaveApply.date") : t("pages.leaveApply.to")}
+                    </Label>
                     <DateField
                       id="to"
                       value={to}
@@ -360,12 +360,12 @@ function ApplyLeavePage() {
                     {errors.to && <p className="text-xs text-destructive">{errors.to}</p>}
                     {isCompOff && (
                       <p className="text-xs text-muted-foreground">
-                        Comp Off is limited to one full day per request.
+                        {t("pages.leaveApply.compOffOneDay")}
                       </p>
                     )}
                   </div>
                   <div className="space-y-1.5 sm:col-span-2">
-                    <Label htmlFor="reason">Reason</Label>
+                    <Label htmlFor="reason">{t("pages.corrections.reason")}</Label>
                     <Textarea
                       id="reason"
                       rows={4}
@@ -380,7 +380,7 @@ function ApplyLeavePage() {
                         <span />
                       )}
                       <p className="text-xs tabular-nums text-muted-foreground">
-                        {1000 - reason.length} characters left
+                        {t("pages.leaveApply.charsLeft", { count: 1000 - reason.length })}
                       </p>
                     </div>
                   </div>
@@ -390,7 +390,7 @@ function ApplyLeavePage() {
                       variant="outline"
                       onClick={() => navigate({ to: "/leave/history" })}
                     >
-                      Cancel
+                      {t("common.cancel")}
                     </Button>
                     <Button
                       type="submit"
@@ -400,50 +400,51 @@ function ApplyLeavePage() {
                         (requiresApprover && (approverLoading || !approverName))
                       }
                     >
-                      Submit request
+                      {t("pages.leaveApply.submit")}
                     </Button>
                   </div>
                 </form>
               </CardContent>
             </Card>
             <aside className="rounded-lg border bg-muted/20 p-4 lg:sticky lg:top-4 lg:self-start">
-              <h2 className="text-sm font-semibold">Request summary</h2>
+              <h2 className="text-sm font-semibold">{t("pages.missedPunch.requestSummary")}</h2>
               <div className="mt-4 space-y-4">
                 <LeaveSummary
                   icon={ShieldCheck}
-                  label="Leave type"
-                  value={selectedType?.name ?? "Not selected"}
+                  label={t("pages.leaveApply.leaveType")}
+                  value={selectedType?.name ?? t("pages.leaveApply.notSelected")}
                 />
                 <LeaveSummary
                   icon={CalendarDays}
-                  label="Requested"
+                  label={t("pages.leaveApply.requested")}
                   value={
                     requestedDays
-                      ? `${requestedDays} day${requestedDays === 1 ? "" : "s"}`
-                      : "Select dates"
+                      ? t("pages.leaveApply.dayCount", { count: requestedDays })
+                      : t("pages.leaveApply.selectDates")
                   }
                 />
                 <LeaveSummary
                   icon={CheckCircle2}
-                  label="Available credit"
+                  label={t("pages.leaveApply.availableCredit")}
                   value={String(selectedBalance)}
                 />
                 <LeaveSummary
                   icon={UserRound}
-                  label="Approver"
+                  label={t("pages.leaveApply.approver")}
                   value={
                     requiresApprover
                       ? approverLoading
-                        ? "Checking..."
-                        : (approverName ?? "Not assigned")
-                      : "No approval required"
+                        ? t("pages.leaveApply.checking")
+                        : (approverName ?? t("pages.leaveApply.notAssigned"))
+                      : t("pages.leaveApply.noApproval")
                   }
                 />
               </div>
               {requestedDays > selectedBalance && selectedType?.paid && (
                 <p className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
-                  This request exceeds the current credit by {requestedDays - selectedBalance}{" "}
-                  day(s).
+                  {t("pages.leaveApply.exceedsCredit", {
+                    count: requestedDays - selectedBalance,
+                  })}
                 </p>
               )}
             </aside>
@@ -458,35 +459,40 @@ function ApplyLeavePage() {
                 <CalendarClock className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                 <div>
                   <h2 className="font-semibold">
-                    {weeklyOffPolicy === "SUNDAY_FIXED" ? "Sunday week off" : "Request weekly off"}
+                    {weeklyOffPolicy === "SUNDAY_FIXED"
+                      ? t("pages.leaveApply.sundayWeekOff")
+                      : t("pages.leaveApply.weeklyOff")}
                   </h2>
                   <p className="mt-1 text-sm leading-6 text-muted-foreground">
                     {weeklyOffPolicy === "SUNDAY_FIXED"
-                      ? "Your week off is fixed to Sunday. Attendance marks every Sunday as week off automatically — you do not need to submit a request."
-                      : "Pick one day in each Monday–Sunday week. Sundays auto-confirm for today or a future Sunday. Other days need at least one day advance approval from your organization head. Consecutive weekly-off dates are not allowed."}
+                      ? t("pages.leaveApply.sundayFixedHelp")
+                      : t("pages.leaveApply.selectableWeeklyOffHelp")}
                   </p>
                 </div>
               </div>
               {weeklyOffPolicy === "SUNDAY_FIXED" ? (
                 <div className="rounded-lg border border-border bg-muted/30 px-4 py-5">
-                  <p className="text-sm font-medium text-foreground">Fixed Sunday off is active</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {t("pages.leaveApply.fixedSundayActive")}
+                  </p>
                   <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                    If you need a different arrangement, ask HR or Developer Admin to change your
-                    week off policy on your employee profile.
+                    {t("pages.leaveApply.fixedSundayContactHelp")}
                   </p>
                 </div>
               ) : (
                 <>
                   {!approverLoading && approverName && (
                     <p className="mb-4 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                      This request will be sent to your organization head:{" "}
-                      <span className="font-medium text-foreground">{approverName}</span>. Higher
-                      heads in the same chain can also approve or reject it.
+                      {t("pages.leaveApply.sentToHeadPrefix")}{" "}
+                      <span className="font-medium text-foreground">{approverName}</span>
+                      {t("pages.leaveApply.sentToHeadSuffix")}
                     </p>
                   )}
                   <form onSubmit={submitWeeklyOff} className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-1.5">
-                      <Label htmlFor="weekly-off-date">Requested date</Label>
+                      <Label htmlFor="weekly-off-date">
+                        {t("pages.leaveApply.requestedDateLabel")}
+                      </Label>
                       <DateField
                         id="weekly-off-date"
                         value={weeklyOffDate}
@@ -495,12 +501,14 @@ function ApplyLeavePage() {
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="weekly-off-reason">Reason (optional)</Label>
+                      <Label htmlFor="weekly-off-reason">
+                        {t("pages.leaveApply.reasonOptional")}
+                      </Label>
                       <Input
                         id="weekly-off-reason"
                         value={weeklyOffReason}
                         maxLength={500}
-                        placeholder="Add a short note"
+                        placeholder={t("pages.leaveApply.notePlaceholder")}
                         onChange={(event) => setWeeklyOffReason(event.target.value)}
                       />
                     </div>
@@ -510,16 +518,20 @@ function ApplyLeavePage() {
                         variant="outline"
                         onClick={() => navigate({ to: "/leave/history" })}
                       >
-                        Cancel
+                        {t("common.cancel")}
                       </Button>
                       <Button type="submit" disabled={weeklyOffSaving || !weeklyOffDate}>
-                        {weeklyOffSaving ? "Sending..." : "Submit request"}
+                        {weeklyOffSaving
+                          ? t("pages.leaveApply.sending")
+                          : t("pages.leaveApply.submit")}
                       </Button>
                     </div>
                   </form>
                   {weeklyOffs.length > 0 && (
                     <div className="mt-5 space-y-2">
-                      <h3 className="text-sm font-semibold">Recent weekly-off requests</h3>
+                      <h3 className="text-sm font-semibold">
+                        {t("pages.leaveApply.recentWeeklyOffRequests")}
+                      </h3>
                       {weeklyOffs.slice(0, 6).map((request) => (
                         <div
                           key={request.id}
@@ -530,9 +542,13 @@ function ApplyLeavePage() {
                             {request.reviewedByName && (
                               <p className="text-xs text-muted-foreground">
                                 {request.status === "REJECTED"
-                                  ? `Rejected by ${request.reviewedByName}`
+                                  ? t("pages.leaveApply.rejectedBy", {
+                                      name: request.reviewedByName,
+                                    })
                                   : request.status === "APPROVED"
-                                    ? `Approved by ${request.reviewedByName}`
+                                    ? t("pages.leaveApply.approvedBy", {
+                                        name: request.reviewedByName,
+                                      })
                                     : request.reviewedByName}
                               </p>
                             )}
@@ -547,7 +563,7 @@ function ApplyLeavePage() {
                                 disabled={weeklyOffSaving}
                                 onClick={() => void cancelWeeklyOff(request.id)}
                               >
-                                Cancel
+                                {t("common.cancel")}
                               </Button>
                             )}
                           </div>
@@ -560,26 +576,32 @@ function ApplyLeavePage() {
             </CardContent>
           </Card>
           <aside className="rounded-lg border bg-muted/20 p-4 lg:sticky lg:top-4 lg:self-start">
-            <h2 className="text-sm font-semibold">Request summary</h2>
+            <h2 className="text-sm font-semibold">{t("pages.missedPunch.requestSummary")}</h2>
             <div className="mt-4 space-y-4">
               <LeaveSummary
                 icon={CalendarClock}
-                label="Policy"
+                label={t("pages.leaveApply.policy")}
                 value={
-                  weeklyOffPolicy === "SUNDAY_FIXED" ? "Sunday fixed" : "Selectable with approval"
+                  weeklyOffPolicy === "SUNDAY_FIXED"
+                    ? t("pages.leaveApply.sundayFixedValue")
+                    : t("pages.leaveApply.selectableValue")
                 }
               />
               {weeklyOffPolicy === "SELECTABLE" && (
                 <>
                   <LeaveSummary
                     icon={CalendarDays}
-                    label="Requested date"
-                    value={weeklyOffDate || "Select a date"}
+                    label={t("pages.leaveApply.requestedDateLabel")}
+                    value={weeklyOffDate || t("pages.leaveApply.selectADate")}
                   />
                   <LeaveSummary
                     icon={UserRound}
-                    label="Approver"
-                    value={approverLoading ? "Checking..." : (approverName ?? "Not assigned")}
+                    label={t("pages.leaveApply.approver")}
+                    value={
+                      approverLoading
+                        ? t("pages.leaveApply.checking")
+                        : (approverName ?? t("pages.leaveApply.notAssigned"))
+                    }
                   />
                 </>
               )}

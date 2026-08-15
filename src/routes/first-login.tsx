@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ export const Route = createFileRoute("/first-login")({
 });
 
 function FirstLoginPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { changePassword } = useAuth();
   const [next, setNext] = useState("");
@@ -24,10 +26,10 @@ function FirstLoginPage() {
   const [passwordVisible, setPasswordVisible] = useState(false);
 
   const rules = [
-    { label: "At least 8 characters", ok: next.length >= 8 },
-    { label: "Contains a number", ok: /\d/.test(next) },
-    { label: "Contains uppercase letter", ok: /[A-Z]/.test(next) },
-    { label: "Matches confirmation", ok: next.length > 0 && next === confirm },
+    { label: t("pages.authExtra.atLeast8"), ok: next.length >= 8 },
+    { label: t("pages.authExtra.containsNumber"), ok: /\d/.test(next) },
+    { label: t("pages.authExtra.containsUpper"), ok: /[A-Z]/.test(next) },
+    { label: t("pages.authExtra.matchesConfirm"), ok: next.length > 0 && next === confirm },
   ];
 
   const crewMode: LoginCrewMode = useMemo(() => {
@@ -40,16 +42,16 @@ function FirstLoginPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (rules.some((r) => !r.ok)) {
-      toast.error("Please meet all password requirements");
+      toast.error(t("pages.authExtra.meetPasswordRules"));
       return;
     }
     setLoading(true);
     try {
       await changePassword("", next);
-      toast.success("Password updated. You are signed in.");
+      toast.success(t("pages.authExtra.passwordUpdated"));
       navigate({ to: "/dashboard", replace: true });
     } catch (err) {
-      toast.error((err as Error).message || "Unable to update password");
+      toast.error((err as Error).message || t("pages.authExtra.unableToUpdatePassword"));
     } finally {
       setLoading(false);
     }
@@ -64,10 +66,8 @@ function FirstLoginPage() {
         />
         <Card className="aw-enter-delayed border-border/70 bg-card/95 shadow-sm backdrop-blur-sm">
           <CardContent className="p-6 sm:p-8">
-            <h2 className="text-lg font-semibold">Set a new password</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              For security, you must change the temporary password issued to you before continuing.
-            </p>
+            <h2 className="text-lg font-semibold">{t("auth.setPassword")}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t("auth.setPasswordHelp")}</p>
             <form onSubmit={submit} className="mt-6 space-y-4">
               <div
                 className="space-y-4"
@@ -79,7 +79,7 @@ function FirstLoginPage() {
                 }}
               >
                 <div className="space-y-1.5">
-                  <Label htmlFor="new">New password</Label>
+                  <Label htmlFor="new">{t("auth.newPassword")}</Label>
                   <PasswordInput
                     id="new"
                     autoComplete="new-password"
@@ -89,7 +89,7 @@ function FirstLoginPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="confirm">Confirm new password</Label>
+                  <Label htmlFor="confirm">{t("auth.confirmPassword")}</Label>
                   <PasswordInput
                     id="confirm"
                     autoComplete="new-password"
@@ -113,7 +113,7 @@ function FirstLoginPage() {
               </ul>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Update password
+                {t("auth.updatePassword")}
               </Button>
             </form>
           </CardContent>

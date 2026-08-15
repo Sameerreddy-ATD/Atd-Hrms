@@ -1,5 +1,6 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { EmployeePicker } from "@/components/common/EmployeePicker";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -84,6 +85,7 @@ function emptyDraft(kind: "ONBOARDING" | "OFFBOARDING" = "ONBOARDING"): Template
 }
 
 function ChecklistsPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const canOperate = user?.role === "hr" || user?.role === "developer_admin";
   const canEditTemplates = user?.role === "developer_admin";
@@ -115,11 +117,11 @@ function ChecklistsPage() {
       setEmployees((people as User[]).filter((person) => person.active && person.employeeId));
       setTemplates(templateRows);
     } catch (error) {
-      toast.error((error as Error).message || "Unable to load checklists");
+      toast.error((error as Error).message || t("pages.checklists.toastLoadFailed"));
     } finally {
       setLoading(false);
     }
-  }, [canOperate, canEditTemplates]);
+  }, [canOperate, canEditTemplates, t]);
 
   useEffect(() => {
     void reload();
@@ -148,7 +150,11 @@ function ChecklistsPage() {
     if (!employeeId) return;
     try {
       await checklistsApi.start(employeeId, kind);
-      toast.success(`${kind === "ONBOARDING" ? "Onboarding" : "Offboarding"} started`);
+      toast.success(
+        kind === "ONBOARDING"
+          ? t("pages.checklists.onboardingStarted")
+          : t("pages.checklists.offboardingStarted"),
+      );
       setStatusFilter("OPEN");
       await reload();
     } catch (error) {
@@ -170,10 +176,10 @@ function ChecklistsPage() {
       await checklistsApi.setStatus(id, status);
       toast.success(
         status === "COMPLETED"
-          ? "Checklist marked complete"
+          ? t("pages.checklists.toastMarkedComplete")
           : status === "CANCELLED"
-            ? "Checklist cancelled"
-            : "Checklist reopened",
+            ? t("pages.checklists.toastCancelled")
+            : t("pages.checklists.toastReopened"),
       );
       await reload();
     } catch (error) {
@@ -202,7 +208,7 @@ function ChecklistsPage() {
   async function saveTemplate() {
     if (!templateDraft) return;
     if (templateDraft.items.some((item) => item.title.trim().length < 2)) {
-      toast.error("Every item needs a title");
+      toast.error(t("pages.checklists.toastItemTitleRequired"));
       return;
     }
     setSavingTemplate(true);
@@ -217,7 +223,7 @@ function ChecklistsPage() {
           isActive: templateDraft.isActive,
           items: payloadItems,
         });
-        toast.success("Template saved — new starts use these items");
+        toast.success(t("pages.checklists.toastTemplateSaved"));
       } else {
         await checklistsApi.createTemplate({
           name: templateDraft.name.trim(),
@@ -225,7 +231,7 @@ function ChecklistsPage() {
           isActive: templateDraft.isActive,
           items: payloadItems,
         });
-        toast.success("Template created");
+        toast.success(t("pages.checklists.toastTemplateCreated"));
       }
       setEditingTemplateId(null);
       setTemplateDraft(null);
@@ -241,7 +247,9 @@ function ChecklistsPage() {
     try {
       const result = await checklistsApi.deleteTemplate(template.id);
       toast.success(
-        result.deactivated ? "Template deactivated (existing checklists kept)" : "Template deleted",
+        result.deactivated
+          ? t("pages.checklists.toastTemplateDeactivated")
+          : t("pages.checklists.toastTemplateDeleted"),
       );
       if (editingTemplateId === template.id) {
         setEditingTemplateId(null);
@@ -257,35 +265,35 @@ function ChecklistsPage() {
     return <Navigate to="/dashboard" replace />;
   }
 
-  if (loading) return <LoadingState label="Loading checklists" />;
+  if (loading) return <LoadingState label={t("pages.loading.checklists")} />;
 
   return (
     <div className="mx-auto max-w-[1440px] space-y-6 px-4 pb-16 sm:px-6">
       <PageHeader
-        title="Onboarding & offboarding"
+        title={t("pages.checklists.title")}
         description={
           canEditTemplates
-            ? "HR works each hire/exit checklist. Developer Admin adds, edits, or removes the process templates."
-            : "For each new hire or exit, work through what to provide and what data to collect. Tick items as you complete them."
+            ? t("pages.checklists.subtitleManage")
+            : t("pages.checklists.subtitleView")
         }
       />
 
       <section className="grid gap-3 sm:grid-cols-3">
         <StatCard
-          label="Open checklists"
+          label={t("pages.checklists.openChecklists")}
           value={openInstances}
           icon={ClipboardList}
           tone="warning"
         />
-        <StatCard label="Open items" value={openItems} icon={ListTodo} tone="info" />
-        <StatCard label="Completed" value={completedInstances} icon={CheckCircle2} tone="success" />
+        <StatCard label={t("pages.checklists.openItems")} value={openItems} icon={ListTodo} tone="info" />
+        <StatCard label={t("pages.checklists.completed")} value={completedInstances} icon={CheckCircle2} tone="success" />
       </section>
 
       <Tabs defaultValue="instances" className="space-y-4">
         <TabsList className="h-auto w-full flex-wrap justify-start">
-          <TabsTrigger value="instances">Checklists ({visible.length})</TabsTrigger>
+          <TabsTrigger value="instances">{t("pages.checklists.tabChecklists", { count: visible.length })}</TabsTrigger>
           {canEditTemplates && (
-            <TabsTrigger value="templates">Templates ({templates.length})</TabsTrigger>
+            <TabsTrigger value="templates">{t("pages.checklists.tabTemplates", { count: templates.length })}</TabsTrigger>
           )}
         </TabsList>
 
@@ -298,14 +306,14 @@ function ChecklistsPage() {
               onChange={setEmployeeId}
             />
             <Button disabled={!employeeId} onClick={() => void start("ONBOARDING")}>
-              Start onboarding
+              {t("pages.checklists.startOnboarding")}
             </Button>
             <Button
               variant="outline"
               disabled={!employeeId}
               onClick={() => void start("OFFBOARDING")}
             >
-              Start offboarding
+              {t("pages.checklists.startOffboarding")}
             </Button>
           </div>
 
@@ -314,7 +322,7 @@ function ChecklistsPage() {
               className="min-w-48 flex-1"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search employee or template"
+              placeholder={t("pages.checklists.search")}
             />
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="sm:w-40">
@@ -341,8 +349,8 @@ function ChecklistsPage() {
 
           {visible.length === 0 ? (
             <EmptyState
-              title="No checklists"
-              description="Start onboarding or offboarding for an employee, or clear filters."
+              title={t("pages.checklists.empty")}
+              description={t("pages.checklists.emptyHelp")}
             />
           ) : (
             <div className="space-y-4">
@@ -371,23 +379,22 @@ function ChecklistsPage() {
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button size="sm" variant="outline">
-                                  Mark complete
+                                  {t("pages.checklists.markComplete")}
                                 </Button>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>Mark checklist complete?</AlertDialogTitle>
+                                  <AlertDialogTitle>{t("pages.checklists.markCompleteTitle")}</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    Any remaining open items will be marked done automatically. Use
-                                    Reopen later if work was closed too early.
+                                    {t("pages.checklists.markCompleteHelp")}
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogCancel>{t("pages.checklists.cancel")}</AlertDialogCancel>
                                   <AlertDialogAction
                                     onClick={() => void setInstanceStatus(row.id, "COMPLETED")}
                                   >
-                                    Mark complete
+                                    {t("pages.checklists.markComplete")}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
@@ -397,7 +404,7 @@ function ChecklistsPage() {
                               variant="ghost"
                               onClick={() => void setInstanceStatus(row.id, "CANCELLED")}
                             >
-                              Cancel
+                              {t("pages.checklists.cancel")}
                             </Button>
                           </>
                         )}
@@ -407,7 +414,7 @@ function ChecklistsPage() {
                             variant="outline"
                             onClick={() => void setInstanceStatus(row.id, "OPEN")}
                           >
-                            Reopen
+                            {t("pages.checklists.reopen")}
                           </Button>
                         )}
                       </div>
@@ -463,7 +470,7 @@ function ChecklistsPage() {
                           {item.linkPath && (
                             <Button asChild size="sm" variant="ghost" className="shrink-0">
                               <a href={item.linkPath}>
-                                Open
+                                {t("pages.checklists.open")}
                                 <ExternalLink className="ml-1 h-3.5 w-3.5" />
                               </a>
                             </Button>
@@ -481,12 +488,9 @@ function ChecklistsPage() {
         {canEditTemplates && (
           <TabsContent value="templates" className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-muted-foreground">
-                Templates define what HR must provide and collect. Editing a template does not
-                change checklists already in progress.
-              </p>
+              <p className="text-sm text-muted-foreground">{t("pages.checklists.templatesHelp")}</p>
               <Button onClick={beginCreateTemplate}>
-                <Plus className="mr-2 h-4 w-4" /> New template
+                <Plus className="mr-2 h-4 w-4" /> {t("pages.checklists.newTemplate")}
               </Button>
             </div>
             <div className="grid gap-3 lg:grid-cols-2">
@@ -506,27 +510,27 @@ function ChecklistsPage() {
                         variant="outline"
                         onClick={() => beginEditTemplate(template)}
                       >
-                        Edit
+                        {t("pages.checklists.edit")}
                       </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button size="sm" variant="ghost">
-                            Delete
+                            {t("pages.checklists.delete")}
                           </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Remove this template?</AlertDialogTitle>
+                            <AlertDialogTitle>{t("pages.checklists.removeTemplateTitle")}</AlertDialogTitle>
                             <AlertDialogDescription>
                               {template.instanceCount > 0
-                                ? "It has existing checklists, so it will be deactivated instead of deleted."
-                                : "This permanently deletes the unused template."}
+                                ? t("pages.checklists.removeTemplateHasInstances")
+                                : t("pages.checklists.removeTemplateUnused")}
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogCancel>{t("pages.checklists.cancel")}</AlertDialogCancel>
                             <AlertDialogAction onClick={() => void removeTemplate(template)}>
-                              Confirm
+                              {t("pages.checklists.confirm")}
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
@@ -553,7 +557,7 @@ function ChecklistsPage() {
             {templateDraft && (
               <div className="rounded-xl border bg-card p-4 sm:p-5">
                 <h3 className="font-semibold">
-                  {editingTemplateId ? "Edit template" : "New template"}
+                  {editingTemplateId ? t("pages.checklists.editTemplate") : t("pages.checklists.newTemplate")}
                   {editingTemplateId ? ` · ${templateDraft.kind}` : ""}
                 </h3>
                 <div className="mt-4 grid gap-4 sm:grid-cols-3">
@@ -623,7 +627,7 @@ function ChecklistsPage() {
                     >
                       <Input
                         value={item.title}
-                        placeholder="What HR should provide or collect"
+                        placeholder={t("pages.checklists.itemPlaceholder")}
                         onChange={(event) =>
                           setTemplateDraft((current) => {
                             if (!current) return current;
@@ -692,14 +696,14 @@ function ChecklistsPage() {
                       )
                     }
                   >
-                    <Plus className="mr-2 h-4 w-4" /> Add item
+                    <Plus className="mr-2 h-4 w-4" /> {t("pages.checklists.addItem")}
                   </Button>
                   <Button disabled={savingTemplate} onClick={() => void saveTemplate()}>
                     {savingTemplate
-                      ? "Saving..."
+                      ? t("pages.checklists.saving")
                       : editingTemplateId
-                        ? "Save template"
-                        : "Create template"}
+                        ? t("pages.checklists.saveTemplate")
+                        : t("pages.checklists.createTemplate")}
                   </Button>
                   <Button
                     variant="ghost"
@@ -708,7 +712,7 @@ function ChecklistsPage() {
                       setTemplateDraft(null);
                     }}
                   >
-                    Cancel
+                    {t("pages.checklists.cancel")}
                   </Button>
                 </div>
               </div>

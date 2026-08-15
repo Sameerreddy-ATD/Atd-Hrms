@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -95,6 +96,7 @@ type AssetsTab = "equipment" | "premises" | "online" | "investment" | "returns";
 type ScopeFilter = "all" | "EMPLOYEE" | "COMPANY";
 
 function AssetsPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const canManage = user?.role === "hr" || user?.role === "developer_admin";
   const isCeo = user?.role === "ceo";
@@ -305,8 +307,8 @@ function AssetsPage() {
     ) {
       toast.error(
         assetForm.assetType === "PHYSICAL"
-          ? "Asset ID, asset name, and value are required."
-          : "Asset name and value are required.",
+          ? t("pages.assets.toastAssetRequired")
+          : t("pages.assets.toastOnlineRequired"),
       );
       return;
     }
@@ -325,7 +327,7 @@ function AssetsPage() {
       ].filter(([, value]) => !String(value).trim());
       if (!editingAsset) {
         if (!assetForm.userPassword.trim() || !assetForm.adminPassword.trim()) {
-          toast.error("User password and admin password are required for laptops.");
+          toast.error(t("pages.assets.toastLaptopPasswords"));
           return;
         }
       }
@@ -376,7 +378,7 @@ function AssetsPage() {
       );
       setAssetDialogOpen(false);
       setInvestments(await assetsApi.investmentSummary());
-      toast.success(editingAsset ? "Asset updated" : "Company asset added");
+      toast.success(editingAsset ? t("pages.assets.toastAssetUpdated") : t("pages.assets.toastAssetAdded"));
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -386,7 +388,7 @@ function AssetsPage() {
     event.preventDefault();
     const name = newAssetName.trim();
     if (name.length < 2) {
-      toast.error("Enter an asset name.");
+      toast.error(t("pages.assets.toastAssetNameRequired"));
       return;
     }
     try {
@@ -398,7 +400,7 @@ function AssetsPage() {
       setAssetForm((current) => ({ ...current, catalogId: saved.id, name: saved.name }));
       setNewAssetName("");
       setNewNameDialogOpen(false);
-      toast.success("Asset name saved for future use");
+      toast.success(t("pages.assets.toastAssetNameSaved"));
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -413,7 +415,7 @@ function AssetsPage() {
   async function assignAsset(event: React.FormEvent) {
     event.preventDefault();
     if (!assignment.assetId || !assignment.employeeId) {
-      toast.error("Select an available asset and an employee.");
+      toast.error(t("pages.assets.toastSelectAssetEmployee"));
       return;
     }
     try {
@@ -424,7 +426,7 @@ function AssetsPage() {
       setAssets((current) => current.map((asset) => (asset.id === saved.id ? saved : asset)));
       setAssignDialogOpen(false);
       setInvestments(await assetsApi.investmentSummary());
-      toast.success("Asset assigned");
+      toast.success(t("pages.assets.toastAssetAssigned"));
       setTab(saved.assetType === "ONLINE" ? "online" : "equipment");
     } catch (err) {
       toast.error((err as Error).message);
@@ -449,7 +451,7 @@ function AssetsPage() {
     if (!returnTarget) return;
     const isPhysical = returnTarget.assetType === "PHYSICAL";
     if (isPhysical && returnForm.physicalDamage && !returnForm.damageNotes.trim()) {
-      toast.error("Describe the physical damage before completing the return.");
+      toast.error(t("pages.assets.toastReturnDamage"));
       return;
     }
     setReturning(true);
@@ -466,7 +468,7 @@ function AssetsPage() {
       });
       setReturnTarget(null);
       await load();
-      toast.success("Return checklist saved and asset released");
+      toast.success(t("pages.assets.toastReturnSaved"));
       setTab("equipment");
     } catch (err) {
       toast.error((err as Error).message);
@@ -480,11 +482,9 @@ function AssetsPage() {
   return (
     <div className="mx-auto max-w-[1440px] space-y-5 px-4 pb-16 sm:px-6">
       <PageHeader
-        title="Asset Management"
+        title={t("pages.assets.title")}
         description={
-          canManage
-            ? "Register company assets, assign them to people, and record returns. Shared furniture stays company-use."
-            : "Read-only view of company assets and investment per employee."
+          canManage ? t("pages.assets.subtitleManage") : t("pages.assets.subtitleView")
         }
         actions={
           canManage ? (
@@ -497,14 +497,14 @@ function AssetsPage() {
                 onImported={load}
               />
               <Button size="sm" variant="outline" onClick={openAddAsset}>
-                <Plus className="mr-2 h-4 w-4" /> Add Asset
+                <Plus className="mr-2 h-4 w-4" /> {t("pages.assets.add")}
               </Button>
               <Button
                 size="sm"
                 onClick={() => openAssignAsset()}
                 disabled={availableAssets.length === 0}
               >
-                <UserPlus className="mr-2 h-4 w-4" /> Assign Asset
+                <UserPlus className="mr-2 h-4 w-4" /> {t("pages.assets.assignAsset")}
               </Button>
             </div>
           ) : undefined
@@ -512,47 +512,47 @@ function AssetsPage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Available to assign" value={totals.available} icon={Package} />
-        <MetricCard label="Currently assigned" value={totals.assigned} icon={UserPlus} />
+        <MetricCard label={t("pages.assets.availableAssign")} value={totals.available} icon={Package} />
+        <MetricCard label={t("pages.assets.currentlyAssigned")} value={totals.assigned} icon={UserPlus} />
         <MetricCard
-          label="Physical / online"
+          label={t("pages.assets.physicalOnline")}
           value={`${totals.physical} / ${totals.online}`}
           icon={Globe2}
         />
-        <MetricCard label="Company-use" value={totals.companyUse} icon={Building2} />
+        <MetricCard label={t("pages.assets.companyUse")} value={totals.companyUse} icon={Building2} />
         <MetricCard
-          label="Monthly recurring"
+          label={t("pages.assets.monthlyRecurring")}
           value={formatCurrency(totals.monthlyRecurring)}
           icon={CalendarClock}
         />
         <MetricCard
-          label="Annual recurring"
+          label={t("pages.assets.annualRecurring")}
           value={formatCurrency(totals.annualRecurring)}
           icon={IndianRupee}
         />
       </div>
 
-      {loading && <LoadingState label="Loading assets" />}
+      {loading && <LoadingState label={t("pages.loading.assets")} />}
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       {!loading && !error && (
         <Tabs value={tab} onValueChange={(value) => setTab(value as AssetsTab)}>
           <TabsList className="h-auto w-full flex-wrap justify-start gap-1">
             <TabsTrigger value="equipment" className="min-h-10">
-              Employee equipment
+              {t("pages.assets.tabEquipment")}
             </TabsTrigger>
             <TabsTrigger value="premises" className="min-h-10">
-              Company premises
+              {t("pages.assets.tabPremises")}
             </TabsTrigger>
             <TabsTrigger value="online" className="min-h-10">
-              Online / subscriptions
+              {t("pages.assets.tabOnline")}
             </TabsTrigger>
             <TabsTrigger value="investment" className="min-h-10">
-              Investment
+              {t("pages.assets.tabInvestment")}
             </TabsTrigger>
             {canManage && (
               <TabsTrigger value="returns" className="min-h-10">
-                Returns
+                {t("pages.assets.tabReturns")}
               </TabsTrigger>
             )}
           </TabsList>
@@ -583,11 +583,11 @@ function AssetsPage() {
               onEdit={openEditAsset}
               onAssign={(asset) => openAssignAsset(asset.id)}
               onReturn={openReturnAsset}
-              emptyTitle="No employee equipment yet"
+              emptyTitle={t("pages.assets.emptyEmployee")}
               emptyHint={
                 canManage
-                  ? "Add a physical asset with Employee assignment scope."
-                  : "Ask HR to register employee equipment."
+                  ? t("pages.assets.emptyEmployeeHelpManage")
+                  : t("pages.assets.emptyEmployeeHelpView")
               }
             />
           </TabsContent>
@@ -606,11 +606,11 @@ function AssetsPage() {
               onEdit={openEditAsset}
               onAssign={() => undefined}
               onReturn={() => undefined}
-              emptyTitle="No company premises assets yet"
+              emptyTitle={t("pages.assets.emptyPremises")}
               emptyHint={
                 canManage
-                  ? "Add a physical asset with Company premises scope."
-                  : "Ask HR to register premises assets."
+                  ? t("pages.assets.emptyPremisesHelpManage")
+                  : t("pages.assets.emptyPremisesHelpView")
               }
             />
           </TabsContent>
@@ -627,11 +627,11 @@ function AssetsPage() {
               onEdit={openEditAsset}
               onAssign={(asset) => openAssignAsset(asset.id)}
               onReturn={openReturnAsset}
-              emptyTitle="No online assets yet"
+              emptyTitle={t("pages.assets.emptyOnline")}
               emptyHint={
                 canManage
-                  ? "Add an online asset with the full subscription cost, then assign seats."
-                  : "Ask HR to register online seats."
+                  ? t("pages.assets.emptyOnlineHelpManage")
+                  : t("pages.assets.emptyOnlineHelpView")
               }
             />
           </TabsContent>
@@ -658,7 +658,7 @@ function AssetsPage() {
       <Dialog open={assetDialogOpen} onOpenChange={setAssetDialogOpen}>
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>{editingAsset ? "Edit Asset" : "Add Asset"}</DialogTitle>
+            <DialogTitle>{editingAsset ? t("pages.assets.edit") : t("pages.assets.add")}</DialogTitle>
           </DialogHeader>
           <form className="grid gap-4 sm:grid-cols-2" onSubmit={saveAsset}>
             <FormField
@@ -977,9 +977,11 @@ function AssetsPage() {
 
             <DialogFooter className="sm:col-span-2">
               <Button type="button" variant="outline" onClick={() => setAssetDialogOpen(false)}>
-                Cancel
+                {t("common.cancel")}
               </Button>
-              <Button type="submit">{editingAsset ? "Save Changes" : "Add Asset"}</Button>
+              <Button type="submit">
+                {editingAsset ? t("pages.assets.saveChanges") : t("pages.assets.add")}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -1309,6 +1311,7 @@ function AssetList({
   emptyTitle: string;
   emptyHint: string;
 }) {
+  const { t } = useTranslation();
   const canAssign = (asset: CompanyAsset) =>
     canManage &&
     mode === "inventory" &&
@@ -1470,7 +1473,7 @@ function AssetList({
                       <Button
                         size="icon"
                         variant="outline"
-                        title="Edit asset"
+                        title={t("pages.assets.edit")}
                         onClick={() => onEdit(asset)}
                       >
                         <Pencil className="h-4 w-4" />

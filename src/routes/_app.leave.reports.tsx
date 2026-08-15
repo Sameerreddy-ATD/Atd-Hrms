@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -45,6 +46,7 @@ export const Route = createFileRoute("/_app/leave/reports")({
 });
 
 function LeaveReportsPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [rows, setRows] = useState<LeaveRequest[]>([]);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -92,8 +94,8 @@ function LeaveReportsPage() {
   return (
     <div>
       <PageHeader
-        title="Leave Tracking"
-        description="Organization-wide leave requests. Organization heads approve leave; HR verifies sick-leave medical reports here."
+        title={t("pages.leaveTracking.title")}
+        description={t("pages.leaveTracking.subtitle")}
         actions={
           <Button
             size="sm"
@@ -102,24 +104,24 @@ function LeaveReportsPage() {
             disabled={rows.length === 0}
             onClick={() => downloadCsv("leave-tracking.csv", csvRows)}
           >
-            <Download className="mr-2 h-4 w-4" /> Export CSV
+            <Download className="mr-2 h-4 w-4" /> {t("pages.leaveTracking.exportCsv")}
           </Button>
         }
       />
       {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
-      {loading && <LoadingState label="Loading leave requests" />}
+      {loading && <LoadingState label={t("pages.loading.leaveTracking")} />}
       {!loading && (
         <>
           {showStatusBreakdown ? (
             <section className="mb-4 grid gap-3 sm:grid-cols-3">
-              <StatCard label="Pending" value={pendingCount} icon={Clock3} tone="warning" />
-              <StatCard label="Approved" value={approvedCount} icon={CheckCircle2} tone="success" />
-              <StatCard label="Rejected" value={rejectedCount} icon={XCircle} />
+              <StatCard label={t("pages.leaveTracking.pending")} value={pendingCount} icon={Clock3} tone="warning" />
+              <StatCard label={t("pages.leaveTracking.approved")} value={approvedCount} icon={CheckCircle2} tone="success" />
+              <StatCard label={t("pages.leaveTracking.rejected")} value={rejectedCount} icon={XCircle} />
             </section>
           ) : (
             <section className="mb-4">
               <StatCard
-                label="Matching requests"
+                label={t("pages.leaveTracking.matching")}
                 value={rows.length}
                 icon={Clock3}
                 hint={`Filtered to ${statusFilter.toLowerCase()} leave`}
@@ -175,7 +177,7 @@ function LeaveReportsPage() {
                       <MedicalOpenLink url={row.medicalDocumentUrl} />
                       <p className="text-xs text-muted-foreground">
                         {row.medicalDocumentVerifiedAt
-                          ? "Verified by HR"
+                          ? t("pages.leaveTracking.verifiedByHr")
                           : `Due ${row.medicalDocumentDueAt ? formatDisplayDateTime(row.medicalDocumentDueAt) : "-"}`}
                       </p>
                       {canVerifyMedicalReport &&
@@ -249,7 +251,7 @@ function LeaveReportsPage() {
                             <MedicalOpenLink url={row.medicalDocumentUrl} />
                             {row.medicalDocumentVerifiedAt ? (
                               <span className="text-xs text-emerald-700 dark:text-emerald-400">
-                                Verified
+                                {t("pages.leaveTracking.verified")}
                               </span>
                             ) : canVerifyMedicalReport && row.medicalDocumentUrl ? (
                               <MedicalVerifyButton
@@ -261,7 +263,7 @@ function LeaveReportsPage() {
                                 }
                               />
                             ) : (
-                              <span className="text-xs text-muted-foreground">Awaiting</span>
+                              <span className="text-xs text-muted-foreground">{t("pages.leaveTracking.awaiting")}</span>
                             )}
                           </div>
                         ) : (
@@ -276,8 +278,8 @@ function LeaveReportsPage() {
 
             {rows.length === 0 && (
               <EmptyState
-                title="No leave requests"
-                description="No leave requests match the selected filter."
+                title={t("pages.leaveTracking.empty")}
+                description={t("pages.leaveTracking.emptyHelp")}
               />
             )}
           </ResponsiveListShell>

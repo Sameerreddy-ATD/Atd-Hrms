@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/common/LoadingState";
 import { BoardDirectory } from "@/components/tasks/BoardDirectory";
@@ -17,6 +18,7 @@ export const Route = createFileRoute("/_app/tasks")({ component: TaskBoardsPage 
 const BOARD_MANAGER_ROLES = new Set(["developer_admin", "main_admin", "ceo", "hr", "manager"]);
 
 function TaskBoardsPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [tasks, setTasks] = useState<WorkTask[]>([]);
   const [assignedTasks, setAssignedTasks] = useState<WorkTask[]>([]);
@@ -66,11 +68,11 @@ function TaskBoardsPage() {
         current && boardRows.some((board) => board.id === current) ? current : null,
       );
     } catch (cause) {
-      setError((cause as Error).message || "Unable to load task boards.");
+      setError((cause as Error).message || t("pages.tasks.toastLoadBoardsFailed"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const loadBoardTasks = useCallback(async (boardId: string) => {
     setBoardLoading(true);
@@ -91,11 +93,11 @@ function TaskBoardsPage() {
         current ? (taskRows.find((task) => task.id === current.id) ?? current) : null,
       );
     } catch (cause) {
-      setError((cause as Error).message || "Unable to load board tasks.");
+      setError((cause as Error).message || t("pages.tasks.toastLoadTasksFailed"));
     } finally {
       setBoardLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void loadDirectory();
@@ -150,11 +152,13 @@ function TaskBoardsPage() {
       setBoardDialogOpen(false);
       setEditingBoard(null);
       setSelectedBoardId(saved.id);
-      toast.success(editingBoard ? "Project settings updated" : "Project created");
+      toast.success(
+        editingBoard ? t("pages.tasks.toastProjectUpdated") : t("pages.tasks.toastProjectCreated"),
+      );
       await loadDirectory(false);
       if (saved.id) await loadBoardTasks(saved.id);
     } catch (cause) {
-      toast.error((cause as Error).message || "Unable to save the board.");
+      toast.error((cause as Error).message || t("pages.tasks.toastSaveBoardFailed"));
       await loadDirectory(false);
     } finally {
       setBoardSaving(false);
@@ -165,10 +169,12 @@ function TaskBoardsPage() {
     try {
       await tasksApi.archiveBoard(board.id, board.version, archived);
       if (archived && selectedBoardId === board.id) setSelectedBoardId(null);
-      toast.success(archived ? "Project archived" : "Project restored");
+      toast.success(
+        archived ? t("pages.tasks.toastProjectArchived") : t("pages.tasks.toastProjectRestored"),
+      );
       await loadDirectory(false);
     } catch (cause) {
-      toast.error((cause as Error).message || "Unable to update the board.");
+      toast.error((cause as Error).message || t("pages.tasks.toastUpdateBoardFailed"));
       await loadDirectory(false);
     }
   }
@@ -199,11 +205,11 @@ function TaskBoardsPage() {
         dueDate: form.dueDate || null,
       });
       setTaskDialogOpen(false);
-      toast.success("Issue created");
+      toast.success(t("pages.tasks.toastIssueCreated"));
       await loadBoardTasks(selectedBoard.id);
       await loadDirectory(false);
     } catch (cause) {
-      toast.error((cause as Error).message || "Unable to create the task.");
+      toast.error((cause as Error).message || t("pages.tasks.toastCreateTaskFailed"));
     } finally {
       setTaskSaving(false);
     }
@@ -270,10 +276,10 @@ function TaskBoardsPage() {
         ...(options?.rankAfterTaskId ? { rankAfterTaskId: options.rankAfterTaskId } : {}),
       });
       applyTaskUpdate(updated);
-      toast.success(sameStage ? "Issue reordered" : "Issue moved");
+      toast.success(sameStage ? t("pages.tasks.toastIssueReordered") : t("pages.tasks.toastIssueMoved"));
     } catch (cause) {
       applyTaskUpdate(previous);
-      toast.error((cause as Error).message || "Unable to move the task.");
+      toast.error((cause as Error).message || t("pages.tasks.toastMoveTaskFailed"));
       if (selectedBoardId) await loadBoardTasks(selectedBoardId);
     }
   }
@@ -312,12 +318,12 @@ function TaskBoardsPage() {
       if (patch.boardId && patch.boardId !== task.boardId) {
         setSelectedBoardId(patch.boardId);
       }
-      toast.success("Issue updated");
+      toast.success(t("pages.tasks.toastIssueUpdated"));
     } catch (cause) {
-      const message = (cause as Error).message || "Unable to update the task.";
+      const message = (cause as Error).message || t("pages.tasks.toastUpdateTaskFailed");
       toast.error(
         /version|conflict|changed/i.test(message)
-          ? "This task was updated elsewhere. Reloaded the latest version."
+          ? t("pages.tasks.toastVersionConflict")
           : message,
       );
       if (selectedBoardId) await loadBoardTasks(selectedBoardId);
@@ -343,9 +349,9 @@ function TaskBoardsPage() {
         dueDate: dates.dueDate,
       });
       applyTaskUpdate(updated);
-      toast.success("Dates updated");
+      toast.success(t("pages.tasks.toastDatesUpdated"));
     } catch (cause) {
-      toast.error((cause as Error).message || "Unable to move the task on the timeline.");
+      toast.error((cause as Error).message || t("pages.tasks.toastRescheduleFailed"));
       if (selectedBoardId) await loadBoardTasks(selectedBoardId);
     }
   }
@@ -363,10 +369,10 @@ function TaskBoardsPage() {
       });
       applyTaskUpdate({ ...parent, subtaskCount: (parent.subtaskCount ?? 0) + 1 });
       if (selectedBoardId) await loadBoardTasks(selectedBoardId);
-      toast.success("Subtask created");
+      toast.success(t("pages.tasks.toastSubtaskCreated"));
       return created;
     } catch (cause) {
-      toast.error((cause as Error).message || "Unable to create the subtask.");
+      toast.error((cause as Error).message || t("pages.tasks.toastCreateSubtaskFailed"));
       throw cause;
     } finally {
       setTaskSaving(false);
@@ -382,9 +388,9 @@ function TaskBoardsPage() {
         progress,
       });
       applyTaskUpdate(updated);
-      toast.success("Update posted");
+      toast.success(t("pages.tasks.toastUpdatePosted"));
     } catch (cause) {
-      toast.error((cause as Error).message || "Unable to post the update.");
+      toast.error((cause as Error).message || t("pages.tasks.toastPostUpdateFailed"));
       if (selectedBoardId) await loadBoardTasks(selectedBoardId);
     } finally {
       setTaskSaving(false);
@@ -399,25 +405,25 @@ function TaskBoardsPage() {
       const full = await tasksApi.get(task.id);
       setSelectedTask(full);
     } catch (cause) {
-      toast.error((cause as Error).message || "Unable to open the task.");
+      toast.error((cause as Error).message || t("pages.tasks.toastOpenTaskFailed"));
     } finally {
       setDetailLoading(false);
     }
   }
 
-  if (loading) return <LoadingState label="Loading task boards" />;
+  if (loading) return <LoadingState label={t("pages.loading.tasks")} />;
 
   if (error && !selectedBoard) {
     return (
       <div className="mx-auto max-w-xl rounded-xl border border-destructive/30 bg-destructive/5 p-6">
-        <h1 className="font-semibold">Work Planner could not be loaded</h1>
+        <h1 className="font-semibold">{t("pages.tasks.loadErrorTitle")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{error}</p>
         <button
           type="button"
           onClick={() => void loadDirectory()}
           className="mt-4 text-sm font-semibold text-primary underline-offset-4 hover:underline"
         >
-          Try again
+          {t("common.retry")}
         </button>
       </div>
     );
@@ -469,7 +475,7 @@ function TaskBoardsPage() {
             const preferredBoardId =
               assignedTasks.find((task) => task.boardId)?.boardId ?? boards[0]?.id;
             if (!preferredBoardId) {
-              toast.message("Create a board to review assigned work in a workspace.");
+              toast.message(t("pages.tasks.createBoardHint"));
               return;
             }
             setDirectoryMineOnly(true);
@@ -516,10 +522,12 @@ function TaskBoardsPage() {
               version: result.version,
               archivedAt: result.archivedAt ?? undefined,
             });
-            toast.success(archived ? "Issue archived" : "Issue restored");
+            toast.success(
+              archived ? t("pages.tasks.toastIssueArchived") : t("pages.tasks.toastIssueRestored"),
+            );
             if (selectedBoardId) await loadBoardTasks(selectedBoardId);
           } catch (cause) {
-            toast.error((cause as Error).message || "Unable to archive the task.");
+            toast.error((cause as Error).message || t("pages.tasks.toastArchiveTaskFailed"));
           } finally {
             setTaskSaving(false);
           }

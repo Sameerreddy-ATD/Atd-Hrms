@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { LoaderCircle, LocateFixed, ShieldCheck } from "lucide-react";
 import { FaceCapture, preloadFaceRecognition } from "@/components/face/FaceCapture";
 import {
@@ -40,6 +41,7 @@ export function FaceAttendanceDialog({
   onClose: () => void;
   onVerified: (payload: AttendanceCapture) => Promise<void>;
 }) {
+  const { t } = useTranslation();
   const [session, setSession] = useState<FaceVerificationSession | null>(null);
   const [position, setPosition] = useState<GeolocationPosition | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -108,7 +110,7 @@ export function FaceAttendanceDialog({
             ? preciseLocationRequiredHint()
             : caught instanceof Error
               ? caught.message
-              : "Attendance could not start.";
+              : t("pages.faceEnrollment.attendanceStartError");
         setError(message);
       }
     };
@@ -120,7 +122,7 @@ export function FaceAttendanceDialog({
 
   const finish = useCallback(
     async (capture: FaceCapturePayload) => {
-      if (!position) throw new Error("Live location is unavailable. Please try again.");
+      if (!position) throw new Error(t("pages.faceEnrollment.liveLocationUnavailable"));
       await onVerified({
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
@@ -141,12 +143,17 @@ export function FaceAttendanceDialog({
             <span className="grid size-8 place-items-center rounded-md bg-primary text-primary-foreground">
               <ShieldCheck className="size-4" />
             </span>
-            Verify to {action === "check-in" ? "check in" : "check out"}
+            {t("pages.faceEnrollment.verifyToAction", {
+              action:
+                action === "check-in"
+                  ? t("pages.faceEnrollment.checkInAction")
+                  : t("pages.faceEnrollment.checkOutAction"),
+            })}
           </DialogTitle>
           <DialogDescription>
             {action === "check-in"
-              ? "Blink once while looking at the camera — no head turns. Your face is matched live (no new photo saved). Precise location and the exact punch time are recorded."
-              : "No camera is used for check-out. Your precise location and the exact punch time are recorded."}
+              ? t("pages.faceEnrollment.checkInDialogDesc")
+              : t("pages.faceEnrollment.checkOutDialogDesc")}
           </DialogDescription>
         </DialogHeader>
 
@@ -159,17 +166,19 @@ export function FaceAttendanceDialog({
             <div>
               <div className="font-semibold tracking-tight text-foreground">
                 {action === "check-in"
-                  ? "Checking face policy and precise location"
-                  : "Confirming precise check-out location"}
+                  ? t("pages.faceEnrollment.checkingPolicy")
+                  : t("pages.faceEnrollment.confirmingLocation")}
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">Keep precise location enabled.</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t("pages.faceEnrollment.keepLocation")}
+              </p>
             </div>
           </div>
         )}
 
         {error && (
           <div className="my-auto rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-            <div className="font-semibold">Attendance was not saved</div>
+            <div className="font-semibold">{t("pages.faceEnrollment.notSaved")}</div>
             <div className="mt-1 text-destructive/90">{error}</div>
             <Button
               type="button"
@@ -177,7 +186,7 @@ export function FaceAttendanceDialog({
               className="mt-4 w-full"
               onClick={() => setAttempt((value) => value + 1)}
             >
-              Try again
+              {t("pages.faceEnrollment.tryAgain")}
             </Button>
           </div>
         )}

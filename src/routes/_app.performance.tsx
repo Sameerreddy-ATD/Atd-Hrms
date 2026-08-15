@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Target } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -34,6 +35,7 @@ import type { User } from "@/types/domain";
 export const Route = createFileRoute("/_app/performance")({ component: PerformancePage });
 
 function PerformancePage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const isHr = isPeopleOpsRole(user?.role);
   const [cycles, setCycles] = useState<Array<Record<string, unknown>>>([]);
@@ -62,39 +64,39 @@ function PerformancePage() {
       setCycleId(next);
       setReviews(await lifecycleApi.reviews(next || undefined));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not load performance");
+      toast.error(error instanceof Error ? error.message : t("pages.performance.toastCouldNotLoad"));
     } finally {
       setLoading(false);
     }
-  }, [cycleId]);
+  }, [cycleId, t]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  if (loading) return <LoadingState label="Loading performance" />;
+  if (loading) return <LoadingState label={t("pages.loading.performance")} />;
 
   return (
     <div>
       <PageHeader
-        eyebrow="Career"
-        title="Performance"
-        description="KRA, KPI, target vs achieved, employee and manager comments, skip-level approval, and sign-off."
+        eyebrow={t("pages.performance.eyebrow")}
+        title={t("pages.performance.title")}
+        description={t("pages.performance.subtitle")}
         actions={
           isHr ? (
             <>
               <Button variant="outline" onClick={() => setCycleOpen(true)}>
-                New cycle
+                {t("pages.performance.newCycle")}
               </Button>
               <Button onClick={() => setAssignOpen(true)} disabled={!cycleId}>
-                Assign review
+                {t("pages.performance.assignReview")}
               </Button>
             </>
           ) : null
         }
       />
       <div className="mb-4">
-        <Label>Cycle</Label>
+        <Label>{t("pages.performance.cycle")}</Label>
         <Select
           value={cycleId}
           onValueChange={async (value) => {
@@ -103,7 +105,7 @@ function PerformancePage() {
           }}
         >
           <SelectTrigger className="mt-1 h-11 max-w-md">
-            <SelectValue placeholder="Select a cycle" />
+            <SelectValue placeholder={t("pages.performance.selectCycle")} />
           </SelectTrigger>
           <SelectContent>
             {cycles.map((cycle) => (
@@ -118,8 +120,8 @@ function PerformancePage() {
       {reviews.length === 0 ? (
         <EmptyState
           icon={Target}
-          title="No reviews in this cycle"
-          description="HR assigns KRA/KPI packs to employees and their managers."
+          title={t("pages.performance.empty")}
+          description={t("pages.performance.emptyHelp")}
         />
       ) : (
         <div className="space-y-3">
@@ -156,7 +158,7 @@ function PerformancePage() {
                               });
                             } catch (error) {
                               toast.error(
-                                error instanceof Error ? error.message : "Could not save score",
+                                error instanceof Error ? error.message : t("pages.performance.toastCouldNotSaveScore"),
                               );
                             }
                           }}
@@ -172,7 +174,7 @@ function PerformancePage() {
                               });
                             } catch (error) {
                               toast.error(
-                                error instanceof Error ? error.message : "Could not save comment",
+                                error instanceof Error ? error.message : t("pages.performance.toastCouldNotSaveComment"),
                               );
                             }
                           }}
@@ -188,7 +190,7 @@ function PerformancePage() {
                               });
                             } catch (error) {
                               toast.error(
-                                error instanceof Error ? error.message : "Could not save comment",
+                                error instanceof Error ? error.message : t("pages.performance.toastCouldNotSaveComment"),
                               );
                             }
                           }}
@@ -208,7 +210,7 @@ function PerformancePage() {
                       });
                     } catch (error) {
                       toast.error(
-                        error instanceof Error ? error.message : "Could not save comment",
+                        error instanceof Error ? error.message : t("pages.performance.toastCouldNotSaveComment"),
                       );
                     }
                   }}
@@ -224,7 +226,7 @@ function PerformancePage() {
                       });
                     } catch (error) {
                       toast.error(
-                        error instanceof Error ? error.message : "Could not save comment",
+                        error instanceof Error ? error.message : t("pages.performance.toastCouldNotSaveComment"),
                       );
                     }
                   }}
@@ -240,7 +242,7 @@ function PerformancePage() {
                       });
                     } catch (error) {
                       toast.error(
-                        error instanceof Error ? error.message : "Could not save comment",
+                        error instanceof Error ? error.message : t("pages.performance.toastCouldNotSaveComment"),
                       );
                     }
                   }}
@@ -256,14 +258,14 @@ function PerformancePage() {
                           await lifecycleApi.updateReview(String(review.id), {
                             action: "EMPLOYEE_SUBMIT",
                           });
-                          toast.success("Submitted to manager");
+                          toast.success(t("pages.performance.toastSubmittedToManager"));
                           setReviews(await lifecycleApi.reviews(cycleId));
                         } catch (error) {
-                          toast.error(error instanceof Error ? error.message : "Could not submit");
+                          toast.error(error instanceof Error ? error.message : t("pages.performance.toastCouldNotSubmit"));
                         }
                       }}
                     >
-                      Employee submit
+                      {t("pages.performance.employeeSubmit")}
                     </Button>
                   ) : null}
                   {(review.managerUserId === user?.id || isHr) &&
@@ -276,14 +278,14 @@ function PerformancePage() {
                           await lifecycleApi.updateReview(String(review.id), {
                             action: "MANAGER_SUBMIT",
                           });
-                          toast.success("Sent for skip-level / sign-off");
+                          toast.success(t("pages.performance.toastSentForSignOff"));
                           setReviews(await lifecycleApi.reviews(cycleId));
                         } catch (error) {
-                          toast.error(error instanceof Error ? error.message : "Could not submit");
+                          toast.error(error instanceof Error ? error.message : t("pages.performance.toastCouldNotSubmit"));
                         }
                       }}
                     >
-                      Manager review
+                      {t("pages.performance.managerReview")}
                     </Button>
                   ) : null}
                   {(review.skipLevelUserId === user?.id || isHr) &&
@@ -296,14 +298,14 @@ function PerformancePage() {
                           await lifecycleApi.updateReview(String(review.id), {
                             action: "SKIP_APPROVE",
                           });
-                          toast.success("Skip-level approved");
+                          toast.success(t("pages.performance.toastSkipApproved"));
                           setReviews(await lifecycleApi.reviews(cycleId));
                         } catch (error) {
-                          toast.error(error instanceof Error ? error.message : "Could not approve");
+                          toast.error(error instanceof Error ? error.message : t("pages.performance.toastCouldNotApprove"));
                         }
                       }}
                     >
-                      Skip-level
+                      {t("pages.performance.skipLevel")}
                     </Button>
                   ) : null}
                   {(isHr ||
@@ -317,16 +319,16 @@ function PerformancePage() {
                           await lifecycleApi.updateReview(String(review.id), {
                             action: "SIGN_OFF",
                           });
-                          toast.success("Review signed off");
+                          toast.success(t("pages.performance.toastSignedOff"));
                           setReviews(await lifecycleApi.reviews(cycleId));
                         } catch (error) {
                           toast.error(
-                            error instanceof Error ? error.message : "Could not sign off",
+                            error instanceof Error ? error.message : t("pages.performance.toastCouldNotSignOff"),
                           );
                         }
                       }}
                     >
-                      Sign off
+                      {t("pages.performance.signOff")}
                     </Button>
                   ) : null}
                 </div>
@@ -339,7 +341,7 @@ function PerformancePage() {
       <Dialog open={cycleOpen} onOpenChange={setCycleOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New appraisal cycle</DialogTitle>
+            <DialogTitle>{t("pages.performance.newCycleTitle")}</DialogTitle>
           </DialogHeader>
           <Input
             className="h-11"
@@ -348,7 +350,7 @@ function PerformancePage() {
             onChange={(e) => setCycleForm({ ...cycleForm, name: e.target.value })}
           />
           <div>
-            <Label>Starts</Label>
+            <Label>{t("pages.performance.starts")}</Label>
             <DateField
               className="mt-1"
               value={cycleForm.startsOn}
@@ -356,7 +358,7 @@ function PerformancePage() {
             />
           </div>
           <div>
-            <Label>Ends</Label>
+            <Label>{t("pages.performance.ends")}</Label>
             <DateField
               className="mt-1"
               value={cycleForm.endsOn}
@@ -369,15 +371,15 @@ function PerformancePage() {
               onClick={async () => {
                 try {
                   await lifecycleApi.createCycle(cycleForm);
-                  toast.success("Cycle created");
+                  toast.success(t("pages.performance.toastCycleCreated"));
                   setCycleOpen(false);
                   await load();
                 } catch (error) {
-                  toast.error(error instanceof Error ? error.message : "Could not create cycle");
+                  toast.error(error instanceof Error ? error.message : t("pages.performance.toastCouldNotCreateCycle"));
                 }
               }}
             >
-              Save cycle
+              {t("pages.performance.saveCycle")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -386,7 +388,7 @@ function PerformancePage() {
       <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
         <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Assign KRA pack</DialogTitle>
+            <DialogTitle>{t("pages.performance.assignKraTitle")}</DialogTitle>
           </DialogHeader>
           <EmployeePicker
             employees={employees}
@@ -438,7 +440,7 @@ function PerformancePage() {
                 })
               }
             >
-              Add another KRA
+              {t("pages.performance.addAnotherKra")}
             </Button>
           </div>
           <DialogFooter>
@@ -460,7 +462,9 @@ function PerformancePage() {
                         targetPercent: Number(goal.targetPercent || 100),
                       })),
                   });
-                  toast.success(`Assigned to ${person?.name ?? "employee"}`);
+                  toast.success(
+                    t("pages.performance.toastAssigned", { name: person?.name ?? "employee" }),
+                  );
                   setAssignOpen(false);
                   setAssignForm({
                     employeeId: "",
@@ -468,11 +472,11 @@ function PerformancePage() {
                   });
                   setReviews(await lifecycleApi.reviews(cycleId));
                 } catch (error) {
-                  toast.error(error instanceof Error ? error.message : "Could not assign review");
+                  toast.error(error instanceof Error ? error.message : t("pages.performance.toastCouldNotAssign"));
                 }
               }}
             >
-              Assign
+              {t("pages.performance.assign")}
             </Button>
           </DialogFooter>
         </DialogContent>

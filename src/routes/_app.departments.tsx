@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -67,20 +68,21 @@ function isExecutiveLeadership(department: Department) {
   return department.name.trim().toLowerCase() === EXECUTIVE_LEADERSHIP_NAME.toLowerCase();
 }
 
-function headsLabel(department: Department) {
+function headsLabel(department: Department, headNotAssignedLabel: string) {
   const names =
     department.heads && department.heads.length > 0
       ? department.heads
       : department.head
         ? [department.head]
         : [];
-  if (names.length === 0) return "Head not assigned";
+  if (names.length === 0) return headNotAssignedLabel;
   if (names.length === 1) return names[0];
   if (names.length === 2) return names.join(" · ");
   return `${names[0]} · +${names.length - 1} more`;
 }
 
 function DeptPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [employees, setEmployees] = useState<User[]>([]);
@@ -267,20 +269,20 @@ function DeptPage() {
   async function saveDepartment(e: React.FormEvent) {
     e.preventDefault();
     if (needsUnitName && !name.trim()) {
-      toast.error("Organization unit name is required");
+      toast.error(t("pages.departments.toastNameRequired"));
       return;
     }
     if (isCreateTopLevel && name.trim().toLowerCase() === EXECUTIVE_LEADERSHIP_NAME.toLowerCase()) {
-      toast.error("Use Assign heads on Leadership to manage CEO heads.");
+      toast.error(t("pages.departments.toastUseAssignHeads"));
       return;
     }
     if (assignCeoHeads) {
       if (!ceoHeadsUnitId) {
-        toast.error("CEO heads unit is not ready. Try again.");
+        toast.error(t("pages.departments.toastCeoUnitNotReady"));
         return;
       }
       if (headEmployeeIds.length === 0) {
-        toast.error("Select at least one head");
+        toast.error(t("pages.departments.toastSelectHead"));
         return;
       }
     }
@@ -293,7 +295,7 @@ function DeptPage() {
             .map((row) => (row.id === saved.id ? saved : row))
             .sort((a, b) => a.name.localeCompare(b.name)),
         );
-        toast.success("CEO heads updated");
+        toast.success(t("pages.departments.toastCeoHeadsUpdated"));
         resetForm();
         return;
       }
@@ -318,10 +320,10 @@ function DeptPage() {
       );
       toast.success(
         editing
-          ? "Department updated"
+          ? t("pages.departments.toastDeptUpdated")
           : isCreateTopLevel
-            ? "Organization unit created under CEO"
-            : "Department added",
+            ? t("pages.departments.toastUnitCreatedUnderCeo")
+            : t("pages.departments.toastDeptAdded"),
       );
       if (!editing && parentDepartmentId !== "none") {
         setExpandedUnits((current) => new Set(current).add(parentDepartmentId));
@@ -336,14 +338,14 @@ function DeptPage() {
 
   async function performDeleteDepartment(dept: Department) {
     if (isExecutiveLeadership(dept)) {
-      toast.error("CEO Leadership heads unit cannot be deleted. Clear heads instead.");
+      toast.error(t("pages.departments.toastCannotDeleteCeoUnit"));
       setDeleteDept(null);
       return;
     }
     try {
       await branchesApi.deleteDepartment(dept.id);
       setDepartments((prev) => prev.filter((d) => d.id !== dept.id));
-      toast.success("Department deleted successfully");
+      toast.success(t("pages.departments.toastDeptDeleted"));
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -372,7 +374,9 @@ function DeptPage() {
               <p className="break-words text-sm font-semibold text-foreground">{department.name}</p>
               <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <UserRound className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{headsLabel(department)}</span>
+                <span className="truncate">
+                  {headsLabel(department, t("pages.departments.headNotAssigned"))}
+                </span>
               </p>
             </div>
             <div className="flex shrink-0 gap-1">
@@ -387,7 +391,7 @@ function DeptPage() {
               <Button
                 size="icon"
                 variant="ghost"
-                title="Add child unit"
+                title={t("pages.departments.addChild")}
                 aria-label={`Add child unit under ${department.name}`}
                 onClick={(event) => {
                   event.stopPropagation();
@@ -399,7 +403,7 @@ function DeptPage() {
               <Button
                 size="icon"
                 variant="ghost"
-                title="Edit unit"
+                title={t("pages.departments.editUnitBtn")}
                 aria-label={`Edit ${department.name}`}
                 onClick={(event) => {
                   event.stopPropagation();
@@ -412,7 +416,7 @@ function DeptPage() {
                 size="icon"
                 variant="ghost"
                 className="text-destructive hover:text-destructive"
-                title="Delete unit"
+                title={t("pages.departments.deleteUnit")}
                 aria-label={`Delete ${department.name}`}
                 onClick={(event) => {
                   event.stopPropagation();
@@ -437,12 +441,10 @@ function DeptPage() {
     return (
       <div>
         <PageHeader
-          title="Departments"
-          description="Department management is available only to Developer Admin."
+          title={t("pages.departments.title")}
+          description={t("pages.departments.subtitleDenied")}
         />
-        <p className="text-sm text-muted-foreground">
-          Contact Developer Admin if you need department changes.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("pages.departments.contactAdmin")}</p>
       </div>
     );
   }
@@ -450,22 +452,22 @@ function DeptPage() {
   return (
     <div>
       <PageHeader
-        title="Departments"
-        description="Assign multiple heads for the CEO from Leadership, and one or more heads per organization unit. The same person can head multiple units — leave approvals follow each unit's heads."
+        title={t("pages.departments.title")}
+        description={t("pages.departments.subtitle")}
       />
 
-      {loading && <LoadingState label="Loading organization chart" />}
+      {loading && <LoadingState label={t("pages.loading.departments")} />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       {!loading && !error && (
         <div className="overflow-hidden rounded-lg border border-border bg-card">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/30 px-3 py-2 sm:px-4">
             <div>
-              <p className="text-sm font-medium text-foreground">Organization chart</p>
+              <p className="text-sm font-medium text-foreground">
+                {t("pages.departments.orgChartTitle")}
+              </p>
               <p className="text-xs text-muted-foreground">
-                <span className="md:hidden">Tap a unit to expand teams underneath.</span>
-                <span className="hidden md:inline">
-                  Drag the lower scrollbar to move across the chart.
-                </span>
+                <span className="md:hidden">{t("pages.departments.tapToExpand")}</span>
+                <span className="hidden md:inline">{t("pages.departments.dragScrollbar")}</span>
               </p>
             </div>
             <div className="flex items-center gap-1 rounded-md border border-border bg-background p-1">
@@ -473,8 +475,8 @@ function DeptPage() {
                 type="button"
                 size="icon"
                 variant="ghost"
-                title="Zoom out"
-                aria-label="Zoom out"
+                title={t("pages.departments.zoomOut")}
+                aria-label={t("pages.departments.zoomOut")}
                 disabled={zoom <= 0.5}
                 onClick={() => setZoom((value) => Math.max(0.5, Number((value - 0.1).toFixed(1))))}
               >
@@ -487,8 +489,8 @@ function DeptPage() {
                 type="button"
                 size="icon"
                 variant="ghost"
-                title="Zoom in"
-                aria-label="Zoom in"
+                title={t("pages.departments.zoomIn")}
+                aria-label={t("pages.departments.zoomIn")}
                 disabled={zoom >= 1.4}
                 onClick={() => setZoom((value) => Math.min(1.4, Number((value + 0.1).toFixed(1))))}
               >
@@ -498,8 +500,8 @@ function DeptPage() {
                 type="button"
                 size="icon"
                 variant="ghost"
-                title="Reset zoom"
-                aria-label="Reset zoom"
+                title={t("pages.departments.resetZoom")}
+                aria-label={t("pages.departments.resetZoom")}
                 onClick={() => setZoom(0.8)}
               >
                 <RotateCcw className="h-4 w-4" />
@@ -522,12 +524,18 @@ function DeptPage() {
                   <Crown className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium uppercase text-muted-foreground">Leadership</p>
-                  <p className="font-semibold text-foreground">Chief Executive Officer</p>
+                  <p className="text-xs font-medium uppercase text-muted-foreground">
+                    {t("pages.departments.leadershipLabel")}
+                  </p>
+                  <p className="font-semibold text-foreground">
+                    {t("pages.departments.ceoTitle")}
+                  </p>
                   <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
                     <UserRound className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">
-                      {executiveLeadership ? headsLabel(executiveLeadership) : "No heads assigned"}
+                      {executiveLeadership
+                        ? headsLabel(executiveLeadership, t("pages.departments.headNotAssigned"))
+                        : t("pages.departments.noHeads")}
                     </span>
                   </p>
                 </div>
@@ -536,8 +544,8 @@ function DeptPage() {
                     type="button"
                     size="icon"
                     variant="ghost"
-                    title="Create organization unit under CEO"
-                    aria-label="Create organization unit under CEO"
+                    title={t("pages.departments.createUnit")}
+                    aria-label={t("pages.departments.createUnit")}
                     onClick={openCreateTopLevel}
                   >
                     <Plus className="h-4 w-4" />
@@ -546,8 +554,8 @@ function DeptPage() {
                     type="button"
                     size="icon"
                     variant="ghost"
-                    title="Assign heads for CEO"
-                    aria-label="Assign heads for CEO"
+                    title={t("pages.departments.assignCeoHeads")}
+                    aria-label={t("pages.departments.assignCeoHeads")}
                     disabled={ensuringCeoUnit}
                     onClick={() => void openAssignCeoHeads()}
                   >
@@ -560,15 +568,14 @@ function DeptPage() {
               <div className="relative mb-6 flex items-center justify-center">
                 <div className="absolute inset-x-0 top-1/2 hidden h-px bg-border sm:block" />
                 <span className="relative flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground">
-                  <Network className="h-3.5 w-3.5" /> Organization units
+                  <Network className="h-3.5 w-3.5" /> {t("pages.departments.orgUnitsLabel")}
                 </span>
               </div>
 
               <div className="flex w-full max-w-full flex-col items-stretch gap-4 md:w-max md:flex-row md:items-start md:gap-7">
                 {chartTopLevelDepartments.length === 0 && (
                   <div className="w-full rounded-md border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground md:w-[360px]">
-                    No organization units yet. Use + on Leadership to create Sales, Operations, and
-                    other units. Use Assign heads to add multiple heads for the CEO.
+                    {t("pages.departments.noUnitsYet")}
                   </div>
                 )}
                 {chartTopLevelDepartments.map((department) => {
@@ -625,7 +632,7 @@ function DeptPage() {
                             <Button
                               size="icon"
                               variant="ghost"
-                              title="Edit unit"
+                              title={t("pages.departments.editUnitBtn")}
                               aria-label={`Edit ${department.name}`}
                               onClick={(event) => {
                                 event.stopPropagation();
@@ -638,7 +645,7 @@ function DeptPage() {
                               size="icon"
                               variant="ghost"
                               className="text-destructive hover:text-destructive"
-                              title="Delete unit"
+                              title={t("pages.departments.deleteUnit")}
                               aria-label={`Delete ${department.name}`}
                               onClick={(event) => {
                                 event.stopPropagation();
@@ -651,7 +658,9 @@ function DeptPage() {
                         </div>
                         <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
                           <UserRound className="h-4 w-4 shrink-0" />
-                          <span className="truncate">{headsLabel(department)}</span>
+                          <span className="truncate">
+                            {headsLabel(department, t("pages.departments.headNotAssigned"))}
+                          </span>
                         </div>
                       </div>
 
@@ -673,11 +682,11 @@ function DeptPage() {
           <Table className="min-w-[620px]">
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Reports under</TableHead>
-                <TableHead>Head</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t("pages.departments.tableName")}</TableHead>
+                <TableHead>{t("pages.departments.tableType")}</TableHead>
+                <TableHead>{t("pages.departments.reportsUnder")}</TableHead>
+                <TableHead>{t("pages.departments.tableHead")}</TableHead>
+                <TableHead className="text-right">{t("common.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -696,18 +705,18 @@ function DeptPage() {
                     {departments.find((parent) => parent.id === d.parentDepartmentId)?.name ??
                       "CEO"}
                   </TableCell>
-                  <TableCell>{headsLabel(d)}</TableCell>
+                  <TableCell>{headsLabel(d, t("pages.departments.headNotAssigned"))}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button size="sm" variant="outline" onClick={() => openEditDialog(d)}>
                         <Pencil className="mr-2 h-4 w-4" />
-                        Edit
+                        {t("common.edit")}
                       </Button>
                       <Button
                         size="sm"
                         variant="destructive"
                         onClick={() => setDeleteDept(d)}
-                        title="Delete Department"
+                        title={t("pages.departments.deleteDept")}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -719,7 +728,9 @@ function DeptPage() {
           </Table>
         </div>
         {!loading && departments.length === 0 && (
-          <div className="p-6 text-sm text-muted-foreground">No departments found.</div>
+          <div className="p-6 text-sm text-muted-foreground">
+            {t("pages.departments.noneFound")}
+          </div>
         )}
       </div>
 
@@ -728,29 +739,31 @@ function DeptPage() {
           <DialogHeader>
             <DialogTitle>
               {editing
-                ? "Edit organization unit"
+                ? t("pages.departments.editUnit")
                 : assignCeoHeads
-                  ? "Assign heads for CEO"
+                  ? t("pages.departments.assignCeoHeads")
                   : isCreateTopLevel
-                    ? "Create organization unit"
+                    ? t("pages.departments.createUnit")
                     : parentDepartmentId !== "none"
                       ? `Add under ${departments.find((item) => item.id === parentDepartmentId)?.name ?? "unit"}`
-                      : "Add organization unit"}
+                      : t("pages.departments.addUnit")}
             </DialogTitle>
             <DialogDescription>
               {assignCeoHeads
-                ? "Add one or more heads who report under the Chief Executive Officer. No organization unit selection needed."
+                ? t("pages.departments.ceoHeadsDescription")
                 : isCreateTopLevel
-                  ? "Create a unit that reports to the CEO. Assign that unit’s heads from the unit card."
-                  : "Name the unit. You can assign heads now or later."}
+                  ? t("pages.departments.createTopLevelDescription")
+                  : t("pages.departments.addUnitDescription")}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={saveDepartment} className="space-y-4">
             {assignCeoHeads && (
               <div className="rounded-md border border-border bg-muted/40 px-3 py-2.5">
-                <p className="text-xs font-medium text-muted-foreground">Assigning heads for</p>
+                <p className="text-xs font-medium text-muted-foreground">
+                  {t("pages.departments.assigningHeadsFor")}
+                </p>
                 <p className="mt-1 text-sm font-semibold text-foreground">
-                  Chief Executive Officer
+                  {t("pages.departments.ceoTitle")}
                 </p>
               </div>
             )}
@@ -778,20 +791,20 @@ function DeptPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="TEAM">Organization unit</SelectItem>
-                      <SelectItem value="SUBTEAM">Team</SelectItem>
-                      <SelectItem value="FUNCTION">Subteam / function</SelectItem>
+                      <SelectItem value="TEAM">{t("pages.departments.orgUnit")}</SelectItem>
+                      <SelectItem value="SUBTEAM">{t("pages.departments.team")}</SelectItem>
+                      <SelectItem value="FUNCTION">{t("pages.departments.subteam")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Reports under</Label>
+                  <Label>{t("pages.departments.reportsUnder")}</Label>
                   <Select value={parentDepartmentId} onValueChange={setParentDepartmentId}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">CEO (top level)</SelectItem>
+                      <SelectItem value="none">{t("pages.departments.ceoTopLevel")}</SelectItem>
                       {departments
                         .filter((item) => item.id !== editing.id && !isExecutiveLeadership(item))
                         .map((item) => (
@@ -812,9 +825,11 @@ function DeptPage() {
               </div>
             ) : isCreateTopLevel ? (
               <div className="rounded-md border border-border bg-muted/40 px-3 py-2.5">
-                <p className="text-xs font-medium text-muted-foreground">Reports under</p>
+                <p className="text-xs font-medium text-muted-foreground">
+                  {t("pages.departments.reportsUnder")}
+                </p>
                 <p className="mt-1 text-sm font-semibold text-foreground">
-                  Chief Executive Officer
+                  {t("pages.departments.ceoTitle")}
                 </p>
               </div>
             ) : null}
@@ -922,16 +937,16 @@ function DeptPage() {
             )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={resetForm}>
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button type="submit" disabled={saving}>
                 {saving
-                  ? "Saving..."
+                  ? t("pages.departments.saving")
                   : editing
-                    ? "Save unit"
+                    ? t("pages.departments.saveUnit")
                     : assignCeoHeads
-                      ? "Save CEO heads"
-                      : "Create unit"}
+                      ? t("pages.departments.saveCeoHeads")
+                      : t("pages.departments.createUnitBtn")}
               </Button>
             </DialogFooter>
           </form>
@@ -941,14 +956,13 @@ function DeptPage() {
       <AlertDialog open={!!deleteDept} onOpenChange={(open) => !open && setDeleteDept(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete department?</AlertDialogTitle>
+            <AlertDialogTitle>{t("pages.departments.deleteConfirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete the department "{deleteDept?.name}"? This action
-              cannot be undone and will fail if any employees are currently assigned to it.
+              {t("pages.departments.deleteConfirmDescription", { name: deleteDept?.name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 text-white hover:bg-red-700"
               onClick={() => {
@@ -957,7 +971,7 @@ function DeptPage() {
                 setDeleteDept(null);
               }}
             >
-              Delete
+              {t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -29,6 +30,7 @@ export const Route = createFileRoute("/_app/settings/devices")({
 });
 
 function DeviceSettingsPage() {
+  const { t } = useTranslation();
   const [devices, setDevices] = useState<BiometricDevice[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,10 +52,10 @@ function DeviceSettingsPage() {
   return (
     <div>
       <PageHeader
-        title="Device Settings"
-        description="Configured biometric devices and sync status."
+        title={t("pages.deviceSettings.title")}
+        description={t("pages.deviceSettings.subtitle")}
       />
-      {loading && <LoadingState label="Loading device settings" />}
+      {loading && <LoadingState label={t("pages.loading.deviceSettings")} />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <ResponsiveListShell>
         <MobileList>
@@ -69,8 +71,11 @@ function DeviceSettingsPage() {
                 }
               />
               <MobileListFields>
-                <MobileListField label="Branch" value={branchName(device.branchId)} />
-                <MobileListField label="Last Sync" value={device.lastSync} />
+                <MobileListField
+                  label={t("common.branch")}
+                  value={branchName(device.branchId)}
+                />
+                <MobileListField label={t("pages.deviceSettings.lastSync")} value={device.lastSync} />
               </MobileListFields>
             </MobileListItem>
           ))}
@@ -79,11 +84,11 @@ function DeviceSettingsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Device</TableHead>
-                <TableHead>Branch</TableHead>
-                <TableHead>Serial</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Last Sync</TableHead>
+                <TableHead>{t("pages.deviceSettings.device")}</TableHead>
+                <TableHead>{t("common.branch")}</TableHead>
+                <TableHead>{t("pages.deviceSettings.serial")}</TableHead>
+                <TableHead>{t("common.status")}</TableHead>
+                <TableHead>{t("pages.deviceSettings.lastSync")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -104,8 +109,8 @@ function DeviceSettingsPage() {
         {!loading && devices.length === 0 && (
           <div className="p-6">
             <EmptyState
-              title="No devices configured"
-              description="Biometric devices will appear here after they are registered."
+              title={t("pages.deviceSettings.empty")}
+              description={t("pages.deviceSettings.emptyHelp")}
             />
           </div>
         )}

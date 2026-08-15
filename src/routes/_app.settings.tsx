@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -81,23 +82,6 @@ export const Route = createFileRoute("/_app/settings")({
   component: SettingsPage,
 });
 
-const MODULE_LABELS: Record<ModuleKey, string> = {
-  DASHBOARD: "Dashboard",
-  PEOPLE: "People",
-  ATTENDANCE: "Attendance",
-  TASKS: "Work Planner",
-  EMPLOYEE_REQUESTS: "Requests",
-  LEAVE: "Leave",
-  COMPANY: "Company",
-  PROFILE: "Profile",
-  COMMUNICATIONS: "Updates",
-  SYSTEM: "System",
-  TALENT: "Talent",
-  LIFECYCLE: "Lifecycle",
-  PERFORMANCE: "Performance",
-  LMS: "Learning",
-};
-
 const BACKEND_ROLE_TO_UI: Record<string, Role> = {
   DEVELOPER_ADMIN: "developer_admin",
   MAIN_ADMIN: "main_admin",
@@ -117,7 +101,9 @@ const INTEGRATION_SCOPE_LABELS: Record<IntegrationScope, string> = {
 };
 
 function SettingsPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
+  const moduleLabel = (module: ModuleKey) => t(`pages.settings.moduleLabels.${module}`);
   const isDeveloperAdmin = user?.role === "developer_admin";
   const [counts, setCounts] = useState({
     users: 0,
@@ -292,10 +278,10 @@ function SettingsPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="System Settings"
-        description="Monitor the system and manage protected Developer Admin configuration."
+        title={t("pages.settings.title")}
+        description={t("pages.settings.subtitle")}
       />
-      {loading && <LoadingState label="Loading system settings" />}
+      {loading && <LoadingState label={t("pages.loading.settings")} />}
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       {isDeveloperAdmin && (
@@ -306,11 +292,9 @@ function SettingsPage() {
                 <Blocks className="h-5 w-5" />
               </span>
               <div>
-                <CardTitle className="text-base">Module Access</CardTitle>
+                <CardTitle className="text-base">{t("pages.settings.moduleAccess")}</CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Control which application modules each role can open. Rules apply to the sidebar
-                  and protected APIs. Developer Admin always keeps full access. After saving, users
-                  may need to refresh or sign in again to see menu changes.
+                  {t("pages.settings.moduleAccessHelp")}
                 </p>
               </div>
             </div>
@@ -324,7 +308,7 @@ function SettingsPage() {
                 disabled={moduleAccessSaving || Object.keys(moduleDefaults).length === 0}
                 onClick={() => setModuleMatrix({ ...moduleDefaults })}
               >
-                Reset to defaults
+                {t("pages.settings.resetDefaults")}
               </Button>
             </div>
             <div className="space-y-3 md:hidden">
@@ -348,7 +332,7 @@ function SettingsPage() {
                               }))
                             }
                           >
-                            All
+                            {t("pages.settings.all")}
                           </Button>
                           <Button
                             type="button"
@@ -362,7 +346,7 @@ function SettingsPage() {
                               }))
                             }
                           >
-                            Minimal
+                            {t("pages.settings.minimal")}
                           </Button>
                         </div>
                       )}
@@ -376,11 +360,11 @@ function SettingsPage() {
                             key={module}
                             className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-3 py-2"
                           >
-                            <span className="min-w-0 text-sm">{MODULE_LABELS[module]}</span>
+                            <span className="min-w-0 text-sm">{moduleLabel(module)}</span>
                             <Switch
                               checked={enabled}
                               disabled={immutable || moduleAccessSaving}
-                              aria-label={`${ROLE_LABELS[uiRole]} ${MODULE_LABELS[module]}`}
+                              aria-label={`${ROLE_LABELS[uiRole]} ${moduleLabel(module)}`}
                               onCheckedChange={(checked) =>
                                 setModuleMatrix((current) => ({
                                   ...current,
@@ -404,13 +388,15 @@ function SettingsPage() {
               <table className="w-full min-w-[760px] text-sm">
                 <thead className="bg-muted/50 text-left">
                   <tr>
-                    <th className="px-3 py-3 font-semibold">Role</th>
+                    <th className="px-3 py-3 font-semibold">{t("pages.settings.role")}</th>
                     {moduleKeys.map((module) => (
                       <th key={module} className="px-2 py-3 text-center text-xs font-semibold">
-                        {MODULE_LABELS[module]}
+                        {moduleLabel(module)}
                       </th>
                     ))}
-                    <th className="px-2 py-3 text-center text-xs font-semibold">Quick</th>
+                    <th className="px-2 py-3 text-center text-xs font-semibold">
+                      {t("pages.settings.quick")}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -428,7 +414,7 @@ function SettingsPage() {
                             <Switch
                               checked={enabled}
                               disabled={immutable || moduleAccessSaving}
-                              aria-label={`${ROLE_LABELS[uiRole]} ${MODULE_LABELS[module]}`}
+                              aria-label={`${ROLE_LABELS[uiRole]} ${moduleLabel(module)}`}
                               onCheckedChange={(checked) =>
                                 setModuleMatrix((current) => ({
                                   ...current,
@@ -445,7 +431,7 @@ function SettingsPage() {
                       })}
                       <td className="px-2 py-3 text-center">
                         {backendRole === "DEVELOPER_ADMIN" ? (
-                          <span className="text-xs text-muted-foreground">Locked</span>
+                          <span className="text-xs text-muted-foreground">{t("pages.settings.locked")}</span>
                         ) : (
                           <div className="flex justify-center gap-1">
                             <Button
@@ -461,7 +447,7 @@ function SettingsPage() {
                                 }))
                               }
                             >
-                              All
+                              {t("pages.settings.all")}
                             </Button>
                             <Button
                               type="button"
@@ -476,7 +462,7 @@ function SettingsPage() {
                                 }))
                               }
                             >
-                              Min
+                              {t("pages.settings.min")}
                             </Button>
                           </div>
                         )}
@@ -494,7 +480,7 @@ function SettingsPage() {
                 disabled={moduleAccessSaving || Object.keys(moduleDefaults).length === 0}
                 onClick={() => setModuleMatrix({ ...moduleDefaults })}
               >
-                Reset to defaults
+                {t("pages.settings.resetDefaults")}
               </Button>
               <Button
                 className="w-full sm:w-auto"
@@ -511,7 +497,7 @@ function SettingsPage() {
                     .finally(() => setModuleAccessSaving(false));
                 }}
               >
-                {moduleAccessSaving ? "Saving..." : "Save module access"}
+                {moduleAccessSaving ? t("pages.settings.saving") : t("pages.settings.saveModules")}
               </Button>
             </div>
           </CardContent>
@@ -574,8 +560,8 @@ function SettingsPage() {
                   variant="outline"
                   className="size-9 shrink-0"
                   disabled={profileSelfEditLoading || profileSelfEditSaving || !profileSelfEdit}
-                  aria-label="Choose editable profile fields"
-                  title="Choose editable fields"
+                  aria-label={t("pages.settings.chooseFields")}
+                  title={t("pages.settings.chooseFields")}
                   onClick={() => {
                     if (!profileSelfEdit) return;
                     setDraftAllowedFields(profileSelfEdit.allowedFields);
@@ -1086,7 +1072,7 @@ function SettingsPage() {
                 setHealthLoading(true);
                 void refreshHealth();
               }}
-              title="Refresh health check"
+              title={t("pages.settings.refreshHealth")}
             >
               <RefreshCw className={`h-4 w-4 ${healthLoading ? "animate-spin" : ""}`} />
             </Button>

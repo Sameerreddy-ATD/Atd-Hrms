@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
 import { AttendanceDayList } from "@/components/attendance/AttendanceDayList";
@@ -53,6 +54,7 @@ function readSavedSelection(): SavedDayLogSelection | null {
 }
 
 function DayLogsPage() {
+  const { t } = useTranslation();
   const initialSelection = useMemo(() => readSavedSelection(), []);
   const defaultMonth = initialSelection?.from?.slice(0, 7) || indiaMonthKey();
   const defaultRange = indiaMonthRange(defaultMonth);
@@ -117,10 +119,10 @@ function DayLogsPage() {
   const employeeName = useMemo(
     () =>
       selectedEmployeeId === "all"
-        ? "All Employees"
+        ? t("pages.dayLogs.allEmployees")
         : (employees.find((employee) => (employee.employeeId || employee.id) === selectedEmployeeId)
-            ?.name ?? "Employee"),
-    [employees, selectedEmployeeId],
+            ?.name ?? t("pages.dayLogs.employee")),
+    [employees, selectedEmployeeId, t],
   );
   const selectedEmployee = useMemo(
     () =>
@@ -173,15 +175,15 @@ function DayLogsPage() {
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
-        title="Day Logs"
-        description="Track your team's day-wise attendance for the selected month through today. Expand any date for every punch in order."
+        title={t("pages.dayLogs.title")}
+        description={t("pages.dayLogs.subtitle")}
       />
 
       <Card className="border-border shadow-sm">
         <CardHeader className="space-y-1 px-4 pb-3 pt-4 sm:px-6">
-          <CardTitle className="text-base font-semibold">Filters</CardTitle>
+          <CardTitle className="text-base font-semibold">{t("pages.dayLogs.filters")}</CardTitle>
           <p className="text-xs text-muted-foreground sm:text-sm">
-            Choose employee and date range. Results update as you change filters.
+            {t("pages.dayLogs.filtersHelp")}
           </p>
         </CardHeader>
         <CardContent className="space-y-4 px-4 pb-4 sm:px-6 sm:pb-5">
@@ -193,13 +195,13 @@ function DayLogsPage() {
             <div
               className={`min-w-0 space-y-1 ${selectedEmployeeId === "all" ? "" : "md:col-span-2 lg:col-span-1"}`}
             >
-              <Label className="text-xs sm:text-sm">Employee</Label>
+              <Label className="text-xs sm:text-sm">{t("pages.dayLogs.employee")}</Label>
               <Select value={selectedEmployeeId} onValueChange={changeEmployee}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select employee" />
+                  <SelectValue placeholder={t("pages.dayLogs.selectEmployee")} />
                 </SelectTrigger>
                 <SelectContent className="max-h-[320px]">
-                  <SelectItem value="all">All Employees</SelectItem>
+                  <SelectItem value="all">{t("pages.dayLogs.allEmployees")}</SelectItem>
                   {filteredEmployeesForDropdown.map((employee) => (
                     <SelectItem
                       key={employee.employeeId || employee.id}
@@ -213,7 +215,7 @@ function DayLogsPage() {
               </Select>
             </div>
             <div className="min-w-0 space-y-1">
-              <Label className="text-xs sm:text-sm">Month</Label>
+              <Label className="text-xs sm:text-sm">{t("pages.dayLogs.month")}</Label>
               <Input
                 type="month"
                 className="px-2.5"
@@ -224,35 +226,35 @@ function DayLogsPage() {
             </div>
             <div className="grid grid-cols-2 gap-2.5 sm:contents">
               <div className="min-w-0 space-y-1">
-                <Label className="text-xs sm:text-sm">From</Label>
+                <Label className="text-xs sm:text-sm">{t("pages.dayLogs.from")}</Label>
                 <DateField
                   value={from}
                   min={indiaMonthRange(month).from}
                   max={to || indiaMonthRange(month).to}
                   onChange={changeFrom}
-                  aria-label="From date"
+                  aria-label={t("pages.dayLogs.ariaFromDate")}
                 />
               </div>
               <div className="min-w-0 space-y-1">
-                <Label className="text-xs sm:text-sm">To</Label>
+                <Label className="text-xs sm:text-sm">{t("pages.dayLogs.to")}</Label>
                 <DateField
                   value={to}
                   min={from || indiaMonthRange(month).from}
                   max={indiaMonthRange(month).to}
                   onChange={changeTo}
-                  aria-label="To date"
+                  aria-label={t("pages.dayLogs.ariaToDate")}
                 />
               </div>
             </div>
             {selectedEmployeeId === "all" && (
               <div className="min-w-0 space-y-1">
-                <Label className="text-xs sm:text-sm">Branch</Label>
+                <Label className="text-xs sm:text-sm">{t("pages.dayLogs.branch")}</Label>
                 <Select value={branchId} onValueChange={setBranchId}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All locations</SelectItem>
+                    <SelectItem value="all">{t("pages.dayLogs.allLocations")}</SelectItem>
                     {branches.map((branch) => (
                       <SelectItem key={branch.id} value={branch.id}>
                         {formatBranchLocationLabel(branch)}
@@ -269,23 +271,23 @@ function DayLogsPage() {
       <Card className="border-border shadow-sm">
         <CardHeader className="flex flex-col gap-3 px-4 pt-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="min-w-0">
-            <CardTitle className="text-base font-semibold">Day-wise logs</CardTitle>
+            <CardTitle className="text-base font-semibold">{t("pages.dayLogs.dayWiseLogs")}</CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
-              Per-day records for{" "}
+              {t("pages.dayLogs.perDayRecordsFor")}{" "}
               <span className="font-medium text-foreground">{employeeName}</span>.
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {selectedEmployeeId === "all" ? (
-                "Scope: All active employees"
+                t("pages.dayLogs.scopeAll")
               ) : (
                 <>
-                  Employee ID:{" "}
+                  {t("pages.dayLogs.employeeIdLabel")}{" "}
                   {selectedEmployee?.employeeCode ??
                     selectedEmployee?.employeeId ??
                     selectedEmployee?.id ??
                     "-"}
                   {selectedEmployee?.department
-                    ? ` · Department: ${selectedEmployee.department}`
+                    ? ` · ${t("pages.dayLogs.departmentLabel", { department: selectedEmployee.department })}`
                     : ""}
                 </>
               )}
@@ -299,7 +301,7 @@ function DayLogsPage() {
                   ? formatDisplayDateRange(from, to)
                   : from || to
                     ? formatDisplayDate(from || to)
-                    : "Select month"}
+                    : t("pages.dayLogs.selectMonth")}
               </span>
             </div>
             <Button
@@ -338,18 +340,20 @@ function DayLogsPage() {
                 )
               }
             >
-              {selectedEmployeeId === "all" ? "Export All to Excel" : "Export to Excel"}
+              {selectedEmployeeId === "all"
+                ? t("pages.dayLogs.exportAll")
+                : t("pages.dayLogs.export")}
             </Button>
           </div>
         </CardHeader>
         <CardContent className="px-3 pb-4 pt-0 sm:px-4 sm:pb-5">
-          {loadingEmployeeRows && <LoadingState label="Loading employee day logs" compact />}
+          {loadingEmployeeRows && <LoadingState label={t("pages.loading.dayLogs")} compact />}
           {employeeError && <p className="text-sm text-destructive">{employeeError}</p>}
           {!loadingEmployeeRows && !employeeError && (
             <AttendanceDayList
               records={employeeRows}
               showEmployee={selectedEmployeeId === "all"}
-              emptyText="No day-wise attendance records found for the selected month."
+              emptyText={t("pages.dayLogs.empty")}
             />
           )}
         </CardContent>

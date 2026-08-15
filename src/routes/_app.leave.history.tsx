@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -56,6 +57,7 @@ export const Route = createFileRoute("/_app/leave/history")({
 });
 
 function LeaveHistoryPage() {
+  const { t } = useTranslation();
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -91,7 +93,7 @@ function LeaveHistoryPage() {
     try {
       const updated = await leaveApi.cancel(cancelling.id);
       setLeaveRequests((rows) => rows.map((row) => (row.id === updated.id ? updated : row)));
-      toast.success("Leave cancellation recorded");
+      toast.success(t("pages.leaveHistory.toastCancelled"));
       setCancelling(null);
     } catch (err) {
       toast.error((err as Error).message);
@@ -103,18 +105,18 @@ function LeaveHistoryPage() {
   return (
     <div>
       <PageHeader
-        title="Leave History"
-        description="All your submitted leave requests and their current status."
+        title={t("pages.leaveHistory.title")}
+        description={t("pages.leaveHistory.subtitle")}
         actions={
           <Button size="sm" asChild>
             <Link to="/leave/apply">
               <Plus className="mr-2 h-4 w-4" />
-              Apply leave
+              {t("pages.attendanceMine.applyLeave")}
             </Link>
           </Button>
         }
       />
-      {loading && <LoadingState label="Loading leave history" />}
+      {loading && <LoadingState label={t("pages.loading.leaveHistory")} />}
       {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
 
       {!loading && medicalDue.length > 0 && (
@@ -138,14 +140,14 @@ function LeaveHistoryPage() {
           <TableToolbar>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="sm:w-44">
-                <SelectValue placeholder="Status" />
+                <SelectValue placeholder={t("pages.leaveHistory.statusPlaceholder")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="Pending">Pending</SelectItem>
-                <SelectItem value="Approved">Approved</SelectItem>
-                <SelectItem value="Rejected">Rejected</SelectItem>
-                <SelectItem value="Cancelled">Cancelled</SelectItem>
+                <SelectItem value="all">{t("pages.leaveHistory.allStatuses")}</SelectItem>
+                <SelectItem value="Pending">{t("common.pending")}</SelectItem>
+                <SelectItem value="Approved">{t("common.approved")}</SelectItem>
+                <SelectItem value="Rejected">{t("common.rejected")}</SelectItem>
+                <SelectItem value="Cancelled">{t("pages.leaveHistory.cancelled")}</SelectItem>
               </SelectContent>
             </Select>
           </TableToolbar>
@@ -160,14 +162,25 @@ function LeaveHistoryPage() {
                     trailing={<StatusBadge status={leave.status} />}
                   />
                   <MobileListFields>
-                    <MobileListField label="Days" value={leave.days} />
-                    <MobileListField label="Applied" value={formatDisplayDate(leave.appliedOn)} />
-                    <MobileListField label="Assigned head" value={leave.approverName ?? "-"} />
-                    <MobileListField label="Decision" value={decisionLabel(leave)} />
+                    <MobileListField label={t("pages.leaveHistory.days")} value={leave.days} />
+                    <MobileListField
+                      label={t("pages.leaveHistory.applied")}
+                      value={formatDisplayDate(leave.appliedOn)}
+                    />
+                    <MobileListField
+                      label={t("pages.leaveHistory.assignedHead")}
+                      value={leave.approverName ?? "-"}
+                    />
+                    <MobileListField
+                      label={t("pages.leaveHistory.decision")}
+                      value={decisionLabel(leave)}
+                    />
                   </MobileListFields>
                   {(leave.cancelledDates?.length ?? 0) > 0 && (
                     <p className="mt-2 text-xs text-muted-foreground">
-                      Cancelled: {leave.cancelledDates?.map((d) => formatDisplayDate(d)).join(", ")}
+                      {t("pages.leaveHistory.cancelledDates", {
+                        dates: leave.cancelledDates?.map((d) => formatDisplayDate(d)).join(", "),
+                      })}
                     </p>
                   )}
                   {["Pending", "Approved"].includes(leave.status) && (
@@ -179,7 +192,7 @@ function LeaveHistoryPage() {
                         disabled={cancellingId === leave.id}
                         onClick={() => setCancelling(leave)}
                       >
-                        Cancel leave
+                        {t("pages.leaveHistory.cancelLeave")}
                       </Button>
                     </MobileListActions>
                   )}
@@ -191,13 +204,13 @@ function LeaveHistoryPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Dates</TableHead>
-                    <TableHead>Days</TableHead>
-                    <TableHead>Assigned head</TableHead>
-                    <TableHead>Decision</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
+                    <TableHead>{t("pages.corrections.type")}</TableHead>
+                    <TableHead>{t("pages.leaveHistory.dates")}</TableHead>
+                    <TableHead>{t("pages.leaveHistory.days")}</TableHead>
+                    <TableHead>{t("pages.leaveHistory.assignedHead")}</TableHead>
+                    <TableHead>{t("pages.leaveHistory.decision")}</TableHead>
+                    <TableHead>{t("common.status")}</TableHead>
+                    <TableHead className="text-right">{t("pages.leaveHistory.action")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -207,12 +220,15 @@ function LeaveHistoryPage() {
                       <TableCell>
                         <div>{formatDisplayDateRange(leave.from, leave.to)}</div>
                         <div className="text-xs text-muted-foreground">
-                          Applied {formatDisplayDate(leave.appliedOn)}
+                          {t("pages.leaveHistory.applied")} {formatDisplayDate(leave.appliedOn)}
                         </div>
                         {(leave.cancelledDates?.length ?? 0) > 0 && (
                           <div className="mt-1 text-xs text-muted-foreground">
-                            Cancelled:{" "}
-                            {leave.cancelledDates?.map((d) => formatDisplayDate(d)).join(", ")}
+                            {t("pages.leaveHistory.cancelledDates", {
+                              dates: leave.cancelledDates
+                                ?.map((d) => formatDisplayDate(d))
+                                .join(", "),
+                            })}
                           </div>
                         )}
                       </TableCell>
@@ -230,7 +246,7 @@ function LeaveHistoryPage() {
                             disabled={cancellingId === leave.id}
                             onClick={() => setCancelling(leave)}
                           >
-                            Cancel
+                            {t("common.cancel")}
                           </Button>
                         )}
                       </TableCell>
@@ -242,11 +258,13 @@ function LeaveHistoryPage() {
 
             {visible.length === 0 && (
               <EmptyState
-                title="No leave requests"
+                title={t("pages.leaveHistory.empty")}
                 description={
                   statusFilter === "all"
-                    ? "Apply leave to see your history here."
-                    : `No ${statusFilter.toLowerCase()} requests.`
+                    ? t("pages.leaveHistory.emptyHelp")
+                    : t("pages.leaveHistory.noStatusRequests", {
+                        status: statusFilter.toLowerCase(),
+                      })
                 }
               />
             )}
@@ -257,9 +275,9 @@ function LeaveHistoryPage() {
       <AlertDialog open={!!cancelling} onOpenChange={(open) => !open && setCancelling(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancel leave request?</AlertDialogTitle>
+            <AlertDialogTitle>{t("pages.leaveHistory.cancelDialogTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              This cancels remaining current and future dates in the request
+              {t("pages.leaveHistory.cancelDialogDesc")}
               {cancelling
                 ? ` (${cancelling.type}: ${formatDisplayDateRange(cancelling.from, cancelling.to)})`
                 : ""}
@@ -267,8 +285,10 @@ function LeaveHistoryPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep leave</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void confirmCancel()}>Cancel leave</AlertDialogAction>
+            <AlertDialogCancel>{t("pages.dashboard.keepLeave")}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void confirmCancel()}>
+              {t("pages.leaveHistory.cancelLeave")}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

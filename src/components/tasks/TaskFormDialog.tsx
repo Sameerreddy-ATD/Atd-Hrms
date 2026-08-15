@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -66,6 +67,7 @@ export function TaskFormDialog({
   saving,
   onCreate,
 }: TaskFormDialogProps) {
+  const { t } = useTranslation();
   const [form, setForm] = useState<TaskFormValue>(emptyTask());
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
@@ -127,7 +129,7 @@ export function TaskFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="grid max-h-[calc(100dvh-1rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-2xl">
         <DialogHeader className="border-b px-5 py-5 sm:px-7">
-          <DialogTitle>Create issue</DialogTitle>
+          <DialogTitle>{t("pages.tasks.createIssue")}</DialogTitle>
           <p className="text-sm text-muted-foreground">
             Add work to <span className="font-medium text-foreground">{board.name}</span>.
           </p>
@@ -266,10 +268,10 @@ export function TaskFormDialog({
         </div>
         <DialogFooter className="border-t bg-background px-5 py-4 sm:px-7">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button disabled={saving} onClick={() => void submit()}>
-            {saving ? "Creating..." : "Create"}
+            {saving ? t("pages.tasks.creating") : t("pages.tasks.create")}
           </Button>
         </DialogFooter>
       </DialogContent>
