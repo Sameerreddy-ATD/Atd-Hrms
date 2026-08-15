@@ -138,7 +138,12 @@ export function BirthdayMarquee() {
   return (
     <div className="mb-5 w-full space-y-2.5">
       <div className="relative">
-        <Carousel setApi={setApi} opts={{ loop: true, align: "start" }} className="w-full">
+        <Carousel
+          setApi={setApi}
+          opts={{ loop: true, align: "start", watchDrag: true, dragFree: false }}
+          className="w-full cursor-grab active:cursor-grabbing"
+          data-no-page-swipe
+        >
           <CarouselContent className="-ml-0">
             {celebrants.map((birthday) => (
               <CarouselItem key={birthday.employeeId} className="basis-full pl-0">

@@ -749,8 +749,22 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Carousel-style page drag between sidebar destinations */
+.atd-page-swipe--dragging {
+  transition: none !important;
+  will-change: transform;
+}
+
+.atd-page-swipe--idle {
+  transition: transform var(--motion-ui) var(--ease-out);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .atd-sidebar-drawer--settling {
+    transition: none !important;
+  }
+
+  .atd-page-swipe--idle {
     transition: none !important;
   }
 }

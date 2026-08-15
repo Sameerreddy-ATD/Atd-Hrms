@@ -1,17 +1,18 @@
 import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ShieldX } from "lucide-react";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { PermissionSetup } from "@/components/layout/PermissionSetup";
+import { PageSwipeNavigator } from "@/components/layout/PageSwipeNavigator";
 import { LoadingState } from "@/components/common/LoadingState";
 import { useAuth } from "@/lib/auth";
 import { FaceEnrollmentGate } from "@/components/face/FaceEnrollmentGate";
 import { PwaInstallBanner } from "@/components/layout/PwaInstallBanner";
 import { faceApi } from "@/services/api";
-import { moduleAccessApi } from "@/services/api";
+import { employeesApi, moduleAccessApi } from "@/services/api";
 import { menuForRole, moduleForRoute } from "@/lib/menu";
 import type { ModuleKey } from "@/types/domain";
 import { Button } from "@/components/ui/button";
@@ -32,10 +33,32 @@ function AppLayout() {
   const [faceRequired, setFaceRequired] = useState<boolean | null>(null);
   const [facePolicyError, setFacePolicyError] = useState("");
   const [allowedModules, setAllowedModules] = useState<ModuleKey[] | null | undefined>(null);
+  const [isReportingManager, setIsReportingManager] = useState(false);
   const [pageEnter, setPageEnter] = useState(false);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const userId = user?.id;
   const userRole = user?.role;
+  const employeeId = user?.employeeId;
+
+  useEffect(() => {
+    if (!employeeId) {
+      setIsReportingManager(false);
+      return;
+    }
+    employeesApi
+      .isReportingManager()
+      .then((result) => setIsReportingManager(result.isReportingManager))
+      .catch(() => setIsReportingManager(false));
+  }, [employeeId]);
+
+  const swipePaths = useMemo(() => {
+    if (!user) return [];
+    return menuForRole(user.role, {
+      isReportingManager,
+      allowedModules: allowedModules === null ? undefined : allowedModules,
+      hasEmployeeId: Boolean(user.employeeId),
+    }).flatMap((group) => group.items.map((item) => item.to));
+  }, [user, isReportingManager, allowedModules]);
 
   useEffect(() => {
     setPageEnter(false);
@@ -208,7 +231,8 @@ function AppLayout() {
           tabIndex={-1}
           className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain p-0 pb-[max(1.25rem,var(--atd-sab))] pl-[var(--atd-sal)] pr-[var(--atd-sar)] outline-none sm:p-3 sm:pb-[max(0.75rem,var(--atd-sab))] lg:p-4"
         >
-          <div
+          <PageSwipeNavigator
+            paths={swipePaths}
             className={cn(
               // Grow with page content so <main> remains the scroll container.
               // flex-1 + min-h-0 here trapped tall pages and stopped scrolling.
@@ -237,7 +261,7 @@ function AppLayout() {
                 <Outlet />
               </>
             )}
-          </div>
+          </PageSwipeNavigator>
         </main>
       </SidebarInset>
     </SidebarProvider>
