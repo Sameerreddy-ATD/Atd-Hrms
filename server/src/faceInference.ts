@@ -126,6 +126,15 @@ async function createHuman(): Promise<HumanInstance> {
     cacheModels: false,
     warmup: "none",
     debug: false,
+    // Human's defaults reuse the previous result when a frame looks similar or
+    // was seen recently (skipFrames 99, skipTime 2.5-3s). That is right for a
+    // webcam loop and catastrophic here: consecutive requests are different
+    // people, so a cached hit could return one employee's descriptor for
+    // another's frame. Every submodel is forced to run on every call.
+    cacheSensitivity: 0,
+    skipAllowed: false,
+    // Image filters are a browser/WebGL feature and a no-op under Node, so
+    // leaving them off costs nothing and keeps the pipeline explicit.
     filter: { enabled: false },
     gesture: { enabled: false },
     body: { enabled: false },
@@ -136,13 +145,19 @@ async function createHuman(): Promise<HumanInstance> {
       enabled: true,
       // maxDetected is 2 so a second person in frame is detectable rather than
       // silently cropped away; the caller rejects multi-face frames.
-      detector: { enabled: true, maxDetected: 2, rotation: false },
+      detector: {
+        enabled: true,
+        maxDetected: 2,
+        rotation: true,
+        skipFrames: 0,
+        skipTime: 0,
+      },
       mesh: { enabled: true },
       iris: { enabled: false },
       emotion: { enabled: false },
-      description: { enabled: true },
-      antispoof: { enabled: true },
-      liveness: { enabled: true },
+      description: { enabled: true, skipFrames: 0, skipTime: 0 },
+      antispoof: { enabled: true, skipFrames: 0, skipTime: 0 },
+      liveness: { enabled: true, skipFrames: 0, skipTime: 0 },
     },
   });
 

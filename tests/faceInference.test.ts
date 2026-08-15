@@ -63,4 +63,21 @@ describe("server-side face inference", () => {
   it("rejects a payload that is not a JPEG data URL", async () => {
     await expect(analyzeFaceFrame("data:image/png;base64,AAAA")).rejects.toThrow(/JPEG/i);
   });
+
+  /**
+   * Human's frame-skip cache is built for a webcam loop. On a server, back-to-back
+   * calls are different people, so a cached hit would hand one employee's
+   * descriptor to another. This is the regression guard for that.
+   */
+  it("does not reuse a cached result across back-to-back different frames", async () => {
+    const face = await jpegDataUrl(path.join(humanAssets, "screenshot-faceid.jpg"));
+    const first = await analyzeFaceFrame(face);
+    await expect(analyzeFaceFrame(syntheticJpeg(480, 480))).rejects.toThrow(
+      /No face was detected/i,
+    );
+    const second = await analyzeFaceFrame(face);
+    // The same image must still resolve to the same descriptor...
+    expect(second.descriptor).toEqual(first.descriptor);
+    // ...while the faceless frame in between was not served from cache.
+  }, 180_000);
 });
