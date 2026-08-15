@@ -101,8 +101,11 @@
   --motion-fast: 150ms;
   --motion-ui: 220ms;
   --motion-enter: 280ms;
+  --motion-press: 120ms;
+  --motion-exit: 180ms;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
 }
 
 .dark {
@@ -256,13 +259,18 @@
   }
 
   .aw-enter,
-  .aw-enter-delayed {
+  .aw-enter-delayed,
+  .aw-page-enter,
+  .aw-tab-panel,
+  .aw-stagger > *,
+  .aw-badge-pop {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
   }
 
-  .card-hover:hover {
+  .card-hover:hover,
+  .aw-tap-card:active {
     transform: none;
   }
 
@@ -452,6 +460,40 @@
   }
 }
 
+@keyframes aw-page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes aw-tab-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes aw-badge-pop {
+  0% {
+    transform: scale(0.7);
+  }
+  55% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 .aw-enter {
   animation: aw-fade-up var(--motion-enter) var(--ease-out) both;
 }
@@ -460,14 +502,112 @@
   animation: aw-fade-up var(--motion-enter) var(--ease-out) 80ms both;
 }
 
+.aw-page-enter {
+  animation: aw-page-enter var(--motion-enter) var(--ease-emphasized) both;
+}
+
+.aw-tab-panel[data-state="active"] {
+  animation: aw-tab-in var(--motion-ui) var(--ease-out) both;
+}
+
+.aw-badge-pop {
+  animation: aw-badge-pop 320ms var(--ease-out) both;
+}
+
+/* Mobile list cards: staggered entrance + press feedback */
+.aw-stagger > * {
+  animation: aw-fade-up var(--motion-enter) var(--ease-out) both;
+}
+
+.aw-stagger > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.aw-stagger > *:nth-child(2) {
+  animation-delay: 32ms;
+}
+.aw-stagger > *:nth-child(3) {
+  animation-delay: 64ms;
+}
+.aw-stagger > *:nth-child(4) {
+  animation-delay: 96ms;
+}
+.aw-stagger > *:nth-child(5) {
+  animation-delay: 128ms;
+}
+.aw-stagger > *:nth-child(6) {
+  animation-delay: 160ms;
+}
+.aw-stagger > *:nth-child(7) {
+  animation-delay: 192ms;
+}
+.aw-stagger > *:nth-child(8) {
+  animation-delay: 224ms;
+}
+.aw-stagger > *:nth-child(n + 9) {
+  animation-delay: 240ms;
+}
+
+.aw-tap-card {
+  transition:
+    transform var(--motion-press) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out),
+    background-color var(--motion-fast) var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.aw-tap-card:active {
+  transform: scale(0.985);
+}
+
+@media (pointer: coarse) {
+  .aw-tap-card:active {
+    transform: scale(0.97);
+  }
+
+  .aw-auth-canvas button:not(:disabled):active,
+  .aw-shell-canvas main button:not(:disabled):active,
+  .aw-shell-canvas header button:not(:disabled):active {
+    transform: scale(0.96);
+  }
+
+  /* Avoid sticky hover lift on phones / WebView */
+  .card-hover:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
 .aw-auth-canvas button:not(:disabled),
-.aw-shell-canvas main button:not(:disabled) {
-  transition: transform var(--motion-fast) var(--ease-out);
+.aw-shell-canvas main button:not(:disabled),
+.aw-shell-canvas header button:not(:disabled) {
+  transition: transform var(--motion-press) var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 .aw-auth-canvas button:not(:disabled):active,
-.aw-shell-canvas main button:not(:disabled):active {
-  transform: scale(0.985);
+.aw-shell-canvas main button:not(:disabled):active,
+.aw-shell-canvas header button:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+.aw-nav-item {
+  transition:
+    transform var(--motion-press) var(--ease-out),
+    background-color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out);
+}
+
+.aw-nav-item:active {
+  transform: scale(0.98);
+}
+
+.aw-nav-item[data-active="true"] {
+  box-shadow: inset 3px 0 0 color-mix(in oklab, var(--primary) 85%, transparent);
 }
 
 /* Premium UI Utility Classes */
@@ -484,10 +624,12 @@
               border-color var(--motion-fast) var(--ease-out);
 }
 
-.card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 25px -5px color-mix(in oklab, var(--primary) 12%, transparent);
-  border-color: color-mix(in oklab, var(--primary) 35%, var(--border));
+@media (hover: hover) and (pointer: fine) {
+  .card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px color-mix(in oklab, var(--primary) 12%, transparent);
+    border-color: color-mix(in oklab, var(--primary) 35%, var(--border));
+  }
 }
 
 .gradient-heading {

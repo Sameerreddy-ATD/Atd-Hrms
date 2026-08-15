@@ -21,7 +21,7 @@ export function PageHeader({
         className,
       )}
     >
-      <div className="min-w-0">
+      <div className="min-w-0 aw-enter">
         {eyebrow && (
           <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/8 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-primary dark:bg-primary/15">
             <span className="h-1.5 w-1.5 rounded-full bg-primary pulse-dot" />

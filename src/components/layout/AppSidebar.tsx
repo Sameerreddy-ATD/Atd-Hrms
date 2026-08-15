@@ -100,12 +100,13 @@ export function AppSidebar() {
                         isActive={active}
                         size="default"
                         tooltip={item.label}
-                        className={cn(
-                          "h-10 w-full justify-start rounded-md border border-transparent px-3 text-sidebar-foreground/90 transition-[background-color,border-color,color,box-shadow] duration-[var(--motion-fast)]",
+        className={cn(
+                          "aw-nav-item h-10 w-full justify-start rounded-md border border-transparent px-3 text-sidebar-foreground/90",
                           active
                             ? "border-primary/20 bg-primary/10 font-semibold text-primary hover:bg-primary/12 dark:border-primary/35 dark:bg-primary/15 dark:text-primary dark:hover:bg-primary/20"
                             : "bg-transparent hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                         )}
+                        data-active={active ? "true" : undefined}
                       >
                         <Link
                           to={item.to}

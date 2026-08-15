@@ -188,7 +188,10 @@ export function AppHeader() {
         >
           <Bell className="h-[18px] w-[18px]" />
           {notificationCount > 0 && (
-            <span className="absolute right-1 top-1 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground shadow-sm">
+            <span
+              key={notificationCount}
+              className="aw-badge-pop absolute right-1 top-1 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground shadow-sm"
+            >
               {notificationCount > 99 ? "99+" : notificationCount}
             </span>
           )}

@@ -17,10 +17,10 @@ export function EmptyState({
   className?: string;
 }) {
   return (
-    <Card className={cn("border-dashed shadow-none", className)}>
+    <Card className={cn("aw-enter border-dashed shadow-none", className)}>
       <CardContent className="flex flex-col items-center gap-2 px-6 py-12 text-center">
         {Icon && (
-          <span className="mb-1 grid size-11 place-items-center rounded-xl bg-muted text-muted-foreground">
+          <span className="mb-1 grid size-11 place-items-center rounded-xl bg-muted text-muted-foreground transition-transform duration-200 ease-out">
             <Icon className="size-5" aria-hidden />
           </span>
         )}

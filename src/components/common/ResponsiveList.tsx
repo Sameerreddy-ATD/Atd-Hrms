@@ -29,7 +29,7 @@ export function MobileList({
   children: ReactNode;
   className?: string;
 }) {
-  return <div className={cn("space-y-2 p-3 md:hidden", className)}>{children}</div>;
+  return <div className={cn("aw-stagger space-y-2 p-3 md:hidden", className)}>{children}</div>;
 }
 
 /** Desktop table wrapper shown from `md` up. */
@@ -56,7 +56,7 @@ export function MobileListItem({
   return (
     <div
       className={cn(
-        "rounded-lg border bg-background p-3 [content-visibility:auto]",
+        "aw-tap-card rounded-lg border bg-background p-3 [content-visibility:auto]",
         className,
       )}
       style={{ containIntrinsicSize: intrinsicSize }}
