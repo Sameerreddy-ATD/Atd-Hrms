@@ -695,7 +695,9 @@
 }
 
 /* Mobile menu sits under AppHeader so hamburger, bell, and profile stay visible.
-   Keep z below header (60) even though product sheets/dialogs use z-[70]. */
+   Keep z below header (60) even though product sheets/dialogs use z-[70].
+   Stacking order: drawer-under-header 50 → header 60 → dialog/sheet 70 →
+   select/popover/dropdown 80 → toast/gates 90+. */
 .atd-drawer-under-header {
   top: calc(var(--atd-sat) + var(--atd-header-row)) !important;
   right: 0 !important;

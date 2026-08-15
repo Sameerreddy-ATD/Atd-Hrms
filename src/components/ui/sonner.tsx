@@ -6,6 +6,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
       className="toaster group"
+      // Above dialogs (70) and nested select/popover portals (80).
+      style={{ zIndex: 90 }}
       toastOptions={{
         classNames: {
           toast:
