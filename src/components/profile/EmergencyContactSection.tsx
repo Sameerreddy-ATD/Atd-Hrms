@@ -57,8 +57,7 @@ export function EmergencyContactSection({
     });
   }, [value]);
 
-  async function save(event: React.FormEvent) {
-    event.preventDefault();
+  async function save() {
     if (!canEdit) return;
     if (!form.contactName.trim() || !form.relationship.trim() || !form.phone.trim()) {
       toast.error("Contact name, relationship, and phone are required");
@@ -99,7 +98,7 @@ export function EmergencyContactSection({
           </p>
         </div>
       )}
-      <form onSubmit={(event) => void save(event)} className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor={`ec-name-${employeeId}`}>Contact name</Label>
           <Input
@@ -110,6 +109,7 @@ export function EmergencyContactSection({
               setForm((current) => ({ ...current, contactName: event.target.value }))
             }
             autoComplete="name"
+            className="h-11 md:h-9"
           />
         </div>
         <div className="space-y-1.5">
@@ -122,6 +122,7 @@ export function EmergencyContactSection({
               setForm((current) => ({ ...current, relationship: event.target.value }))
             }
             placeholder="Spouse, parent, sibling…"
+            className="h-11 md:h-9"
           />
         </div>
         <div className="space-y-1.5">
@@ -133,6 +134,7 @@ export function EmergencyContactSection({
             onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))}
             inputMode="tel"
             autoComplete="tel"
+            className="h-11 md:h-9"
           />
         </div>
         <div className="space-y-1.5">
@@ -145,6 +147,7 @@ export function EmergencyContactSection({
               setForm((current) => ({ ...current, alternatePhone: event.target.value }))
             }
             inputMode="tel"
+            className="h-11 md:h-9"
           />
         </div>
         <div className="space-y-1.5 sm:col-span-2">
@@ -156,6 +159,7 @@ export function EmergencyContactSection({
             onChange={(event) =>
               setForm((current) => ({ ...current, address: event.target.value }))
             }
+            className="h-11 md:h-9"
           />
         </div>
         <div className="space-y-1.5">
@@ -167,7 +171,7 @@ export function EmergencyContactSection({
               setForm((current) => ({ ...current, bloodGroup: next === "none" ? "" : next }))
             }
           >
-            <SelectTrigger>
+            <SelectTrigger className="h-11 md:h-9">
               <SelectValue placeholder="Select" />
             </SelectTrigger>
             <SelectContent>
@@ -195,13 +199,18 @@ export function EmergencyContactSection({
         </div>
         {canEdit && (
           <div className="sm:col-span-2">
-            <Button type="submit" disabled={saving} className="w-full sm:w-auto">
+            <Button
+              type="button"
+              disabled={saving}
+              className="h-11 w-full sm:h-9 sm:w-auto"
+              onClick={() => void save()}
+            >
               {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
               Save emergency contact
             </Button>
           </div>
         )}
-      </form>
+      </div>
     </section>
   );
 }

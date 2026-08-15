@@ -81,7 +81,7 @@ mandatory handling of credentials and employee data.
 - Frontend preview: `127.0.0.1:8081`
 - Public URL: `https://hrms.anytime-diesel.com`
 - Database provider: MySQL
-- Current force-reload build id: `2026-08-15-profile-clean` (keep `APP_BUILD_ID` and
+- Current force-reload build id: `2026-08-15-profile-cards` (keep `APP_BUILD_ID` and
   `public/app-version.json` in sync on every production web deploy)
 
 Secrets are intentionally absent from documentation. Production `.env`, database dumps, private deploy keys, and VAPID private keys stay on the server only.

@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
@@ -32,7 +33,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Eye, EyeOff, IdCard, Loader2 } from "lucide-react";
+import {
+  BriefcaseBusiness,
+  CreditCard,
+  Eye,
+  EyeOff,
+  IdCard,
+  KeyRound,
+  Landmark,
+  Loader2,
+  ShieldAlert,
+  UserRound,
+} from "lucide-react";
 import { PasswordInput } from "@/components/common/PasswordInput";
 import { PasswordMatchHint } from "@/components/common/PasswordMatchHint";
 import { EmergencyContactSection } from "@/components/profile/EmergencyContactSection";
@@ -65,7 +77,8 @@ function ProfilePage() {
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
   const [pwSaving, setPwSaving] = useState(false);
-  const [openSections, setOpenSections] = useState<string[]>(["identity"]);
+  /** Mobile: which detail cards are expanded. Desktop cards stay open. */
+  const [mobileOpen, setMobileOpen] = useState<string[]>(["identity"]);
 
   useEffect(() => {
     void profileSelfEditApi
@@ -106,8 +119,8 @@ function ProfilePage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (window.location.hash !== "#emergency-contact") return;
-    setOpenSections((current) =>
-      current.includes("emergency-contact") ? current : [...current, "emergency-contact"],
+    setMobileOpen((current) =>
+      current.includes("emergency") ? current : [...current, "emergency"],
     );
     const frame = window.requestAnimationFrame(() => {
       document
@@ -219,204 +232,300 @@ function ProfilePage() {
     }
   }
 
+  const identityFields = (
+    <FieldGrid>
+      <Field label="Full name" value={name} onChange={setName} editable={canEditField("name")} />
+      <Field label="Employee code" value={profile.employeeCode ?? "—"} />
+      <Field label="Email" value={email} onChange={setEmail} editable={canSaveDirectly} />
+      <Field
+        label="Personal phone"
+        value={phone}
+        onChange={setPhone}
+        editable={canEditField("phone")}
+      />
+      <Field
+        label="Company phone"
+        value={canEditField("companyPhone") ? companyPhone : companyPhone || "—"}
+        onChange={setCompanyPhone}
+        editable={canEditField("companyPhone")}
+      />
+      <Field
+        label="Date of birth"
+        value={dob}
+        onChange={setDob}
+        editable={canEditField("dateOfBirth")}
+        type="date"
+      />
+      <Field label="Gender" value={formatGender(profile.gender)} />
+      {canEditField("bloodGroup") ? (
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Blood group</Label>
+          <Select
+            value={bloodGroup || "none"}
+            onValueChange={(next) => setBloodGroup(next === "none" ? "" : next)}
+          >
+            <SelectTrigger className="h-11 md:h-9">
+              <SelectValue placeholder="Select" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Not provided</SelectItem>
+              {BLOOD_GROUPS.map((group) => (
+                <SelectItem key={group} value={group}>
+                  {group}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : (
+        <Field label="Blood group" value={bloodGroup || profile.bloodGroup || "—"} />
+      )}
+    </FieldGrid>
+  );
+
+  const employmentFields = (
+    <FieldGrid>
+      <Field
+        label="Employer"
+        value={profile.companyEntity ? COMPANY_LABELS[profile.companyEntity] : "—"}
+      />
+      <Field label="Parent group" value={PARENT_COMPANY_NAME} />
+      <Field label="Role" value={ROLE_LABELS[user.role]} />
+      <Field label="Employment type" value={formatEmployment(profile.employmentType)} />
+      <Field
+        label="Organization level"
+        value={formatOrganizationLevel(profile.organizationLevel)}
+      />
+      <Field label="Department" value={profile.department ?? "—"} />
+      <Field label="Designation" value={profile.designation ?? "—"} />
+      <Field label="Reporting manager" value={profile.managerName ?? "—"} />
+      <Field
+        label="Joining date"
+        value={profile.joiningDate ? formatDisplayDate(profile.joiningDate) : "—"}
+      />
+    </FieldGrid>
+  );
+
+  const bankingFields = (
+    <FieldGrid>
+      <Field
+        label="Account holder"
+        value={
+          canEditField("bankAccountHolderName")
+            ? bankAccountHolderName
+            : bankAccountHolderName || "—"
+        }
+        onChange={setBankAccountHolderName}
+        editable={canEditField("bankAccountHolderName")}
+      />
+      <Field label="Account type" value={formatLabel(profile.bankAccountType)} />
+      {canEditField("bankAccountNumber") ? (
+        <Field
+          label="Account number"
+          value={bankAccountNumber}
+          onChange={setBankAccountNumber}
+          editable
+        />
+      ) : (
+        <SensitiveField label="Account number" value={bankAccountNumber} />
+      )}
+      <Field
+        label="IFSC"
+        value={canEditField("bankIfscCode") ? bankIfscCode : bankIfscCode || "—"}
+        onChange={setBankIfscCode}
+        editable={canEditField("bankIfscCode")}
+      />
+    </FieldGrid>
+  );
+
+  const statutoryFields = (
+    <FieldGrid>
+      {canEditField("panNumber") ? (
+        <Field label="PAN" value={panNumber} onChange={setPanNumber} editable />
+      ) : (
+        <SensitiveField label="PAN" value={panNumber} />
+      )}
+      {canEditField("aadhaarNumber") ? (
+        <Field label="Aadhaar" value={aadhaarNumber} onChange={setAadhaarNumber} editable />
+      ) : (
+        <SensitiveField label="Aadhaar" value={aadhaarNumber} />
+      )}
+      {canEditField("uanNumber") ? (
+        <Field label="UAN" value={uanNumber} onChange={setUanNumber} editable />
+      ) : (
+        <SensitiveField label="UAN" value={uanNumber} />
+      )}
+    </FieldGrid>
+  );
+
+  const passwordFields = (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <div className="space-y-1.5 sm:col-span-2">
+        <Label htmlFor="current-pw" className="text-xs text-muted-foreground">
+          Current password
+        </Label>
+        <PasswordInput
+          id="current-pw"
+          value={oldPw}
+          onChange={(e) => setOldPw(e.target.value)}
+          className="h-11 md:h-9"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="new-pw" className="text-xs text-muted-foreground">
+          New password
+        </Label>
+        <PasswordInput
+          id="new-pw"
+          value={newPw}
+          onChange={(e) => setNewPw(e.target.value)}
+          className="h-11 md:h-9"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="confirm-pw" className="text-xs text-muted-foreground">
+          Confirm password
+        </Label>
+        <PasswordInput
+          id="confirm-pw"
+          value={confirmPw}
+          onChange={(e) => setConfirmPw(e.target.value)}
+          className="h-11 md:h-9"
+        />
+        <PasswordMatchHint password={newPw} confirm={confirmPw} />
+      </div>
+      <ul className="space-y-1 text-xs text-muted-foreground sm:col-span-2">
+        {rules.map((r) => (
+          <li
+            key={r.label}
+            className={r.ok ? "font-medium text-emerald-600 dark:text-emerald-400" : ""}
+          >
+            {r.ok ? "✓" : "○"} {r.label}
+          </li>
+        ))}
+      </ul>
+      <div className="sm:col-span-2">
+        <Button
+          type="button"
+          disabled={pwSaving || !rules.every((r) => r.ok)}
+          className="h-11 w-full md:h-9 md:w-auto"
+          onClick={() => void handlePasswordChange()}
+        >
+          {pwSaving && <Loader2 className="mr-2 size-4 animate-spin" />}
+          Update password
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="mx-auto max-w-3xl space-y-3 pb-6">
+    <div className="w-full space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] lg:space-y-5">
       <PageHeader
-        className="mb-0 border-b border-border/60 pb-3 sm:mb-0 sm:pb-3"
         title="My Profile"
         description={
           canEditAnyProfileField || canEditEmergencyContact
             ? "Update the fields available to you. Employment details stay admin-controlled."
-            : "Your workforce details. Password can be changed below."
+            : "Your workforce details. Change your password in the security card."
         }
         actions={
-          <Button asChild variant="outline" size="sm" className="h-9">
+          <Button asChild variant="outline" className="h-11 w-full min-[420px]:h-9 min-[420px]:w-auto">
             <Link to="/id-card">
-              <IdCard className="mr-1.5 size-4" />
+              <IdCard className="mr-2 size-4" />
               ID card
             </Link>
           </Button>
         }
       />
 
-      {/* Compact identity strip */}
-      <div className="flex items-center gap-3 rounded-xl border border-border/70 bg-card px-3 py-3 sm:px-4">
-        <Avatar className="size-12 shrink-0 sm:size-14">
-          <AvatarFallback className="bg-primary text-sm font-semibold text-primary-foreground sm:text-base">
-            {initials}
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-base font-semibold leading-tight">{user.name}</p>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground sm:text-sm">
-            {ROLE_LABELS[user.role]}
-            {profile.designation ? ` · ${profile.designation}` : ""}
-            {profile.employeeCode ? ` · ${profile.employeeCode}` : ""}
-          </p>
-          {profile.companyEntity && (
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">
-              {COMPANY_LABELS[profile.companyEntity]}
-              {profile.department ? ` · ${profile.department}` : ""}
+      {/* Identity card — full width */}
+      <Card className="border-border/70 shadow-sm">
+        <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:p-5">
+          <Avatar className="mx-auto size-16 shrink-0 sm:mx-0 sm:size-[4.25rem]">
+            <AvatarFallback className="bg-primary text-lg font-semibold text-primary-foreground">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1 text-center sm:text-left">
+            <p className="truncate text-lg font-semibold tracking-tight sm:text-xl">{user.name}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {ROLE_LABELS[user.role]}
+              {profile.designation ? ` · ${profile.designation}` : ""}
             </p>
-          )}
+            <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+              {[
+                profile.employeeCode,
+                profile.department,
+                profile.companyEntity ? COMPANY_LABELS[profile.companyEntity] : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <form onSubmit={(e) => void handleProfileSave(e)} className="space-y-4 lg:space-y-5">
+        {/* Mobile: stacked expandable cards. Desktop: open cards in a wide grid. */}
+        <div className="md:hidden">
+          <Accordion type="multiple" value={mobileOpen} onValueChange={setMobileOpen} className="space-y-3">
+            <MobileSectionCard value="identity" icon={UserRound} title="Identity and contact">
+              {identityFields}
+            </MobileSectionCard>
+            <MobileSectionCard value="employment" icon={BriefcaseBusiness} title="Employment">
+              {employmentFields}
+            </MobileSectionCard>
+            <MobileSectionCard value="banking" icon={Landmark} title="Banking">
+              {bankingFields}
+            </MobileSectionCard>
+            <MobileSectionCard value="statutory" icon={CreditCard} title="Statutory">
+              {statutoryFields}
+            </MobileSectionCard>
+            {user.employeeId && (
+              <MobileSectionCard value="emergency" icon={ShieldAlert} title="Emergency contact">
+                <p className="mb-3 text-xs text-muted-foreground">
+                  {canEditEmergencyContact
+                    ? "Used for workplace emergencies and the ID card."
+                    : "View-only. Ask HR or Developer Admin to update."}
+                </p>
+                <EmergencyContactSection
+                  employeeId={user.employeeId}
+                  value={employee?.emergencyContact}
+                  canEdit={canEditEmergencyContact}
+                  hideHeader
+                  onSaved={(next) =>
+                    setEmployee((current) =>
+                      current ? { ...current, emergencyContact: next } : current,
+                    )
+                  }
+                />
+              </MobileSectionCard>
+            )}
+            <MobileSectionCard value="password" icon={KeyRound} title="Password">
+              {passwordFields}
+            </MobileSectionCard>
+          </Accordion>
         </div>
-      </div>
 
-      {/* One continuous details panel */}
-      <form
-        onSubmit={(e) => void handleProfileSave(e)}
-        className="overflow-hidden rounded-xl border border-border/70 bg-card"
-      >
-        <Accordion
-          type="multiple"
-          value={openSections}
-          onValueChange={setOpenSections}
-          className="w-full"
-        >
-          <Section value="identity" title="Identity and contact">
-            <FieldGrid>
-              <Field
-                label="Full name"
-                value={name}
-                onChange={setName}
-                editable={canEditField("name")}
-              />
-              <Field label="Employee code" value={profile.employeeCode ?? "-"} />
-              <Field label="Email" value={email} onChange={setEmail} editable={canSaveDirectly} />
-              <Field
-                label="Personal phone"
-                value={phone}
-                onChange={setPhone}
-                editable={canEditField("phone")}
-              />
-              <Field
-                label="Company phone"
-                value={canEditField("companyPhone") ? companyPhone : companyPhone || "—"}
-                onChange={setCompanyPhone}
-                editable={canEditField("companyPhone")}
-              />
-              <Field
-                label="Date of birth"
-                value={dob}
-                onChange={setDob}
-                editable={canEditField("dateOfBirth")}
-                type="date"
-              />
-              <Field label="Gender" value={formatGender(profile.gender)} />
-              {canEditField("bloodGroup") ? (
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Blood group</Label>
-                  <Select
-                    value={bloodGroup || "none"}
-                    onValueChange={(next) => setBloodGroup(next === "none" ? "" : next)}
-                  >
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Not provided</SelectItem>
-                      {BLOOD_GROUPS.map((group) => (
-                        <SelectItem key={group} value={group}>
-                          {group}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ) : (
-                <Field
-                  label="Blood group"
-                  value={bloodGroup || profile.bloodGroup || "—"}
-                />
-              )}
-            </FieldGrid>
-          </Section>
-
-          <Section value="employment" title="Employment">
-            <FieldGrid>
-              <Field
-                label="Employer"
-                value={
-                  profile.companyEntity ? COMPANY_LABELS[profile.companyEntity] : "—"
-                }
-              />
-              <Field label="Parent group" value={PARENT_COMPANY_NAME} />
-              <Field label="Role" value={ROLE_LABELS[user.role]} />
-              <Field label="Employment type" value={formatEmployment(profile.employmentType)} />
-              <Field
-                label="Organization level"
-                value={formatOrganizationLevel(profile.organizationLevel)}
-              />
-              <Field label="Department" value={profile.department ?? "—"} />
-              <Field label="Designation" value={profile.designation ?? "—"} />
-              <Field label="Reporting manager" value={profile.managerName ?? "—"} />
-              <Field
-                label="Joining date"
-                value={profile.joiningDate ? formatDisplayDate(profile.joiningDate) : "—"}
-              />
-            </FieldGrid>
-          </Section>
-
-          <Section value="banking" title="Banking">
-            <FieldGrid>
-              <Field
-                label="Account holder"
-                value={
-                  canEditField("bankAccountHolderName")
-                    ? bankAccountHolderName
-                    : bankAccountHolderName || "—"
-                }
-                onChange={setBankAccountHolderName}
-                editable={canEditField("bankAccountHolderName")}
-              />
-              <Field label="Account type" value={formatLabel(profile.bankAccountType)} />
-              {canEditField("bankAccountNumber") ? (
-                <Field
-                  label="Account number"
-                  value={bankAccountNumber}
-                  onChange={setBankAccountNumber}
-                  editable
-                />
-              ) : (
-                <SensitiveField label="Account number" value={bankAccountNumber} />
-              )}
-              <Field
-                label="IFSC"
-                value={canEditField("bankIfscCode") ? bankIfscCode : bankIfscCode || "—"}
-                onChange={setBankIfscCode}
-                editable={canEditField("bankIfscCode")}
-              />
-            </FieldGrid>
-          </Section>
-
-          <Section value="statutory" title="Statutory">
-            <FieldGrid>
-              {canEditField("panNumber") ? (
-                <Field label="PAN" value={panNumber} onChange={setPanNumber} editable />
-              ) : (
-                <SensitiveField label="PAN" value={panNumber} />
-              )}
-              {canEditField("aadhaarNumber") ? (
-                <Field
-                  label="Aadhaar"
-                  value={aadhaarNumber}
-                  onChange={setAadhaarNumber}
-                  editable
-                />
-              ) : (
-                <SensitiveField label="Aadhaar" value={aadhaarNumber} />
-              )}
-              {canEditField("uanNumber") ? (
-                <Field label="UAN" value={uanNumber} onChange={setUanNumber} editable />
-              ) : (
-                <SensitiveField label="UAN" value={uanNumber} />
-              )}
-            </FieldGrid>
-          </Section>
-
+        <div className="hidden gap-4 md:grid md:grid-cols-2 xl:gap-5">
+          <DesktopSectionCard icon={UserRound} title="Identity and contact">
+            {identityFields}
+          </DesktopSectionCard>
+          <DesktopSectionCard icon={BriefcaseBusiness} title="Employment">
+            {employmentFields}
+          </DesktopSectionCard>
+          <DesktopSectionCard icon={Landmark} title="Banking">
+            {bankingFields}
+          </DesktopSectionCard>
+          <DesktopSectionCard icon={CreditCard} title="Statutory">
+            {statutoryFields}
+          </DesktopSectionCard>
           {user.employeeId && (
-            <Section value="emergency-contact" title="Emergency contact" last={!canEditAnyProfileField}>
-              <p className="mb-2 text-xs text-muted-foreground">
+            <DesktopSectionCard
+              icon={ShieldAlert}
+              title="Emergency contact"
+              className="md:col-span-2"
+            >
+              <p className="mb-3 text-sm text-muted-foreground">
                 {canEditEmergencyContact
                   ? "Used for workplace emergencies and the ID card."
                   : "View-only. Ask HR or Developer Admin to update."}
@@ -432,152 +541,159 @@ function ProfilePage() {
                   )
                 }
               />
-            </Section>
+            </DesktopSectionCard>
           )}
-        </Accordion>
+          <DesktopSectionCard icon={KeyRound} title="Password">
+            {passwordFields}
+          </DesktopSectionCard>
+          <Card className="border-border/70 shadow-sm">
+            <CardHeader className="pb-2 pt-4">
+              <CardTitle className="text-base">Privacy and access</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 pb-4 text-sm text-muted-foreground">
+              <p>
+                Accounts are employer-provisioned. When employment ends, HR or Developer Admin
+                offboards your login.
+              </p>
+              <div className="flex flex-wrap gap-x-4 gap-y-2">
+                <Link to="/privacy" className="font-medium text-primary hover:underline">
+                  Privacy policy
+                </Link>
+                <Link to="/terms" className="font-medium text-primary hover:underline">
+                  Terms of use
+                </Link>
+                <Link to="/account-deletion" className="font-medium text-primary hover:underline">
+                  Request deletion
+                </Link>
+              </div>
+              <Button asChild variant="outline" size="sm">
+                <a href="mailto:hrms@anytimediesel.com?subject=Anytime%20Workforce%20account%20deletion%20request">
+                  Email HR
+                </a>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Mobile privacy card */}
+        <Card className="border-border/70 shadow-sm md:hidden">
+          <CardHeader className="pb-2 pt-4">
+            <CardTitle className="text-base">Privacy and access</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 pb-4 text-sm text-muted-foreground">
+            <p>
+              Accounts are employer-provisioned. When employment ends, HR or Developer Admin
+              offboards your login.
+            </p>
+            <div className="flex flex-col gap-2">
+              <Link
+                to="/privacy"
+                className="flex h-11 items-center rounded-lg border border-border/70 px-3 font-medium text-foreground"
+              >
+                Privacy policy
+              </Link>
+              <Link
+                to="/terms"
+                className="flex h-11 items-center rounded-lg border border-border/70 px-3 font-medium text-foreground"
+              >
+                Terms of use
+              </Link>
+              <Link
+                to="/account-deletion"
+                className="flex h-11 items-center rounded-lg border border-border/70 px-3 font-medium text-foreground"
+              >
+                Request deletion
+              </Link>
+            </div>
+            <Button asChild variant="outline" className="h-11 w-full">
+              <a href="mailto:hrms@anytimediesel.com?subject=Anytime%20Workforce%20account%20deletion%20request">
+                Email HR
+              </a>
+            </Button>
+          </CardContent>
+        </Card>
 
         {canEditAnyProfileField && (
-          <div className="flex justify-end border-t border-border/60 px-3 py-3 sm:px-4">
-            <Button
-              type="submit"
-              size="sm"
-              disabled={saving}
-              className="h-9 w-full sm:w-auto sm:min-w-28"
-            >
-              {saving && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
+          <div
+            className={cn(
+              "border border-border/70 bg-card p-3 shadow-sm md:rounded-xl md:p-4",
+              "sticky bottom-[max(0.5rem,env(safe-area-inset-bottom))] z-20 rounded-xl",
+              "md:static md:flex md:justify-end",
+            )}
+          >
+            <Button type="submit" disabled={saving} className="h-11 w-full md:h-9 md:w-auto md:min-w-32">
+              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
               Save profile
             </Button>
           </div>
         )}
       </form>
-
-      <div className="overflow-hidden rounded-xl border border-border/70 bg-card">
-        <Accordion
-          type="multiple"
-          value={openSections.includes("password") ? ["password"] : []}
-          onValueChange={(next) => {
-            setOpenSections((current) => {
-              const without = current.filter((item) => item !== "password");
-              return next.includes("password") ? [...without, "password"] : without;
-            });
-          }}
-        >
-          <Section value="password" title="Password" last>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1 sm:col-span-2">
-                <Label htmlFor="current-pw" className="text-xs text-muted-foreground">
-                  Current password
-                </Label>
-                <PasswordInput
-                  id="current-pw"
-                  value={oldPw}
-                  onChange={(e) => setOldPw(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="new-pw" className="text-xs text-muted-foreground">
-                  New password
-                </Label>
-                <PasswordInput
-                  id="new-pw"
-                  value={newPw}
-                  onChange={(e) => setNewPw(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="confirm-pw" className="text-xs text-muted-foreground">
-                  Confirm password
-                </Label>
-                <PasswordInput
-                  id="confirm-pw"
-                  value={confirmPw}
-                  onChange={(e) => setConfirmPw(e.target.value)}
-                />
-                <PasswordMatchHint password={newPw} confirm={confirmPw} />
-              </div>
-              <ul className="space-y-0.5 text-[11px] text-muted-foreground sm:col-span-2">
-                {rules.map((r) => (
-                  <li
-                    key={r.label}
-                    className={r.ok ? "font-medium text-emerald-600 dark:text-emerald-400" : ""}
-                  >
-                    {r.ok ? "✓" : "○"} {r.label}
-                  </li>
-                ))}
-              </ul>
-              <div className="sm:col-span-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={pwSaving || !rules.every((r) => r.ok)}
-                  className="h-9 w-full sm:w-auto"
-                  onClick={() => void handlePasswordChange()}
-                >
-                  {pwSaving && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
-                  Update password
-                </Button>
-              </div>
-            </div>
-          </Section>
-        </Accordion>
-      </div>
-
-      <p className="px-0.5 text-xs leading-relaxed text-muted-foreground">
-        Accounts are employer-provisioned.{" "}
-        <Link to="/privacy" className="font-medium text-foreground underline-offset-2 hover:underline">
-          Privacy
-        </Link>
-        {" · "}
-        <Link to="/terms" className="font-medium text-foreground underline-offset-2 hover:underline">
-          Terms
-        </Link>
-        {" · "}
-        <Link
-          to="/account-deletion"
-          className="font-medium text-foreground underline-offset-2 hover:underline"
-        >
-          Delete account
-        </Link>
-        {" · "}
-        <a
-          href="mailto:hrms@anytimediesel.com?subject=Anytime%20Workforce%20account%20deletion%20request"
-          className="font-medium text-foreground underline-offset-2 hover:underline"
-        >
-          Email HR
-        </a>
-      </p>
     </div>
   );
 }
 
-function Section({
+function MobileSectionCard({
   value,
+  icon: Icon,
   title,
   children,
-  last = false,
 }: {
   value: string;
+  icon: typeof UserRound;
   title: string;
   children: ReactNode;
-  last?: boolean;
 }) {
   return (
-    <AccordionItem value={value} className={cn("border-border/60", last && "border-b-0")}>
+    <AccordionItem
+      value={value}
+      className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm data-[state=open]:shadow-md"
+    >
       <AccordionTrigger
         className={cn(
-          "px-3 py-2.5 text-sm font-medium hover:no-underline sm:px-4",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+          "px-4 py-3.5 hover:no-underline",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         )}
       >
-        {title}
+        <span className="flex items-center gap-3 text-left">
+          <span className="grid size-10 place-items-center rounded-lg bg-muted text-muted-foreground">
+            <Icon className="size-4" aria-hidden />
+          </span>
+          <span className="text-sm font-semibold">{title}</span>
+        </span>
       </AccordionTrigger>
-      <AccordionContent className="px-3 pb-3 sm:px-4">{children}</AccordionContent>
+      <AccordionContent className="border-t border-border/60 px-4 pb-4 pt-3">
+        {children}
+      </AccordionContent>
     </AccordionItem>
   );
 }
 
+function DesktopSectionCard({
+  icon: Icon,
+  title,
+  children,
+  className,
+}: {
+  icon: typeof UserRound;
+  title: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <Card className={cn("border-border/70 shadow-sm", className)}>
+      <CardHeader className="flex flex-row items-center gap-3 space-y-0 border-b border-border/60 px-5 py-4">
+        <span className="grid size-9 place-items-center rounded-lg bg-muted text-muted-foreground">
+          <Icon className="size-4" aria-hidden />
+        </span>
+        <CardTitle className="text-base">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="p-5">{children}</CardContent>
+    </Card>
+  );
+}
+
 function FieldGrid({ children }: { children: ReactNode }) {
-  return <div className="grid gap-2.5 sm:grid-cols-2">{children}</div>;
+  return <div className="grid gap-3 sm:grid-cols-2">{children}</div>;
 }
 
 function formatGender(gender?: User["gender"]) {
@@ -615,21 +731,21 @@ function SensitiveField({ label, value }: { label: string; value: string }) {
       ? value
       : `${"•".repeat(Math.max(4, value.length - 4))}${value.slice(-4)}`;
   return (
-    <div className="min-w-0 rounded-lg bg-muted/40 px-2.5 py-2">
+    <div className="min-w-0 rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] text-muted-foreground">{label}</p>
+        <p className="text-xs text-muted-foreground">{label}</p>
         {value && (
           <button
             type="button"
-            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="grid size-9 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground md:size-8"
             onClick={() => setRevealed((current) => !current)}
             aria-label={`${revealed ? "Hide" : "Show"} ${label}`}
           >
-            {revealed ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+            {revealed ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
           </button>
         )}
       </div>
-      <p className="mt-0.5 break-all text-sm font-medium">{displayValue}</p>
+      <p className="mt-1 break-all text-sm font-medium">{displayValue}</p>
     </div>
   );
 }
@@ -649,7 +765,7 @@ function Field({
 }) {
   const isDate = type === "date";
   return editable ? (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <Label className="text-xs text-muted-foreground">{label}</Label>
       {isDate ? (
         <DateField value={value} onChange={(next) => onChange?.(next)} aria-label={label} />
@@ -658,14 +774,14 @@ function Field({
           type={type}
           value={value}
           onChange={(event) => onChange?.(event.target.value)}
-          className="h-9"
+          className="h-11 md:h-9"
         />
       )}
     </div>
   ) : (
-    <div className="min-w-0 rounded-lg bg-muted/40 px-2.5 py-2">
-      <p className="text-[11px] text-muted-foreground">{label}</p>
-      <p className="mt-0.5 break-words text-sm font-medium">
+    <div className="min-w-0 rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 break-words text-sm font-medium">
         {isDate ? formatDisplayDate(value) : value}
       </p>
     </div>
