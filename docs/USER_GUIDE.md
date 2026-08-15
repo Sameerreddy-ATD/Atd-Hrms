@@ -181,7 +181,9 @@ Editing rules:
 - Password change remains available to every signed-in user.
 
 On phones and laptops, My Profile uses cards: a full-width identity card, then detail cards.
-Phones stack expandable cards with large tap targets; laptops use a wide two-column card grid.
+Phones stack expandable cards with large tap targets and keep **Save profile** fixed at the
+bottom of the screen only. Laptops use a wide two-column card grid with **Save profile** at the
+end of the form. Passwords stay hidden until you tap the eye control inside the field.
 
 **Employee ID Card** displays the selected employer and Royal Petro Park Private Limited group,
 employee code, designation, department, role, joining date, blood group, and company contact

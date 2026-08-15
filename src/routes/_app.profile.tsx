@@ -368,6 +368,7 @@ function ProfilePage() {
           id="current-pw"
           value={oldPw}
           onChange={(e) => setOldPw(e.target.value)}
+          autoComplete="current-password"
           className="h-11 md:h-9"
         />
       </div>
@@ -379,6 +380,7 @@ function ProfilePage() {
           id="new-pw"
           value={newPw}
           onChange={(e) => setNewPw(e.target.value)}
+          autoComplete="new-password"
           className="h-11 md:h-9"
         />
       </div>
@@ -390,6 +392,7 @@ function ProfilePage() {
           id="confirm-pw"
           value={confirmPw}
           onChange={(e) => setConfirmPw(e.target.value)}
+          autoComplete="new-password"
           className="h-11 md:h-9"
         />
         <PasswordMatchHint password={newPw} confirm={confirmPw} />
@@ -419,7 +422,14 @@ function ProfilePage() {
   );
 
   return (
-    <div className="w-full space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] lg:space-y-5">
+    <div
+      className={cn(
+        "w-full space-y-4 lg:space-y-5",
+        canEditAnyProfileField
+          ? "pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+          : "pb-[max(1.25rem,env(safe-area-inset-bottom))]",
+      )}
+    >
       <PageHeader
         title="My Profile"
         description={
@@ -616,9 +626,12 @@ function ProfilePage() {
         {canEditAnyProfileField && (
           <div
             className={cn(
-              "border border-border/70 bg-card p-3 shadow-sm md:rounded-xl md:p-4",
-              "sticky bottom-[max(0.5rem,env(safe-area-inset-bottom))] z-20 rounded-xl",
-              "md:static md:flex md:justify-end",
+              "z-20 border border-border/70 bg-card/95 p-3 shadow-sm backdrop-blur-sm",
+              /* Mobile: pinned to viewport bottom only — not sticky mid-scroll */
+              "fixed inset-x-0 bottom-0 rounded-none border-x-0 border-b-0",
+              "pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]",
+              /* Desktop: inline at end of form */
+              "md:static md:flex md:justify-end md:rounded-xl md:border md:p-4 md:pb-4 md:pl-4 md:pr-4 md:backdrop-blur-none",
             )}
           >
             <Button type="submit" disabled={saving} className="h-11 w-full md:h-9 md:w-auto md:min-w-32">

@@ -72,6 +72,15 @@ Rules:
 
 Default stored field selection (while off): personal phone and emergency contact.
 
+### My Profile layout and password fields
+
+- Phones: expandable section cards (identity, employment, banking, statutory, emergency,
+  password) with a full-width identity summary above. **Save profile** stays pinned to the
+  bottom of the viewport only (safe-area aware); it does not float mid-scroll.
+- Laptops: wide two-column open cards; **Save profile** sits at the end of the form, right-aligned.
+- Password fields use the shared `PasswordInput`: masked by default, show/hide control fixed
+  inside the input (no hover lift). Change password is separate from **Save profile**.
+
 ## Encryption and access
 
 Bank account number, PAN, Aadhaar, and UAN are encrypted before Prisma writes them to MySQL.

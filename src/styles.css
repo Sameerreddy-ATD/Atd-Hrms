@@ -572,6 +572,12 @@
     transform: scale(0.96);
   }
 
+  .aw-auth-canvas button[data-password-toggle]:active,
+  .aw-shell-canvas main button[data-password-toggle]:active,
+  .aw-shell-canvas header button[data-password-toggle]:active {
+    transform: none;
+  }
+
   /* Avoid sticky hover lift on phones / WebView */
   .card-hover:hover {
     transform: none;
@@ -591,6 +597,15 @@
 .aw-shell-canvas main button:not(:disabled):active,
 .aw-shell-canvas header button:not(:disabled):active {
   transform: scale(0.97);
+}
+
+.aw-auth-canvas button[data-password-toggle]:active,
+.aw-shell-canvas main button[data-password-toggle]:active,
+.aw-shell-canvas header button[data-password-toggle]:active,
+.aw-auth-canvas button[data-password-toggle],
+.aw-shell-canvas main button[data-password-toggle],
+.aw-shell-canvas header button[data-password-toggle] {
+  transform: none;
 }
 
 .aw-nav-item {

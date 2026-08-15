@@ -109,6 +109,8 @@ employees, leave history/approvals/reports, holidays, users, and assets.
   `md`, `lg`, `xl`) so fold cover, tablet, and laptop densify smoothly.
 - Login / first-password: short viewports shrink or hide the crew mascot so the form and CTAs stay
   above the fold (`src/styles.css`).
+- My Profile (phones): **Save profile** is fixed to the viewport bottom only (safe-area aware), not
+  sticky mid-scroll; password show/hide stays inside the input without hover lift.
 
 ## Release Verification
 

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import type { ComponentProps } from "react";
 import { Eye, EyeOff } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -28,22 +27,33 @@ export function PasswordInput({
       <Input
         {...props}
         type={visible ? "text" : "password"}
-        className={cn("pr-10", className)}
+        autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck={false}
+        className={cn("pr-11", className)}
         onFocus={onFocus}
         onBlur={onBlur}
       />
-      <Button
+      <button
         type="button"
-        variant="ghost"
-        size="icon"
-        className="absolute right-0.5 top-1/2 h-10 w-10 -translate-y-1/2 text-muted-foreground hover:translate-y-[-50%] hover:text-foreground active:translate-y-[-50%] sm:right-1 sm:h-7 sm:w-7"
+        className={cn(
+          "absolute inset-y-0 right-0 z-10 flex w-11 items-center justify-center rounded-r-md",
+          "text-muted-foreground hover:text-foreground",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0",
+          /* Pin inside the field; beat shell/button press transforms */
+          "!transform-none hover:!transform-none active:!transform-none",
+          "hover:bg-transparent active:bg-transparent",
+          "sm:w-9",
+        )}
+        data-password-toggle=""
         onClick={() => setPasswordVisible(!visible)}
         onMouseDown={(event) => event.preventDefault()}
         aria-label={visible ? "Hide password" : "Show password"}
+        aria-pressed={visible}
         tabIndex={-1}
       >
-        {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-      </Button>
+        {visible ? <EyeOff className="h-4 w-4 shrink-0" /> : <Eye className="h-4 w-4 shrink-0" />}
+      </button>
     </div>
   );
 }
