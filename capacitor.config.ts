@@ -57,7 +57,7 @@ const config: CapacitorConfig = {
     backgroundColor: "#F6F8FC",
     contentInset: "automatic",
     preferredContentMode: "mobile",
-    scheme: "Anytime Workforce",
+    scheme: "anytimeworkforce",
   },
 };
 

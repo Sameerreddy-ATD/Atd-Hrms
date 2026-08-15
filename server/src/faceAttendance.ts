@@ -140,7 +140,7 @@ async function saveEncryptedEvidence(imageData: string, evidenceId: string, capt
   const folder = capturedAt.toISOString().slice(0, 10);
   const imageKey = `${folder}/${evidenceId}.bin`;
   const target = evidencePath(imageKey);
-  await mkdir(path.dirname(target), { recursive: true });
+  await mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
   await writeFile(target, Buffer.concat([iv, tag, encrypted]), { mode: 0o600 });
   return imageKey;
 }
@@ -345,8 +345,11 @@ async function approvedDescriptorsForUser(userId: string) {
 }
 
 async function duplicateEnrollmentSimilarity(userId: string, descriptors: number[][]) {
+  // Pending and rejected profiles count too: two colleagues enrolling the same
+  // face in one review window used to both pass, and a rejected face could be
+  // re-enrolled on another account with no signal.
   const profiles = await prisma.faceProfile.findMany({
-    where: { userId: { not: userId }, status: FaceEnrollmentStatus.APPROVED },
+    where: { userId: { not: userId } },
     select: { descriptorEncrypted: true },
   });
   let best = 0;
@@ -378,7 +381,6 @@ async function enforceEvidenceImageLimit(userId: string) {
       data: {
         imageKey: null,
         deletedAt: new Date(),
-        outcome: FaceVerificationOutcome.EXPIRED,
       },
     });
   }
@@ -519,7 +521,10 @@ export async function verifyFaceCapture(input: {
       failureReason,
       capturedAt,
       expiresAt,
-      deletedAt: imageKey ? null : capturedAt,
+      // Attendance rows carry no image but do carry GPS. Leaving deletedAt null
+      // keeps them inside the retention sweep, which clears the coordinates on
+      // schedule; pre-setting it here made them immortal.
+      deletedAt: null,
     },
   });
 
@@ -604,7 +609,9 @@ export async function submitFaceEnrollment(input: {
       consentVersion: FACE_CONSENT_VERSION,
       consentedAt: now,
       submittedAt: now,
-      approvedByUserId: autoApprove ? input.userId : null,
+      // Auto-approval had no human reviewer. Recording the enrolling user here
+      // made the admin roster read as though someone had checked the photos.
+      approvedByUserId: null,
       approvedAt: autoApprove ? now : null,
     },
     update: {
@@ -613,7 +620,7 @@ export async function submitFaceEnrollment(input: {
       consentVersion: FACE_CONSENT_VERSION,
       consentedAt: now,
       submittedAt: now,
-      approvedByUserId: autoApprove ? input.userId : null,
+      approvedByUserId: null,
       approvedAt: autoApprove ? now : null,
       rejectedAt: null,
       rejectionReason: null,
@@ -668,7 +675,14 @@ export async function cleanupExpiredFaceEvidence() {
     }
     await prisma.faceEvidence.update({
       where: { evidenceId: row.evidenceId },
-      data: { imageKey: null, deletedAt: new Date(), outcome: FaceVerificationOutcome.EXPIRED },
+      data: {
+        imageKey: null,
+        deletedAt: new Date(),
+        // Coordinates are the sensitive part of a row that outlives its image.
+        latitude: null,
+        longitude: null,
+        locationAccuracy: null,
+      },
     });
   }
   const owners = await prisma.faceEvidence.findMany({

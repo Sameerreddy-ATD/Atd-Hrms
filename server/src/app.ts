@@ -1536,13 +1536,46 @@ export function createApp() {
       }
       const existing = await prisma.faceProfile.findUnique({ where: { userId } });
       if (!existing) throw new HttpError(404, "Face registration was not found");
+      // The photos were only retained to justify this registration, so they go
+      // with it rather than lingering until the retention sweep.
+      const evidence = await prisma.faceEvidence.findMany({
+        where: { userId, deletedAt: null },
+        select: { evidenceId: true, imageKey: true },
+      });
+      const imageKeys = evidence
+        .map((row) => row.imageKey)
+        .filter((key): key is string => Boolean(key));
+      if (imageKeys.length) {
+        try {
+          await removeFaceEvidenceFiles(imageKeys);
+        } catch (error) {
+          console.error(`Failed to delete face evidence files for ${userId}`, error);
+        }
+      }
+      if (evidence.length) {
+        await prisma.faceEvidence.updateMany({
+          where: { evidenceId: { in: evidence.map((row) => row.evidenceId) } },
+          data: {
+            imageKey: null,
+            deletedAt: new Date(),
+            latitude: null,
+            longitude: null,
+            locationAccuracy: null,
+          },
+        });
+      }
       await prisma.faceProfile.delete({ where: { userId } });
       invalidateFaceStatusCache(userId);
       await audit({
         action: "FACE_ENROLLMENT_RESET",
         performedByUserId: req.user!.id,
         affectedUserId: userId,
-        oldValue: { status: existing.status },
+        oldValue: {
+          status: existing.status,
+          consentVersion: existing.consentVersion,
+          consentedAt: existing.consentedAt,
+        },
+        newValue: { evidenceRemoved: evidence.length },
         ipAddress: req.ip,
       });
       res.json({ status: "NOT_REGISTERED" });

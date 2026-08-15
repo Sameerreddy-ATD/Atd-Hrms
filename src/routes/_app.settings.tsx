@@ -895,7 +895,11 @@ function SettingsPage() {
                   It cannot be displayed again after this page reloads.
                 </p>
                 <div className="mt-3 flex gap-2">
-                  <Input readOnly value={generatedApiKey} className="font-mono text-xs" />
+                  <Input
+                    readOnly
+                    value={generatedApiKey}
+                    className="font-mono text-base sm:text-xs"
+                  />
                   <Button
                     type="button"
                     variant="outline"

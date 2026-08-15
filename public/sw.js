@@ -4,6 +4,9 @@
 // manifest, fonts, face-models) refresh on already-installed apps.
 self.ATD_BUILD_ID = "2026-08-15-p0-security-hardening";
 self.ATD_STATIC_CACHE = `atd-static-${self.ATD_BUILD_ID}`;
+// Single cache slot for the app shell. Every successful navigation overwrites
+// it, so an offline launch serves the last real HTML instead of the 503 card.
+const ATD_SHELL_REQUEST = "/__atd_app_shell";
 self.ATD_SHELL_ASSETS = [
   "/manifest.webmanifest",
   "/atd-logo.png",
@@ -76,16 +79,27 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // App navigations: network-only so deploys show new UI without a stale shell.
+  // App navigations: network-first so deploys show new UI, but each success is
+  // cached as the app shell so an offline launch renders the real app instead
+  // of the 503 card below.
   if (request.mode === "navigate") {
     event.respondWith(
       Promise.race([
-        fetch(request),
+        fetch(request).then((response) => {
+          if (response && response.ok) {
+            const copy = response.clone();
+            caches
+              .open(self.ATD_STATIC_CACHE)
+              .then((cache) => cache.put(ATD_SHELL_REQUEST, copy))
+              .catch(() => {});
+          }
+          return response;
+        }),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Navigation network timeout")), 8000),
+          setTimeout(() => reject(new Error("Navigation network timeout")), 15000),
         ),
       ]).catch(async () => {
-        const cached = await caches.match(request);
+        const cached = (await caches.match(request)) || (await caches.match(ATD_SHELL_REQUEST));
         if (cached) return cached;
         return new Response(
           "<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Offline</title><style>body{font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100dvh;margin:0;background:#F6F8FC;color:#1f2937;padding:24px;text-align:center}main{max-width:24rem}h1{font-size:1.25rem;margin:0 0 .5rem}p{margin:0;color:#64748b;line-height:1.5}</style></head><body><main><h1>You're offline</h1><p>Anytime Diesel Employees could not reach the server. Reconnect and try again.</p></main></body></html>",
