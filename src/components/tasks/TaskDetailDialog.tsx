@@ -3,8 +3,6 @@ import {
   ListTree,
   MessageSquareText,
   Paperclip,
-  Search,
-  UserRound,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -32,9 +30,9 @@ import type {
   TaskPriority,
   WorkTask,
 } from "@/types/domain";
+import { PeopleMultiSelect } from "./PeopleMultiSelect";
 import {
   dueLabel,
-  initials,
   ISSUE_TYPE_LABELS,
   issueKey,
   PRIORITY_LABELS,
@@ -683,54 +681,17 @@ export function TaskDetailDialog({
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    <UserRound className="h-3.5 w-3.5" />
-                    Assignee
-                  </p>
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      value={assigneeQuery}
-                      onChange={(event) => setAssigneeQuery(event.target.value)}
-                      placeholder="Search people"
-                      className="pl-8"
-                    />
-                  </div>
-                  <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border bg-background p-1">
-                    {availableAssignees.map((person) => {
-                      const selected = assigneeIds.includes(person.id);
-                      return (
-                        <button
-                          key={person.id}
-                          type="button"
-                          className={cn(
-                            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted",
-                            selected && "bg-primary/5",
-                          )}
-                          onClick={() =>
-                            setAssigneeIds((current) =>
-                              selected
-                                ? current.filter((id) => id !== person.id)
-                                : [...current, person.id],
-                            )
-                          }
-                        >
-                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">
-                            {initials(person.name)}
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate">{person.name}</span>
-                            <span className="block truncate text-xs text-muted-foreground">
-                              {person.designation || person.employeeCode}
-                            </span>
-                          </span>
-                          {selected && <span className="text-xs text-primary">Selected</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                <PeopleMultiSelect
+                  label="Assignees"
+                  people={availableAssignees}
+                  selectedIds={assigneeIds}
+                  onChange={setAssigneeIds}
+                  query={assigneeQuery}
+                  onQueryChange={setAssigneeQuery}
+                  searchPlaceholder="Search people"
+                  emptyLabel="No people available on this board."
+                  listClassName="max-h-40 rounded-md bg-background"
+                />
 
                 <div className="space-y-2">
                   <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">

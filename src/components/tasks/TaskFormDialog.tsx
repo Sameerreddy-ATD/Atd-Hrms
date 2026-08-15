@@ -1,4 +1,3 @@
-import { Check, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,7 +20,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { TaskAssignee, TaskBoard, TaskIssueType, TaskPriority } from "@/types/domain";
-import { initials, ISSUE_TYPE_LABELS, PRIORITY_LABELS, STAGE_COLORS } from "./task-utils";
+import { PeopleMultiSelect } from "./PeopleMultiSelect";
+import { ISSUE_TYPE_LABELS, PRIORITY_LABELS, STAGE_COLORS } from "./task-utils";
 
 export type TaskFormValue = {
   title: string;
@@ -247,70 +247,16 @@ export function TaskFormDialog({
             </div>
           </div>
 
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label>Assignees</Label>
-              <span className="text-xs text-muted-foreground">
-                {form.assigneeEmployeeIds.length} selected
-              </span>
-            </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search employees"
-                className="pl-9"
-              />
-            </div>
-            <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border p-2">
-              {availableAssignees.length === 0 ? (
-                <p className="p-3 text-sm text-muted-foreground">
-                  No employees are available under this board’s access rules.
-                </p>
-              ) : (
-                availableAssignees.map((person) => {
-                  const selected = form.assigneeEmployeeIds.includes(person.id);
-                  return (
-                    <button
-                      key={person.id}
-                      type="button"
-                      onClick={() =>
-                        setForm({
-                          ...form,
-                          assigneeEmployeeIds: selected
-                            ? form.assigneeEmployeeIds.filter((id) => id !== person.id)
-                            : [...form.assigneeEmployeeIds, person.id],
-                        })
-                      }
-                      className={cn(
-                        "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm",
-                        selected ? "bg-primary/10 text-foreground" : "hover:bg-muted",
-                      )}
-                    >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-semibold">
-                        {initials(person.name)}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate font-medium">{person.name}</span>
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {person.designation || person.employeeCode}
-                        </span>
-                      </span>
-                      <span
-                        className={cn(
-                          "flex h-5 w-5 items-center justify-center rounded border",
-                          selected && "border-primary bg-primary text-primary-foreground",
-                        )}
-                      >
-                        {selected && <Check className="h-3.5 w-3.5" />}
-                      </span>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </div>
+          <PeopleMultiSelect
+            label="Assignees"
+            people={availableAssignees}
+            selectedIds={form.assigneeEmployeeIds}
+            onChange={(assigneeEmployeeIds) => setForm({ ...form, assigneeEmployeeIds })}
+            query={query}
+            onQueryChange={setQuery}
+            searchPlaceholder="Search employees"
+            emptyLabel="No employees are available under this board’s access rules."
+          />
 
           {error && (
             <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">

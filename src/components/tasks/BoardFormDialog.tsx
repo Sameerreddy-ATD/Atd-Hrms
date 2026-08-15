@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, GripVertical, Plus, Search, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, GripVertical, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +20,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { TaskAssignee, TaskBoard, TaskStage, TaskStatus } from "@/types/domain";
+import { PeopleMultiSelect } from "./PeopleMultiSelect";
 import {
   BOARD_ROLES,
   BOARD_ROLE_LABELS,
@@ -519,62 +520,19 @@ export function BoardFormDialog({
             {form.accessType === "MEMBER_GATED" && (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  Only selected employees can access this board.
+                  Only checked employees can open this board. Tick everyone who should have access.
                 </p>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={memberQuery}
-                    onChange={(event) => setMemberQuery(event.target.value)}
-                    placeholder="Search and add members"
-                    className="pl-9"
-                  />
-                </div>
-                <div className="max-h-52 space-y-1 overflow-y-auto rounded-xl border p-2">
-                  {filteredMembers.length === 0 ? (
-                    <p className="p-3 text-sm text-muted-foreground">No employees found.</p>
-                  ) : (
-                    filteredMembers.map((person) => {
-                      const selected = form.memberEmployeeIds.includes(person.id);
-                      return (
-                        <button
-                          key={person.id}
-                          type="button"
-                          className={cn(
-                            "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm",
-                            selected ? "bg-red-50 text-red-900" : "hover:bg-muted",
-                          )}
-                          onClick={() =>
-                            setForm({
-                              ...form,
-                              memberEmployeeIds: selected
-                                ? form.memberEmployeeIds.filter((id) => id !== person.id)
-                                : [...form.memberEmployeeIds, person.id],
-                            })
-                          }
-                        >
-                          <span className="min-w-0">
-                            <span className="block truncate font-medium">{person.name}</span>
-                            <span className="block truncate text-xs text-muted-foreground">
-                              {person.designation || person.employeeCode}
-                            </span>
-                          </span>
-                          <span
-                            className={cn(
-                              "h-4 w-4 rounded-full border",
-                              selected && "border-red-600 bg-red-600 ring-2 ring-red-100",
-                            )}
-                          />
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-                {form.memberEmployeeIds.length > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    {form.memberEmployeeIds.length} members selected
-                  </p>
-                )}
+                <PeopleMultiSelect
+                  label="Board members"
+                  people={filteredMembers}
+                  selectedIds={form.memberEmployeeIds}
+                  onChange={(memberEmployeeIds) => setForm({ ...form, memberEmployeeIds })}
+                  query={memberQuery}
+                  onQueryChange={setMemberQuery}
+                  searchPlaceholder="Search employees to include"
+                  emptyLabel="No employees found."
+                  listClassName="max-h-52"
+                />
               </div>
             )}
           </section>
