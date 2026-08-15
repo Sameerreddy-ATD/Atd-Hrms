@@ -339,8 +339,15 @@ flowchart LR
 - Face enrollment, approval, rejection, reset, and policy changes are audited. Face descriptors and
   short-lived JPEG evidence are encrypted; evidence metadata remains after automatic image deletion.
 - Passwords, tokens, hashes, and secrets are never written as readable audit values.
+- Main Admin and Developer Admin can view **Audit Logs** (`/audit`), filter by category, and search.
+- **Clear audit logs** permanently deletes every `audit_logs` row after typing `CLEAR`, then writes
+  one `AUDIT_LOGS_CLEARED` event with `deletedCount`. It does not delete attendance, leave, users,
+  or other business data. Take a database backup first when history may still be needed.
 - Suspension, deactivation, or login blocking does not remove historical employee records.
-- Employee and account history is retained through deactivation. Only the explicitly labelled test-data reset and announcement deletion are destructive; use them only after confirming backup, retention, and legal requirements.
+- Employee and account history is retained through deactivation. Explicitly destructive admin actions
+  are: typed audit-log clear, announcement permanent deletion, and the Developer Admin test-data
+  reset. Use them only after confirming backup, retention, and legal requirements.
+- Authoritative operator guide: [Audit Logs](AUDIT_LOGS.md).
 
 ## Operational Verification Checklist
 

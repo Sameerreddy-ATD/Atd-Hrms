@@ -174,7 +174,7 @@ Moving a digital document from Ready to Collected preserves its required documen
 | File handling          | Employee expense attachments are validated Google Drive URLs; encrypted face evidence is outside the web root and retention-limited |
 | Dependency safety      | Lockfile-based `npm ci` and `npm run audit:deps`; unresolved advisories must be recorded before acceptance                          |
 | Failure handling       | Validation/permission/conflict errors are explicit; Prisma reference/check failures do not expose SQL or credentials                |
-| Logging/monitoring     | Audit logs for administrative/workflow actions; failed login logs store a one-way email hash rather than plaintext credentials      |
+| Logging/monitoring     | Audit logs for administrative/workflow actions; failed login logs store a one-way email hash rather than plaintext credentials; Main/Developer Admin may clear logs only with typed `CLEAR`, after which one `AUDIT_LOGS_CLEARED` event remains ([Audit Logs](AUDIT_LOGS.md)) |
 
 Every authenticated request reloads the current account status and `session_version` from MySQL.
 Suspension, deactivation, role-sensitive edits, password reset/change, and logout increment the

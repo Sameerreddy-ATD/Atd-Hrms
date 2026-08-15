@@ -1,5 +1,5 @@
 /** Bump this AND public/app-version.json together on each production deploy that must force-update installed apps. */
-export const APP_BUILD_ID = "2026-08-15-rbac-people-changes";
+export const APP_BUILD_ID = "2026-08-15-audit-clear";
 
 /** Play package. Keep androidVersionCode in app-version.json in sync with android/app/build.gradle after each AAB goes live. */
 export const PLAY_PACKAGE_ID = "com.anytimediesel.workforce";

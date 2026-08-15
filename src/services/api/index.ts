@@ -1047,6 +1047,11 @@ export const auditApi = {
   list: () => request<AuditLog[]>("/audit-logs"),
   summary: () =>
     request<{ count: number; oldest?: string; latest?: string }>("/audit-logs/summary"),
+  clear: (confirmation: string) =>
+    request<{ deleted: number }>("/audit-logs", {
+      method: "DELETE",
+      body: JSON.stringify({ confirmation }),
+    }),
 };
 
 export interface SystemHealth {

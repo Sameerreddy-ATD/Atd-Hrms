@@ -5498,17 +5498,28 @@ export function createApp() {
         take: listLimit(req, 250, 1000),
       });
       res.json(
-        logs.map((log) => ({
-          id: log.auditId,
-          actor: log.performedBy?.name ?? "System",
-          role: log.performedBy?.role?.toLowerCase() ?? "system",
-          action: log.action,
-          target: log.affectedUser?.name ?? "",
-          timestamp: log.createdAt.toISOString(),
-          ipAddress: log.ipAddress,
-          oldValue: safeAuditValue(log.oldValue),
-          newValue: safeAuditValue(log.newValue),
-        })),
+        logs.map((log) => {
+          const oldValue = safeAuditValue(log.oldValue);
+          const newValue = safeAuditValue(log.newValue);
+          const fallbackTarget =
+            (typeof newValue?.name === "string" && newValue.name) ||
+            (typeof newValue?.title === "string" && newValue.title) ||
+            (typeof newValue?.email === "string" && newValue.email) ||
+            (typeof newValue?.employeeCode === "string" && newValue.employeeCode) ||
+            (typeof oldValue?.name === "string" && oldValue.name) ||
+            "";
+          return {
+            id: log.auditId,
+            actor: log.performedBy?.name ?? "System",
+            role: log.performedBy?.role?.toLowerCase() ?? "system",
+            action: log.action,
+            target: log.affectedUser?.name ?? fallbackTarget,
+            timestamp: log.createdAt.toISOString(),
+            ipAddress: log.ipAddress,
+            oldValue,
+            newValue,
+          };
+        }),
       );
     }),
   );
@@ -5528,6 +5539,25 @@ export function createApp() {
         oldest: summary._min.createdAt?.toISOString(),
         latest: summary._max.createdAt?.toISOString(),
       });
+    }),
+  );
+
+  app.delete(
+    "/audit-logs",
+    requireAuth,
+    requireRoles(Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      if (req.body?.confirmation !== "CLEAR") {
+        throw new HttpError(400, "Type CLEAR to confirm clearing all audit logs");
+      }
+      const deleted = await prisma.auditLog.deleteMany();
+      await audit({
+        action: "AUDIT_LOGS_CLEARED",
+        performedByUserId: req.user!.id,
+        newValue: { deletedCount: deleted.count },
+        ipAddress: req.ip,
+      });
+      res.json({ deleted: deleted.count });
     }),
   );
 

@@ -140,7 +140,7 @@ Lockout or suspension does not delete or disable the employee record, allowing h
 | `/announcements`        | Publishing, activation, expiry, and permanent announcement deletion                         |
 | `/notifications`        | User-scoped notification feed and live stream                                               |
 | `/push`                 | VAPID key and browser subscription management                                               |
-| `/audit-logs`           | Administrative audit history                                                                |
+| `/audit-logs`           | Administrative audit history (GET list/summary; DELETE clear with `{ confirmation: "CLEAR" }`) |
 | `/system`               | Health, module access, and protected Developer Admin test-data reset                        |
 
 Large collection endpoints support `limit` and `offset`. Operational screens load the first 100 records and fetch additional pages on demand. ExcelJS remains in a lazy route chunk so spreadsheet functionality is excluded from the initial application path.
@@ -195,6 +195,10 @@ use its own domain without editing source.
 Employee/account removal is a typed, server-validated `OFFBOARD` operation (`DEACTIVATE` remains accepted). One Prisma transaction marks the employee `TERMINATED` and the login `INACTIVE`, records lifecycle timestamps and an employee change event, and retains attendance, leave, biometric, asset, expense, task, and audit history. Birthdays and active attendance rosters exclude non-active employees. Reactivation synchronizes both records. Developer Admin and the current signed-in account cannot be offboarded through this workflow.
 
 Announcement permanent deletion is available to HR and Developer Admin, requires typed confirmation, and removes the announcement while retaining an audit event.
+
+Audit log clear is available to Main Admin and Developer Admin via `DELETE /audit-logs` with body
+`{ "confirmation": "CLEAR" }`. The handler deletes all `audit_logs` rows, then writes one
+`AUDIT_LOGS_CLEARED` event with `deletedCount`. See [Audit Logs](AUDIT_LOGS.md).
 
 The production data reset is Developer Admin-only and requires both current-password verification and the exact phrase `DELETE ALL TEST DATA`. A single Prisma transaction preserves the acting Developer Admin, its optional employee record, branches, departments, hierarchy, predefined leave policies, and system settings while deleting all testing operational data. It intentionally leaves no reset audit event because audit history itself is part of the requested reset. Always create an external database backup before using it.
 

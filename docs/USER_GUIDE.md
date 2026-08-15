@@ -15,7 +15,7 @@ This guide explains how Developer Admin, HR, organization heads, employees, fiel
 | Attendance                     | Full operational access                                        | Full operational access | Full operational access | Reports and summaries | Assigned team only          | Own attendance only                     |
 | Leave policy and types         | View protected types; adjust credits                           | As configured           | View; adjust credits    | View reports          | Approve assigned team leave | Apply and track own leave               |
 | Holidays                       | Add, edit, delete                                              | Add, edit, delete       | Add, edit, delete       | View                  | View                        | View                                    |
-| Audit logs                     | View                                                           | View                    | No                      | No                    | No                          | No                                      |
+| Audit logs                     | View and clear                                                 | View and clear          | No                      | No                    | No                          | No                                      |
 | Asset management               | Full access                                                    | No                      | Full access             | Read-only investment  | No                          | No                                      |
 | Expenses and HR documents      | Review all                                                     | No                      | Review all              | View all              | Own requests                | Own requests                            |
 | Operations reports             | Full                                                           | Full                    | Full                    | Full                  | Team summary                | No                                      |
@@ -198,6 +198,29 @@ Use **Offboard employee** when someone has left the company and should no longer
 5. Confirm offboarding.
 
 The employee is marked terminated and the login inactive together. The current signed-in account and Developer Admin accounts cannot be offboarded. Developer Admin can reactivate the account later.
+
+## Main Admin / Developer Admin: Audit Logs
+
+Open **Audit Logs** to review protected history of sign-ins, people changes, face-security events,
+and other admin actions.
+
+1. Use the summary cards for total count and oldest/latest saved times.
+2. Filter by category (**Sign-in**, **People**, **Leave**, **Attendance**, **Security**, **System**)
+   or search by actor, action, role, target, or IP.
+3. Expand **View change details** for readable before/after fields. Secrets stay redacted.
+4. Select **Refresh** to reload the latest rows.
+
+### Clear audit logs
+
+Clearing permanently deletes every saved audit row. Use only when leadership requires an empty
+history (for example after controlled testing). Prefer a MySQL backup first.
+
+1. Select **Clear audit logs**.
+2. Type `CLEAR` exactly and confirm.
+3. The app removes all rows, then writes one **Audit logs cleared** entry with how many were
+   deleted.
+
+Full rules and API details: [Audit Logs](AUDIT_LOGS.md).
 
 ## Developer Admin: Reset Testing Data Before Go-Live
 

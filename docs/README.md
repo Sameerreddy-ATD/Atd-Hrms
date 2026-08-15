@@ -9,6 +9,7 @@ in the same commit.
 
 - Employees and managers: [User Guide](USER_GUIDE.md)
 - HR and Developer Admin: [User Guide](USER_GUIDE.md) and [Operations and Workflows](OPERATIONS_AND_WORKFLOWS.md)
+- Main Admin / Developer Admin (audit history): [Audit Logs](AUDIT_LOGS.md)
 - Developers: [Technical Overview](TECHNICAL_OVERVIEW.md)
 - New contributors: [Repository Structure](REPOSITORY_STRUCTURE.md) and [Development and Testing](DEVELOPMENT_AND_TESTING.md)
 - Database owners and integration developers: [Database Integrity Audit](DATABASE_INTEGRITY_AUDIT.md), [Employee Data and Integration API](EMPLOYEE_DATA_AND_INTEGRATION_API.md), [Employee Profile and ID Card](EMPLOYEE_PROFILE_AND_ID_CARD.md), and [OpenAPI](openapi.employee-v1.yaml)
@@ -41,6 +42,7 @@ in the same commit.
 | `README.md`                            | Project identity, quick start, structure, and required checks                                     |
 | `USER_GUIDE.md`                        | Screen-level instructions for each user type                                                      |
 | `OPERATIONS_AND_WORKFLOWS.md`          | Business rules, permissions, status transitions, and retention                                    |
+| `AUDIT_LOGS.md`                        | Audit log screen, filters, clear confirmation, API, and retention rules                           |
 | `TECHNICAL_OVERVIEW.md`                | Architecture, modules, API groups, data model, and engineering rules                              |
 | `REPOSITORY_STRUCTURE.md`              | Authoritative folder map, file ownership, placement rules, and documentation responsibilities     |
 | `DEVELOPMENT_AND_TESTING.md`           | Local setup, database changes, test matrix, browser QA, and commit checks                         |
@@ -79,6 +81,8 @@ mandatory handling of credentials and employee data.
 - Frontend preview: `127.0.0.1:8081`
 - Public URL: `https://hrms.anytime-diesel.com`
 - Database provider: MySQL
+- Current force-reload build id: `2026-08-15-audit-clear` (keep `APP_BUILD_ID` and
+  `public/app-version.json` in sync on every production web deploy)
 
 Secrets are intentionally absent from documentation. Production `.env`, database dumps, private deploy keys, and VAPID private keys stay on the server only.
 

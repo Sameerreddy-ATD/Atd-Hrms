@@ -64,7 +64,7 @@ receiving company's infrastructure-as-code standards.
 | Runtime entry and configuration        | `server/src/index.ts`, `server/src/config.ts`, `server/src/prisma.ts`                                         |
 | Authentication and authorization       | `server/src/security.ts`, `server/src/rbac.ts`, `server/src/module-access.ts`                                 |
 | Request validation and error contracts | `server/src/schemas.ts`, `server/src/errors.ts`                                                               |
-| API response mapping and audit history | `server/src/mapper.ts`, `server/src/audit.ts`                                                                 |
+| API response mapping and audit history | `server/src/mapper.ts`, `server/src/audit.ts`, `src/routes/_app.audit.tsx`, `docs/AUDIT_LOGS.md`               |
 | Employee Integration API v1            | `server/src/integration-api.ts`                                                                               |
 | Attendance calculation and live state  | `attendanceEngine.ts`, `attendanceDayRules.ts`, `attendanceSettlement.ts`, `attendanceLive.ts`, `geofence.ts` |
 | Face identity and attendance proof     | `faceAttendance.ts`                                                                                           |
@@ -130,6 +130,7 @@ issue keys. `src/routes/_app.tasks.tsx` loads data and coordinates versioned API
 | Change                                          | Required documentation                                                        |
 | ----------------------------------------------- | ----------------------------------------------------------------------------- |
 | Screen, label, or user workflow                 | `USER_GUIDE.md`, and `PRODUCT_NAMING.md` when terminology changes             |
+| Audit log viewing, filters, or clear behaviour  | `AUDIT_LOGS.md` plus `USER_GUIDE.md` / `OPERATIONS_AND_WORKFLOWS.md`          |
 | Role, permission, or status transition          | `OPERATIONS_AND_WORKFLOWS.md`                                                 |
 | Backend module or architecture                  | `TECHNICAL_OVERVIEW.md` and this file                                         |
 | Table, constraint, migration, or data retention | `DATABASE_INTEGRITY_AUDIT.md` and `EMPLOYEE_DATA_AND_INTEGRATION_API.md`      |
