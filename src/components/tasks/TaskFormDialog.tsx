@@ -322,10 +322,7 @@ export function TaskFormDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button
-            disabled={saving}
-            onClick={() => void submit()}
-          >
+          <Button disabled={saving} onClick={() => void submit()}>
             {saving ? "Creating..." : "Create"}
           </Button>
         </DialogFooter>

@@ -124,8 +124,7 @@ function snapshotFromVideo(video: HTMLVideoElement) {
   // Some phones report landscape sensor buffers while the UI is portrait; rotate so
   // admin evidence photos are upright without relying on device auto-rotate.
   const portraitUi =
-    typeof window !== "undefined" &&
-    window.matchMedia("(orientation: portrait)").matches;
+    typeof window !== "undefined" && window.matchMedia("(orientation: portrait)").matches;
   const rotateForPortrait = portraitUi && vw > vh;
 
   const srcW = rotateForPortrait ? vh : vw;

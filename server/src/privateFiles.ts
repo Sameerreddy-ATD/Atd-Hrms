@@ -72,7 +72,7 @@ export async function storePrivateFile(options: {
   const mimeType = detectAllowedUploadMime(buffer);
   assertClientMimeMatches(mimeType, options.claimedMimeType);
   await ensureDir(options.dir);
-  const safeName = options.fileName.replace(/[^\w.\-]+/g, "_").slice(0, 120);
+  const safeName = options.fileName.replace(/[^\w.-]+/g, "_").slice(0, 120);
   const storageKey = `${options.prefix}-${randomBytes(8).toString("hex")}-${safeName}`;
   await writeFile(path.join(options.dir, storageKey), buffer, { mode: 0o600 });
   await prisma.privateFile.create({
@@ -88,7 +88,12 @@ export async function storePrivateFile(options: {
 }
 
 export async function readPrivateFile(dir: string, storageKey: string) {
-  if (!storageKey || storageKey.includes("..") || storageKey.includes("/") || storageKey.includes("\\")) {
+  if (
+    !storageKey ||
+    storageKey.includes("..") ||
+    storageKey.includes("/") ||
+    storageKey.includes("\\")
+  ) {
     throw new HttpError(400, "Invalid file key");
   }
   try {
@@ -136,7 +141,11 @@ export async function assertCanAccessPrivateFile(options: {
       throw new HttpError(404, "File not found");
     }
     if (privileged || record.uploadedByUserId === options.userId) return record;
-    if (options.kind === "medical" && options.allowManagerMedical && options.role === Role.MANAGER) {
+    if (
+      options.kind === "medical" &&
+      options.allowManagerMedical &&
+      options.role === Role.MANAGER
+    ) {
       return record;
     }
     throw new HttpError(403, "File not available");

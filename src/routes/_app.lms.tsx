@@ -7,7 +7,13 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { LoadingState } from "@/components/common/LoadingState";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,7 +31,12 @@ function LmsPage() {
   const [rows, setRows] = useState<Array<Record<string, unknown>>>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ title: "", category: "", body: "", file: undefined as File | undefined });
+  const [form, setForm] = useState({
+    title: "",
+    category: "",
+    body: "",
+    file: undefined as File | undefined,
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -65,7 +76,11 @@ function LmsPage() {
           {loading ? (
             <LoadingState label="Loading materials" />
           ) : rows.length === 0 ? (
-            <EmptyState icon={GraduationCap} title="Nothing published yet" description="HR can add SOPs and training packs here." />
+            <EmptyState
+              icon={GraduationCap}
+              title="Nothing published yet"
+              description="HR can add SOPs and training packs here."
+            />
           ) : (
             <div className="space-y-3">
               {rows.map((row) => (
@@ -77,9 +92,13 @@ function LmsPage() {
                         {String(row.category || row.kind)} · {String(row.authorName)}
                       </p>
                     </div>
-                    <StatusBadge status={row.read ? "Read" : row.published ? "Published" : "Draft"} />
+                    <StatusBadge
+                      status={row.read ? "Read" : row.published ? "Published" : "Draft"}
+                    />
                   </div>
-                  <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{String(row.body)}</p>
+                  <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+                    {String(row.body)}
+                  </p>
                   <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                     {row.fileKey ? (
                       <Button
@@ -88,7 +107,11 @@ function LmsPage() {
                         onClick={() =>
                           void lifecycleApi
                             .downloadFile(String(row.fileKey), String(row.fileName || "material"))
-                            .catch((error) => toast.error(error instanceof Error ? error.message : "Download failed"))
+                            .catch((error) =>
+                              toast.error(
+                                error instanceof Error ? error.message : "Download failed",
+                              ),
+                            )
                         }
                       >
                         Download attachment
@@ -103,7 +126,9 @@ function LmsPage() {
                           toast.success("Marked as read");
                           await load();
                         } catch (error) {
-                          toast.error(error instanceof Error ? error.message : "Could not mark as read");
+                          toast.error(
+                            error instanceof Error ? error.message : "Could not mark as read",
+                          );
                         }
                       }}
                     >
@@ -122,12 +147,31 @@ function LmsPage() {
           <DialogHeader>
             <DialogTitle>Publish {kind === "SOP" ? "SOP" : "training"}</DialogTitle>
           </DialogHeader>
-          <Input className="h-11" placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-          <Input className="h-11" placeholder="Category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
-          <Textarea placeholder="Body" value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} />
+          <Input
+            className="h-11"
+            placeholder="Title"
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+          />
+          <Input
+            className="h-11"
+            placeholder="Category"
+            value={form.category}
+            onChange={(e) => setForm({ ...form, category: e.target.value })}
+          />
+          <Textarea
+            placeholder="Body"
+            value={form.body}
+            onChange={(e) => setForm({ ...form, body: e.target.value })}
+          />
           <div>
             <Label>Attachment (optional PDF/image)</Label>
-            <Input className="mt-1 h-11" type="file" accept="application/pdf,image/*" onChange={(e) => setForm({ ...form, file: e.target.files?.[0] })} />
+            <Input
+              className="mt-1 h-11"
+              type="file"
+              accept="application/pdf,image/*"
+              onChange={(e) => setForm({ ...form, file: e.target.files?.[0] })}
+            />
           </div>
           <DialogFooter>
             <Button

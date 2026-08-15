@@ -94,9 +94,7 @@ export function locationSourceLabel(
 }
 
 export function classifyMobileSource(matchedBranchId?: string | null): AttendanceLocationSource {
-  return matchedBranchId
-    ? AttendanceLocationSource.BRANCH_MOBILE
-    : AttendanceLocationSource.MOBILE;
+  return matchedBranchId ? AttendanceLocationSource.BRANCH_MOBILE : AttendanceLocationSource.MOBILE;
 }
 
 /** IST midnight of attendance date + minutes from midnight (supports night end next calendar day). */

@@ -45,7 +45,11 @@ export function issuePunchTicket(employeeId: string, userId: string) {
   };
 }
 
-export function verifyPunchTicket(ticket: string, employeeId: string, userId: string): PunchTicketPayload {
+export function verifyPunchTicket(
+  ticket: string,
+  employeeId: string,
+  userId: string,
+): PunchTicketPayload {
   const parts = ticket.split(".");
   if (parts.length !== 2) throw new HttpError(400, "Invalid punch ticket");
   const [payload, sig] = parts;

@@ -199,8 +199,12 @@ function UsersPage() {
     setResetting(true);
     try {
       const updated = await usersApi.resetPassword(resetUser.id, newPassword);
-      setUsers((prev) => prev.map((row) => (row.id === resetUser.id ? { ...row, ...updated } : row)));
-      toast.success(`Password reset for ${resetUser.name}. Status is Created until they sign in again.`);
+      setUsers((prev) =>
+        prev.map((row) => (row.id === resetUser.id ? { ...row, ...updated } : row)),
+      );
+      toast.success(
+        `Password reset for ${resetUser.name}. Status is Created until they sign in again.`,
+      );
       setResetUser(null);
       setNewPassword("");
       setConfirmPassword("");
@@ -219,7 +223,12 @@ function UsersPage() {
       if (statusFilter === "created" && lifecycle !== "CREATED") return false;
       if (statusFilter === "password_change" && lifecycle !== "PASSWORD_CHANGE") return false;
       if (statusFilter === "active" && lifecycle !== "ACTIVE") return false;
-      if (statusFilter === "inactive" && lifecycle !== "INACTIVE" && lifecycle !== "SUSPENDED" && lifecycle !== "LOCKED") {
+      if (
+        statusFilter === "inactive" &&
+        lifecycle !== "INACTIVE" &&
+        lifecycle !== "SUSPENDED" &&
+        lifecycle !== "LOCKED"
+      ) {
         return false;
       }
       const searchable =
@@ -767,9 +776,7 @@ function LoginStatus({ user }: { user: User }) {
       variant="outline"
       className="max-w-44 shrink-0 whitespace-normal border-emerald-200 bg-emerald-50 text-center text-emerald-700 dark:text-emerald-400"
     >
-      {scheduled
-        ? `Suspends ${formatDisplayDate(user.suspensionStartsAt!)}`
-        : "Active"}
+      {scheduled ? `Suspends ${formatDisplayDate(user.suspensionStartsAt!)}` : "Active"}
     </Badge>
   );
 }

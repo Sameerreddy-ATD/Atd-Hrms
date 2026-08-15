@@ -2,7 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Logo } from "@/components/common/Logo";
 import { Button } from "@/components/ui/button";
 
-const HR_MAIL = "mailto:hrms@anytimediesel.com?subject=Anytime%20Workforce%20account%20deletion%20request";
+const HR_MAIL =
+  "mailto:hrms@anytimediesel.com?subject=Anytime%20Workforce%20account%20deletion%20request";
 
 export const Route = createFileRoute("/account-deletion")({
   head: () => ({
@@ -27,9 +28,9 @@ function AccountDeletionPage() {
 
         <section className="space-y-3 text-sm leading-relaxed text-foreground/90">
           <p>
-            Anytime Workforce accounts are created by your employer (HR or Developer Admin). There is
-            no public self-registration. To delete your login and associated personal data held in
-            the app, submit a deletion request using the steps below.
+            Anytime Workforce accounts are created by your employer (HR or Developer Admin). There
+            is no public self-registration. To delete your login and associated personal data held
+            in the app, submit a deletion request using the steps below.
           </p>
           <h2 className="text-base font-semibold">How to request deletion</h2>
           <ol className="list-decimal space-y-2 pl-5 text-muted-foreground">
@@ -46,9 +47,9 @@ function AccountDeletionPage() {
               full name, and employee code.
             </li>
             <li>
-              If you can still sign in, open <strong className="text-foreground">Profile</strong> and
-              use <strong className="text-foreground">Request account deletion</strong> for the same
-              instructions inside the app.
+              If you can still sign in, open <strong className="text-foreground">Profile</strong>{" "}
+              and use <strong className="text-foreground">Request account deletion</strong> for the
+              same instructions inside the app.
             </li>
           </ol>
           <h2 className="text-base font-semibold">What is deleted or retained</h2>

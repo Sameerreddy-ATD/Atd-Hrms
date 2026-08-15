@@ -82,17 +82,11 @@ export function BrandReveal({
     <div
       className={cn("atd-reveal", open && "atd-reveal--open", className)}
       style={
-        wordWidth > 0
-          ? ({ "--atd-word-width": `${wordWidth}px` } as CSSProperties)
-          : undefined
+        wordWidth > 0 ? ({ "--atd-word-width": `${wordWidth}px` } as CSSProperties) : undefined
       }
       aria-label="AnyTime Diesel"
     >
-      <img
-        src="/atd-app-icon.png"
-        alt=""
-        className={cn("atd-reveal__mark", markClassName)}
-      />
+      <img src="/atd-app-icon.png" alt="" className={cn("atd-reveal__mark", markClassName)} />
       <span className="atd-reveal__word">
         <span ref={measureRef} className="atd-reveal__measure">
           <BrandWordmark className="atd-wordmark--lockup" />

@@ -10,36 +10,19 @@ export function ResponsiveListShell({
   className?: string;
 }) {
   return (
-    <div
-      className={cn(
-        "overflow-hidden rounded-lg border border-border bg-card",
-        className,
-      )}
-    >
+    <div className={cn("overflow-hidden rounded-lg border border-border bg-card", className)}>
       {children}
     </div>
   );
 }
 
 /** Stacked card list shown below the `md` breakpoint. */
-export function MobileList({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+export function MobileList({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cn("aw-stagger space-y-2 p-3 md:hidden", className)}>{children}</div>;
 }
 
 /** Desktop table wrapper shown from `md` up. */
-export function DesktopTable({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+export function DesktopTable({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cn("hidden overflow-x-auto md:block", className)}>{children}</div>;
 }
 

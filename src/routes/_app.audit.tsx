@@ -229,8 +229,7 @@ function AuditPage() {
     });
   }, [auditLogs, category, query]);
 
-  const formatDate = (value?: string) =>
-    value ? formatDisplayDateTime(value) : "No records yet";
+  const formatDate = (value?: string) => (value ? formatDisplayDateTime(value) : "No records yet");
 
   async function clearAuditLogs() {
     if (clearConfirmation !== "CLEAR") return;
@@ -307,7 +306,9 @@ function AuditPage() {
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Oldest saved
                 </p>
-                <p className="mt-1 text-sm font-medium leading-snug">{formatDate(summary.oldest)}</p>
+                <p className="mt-1 text-sm font-medium leading-snug">
+                  {formatDate(summary.oldest)}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -320,7 +321,9 @@ function AuditPage() {
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Latest saved
                 </p>
-                <p className="mt-1 text-sm font-medium leading-snug">{formatDate(summary.latest)}</p>
+                <p className="mt-1 text-sm font-medium leading-snug">
+                  {formatDate(summary.latest)}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -346,10 +349,7 @@ function AuditPage() {
                 type="button"
                 size="sm"
                 variant={category === item.id ? "default" : "outline"}
-                className={cn(
-                  "h-8 rounded-md px-3 text-xs",
-                  category === item.id && "shadow-sm",
-                )}
+                className={cn("h-8 rounded-md px-3 text-xs", category === item.id && "shadow-sm")}
                 onClick={() => setCategory(item.id)}
               >
                 {item.label}
@@ -432,9 +432,7 @@ function AuditPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="font-medium">{l.actor}</TableCell>
-                      <TableCell className="text-sm">
-                        {ROLE_LABELS[l.role] ?? l.role}
-                      </TableCell>
+                      <TableCell className="text-sm">{ROLE_LABELS[l.role] ?? l.role}</TableCell>
                       <TableCell className="max-w-40 text-sm text-muted-foreground">
                         {l.target || "—"}
                       </TableCell>
@@ -467,8 +465,7 @@ function AuditPage() {
             <AlertDialogTitle>Clear all audit logs?</AlertDialogTitle>
             <AlertDialogDescription>
               This permanently removes all {summary?.count ?? 0} saved audit records. A single
-              &quot;Audit logs cleared&quot; entry will be written afterward. This cannot be
-              undone.
+              &quot;Audit logs cleared&quot; entry will be written afterward. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-2">

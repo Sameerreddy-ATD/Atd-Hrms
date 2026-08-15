@@ -16,10 +16,7 @@ import {
   MobileListActions,
   DesktopTable,
 } from "@/components/common/ResponsiveList";
-import {
-  MedicalOpenLink,
-  MedicalVerifyButton,
-} from "@/components/leave/MedicalDocumentActions";
+import { MedicalOpenLink, MedicalVerifyButton } from "@/components/leave/MedicalDocumentActions";
 import { formatDisplayDate, formatDisplayDateRange, formatDisplayDateTime } from "@/lib/india-date";
 import { Button } from "@/components/ui/button";
 import {

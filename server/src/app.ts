@@ -52,11 +52,18 @@ import {
   resolveMobileEventTime,
 } from "./attendanceEngine.js";
 import { issuePunchTicket, verifyPunchTicket } from "./punchTicket.js";
-import { classifyMobileSource, ensureEmployeeShiftAssignment, locationSourceLabel } from "./attendancePolicy.js";
+import {
+  classifyMobileSource,
+  ensureEmployeeShiftAssignment,
+  locationSourceLabel,
+} from "./attendancePolicy.js";
 import { closePriorOpenPunchForNewDay } from "./attendanceSettlement.js";
 import { openAttendanceStream } from "./attendanceLive.js";
 import { config } from "./config.js";
-import { ensureChecklistInstance, completeFaceEnrollmentChecklistItems } from "./checklistService.js";
+import {
+  ensureChecklistInstance,
+  completeFaceEnrollmentChecklistItems,
+} from "./checklistService.js";
 import { encryptEmployeeField, lastFour } from "./employeePrivateData.js";
 import { asyncHandler, errorHandler, HttpError } from "./errors.js";
 import {
@@ -95,7 +102,12 @@ import {
   userDto,
 } from "./mapper.js";
 import { prisma } from "./prisma.js";
-import { getModuleAccessMatrix, MODULE_KEYS, DEFAULT_MODULE_ACCESS, saveModuleAccessMatrix } from "./module-access.js";
+import {
+  getModuleAccessMatrix,
+  MODULE_KEYS,
+  DEFAULT_MODULE_ACCESS,
+  saveModuleAccessMatrix,
+} from "./module-access.js";
 import {
   clearSupportPassword,
   getSupportPasswordStatus,
@@ -906,12 +918,14 @@ export function createApp() {
     };
   }
 
-  async function weeklyOffRequestDtos<
-    T extends Parameters<typeof weeklyOffRequestDto>[0],
-  >(rows: T[]) {
+  async function weeklyOffRequestDtos<T extends Parameters<typeof weeklyOffRequestDto>[0]>(
+    rows: T[],
+  ) {
     if (rows.length === 0) return [];
     const approverIds = [...new Set(rows.map((row) => row.approverId).filter(Boolean))];
-    const reviewerUserIds = [...new Set(rows.map((row) => row.reviewedBy).filter(Boolean))] as string[];
+    const reviewerUserIds = [
+      ...new Set(rows.map((row) => row.reviewedBy).filter(Boolean)),
+    ] as string[];
     const [approvers, reviewers] = await Promise.all([
       prisma.employee.findMany({
         where: { employeeId: { in: approverIds } },
@@ -1175,8 +1189,7 @@ export function createApp() {
 
       // Backup age is shown as a warning on the Drive backup card; it does not
       // mark the whole system DEGRADED (DB/memory issues still do).
-      const degraded =
-        !databaseReachable || databaseLatencyMs > 1500 || memoryUsedPercent > 92;
+      const degraded = !databaseReachable || databaseLatencyMs > 1500 || memoryUsedPercent > 92;
 
       res.json({
         status: degraded ? "DEGRADED" : "HEALTHY",
@@ -1354,7 +1367,8 @@ export function createApp() {
         users.map((user) => {
           const latestAlert = latestAlertByUser.get(user.id);
           const withImages = user.faceEvidence.filter((row) => row.imageKey && !row.deletedAt);
-          const latestSessionId = withImages[0]?.sessionId ?? user.faceEvidence[0]?.sessionId ?? null;
+          const latestSessionId =
+            withImages[0]?.sessionId ?? user.faceEvidence[0]?.sessionId ?? null;
           const sessionPhotos = (
             latestSessionId
               ? withImages.filter((row) => row.sessionId === latestSessionId)
@@ -1373,8 +1387,7 @@ export function createApp() {
             faceConfidence: Number(row.faceConfidence ?? 0),
             livenessScore: Number(row.livenessScore ?? 0),
             antiSpoofScore: Number(row.antiSpoofScore ?? 0),
-            similarityScore:
-              row.similarityScore === null ? null : Number(row.similarityScore),
+            similarityScore: row.similarityScore === null ? null : Number(row.similarityScore),
             capturedAt: row.capturedAt.toISOString(),
             expiresAt: row.expiresAt.toISOString(),
             imageAvailable: Boolean(row.imageKey && !row.deletedAt),
@@ -2304,8 +2317,7 @@ export function createApp() {
       const organizationLevel =
         targetRole === Role.CEO ? "HEAD" : (body.organizationLevel ?? "MEMBER");
       const designation =
-        (body.designation?.trim() ||
-          (targetRole === Role.CEO ? "CEO" : undefined)) ?? undefined;
+        (body.designation?.trim() || (targetRole === Role.CEO ? "CEO" : undefined)) ?? undefined;
       const user = await prisma.$transaction(async (tx) => {
         const employee = shouldCreateEmployee
           ? await tx.employee.create({
@@ -2520,7 +2532,6 @@ export function createApp() {
     }),
   );
 
-
   app.put(
     "/employees/:id/emergency-contact",
     requireAuth,
@@ -2568,9 +2579,10 @@ export function createApp() {
         },
       });
       await audit({
-        action: isSelf && !isDeveloperAdmin && !isHr
-          ? "employee self-updated emergency contact"
-          : "employee emergency contact updated",
+        action:
+          isSelf && !isDeveloperAdmin && !isHr
+            ? "employee self-updated emergency contact"
+            : "employee emergency contact updated",
         performedByUserId: req.user!.id,
         affectedUserId: undefined,
         newValue: { employeeId, contactName: contact.contactName },
@@ -2636,10 +2648,7 @@ export function createApp() {
         }
         body = updateEmployeeSchema.parse(filtered);
       } else if (isHr) {
-        if (
-          body.managerId === undefined ||
-          Object.keys(body).some((key) => key !== "managerId")
-        ) {
+        if (body.managerId === undefined || Object.keys(body).some((key) => key !== "managerId")) {
           throw new HttpError(403, "HR can update only the reporting manager");
         }
       }
@@ -2769,7 +2778,8 @@ export function createApp() {
         });
       } else {
         await audit({
-          action: isSelf && !isDeveloperAdmin ? "employee self-updated profile" : "employee updated",
+          action:
+            isSelf && !isDeveloperAdmin ? "employee self-updated profile" : "employee updated",
           performedByUserId: req.user!.id,
           affectedUserId: employee.user?.id,
           newValue: { employeeId, fields: Object.keys(body) },
@@ -3780,11 +3790,13 @@ export function createApp() {
     }
     const capturedAt = body.eventTime ?? null;
     const looksDeferred =
-      Boolean(body.deferred) ||
-      Boolean(capturedAt && Date.now() - capturedAt.getTime() > 30_000);
+      Boolean(body.deferred) || Boolean(capturedAt && Date.now() - capturedAt.getTime() > 30_000);
     if (looksDeferred) {
       if (!body.punchTicket || !body.captureNonce) {
-        throw new HttpError(400, "Offline punches require a signed ticket. Reconnect and try again.");
+        throw new HttpError(
+          400,
+          "Offline punches require a signed ticket. Reconnect and try again.",
+        );
       }
       verifyPunchTicket(body.punchTicket, employeeId, req.user!.id);
       try {
@@ -3972,7 +3984,12 @@ export function createApp() {
     const branchIds = [
       ...new Set(
         list
-          .flatMap((s) => [s.matchedBranchId, s.primaryAttendedBranchId, s.homeBranchId, s.scheduledBranchId])
+          .flatMap((s) => [
+            s.matchedBranchId,
+            s.primaryAttendedBranchId,
+            s.homeBranchId,
+            s.scheduledBranchId,
+          ])
           .filter((id): id is string => Boolean(id)),
       ),
     ];
@@ -4022,8 +4039,7 @@ export function createApp() {
       const lastOutEvent = [...summaryEvents]
         .reverse()
         .find(
-          (event) =>
-            outEventTypes.has(event.eventType) && event.eventSource !== EventSource.SYSTEM,
+          (event) => outEventTypes.has(event.eventType) && event.eventSource !== EventSource.SYSTEM,
         );
 
       const sourceLabel = (event: (typeof summaryEvents)[number] | undefined) => {
@@ -4939,9 +4955,7 @@ export function createApp() {
     requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
     asyncHandler(async (req, res) => {
       const body = leaveTypeSchema.parse(req.body);
-      const code = (
-        body.code ?? body.name.toUpperCase().replace(/[^A-Z0-9]+/g, "_")
-      ).toUpperCase();
+      const code = (body.code ?? body.name.toUpperCase().replace(/[^A-Z0-9]+/g, "_")).toUpperCase();
       if ((Object.values(LEAVE_CODES) as string[]).includes(code)) {
         throw new HttpError(
           400,
@@ -5001,7 +5015,9 @@ export function createApp() {
           ...(body.requiresMedicalDocument !== undefined
             ? { requiresMedicalDocument: body.requiresMedicalDocument }
             : {}),
-          ...(body.approvalRequired !== undefined ? { approvalRequired: body.approvalRequired } : {}),
+          ...(body.approvalRequired !== undefined
+            ? { approvalRequired: body.approvalRequired }
+            : {}),
         },
       });
       await audit({
@@ -5255,10 +5271,7 @@ export function createApp() {
           "No organization head is available for this leave request. Contact HR to complete the organization chart.",
         );
       }
-      if (
-        body.medicalDocumentUrl &&
-        !body.medicalDocumentUrl.startsWith("/leave/medical-files/")
-      ) {
+      if (body.medicalDocumentUrl && !body.medicalDocumentUrl.startsWith("/leave/medical-files/")) {
         throw new HttpError(
           400,
           "Medical documents must be uploaded through the secure private vault",
@@ -6036,10 +6049,7 @@ export function createApp() {
     return assertBoardAccess(user, boardId);
   }
 
-  async function assertAssigneesAllowedOnBoard(
-    board: BoardWithDetails,
-    employeeIds: string[],
-  ) {
+  async function assertAssigneesAllowedOnBoard(board: BoardWithDetails, employeeIds: string[]) {
     if (employeeIds.length === 0) return;
     if (board.accessType === TaskBoardAccessType.MEMBER_GATED) {
       if (
@@ -6058,9 +6068,7 @@ export function createApp() {
       });
       if (
         employeeUsers.length !== employeeIds.length ||
-        employeeUsers.some(
-          (employee) => !employee.user || !allowedRoles.has(employee.user.role),
-        )
+        employeeUsers.some((employee) => !employee.user || !allowedRoles.has(employee.user.role))
       ) {
         throw new HttpError(400, "Every assignee must have a role allowed by this board");
       }
@@ -6085,13 +6093,7 @@ export function createApp() {
   app.post(
     "/task-boards",
     requireAuth,
-    requireRoles(
-      Role.DEVELOPER_ADMIN,
-      Role.MAIN_ADMIN,
-      Role.CEO,
-      Role.HR,
-      Role.MANAGER,
-    ),
+    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.CEO, Role.HR, Role.MANAGER),
     asyncHandler(async (req, res) => {
       const body = taskBoardSchema.parse(req.body);
       const { assignableIds } = await taskScope(req.user!);
@@ -6576,9 +6578,7 @@ export function createApp() {
       res.json(
         tasks.map((task) =>
           taskDto(
-            summary
-              ? ({ ...task, updates: [] } as TaskWithDetails)
-              : (task as TaskWithDetails),
+            summary ? ({ ...task, updates: [] } as TaskWithDetails) : (task as TaskWithDetails),
             { summary },
           ),
         ),
@@ -6731,9 +6731,15 @@ export function createApp() {
         !canManage &&
         Object.keys(body).some(
           (key) =>
-            !["version", "status", "progress", "stageId", "rank", "rankBeforeTaskId", "rankAfterTaskId"].includes(
-              key,
-            ),
+            ![
+              "version",
+              "status",
+              "progress",
+              "stageId",
+              "rank",
+              "rankBeforeTaskId",
+              "rankAfterTaskId",
+            ].includes(key),
         )
       ) {
         throw new HttpError(403, "Employees can update only task status and progress");
@@ -6802,7 +6808,9 @@ export function createApp() {
         if (body.status === TaskStatus.CANCELLED) {
           nextStageId = null;
         } else {
-          const matchingStages = boardForStatus.stages.filter((stage) => stage.status === body.status);
+          const matchingStages = boardForStatus.stages.filter(
+            (stage) => stage.status === body.status,
+          );
           if (matchingStages.length === 0) {
             throw new HttpError(400, "This workspace has no stage for the selected status");
           }
@@ -6842,13 +6850,14 @@ export function createApp() {
       const stageChanging =
         body.stageId !== undefined &&
         (nextStageId !== undefined ? nextStageId : existing.stageId) !== existing.stageId;
-      const boardChanging = Boolean(body.boardId && nextBoardId && nextBoardId !== existing.boardId);
+      const boardChanging = Boolean(
+        body.boardId && nextBoardId && nextBoardId !== existing.boardId,
+      );
       let requestedRank: number | undefined = body.rank;
       let rankNeighborBefore: number | null | undefined;
       let rankNeighborAfter: number | null | undefined;
       if (requestedRank === undefined && (wantsRankNeighbors || stageChanging || boardChanging)) {
-        const targetStageId =
-          nextStageId !== undefined ? nextStageId : (existing.stageId ?? null);
+        const targetStageId = nextStageId !== undefined ? nextStageId : (existing.stageId ?? null);
         const targetBoardIdForRank = nextBoardId ?? existing.boardId;
         if (wantsRankNeighbors) {
           const [before, after] = await Promise.all([
@@ -6919,8 +6928,7 @@ export function createApp() {
           issueKey = allocated.issueKey;
         }
 
-        const targetStageId =
-          nextStageId !== undefined ? nextStageId : (existing.stageId ?? null);
+        const targetStageId = nextStageId !== undefined ? nextStageId : (existing.stageId ?? null);
         const targetBoardIdForRank = nextBoardId ?? existing.boardId;
 
         if (
@@ -6964,8 +6972,7 @@ export function createApp() {
             dueDate: body.dueDate,
             stageId: nextStageId,
             boardId: body.boardId === undefined ? undefined : nextBoardId,
-            issueNumber:
-              body.boardId && nextBoardId !== existing.boardId ? issueNumber : undefined,
+            issueNumber: body.boardId && nextBoardId !== existing.boardId ? issueNumber : undefined,
             issueKey: body.boardId && nextBoardId !== existing.boardId ? issueKey : undefined,
             rank: nextRank,
             customFields: body.customFields as Prisma.InputJsonValue | undefined,
@@ -7074,15 +7081,14 @@ export function createApp() {
           ? TaskActivityType.PROGRESS_UPDATED
           : TaskActivityType.COMMENT;
       const { version: _version, ...logData } = body;
-      const mentionCodes = [...body.message.matchAll(/@([A-Za-z0-9_-]+)/g)].map((match) => match[1]!);
+      const mentionCodes = [...body.message.matchAll(/@([A-Za-z0-9_-]+)/g)].map(
+        (match) => match[1]!,
+      );
       const mentionedEmployees =
         mentionCodes.length > 0
           ? await prisma.employee.findMany({
               where: {
-                OR: [
-                  { employeeCode: { in: mentionCodes } },
-                  { name: { in: mentionCodes } },
-                ],
+                OR: [{ employeeCode: { in: mentionCodes } }, { name: { in: mentionCodes } }],
                 status: "ACTIVE",
               },
               select: { employeeId: true, name: true },
@@ -7237,8 +7243,7 @@ export function createApp() {
       });
       const priorityRank: Record<string, number> = { URGENT: 0, IMPORTANT: 1, NORMAL: 2 };
       announcements.sort((a, b) => {
-        const priorityDelta =
-          (priorityRank[a.priority] ?? 9) - (priorityRank[b.priority] ?? 9);
+        const priorityDelta = (priorityRank[a.priority] ?? 9) - (priorityRank[b.priority] ?? 9);
         if (priorityDelta !== 0) return priorityDelta;
         return b.publishAt.getTime() - a.publishAt.getTime();
       });
@@ -7832,9 +7837,7 @@ export function createApp() {
         ...openChecklistItems.map((item) => ({
           id: `checklist-${item.stateId}`,
           title:
-            item.instance.kind === "OFFBOARDING"
-              ? "Offboarding step open"
-              : "Onboarding step open",
+            item.instance.kind === "OFFBOARDING" ? "Offboarding step open" : "Onboarding step open",
           desc: `${item.instance.employee.name} (${item.instance.employee.employeeCode}): ${item.title}`,
           time: item.instance.createdAt.toISOString(),
           type: "system" as const,
@@ -8068,9 +8071,7 @@ export function createApp() {
       select: { employeeId: true },
     });
     const employeeIds = await activeEmployeeIdsExcludingDeveloperAdmin();
-    const targets = summaries.length
-      ? summaries.map((row) => row.employeeId)
-      : employeeIds;
+    const targets = summaries.length ? summaries.map((row) => row.employeeId) : employeeIds;
     for (const employeeId of targets) {
       await recalculateDailySummary(employeeId, date);
     }

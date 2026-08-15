@@ -15,13 +15,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/common/PageHeader";
 import { cn } from "@/lib/utils";
 import type { TaskBoard, WorkTask } from "@/types/domain";
-import {
-  boardKeyPrefix,
-  dueLabel,
-  initials,
-  issueKey,
-  PRIORITY_MARK,
-} from "./task-utils";
+import { boardKeyPrefix, dueLabel, initials, issueKey, PRIORITY_MARK } from "./task-utils";
 
 const ASSIGNED_PREVIEW = 8;
 
@@ -46,7 +40,10 @@ function PriorityMark({ priority }: { priority: WorkTask["priority"] }) {
     <span
       title={mark.label}
       aria-label={mark.label}
-      className={cn("inline-flex w-4 justify-center text-sm font-bold leading-none", mark.className)}
+      className={cn(
+        "inline-flex w-4 justify-center text-sm font-bold leading-none",
+        mark.className,
+      )}
     >
       {mark.glyph}
     </span>
@@ -152,7 +149,9 @@ export function BoardDirectory({
                     <span className="hidden w-16 shrink-0 font-mono text-xs text-primary sm:block">
                       {key}
                     </span>
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{task.title}</span>
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                      {task.title}
+                    </span>
                     {task.boardName && (
                       <span className="hidden max-w-[10rem] truncate text-xs text-muted-foreground md:block">
                         {task.boardName}

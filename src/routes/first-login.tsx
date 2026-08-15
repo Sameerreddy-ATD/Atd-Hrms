@@ -57,7 +57,10 @@ function FirstLoginPage() {
   return (
     <div className="aw-auth-canvas flex min-h-[100dvh] items-center justify-center px-4 py-8 pb-[max(2rem,var(--atd-sab))] pt-[max(2rem,var(--atd-sat))]">
       <div className="aw-enter w-full max-w-md space-y-4">
-        <LoginCrewMascot mode={crewMode} className="mx-auto w-full max-w-[7.5rem] sm:max-w-[8.5rem]" />
+        <LoginCrewMascot
+          mode={crewMode}
+          className="mx-auto w-full max-w-[7.5rem] sm:max-w-[8.5rem]"
+        />
         <Card className="aw-enter-delayed border-border/70 bg-card/95 shadow-sm backdrop-blur-sm">
           <CardContent className="p-6 sm:p-8">
             <h2 className="text-lg font-semibold">Set a new password</h2>
@@ -74,26 +77,26 @@ function FirstLoginPage() {
                   }
                 }}
               >
-              <div className="space-y-1.5">
-                <Label htmlFor="new">New password</Label>
-                <PasswordInput
-                  id="new"
-                  autoComplete="new-password"
-                  value={next}
-                  onChange={(e) => setNext(e.target.value)}
-                  onVisibilityChange={setPasswordVisible}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="confirm">Confirm new password</Label>
-                <PasswordInput
-                  id="confirm"
-                  autoComplete="new-password"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  onVisibilityChange={setPasswordVisible}
-                />
-              </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="new">New password</Label>
+                  <PasswordInput
+                    id="new"
+                    autoComplete="new-password"
+                    value={next}
+                    onChange={(e) => setNext(e.target.value)}
+                    onVisibilityChange={setPasswordVisible}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="confirm">Confirm new password</Label>
+                  <PasswordInput
+                    id="confirm"
+                    autoComplete="new-password"
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                    onVisibilityChange={setPasswordVisible}
+                  />
+                </div>
               </div>
               <ul className="space-y-1 text-xs">
                 {rules.map((r) => (

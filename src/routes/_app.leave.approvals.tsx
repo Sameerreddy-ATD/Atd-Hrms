@@ -15,10 +15,7 @@ import {
   MobileListField,
   DesktopTable,
 } from "@/components/common/ResponsiveList";
-import {
-  MedicalOpenLink,
-  decisionLabel,
-} from "@/components/leave/MedicalDocumentActions";
+import { MedicalOpenLink, decisionLabel } from "@/components/leave/MedicalDocumentActions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -70,7 +67,9 @@ function LeaveBalancePanel({ leave }: { leave: LeaveRequest }) {
         </div>
         <div>
           <p className="text-xs text-muted-foreground">After approval</p>
-          <p className={`text-lg font-semibold tabular-nums ${after < 0 ? "text-destructive" : ""}`}>
+          <p
+            className={`text-lg font-semibold tabular-nums ${after < 0 ? "text-destructive" : ""}`}
+          >
             {after}
           </p>
         </div>
@@ -417,9 +416,7 @@ function LeaveApprovalsPage() {
                             <div>{leave.type}</div>
                             <div className="text-xs text-muted-foreground">{leave.days} day(s)</div>
                           </TableCell>
-                          <TableCell>
-                            {formatDisplayDateRange(leave.from, leave.to)}
-                          </TableCell>
+                          <TableCell>{formatDisplayDateRange(leave.from, leave.to)}</TableCell>
                           <TableCell className="text-sm">{decisionLabel(leave)}</TableCell>
                           <TableCell>
                             <StatusBadge status={leave.status} />
@@ -455,8 +452,8 @@ function LeaveApprovalsPage() {
                       {confirmLeave.employeeName} · {confirmLeave.type}
                     </p>
                     <p className="mt-1">
-                      Applying for <strong>{confirmLeave.requestedDays ?? confirmLeave.days}</strong>{" "}
-                      day
+                      Applying for{" "}
+                      <strong>{confirmLeave.requestedDays ?? confirmLeave.days}</strong> day
                       {(confirmLeave.requestedDays ?? confirmLeave.days) === 1 ? "" : "s"} (
                       {formatDisplayDateRange(confirmLeave.from, confirmLeave.to)}). Available{" "}
                       <strong>{confirmLeave.availableBalance ?? 0}</strong>, after approval{" "}

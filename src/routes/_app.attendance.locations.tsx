@@ -153,9 +153,9 @@ function DayLogsPage() {
       setTo(nextTo);
       return;
     }
-    const monthKey = (!from || nextTo.slice(0, 7) === from.slice(0, 7)
-      ? nextTo.slice(0, 7)
-      : month) || nextTo.slice(0, 7);
+    const monthKey =
+      (!from || nextTo.slice(0, 7) === from.slice(0, 7) ? nextTo.slice(0, 7) : month) ||
+      nextTo.slice(0, 7);
     const capped = indiaMonthRange(monthKey).to;
     const clamped = nextTo > capped ? capped : nextTo;
     setTo(clamped);
@@ -187,9 +187,7 @@ function DayLogsPage() {
         <CardContent className="space-y-4 px-4 pb-4 sm:px-6 sm:pb-5">
           <div
             className={`grid gap-2.5 sm:gap-3 md:grid-cols-2 ${
-              selectedEmployeeId === "all"
-                ? "lg:grid-cols-5"
-                : "lg:grid-cols-4"
+              selectedEmployeeId === "all" ? "lg:grid-cols-5" : "lg:grid-cols-4"
             }`}
           >
             <div

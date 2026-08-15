@@ -282,9 +282,7 @@ export function isRowBlank(row: LoginImportRowValues) {
 export function resolveLoginRole(raw: string): Role | undefined {
   const text = raw.trim().toLowerCase();
   if (!text) return undefined;
-  const byKey = CREATABLE_ROLES.find(
-    (role) => role === text || role.replace(/_/g, " ") === text,
-  );
+  const byKey = CREATABLE_ROLES.find((role) => role === text || role.replace(/_/g, " ") === text);
   if (byKey) return byKey;
   const byLabel = CREATABLE_ROLES.find((role) => ROLE_LABELS[role].toLowerCase() === text);
   if (byLabel) return byLabel;
@@ -395,13 +393,11 @@ export function validateLoginRow(
 
   if (!isCeo) {
     if (!mainUnit) errors.push(`Unknown main organization unit: ${row.mainUnitName || "blank"}`);
-    if (!useMainUnit && !childUnit)
-      errors.push(`Unknown child organization unit: ${childText}`);
+    if (!useMainUnit && !childUnit) errors.push(`Unknown child organization unit: ${childText}`);
     if (mainUnit && childUnit && childUnit.parentId !== mainUnit.id)
       errors.push(`${childText} is not under ${row.mainUnitName}`);
   }
-  if (row.branchName.trim() && !branch)
-    errors.push(`Unknown attendance branch: ${row.branchName}`);
+  if (row.branchName.trim() && !branch) errors.push(`Unknown attendance branch: ${row.branchName}`);
   if (!row.designation.trim()) errors.push("Designation is required");
   if (!LEVELS.includes(row.organizationLevel.trim().toUpperCase() as (typeof LEVELS)[number]))
     errors.push("Invalid organization level");
@@ -457,9 +453,7 @@ export function validateLoginRow(
 
   if (email && email !== options?.excludeEmail?.toLowerCase()) {
     if (context.sheetEmails.has(email)) errors.push("Duplicate email in sheet");
-    if (
-      context.existingEmployees.some((employee) => employee.email?.toLowerCase() === email)
-    )
+    if (context.existingEmployees.some((employee) => employee.email?.toLowerCase() === email))
       errors.push("Email already has an account");
   }
 
@@ -468,8 +462,7 @@ export function validateLoginRow(
     if (context.sheetCodes.has(code)) errors.push("Duplicate employee ID in sheet");
     if (
       context.existingEmployees.some(
-        (employee) =>
-          (employee.employeeCode ?? employee.employeeId)?.toLowerCase() === code,
+        (employee) => (employee.employeeCode ?? employee.employeeId)?.toLowerCase() === code,
       )
     )
       errors.push("Employee ID already exists");
@@ -580,21 +573,24 @@ export function rowToCreatePayload(
     ? undefined
     : childChoices.find((choice) => choice.label.toLowerCase() === childText.toLowerCase());
   const departmentId = isCeo
-    ? childUnit?.id ?? mainUnit?.id ?? null
-    : childUnit?.id ?? mainUnit?.id;
+    ? (childUnit?.id ?? mainUnit?.id ?? null)
+    : (childUnit?.id ?? mainUnit?.id);
   const branch = context.branches.find(
     (item) => item.name.trim().toLowerCase() === row.branchName.trim().toLowerCase(),
   );
   const managerText = row.managerReference.trim();
   const managerReference =
-    managerText && managerText.toLowerCase() !== "automatic" ? managerText.toLowerCase() : undefined;
+    managerText && managerText.toLowerCase() !== "automatic"
+      ? managerText.toLowerCase()
+      : undefined;
   const level = row.organizationLevel.trim().toUpperCase();
   const organizationLevel = (
     LEVELS.includes(level as never) ? level : "MEMBER"
   ) as LoginCreatePayload["organizationLevel"];
   const gender = row.gender.trim().toUpperCase() as LoginCreatePayload["gender"];
-  const employmentType =
-    row.employmentType.trim().toUpperCase() as LoginCreatePayload["employmentType"];
+  const employmentType = row.employmentType
+    .trim()
+    .toUpperCase() as LoginCreatePayload["employmentType"];
   const bloodGroup = row.bloodGroup.trim().toUpperCase();
   const bankAccountType = row.bankAccountType.trim().toUpperCase();
   const shiftType = (row.shiftType.trim().toUpperCase() || "DAY") as "DAY" | "NIGHT";
@@ -710,15 +706,16 @@ export function employeeToEditRow(
     ? context.departments.find((item) => item.id === departmentId)
     : context.departments.find(
         (item) =>
-          item.name.trim().toLowerCase() === String(employee.department ?? "").trim().toLowerCase(),
+          item.name.trim().toLowerCase() ===
+          String(employee.department ?? "")
+            .trim()
+            .toLowerCase(),
       );
   const parent = department?.parentDepartmentId
     ? context.departments.find((item) => item.id === department.parentDepartmentId)
     : undefined;
   const mainUnitName = parent?.name ?? department?.name ?? "";
-  const childUnitName = parent
-    ? `${parent.name} > ${department?.name ?? ""}`
-    : "Use main unit";
+  const childUnitName = parent ? `${parent.name} > ${department?.name ?? ""}` : "Use main unit";
   const branchName =
     employee.homeBranchName ||
     context.branches.find((branch) => branch.id === employee.homeBranchId)?.name ||
@@ -783,10 +780,7 @@ export function employeeToEditRow(
   };
 }
 
-export function validateLoginEditRow(
-  row: LoginEditRow,
-  context: LoginImportContext,
-): string[] {
+export function validateLoginEditRow(row: LoginEditRow, context: LoginImportContext): string[] {
   if (isRowBlank(row) && !row.userId) return [];
 
   const errors = validateLoginRow(

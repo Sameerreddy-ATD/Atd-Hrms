@@ -136,7 +136,9 @@ function MyAttendancePage() {
           <TabsContent value="history" className="mt-0 space-y-3">
             <Card className="border-border shadow-sm">
               <CardHeader className="space-y-1 px-4 pb-3 pt-4 sm:px-6">
-                <CardTitle className="text-base font-semibold text-foreground">This month</CardTitle>
+                <CardTitle className="text-base font-semibold text-foreground">
+                  This month
+                </CardTitle>
                 <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
                   Tap a day for punch detail. Apply leave from Leave in the menu.
                 </p>

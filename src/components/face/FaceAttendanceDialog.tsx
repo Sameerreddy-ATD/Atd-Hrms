@@ -76,10 +76,7 @@ export function FaceAttendanceDialog({
         if (!active) return;
         if (nextPosition.coords.accuracy > status.maxGpsAccuracyMeters) {
           throw new Error(
-            formatImpreciseLocationError(
-              nextPosition.coords.accuracy,
-              status.maxGpsAccuracyMeters,
-            ),
+            formatImpreciseLocationError(nextPosition.coords.accuracy, status.maxGpsAccuracyMeters),
           );
         }
         setPosition(nextPosition);

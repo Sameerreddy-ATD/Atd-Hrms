@@ -25,13 +25,15 @@ export const PRIORITY_STYLES: Record<TaskPriority, string> = {
   URGENT: "border-rose-200 bg-rose-50 text-rose-700",
 };
 
-export const PRIORITY_MARK: Record<TaskPriority, { label: string; className: string; glyph: string }> =
-  {
-    URGENT: { label: "Highest", className: "text-rose-600", glyph: "⇈" },
-    HIGH: { label: "High", className: "text-orange-600", glyph: "↑" },
-    MEDIUM: { label: "Medium", className: "text-amber-600", glyph: "=" },
-    LOW: { label: "Low", className: "text-blue-600", glyph: "↓" },
-  };
+export const PRIORITY_MARK: Record<
+  TaskPriority,
+  { label: string; className: string; glyph: string }
+> = {
+  URGENT: { label: "Highest", className: "text-rose-600", glyph: "⇈" },
+  HIGH: { label: "High", className: "text-orange-600", glyph: "↑" },
+  MEDIUM: { label: "Medium", className: "text-amber-600", glyph: "=" },
+  LOW: { label: "Low", className: "text-blue-600", glyph: "↓" },
+};
 
 /** Board short code for display keys (e.g. Operations → OPS). */
 export function boardKeyPrefix(boardName?: string | null) {

@@ -179,7 +179,7 @@ function ProfilePage() {
     }
   }
 
-  async function handleProfileSave(e: React.FormEvent) {
+  const handleProfileSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canEditAnyProfileField) return;
     setSaving(true);
@@ -230,7 +230,7 @@ function ProfilePage() {
     } finally {
       setSaving(false);
     }
-  }
+  };
 
   const identityFields = (
     <FieldGrid>
@@ -438,7 +438,11 @@ function ProfilePage() {
             : "Your workforce details. Change your password in the security card."
         }
         actions={
-          <Button asChild variant="outline" className="h-11 w-full min-[420px]:h-9 min-[420px]:w-auto">
+          <Button
+            asChild
+            variant="outline"
+            className="h-11 w-full min-[420px]:h-9 min-[420px]:w-auto"
+          >
             <Link to="/id-card">
               <IdCard className="mr-2 size-4" />
               ID card
@@ -477,7 +481,12 @@ function ProfilePage() {
       <form onSubmit={(e) => void handleProfileSave(e)} className="space-y-4 lg:space-y-5">
         {/* Mobile: stacked expandable cards. Desktop: open cards in a wide grid. */}
         <div className="md:hidden">
-          <Accordion type="multiple" value={mobileOpen} onValueChange={setMobileOpen} className="space-y-3">
+          <Accordion
+            type="multiple"
+            value={mobileOpen}
+            onValueChange={setMobileOpen}
+            className="space-y-3"
+          >
             <MobileSectionCard value="identity" icon={UserRound} title="Identity and contact">
               {identityFields}
             </MobileSectionCard>
@@ -634,7 +643,11 @@ function ProfilePage() {
               "md:static md:flex md:justify-end md:rounded-xl md:border md:p-4 md:pb-4 md:pl-4 md:pr-4 md:backdrop-blur-none",
             )}
           >
-            <Button type="submit" disabled={saving} className="h-11 w-full md:h-9 md:w-auto md:min-w-32">
+            <Button
+              type="submit"
+              disabled={saving}
+              className="h-11 w-full md:h-9 md:w-auto md:min-w-32"
+            >
               {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
               Save profile
             </Button>

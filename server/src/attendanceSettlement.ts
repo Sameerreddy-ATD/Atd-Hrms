@@ -1,8 +1,5 @@
 import { EventSource, EventType } from "@prisma/client";
-import {
-  recalculateDailySummary,
-  attendanceDateForEmployee,
-} from "./attendanceEngine.js";
+import { recalculateDailySummary, attendanceDateForEmployee } from "./attendanceEngine.js";
 import {
   activeEmployeeIdsExcludingDeveloperAdmin,
   startOfDayUtc,
@@ -95,16 +92,18 @@ export async function processMissedCheckInNotifications(now = new Date()) {
     if (existing) continue;
 
     // Use reminder table with synthetic eventId key for idempotency
-    await prisma.attendanceReminder.create({
-      data: {
-        employeeId,
-        eventId: tag,
-        eventDate: attendanceDate,
-        eventTime: bounds.missedCheckInAt,
-      },
-    }).catch(async () => {
-      // unique conflict = already notified
-    });
+    await prisma.attendanceReminder
+      .create({
+        data: {
+          employeeId,
+          eventId: tag,
+          eventDate: attendanceDate,
+          eventTime: bounds.missedCheckInAt,
+        },
+      })
+      .catch(async () => {
+        // unique conflict = already notified
+      });
 
     const userId = users.get(employeeId);
     publishNotificationChange("attendance-missed-checkin", tag);
@@ -301,7 +300,9 @@ export async function runPolicyMaintenanceJobs(force = false) {
 
   // Month-end / year-end leave jobs (idempotent)
   const day = istNow.getUTCDate();
-  const lastDay = new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth() + 1, 0)).getUTCDate();
+  const lastDay = new Date(
+    Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth() + 1, 0),
+  ).getUTCDate();
   let leaveAccrual = 0;
   let leaveExpiry = 0;
   if (day === lastDay || force) {
@@ -322,12 +323,11 @@ export async function runPolicyMaintenanceJobs(force = false) {
 
 export function startAttendanceSettlementScheduler() {
   const tick = () => {
-    void Promise.all([
-      runDailyAttendanceSettlement(),
-      runPolicyMaintenanceJobs(),
-    ]).catch((error) => {
-      console.error("Attendance settlement failed", error);
-    });
+    void Promise.all([runDailyAttendanceSettlement(), runPolicyMaintenanceJobs()]).catch(
+      (error) => {
+        console.error("Attendance settlement failed", error);
+      },
+    );
   };
 
   setTimeout(tick, 30_000).unref();

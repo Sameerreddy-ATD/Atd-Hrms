@@ -20,17 +20,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDisplayDateTime } from "@/lib/india-date";
 import { cn } from "@/lib/utils";
 import { tasksApi } from "@/services/api";
-import type { TaskAssignee, TaskBoard, TaskIssueType, TaskPriority, WorkTask } from "@/types/domain";
+import type {
+  TaskAssignee,
+  TaskBoard,
+  TaskIssueType,
+  TaskPriority,
+  WorkTask,
+} from "@/types/domain";
 import {
   dueLabel,
   initials,
@@ -137,8 +138,7 @@ export function TaskDetailDialog({
     setFormError("");
     setSubtaskTitle("");
     const nextFields: Record<string, string> = {};
-    const fieldBoard =
-      boards.find((entry) => entry.id === (task.boardId ?? "")) ?? board;
+    const fieldBoard = boards.find((entry) => entry.id === (task.boardId ?? "")) ?? board;
     for (const def of fieldBoard?.customFieldDefs ?? []) {
       const value = task.customFields?.[def.key];
       nextFields[def.key] = value == null ? "" : String(value);
@@ -311,7 +311,9 @@ export function TaskDetailDialog({
         {loading && !task ? (
           <div className="py-16 text-center text-sm text-muted-foreground">Loading issue…</div>
         ) : !task ? (
-          <div className="py-16 text-center text-sm text-muted-foreground">Issue not available.</div>
+          <div className="py-16 text-center text-sm text-muted-foreground">
+            Issue not available.
+          </div>
         ) : (
           <>
             <SheetHeader className="space-y-3 border-b px-4 py-4 pr-12 text-left sm:px-6">

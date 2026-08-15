@@ -551,9 +551,7 @@ function SettingsPage() {
               <div className="flex items-center gap-2">
                 <Switch
                   checked={Boolean(profileSelfEdit?.enabled)}
-                  disabled={
-                    profileSelfEditLoading || profileSelfEditSaving || !profileSelfEdit
-                  }
+                  disabled={profileSelfEditLoading || profileSelfEditSaving || !profileSelfEdit}
                   aria-label="Allow employees to edit profile details"
                   onCheckedChange={(checked) => {
                     if (!profileSelfEdit) return;
@@ -729,7 +727,9 @@ function SettingsPage() {
                 {supportEnabled && supportUpdatedAt && (
                   <p className="mt-1 text-xs text-muted-foreground">
                     Last updated {formatDisplayDateTime(supportUpdatedAt)}
-                    {supportExpiresAt ? ` · expires ${formatDisplayDateTime(supportExpiresAt)}` : ""}
+                    {supportExpiresAt
+                      ? ` · expires ${formatDisplayDateTime(supportExpiresAt)}`
+                      : ""}
                   </p>
                 )}
               </div>

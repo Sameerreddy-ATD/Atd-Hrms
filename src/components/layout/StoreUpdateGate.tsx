@@ -3,7 +3,11 @@ import { App as CapApp } from "@capacitor/app";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { isNativeApp } from "@/lib/native-app";
-import { checkNativeStoreUpdate, openPlayStoreListing, type StoreUpdateStatus } from "@/lib/store-update";
+import {
+  checkNativeStoreUpdate,
+  openPlayStoreListing,
+  type StoreUpdateStatus,
+} from "@/lib/store-update";
 
 /**
  * Play Store shell only. When a newer AAB is live, block the outdated native
@@ -67,7 +71,10 @@ export function StoreUpdateGate() {
         <h2 id="store-update-title" className="text-center text-xl font-semibold tracking-tight">
           Update Anytime Workforce
         </h2>
-        <p id="store-update-copy" className="mt-2 text-center text-sm leading-relaxed text-muted-foreground">
+        <p
+          id="store-update-copy"
+          className="mt-2 text-center text-sm leading-relaxed text-muted-foreground"
+        >
           A newer app is on Google Play. Update now so attendance, notifications, and the latest
           fixes work on this phone.
         </p>

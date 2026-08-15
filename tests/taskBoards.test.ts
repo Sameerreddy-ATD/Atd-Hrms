@@ -7,7 +7,11 @@ import {
   taskSchema,
   taskUpdateSchema,
 } from "../server/src/schemas.js";
-import { DEFAULT_MODULE_ACCESS, moduleForApiPath } from "../server/src/module-access.js";
+import {
+  DEFAULT_MODULE_ACCESS,
+  moduleForApiPath,
+  normalizeModuleAccess,
+} from "../server/src/module-access.js";
 
 describe("task boards and module access", () => {
   it("accepts a board with custom stages and a completed stage", () => {
@@ -142,11 +146,27 @@ describe("task boards and module access", () => {
     expect(moduleForApiPath("/tasks/123")).toBe("TASKS");
     expect(moduleForApiPath("/leave/requests")).toBe("LEAVE");
     expect(DEFAULT_MODULE_ACCESS.DEVELOPER_ADMIN).toContain("SYSTEM");
-    expect(DEFAULT_MODULE_ACCESS.EMPLOYEE).not.toContain("LIFECYCLE");
+    // Staff reach LIFECYCLE for their own onboarding/offer signing; every route
+    // under it still scopes records to the caller.
+    expect(DEFAULT_MODULE_ACCESS.EMPLOYEE).toContain("LIFECYCLE");
     expect(DEFAULT_MODULE_ACCESS.EMPLOYEE).not.toContain("TALENT");
+    expect(DEFAULT_MODULE_ACCESS.EMPLOYEE).not.toContain("PEOPLE");
+    expect(DEFAULT_MODULE_ACCESS.EMPLOYEE).not.toContain("SYSTEM");
     expect(DEFAULT_MODULE_ACCESS.EMPLOYEE).toContain("PERFORMANCE");
     expect(DEFAULT_MODULE_ACCESS.EMPLOYEE).toContain("LMS");
     expect(DEFAULT_MODULE_ACCESS.HR).toContain("LIFECYCLE");
+    expect(DEFAULT_MODULE_ACCESS.CEO).not.toContain("SYSTEM");
+  });
+
+  it("never grants staff roles the hiring module, even if the stored matrix asks for it", () => {
+    const forced = Object.fromEntries(
+      Object.keys(DEFAULT_MODULE_ACCESS).map((role) => [role, ["TALENT", "SYSTEM", "PEOPLE"]]),
+    );
+    const normalized = normalizeModuleAccess(forced);
+    for (const role of ["EMPLOYEE", "SALES", "DRIVER", "FIELD_STAFF"] as const) {
+      expect(normalized[role]).not.toContain("TALENT");
+    }
+    expect(normalized.DEVELOPER_ADMIN).toContain("SYSTEM");
   });
 });
 

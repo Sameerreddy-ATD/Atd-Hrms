@@ -2,7 +2,14 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
 import type { Express, Request } from "express";
-import { Prisma, Role, UserStatus, EmployeeStatus, EmploymentType, ShiftType } from "@prisma/client";
+import {
+  Prisma,
+  Role,
+  UserStatus,
+  EmployeeStatus,
+  EmploymentType,
+  ShiftType,
+} from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "./prisma.js";
 import { asyncHandler, HttpError } from "./errors.js";
@@ -11,7 +18,11 @@ import { audit } from "./audit.js";
 import { ensureChecklistInstance } from "./checklistService.js";
 import { encryptEmployeeField, lastFour } from "./employeePrivateData.js";
 import { reportingHierarchyCycle } from "./organizationRules.js";
-import { detectAllowedUploadMime, assertClientMimeMatches, decodeBase64Payload } from "./privateFiles.js";
+import {
+  detectAllowedUploadMime,
+  assertClientMimeMatches,
+  decodeBase64Payload,
+} from "./privateFiles.js";
 
 const PEOPLE_OPS: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR, Role.CEO];
 const TALENT_ROLES: Role[] = [...PEOPLE_OPS, Role.MANAGER];
@@ -68,13 +79,18 @@ async function assertCanSeeEmployee(user: NonNullable<Request["user"]>, employee
   throw new HttpError(403, "You can only view your own or your team's records.");
 }
 
-async function saveLifecycleFile(prefix: string, fileName: string, contentBase64: string, claimedMime: string) {
+async function saveLifecycleFile(
+  prefix: string,
+  fileName: string,
+  contentBase64: string,
+  claimedMime: string,
+) {
   const buffer = decodeBase64Payload(contentBase64);
   if (buffer.length > 2_500_000) throw new HttpError(400, "File must be under 2.5 MB");
   const mimeType = detectAllowedUploadMime(buffer);
   assertClientMimeMatches(mimeType, claimedMime);
   await mkdir(filesDir, { recursive: true });
-  const safeName = fileName.replace(/[^\w.\-]+/g, "_").slice(0, 120);
+  const safeName = fileName.replace(/[^\w.-]+/g, "_").slice(0, 120);
   const storageKey = `${prefix}-${randomBytes(8).toString("hex")}-${safeName}`;
   await writeFile(path.join(filesDir, storageKey), buffer, { mode: 0o600 });
   return { storageKey, fileName: safeName, mimeType };
@@ -116,7 +132,12 @@ function jobDto(job: {
 
 function candidateDto(
   row: Prisma.CandidateGetPayload<{
-    include: { job: true; interviews: true; offers: true; hiredEmployee: { select: { employeeId: true; name: true; employeeCode: true } } };
+    include: {
+      job: true;
+      interviews: true;
+      offers: true;
+      hiredEmployee: { select: { employeeId: true; name: true; employeeCode: true } };
+    };
   }>,
 ) {
   return {
@@ -180,7 +201,8 @@ async function applyEmployeeChange(
     const counterpartId = String(payload.counterpartEmployeeId ?? "");
     const workDate = new Date(String(payload.workDate ?? change.effectiveDate));
     if (!counterpartId) throw new HttpError(400, "Counterpart employee is required");
-    if (counterpartId === employeeId) throw new HttpError(400, "Cannot swap shift with the same employee");
+    if (counterpartId === employeeId)
+      throw new HttpError(400, "Cannot swap shift with the same employee");
     const [self, other] = await Promise.all([
       prisma.employee.findUnique({ where: { employeeId } }),
       prisma.employee.findUnique({ where: { employeeId: counterpartId } }),
@@ -204,7 +226,9 @@ async function applyEmployeeChange(
       data: {
         designation: payload.designation ? String(payload.designation) : undefined,
         managerId: payload.managerId ? String(payload.managerId) : undefined,
-        organizationLevel: payload.organizationLevel ? String(payload.organizationLevel) : undefined,
+        organizationLevel: payload.organizationLevel
+          ? String(payload.organizationLevel)
+          : undefined,
       },
     });
     if (payload.ctcAnnual != null) {
@@ -275,7 +299,9 @@ async function applyEmployeeChange(
       where: { employeeId },
       data: {
         managerId,
-        organizationLevel: payload.organizationLevel ? String(payload.organizationLevel) : undefined,
+        organizationLevel: payload.organizationLevel
+          ? String(payload.organizationLevel)
+          : undefined,
       },
     });
   } else if (kind === "RECURRING_ALLOWANCE") {
@@ -304,7 +330,12 @@ async function applyEmployeeChange(
 
   return prisma.employeeChangeRequest.update({
     where: { changeId: change.changeId },
-    data: { status: "APPLIED", appliedAt: new Date(), hrApprovedById: actorId, hrApprovedAt: new Date() },
+    data: {
+      status: "APPLIED",
+      appliedAt: new Date(),
+      hrApprovedById: actorId,
+      hrApprovedAt: new Date(),
+    },
   });
 }
 
@@ -454,7 +485,15 @@ export function registerLifecycleRoutes(app: Express) {
       const body = z
         .object({
           stage: z
-            .enum(["APPLIED", "SCREENING", "INTERVIEW", "OFFER", "ACCEPTED", "REJECTED", "WITHDRAWN"])
+            .enum([
+              "APPLIED",
+              "SCREENING",
+              "INTERVIEW",
+              "OFFER",
+              "ACCEPTED",
+              "REJECTED",
+              "WITHDRAWN",
+            ])
             .optional(),
           notes: z.string().max(4000).nullable().optional(),
           hiredEmployeeId: z.string().nullable().optional(),
@@ -494,7 +533,8 @@ export function registerLifecycleRoutes(app: Express) {
         .parse(req.body);
       const candidateId = routeParam(req, "id");
       const employee = await prisma.employee.findUnique({ where: { employeeId: body.employeeId } });
-      if (!employee) throw new HttpError(404, "Employee login not found — create the user login first");
+      if (!employee)
+        throw new HttpError(404, "Employee login not found — create the user login first");
 
       const row = await prisma.$transaction(async (tx) => {
         const candidate = await tx.candidate.update({
@@ -656,10 +696,13 @@ export function registerLifecycleRoutes(app: Express) {
     "/lifecycle/offers/:id/sign",
     requireAuth,
     asyncHandler(async (req, res) => {
-      const offer = await prisma.offerLetter.findUnique({ where: { offerId: routeParam(req, "id") } });
+      const offer = await prisma.offerLetter.findUnique({
+        where: { offerId: routeParam(req, "id") },
+      });
       if (!offer) throw new HttpError(404, "Offer not found");
       const own =
-        (offer.employeeId && offer.employeeId === req.user!.employeeId) || isPeopleOps(req.user!.role);
+        (offer.employeeId && offer.employeeId === req.user!.employeeId) ||
+        isPeopleOps(req.user!.role);
       if (!own) throw new HttpError(403, "You cannot sign this offer");
       const updated = await prisma.offerLetter.update({
         where: { offerId: offer.offerId },
@@ -687,7 +730,9 @@ export function registerLifecycleRoutes(app: Express) {
             : {},
         orderBy: { updatedAt: "desc" },
         include: {
-          employee: { select: { employeeId: true, name: true, employeeCode: true, lifecycleStage: true } },
+          employee: {
+            select: { employeeId: true, name: true, employeeCode: true, lifecycleStage: true },
+          },
           documents: { orderBy: { docType: "asc" } },
         },
       });
@@ -774,11 +819,18 @@ export function registerLifecycleRoutes(app: Express) {
       });
       if (!doc) throw new HttpError(404, "Document not found");
       await assertCanSeeEmployee(req.user!, doc.case.employeeId);
-      const body = z.object({ file: filePayload, notes: z.string().max(2000).optional() }).parse(req.body);
+      const body = z
+        .object({ file: filePayload, notes: z.string().max(2000).optional() })
+        .parse(req.body);
       let fileName = doc.fileName;
       let storageKey = doc.storageKey;
       if (body.file) {
-        const saved = await saveLifecycleFile("onboard", body.file.fileName, body.file.contentBase64, body.file.mimeType);
+        const saved = await saveLifecycleFile(
+          "onboard",
+          body.file.fileName,
+          body.file.contentBase64,
+          body.file.mimeType,
+        );
         fileName = saved.fileName;
         storageKey = saved.storageKey;
       }
@@ -810,7 +862,9 @@ export function registerLifecycleRoutes(app: Express) {
     requireAuth,
     opsGate,
     asyncHandler(async (req, res) => {
-      const body = z.object({ approved: z.boolean(), notes: z.string().max(2000).optional() }).parse(req.body);
+      const body = z
+        .object({ approved: z.boolean(), notes: z.string().max(2000).optional() })
+        .parse(req.body);
       const doc = await prisma.onboardingDocument.update({
         where: { documentId: routeParam(req, "id") },
         data: {
@@ -836,7 +890,11 @@ export function registerLifecycleRoutes(app: Express) {
           data: { lifecycleStage: "NHO" },
         });
       }
-      res.json({ id: doc.documentId, status: doc.status, caseCompleted: body.approved && allVerified });
+      res.json({
+        id: doc.documentId,
+        status: doc.status,
+        caseCompleted: body.approved && allVerified,
+      });
     }),
   );
 
@@ -876,7 +934,10 @@ export function registerLifecycleRoutes(app: Express) {
           permanentCity: row.permanentCity,
           permanentState: row.permanentState,
           permanentPincode: row.permanentPincode,
-          panNumber: isPeopleOps(req.user!.role) || req.user!.employeeId === row.employeeId ? row.panNumber : null,
+          panNumber:
+            isPeopleOps(req.user!.role) || req.user!.employeeId === row.employeeId
+              ? row.panNumber
+              : null,
           aadhaarLast4: row.aadhaarLast4,
           submittedAt: row.submittedAt?.toISOString() ?? null,
           verifiedAt: row.verifiedAt?.toISOString() ?? null,
@@ -944,7 +1005,9 @@ export function registerLifecycleRoutes(app: Express) {
     requireAuth,
     opsGate,
     asyncHandler(async (req, res) => {
-      const body = z.object({ approved: z.boolean(), hrNotes: z.string().max(2000).optional() }).parse(req.body);
+      const body = z
+        .object({ approved: z.boolean(), hrNotes: z.string().max(2000).optional() })
+        .parse(req.body);
       const employeeId = routeParam(req, "employeeId");
       const profile = await prisma.newHireProfile.findUnique({ where: { employeeId } });
       if (!profile) throw new HttpError(404, "New-hire form not found");
@@ -990,7 +1053,9 @@ export function registerLifecycleRoutes(app: Express) {
             permanentCity: profile.permanentCity,
             permanentState: profile.permanentState,
             permanentPincode: profile.permanentPincode,
-            panNumberEncrypted: profile.panNumber ? encryptEmployeeField(profile.panNumber) : undefined,
+            panNumberEncrypted: profile.panNumber
+              ? encryptEmployeeField(profile.panNumber)
+              : undefined,
             panNumberLast4: profile.panNumber ? lastFour(profile.panNumber) : undefined,
             lifecycleStage: "ACTIVE",
           },
@@ -1125,13 +1190,19 @@ export function registerLifecycleRoutes(app: Express) {
 
       if (body.decision === "REJECT") {
         if (!isPeopleOps(req.user!.role) && change.status !== "PENDING_MANAGER") {
-          throw new HttpError(403, "Managers can only reject requests waiting for manager approval");
+          throw new HttpError(
+            403,
+            "Managers can only reject requests waiting for manager approval",
+          );
         }
         if (
           isPeopleOps(req.user!.role) &&
           !["PENDING_MANAGER", "PENDING_HR", "APPROVED"].includes(change.status)
         ) {
-          throw new HttpError(400, "This change request cannot be rejected from its current status");
+          throw new HttpError(
+            400,
+            "This change request cannot be rejected from its current status",
+          );
         }
         const updated = await prisma.employeeChangeRequest.update({
           where: { changeId: change.changeId },
@@ -1160,7 +1231,11 @@ export function registerLifecycleRoutes(app: Express) {
       if (!isPeopleOps(req.user!.role)) {
         throw new HttpError(403, "HR must apply employment changes");
       }
-      if (change.status !== "PENDING_HR" && change.status !== "APPROVED" && change.status !== "PENDING_MANAGER") {
+      if (
+        change.status !== "PENDING_HR" &&
+        change.status !== "APPROVED" &&
+        change.status !== "PENDING_MANAGER"
+      ) {
         throw new HttpError(400, "This change request cannot be applied from its current status");
       }
       let hrLetterFileName = change.hrLetterFileName;
@@ -1289,7 +1364,9 @@ export function registerLifecycleRoutes(app: Express) {
         skipLevelUserId = skip?.user?.id;
       }
       const review = await prisma.appraisalReview.upsert({
-        where: { cycleId_employeeId: { cycleId: routeParam(req, "id"), employeeId: body.employeeId } },
+        where: {
+          cycleId_employeeId: { cycleId: routeParam(req, "id"), employeeId: body.employeeId },
+        },
         create: {
           cycleId: routeParam(req, "id"),
           employeeId: body.employeeId,
@@ -1307,7 +1384,9 @@ export function registerLifecycleRoutes(app: Express) {
         },
         update: { managerUserId, skipLevelUserId },
       });
-      const goalCount = await prisma.performanceGoal.count({ where: { reviewId: review.reviewId } });
+      const goalCount = await prisma.performanceGoal.count({
+        where: { reviewId: review.reviewId },
+      });
       if (goalCount === 0) {
         await prisma.performanceGoal.createMany({
           data: body.goals.map((goal, index) => ({
@@ -1440,21 +1519,29 @@ export function registerLifecycleRoutes(app: Express) {
       }
 
       if (body.goals) {
-        for (const goal of body.goals) {
-          await prisma.performanceGoal.update({
-            where: { goalId: goal.id },
-            data: {
-              achievedPercent: goal.achievedPercent,
-              employeeComment: isEmployee ? goal.employeeComment : undefined,
-              managerComment: isManager || isPeopleOps(req.user!.role) ? goal.managerComment : undefined,
-            },
-          });
+        const ownedGoalIds = new Set(review.goals.map((goal) => goal.goalId));
+        if (body.goals.some((goal) => !ownedGoalIds.has(goal.id))) {
+          throw new HttpError(400, "A goal in this request does not belong to this review");
         }
+        await prisma.$transaction(
+          body.goals.map((goal) =>
+            prisma.performanceGoal.update({
+              where: { goalId: goal.id },
+              data: {
+                achievedPercent: goal.achievedPercent,
+                employeeComment: isEmployee ? goal.employeeComment : undefined,
+                managerComment:
+                  isManager || isPeopleOps(req.user!.role) ? goal.managerComment : undefined,
+              },
+            }),
+          ),
+        );
       }
 
       let status = review.status;
       const action = body.action ?? "SAVE";
-      if (action === "EMPLOYEE_SUBMIT" && (isEmployee || isPeopleOps(req.user!.role))) status = "EMPLOYEE_SUBMITTED";
+      if (action === "EMPLOYEE_SUBMIT" && (isEmployee || isPeopleOps(req.user!.role)))
+        status = "EMPLOYEE_SUBMITTED";
       if (action === "MANAGER_SUBMIT" && (isManager || isPeopleOps(req.user!.role))) {
         status = review.skipLevelUserId ? "SKIP_LEVEL_PENDING" : "MANAGER_REVIEWED";
       }
@@ -1497,7 +1584,9 @@ export function registerLifecycleRoutes(app: Express) {
     opsGate,
     asyncHandler(async (_req, res) => {
       const rows = await prisma.offboardingCase.findMany({
-        include: { employee: { select: { name: true, employeeCode: true, designation: true, status: true } } },
+        include: {
+          employee: { select: { name: true, employeeCode: true, designation: true, status: true } },
+        },
         orderBy: { updatedAt: "desc" },
       });
       res.json(
@@ -1582,7 +1671,9 @@ export function registerLifecycleRoutes(app: Express) {
           notes: z.string().max(4000).optional(),
         })
         .parse(req.body);
-      const current = await prisma.offboardingCase.findUnique({ where: { caseId: routeParam(req, "id") } });
+      const current = await prisma.offboardingCase.findUnique({
+        where: { caseId: routeParam(req, "id") },
+      });
       if (!current) throw new HttpError(404, "Offboarding case not found");
       const data: Prisma.OffboardingCaseUpdateInput = { status: body.step, notes: body.notes };
       if (body.step === "ACCESS_REMOVED") data.accessRemovedAt = new Date();
@@ -1614,7 +1705,11 @@ export function registerLifecycleRoutes(app: Express) {
           }),
           prisma.user.updateMany({
             where: { employeeId: current.employeeId },
-            data: { status: UserStatus.INACTIVE, deactivatedAt: new Date(), sessionVersion: { increment: 1 } },
+            data: {
+              status: UserStatus.INACTIVE,
+              deactivatedAt: new Date(),
+              sessionVersion: { increment: 1 },
+            },
           }),
         ]);
       }
@@ -1630,11 +1725,18 @@ export function registerLifecycleRoutes(app: Express) {
           }),
           prisma.user.updateMany({
             where: { employeeId: current.employeeId },
-            data: { status: UserStatus.INACTIVE, deactivatedAt: new Date(), sessionVersion: { increment: 1 } },
+            data: {
+              status: UserStatus.INACTIVE,
+              deactivatedAt: new Date(),
+              sessionVersion: { increment: 1 },
+            },
           }),
         ]);
       }
-      const updated = await prisma.offboardingCase.update({ where: { caseId: current.caseId }, data });
+      const updated = await prisma.offboardingCase.update({
+        where: { caseId: current.caseId },
+        data,
+      });
       await audit({
         action: "LIFECYCLE_OFFBOARD_STEP",
         performedByUserId: req.user!.id,
@@ -1656,9 +1758,7 @@ export function registerLifecycleRoutes(app: Express) {
         },
         include: {
           author: { select: { name: true } },
-          reads: req.user!.employeeId
-            ? { where: { employeeId: req.user!.employeeId } }
-            : false,
+          reads: req.user!.employeeId ? { where: { employeeId: req.user!.employeeId } } : false,
         },
         orderBy: { updatedAt: "desc" },
       });
@@ -1700,7 +1800,12 @@ export function registerLifecycleRoutes(app: Express) {
       let fileName: string | undefined;
       let storageKey: string | undefined;
       if (body.file) {
-        const saved = await saveLifecycleFile("lms", body.file.fileName, body.file.contentBase64, body.file.mimeType);
+        const saved = await saveLifecycleFile(
+          "lms",
+          body.file.fileName,
+          body.file.contentBase64,
+          body.file.mimeType,
+        );
         fileName = saved.fileName;
         storageKey = saved.storageKey;
       }
@@ -1724,9 +1829,15 @@ export function registerLifecycleRoutes(app: Express) {
     "/lifecycle/lms/:id/read",
     requireAuth,
     asyncHandler(async (req, res) => {
-      if (!req.user!.employeeId) throw new HttpError(400, "An employee profile is required to mark training as read");
+      if (!req.user!.employeeId)
+        throw new HttpError(400, "An employee profile is required to mark training as read");
       await prisma.sopRead.upsert({
-        where: { articleId_employeeId: { articleId: routeParam(req, "id"), employeeId: req.user!.employeeId } },
+        where: {
+          articleId_employeeId: {
+            articleId: routeParam(req, "id"),
+            employeeId: req.user!.employeeId,
+          },
+        },
         create: { articleId: routeParam(req, "id"), employeeId: req.user!.employeeId },
         update: { readAt: new Date() },
       });
@@ -1758,10 +1869,12 @@ export function registerLifecycleRoutes(app: Express) {
       ]);
       if (doc) await assertCanSeeEmployee(req.user!, doc.case.employeeId);
       else if (article) {
-        if (!article.published && !isPeopleOps(req.user!.role)) throw new HttpError(404, "File not found");
+        if (!article.published && !isPeopleOps(req.user!.role))
+          throw new HttpError(404, "File not found");
       } else if (change) await assertCanSeeEmployee(req.user!, change.employeeId);
       else if (offboarding) {
-        if (!isPeopleOps(req.user!.role)) throw new HttpError(403, "You cannot download this letter");
+        if (!isPeopleOps(req.user!.role))
+          throw new HttpError(403, "You cannot download this letter");
       } else {
         throw new HttpError(404, "File not found");
       }

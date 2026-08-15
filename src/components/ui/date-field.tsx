@@ -138,7 +138,9 @@ const DateField = React.forwardRef<HTMLInputElement, DateFieldProps>(
                 defaultMonth={selected ?? dateKeyToLocalDate(max) ?? dateKeyToLocalDate(min)}
                 captionLayout="dropdown"
                 startMonth={dateKeyToLocalDate(min) ?? new Date(1940, 0, 1)}
-                endMonth={dateKeyToLocalDate(max) ?? new Date(new Date().getFullYear() + 10, 11, 31)}
+                endMonth={
+                  dateKeyToLocalDate(max) ?? new Date(new Date().getFullYear() + 10, 11, 31)
+                }
                 disabled={[
                   ...(min ? [{ before: dateKeyToLocalDate(min)! }] : []),
                   ...(max ? [{ after: dateKeyToLocalDate(max)! }] : []),

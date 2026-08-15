@@ -146,7 +146,8 @@ let cached: { value: ModuleAccessMatrix; expiresAt: number } | null = null;
 
 const LIFECYCLE_MODULES: ModuleKey[] = ["TALENT", "LIFECYCLE", "PERFORMANCE", "LMS"];
 
-function normalize(value: unknown): ModuleAccessMatrix {
+/** Exported for tests: pure, so it can be asserted without a database. */
+export function normalizeModuleAccess(value: unknown): ModuleAccessMatrix {
   const source = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
   return Object.fromEntries(
     Object.values(Role).map((role) => {
@@ -157,7 +158,10 @@ function normalize(value: unknown): ModuleAccessMatrix {
       const hasLifecycleKeys = allowed.some((key) => LIFECYCLE_MODULES.includes(key));
       const merged = hasLifecycleKeys
         ? allowed
-        : [...allowed, ...DEFAULT_MODULE_ACCESS[role].filter((key) => LIFECYCLE_MODULES.includes(key))];
+        : [
+            ...allowed,
+            ...DEFAULT_MODULE_ACCESS[role].filter((key) => LIFECYCLE_MODULES.includes(key)),
+          ];
       const scoped = STAFF_ROLES.includes(role)
         ? merged.filter((key) => !STAFF_HIDDEN_MODULES.includes(key))
         : merged;
@@ -175,13 +179,13 @@ export async function getModuleAccessMatrix() {
   } catch {
     parsed = DEFAULT_MODULE_ACCESS;
   }
-  const value = normalize(parsed);
+  const value = normalizeModuleAccess(parsed);
   cached = { value, expiresAt: Date.now() + 30_000 };
   return value;
 }
 
 export async function saveModuleAccessMatrix(matrix: unknown, updatedById: string) {
-  const value = normalize(matrix);
+  const value = normalizeModuleAccess(matrix);
   await prisma.systemSetting.upsert({
     where: { key: SETTING_KEY },
     create: { key: SETTING_KEY, value: JSON.stringify(value), updatedById },

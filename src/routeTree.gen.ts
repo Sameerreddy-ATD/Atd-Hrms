@@ -20,11 +20,17 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as VerifyIdEmployeeIdRouteImport } from './routes/verify-id.$employeeId'
 import { Route as AppUsersRouteImport } from './routes/_app.users'
 import { Route as AppTasksRouteImport } from './routes/_app.tasks'
+import { Route as AppTalentRouteImport } from './routes/_app.talent'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppRolesRouteImport } from './routes/_app.roles'
 import { Route as AppProfileRouteImport } from './routes/_app.profile'
+import { Route as AppPerformanceRouteImport } from './routes/_app.performance'
+import { Route as AppPeopleChangesRouteImport } from './routes/_app.people-changes'
+import { Route as AppOnboardingRouteImport } from './routes/_app.onboarding'
+import { Route as AppOffboardingRouteImport } from './routes/_app.offboarding'
 import { Route as AppNotificationsRouteImport } from './routes/_app.notifications'
 import { Route as AppMyAssetsRouteImport } from './routes/_app.my-assets'
+import { Route as AppLmsRouteImport } from './routes/_app.lms'
 import { Route as AppIdCardRouteImport } from './routes/_app.id-card'
 import { Route as AppHolidaysRouteImport } from './routes/_app.holidays'
 import { Route as AppFaceSecurityRouteImport } from './routes/_app.face-security'
@@ -37,12 +43,6 @@ import { Route as AppDepartmentsRouteImport } from './routes/_app.departments'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppCompanySetupRouteImport } from './routes/_app.company-setup'
 import { Route as AppChecklistsRouteImport } from './routes/_app.checklists'
-import { Route as AppTalentRouteImport } from './routes/_app.talent'
-import { Route as AppOnboardingRouteImport } from './routes/_app.onboarding'
-import { Route as AppPeopleChangesRouteImport } from './routes/_app.people-changes'
-import { Route as AppPerformanceRouteImport } from './routes/_app.performance'
-import { Route as AppOffboardingRouteImport } from './routes/_app.offboarding'
-import { Route as AppLmsRouteImport } from './routes/_app.lms'
 import { Route as AppBranchesRouteImport } from './routes/_app.branches'
 import { Route as AppAuditRouteImport } from './routes/_app.audit'
 import { Route as AppAttendanceRouteImport } from './routes/_app.attendance'
@@ -119,6 +119,11 @@ const AppTasksRoute = AppTasksRouteImport.update({
   path: '/tasks',
   getParentRoute: () => AppRoute,
 } as any)
+const AppTalentRoute = AppTalentRouteImport.update({
+  id: '/talent',
+  path: '/talent',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -134,6 +139,26 @@ const AppProfileRoute = AppProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AppRoute,
 } as any)
+const AppPerformanceRoute = AppPerformanceRouteImport.update({
+  id: '/performance',
+  path: '/performance',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPeopleChangesRoute = AppPeopleChangesRouteImport.update({
+  id: '/people-changes',
+  path: '/people-changes',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOnboardingRoute = AppOnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOffboardingRoute = AppOffboardingRouteImport.update({
+  id: '/offboarding',
+  path: '/offboarding',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppNotificationsRoute = AppNotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
@@ -142,6 +167,11 @@ const AppNotificationsRoute = AppNotificationsRouteImport.update({
 const AppMyAssetsRoute = AppMyAssetsRouteImport.update({
   id: '/my-assets',
   path: '/my-assets',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppLmsRoute = AppLmsRouteImport.update({
+  id: '/lms',
+  path: '/lms',
   getParentRoute: () => AppRoute,
 } as any)
 const AppIdCardRoute = AppIdCardRouteImport.update({
@@ -202,36 +232,6 @@ const AppCompanySetupRoute = AppCompanySetupRouteImport.update({
 const AppChecklistsRoute = AppChecklistsRouteImport.update({
   id: '/checklists',
   path: '/checklists',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppTalentRoute = AppTalentRouteImport.update({
-  id: '/talent',
-  path: '/talent',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppOnboardingRoute = AppOnboardingRouteImport.update({
-  id: '/onboarding',
-  path: '/onboarding',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppPeopleChangesRoute = AppPeopleChangesRouteImport.update({
-  id: '/people-changes',
-  path: '/people-changes',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppPerformanceRoute = AppPerformanceRouteImport.update({
-  id: '/performance',
-  path: '/performance',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppOffboardingRoute = AppOffboardingRouteImport.update({
-  id: '/offboarding',
-  path: '/offboarding',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppLmsRoute = AppLmsRouteImport.update({
-  id: '/lms',
-  path: '/lms',
   getParentRoute: () => AppRoute,
 } as any)
 const AppBranchesRoute = AppBranchesRouteImport.update({
@@ -356,12 +356,6 @@ export interface FileRoutesByFullPath {
   '/audit': typeof AppAuditRoute
   '/branches': typeof AppBranchesRoute
   '/checklists': typeof AppChecklistsRoute
-  '/talent': typeof AppTalentRoute
-  '/onboarding': typeof AppOnboardingRoute
-  '/people-changes': typeof AppPeopleChangesRoute
-  '/performance': typeof AppPerformanceRoute
-  '/offboarding': typeof AppOffboardingRoute
-  '/lms': typeof AppLmsRoute
   '/company-setup': typeof AppCompanySetupRoute
   '/dashboard': typeof AppDashboardRoute
   '/departments': typeof AppDepartmentsRoute
@@ -373,11 +367,17 @@ export interface FileRoutesByFullPath {
   '/face-security': typeof AppFaceSecurityRoute
   '/holidays': typeof AppHolidaysRoute
   '/id-card': typeof AppIdCardRoute
+  '/lms': typeof AppLmsRoute
   '/my-assets': typeof AppMyAssetsRoute
   '/notifications': typeof AppNotificationsRoute
+  '/offboarding': typeof AppOffboardingRoute
+  '/onboarding': typeof AppOnboardingRoute
+  '/people-changes': typeof AppPeopleChangesRoute
+  '/performance': typeof AppPerformanceRoute
   '/profile': typeof AppProfileRoute
   '/roles': typeof AppRolesRoute
   '/settings': typeof AppSettingsRouteWithChildren
+  '/talent': typeof AppTalentRoute
   '/tasks': typeof AppTasksRoute
   '/users': typeof AppUsersRouteWithChildren
   '/verify-id/$employeeId': typeof VerifyIdEmployeeIdRoute
@@ -411,12 +411,6 @@ export interface FileRoutesByTo {
   '/audit': typeof AppAuditRoute
   '/branches': typeof AppBranchesRoute
   '/checklists': typeof AppChecklistsRoute
-  '/talent': typeof AppTalentRoute
-  '/onboarding': typeof AppOnboardingRoute
-  '/people-changes': typeof AppPeopleChangesRoute
-  '/performance': typeof AppPerformanceRoute
-  '/offboarding': typeof AppOffboardingRoute
-  '/lms': typeof AppLmsRoute
   '/company-setup': typeof AppCompanySetupRoute
   '/dashboard': typeof AppDashboardRoute
   '/departments': typeof AppDepartmentsRoute
@@ -428,11 +422,17 @@ export interface FileRoutesByTo {
   '/face-security': typeof AppFaceSecurityRoute
   '/holidays': typeof AppHolidaysRoute
   '/id-card': typeof AppIdCardRoute
+  '/lms': typeof AppLmsRoute
   '/my-assets': typeof AppMyAssetsRoute
   '/notifications': typeof AppNotificationsRoute
+  '/offboarding': typeof AppOffboardingRoute
+  '/onboarding': typeof AppOnboardingRoute
+  '/people-changes': typeof AppPeopleChangesRoute
+  '/performance': typeof AppPerformanceRoute
   '/profile': typeof AppProfileRoute
   '/roles': typeof AppRolesRoute
   '/settings': typeof AppSettingsRouteWithChildren
+  '/talent': typeof AppTalentRoute
   '/tasks': typeof AppTasksRoute
   '/users': typeof AppUsersRouteWithChildren
   '/verify-id/$employeeId': typeof VerifyIdEmployeeIdRoute
@@ -469,12 +469,6 @@ export interface FileRoutesById {
   '/_app/audit': typeof AppAuditRoute
   '/_app/branches': typeof AppBranchesRoute
   '/_app/checklists': typeof AppChecklistsRoute
-  '/_app/talent': typeof AppTalentRoute
-  '/_app/onboarding': typeof AppOnboardingRoute
-  '/_app/people-changes': typeof AppPeopleChangesRoute
-  '/_app/performance': typeof AppPerformanceRoute
-  '/_app/offboarding': typeof AppOffboardingRoute
-  '/_app/lms': typeof AppLmsRoute
   '/_app/company-setup': typeof AppCompanySetupRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/departments': typeof AppDepartmentsRoute
@@ -486,11 +480,17 @@ export interface FileRoutesById {
   '/_app/face-security': typeof AppFaceSecurityRoute
   '/_app/holidays': typeof AppHolidaysRoute
   '/_app/id-card': typeof AppIdCardRoute
+  '/_app/lms': typeof AppLmsRoute
   '/_app/my-assets': typeof AppMyAssetsRoute
   '/_app/notifications': typeof AppNotificationsRoute
+  '/_app/offboarding': typeof AppOffboardingRoute
+  '/_app/onboarding': typeof AppOnboardingRoute
+  '/_app/people-changes': typeof AppPeopleChangesRoute
+  '/_app/performance': typeof AppPerformanceRoute
   '/_app/profile': typeof AppProfileRoute
   '/_app/roles': typeof AppRolesRoute
   '/_app/settings': typeof AppSettingsRouteWithChildren
+  '/_app/talent': typeof AppTalentRoute
   '/_app/tasks': typeof AppTasksRoute
   '/_app/users': typeof AppUsersRouteWithChildren
   '/verify-id/$employeeId': typeof VerifyIdEmployeeIdRoute
@@ -527,12 +527,6 @@ export interface FileRouteTypes {
     | '/audit'
     | '/branches'
     | '/checklists'
-    | '/talent'
-    | '/onboarding'
-    | '/people-changes'
-    | '/performance'
-    | '/offboarding'
-    | '/lms'
     | '/company-setup'
     | '/dashboard'
     | '/departments'
@@ -544,11 +538,17 @@ export interface FileRouteTypes {
     | '/face-security'
     | '/holidays'
     | '/id-card'
+    | '/lms'
     | '/my-assets'
     | '/notifications'
+    | '/offboarding'
+    | '/onboarding'
+    | '/people-changes'
+    | '/performance'
     | '/profile'
     | '/roles'
     | '/settings'
+    | '/talent'
     | '/tasks'
     | '/users'
     | '/verify-id/$employeeId'
@@ -582,12 +582,6 @@ export interface FileRouteTypes {
     | '/audit'
     | '/branches'
     | '/checklists'
-    | '/talent'
-    | '/onboarding'
-    | '/people-changes'
-    | '/performance'
-    | '/offboarding'
-    | '/lms'
     | '/company-setup'
     | '/dashboard'
     | '/departments'
@@ -599,11 +593,17 @@ export interface FileRouteTypes {
     | '/face-security'
     | '/holidays'
     | '/id-card'
+    | '/lms'
     | '/my-assets'
     | '/notifications'
+    | '/offboarding'
+    | '/onboarding'
+    | '/people-changes'
+    | '/performance'
     | '/profile'
     | '/roles'
     | '/settings'
+    | '/talent'
     | '/tasks'
     | '/users'
     | '/verify-id/$employeeId'
@@ -639,12 +639,6 @@ export interface FileRouteTypes {
     | '/_app/audit'
     | '/_app/branches'
     | '/_app/checklists'
-    | '/_app/talent'
-    | '/_app/onboarding'
-    | '/_app/people-changes'
-    | '/_app/performance'
-    | '/_app/offboarding'
-    | '/_app/lms'
     | '/_app/company-setup'
     | '/_app/dashboard'
     | '/_app/departments'
@@ -656,11 +650,17 @@ export interface FileRouteTypes {
     | '/_app/face-security'
     | '/_app/holidays'
     | '/_app/id-card'
+    | '/_app/lms'
     | '/_app/my-assets'
     | '/_app/notifications'
+    | '/_app/offboarding'
+    | '/_app/onboarding'
+    | '/_app/people-changes'
+    | '/_app/performance'
     | '/_app/profile'
     | '/_app/roles'
     | '/_app/settings'
+    | '/_app/talent'
     | '/_app/tasks'
     | '/_app/users'
     | '/verify-id/$employeeId'
@@ -773,6 +773,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTasksRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/talent': {
+      id: '/_app/talent'
+      path: '/talent'
+      fullPath: '/talent'
+      preLoaderRoute: typeof AppTalentRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/settings': {
       id: '/_app/settings'
       path: '/settings'
@@ -794,6 +801,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProfileRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/performance': {
+      id: '/_app/performance'
+      path: '/performance'
+      fullPath: '/performance'
+      preLoaderRoute: typeof AppPerformanceRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/people-changes': {
+      id: '/_app/people-changes'
+      path: '/people-changes'
+      fullPath: '/people-changes'
+      preLoaderRoute: typeof AppPeopleChangesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/onboarding': {
+      id: '/_app/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof AppOnboardingRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/offboarding': {
+      id: '/_app/offboarding'
+      path: '/offboarding'
+      fullPath: '/offboarding'
+      preLoaderRoute: typeof AppOffboardingRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/notifications': {
       id: '/_app/notifications'
       path: '/notifications'
@@ -806,6 +841,13 @@ declare module '@tanstack/react-router' {
       path: '/my-assets'
       fullPath: '/my-assets'
       preLoaderRoute: typeof AppMyAssetsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/lms': {
+      id: '/_app/lms'
+      path: '/lms'
+      fullPath: '/lms'
+      preLoaderRoute: typeof AppLmsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/id-card': {
@@ -890,48 +932,6 @@ declare module '@tanstack/react-router' {
       path: '/checklists'
       fullPath: '/checklists'
       preLoaderRoute: typeof AppChecklistsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/talent': {
-      id: '/_app/talent'
-      path: '/talent'
-      fullPath: '/talent'
-      preLoaderRoute: typeof AppTalentRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/onboarding': {
-      id: '/_app/onboarding'
-      path: '/onboarding'
-      fullPath: '/onboarding'
-      preLoaderRoute: typeof AppOnboardingRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/people-changes': {
-      id: '/_app/people-changes'
-      path: '/people-changes'
-      fullPath: '/people-changes'
-      preLoaderRoute: typeof AppPeopleChangesRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/performance': {
-      id: '/_app/performance'
-      path: '/performance'
-      fullPath: '/performance'
-      preLoaderRoute: typeof AppPerformanceRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/offboarding': {
-      id: '/_app/offboarding'
-      path: '/offboarding'
-      fullPath: '/offboarding'
-      preLoaderRoute: typeof AppOffboardingRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/lms': {
-      id: '/_app/lms'
-      path: '/lms'
-      fullPath: '/lms'
-      preLoaderRoute: typeof AppLmsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/branches': {
@@ -1151,12 +1151,6 @@ interface AppRouteChildren {
   AppAuditRoute: typeof AppAuditRoute
   AppBranchesRoute: typeof AppBranchesRoute
   AppChecklistsRoute: typeof AppChecklistsRoute
-  AppTalentRoute: typeof AppTalentRoute
-  AppOnboardingRoute: typeof AppOnboardingRoute
-  AppPeopleChangesRoute: typeof AppPeopleChangesRoute
-  AppPerformanceRoute: typeof AppPerformanceRoute
-  AppOffboardingRoute: typeof AppOffboardingRoute
-  AppLmsRoute: typeof AppLmsRoute
   AppCompanySetupRoute: typeof AppCompanySetupRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppDepartmentsRoute: typeof AppDepartmentsRoute
@@ -1168,11 +1162,17 @@ interface AppRouteChildren {
   AppFaceSecurityRoute: typeof AppFaceSecurityRoute
   AppHolidaysRoute: typeof AppHolidaysRoute
   AppIdCardRoute: typeof AppIdCardRoute
+  AppLmsRoute: typeof AppLmsRoute
   AppMyAssetsRoute: typeof AppMyAssetsRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
+  AppOffboardingRoute: typeof AppOffboardingRoute
+  AppOnboardingRoute: typeof AppOnboardingRoute
+  AppPeopleChangesRoute: typeof AppPeopleChangesRoute
+  AppPerformanceRoute: typeof AppPerformanceRoute
   AppProfileRoute: typeof AppProfileRoute
   AppRolesRoute: typeof AppRolesRoute
   AppSettingsRoute: typeof AppSettingsRouteWithChildren
+  AppTalentRoute: typeof AppTalentRoute
   AppTasksRoute: typeof AppTasksRoute
   AppUsersRoute: typeof AppUsersRouteWithChildren
   AppLeaveApplyRoute: typeof AppLeaveApplyRoute
@@ -1190,12 +1190,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppAuditRoute: AppAuditRoute,
   AppBranchesRoute: AppBranchesRoute,
   AppChecklistsRoute: AppChecklistsRoute,
-  AppTalentRoute: AppTalentRoute,
-  AppOnboardingRoute: AppOnboardingRoute,
-  AppPeopleChangesRoute: AppPeopleChangesRoute,
-  AppPerformanceRoute: AppPerformanceRoute,
-  AppOffboardingRoute: AppOffboardingRoute,
-  AppLmsRoute: AppLmsRoute,
   AppCompanySetupRoute: AppCompanySetupRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppDepartmentsRoute: AppDepartmentsRoute,
@@ -1207,11 +1201,17 @@ const AppRouteChildren: AppRouteChildren = {
   AppFaceSecurityRoute: AppFaceSecurityRoute,
   AppHolidaysRoute: AppHolidaysRoute,
   AppIdCardRoute: AppIdCardRoute,
+  AppLmsRoute: AppLmsRoute,
   AppMyAssetsRoute: AppMyAssetsRoute,
   AppNotificationsRoute: AppNotificationsRoute,
+  AppOffboardingRoute: AppOffboardingRoute,
+  AppOnboardingRoute: AppOnboardingRoute,
+  AppPeopleChangesRoute: AppPeopleChangesRoute,
+  AppPerformanceRoute: AppPerformanceRoute,
   AppProfileRoute: AppProfileRoute,
   AppRolesRoute: AppRolesRoute,
   AppSettingsRoute: AppSettingsRouteWithChildren,
+  AppTalentRoute: AppTalentRoute,
   AppTasksRoute: AppTasksRoute,
   AppUsersRoute: AppUsersRouteWithChildren,
   AppLeaveApplyRoute: AppLeaveApplyRoute,

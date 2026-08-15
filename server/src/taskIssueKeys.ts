@@ -17,7 +17,12 @@ export function deriveBoardKeyPrefix(name: string, fallbackId = "BOARD") {
       : (words[0] ?? "TASK").replace(/[^A-Z0-9]/g, "");
   prefix = prefix.slice(0, 4);
   if (prefix.length < 2) {
-    prefix = `B${fallbackId.replace(/[^A-Za-z0-9]/g, "").slice(0, 3).toUpperCase() || "RD"}`;
+    prefix = `B${
+      fallbackId
+        .replace(/[^A-Za-z0-9]/g, "")
+        .slice(0, 3)
+        .toUpperCase() || "RD"
+    }`;
   }
   return prefix.slice(0, 8);
 }

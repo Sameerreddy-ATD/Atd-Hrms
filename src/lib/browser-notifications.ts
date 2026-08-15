@@ -15,7 +15,8 @@ type InboxState = { at: string; ids: string[] };
 function currentUserId() {
   try {
     const raw =
-      window.sessionStorage.getItem(SESSION_USER_KEY) ?? window.localStorage.getItem(SESSION_USER_KEY);
+      window.sessionStorage.getItem(SESSION_USER_KEY) ??
+      window.localStorage.getItem(SESSION_USER_KEY);
     if (!raw) return "";
     const parsed = JSON.parse(raw) as { id?: string };
     return parsed.id ?? "";
@@ -34,7 +35,10 @@ function readInboxState(): InboxState {
   try {
     const parsed = JSON.parse(raw) as InboxState;
     if (parsed && typeof parsed === "object" && Array.isArray(parsed.ids)) {
-      return { at: typeof parsed.at === "string" ? parsed.at : "", ids: parsed.ids.filter(Boolean) };
+      return {
+        at: typeof parsed.at === "string" ? parsed.at : "",
+        ids: parsed.ids.filter(Boolean),
+      };
     }
   } catch {
     // Legacy value was a timestamp string.
@@ -43,7 +47,10 @@ function readInboxState(): InboxState {
 }
 
 function writeInboxState(state: InboxState) {
-  writeLocalStorage(inboxStorageKey(), JSON.stringify({ at: state.at, ids: state.ids.slice(-400) }));
+  writeLocalStorage(
+    inboxStorageKey(),
+    JSON.stringify({ at: state.at, ids: state.ids.slice(-400) }),
+  );
 }
 
 function readLocalStorage(key: string) {
@@ -81,13 +88,18 @@ export function getNotificationsClearedAt() {
 export function hydrateNotificationInbox(state: { ids?: string[]; at?: string | null }) {
   const current = readInboxState();
   const ids = [...new Set([...(state.ids ?? []), ...current.ids])];
-  const at = state.at && (!current.at || +new Date(state.at) >= +new Date(current.at)) ? state.at : current.at;
+  const at =
+    state.at && (!current.at || +new Date(state.at) >= +new Date(current.at))
+      ? state.at
+      : current.at;
   writeInboxState({ at: at || current.at, ids });
 }
 
 export function clearNotifications(items: NotificationItem[]) {
   const at = new Date().toISOString();
-  const ids = [...new Set([...readInboxState().ids, ...items.map((item) => item.id).filter(Boolean)])];
+  const ids = [
+    ...new Set([...readInboxState().ids, ...items.map((item) => item.id).filter(Boolean)]),
+  ];
   writeInboxState({ at, ids });
   window.dispatchEvent(new Event(NOTIFICATION_COUNT_CHANGED_EVENT));
 }
@@ -275,7 +287,9 @@ export async function showDesktopNotification(item: NotificationItem) {
   });
   try {
     if ("setAppBadge" in navigator) {
-      await (navigator as Navigator & { setAppBadge: (count?: number) => Promise<void> }).setAppBadge();
+      await (
+        navigator as Navigator & { setAppBadge: (count?: number) => Promise<void> }
+      ).setAppBadge();
     }
   } catch {
     // Optional badge support.
@@ -411,4 +425,3 @@ export async function enableDesktopAlerts() {
     type: "system",
   });
 }
-

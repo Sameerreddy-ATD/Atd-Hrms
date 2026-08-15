@@ -36,16 +36,14 @@ function PrivacyPage() {
               required for HR operations (encrypted at rest where configured).
             </li>
             <li>
-              Attendance: check-in/out times, GPS coordinates used for branch geofencing, and optional
-              face templates/evidence when face verification is enabled by Developer Admin.
+              Attendance: check-in/out times, GPS coordinates used for branch geofencing, and
+              optional face templates/evidence when face verification is enabled by Developer Admin.
             </li>
             <li>
               Operational records: leave, Work Planner tasks, assets, expenses, HR documents,
               announcements, and audit history.
             </li>
-            <li>
-              Device push tokens (web push or store app FCM/APNs) when you enable alerts.
-            </li>
+            <li>Device push tokens (web push or store app FCM/APNs) when you enable alerts.</li>
           </ul>
           <h2 className="text-base font-semibold">How we use data</h2>
           <p className="text-muted-foreground">
@@ -56,15 +54,15 @@ function PrivacyPage() {
           </p>
           <h2 className="text-base font-semibold">Sharing</h2>
           <p className="text-muted-foreground">
-            Data stays within Anytime Diesel systems and authorized processors (hosting, backups). We
-            do not sell personal data. Role-based access controls which colleagues can see your
+            Data stays within Anytime Diesel systems and authorized processors (hosting, backups).
+            We do not sell personal data. Role-based access controls which colleagues can see your
             records.
           </p>
           <h2 className="text-base font-semibold">Retention and account deletion</h2>
           <p className="text-muted-foreground">
-            Employment history may be retained for company compliance after offboarding. Face evidence
-            follows the Face Security retention settings. To end access and request deletion of your
-            login and associated personal app data, follow{" "}
+            Employment history may be retained for company compliance after offboarding. Face
+            evidence follows the Face Security retention settings. To end access and request
+            deletion of your login and associated personal app data, follow{" "}
             <Link to="/account-deletion" className="font-medium text-primary hover:underline">
               Account deletion
             </Link>
@@ -91,7 +89,10 @@ function PrivacyPage() {
           <p className="text-muted-foreground">
             Questions about this policy: your HR team or the Developer Admin for Anytime Workforce.
             Production site:{" "}
-            <a className="font-medium text-primary hover:underline" href="https://hrms.anytime-diesel.com">
+            <a
+              className="font-medium text-primary hover:underline"
+              href="https://hrms.anytime-diesel.com"
+            >
               hrms.anytime-diesel.com
             </a>
             .

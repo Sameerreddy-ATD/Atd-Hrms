@@ -68,9 +68,7 @@ const PEOPLE_LEADERS: Role[] = [...PEOPLE_OPS, "manager"];
 export const menuGroups: MenuGroup[] = [
   {
     label: "Overview",
-    items: [
-      { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard, roles: ALL },
-    ],
+    items: [{ label: "Dashboard", to: "/dashboard", icon: LayoutDashboard, roles: ALL }],
   },
   {
     label: "People",
@@ -373,19 +371,96 @@ function groupOrderForRole(role: Role): string[] {
     case "sales":
     case "driver":
     case "field_staff":
-      return ["Overview", "Attendance", "Leave", "Work", "Hire", "Career", "Me", "Company", "People", "System"];
+      return [
+        "Overview",
+        "Attendance",
+        "Leave",
+        "Work",
+        "Hire",
+        "Career",
+        "Me",
+        "Company",
+        "People",
+        "System",
+      ];
     case "manager":
-      return ["Overview", "Attendance", "Leave", "Work", "Hire", "Career", "People", "Me", "Company", "System"];
+      return [
+        "Overview",
+        "Attendance",
+        "Leave",
+        "Work",
+        "Hire",
+        "Career",
+        "People",
+        "Me",
+        "Company",
+        "System",
+      ];
     case "hr":
-      return ["Overview", "People", "Hire", "Career", "Leave", "Attendance", "Work", "Company", "Me", "System"];
+      return [
+        "Overview",
+        "People",
+        "Hire",
+        "Career",
+        "Leave",
+        "Attendance",
+        "Work",
+        "Company",
+        "Me",
+        "System",
+      ];
     case "ceo":
-      return ["Overview", "People", "Hire", "Career", "Attendance", "Leave", "Work", "Company", "Me", "System"];
+      return [
+        "Overview",
+        "People",
+        "Hire",
+        "Career",
+        "Attendance",
+        "Leave",
+        "Work",
+        "Company",
+        "Me",
+        "System",
+      ];
     case "main_admin":
-      return ["Overview", "People", "Hire", "Career", "Attendance", "Leave", "Company", "System", "Work", "Me"];
+      return [
+        "Overview",
+        "People",
+        "Hire",
+        "Career",
+        "Attendance",
+        "Leave",
+        "Company",
+        "System",
+        "Work",
+        "Me",
+      ];
     case "developer_admin":
-      return ["Overview", "People", "Hire", "Career", "Attendance", "Leave", "Work", "Company", "System", "Me"];
+      return [
+        "Overview",
+        "People",
+        "Hire",
+        "Career",
+        "Attendance",
+        "Leave",
+        "Work",
+        "Company",
+        "System",
+        "Me",
+      ];
     default:
-      return ["Overview", "Attendance", "Leave", "Work", "Hire", "Career", "People", "Company", "Me", "System"];
+      return [
+        "Overview",
+        "Attendance",
+        "Leave",
+        "Work",
+        "Hire",
+        "Career",
+        "People",
+        "Company",
+        "Me",
+        "System",
+      ];
   }
 }
 
@@ -574,7 +649,11 @@ export function moduleForRoute(path: string): ModuleKey {
   )
     return "PEOPLE";
   if (path === "/talent" || path.startsWith("/talent/")) return "TALENT";
-  if (["/onboarding", "/people-changes", "/offboarding"].some((entry) => path === entry || path.startsWith(`${entry}/`)))
+  if (
+    ["/onboarding", "/people-changes", "/offboarding"].some(
+      (entry) => path === entry || path.startsWith(`${entry}/`),
+    )
+  )
     return "LIFECYCLE";
   if (path === "/performance" || path.startsWith("/performance/")) return "PERFORMANCE";
   if (path === "/lms" || path.startsWith("/lms/")) return "LMS";

@@ -42,7 +42,9 @@ function ForgotPasswordPage() {
         <CardContent className="p-6 sm:p-8">
           <div className="mb-6 flex flex-col items-center gap-2 text-center">
             <Logo variant="mark" className="h-14 w-14" />
-            <p className="text-sm font-semibold tracking-tight text-foreground">Anytime Workforce</p>
+            <p className="text-sm font-semibold tracking-tight text-foreground">
+              Anytime Workforce
+            </p>
           </div>
           <h1 className="text-lg font-semibold">Password assistance</h1>
           <p className="mt-1 text-sm text-muted-foreground">

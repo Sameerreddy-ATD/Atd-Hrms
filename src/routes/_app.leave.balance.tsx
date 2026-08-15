@@ -128,7 +128,9 @@ function LeaveBalancePage() {
                       <TableCell className="text-sm text-muted-foreground">
                         {row.revokeReason ||
                           (row.expiredAt ? `Expired ${formatDisplayDate(row.expiredAt)}` : "") ||
-                          (row.consumedByLeaveRequestId ? "Used on an approved Comp Off leave" : "—")}
+                          (row.consumedByLeaveRequestId
+                            ? "Used on an approved Comp Off leave"
+                            : "—")}
                       </TableCell>
                     </TableRow>
                   ))}

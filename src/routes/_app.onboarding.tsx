@@ -14,7 +14,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { DateField } from "@/components/ui/date-field";
 import { useAuth } from "@/lib/auth";
-import { fileToPayload, isPeopleLeaderRole, isPeopleOpsRole, labelize, ONBOARDING_DOC_LABELS } from "@/lib/lifecycle";
+import {
+  fileToPayload,
+  isPeopleLeaderRole,
+  isPeopleOpsRole,
+  labelize,
+  ONBOARDING_DOC_LABELS,
+} from "@/lib/lifecycle";
 import { employeesApi, lifecycleApi } from "@/services/api";
 import type { User } from "@/types/domain";
 
@@ -105,8 +111,7 @@ function OnboardingPage() {
 
   if (loading) return <LoadingState label="Loading onboarding" />;
 
-  const hasWork =
-    cases.length > 0 || nho.length > 0 || Boolean(user?.employeeId) || canManage;
+  const hasWork = cases.length > 0 || nho.length > 0 || Boolean(user?.employeeId) || canManage;
 
   if (!hasWork) {
     return (
@@ -141,7 +146,9 @@ function OnboardingPage() {
                     toast.success("Onboarding started — documents are ready to sign");
                     await load();
                   } catch (error) {
-                    toast.error(error instanceof Error ? error.message : "Could not start onboarding");
+                    toast.error(
+                      error instanceof Error ? error.message : "Could not start onboarding",
+                    );
                   }
                 }}
               >
@@ -188,7 +195,9 @@ function OnboardingPage() {
                         <StatusBadge status={labelize(String(doc.status))} />
                       </div>
                       <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                        {["PENDING", "SENT", "REJECTED", "UPLOADED", "SIGNED"].includes(String(doc.status)) ? (
+                        {["PENDING", "SENT", "REJECTED", "UPLOADED", "SIGNED"].includes(
+                          String(doc.status),
+                        ) ? (
                           <label className="inline-flex h-11 flex-1 cursor-pointer items-center justify-center rounded-md border text-sm">
                             Upload / sign
                             <input
@@ -205,7 +214,9 @@ function OnboardingPage() {
                                   toast.success("Document submitted");
                                   await load();
                                 } catch (error) {
-                                  toast.error(error instanceof Error ? error.message : "Upload failed");
+                                  toast.error(
+                                    error instanceof Error ? error.message : "Upload failed",
+                                  );
                                 }
                               }}
                             />
@@ -217,9 +228,14 @@ function OnboardingPage() {
                             className="h-11"
                             onClick={() =>
                               void lifecycleApi
-                                .downloadFile(String(doc.fileKey), String(doc.fileName || "document"))
+                                .downloadFile(
+                                  String(doc.fileKey),
+                                  String(doc.fileName || "document"),
+                                )
                                 .catch((error) =>
-                                  toast.error(error instanceof Error ? error.message : "Download failed"),
+                                  toast.error(
+                                    error instanceof Error ? error.message : "Download failed",
+                                  ),
                                 )
                             }
                           >
@@ -233,11 +249,15 @@ function OnboardingPage() {
                               className="h-11"
                               onClick={async () => {
                                 try {
-                                  await lifecycleApi.verifyOnboardingDoc(String(doc.id), { approved: true });
+                                  await lifecycleApi.verifyOnboardingDoc(String(doc.id), {
+                                    approved: true,
+                                  });
                                   toast.success("Verified");
                                   await load();
                                 } catch (error) {
-                                  toast.error(error instanceof Error ? error.message : "Verify failed");
+                                  toast.error(
+                                    error instanceof Error ? error.message : "Verify failed",
+                                  );
                                 }
                               }}
                             >
@@ -248,11 +268,15 @@ function OnboardingPage() {
                               className="h-11"
                               onClick={async () => {
                                 try {
-                                  await lifecycleApi.verifyOnboardingDoc(String(doc.id), { approved: false });
+                                  await lifecycleApi.verifyOnboardingDoc(String(doc.id), {
+                                    approved: false,
+                                  });
                                   toast.message("Document rejected — ask the hire to re-upload");
                                   await load();
                                 } catch (error) {
-                                  toast.error(error instanceof Error ? error.message : "Reject failed");
+                                  toast.error(
+                                    error instanceof Error ? error.message : "Reject failed",
+                                  );
                                 }
                               }}
                             >
@@ -277,7 +301,12 @@ function OnboardingPage() {
                   value={employeeId}
                   onChange={(next) => {
                     setEmployeeId(next);
-                    setForm(formFromNho(nho.find((row) => row.employeeId === next), user?.name ?? ""));
+                    setForm(
+                      formFromNho(
+                        nho.find((row) => row.employeeId === next),
+                        user?.name ?? "",
+                      ),
+                    );
                   }}
                   label="New hire"
                 />
@@ -409,7 +438,11 @@ function OnboardingPage() {
                   onClick={async () => {
                     const target =
                       employeeId ||
-                      String(nho.find((row) => row.employeeId === employeeId)?.employeeId || nho[0]?.employeeId || "");
+                      String(
+                        nho.find((row) => row.employeeId === employeeId)?.employeeId ||
+                          nho[0]?.employeeId ||
+                          "",
+                      );
                     if (!target) return toast.error("Select the new hire first");
                     try {
                       await lifecycleApi.verifyNho(target, { approved: true });

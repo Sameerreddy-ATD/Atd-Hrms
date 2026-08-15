@@ -59,7 +59,11 @@ function viewport(): string {
 }
 
 /** Fire-and-forget report. Never throws, never blocks the UI. */
-export function reportClientError(error: unknown, source: ReportSource = "manual", path?: string): void {
+export function reportClientError(
+  error: unknown,
+  source: ReportSource = "manual",
+  path?: string,
+): void {
   if (typeof window === "undefined" || reporting) return;
   const { message, stack } = normalizeError(error);
   const signature = `${source}:${message}:${(stack ?? "").slice(0, 120)}`;

@@ -51,20 +51,26 @@ export function AppOpenSplash() {
       openTimer = window.setTimeout(() => {
         if (!cancelled) setPhase("open");
       }, holdMs);
-      leaveTimer = window.setTimeout(() => {
-        if (!cancelled) setPhase("exit");
-      }, holdMs + openMs + restMs);
-      doneTimer = window.setTimeout(() => {
-        if (cancelled) return;
-        setPhase("done");
-        if (!native) {
-          try {
-            window.sessionStorage.setItem(PLAYED_KEY, "1");
-          } catch {
-            // Ignore.
+      leaveTimer = window.setTimeout(
+        () => {
+          if (!cancelled) setPhase("exit");
+        },
+        holdMs + openMs + restMs,
+      );
+      doneTimer = window.setTimeout(
+        () => {
+          if (cancelled) return;
+          setPhase("done");
+          if (!native) {
+            try {
+              window.sessionStorage.setItem(PLAYED_KEY, "1");
+            } catch {
+              // Ignore.
+            }
           }
-        }
-      }, holdMs + openMs + restMs + exitMs);
+        },
+        holdMs + openMs + restMs + exitMs,
+      );
     }
 
     async function start() {

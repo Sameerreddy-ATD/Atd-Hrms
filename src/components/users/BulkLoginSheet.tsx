@@ -74,9 +74,7 @@ export function BulkLoginSheet({
 
   useEffect(() => {
     if (!open) return;
-    setRows((current) =>
-      revalidateRows(current, { branches, departments, existingEmployees }),
-    );
+    setRows((current) => revalidateRows(current, { branches, departments, existingEmployees }));
   }, [open, branches, departments, existingEmployees]);
 
   function updateCell(rowId: string, key: LoginImportFieldKey, value: string) {
@@ -87,10 +85,7 @@ export function BulkLoginSheet({
   }
 
   function addRows(count = 10) {
-    setRows((current) => [
-      ...current,
-      ...createBlankRows(count, current.length),
-    ]);
+    setRows((current) => [...current, ...createBlankRows(count, current.length)]);
   }
 
   function resetSheet() {
@@ -168,10 +163,7 @@ export function BulkLoginSheet({
       const ready = pending
         .filter((row) => {
           const payload = rowToCreatePayload(row, { branches, departments });
-          return (
-            !payload.managerReference ||
-            resolvedManagerIds.has(payload.managerReference)
-          );
+          return !payload.managerReference || resolvedManagerIds.has(payload.managerReference);
         })
         .slice(0, 4);
       if (!ready.length) {
@@ -444,7 +436,13 @@ export function BulkLoginSheet({
           </div>
 
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <Button type="button" variant="outline" size="sm" disabled={importing} onClick={() => addRows(10)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={importing}
+              onClick={() => addRows(10)}
+            >
               <Plus className="mr-1.5 h-4 w-4" /> Add 10 rows
             </Button>
             <Button

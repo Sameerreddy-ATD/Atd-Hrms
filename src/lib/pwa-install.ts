@@ -26,7 +26,8 @@ export function isStandalonePwa() {
   if (typeof window === "undefined" || isNativeApp()) return false;
   const standaloneDisplay = window.matchMedia("(display-mode: standalone)").matches;
   const standaloneIos =
-    "standalone" in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
+    "standalone" in navigator &&
+    Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
   const windowControls =
     window.matchMedia("(display-mode: window-controls-overlay)").matches ||
     window.matchMedia("(display-mode: minimal-ui)").matches;
@@ -49,7 +50,10 @@ export function getAppSurface(): "native" | "pwa" | "browser" {
 export function detectPwaPlatform(): PwaPlatform {
   if (typeof navigator === "undefined") return "other";
   const ua = navigator.userAgent;
-  if (/iPhone|iPad|iPod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) {
+  if (
+    /iPhone|iPad|iPod/i.test(ua) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  ) {
     return "ios";
   }
   if (/Android/i.test(ua)) return "android";
@@ -62,7 +66,8 @@ export function isIosSafari() {
   if (typeof navigator === "undefined") return false;
   const ua = navigator.userAgent;
   const isIos =
-    /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    /iPhone|iPad|iPod/i.test(ua) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   const isSafari = /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS|Chrome|Android/i.test(ua);
   return isIos && isSafari;
 }

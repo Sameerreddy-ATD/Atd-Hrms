@@ -8,11 +8,23 @@ import { LoadingState } from "@/components/common/LoadingState";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { EmployeePicker } from "@/components/common/EmployeePicker";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DateField } from "@/components/ui/date-field";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { fileToPayload, isPeopleOpsRole, labelize } from "@/lib/lifecycle";
 import { useAuth } from "@/lib/auth";
 import { employeesApi, lifecycleApi } from "@/services/api";
@@ -30,7 +42,12 @@ function OffboardingPage() {
   const [employees, setEmployees] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ employeeId: "", reason: "RESIGNATION", endDate: "", notes: "" });
+  const [form, setForm] = useState({
+    employeeId: "",
+    reason: "RESIGNATION",
+    endDate: "",
+    notes: "",
+  });
 
   useEffect(() => {
     if (user && !allowed) navigate({ to: "/dashboard", replace: true });
@@ -40,7 +57,10 @@ function OffboardingPage() {
     if (!allowed) return;
     setLoading(true);
     try {
-      const [caseRows, people] = await Promise.all([lifecycleApi.offboarding(), employeesApi.list()]);
+      const [caseRows, people] = await Promise.all([
+        lifecycleApi.offboarding(),
+        employeesApi.list(),
+      ]);
       setRows(caseRows);
       setEmployees(people);
     } catch (error) {
@@ -70,7 +90,11 @@ function OffboardingPage() {
         }
       />
       {rows.length === 0 ? (
-        <EmptyState icon={DoorOpen} title="No exit cases" description="Start offboarding when a resignation or intern completion is confirmed." />
+        <EmptyState
+          icon={DoorOpen}
+          title="No exit cases"
+          description="Start offboarding when a resignation or intern completion is confirmed."
+        />
       ) : (
         <div className="space-y-3">
           {rows.map((row) => (
@@ -79,7 +103,8 @@ function OffboardingPage() {
                 <div>
                   <p className="font-semibold">{String(row.employeeName)}</p>
                   <p className="text-xs text-muted-foreground">
-                    {String(row.employeeCode)} · {labelize(String(row.reason))} · last day {String(row.endDate)}
+                    {String(row.employeeCode)} · {labelize(String(row.reason))} · last day{" "}
+                    {String(row.endDate)}
                   </p>
                 </div>
                 <StatusBadge status={labelize(String(row.status))} />
@@ -90,7 +115,10 @@ function OffboardingPage() {
                     (step === "ACCESS_REMOVED" && row.accessRemovedAt) ||
                     (step === "ASSETS_CLEARED" && row.assetsClearedAt) ||
                     (step === "NO_DUES" && row.noDuesAt) ||
-                    (step === "LETTERS_ISSUED" && (row.hasResignationLetter || row.hasExperienceLetter || row.hasInternCertificate)) ||
+                    (step === "LETTERS_ISSUED" &&
+                      (row.hasResignationLetter ||
+                        row.hasExperienceLetter ||
+                        row.hasInternCertificate)) ||
                     (step === "CLOSED" && row.status === "CLOSED");
                   return (
                     <Button
@@ -103,7 +131,9 @@ function OffboardingPage() {
                           toast.success(labelize(step));
                           await load();
                         } catch (error) {
-                          toast.error(error instanceof Error ? error.message : "Could not update case");
+                          toast.error(
+                            error instanceof Error ? error.message : "Could not update case",
+                          );
                         }
                       }}
                     >
@@ -116,9 +146,24 @@ function OffboardingPage() {
               <div className="mt-3 grid gap-2 sm:grid-cols-3">
                 {(
                   [
-                    ["RESIGNATION", row.hasResignationLetter, row.resignationLetterKey, row.resignationLetterName],
-                    ["EXPERIENCE", row.hasExperienceLetter, row.experienceLetterKey, row.experienceLetterName],
-                    ["INTERN", row.hasInternCertificate, row.internCertificateKey, row.internCertificateName],
+                    [
+                      "RESIGNATION",
+                      row.hasResignationLetter,
+                      row.resignationLetterKey,
+                      row.resignationLetterName,
+                    ],
+                    [
+                      "EXPERIENCE",
+                      row.hasExperienceLetter,
+                      row.experienceLetterKey,
+                      row.experienceLetterName,
+                    ],
+                    [
+                      "INTERN",
+                      row.hasInternCertificate,
+                      row.internCertificateKey,
+                      row.internCertificateName,
+                    ],
                   ] as const
                 ).map(([kind, attached, key, name]) => (
                   <div key={kind} className="flex flex-col gap-2">
@@ -151,7 +196,11 @@ function OffboardingPage() {
                         onClick={() =>
                           void lifecycleApi
                             .downloadFile(String(key), String(name || kind))
-                            .catch((error) => toast.error(error instanceof Error ? error.message : "Download failed"))
+                            .catch((error) =>
+                              toast.error(
+                                error instanceof Error ? error.message : "Download failed",
+                              ),
+                            )
                         }
                       >
                         Download {labelize(kind)}
@@ -170,7 +219,11 @@ function OffboardingPage() {
           <DialogHeader>
             <DialogTitle>Start offboarding</DialogTitle>
           </DialogHeader>
-          <EmployeePicker employees={employees} value={form.employeeId} onChange={(employeeId) => setForm({ ...form, employeeId })} />
+          <EmployeePicker
+            employees={employees}
+            value={form.employeeId}
+            onChange={(employeeId) => setForm({ ...form, employeeId })}
+          />
           <Select value={form.reason} onValueChange={(reason) => setForm({ ...form, reason })}>
             <SelectTrigger className="h-11">
               <SelectValue />
@@ -184,9 +237,17 @@ function OffboardingPage() {
           </Select>
           <div>
             <Label>Last working day</Label>
-            <DateField className="mt-1" value={form.endDate} onChange={(endDate) => setForm({ ...form, endDate })} />
+            <DateField
+              className="mt-1"
+              value={form.endDate}
+              onChange={(endDate) => setForm({ ...form, endDate })}
+            />
           </div>
-          <Textarea placeholder="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+          <Textarea
+            placeholder="Notes"
+            value={form.notes}
+            onChange={(e) => setForm({ ...form, notes: e.target.value })}
+          />
           <DialogFooter>
             <Button
               className="h-11 w-full sm:w-auto"
@@ -198,7 +259,9 @@ function OffboardingPage() {
                   setOpen(false);
                   await load();
                 } catch (error) {
-                  toast.error(error instanceof Error ? error.message : "Could not start offboarding");
+                  toast.error(
+                    error instanceof Error ? error.message : "Could not start offboarding",
+                  );
                 }
               }}
             >

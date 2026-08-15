@@ -171,10 +171,7 @@ function PolicyPage() {
         }
       />
 
-      <section
-        className="mb-4 space-y-3"
-        aria-label="Leave policies"
-      >
+      <section className="mb-4 space-y-3" aria-label="Leave policies">
         <div className="flex gap-2 overflow-x-auto pb-1">
           {types.map((type) => (
             <div
@@ -221,11 +218,7 @@ function PolicyPage() {
             />
             Paid / credit based
           </label>
-          <Button
-            type="button"
-            disabled={creatingType}
-            onClick={() => void createCustomType()}
-          >
+          <Button type="button" disabled={creatingType} onClick={() => void createCustomType()}>
             {creatingType ? "Creating..." : "Create type"}
           </Button>
         </div>
@@ -301,7 +294,9 @@ function PolicyPage() {
                         <UserRound className="h-4 w-4" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold">{employee.name}</span>
+                        <span className="block truncate text-sm font-semibold">
+                          {employee.name}
+                        </span>
                         <span className="block truncate text-xs text-muted-foreground">
                           {employee.employeeCode ?? employee.employeeId} ·{" "}
                           {employee.department ?? "No unit"}
@@ -343,7 +338,11 @@ function PolicyPage() {
                   </div>
                   {creditTotals && (
                     <div className="mb-4 grid gap-3 sm:grid-cols-3">
-                      <StatCard label="Credited" value={creditTotals.credited} icon={CalendarCheck} />
+                      <StatCard
+                        label="Credited"
+                        value={creditTotals.credited}
+                        icon={CalendarCheck}
+                      />
                       <StatCard label="Used" value={creditTotals.used} icon={Pencil} />
                       <StatCard
                         label="Available"

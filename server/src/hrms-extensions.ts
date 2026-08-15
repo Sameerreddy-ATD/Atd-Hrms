@@ -49,7 +49,13 @@ export function registerHrmsExtensions(app: Express) {
         : [];
       const employeeFilter = unrestricted
         ? {}
-        : { employeeId: { in: [...new Set([...(req.user!.employeeId ? [req.user!.employeeId] : []), ...teamIds])] } };
+        : {
+            employeeId: {
+              in: [
+                ...new Set([...(req.user!.employeeId ? [req.user!.employeeId] : []), ...teamIds]),
+              ],
+            },
+          };
 
       const [employees, boards, tasks, announcements] = await Promise.all([
         prisma.employee.findMany({
@@ -78,7 +84,11 @@ export function registerHrmsExtensions(app: Express) {
               ? {}
               : {
                   OR: [
-                    { assignments: { some: { employeeId: { in: teamIds.length ? teamIds : ["__none__"] } } } },
+                    {
+                      assignments: {
+                        some: { employeeId: { in: teamIds.length ? teamIds : ["__none__"] } },
+                      },
+                    },
                     ...(req.user!.employeeId
                       ? [{ assignments: { some: { employeeId: req.user!.employeeId } } }]
                       : []),
@@ -299,7 +309,10 @@ export function registerHrmsExtensions(app: Express) {
     requireRoles(...checklistTemplateAdmins),
     asyncHandler(async (_req, res) => {
       const templates = await prisma.checklistTemplate.findMany({
-        include: { items: { orderBy: { sortOrder: "asc" } }, _count: { select: { instances: true } } },
+        include: {
+          items: { orderBy: { sortOrder: "asc" } },
+          _count: { select: { instances: true } },
+        },
         orderBy: [{ kind: "asc" }, { name: "asc" }],
       });
       res.json(
@@ -453,7 +466,7 @@ export function registerHrmsExtensions(app: Express) {
       const buffer = Buffer.from(raw, "base64");
       if (buffer.length > 1_500_000) throw new HttpError(400, "Attachment must be under 1.5 MB");
       await ensureDir(attachmentsDir);
-      const storageKey = `${task.taskId}-${randomBytes(8).toString("hex")}-${body.fileName.replace(/[^\w.\-]+/g, "_")}`;
+      const storageKey = `${task.taskId}-${randomBytes(8).toString("hex")}-${body.fileName.replace(/[^\w.-]+/g, "_")}`;
       await writeFile(path.join(attachmentsDir, storageKey), buffer, { mode: 0o600 });
       const attachment = await prisma.taskAttachment.create({
         data: {

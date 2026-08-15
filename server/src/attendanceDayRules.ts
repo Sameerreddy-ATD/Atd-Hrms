@@ -58,11 +58,7 @@ export function istMonthRangeThroughToday(monthKey?: string, now = new Date()) {
 }
 
 /** Clamp an attendance date range so `to` never exceeds today (IST). */
-export function clampAttendanceRangeToToday(input: {
-  from?: Date;
-  to?: Date;
-  now?: Date;
-}) {
+export function clampAttendanceRangeToToday(input: { from?: Date; to?: Date; now?: Date }) {
   const today = todayIstDate(input.now);
   let from = input.from ? startOfDayUtc(input.from) : undefined;
   let to = input.to ? startOfDayUtc(input.to) : undefined;

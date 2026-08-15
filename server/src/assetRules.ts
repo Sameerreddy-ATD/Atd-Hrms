@@ -20,8 +20,7 @@ export function resolveAssetStatus(input: {
   requestedStatus?: AssetOperationalStatus;
   previousStatus?: string;
 }) {
-  const hasAssignee =
-    Boolean(input.assignedEmployeeId) || (input.activeAssignmentCount ?? 0) > 0;
+  const hasAssignee = Boolean(input.assignedEmployeeId) || (input.activeAssignmentCount ?? 0) > 0;
   if (hasAssignee) return "ASSIGNED";
   if (input.requestedStatus === "ASSIGNED") {
     throw new Error("An asset cannot be marked assigned without an employee");
@@ -40,7 +39,11 @@ export async function recountActiveSeats(tx: Tx, assetId: string) {
 
 export async function recalculateActiveCostShares(
   tx: Tx,
-  asset: { assetId: string; purchaseValue: Prisma.Decimal | number; costFrequency: AssetCostFrequency },
+  asset: {
+    assetId: string;
+    purchaseValue: Prisma.Decimal | number;
+    costFrequency: AssetCostFrequency;
+  },
 ) {
   const active = await tx.assetAssignment.findMany({
     where: { assetId: asset.assetId, returnedAt: null },
@@ -181,7 +184,12 @@ export async function returnAssetAssignment(
 export function buildInvestmentSummary(
   rows: Array<{
     employeeId: string;
-    employee: { employeeId: string; name: string; employeeCode: string; department?: { name: string } | null };
+    employee: {
+      employeeId: string;
+      name: string;
+      employeeCode: string;
+      department?: { name: string } | null;
+    };
     visibleToEmployee: boolean;
     assignedAt: Date;
     returnedAt: Date | null;

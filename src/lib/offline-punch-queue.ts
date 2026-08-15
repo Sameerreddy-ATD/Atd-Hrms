@@ -41,7 +41,10 @@ function openDb(): Promise<IDBDatabase> {
 }
 
 async function punchKey(ticket: string) {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`atd-punch:${ticket}`));
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(`atd-punch:${ticket}`),
+  );
   return crypto.subtle.importKey("raw", digest, "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 
@@ -59,7 +62,11 @@ async function encryptPayload(ticket: string, payload: OfflinePunchPayload) {
   };
 }
 
-async function decryptPayload(ticket: string, iv: string, ciphertext: string): Promise<OfflinePunchPayload | null> {
+async function decryptPayload(
+  ticket: string,
+  iv: string,
+  ciphertext: string,
+): Promise<OfflinePunchPayload | null> {
   try {
     const key = await punchKey(ticket);
     const ivBytes = Uint8Array.from(atob(iv), (char) => char.charCodeAt(0));
@@ -171,6 +178,7 @@ export function isLikelyNetworkError(error: unknown) {
   return (
     /failed to fetch|networkerror|network request failed|load failed|offline|timeout|timed out/i.test(
       message,
-    ) || (typeof navigator !== "undefined" && !navigator.onLine)
+    ) ||
+    (typeof navigator !== "undefined" && !navigator.onLine)
   );
 }

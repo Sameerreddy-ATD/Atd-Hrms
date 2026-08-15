@@ -140,10 +140,7 @@ export async function appendLeaveLedger(input: {
       },
     });
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return; // idempotent
     }
     throw error;
@@ -192,7 +189,8 @@ export async function syncEmployeeLeaveBalances(employeeId: string, now = new Da
       const used = relevant.reduce((total, request) => total + effectiveDays(request), 0);
       let entitled = 0;
       if (type.code === LEAVE_CODES.CASUAL) {
-        entitled = casualLeaveCreditsEarned(employee.joiningDate, now) * Number(type.monthlyCredit ?? 1);
+        entitled =
+          casualLeaveCreditsEarned(employee.joiningDate, now) * Number(type.monthlyCredit ?? 1);
       } else if (type.code === LEAVE_CODES.SICK) {
         entitled = Number(type.annualAllowance ?? 6);
       } else if (type.code === LEAVE_CODES.COMP_OFF) {
@@ -340,7 +338,10 @@ export async function validateLeaveApplication(input: {
       },
       select: { days: true, cancelledDates: true },
     });
-    const pendingDays = pendingSameType.reduce((total, request) => total + effectiveDays(request), 0);
+    const pendingDays = pendingSameType.reduce(
+      (total, request) => total + effectiveDays(request),
+      0,
+    );
     if (input.days > Number(balance?.balance ?? 0) - pendingDays) {
       throw new HttpError(400, "This request would exceed the available paid leave balance");
     }

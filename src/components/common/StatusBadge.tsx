@@ -31,7 +31,8 @@ function classify(status: string): keyof typeof map {
   const s = status.toLowerCase();
   if (s.includes("mismatch")) return "mismatch";
   if (s.includes("field") || s.includes("location")) return "field";
-  if (s.includes("missed checkout") || s.includes("missed") || s.includes("manual")) return "missed";
+  if (s.includes("missed checkout") || s.includes("missed") || s.includes("manual"))
+    return "missed";
   if (s.includes("absent") || s.includes("rejected")) return "rejected";
   if (s.includes("pending")) return "pending";
   if (s === "paid") return "paid";

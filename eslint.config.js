@@ -12,9 +12,20 @@ export default tseslint.config(
       "dist-server",
       ".output",
       ".vinxi",
+      ".tanstack",
       "node_modules",
       "test-results",
       "playwright-report",
+      "coverage",
+      // Generated native shells: Gradle/CocoaPods outputs and the Capacitor
+      // bridge are copied in by `cap sync`, not authored here.
+      "android/app/build",
+      "android/build",
+      "ios/App/Pods",
+      "ios/App/App/public",
+      "mobile/.capacitor",
+      "public/face-models",
+      "src/routeTree.gen.ts",
     ],
   },
   {

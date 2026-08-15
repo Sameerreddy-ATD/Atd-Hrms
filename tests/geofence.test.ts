@@ -46,9 +46,9 @@ describe("branch geofence", () => {
       latitude: 17.460285,
       longitude: 78.397064,
     };
-    expect(matchingBranch({ latitude: hub.latitude, longitude: hub.longitude }, [hub])?.branch).toBe(
-      hub,
-    );
+    expect(
+      matchingBranch({ latitude: hub.latitude, longitude: hub.longitude }, [hub])?.branch,
+    ).toBe(hub);
     expect(matchingBranch({ latitude: 17.5, longitude: 78.45 }, [hub])).toBeUndefined();
   });
 });

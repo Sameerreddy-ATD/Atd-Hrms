@@ -230,26 +230,34 @@ export function attendanceStatusParts(row: {
 }
 
 /** Legacy helper — provisional System outs are no longer written; punch-out stays empty. */
-export function hasProvisionalSystemOut(_row: Pick<
-  AttendanceRecord,
-  "hasMissedCheckout" | "hasMissingOutEvent" | "punchOut" | "provisionalCheckOutAt" | "checkOutSource"
->) {
+export function hasProvisionalSystemOut(
+  _row: Pick<
+    AttendanceRecord,
+    | "hasMissedCheckout"
+    | "hasMissingOutEvent"
+    | "punchOut"
+    | "provisionalCheckOutAt"
+    | "checkOutSource"
+  >,
+) {
   return false;
 }
 
 /**
  * Last-out cell: empty while checked in during the day; "Punch-out required" after day end (Missed Checkout).
  */
-export function lastOutLabel(row: Pick<
-  AttendanceRecord,
-  | "punchOut"
-  | "hasMissingOutEvent"
-  | "hasMissedCheckout"
-  | "provisionalCheckOutAt"
-  | "checkOutSource"
-  | "date"
-  | "latestOpenPunchAt"
->) {
+export function lastOutLabel(
+  row: Pick<
+    AttendanceRecord,
+    | "punchOut"
+    | "hasMissingOutEvent"
+    | "hasMissedCheckout"
+    | "provisionalCheckOutAt"
+    | "checkOutSource"
+    | "date"
+    | "latestOpenPunchAt"
+  >,
+) {
   if (row.punchOut) {
     return { text: row.punchOut, provisional: false as const, missing: false as const };
   }

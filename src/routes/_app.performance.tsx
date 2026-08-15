@@ -8,12 +8,24 @@ import { LoadingState } from "@/components/common/LoadingState";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { EmployeePicker } from "@/components/common/EmployeePicker";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DateField } from "@/components/ui/date-field";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
 import { isPeopleOpsRole, labelize } from "@/lib/lifecycle";
 import { employeesApi, lifecycleApi } from "@/services/api";
@@ -40,7 +52,10 @@ function PerformancePage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [cycleRows, people] = await Promise.all([lifecycleApi.cycles(), employeesApi.list().catch(() => [])]);
+      const [cycleRows, people] = await Promise.all([
+        lifecycleApi.cycles(),
+        employeesApi.list().catch(() => []),
+      ]);
       setCycles(cycleRows);
       setEmployees(people);
       const next = cycleId || String(cycleRows[0]?.id ?? "");
@@ -101,7 +116,11 @@ function PerformancePage() {
       </div>
 
       {reviews.length === 0 ? (
-        <EmptyState icon={Target} title="No reviews in this cycle" description="HR assigns KRA/KPI packs to employees and their managers." />
+        <EmptyState
+          icon={Target}
+          title="No reviews in this cycle"
+          description="HR assigns KRA/KPI packs to employees and their managers."
+        />
       ) : (
         <div className="space-y-3">
           {reviews.map((review) => {
@@ -112,7 +131,8 @@ function PerformancePage() {
                   <div>
                     <p className="font-semibold">{String(review.employeeName)}</p>
                     <p className="text-xs text-muted-foreground">
-                      {String(review.designation || review.employeeCode)} · Manager {String(review.managerName)}
+                      {String(review.designation || review.employeeCode)} · Manager{" "}
+                      {String(review.managerName)}
                     </p>
                   </div>
                   <StatusBadge status={labelize(String(review.status))} />
@@ -135,7 +155,9 @@ function PerformancePage() {
                                 goals: [{ id: goal.id, achievedPercent }],
                               });
                             } catch (error) {
-                              toast.error(error instanceof Error ? error.message : "Could not save score");
+                              toast.error(
+                                error instanceof Error ? error.message : "Could not save score",
+                              );
                             }
                           }}
                         />
@@ -149,7 +171,9 @@ function PerformancePage() {
                                 goals: [{ id: goal.id, employeeComment: event.target.value }],
                               });
                             } catch (error) {
-                              toast.error(error instanceof Error ? error.message : "Could not save comment");
+                              toast.error(
+                                error instanceof Error ? error.message : "Could not save comment",
+                              );
                             }
                           }}
                         />
@@ -163,7 +187,9 @@ function PerformancePage() {
                                 goals: [{ id: goal.id, managerComment: event.target.value }],
                               });
                             } catch (error) {
-                              toast.error(error instanceof Error ? error.message : "Could not save comment");
+                              toast.error(
+                                error instanceof Error ? error.message : "Could not save comment",
+                              );
                             }
                           }}
                         />
@@ -177,9 +203,13 @@ function PerformancePage() {
                   placeholder="Employee overall comment"
                   onBlur={async (event) => {
                     try {
-                      await lifecycleApi.updateReview(String(review.id), { employeeComment: event.target.value });
+                      await lifecycleApi.updateReview(String(review.id), {
+                        employeeComment: event.target.value,
+                      });
                     } catch (error) {
-                      toast.error(error instanceof Error ? error.message : "Could not save comment");
+                      toast.error(
+                        error instanceof Error ? error.message : "Could not save comment",
+                      );
                     }
                   }}
                 />
@@ -189,9 +219,13 @@ function PerformancePage() {
                   placeholder="Manager comment"
                   onBlur={async (event) => {
                     try {
-                      await lifecycleApi.updateReview(String(review.id), { managerComment: event.target.value });
+                      await lifecycleApi.updateReview(String(review.id), {
+                        managerComment: event.target.value,
+                      });
                     } catch (error) {
-                      toast.error(error instanceof Error ? error.message : "Could not save comment");
+                      toast.error(
+                        error instanceof Error ? error.message : "Could not save comment",
+                      );
                     }
                   }}
                 />
@@ -201,20 +235,27 @@ function PerformancePage() {
                   placeholder="Skip-level comment"
                   onBlur={async (event) => {
                     try {
-                      await lifecycleApi.updateReview(String(review.id), { skipLevelComment: event.target.value });
+                      await lifecycleApi.updateReview(String(review.id), {
+                        skipLevelComment: event.target.value,
+                      });
                     } catch (error) {
-                      toast.error(error instanceof Error ? error.message : "Could not save comment");
+                      toast.error(
+                        error instanceof Error ? error.message : "Could not save comment",
+                      );
                     }
                   }}
                 />
                 <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                  {(review.employeeId === user?.employeeId || isHr) && String(review.status) === "DRAFT" ? (
+                  {(review.employeeId === user?.employeeId || isHr) &&
+                  String(review.status) === "DRAFT" ? (
                     <Button
                       variant="outline"
                       className="h-11 flex-1"
                       onClick={async () => {
                         try {
-                          await lifecycleApi.updateReview(String(review.id), { action: "EMPLOYEE_SUBMIT" });
+                          await lifecycleApi.updateReview(String(review.id), {
+                            action: "EMPLOYEE_SUBMIT",
+                          });
                           toast.success("Submitted to manager");
                           setReviews(await lifecycleApi.reviews(cycleId));
                         } catch (error) {
@@ -232,7 +273,9 @@ function PerformancePage() {
                       className="h-11 flex-1"
                       onClick={async () => {
                         try {
-                          await lifecycleApi.updateReview(String(review.id), { action: "MANAGER_SUBMIT" });
+                          await lifecycleApi.updateReview(String(review.id), {
+                            action: "MANAGER_SUBMIT",
+                          });
                           toast.success("Sent for skip-level / sign-off");
                           setReviews(await lifecycleApi.reviews(cycleId));
                         } catch (error) {
@@ -243,13 +286,16 @@ function PerformancePage() {
                       Manager review
                     </Button>
                   ) : null}
-                  {(review.skipLevelUserId === user?.id || isHr) && String(review.status) === "SKIP_LEVEL_PENDING" ? (
+                  {(review.skipLevelUserId === user?.id || isHr) &&
+                  String(review.status) === "SKIP_LEVEL_PENDING" ? (
                     <Button
                       variant="outline"
                       className="h-11 flex-1"
                       onClick={async () => {
                         try {
-                          await lifecycleApi.updateReview(String(review.id), { action: "SKIP_APPROVE" });
+                          await lifecycleApi.updateReview(String(review.id), {
+                            action: "SKIP_APPROVE",
+                          });
                           toast.success("Skip-level approved");
                           setReviews(await lifecycleApi.reviews(cycleId));
                         } catch (error) {
@@ -260,17 +306,23 @@ function PerformancePage() {
                       Skip-level
                     </Button>
                   ) : null}
-                  {(isHr || review.managerUserId === user?.id || review.skipLevelUserId === user?.id) &&
+                  {(isHr ||
+                    review.managerUserId === user?.id ||
+                    review.skipLevelUserId === user?.id) &&
                   String(review.status) === "MANAGER_REVIEWED" ? (
                     <Button
                       className="h-11 flex-1"
                       onClick={async () => {
                         try {
-                          await lifecycleApi.updateReview(String(review.id), { action: "SIGN_OFF" });
+                          await lifecycleApi.updateReview(String(review.id), {
+                            action: "SIGN_OFF",
+                          });
                           toast.success("Review signed off");
                           setReviews(await lifecycleApi.reviews(cycleId));
                         } catch (error) {
-                          toast.error(error instanceof Error ? error.message : "Could not sign off");
+                          toast.error(
+                            error instanceof Error ? error.message : "Could not sign off",
+                          );
                         }
                       }}
                     >
@@ -289,14 +341,27 @@ function PerformancePage() {
           <DialogHeader>
             <DialogTitle>New appraisal cycle</DialogTitle>
           </DialogHeader>
-          <Input className="h-11" placeholder="Name" value={cycleForm.name} onChange={(e) => setCycleForm({ ...cycleForm, name: e.target.value })} />
+          <Input
+            className="h-11"
+            placeholder="Name"
+            value={cycleForm.name}
+            onChange={(e) => setCycleForm({ ...cycleForm, name: e.target.value })}
+          />
           <div>
             <Label>Starts</Label>
-            <DateField className="mt-1" value={cycleForm.startsOn} onChange={(startsOn) => setCycleForm({ ...cycleForm, startsOn })} />
+            <DateField
+              className="mt-1"
+              value={cycleForm.startsOn}
+              onChange={(startsOn) => setCycleForm({ ...cycleForm, startsOn })}
+            />
           </div>
           <div>
             <Label>Ends</Label>
-            <DateField className="mt-1" value={cycleForm.endsOn} onChange={(endsOn) => setCycleForm({ ...cycleForm, endsOn })} />
+            <DateField
+              className="mt-1"
+              value={cycleForm.endsOn}
+              onChange={(endsOn) => setCycleForm({ ...cycleForm, endsOn })}
+            />
           </div>
           <DialogFooter>
             <Button
@@ -379,7 +444,9 @@ function PerformancePage() {
           <DialogFooter>
             <Button
               className="h-11 w-full sm:w-auto"
-              disabled={!assignForm.employeeId || !assignForm.goals.some((goal) => goal.kra && goal.kpi)}
+              disabled={
+                !assignForm.employeeId || !assignForm.goals.some((goal) => goal.kra && goal.kpi)
+              }
               onClick={async () => {
                 const person = employees.find((item) => item.employeeId === assignForm.employeeId);
                 try {
@@ -395,7 +462,10 @@ function PerformancePage() {
                   });
                   toast.success(`Assigned to ${person?.name ?? "employee"}`);
                   setAssignOpen(false);
-                  setAssignForm({ employeeId: "", goals: [{ kra: "", kpi: "", targetPercent: "100" }] });
+                  setAssignForm({
+                    employeeId: "",
+                    goals: [{ kra: "", kpi: "", targetPercent: "100" }],
+                  });
                   setReviews(await lifecycleApi.reviews(cycleId));
                 } catch (error) {
                   toast.error(error instanceof Error ? error.message : "Could not assign review");

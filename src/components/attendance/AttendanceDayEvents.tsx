@@ -148,70 +148,71 @@ export function AttendanceDayEvents({
         const missingOut = Boolean(session.punchIn && !session.punchOut);
 
         return (
-        <section
-          key={`${session.punchIn?.time ?? "out"}-${session.punchOut?.time ?? index}`}
-          className="relative pb-3 last:pb-0"
-          aria-label={`Attendance session ${index + 1}`}
-        >
-          <span className="absolute -left-3 top-7 h-px w-3 bg-border sm:-left-5 sm:w-5" />
-          <span className="absolute -left-[18px] top-[23px] h-3 w-3 rounded-full border-2 border-background bg-primary sm:-left-[26px]" />
-          <div className="overflow-hidden rounded-md border bg-background">
-            {missingOut && punchOutRequired && (
-              <div className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300 sm:px-4">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <span>
-                  The day ended and punch-out is still empty. Check out now if you can, or raise a
-                  missed punch with your actual time for your head to approve. Tomorrow’s check-in is
-                  not affected.
-                </span>
+          <section
+            key={`${session.punchIn?.time ?? "out"}-${session.punchOut?.time ?? index}`}
+            className="relative pb-3 last:pb-0"
+            aria-label={`Attendance session ${index + 1}`}
+          >
+            <span className="absolute -left-3 top-7 h-px w-3 bg-border sm:-left-5 sm:w-5" />
+            <span className="absolute -left-[18px] top-[23px] h-3 w-3 rounded-full border-2 border-background bg-primary sm:-left-[26px]" />
+            <div className="overflow-hidden rounded-md border bg-background">
+              {missingOut && punchOutRequired && (
+                <div className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300 sm:px-4">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    The day ended and punch-out is still empty. Check out now if you can, or raise a
+                    missed punch with your actual time for your head to approve. Tomorrow’s check-in
+                    is not affected.
+                  </span>
+                </div>
+              )}
+              <div className="grid grid-cols-2 divide-x border-b bg-muted/25">
+                <div className="min-w-0 px-3 py-3 sm:px-4">
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                    <LogIn className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> Punch
+                    in
+                  </p>
+                  <time className="mt-1 block text-sm font-semibold tabular-nums sm:text-base">
+                    {formatTime(session.punchIn)}
+                  </time>
+                </div>
+                <div className="min-w-0 px-3 py-3 sm:px-4">
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                    <LogOut className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" /> Punch out
+                  </p>
+                  <time
+                    className={`mt-1 block text-sm font-semibold tabular-nums sm:text-base ${
+                      missingOut && punchOutRequired ? "text-amber-700 dark:text-amber-400" : ""
+                    }`}
+                  >
+                    {missingOut
+                      ? punchOutRequired
+                        ? "Punch-out required"
+                        : "—"
+                      : formatTime(session.punchOut)}
+                  </time>
+                </div>
               </div>
-            )}
-            <div className="grid grid-cols-2 divide-x border-b bg-muted/25">
-              <div className="min-w-0 px-3 py-3 sm:px-4">
-                <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                  <LogIn className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> Punch in
-                </p>
-                <time className="mt-1 block text-sm font-semibold tabular-nums sm:text-base">
-                  {formatTime(session.punchIn)}
-                </time>
-              </div>
-              <div className="min-w-0 px-3 py-3 sm:px-4">
-                <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                  <LogOut className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" /> Punch out
-                </p>
-                <time
-                  className={`mt-1 block text-sm font-semibold tabular-nums sm:text-base ${
-                    missingOut && punchOutRequired ? "text-amber-700 dark:text-amber-400" : ""
-                  }`}
-                >
-                  {missingOut
-                    ? punchOutRequired
-                      ? "Punch-out required"
-                      : "—"
-                    : formatTime(session.punchOut)}
-                </time>
+              <div className="grid grid-cols-1 divide-y text-xs sm:grid-cols-2 sm:divide-x sm:divide-y-0 sm:text-sm lg:grid-cols-4 lg:divide-x">
+                <div className="min-w-0 px-3 py-3 sm:px-4">
+                  <p className="mb-1 text-xs text-muted-foreground">In source</p>
+                  <SourceDetail event={session.punchIn} />
+                </div>
+                <div className="min-w-0 px-3 py-3 sm:px-4">
+                  <p className="mb-1 text-xs text-muted-foreground">In location</p>
+                  <LocationDetail event={session.punchIn} />
+                </div>
+                <div className="min-w-0 px-3 py-3 sm:px-4 sm:border-t lg:border-t-0">
+                  <p className="mb-1 text-xs text-muted-foreground">Out source</p>
+                  <SourceDetail event={session.punchOut} />
+                </div>
+                <div className="min-w-0 px-3 py-3 sm:border-t sm:px-4 lg:border-t-0">
+                  <p className="mb-1 text-xs text-muted-foreground">Out location</p>
+                  <LocationDetail event={session.punchOut} />
+                </div>
               </div>
             </div>
-            <div className="grid grid-cols-1 divide-y text-xs sm:grid-cols-2 sm:divide-x sm:divide-y-0 sm:text-sm lg:grid-cols-4 lg:divide-x">
-              <div className="min-w-0 px-3 py-3 sm:px-4">
-                <p className="mb-1 text-xs text-muted-foreground">In source</p>
-                <SourceDetail event={session.punchIn} />
-              </div>
-              <div className="min-w-0 px-3 py-3 sm:px-4">
-                <p className="mb-1 text-xs text-muted-foreground">In location</p>
-                <LocationDetail event={session.punchIn} />
-              </div>
-              <div className="min-w-0 px-3 py-3 sm:px-4 sm:border-t lg:border-t-0">
-                <p className="mb-1 text-xs text-muted-foreground">Out source</p>
-                <SourceDetail event={session.punchOut} />
-              </div>
-              <div className="min-w-0 px-3 py-3 sm:border-t sm:px-4 lg:border-t-0">
-                <p className="mb-1 text-xs text-muted-foreground">Out location</p>
-                <LocationDetail event={session.punchOut} />
-              </div>
-            </div>
-          </div>
-        </section>
+          </section>
         );
       })}
     </div>

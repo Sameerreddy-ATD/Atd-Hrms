@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react";
 import { Smartphone } from "lucide-react";
 
-import {
-  isPhoneLandscapeViewport,
-  startPortraitOrientationLock,
-} from "@/lib/screen-orientation";
+import { isPhoneLandscapeViewport, startPortraitOrientationLock } from "@/lib/screen-orientation";
 
 /**
  * Phones stay portrait: API lock when available, full-screen prompt when the

@@ -132,9 +132,9 @@ export function MedicalDocumentUploadCard({
           <div>
             <p className="font-semibold">Sick leave medical certificate</p>
             <p className="text-sm text-muted-foreground">
-              {formatDisplayDateRange(leave.from, leave.to)}. Upload a private PDF or image within 48
-              hours after
-              returning to work. Reminders are sent at 24 hours and 2 hours before the deadline.
+              {formatDisplayDateRange(leave.from, leave.to)}. Upload a private PDF or image within
+              48 hours after returning to work. Reminders are sent at 24 hours and 2 hours before
+              the deadline.
             </p>
           </div>
           <div className="rounded-md bg-amber-50 px-3 py-2 text-right dark:bg-amber-950/30">
@@ -158,11 +158,7 @@ export function MedicalDocumentUploadCard({
             </Button>
             {leave.medicalDocumentUrl && (
               <Button asChild variant="outline" size="icon" title="Open medical document">
-                <a
-                  href={medicalHref(leave.medicalDocumentUrl)}
-                  target="_blank"
-                  rel="noreferrer"
-                >
+                <a href={medicalHref(leave.medicalDocumentUrl)} target="_blank" rel="noreferrer">
                   <ExternalLink className="h-4 w-4" />
                 </a>
               </Button>

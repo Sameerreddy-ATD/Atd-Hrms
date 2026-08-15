@@ -61,19 +61,39 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 function typeMeta(type: NotificationItem["type"]) {
   if (type === "leave") {
-    return { icon: ClipboardCheck, label: "Leave", className: "bg-amber-500/12 text-amber-700 dark:text-amber-300" };
+    return {
+      icon: ClipboardCheck,
+      label: "Leave",
+      className: "bg-amber-500/12 text-amber-700 dark:text-amber-300",
+    };
   }
   if (type === "holiday") {
-    return { icon: CalendarCheck, label: "Holiday", className: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300" };
+    return {
+      icon: CalendarCheck,
+      label: "Holiday",
+      className: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
+    };
   }
   if (type === "birthday") {
-    return { icon: Cake, label: "Birthday", className: "bg-pink-500/12 text-pink-700 dark:text-pink-300" };
+    return {
+      icon: Cake,
+      label: "Birthday",
+      className: "bg-pink-500/12 text-pink-700 dark:text-pink-300",
+    };
   }
   if (type === "announcement") {
-    return { icon: Megaphone, label: "Announcement", className: "bg-sky-500/12 text-sky-800 dark:text-sky-300" };
+    return {
+      icon: Megaphone,
+      label: "Announcement",
+      className: "bg-sky-500/12 text-sky-800 dark:text-sky-300",
+    };
   }
   if (type === "task") {
-    return { icon: ListTodo, label: "Task", className: "bg-violet-500/12 text-violet-700 dark:text-violet-300" };
+    return {
+      icon: ListTodo,
+      label: "Task",
+      className: "bg-violet-500/12 text-violet-700 dark:text-violet-300",
+    };
   }
   if (type === "attendance") {
     return { icon: MapPin, label: "Attendance", className: "bg-primary/12 text-primary" };
@@ -110,7 +130,8 @@ function NotificationPreferencesCard() {
         <div>
           <h2 className="text-sm font-semibold tracking-tight">What to receive</h2>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            These control in-app alerts. Urgent company announcements still come through when push is on.
+            These control in-app alerts. Urgent company announcements still come through when push
+            is on.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -416,8 +437,8 @@ function NotificationsPage() {
         <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50/80 p-3.5 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
           <p>
-            Notification access is blocked in the browser. Allow it in site settings, return here, and
-            turn alerts on again.
+            Notification access is blocked in the browser. Allow it in site settings, return here,
+            and turn alerts on again.
           </p>
         </div>
       )}
@@ -428,7 +449,9 @@ function NotificationsPage() {
         <h2 className="text-sm font-semibold tracking-tight">Inbox</h2>
         {!loading && (
           <p className="text-xs text-muted-foreground">
-            {items.length === 0 ? "None" : `${items.length} ${items.length === 1 ? "update" : "updates"}`}
+            {items.length === 0
+              ? "None"
+              : `${items.length} ${items.length === 1 ? "update" : "updates"}`}
           </p>
         )}
       </div>
@@ -449,7 +472,12 @@ function NotificationsPage() {
                   index > 0 && "border-t border-border/70",
                 )}
               >
-                <div className={cn("mt-0.5 grid size-10 shrink-0 place-items-center rounded-xl", meta.className)}>
+                <div
+                  className={cn(
+                    "mt-0.5 grid size-10 shrink-0 place-items-center rounded-xl",
+                    meta.className,
+                  )}
+                >
                   <Icon className="h-4 w-4" />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -466,10 +494,14 @@ function NotificationsPage() {
                       {formatDisplayDateTime(n.time)}
                     </span>
                   </div>
-                  <p className="mt-0.5 text-sm font-semibold tracking-tight text-foreground">{n.title}</p>
+                  <p className="mt-0.5 text-sm font-semibold tracking-tight text-foreground">
+                    {n.title}
+                  </p>
                   <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">{n.desc}</p>
                   {n.type === "announcement" && n.authorName && (
-                    <p className="mt-1 text-xs font-medium text-muted-foreground">From {n.authorName}</p>
+                    <p className="mt-1 text-xs font-medium text-muted-foreground">
+                      From {n.authorName}
+                    </p>
                   )}
                 </div>
               </article>

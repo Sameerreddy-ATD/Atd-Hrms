@@ -55,9 +55,7 @@ describe("formatDisplayDate / formatDisplayDateRange", () => {
   });
 
   it("formats inclusive ranges with to", () => {
-    expect(formatDisplayDateRange("2026-08-01", "2026-08-05")).toBe(
-      "01/08/2026 to 05/08/2026",
-    );
+    expect(formatDisplayDateRange("2026-08-01", "2026-08-05")).toBe("01/08/2026 to 05/08/2026");
     expect(formatDisplayDateRange("2026-08-01", null)).toBe("01/08/2026");
   });
 

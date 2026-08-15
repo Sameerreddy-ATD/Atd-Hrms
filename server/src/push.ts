@@ -120,36 +120,39 @@ async function sendFcmHttpV1(token: string, payload: PushPayload) {
   const projectId = config.fcmProjectId || sa?.project_id;
   if (!projectId) throw new Error("FCM_PROJECT_ID or service account project_id is required");
   const accessToken = await getFcmAccessToken();
-  const response = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      message: {
-        token,
-        notification: {
-          title: payload.title,
-          body: payload.body,
-        },
-        data: {
-          href: payload.href ?? "/notifications",
-          title: payload.title,
-          body: payload.body,
-          tag: payload.tag ?? "",
-        },
-        android: {
-          priority: payload.priority === "URGENT" ? "HIGH" : "NORMAL",
+  const response = await fetch(
+    `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: {
+          token,
           notification: {
-            channelId: "anytime_workforce",
-            tag: payload.tag,
-            clickAction: "FLUTTER_NOTIFICATION_CLICK",
+            title: payload.title,
+            body: payload.body,
+          },
+          data: {
+            href: payload.href ?? "/notifications",
+            title: payload.title,
+            body: payload.body,
+            tag: payload.tag ?? "",
+          },
+          android: {
+            priority: payload.priority === "URGENT" ? "HIGH" : "NORMAL",
+            notification: {
+              channelId: "anytime_workforce",
+              tag: payload.tag,
+              clickAction: "FLUTTER_NOTIFICATION_CLICK",
+            },
           },
         },
-      },
-    }),
-  });
+      }),
+    },
+  );
   if (response.status === 404 || response.status === 410) {
     const err = new Error("FCM token gone") as Error & { statusCode: number };
     err.statusCode = response.status;

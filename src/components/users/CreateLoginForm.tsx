@@ -484,9 +484,7 @@ export function CreateLoginForm({
                     )}
                   </SelectContent>
                 </Select>
-                {roleOption && (
-                  <p className="text-xs text-muted-foreground">{roleOption.hint}</p>
-                )}
+                {roleOption && <p className="text-xs text-muted-foreground">{roleOption.hint}</p>}
               </div>
 
               <div className="space-y-1.5">
@@ -720,7 +718,11 @@ export function CreateLoginForm({
 
               <div className="space-y-1.5">
                 <Label htmlFor="create-login-joining">Joining date</Label>
-                <DateField id="create-login-joining" value={joiningDate} onChange={setJoiningDate} />
+                <DateField
+                  id="create-login-joining"
+                  value={joiningDate}
+                  onChange={setJoiningDate}
+                />
               </div>
 
               <div className="space-y-1.5">
@@ -812,7 +814,11 @@ export function CreateLoginForm({
                 </div>
                 <div className="space-y-1.5">
                   <Label>Shift ends</Label>
-                  <Input type="time" value={shiftEnd} onChange={(e) => setShiftEnd(e.target.value)} />
+                  <Input
+                    type="time"
+                    value={shiftEnd}
+                    onChange={(e) => setShiftEnd(e.target.value)}
+                  />
                 </div>
               </div>
             </FormSection>

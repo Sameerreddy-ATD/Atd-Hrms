@@ -5,10 +5,7 @@ import { indiaDateKey } from "@/lib/india-date";
 export type MissedPunchDirection = "In" | "Out";
 
 export type MissedPunchEventType =
-  | "OFFICE_IN"
-  | "OFFICE_OUT"
-  | "FIELD_CHECK_IN"
-  | "FIELD_CHECK_OUT";
+  "OFFICE_IN" | "OFFICE_OUT" | "FIELD_CHECK_IN" | "FIELD_CHECK_OUT";
 
 export interface MissedPunchItem {
   id: string;
@@ -82,9 +79,7 @@ export function detectMissedPunchItems(
 
     // In-progress today: employee should check out normally until the day ends.
     const openInProgressToday =
-      date === today &&
-      Boolean(record.hasMissingOutEvent) &&
-      !record.hasMissedCheckout;
+      date === today && Boolean(record.hasMissingOutEvent) && !record.hasMissedCheckout;
     const needsOut =
       Boolean(record.hasMissedCheckout) ||
       (Boolean(record.hasMissingOutEvent) && !openInProgressToday);

@@ -380,9 +380,13 @@ export function BulkEditLoginSheet({
         placeholder={
           column.key === "password"
             ? "Leave blank to keep"
-            : ["bankAccountNumber", "panNumber", "aadhaarNumber", "uanNumber", "bankIfscCode"].includes(
-                  column.key,
-                ) && !row.baseline[column.key]
+            : [
+                  "bankAccountNumber",
+                  "panNumber",
+                  "aadhaarNumber",
+                  "uanNumber",
+                  "bankIfscCode",
+                ].includes(column.key) && !row.baseline[column.key]
               ? "Leave blank to keep"
               : column.required
                 ? "Required"

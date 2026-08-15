@@ -28,7 +28,9 @@ export function LoadingState({
       <div
         className={cn(
           "relative z-[1] flex min-w-0 flex-col items-center text-center",
-          showBrandStory ? "atd-boot__content w-full max-w-[22rem] gap-8 px-6" : "max-w-[14rem] gap-4",
+          showBrandStory
+            ? "atd-boot__content w-full max-w-[22rem] gap-8 px-6"
+            : "max-w-[14rem] gap-4",
           compact && "gap-2.5",
         )}
       >
@@ -52,8 +54,19 @@ export function LoadingState({
           </div>
         )}
 
-        <div className={cn("w-full", showBrandStory ? "space-y-6" : "space-y-3", compact && "space-y-2")}>
-          <div className={cn("atd-boot__status mx-auto w-full", showBrandStory ? "max-w-[14rem]" : "max-w-[11rem]")}>
+        <div
+          className={cn(
+            "w-full",
+            showBrandStory ? "space-y-6" : "space-y-3",
+            compact && "space-y-2",
+          )}
+        >
+          <div
+            className={cn(
+              "atd-boot__status mx-auto w-full",
+              showBrandStory ? "max-w-[14rem]" : "max-w-[11rem]",
+            )}
+          >
             <p
               className={cn(
                 "font-medium tracking-tight text-muted-foreground",

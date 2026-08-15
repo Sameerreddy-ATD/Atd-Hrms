@@ -513,7 +513,11 @@ function AssetsPage() {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Available to assign" value={totals.available} icon={Package} />
         <MetricCard label="Currently assigned" value={totals.assigned} icon={UserPlus} />
-        <MetricCard label="Physical / online" value={`${totals.physical} / ${totals.online}`} icon={Globe2} />
+        <MetricCard
+          label="Physical / online"
+          value={`${totals.physical} / ${totals.online}`}
+          icon={Globe2}
+        />
         <MetricCard label="Company-use" value={totals.companyUse} icon={Building2} />
         <MetricCard
           label="Monthly recurring"
@@ -1093,7 +1097,9 @@ function AssetsPage() {
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>
-              {returnTarget?.assetType === "ONLINE" ? "Online seat return" : "Asset return checklist"}
+              {returnTarget?.assetType === "ONLINE"
+                ? "Online seat return"
+                : "Asset return checklist"}
             </DialogTitle>
           </DialogHeader>
           {returnTarget && (
@@ -1323,7 +1329,9 @@ function AssetList({
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold">{asset.name}</p>
                 <p className="mt-0.5 font-mono text-xs text-muted-foreground">
-                  {asset.assetType === "PHYSICAL" ? asset.assetCode : asset.serialNumber || asset.assetCode}
+                  {asset.assetType === "PHYSICAL"
+                    ? asset.assetCode
+                    : asset.serialNumber || asset.assetCode}
                 </p>
               </div>
               <div className="flex flex-col items-end gap-1">
@@ -1553,9 +1561,7 @@ function InvestmentSection({ investments }: { investments: EmployeeAssetInvestme
                 <TableCell className="text-right">
                   {formatCurrency(item.monthlyRecurring)}
                 </TableCell>
-                <TableCell className="text-right">
-                  {formatCurrency(item.annualRecurring)}
-                </TableCell>
+                <TableCell className="text-right">{formatCurrency(item.annualRecurring)}</TableCell>
                 <TableCell className="text-right font-semibold">
                   {formatCurrency(item.lifetimeInvestment)}
                 </TableCell>
@@ -1690,9 +1696,7 @@ function InvestmentValue({
 
 function assetLabel(asset: CompanyAsset) {
   const idPart =
-    asset.assetType === "ONLINE"
-      ? asset.serialNumber || asset.assetCode
-      : asset.assetCode;
+    asset.assetType === "ONLINE" ? asset.serialNumber || asset.assetCode : asset.assetCode;
   const laptop = asset.laptopName ? ` · ${asset.laptopName}` : "";
   return `${asset.name}${laptop} · ${idPart}`;
 }

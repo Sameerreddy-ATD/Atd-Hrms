@@ -8,7 +8,10 @@ import { Keyboard } from "@capacitor/keyboard";
 /** True when running inside the Capacitor Android/iOS shell (Play / App Store). */
 export function isNativeApp() {
   try {
-    if (typeof document !== "undefined" && document.documentElement.classList.contains("atd-native")) {
+    if (
+      typeof document !== "undefined" &&
+      document.documentElement.classList.contains("atd-native")
+    ) {
       return true;
     }
     return Capacitor.isNativePlatform();

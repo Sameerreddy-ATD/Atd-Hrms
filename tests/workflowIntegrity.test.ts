@@ -170,7 +170,10 @@ describe("task board ACL helpers", () => {
       OR: expect.arrayContaining([
         { createdByUserId: "u2" },
         { accessType: TaskBoardAccessType.OPEN },
-        { accessType: TaskBoardAccessType.ROLE_GATED, roleAccess: { some: { role: Role.EMPLOYEE } } },
+        {
+          accessType: TaskBoardAccessType.ROLE_GATED,
+          roleAccess: { some: { role: Role.EMPLOYEE } },
+        },
         {
           accessType: TaskBoardAccessType.MEMBER_GATED,
           members: { some: { employeeId: "e1" } },

@@ -61,7 +61,9 @@ export async function readProfileSelfEditPolicy(): Promise<ProfileSelfEditPolicy
   if (!row) return defaultProfileSelfEditPolicy();
   try {
     const parsed = profileSelfEditPolicySchema.parse(JSON.parse(row.value));
-    const allowedFields = parsed.allowedFields.filter((key, index, list) => list.indexOf(key) === index);
+    const allowedFields = parsed.allowedFields.filter(
+      (key, index, list) => list.indexOf(key) === index,
+    );
     return { enabled: parsed.enabled, allowedFields };
   } catch {
     return defaultProfileSelfEditPolicy();
@@ -73,7 +75,9 @@ export async function saveProfileSelfEditPolicy(
   updatedById: string,
 ): Promise<ProfileSelfEditPolicy> {
   const parsed = profileSelfEditPolicySchema.parse(value);
-  const allowedFields = parsed.allowedFields.filter((key, index, list) => list.indexOf(key) === index);
+  const allowedFields = parsed.allowedFields.filter(
+    (key, index, list) => list.indexOf(key) === index,
+  );
   if (parsed.enabled && allowedFields.length === 0) {
     throw new Error("Select at least one field before enabling employee profile editing");
   }

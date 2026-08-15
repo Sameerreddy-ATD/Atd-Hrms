@@ -10,7 +10,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { TaskAssignee, TaskBoard, TaskStage, TaskStatus } from "@/types/domain";
@@ -279,7 +285,10 @@ export function BoardFormDialog({
                 onChange={(event) =>
                   setForm({
                     ...form,
-                    keyPrefix: event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8),
+                    keyPrefix: event.target.value
+                      .toUpperCase()
+                      .replace(/[^A-Z0-9]/g, "")
+                      .slice(0, 8),
                   })
                 }
                 placeholder="OPS"
@@ -574,7 +583,9 @@ export function BoardFormDialog({
             <div className="flex items-center justify-between">
               <div>
                 <Label>Custom fields</Label>
-                <p className="text-xs text-muted-foreground">Optional text, number, or select fields on tasks.</p>
+                <p className="text-xs text-muted-foreground">
+                  Optional text, number, or select fields on tasks.
+                </p>
               </div>
               <Button
                 type="button"

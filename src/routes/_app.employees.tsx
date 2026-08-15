@@ -508,7 +508,9 @@ function EmployeesPage() {
                     required
                     maxLength={40}
                   />
-                  <p className="text-xs text-muted-foreground">Must be unique across the company.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Must be unique across the company.
+                  </p>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Email</Label>
@@ -1029,9 +1031,7 @@ function EmployeeAccountStatus({ employee }: { employee: User }) {
         className="max-w-44 whitespace-normal border-orange-200 bg-orange-50 text-center text-orange-800 dark:border-orange-900/50 dark:bg-orange-950/40 dark:text-orange-300"
       >
         Suspended
-        {employee.suspendedUntil
-          ? ` until ${formatDisplayDate(employee.suspendedUntil)}`
-          : ""}
+        {employee.suspendedUntil ? ` until ${formatDisplayDate(employee.suspendedUntil)}` : ""}
       </Badge>
     );
   }

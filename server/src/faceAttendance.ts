@@ -439,7 +439,8 @@ export async function verifyFaceCapture(input: {
       capture.longitude === undefined ||
       capture.locationAccuracy === undefined
     ) {
-      failureReason = "Precise location is required for attendance. Approximate location is not enough.";
+      failureReason =
+        "Precise location is required for attendance. Approximate location is not enough.";
     } else if (capture.locationAccuracy > settings.maxGpsAccuracyMeters) {
       failureReason = `Precise location accuracy must be within ${settings.maxGpsAccuracyMeters} metres. Turn on Precise location and try again near a window or outdoors.`;
     } else {
@@ -456,8 +457,7 @@ export async function verifyFaceCapture(input: {
     if (!capture.consentAccepted || capture.consentVersion !== FACE_CONSENT_VERSION) {
       failureReason = "Biometric consent is required before face registration.";
     } else if (!capture.enrollmentViews || capture.enrollmentViews.length < 2) {
-      failureReason =
-        "Enrollment requires two front photos: eyes open and eyes closed.";
+      failureReason = "Enrollment requires two front photos: eyes open and eyes closed.";
     } else {
       const duplicateSimilarity = await duplicateEnrollmentSimilarity(
         input.userId,

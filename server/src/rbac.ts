@@ -179,7 +179,8 @@ const ORG_WIDE_ATTENDANCE_ROLES: Role[] = [
 /** HR/admin/CEO see org-wide attendance; managers and org heads see their team only. */
 export async function assertCanViewTeamAttendance(user: Express.Request["user"]) {
   if (!user) throw new HttpError(401, "Authentication required");
-  if (ORG_WIDE_ATTENDANCE_ROLES.includes(user.role)) return { scope: "org" as const, teamIds: [] as string[] };
+  if (ORG_WIDE_ATTENDANCE_ROLES.includes(user.role))
+    return { scope: "org" as const, teamIds: [] as string[] };
   if (!user.employeeId) {
     throw new HttpError(403, "You can only view attendance for your team.");
   }
@@ -220,7 +221,9 @@ export async function getOrganizationTeamEmployeeIds(employeeId: string) {
   const ownedUnitIds = [
     ...new Set([
       ...assignments.map((row) => row.departmentId),
-      ...units.filter((unit) => unit.headEmployeeId === employeeId).map((unit) => unit.departmentId),
+      ...units
+        .filter((unit) => unit.headEmployeeId === employeeId)
+        .map((unit) => unit.departmentId),
     ]),
   ];
   if (ownedUnitIds.length === 0 && employee.organizationLevel === "HEAD" && employee.departmentId) {

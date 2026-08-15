@@ -142,7 +142,10 @@ async function getNativeDeviceLocation(
       const requested = await Promise.race([
         Geolocation.requestPermissions(),
         new Promise<never>((_, fail) =>
-          window.setTimeout(() => fail(new Error("Location permission request timed out.")), 15_000),
+          window.setTimeout(
+            () => fail(new Error("Location permission request timed out.")),
+            15_000,
+          ),
         ),
       ]);
       if (requested.location !== "granted") {

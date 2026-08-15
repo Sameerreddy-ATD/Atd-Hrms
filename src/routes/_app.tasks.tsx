@@ -502,11 +502,7 @@ function TaskBoardsPage() {
         board={selectedTaskBoard}
         boards={boards}
         assignees={
-          selectedTaskBoard
-            ? boardAssignees.length
-              ? boardAssignees
-              : assignees
-            : assignees
+          selectedTaskBoard ? (boardAssignees.length ? boardAssignees : assignees) : assignees
         }
         loading={detailLoading}
         saving={taskSaving}

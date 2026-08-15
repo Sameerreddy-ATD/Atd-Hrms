@@ -13,7 +13,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { leaveApi, employeesApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
 import { formatDisplayDate, indiaDateKey, indiaDateKeyShift } from "@/lib/india-date";
-import type { LeaveBalance, LeaveTypeOption, WeeklyOffPolicy, WeeklyOffRequest } from "@/types/domain";
+import type {
+  LeaveBalance,
+  LeaveTypeOption,
+  WeeklyOffPolicy,
+  WeeklyOffRequest,
+} from "@/types/domain";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { CalendarClock, CalendarDays, CheckCircle2, ShieldCheck, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -123,10 +128,7 @@ function ApplyLeavePage() {
     setErrors(errs);
     if (Object.keys(errs).length) return;
 
-    const calendarDays = Math.max(
-      1,
-      Math.round((+new Date(to) - +new Date(from)) / 86400000) + 1,
-    );
+    const calendarDays = Math.max(1, Math.round((+new Date(to) - +new Date(from)) / 86400000) + 1);
     const days = isCompOff ? 1 : calendarDays;
     setLoading(true);
     try {
@@ -210,8 +212,8 @@ function ApplyLeavePage() {
           <InfoButton title="Leave request process">
             Leave requests go to your organization head. Higher heads in the same chain can also
             approve or reject. Comp Off usage also requires Reporting Head approval and is consumed
-            only when approved. Track leave results in Leave History. Weekly-off requests stay on this
-            Apply screen under Weekly off.
+            only when approved. Track leave results in Leave History. Weekly-off requests stay on
+            this Apply screen under Weekly off.
           </InfoButton>
         }
       />
@@ -291,8 +293,8 @@ function ApplyLeavePage() {
                 {!approverLoading && requiresApprover && approverName && (
                   <p className="mb-4 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
                     This request will be sent to your organization head:{" "}
-                    <span className="font-medium text-foreground">{approverName}</span>. Higher heads
-                    in the same chain can also approve or reject it.
+                    <span className="font-medium text-foreground">{approverName}</span>. Higher
+                    heads in the same chain can also approve or reject it.
                   </p>
                 )}
                 {selectedType?.code === "COMP_OFF" && (
@@ -326,8 +328,8 @@ function ApplyLeavePage() {
                         }}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Upload a private PDF or image here, or later from Leave History. Public Drive
-                        links are not accepted.
+                        Upload a private PDF or image here, or later from Leave History. Public
+                        Drive links are not accepted.
                       </p>
                     </div>
                   )}
@@ -469,8 +471,8 @@ function ApplyLeavePage() {
                 <div className="rounded-lg border border-border bg-muted/30 px-4 py-5">
                   <p className="text-sm font-medium text-foreground">Fixed Sunday off is active</p>
                   <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                    If you need a different arrangement, ask HR or Developer Admin to change your week
-                    off policy on your employee profile.
+                    If you need a different arrangement, ask HR or Developer Admin to change your
+                    week off policy on your employee profile.
                   </p>
                 </div>
               ) : (
@@ -478,8 +480,8 @@ function ApplyLeavePage() {
                   {!approverLoading && approverName && (
                     <p className="mb-4 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
                       This request will be sent to your organization head:{" "}
-                      <span className="font-medium text-foreground">{approverName}</span>. Higher heads
-                      in the same chain can also approve or reject it.
+                      <span className="font-medium text-foreground">{approverName}</span>. Higher
+                      heads in the same chain can also approve or reject it.
                     </p>
                   )}
                   <form onSubmit={submitWeeklyOff} className="grid gap-4 sm:grid-cols-2">

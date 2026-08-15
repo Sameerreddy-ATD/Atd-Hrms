@@ -222,7 +222,9 @@ export function MissedPunchRequestPanel({
             <CardContent className="p-4 sm:p-6">
               <div className="mb-5 flex items-start justify-between gap-3 border-b pb-4">
                 <div>
-                  <h2 className="font-semibold">Submit missed {selected.direction.toLowerCase()}</h2>
+                  <h2 className="font-semibold">
+                    Submit missed {selected.direction.toLowerCase()}
+                  </h2>
                   <p className="mt-1 text-sm text-muted-foreground">
                     Date and type are locked from the selected miss. Enter time and reason only.
                   </p>
@@ -281,11 +283,7 @@ export function MissedPunchRequestPanel({
                   >
                     Cancel
                   </Button>
-                  <Button
-                    className="min-h-11 w-full sm:w-auto"
-                    type="submit"
-                    disabled={submitting}
-                  >
+                  <Button className="min-h-11 w-full sm:w-auto" type="submit" disabled={submitting}>
                     {submitting ? "Submitting..." : "Submit request"}
                   </Button>
                 </div>
@@ -355,7 +353,9 @@ export function MissedPunchRequestPanel({
                       </div>
                       <StatusBadge status={requestStatusLabel(request.status)} />
                     </div>
-                    <p className="mt-3 break-words text-xs text-muted-foreground">{request.remarks}</p>
+                    <p className="mt-3 break-words text-xs text-muted-foreground">
+                      {request.remarks}
+                    </p>
                   </div>
                 ))
               )}
@@ -398,7 +398,10 @@ export function MissedPunchRequestPanel({
                         <TableCell>
                           {directionFromEventType(request.eventType) ?? request.eventType}
                         </TableCell>
-                        <TableCell className="max-w-xs truncate text-muted-foreground" title={request.remarks}>
+                        <TableCell
+                          className="max-w-xs truncate text-muted-foreground"
+                          title={request.remarks}
+                        >
                           {request.remarks}
                         </TableCell>
                         <TableCell className="whitespace-nowrap">

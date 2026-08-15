@@ -204,7 +204,11 @@ function RootComponent() {
     if (!url.searchParams.has("_r") && !url.searchParams.has("_cb")) return;
     url.searchParams.delete("_r");
     url.searchParams.delete("_cb");
-    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    );
   }, []);
 
   useEffect(() => {
@@ -248,18 +252,18 @@ function RootComponent() {
       <AuthProvider>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <div className="h-full min-h-0">
-        <AppOpenSplash />
-        <Outlet />
-        <PortraitOrientationGuard />
-        <StoreUpdateGate />
-        <SystemThemeSync />
-        <NotificationBridge />
-        <Toaster
-          position="top-center"
-          richColors
-          closeButton
-          offset="calc(var(--atd-sat, 0px) + 12px)"
-        />
+          <AppOpenSplash />
+          <Outlet />
+          <PortraitOrientationGuard />
+          <StoreUpdateGate />
+          <SystemThemeSync />
+          <NotificationBridge />
+          <Toaster
+            position="top-center"
+            richColors
+            closeButton
+            offset="calc(var(--atd-sat, 0px) + 12px)"
+          />
         </div>
       </AuthProvider>
     </QueryClientProvider>

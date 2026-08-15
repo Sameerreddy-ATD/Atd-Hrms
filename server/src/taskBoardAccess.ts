@@ -53,9 +53,7 @@ export async function assertCanAccessTask(
   if (unrestrictedRoles.includes(user.role)) return task;
 
   const teamIds = user.employeeId ? await getOrganizationTeamEmployeeIds(user.employeeId) : [];
-  const visibleIds = [
-    ...new Set([...(user.employeeId ? [user.employeeId] : []), ...teamIds]),
-  ];
+  const visibleIds = [...new Set([...(user.employeeId ? [user.employeeId] : []), ...teamIds])];
   const assigneeIds = task.assignments.map((entry) => entry.employeeId);
   if (assigneeIds.some((id) => visibleIds.includes(id))) return task;
   if (task.boardId) {

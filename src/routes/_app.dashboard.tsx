@@ -163,9 +163,7 @@ function DashboardPage() {
     () => ["employee", "sales", "driver", "field_staff"].includes(user?.role ?? ""),
     [user?.role],
   );
-  const selfPunchRoles = Boolean(
-    user?.employeeId && !["developer_admin"].includes(user.role),
-  );
+  const selfPunchRoles = Boolean(user?.employeeId && !["developer_admin"].includes(user.role));
 
   const refreshDashboard = useCallback(() => {
     setReloadKey((value) => value + 1);
@@ -254,9 +252,7 @@ function DashboardPage() {
   const total = people.filter((person) => person.employeeId && person.active !== false).length;
   const attendanceRequiredTotal = people.filter(
     (person) =>
-      person.employeeId &&
-      person.active !== false &&
-      !["developer_admin"].includes(person.role),
+      person.employeeId && person.active !== false && !["developer_admin"].includes(person.role),
   ).length;
   const presentToday = countUniquePresent(todayAttendance);
   const absent = countStatus(todayAttendance, "Absent");
@@ -521,9 +517,8 @@ function MarkAttendanceCard({
     let cancelled = false;
     async function flushQueue() {
       if (!navigator.onLine) return;
-      const { listOfflinePunches, removeOfflinePunch, writePunchTicket } = await import(
-        "@/lib/offline-punch-queue"
-      );
+      const { listOfflinePunches, removeOfflinePunch, writePunchTicket } =
+        await import("@/lib/offline-punch-queue");
       try {
         const nextTicket = await attendanceApi.punchTicket();
         writePunchTicket(nextTicket.ticket, nextTicket.expiresAt);
@@ -538,9 +533,7 @@ function MarkAttendanceCard({
             const payload = entry.payload;
             if (payload.faceVerification) {
               await removeOfflinePunch(entry.id);
-              toast.error(
-                "A queued face check-in expired. Please check in again while online.",
-              );
+              toast.error("A queued face check-in expired. Please check in again while online.");
               continue;
             }
             await attendanceApi.checkIn({
@@ -623,9 +616,8 @@ function MarkAttendanceCard({
         setLeaveCheckIn(capture);
         return;
       }
-      const { enqueueOfflinePunch, isLikelyNetworkError } = await import(
-        "@/lib/offline-punch-queue"
-      );
+      const { enqueueOfflinePunch, isLikelyNetworkError } =
+        await import("@/lib/offline-punch-queue");
       if (isLikelyNetworkError(err)) {
         if ("faceVerification" in capture && capture.faceVerification) {
           toast.error(
@@ -692,9 +684,8 @@ function MarkAttendanceCard({
           toast.success("You are checked out");
           onAttendanceChanged();
         } catch (error) {
-          const { enqueueOfflinePunch, isLikelyNetworkError } = await import(
-            "@/lib/offline-punch-queue"
-          );
+          const { enqueueOfflinePunch, isLikelyNetworkError } =
+            await import("@/lib/offline-punch-queue");
           if (isLikelyNetworkError(error)) {
             await enqueueOfflinePunch({
               kind: "check-out",

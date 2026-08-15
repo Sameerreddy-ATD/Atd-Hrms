@@ -104,7 +104,7 @@ export function AppSidebar() {
                         isActive={active}
                         size="default"
                         tooltip={item.label}
-        className={cn(
+                        className={cn(
                           "aw-nav-item h-10 w-full justify-start rounded-md border border-transparent px-3 text-sidebar-foreground/90",
                           active
                             ? "border-primary/20 bg-primary/10 font-semibold text-primary hover:bg-primary/12 dark:border-primary/35 dark:bg-primary/15 dark:text-primary dark:hover:bg-primary/20"
@@ -122,9 +122,7 @@ export function AppSidebar() {
                           <item.icon
                             className={cn(
                               "h-[18px] w-[18px] shrink-0 transition-colors duration-[var(--motion-fast)]",
-                              active
-                                ? "text-primary dark:text-primary"
-                                : "text-muted-foreground",
+                              active ? "text-primary dark:text-primary" : "text-muted-foreground",
                             )}
                           />
                           <span className="truncate text-sm">{item.label}</span>
@@ -152,9 +150,7 @@ export function AppSidebar() {
                   .toUpperCase()}
               </span>
               <div className="min-w-0">
-                <p className="truncate text-xs font-semibold text-foreground">
-                  {user.name}
-                </p>
+                <p className="truncate text-xs font-semibold text-foreground">{user.name}</p>
                 <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
                   {ROLE_LABELS[user.role]}
                 </p>

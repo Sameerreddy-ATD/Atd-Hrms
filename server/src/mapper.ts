@@ -20,7 +20,8 @@ import {
 } from "./attendancePolicy.js";
 
 /** Account activation lifecycle shown in User Logins / Employees. */
-export type LoginLifecycle = "CREATED" | "PASSWORD_CHANGE" | "ACTIVE" | "INACTIVE" | "LOCKED" | "SUSPENDED";
+export type LoginLifecycle =
+  "CREATED" | "PASSWORD_CHANGE" | "ACTIVE" | "INACTIVE" | "LOCKED" | "SUSPENDED";
 
 export function resolveLoginLifecycle(user: {
   status: UserStatus;
@@ -31,9 +32,9 @@ export function resolveLoginLifecycle(user: {
 }): LoginLifecycle {
   const suspended = Boolean(
     user.suspensionStartsAt &&
-      user.suspendedUntil &&
-      user.suspensionStartsAt.getTime() <= Date.now() &&
-      user.suspendedUntil.getTime() > Date.now(),
+    user.suspendedUntil &&
+    user.suspensionStartsAt.getTime() <= Date.now() &&
+    user.suspendedUntil.getTime() > Date.now(),
   );
   if (user.status === "LOCKED") return "LOCKED";
   if (user.status === "INACTIVE") return "INACTIVE";
@@ -329,7 +330,9 @@ export function departmentDto(department: {
         : [];
   const heads =
     assignmentHeads.length > 0
-      ? assignmentHeads.map((row) => row.employee?.name).filter((name): name is string => Boolean(name))
+      ? assignmentHeads
+          .map((row) => row.employee?.name)
+          .filter((name): name is string => Boolean(name))
       : department.headEmployee?.name
         ? [department.headEmployee.name]
         : [];
@@ -546,7 +549,8 @@ export function eventDto(
     source: event.eventSource,
     type: event.eventType,
     branchName: event.branch
-      ? formatLocationPlaceName(event.branch.branchName, event.branch.isHub) || event.branch.branchName
+      ? formatLocationPlaceName(event.branch.branchName, event.branch.isHub) ||
+        event.branch.branchName
       : undefined,
     isHub: event.branch ? Boolean(event.branch.isHub) : undefined,
     deviceName: event.device?.deviceName,
@@ -667,19 +671,19 @@ export function companyAssetDto(
       costSharePerSeat: undefined,
       userPassword: undefined,
       adminPassword: undefined,
-      assignments: assignments.map(({ costShareAmount: _a, costShareFrequency: _f, ...seat }) => seat),
+      assignments: assignments.map(
+        ({ costShareAmount: _a, costShareFrequency: _f, ...seat }) => seat,
+      ),
     };
   }
   return dto;
 }
 
-export function employeeVisibleAssetDto(
-  assignment: {
-    assignmentId: string;
-    assignedAt: Date;
-    asset: CompanyAsset & { branch?: Pick<Branch, "branchName"> | null };
-  },
-) {
+export function employeeVisibleAssetDto(assignment: {
+  assignmentId: string;
+  assignedAt: Date;
+  asset: CompanyAsset & { branch?: Pick<Branch, "branchName"> | null };
+}) {
   return {
     id: assignment.assignmentId,
     assetId: assignment.asset.assetId,

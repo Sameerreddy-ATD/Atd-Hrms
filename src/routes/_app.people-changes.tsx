@@ -15,14 +15,34 @@ import {
   ResponsiveListShell,
 } from "@/components/common/ResponsiveList";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DateField } from "@/components/ui/date-field";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
-import { CHANGE_KIND_LABELS, CHANGE_KINDS, fileToPayload, isPeopleLeaderRole, isPeopleOpsRole, labelize, timeToMinutes } from "@/lib/lifecycle";
+import {
+  CHANGE_KIND_LABELS,
+  CHANGE_KINDS,
+  fileToPayload,
+  isPeopleLeaderRole,
+  isPeopleOpsRole,
+  labelize,
+  timeToMinutes,
+} from "@/lib/lifecycle";
 import { branchesApi, employeesApi, lifecycleApi } from "@/services/api";
 import type { Branch, Department, User } from "@/types/domain";
 
@@ -140,12 +160,15 @@ function PeopleChangesPage() {
     if (["PROMOTION", "DESIGNATION_CHANGE"].includes(form.kind) && !form.designation.trim()) {
       return "New designation is required";
     }
-    if (form.kind === "SALARY_CHANGE" && !(Number(form.ctcAnnual) > 0)) return "Annual CTC is required";
+    if (form.kind === "SALARY_CHANGE" && !(Number(form.ctcAnnual) > 0))
+      return "Annual CTC is required";
     if (form.kind === "DEPARTMENT_CHANGE" && !form.departmentId) return "Department is required";
     if (form.kind === "BRANCH_CHANGE" && !form.homeBranchId) return "Branch is required";
     if (form.kind === "MANAGER_CHANGE" && !form.managerId) return "New manager is required";
-    if (form.kind === "HIERARCHY_CHANGE" && !form.organizationLevel) return "Organization level is required";
-    if (form.kind === "SHIFT_SWAP" && !form.counterpartEmployeeId) return "Swap counterpart is required";
+    if (form.kind === "HIERARCHY_CHANGE" && !form.organizationLevel)
+      return "Organization level is required";
+    if (form.kind === "SHIFT_SWAP" && !form.counterpartEmployeeId)
+      return "Swap counterpart is required";
     if (form.kind === "ADDRESS_CHANGE" && !form.presentAddress.trim()) return "Address is required";
     if (["RECURRING_ALLOWANCE", "ONE_TIME_PAYMENT"].includes(form.kind)) {
       if (!form.name.trim()) return "Name is required";
@@ -170,7 +193,13 @@ function PeopleChangesPage() {
         decision,
         hrLetter: decision === "APPLY" && hrLetter ? await fileToPayload(hrLetter) : undefined,
       });
-      toast.success(decision === "REJECT" ? "Rejected" : decision === "APPLY" ? "Applied to employee record" : "Sent to HR");
+      toast.success(
+        decision === "REJECT"
+          ? "Rejected"
+          : decision === "APPLY"
+            ? "Applied to employee record"
+            : "Sent to HR",
+      );
       setHrLetter(undefined);
       await load();
     } catch (error) {
@@ -193,12 +222,18 @@ function PeopleChangesPage() {
         }
       />
       {rows.length === 0 ? (
-        <EmptyState icon={ArrowLeftRight} title="No change requests" description="Raise a change when employment data needs an effective-dated update." />
+        <EmptyState
+          icon={ArrowLeftRight}
+          title="No change requests"
+          description="Raise a change when employment data needs an effective-dated update."
+        />
       ) : (
         <ResponsiveListShell>
           {isHr ? (
             <div className="border-b bg-muted/30 px-3 py-3 sm:px-4">
-              <Label className="text-xs font-medium text-muted-foreground">HR letter for apply (optional)</Label>
+              <Label className="text-xs font-medium text-muted-foreground">
+                HR letter for apply (optional)
+              </Label>
               <Input
                 className="mt-1 h-11 max-w-md bg-background"
                 type="file"
@@ -215,22 +250,36 @@ function PeopleChangesPage() {
               <MobileListItem key={String(row.id)}>
                 <MobileListHeader
                   title={String(row.employeeName)}
-                  meta={CHANGE_KIND_LABELS[row.kind as keyof typeof CHANGE_KIND_LABELS] ?? String(row.kind)}
+                  meta={
+                    CHANGE_KIND_LABELS[row.kind as keyof typeof CHANGE_KIND_LABELS] ??
+                    String(row.kind)
+                  }
                   trailing={<StatusBadge status={labelize(String(row.status))} />}
                 />
-                <p className="mt-2 text-xs text-muted-foreground">Effective {String(row.effectiveDate)}</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Effective {String(row.effectiveDate)}
+                </p>
                 <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
                   {JSON.stringify(row.payload ?? {})}
                 </p>
-                {canApprove && String(row.status) !== "APPLIED" && String(row.status) !== "REJECTED" ? (
+                {canApprove &&
+                String(row.status) !== "APPLIED" &&
+                String(row.status) !== "REJECTED" ? (
                   <div className="mt-3 flex flex-col gap-2">
                     {canAct(String(row.status)) ? (
-                      <Button className="h-11 w-full" onClick={() => void decide(String(row.id), isHr ? "APPLY" : "APPROVE")}>
+                      <Button
+                        className="h-11 w-full"
+                        onClick={() => void decide(String(row.id), isHr ? "APPLY" : "APPROVE")}
+                      >
                         {isHr ? "Approve and apply" : "Manager approve"}
                       </Button>
                     ) : null}
                     {canReject(String(row.status)) ? (
-                      <Button variant="outline" className="h-11 w-full" onClick={() => void decide(String(row.id), "REJECT")}>
+                      <Button
+                        variant="outline"
+                        className="h-11 w-full"
+                        onClick={() => void decide(String(row.id), "REJECT")}
+                      >
                         Reject
                       </Button>
                     ) : null}
@@ -257,21 +306,35 @@ function PeopleChangesPage() {
                       <p className="font-medium">{String(row.employeeName)}</p>
                       <p className="text-xs text-muted-foreground">{String(row.employeeCode)}</p>
                     </td>
-                    <td className="px-4 py-3">{CHANGE_KIND_LABELS[row.kind as keyof typeof CHANGE_KIND_LABELS] ?? String(row.kind)}</td>
+                    <td className="px-4 py-3">
+                      {CHANGE_KIND_LABELS[row.kind as keyof typeof CHANGE_KIND_LABELS] ??
+                        String(row.kind)}
+                    </td>
                     <td className="px-4 py-3">{String(row.effectiveDate)}</td>
                     <td className="px-4 py-3">
                       <StatusBadge status={labelize(String(row.status))} />
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {canApprove && String(row.status) !== "APPLIED" && String(row.status) !== "REJECTED" ? (
+                      {canApprove &&
+                      String(row.status) !== "APPLIED" &&
+                      String(row.status) !== "REJECTED" ? (
                         <div className="flex justify-end gap-2">
                           {canAct(String(row.status)) ? (
-                            <Button size="sm" onClick={() => void decide(String(row.id), isHr ? "APPLY" : "APPROVE")}>
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                void decide(String(row.id), isHr ? "APPLY" : "APPROVE")
+                              }
+                            >
                               {isHr ? "Apply" : "Approve"}
                             </Button>
                           ) : null}
                           {canReject(String(row.status)) ? (
-                            <Button size="sm" variant="outline" onClick={() => void decide(String(row.id), "REJECT")}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void decide(String(row.id), "REJECT")}
+                            >
                               Reject
                             </Button>
                           ) : null}
@@ -293,11 +356,20 @@ function PeopleChangesPage() {
           </DialogHeader>
           <div className="space-y-3">
             {isHr || user?.role === "manager" ? (
-              <EmployeePicker employees={employees} value={form.employeeId} onChange={(employeeId) => setForm({ ...form, employeeId })} />
+              <EmployeePicker
+                employees={employees}
+                value={form.employeeId}
+                onChange={(employeeId) => setForm({ ...form, employeeId })}
+              />
             ) : null}
             <div>
               <Label>Type</Label>
-              <Select value={form.kind} onValueChange={(kind) => setForm({ ...form, kind: kind as (typeof CHANGE_KINDS)[number] })}>
+              <Select
+                value={form.kind}
+                onValueChange={(kind) =>
+                  setForm({ ...form, kind: kind as (typeof CHANGE_KINDS)[number] })
+                }
+              >
                 <SelectTrigger className="mt-1 h-11">
                   <SelectValue />
                 </SelectTrigger>
@@ -312,18 +384,35 @@ function PeopleChangesPage() {
             </div>
             <div>
               <Label>Effective date</Label>
-              <DateField className="mt-1" value={form.effectiveDate} onChange={(effectiveDate) => setForm({ ...form, effectiveDate })} />
+              <DateField
+                className="mt-1"
+                value={form.effectiveDate}
+                onChange={(effectiveDate) => setForm({ ...form, effectiveDate })}
+              />
             </div>
             {["PROMOTION", "DESIGNATION_CHANGE"].includes(form.kind) ? (
-              <Input className="h-11" placeholder="New designation" value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} />
+              <Input
+                className="h-11"
+                placeholder="New designation"
+                value={form.designation}
+                onChange={(e) => setForm({ ...form, designation: e.target.value })}
+              />
             ) : null}
             {["SALARY_CHANGE", "PROMOTION"].includes(form.kind) ? (
-              <Input className="h-11" placeholder="Annual CTC" value={form.ctcAnnual} onChange={(e) => setForm({ ...form, ctcAnnual: e.target.value })} />
+              <Input
+                className="h-11"
+                placeholder="Annual CTC"
+                value={form.ctcAnnual}
+                onChange={(e) => setForm({ ...form, ctcAnnual: e.target.value })}
+              />
             ) : null}
             {form.kind === "DEPARTMENT_CHANGE" ? (
               <div>
                 <Label>Department</Label>
-                <Select value={form.departmentId} onValueChange={(departmentId) => setForm({ ...form, departmentId })}>
+                <Select
+                  value={form.departmentId}
+                  onValueChange={(departmentId) => setForm({ ...form, departmentId })}
+                >
                   <SelectTrigger className="mt-1 h-11">
                     <SelectValue placeholder="Select department" />
                   </SelectTrigger>
@@ -340,7 +429,10 @@ function PeopleChangesPage() {
             {form.kind === "BRANCH_CHANGE" ? (
               <div>
                 <Label>Branch</Label>
-                <Select value={form.homeBranchId} onValueChange={(homeBranchId) => setForm({ ...form, homeBranchId })}>
+                <Select
+                  value={form.homeBranchId}
+                  onValueChange={(homeBranchId) => setForm({ ...form, homeBranchId })}
+                >
                   <SelectTrigger className="mt-1 h-11">
                     <SelectValue placeholder="Select branch" />
                   </SelectTrigger>
@@ -355,7 +447,12 @@ function PeopleChangesPage() {
               </div>
             ) : null}
             {["MANAGER_CHANGE", "PROMOTION"].includes(form.kind) ? (
-              <EmployeePicker employees={employees} value={form.managerId} onChange={(managerId) => setForm({ ...form, managerId })} label="New manager" />
+              <EmployeePicker
+                employees={employees}
+                value={form.managerId}
+                onChange={(managerId) => setForm({ ...form, managerId })}
+                label="New manager"
+              />
             ) : null}
             {form.kind === "HIERARCHY_CHANGE" ? (
               <>
@@ -386,7 +483,10 @@ function PeopleChangesPage() {
             ) : null}
             {form.kind === "SHIFT_CHANGE" ? (
               <>
-                <Select value={form.shiftType} onValueChange={(shiftType) => setForm({ ...form, shiftType })}>
+                <Select
+                  value={form.shiftType}
+                  onValueChange={(shiftType) => setForm({ ...form, shiftType })}
+                >
                   <SelectTrigger className="h-11">
                     <SelectValue />
                   </SelectTrigger>
@@ -398,17 +498,30 @@ function PeopleChangesPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <Label>Starts</Label>
-                    <Input className="mt-1 h-11" type="time" value={form.shiftStart} onChange={(e) => setForm({ ...form, shiftStart: e.target.value })} />
+                    <Input
+                      className="mt-1 h-11"
+                      type="time"
+                      value={form.shiftStart}
+                      onChange={(e) => setForm({ ...form, shiftStart: e.target.value })}
+                    />
                   </div>
                   <div>
                     <Label>Ends</Label>
-                    <Input className="mt-1 h-11" type="time" value={form.shiftEnd} onChange={(e) => setForm({ ...form, shiftEnd: e.target.value })} />
+                    <Input
+                      className="mt-1 h-11"
+                      type="time"
+                      value={form.shiftEnd}
+                      onChange={(e) => setForm({ ...form, shiftEnd: e.target.value })}
+                    />
                   </div>
                 </div>
               </>
             ) : null}
             {form.kind === "EMPLOYMENT_TYPE_CHANGE" ? (
-              <Select value={form.employmentType} onValueChange={(employmentType) => setForm({ ...form, employmentType })}>
+              <Select
+                value={form.employmentType}
+                onValueChange={(employmentType) => setForm({ ...form, employmentType })}
+              >
                 <SelectTrigger className="h-11">
                   <SelectValue />
                 </SelectTrigger>
@@ -420,23 +533,61 @@ function PeopleChangesPage() {
               </Select>
             ) : null}
             {form.kind === "SHIFT_SWAP" ? (
-              <EmployeePicker employees={employees} value={form.counterpartEmployeeId} onChange={(counterpartEmployeeId) => setForm({ ...form, counterpartEmployeeId })} label="Swap with" />
+              <EmployeePicker
+                employees={employees}
+                value={form.counterpartEmployeeId}
+                onChange={(counterpartEmployeeId) => setForm({ ...form, counterpartEmployeeId })}
+                label="Swap with"
+              />
             ) : null}
             {["RECURRING_ALLOWANCE", "ONE_TIME_PAYMENT"].includes(form.kind) ? (
               <>
-                <Input className="h-11" placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-                <Input className="h-11" placeholder="Amount" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+                <Input
+                  className="h-11"
+                  placeholder="Name"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                />
+                <Input
+                  className="h-11"
+                  placeholder="Amount"
+                  value={form.amount}
+                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                />
               </>
             ) : null}
             {form.kind === "ADDRESS_CHANGE" ? (
               <>
-                <Textarea placeholder="New present address" value={form.presentAddress} onChange={(e) => setForm({ ...form, presentAddress: e.target.value })} />
-                <Input className="h-11" placeholder="City" value={form.presentCity} onChange={(e) => setForm({ ...form, presentCity: e.target.value })} />
-                <Input className="h-11" placeholder="State" value={form.presentState} onChange={(e) => setForm({ ...form, presentState: e.target.value })} />
-                <Input className="h-11" placeholder="PIN" value={form.presentPincode} onChange={(e) => setForm({ ...form, presentPincode: e.target.value })} />
+                <Textarea
+                  placeholder="New present address"
+                  value={form.presentAddress}
+                  onChange={(e) => setForm({ ...form, presentAddress: e.target.value })}
+                />
+                <Input
+                  className="h-11"
+                  placeholder="City"
+                  value={form.presentCity}
+                  onChange={(e) => setForm({ ...form, presentCity: e.target.value })}
+                />
+                <Input
+                  className="h-11"
+                  placeholder="State"
+                  value={form.presentState}
+                  onChange={(e) => setForm({ ...form, presentState: e.target.value })}
+                />
+                <Input
+                  className="h-11"
+                  placeholder="PIN"
+                  value={form.presentPincode}
+                  onChange={(e) => setForm({ ...form, presentPincode: e.target.value })}
+                />
               </>
             ) : null}
-            <Textarea placeholder="Reason / HR note" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
+            <Textarea
+              placeholder="Reason / HR note"
+              value={form.reason}
+              onChange={(e) => setForm({ ...form, reason: e.target.value })}
+            />
           </div>
           <DialogFooter>
             <Button

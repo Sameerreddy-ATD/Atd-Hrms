@@ -36,14 +36,7 @@ import { useAuth } from "@/lib/auth";
 import { formatDisplayDate, formatDisplayDateTime } from "@/lib/india-date";
 import type { User } from "@/types/domain";
 import { cn } from "@/lib/utils";
-import {
-  CheckCircle2,
-  ClipboardList,
-  ExternalLink,
-  ListTodo,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { CheckCircle2, ClipboardList, ExternalLink, ListTodo, Plus, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/checklists")({ component: ChecklistsPage });
 
@@ -248,9 +241,7 @@ function ChecklistsPage() {
     try {
       const result = await checklistsApi.deleteTemplate(template.id);
       toast.success(
-        result.deactivated
-          ? "Template deactivated (existing checklists kept)"
-          : "Template deleted",
+        result.deactivated ? "Template deactivated (existing checklists kept)" : "Template deleted",
       );
       if (editingTemplateId === template.id) {
         setEditingTemplateId(null);
@@ -280,14 +271,14 @@ function ChecklistsPage() {
       />
 
       <section className="grid gap-3 sm:grid-cols-3">
-        <StatCard label="Open checklists" value={openInstances} icon={ClipboardList} tone="warning" />
-        <StatCard label="Open items" value={openItems} icon={ListTodo} tone="info" />
         <StatCard
-          label="Completed"
-          value={completedInstances}
-          icon={CheckCircle2}
-          tone="success"
+          label="Open checklists"
+          value={openInstances}
+          icon={ClipboardList}
+          tone="warning"
         />
+        <StatCard label="Open items" value={openItems} icon={ListTodo} tone="info" />
+        <StatCard label="Completed" value={completedInstances} icon={CheckCircle2} tone="success" />
       </section>
 
       <Tabs defaultValue="instances" className="space-y-4">
@@ -370,8 +361,7 @@ function ChecklistsPage() {
                         </h2>
                         <p className="mt-0.5 text-xs text-muted-foreground">
                           {row.kind === "ONBOARDING" ? "Onboarding" : "Offboarding"} ·{" "}
-                          {row.templateName} · started{" "}
-                          {formatDisplayDate(row.createdAt)}
+                          {row.templateName} · started {formatDisplayDate(row.createdAt)}
                         </p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
@@ -492,8 +482,8 @@ function ChecklistsPage() {
           <TabsContent value="templates" className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-muted-foreground">
-                Templates define what HR must provide and collect. Editing a template does not change
-                checklists already in progress.
+                Templates define what HR must provide and collect. Editing a template does not
+                change checklists already in progress.
               </p>
               <Button onClick={beginCreateTemplate}>
                 <Plus className="mr-2 h-4 w-4" /> New template
@@ -511,7 +501,11 @@ function ChecklistsPage() {
                       </p>
                     </div>
                     <div className="flex shrink-0 gap-2">
-                      <Button size="sm" variant="outline" onClick={() => beginEditTemplate(template)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => beginEditTemplate(template)}
+                      >
                         Edit
                       </Button>
                       <AlertDialog>
@@ -541,7 +535,10 @@ function ChecklistsPage() {
                   </div>
                   <ul className="mt-3 space-y-1.5 text-sm">
                     {template.items.map((item) => (
-                      <li key={item.id} className="flex justify-between gap-2 text-muted-foreground">
+                      <li
+                        key={item.id}
+                        className="flex justify-between gap-2 text-muted-foreground"
+                      >
                         <span>{item.title}</span>
                         {item.linkPath && (
                           <span className="shrink-0 font-mono text-[11px]">{item.linkPath}</span>
@@ -698,7 +695,11 @@ function ChecklistsPage() {
                     <Plus className="mr-2 h-4 w-4" /> Add item
                   </Button>
                   <Button disabled={savingTemplate} onClick={() => void saveTemplate()}>
-                    {savingTemplate ? "Saving..." : editingTemplateId ? "Save template" : "Create template"}
+                    {savingTemplate
+                      ? "Saving..."
+                      : editingTemplateId
+                        ? "Save template"
+                        : "Create template"}
                   </Button>
                   <Button
                     variant="ghost"

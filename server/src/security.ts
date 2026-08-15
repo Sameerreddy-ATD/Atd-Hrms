@@ -22,8 +22,7 @@ const cookieOptions = {
 };
 
 /** Precomputed bcrypt hash used only to equalize login timing for unknown emails. */
-const LOGIN_TIMING_DUMMY_HASH =
-  "$2a$12$CdGAMCWpSeIMX4GNum3D1eKMGW2Wv29eVWFWsVtTODtDuwliModBe";
+const LOGIN_TIMING_DUMMY_HASH = "$2a$12$CdGAMCWpSeIMX4GNum3D1eKMGW2Wv29eVWFWsVtTODtDuwliModBe";
 
 export async function hashPassword(password: string) {
   return bcrypt.hash(password, 12);

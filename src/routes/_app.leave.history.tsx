@@ -167,8 +167,7 @@ function LeaveHistoryPage() {
                   </MobileListFields>
                   {(leave.cancelledDates?.length ?? 0) > 0 && (
                     <p className="mt-2 text-xs text-muted-foreground">
-                      Cancelled:{" "}
-                      {leave.cancelledDates?.map((d) => formatDisplayDate(d)).join(", ")}
+                      Cancelled: {leave.cancelledDates?.map((d) => formatDisplayDate(d)).join(", ")}
                     </p>
                   )}
                   {["Pending", "Approved"].includes(leave.status) && (

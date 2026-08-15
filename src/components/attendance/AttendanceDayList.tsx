@@ -298,9 +298,7 @@ export function AttendanceDayList({
         {dateGroups.map(([date, dateRecords]) => {
           const presentCount = dateRecords.filter((record) => {
             const status = record.status.toLowerCase();
-            return (
-              status.startsWith("present") || status === "full day" || status === "half day"
-            );
+            return status.startsWith("present") || status === "full day" || status === "half day";
           }).length;
           return (
             <AccordionItem

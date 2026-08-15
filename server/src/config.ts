@@ -102,7 +102,9 @@ export function assertSecureConfig() {
   }
   if (config.accessSecret.length < 32 || config.refreshSecret.length < 32) {
     if (!config.allowInsecureDevSecrets) {
-      throw new Error("JWT secrets must be at least 32 characters (or set ALLOW_INSECURE_DEV_SECRETS=true)");
+      throw new Error(
+        "JWT secrets must be at least 32 characters (or set ALLOW_INSECURE_DEV_SECRETS=true)",
+      );
     }
   }
   if (config.employeeDataEncryptionKey.length < 32 && !config.allowInsecureDevSecrets) {

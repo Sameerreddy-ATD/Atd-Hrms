@@ -13,11 +13,7 @@ import {
 import { encryptEmployeeField } from "./employeePrivateData.js";
 import { isLaptopAssetName } from "./laptopAsset.js";
 import { asyncHandler, HttpError } from "./errors.js";
-import {
-  assetCatalogItemDto,
-  companyAssetDto,
-  employeeVisibleAssetDto,
-} from "./mapper.js";
+import { assetCatalogItemDto, companyAssetDto, employeeVisibleAssetDto } from "./mapper.js";
 import { prisma } from "./prisma.js";
 import { requireAuth, requireRoles } from "./rbac.js";
 import {
@@ -399,10 +395,8 @@ export function registerAssetRoutes(app: Express) {
             ...assetFields,
             name: catalogItem?.name ?? body.name ?? undefined,
             category: body.assetType ?? body.category ?? undefined,
-            catalogId:
-              body.catalogId === undefined ? undefined : body.catalogId || null,
-            serialNumber:
-              body.serialNumber === undefined ? undefined : body.serialNumber || null,
+            catalogId: body.catalogId === undefined ? undefined : body.catalogId || null,
+            serialNumber: body.serialNumber === undefined ? undefined : body.serialNumber || null,
             branchId:
               nextAssetType === "ONLINE"
                 ? null
@@ -419,7 +413,13 @@ export function registerAssetRoutes(app: Express) {
                   ? laptopName || null
                   : null,
             deviceId:
-              deviceId === undefined ? (laptop ? undefined : null) : laptop ? deviceId || null : null,
+              deviceId === undefined
+                ? laptop
+                  ? undefined
+                  : null
+                : laptop
+                  ? deviceId || null
+                  : null,
             productId:
               productId === undefined
                 ? laptop
@@ -526,10 +526,7 @@ export function registerAssetRoutes(app: Express) {
         const latest = await tx.companyAsset.findUniqueOrThrow({
           where: { assetId: existing.assetId },
         });
-        if (
-          body.purchaseValue !== undefined ||
-          body.costFrequency !== undefined
-        ) {
+        if (body.purchaseValue !== undefined || body.costFrequency !== undefined) {
           await recalculateActiveCostShares(tx, {
             assetId: latest.assetId,
             purchaseValue: Number(latest.purchaseValue),
@@ -681,8 +678,7 @@ export function registerAssetRoutes(app: Express) {
     requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const body = assetReturnSchema.parse(req.body);
-      const employeeId =
-        typeof req.body.employeeId === "string" ? req.body.employeeId : undefined;
+      const employeeId = typeof req.body.employeeId === "string" ? req.body.employeeId : undefined;
       const existing = await prisma.companyAsset.findUniqueOrThrow({
         where: { assetId: String(req.params.id) },
         include: {

@@ -108,11 +108,7 @@ function AppLayout() {
 
   if (loading || !user || user.mustChangePassword) {
     return (
-      <LoadingState
-        label="Preparing your workspace"
-        showBrandStory
-        className="min-h-[100dvh]"
-      />
+      <LoadingState label="Preparing your workspace" showBrandStory className="min-h-[100dvh]" />
     );
   }
 
@@ -157,13 +153,7 @@ function AppLayout() {
   }
 
   if (allowedModules === null) {
-    return (
-      <LoadingState
-        label="Loading module access"
-        showBrandStory
-        className="min-h-[100dvh]"
-      />
-    );
+    return <LoadingState label="Loading module access" showBrandStory className="min-h-[100dvh]" />;
   }
 
   const activeModule = moduleForRoute(pathname);
@@ -172,8 +162,9 @@ function AppLayout() {
     Array.isArray(allowedModules) &&
     !allowedModules.includes(activeModule);
   const fallbackRoute = user
-    ? menuForRole(user.role, { allowedModules: allowedModules ?? undefined })
-        .flatMap((group) => group.items)[0]?.to
+    ? menuForRole(user.role, { allowedModules: allowedModules ?? undefined }).flatMap(
+        (group) => group.items,
+      )[0]?.to
     : undefined;
 
   return (

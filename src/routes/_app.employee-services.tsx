@@ -345,11 +345,7 @@ function EmployeeServicesPage() {
                   date={formatDisplayDate(row.expenseDate ?? row.createdAt)}
                   status={row.status}
                   description={row.description ?? row.remark ?? ""}
-                  link={
-                    row.receiptUrl
-                      ? employeeServicesApi.receiptUrl(row.receiptUrl)
-                      : undefined
-                  }
+                  link={row.receiptUrl ? employeeServicesApi.receiptUrl(row.receiptUrl) : undefined}
                   notes={row.reviewNotes}
                   action={isHr ? <ExpenseActions row={row} onReview={setReview} /> : undefined}
                 />
@@ -472,9 +468,7 @@ function EmployeeServicesPage() {
                 <select
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                   value={expenseForm.claimType}
-                  onChange={(e) =>
-                    setExpenseForm((v) => ({ ...v, claimType: e.target.value }))
-                  }
+                  onChange={(e) => setExpenseForm((v) => ({ ...v, claimType: e.target.value }))}
                 >
                   <option value="EXPENSE">Expense</option>
                   <option value="FIELD">Field</option>

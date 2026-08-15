@@ -14,9 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
-    links: [
-      { rel: "preload", href: "/login-crew-mascot.png", as: "image", type: "image/png" },
-    ],
+    links: [{ rel: "preload", href: "/login-crew-mascot.png", as: "image", type: "image/png" }],
   }),
   component: LoginPage,
 });
@@ -71,7 +69,10 @@ function LoginPage() {
   return (
     <div className="aw-auth-canvas flex min-h-[100dvh] items-center justify-center px-4 py-8 pb-[max(2rem,var(--atd-sab))] pt-[max(2rem,var(--atd-sat))]">
       <div className="aw-enter mx-auto flex w-full max-w-md flex-col justify-center space-y-4">
-        <LoginCrewMascot mode={crewMode} className="mx-auto w-full max-w-[7.5rem] sm:max-w-[8.5rem]" />
+        <LoginCrewMascot
+          mode={crewMode}
+          className="mx-auto w-full max-w-[7.5rem] sm:max-w-[8.5rem]"
+        />
 
         <PwaInstallBanner alwaysOffer className="w-full" />
 
@@ -134,10 +135,16 @@ function LoginPage() {
               AnyTime Diesel Workforce
             </p>
             <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-[11px]">
-              <Link to="/privacy" className="text-muted-foreground hover:text-primary hover:underline">
+              <Link
+                to="/privacy"
+                className="text-muted-foreground hover:text-primary hover:underline"
+              >
                 Privacy
               </Link>
-              <Link to="/terms" className="text-muted-foreground hover:text-primary hover:underline">
+              <Link
+                to="/terms"
+                className="text-muted-foreground hover:text-primary hover:underline"
+              >
                 Terms
               </Link>
               <Link

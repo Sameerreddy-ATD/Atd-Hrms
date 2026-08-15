@@ -154,7 +154,11 @@ export async function fetchAuthenticatedBlob(path: string): Promise<Blob> {
       const refreshed = await refreshSession();
       if (refreshed) res = await fetch(`${API_BASE}${path}`, fetchOptions);
     }
-    if (res.status === 401 && typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+    if (
+      res.status === 401 &&
+      typeof window !== "undefined" &&
+      !window.location.pathname.startsWith("/login")
+    ) {
       window.location.assign("/login");
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -223,9 +227,7 @@ export async function warmAuthenticatedWorkspace(user: User) {
   const native = isNativeApp();
   const paths = native
     ? [
-        ownAttendance
-          ? `/attendance/my/today`
-          : `/attendance/hr/daily${attendanceQuery}`,
+        ownAttendance ? `/attendance/my/today` : `/attendance/hr/daily${attendanceQuery}`,
         "/branches",
         "/employees/birthdays",
       ]
@@ -535,8 +537,7 @@ export const leaveApi = {
   assignedApprovals: (status?: string) =>
     request<LeaveRequest[]>(`/leave/requests${toQuery({ assignedApprovals: "true", status })}`),
   approver: () => request<{ approverName: string | null; canApply: boolean }>("/leave/approver"),
-  types: (all = false) =>
-    request<LeaveTypeOption[]>(`/leave/types${all ? "?all=true" : ""}`),
+  types: (all = false) => request<LeaveTypeOption[]>(`/leave/types${all ? "?all=true" : ""}`),
   createType: (payload: {
     name: string;
     paid?: boolean;
@@ -1474,17 +1475,27 @@ export const lifecycleApi = {
   updateCandidate: (id: string, payload: Record<string, unknown>) =>
     request(`/lifecycle/candidates/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
   addInterview: (id: string, payload: Record<string, unknown>) =>
-    request(`/lifecycle/candidates/${id}/interviews`, { method: "POST", body: JSON.stringify(payload) }),
+    request(`/lifecycle/candidates/${id}/interviews`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   createOffer: (id: string, payload: Record<string, unknown>) =>
-    request(`/lifecycle/candidates/${id}/offers`, { method: "POST", body: JSON.stringify(payload) }),
+    request(`/lifecycle/candidates/${id}/offers`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   hireCandidate: (id: string, payload: Record<string, unknown>) =>
     request(`/lifecycle/candidates/${id}/hire`, { method: "POST", body: JSON.stringify(payload) }),
-  signOffer: (id: string) => request(`/lifecycle/offers/${id}/sign`, { method: "POST", body: "{}" }),
+  signOffer: (id: string) =>
+    request(`/lifecycle/offers/${id}/sign`, { method: "POST", body: "{}" }),
   onboarding: () => request<Array<Record<string, unknown>>>("/lifecycle/onboarding"),
   startOnboarding: (payload: { employeeId: string; candidateId?: string }) =>
     request("/lifecycle/onboarding", { method: "POST", body: JSON.stringify(payload) }),
   signOnboardingDoc: (id: string, payload: { file?: LifecycleFile; notes?: string }) =>
-    request(`/lifecycle/onboarding/documents/${id}/sign`, { method: "POST", body: JSON.stringify(payload) }),
+    request(`/lifecycle/onboarding/documents/${id}/sign`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   verifyOnboardingDoc: (id: string, payload: { approved: boolean; notes?: string }) =>
     request(`/lifecycle/onboarding/documents/${id}/verify`, {
       method: "POST",
@@ -1494,7 +1505,10 @@ export const lifecycleApi = {
   saveNho: (employeeId: string, payload: Record<string, unknown>) =>
     request(`/lifecycle/nho/${employeeId}`, { method: "PUT", body: JSON.stringify(payload) }),
   verifyNho: (employeeId: string, payload: { approved: boolean; hrNotes?: string }) =>
-    request(`/lifecycle/nho/${employeeId}/verify`, { method: "POST", body: JSON.stringify(payload) }),
+    request(`/lifecycle/nho/${employeeId}/verify`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   changes: () => request<Array<Record<string, unknown>>>("/lifecycle/changes"),
   createChange: (payload: Record<string, unknown>) =>
     request("/lifecycle/changes", { method: "POST", body: JSON.stringify(payload) }),
@@ -1509,15 +1523,24 @@ export const lifecycleApi = {
       body: JSON.stringify(payload),
     }),
   reviews: (cycleId?: string) =>
-    request<Array<Record<string, unknown>>>(`/lifecycle/performance/reviews${toQuery({ cycleId })}`),
+    request<Array<Record<string, unknown>>>(
+      `/lifecycle/performance/reviews${toQuery({ cycleId })}`,
+    ),
   updateReview: (id: string, payload: Record<string, unknown>) =>
-    request(`/lifecycle/performance/reviews/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+    request(`/lifecycle/performance/reviews/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
   offboarding: () => request<Array<Record<string, unknown>>>("/lifecycle/offboarding"),
   startOffboarding: (payload: Record<string, unknown>) =>
     request("/lifecycle/offboarding", { method: "POST", body: JSON.stringify(payload) }),
   advanceOffboarding: (id: string, payload: Record<string, unknown>) =>
-    request(`/lifecycle/offboarding/${id}/advance`, { method: "POST", body: JSON.stringify(payload) }),
-  lms: (kind?: string) => request<Array<Record<string, unknown>>>(`/lifecycle/lms${toQuery({ kind })}`),
+    request(`/lifecycle/offboarding/${id}/advance`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  lms: (kind?: string) =>
+    request<Array<Record<string, unknown>>>(`/lifecycle/lms${toQuery({ kind })}`),
   createLms: (payload: Record<string, unknown>) =>
     request("/lifecycle/lms", { method: "POST", body: JSON.stringify(payload) }),
   markLmsRead: (id: string) => request(`/lifecycle/lms/${id}/read`, { method: "POST", body: "{}" }),

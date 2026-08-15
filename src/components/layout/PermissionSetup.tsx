@@ -155,8 +155,9 @@ export function PermissionSetup() {
           <SheetHeader className="space-y-1.5 text-left">
             <SheetTitle className="text-xl tracking-tight">Allow precise location</SheetTitle>
             <SheetDescription className="text-sm leading-relaxed">
-              Attendance needs precise GPS against your branch. If Android offers Approximate, switch
-              to Precise. Camera is requested later only if Face Security is enabled for your account.
+              Attendance needs precise GPS against your branch. If Android offers Approximate,
+              switch to Precise. Camera is requested later only if Face Security is enabled for your
+              account.
             </SheetDescription>
           </SheetHeader>
         </div>
@@ -196,7 +197,9 @@ export function PermissionSetup() {
                     <p className="font-semibold tracking-tight">{item.title}</p>
                     <StatusPill state={item.state} />
                     {!item.required && (
-                      <span className="text-[11px] font-medium text-muted-foreground">Optional</span>
+                      <span className="text-[11px] font-medium text-muted-foreground">
+                        Optional
+                      </span>
                     )}
                   </div>
                   <p className="mt-0.5 text-sm leading-snug text-muted-foreground">{item.blurb}</p>
@@ -244,7 +247,12 @@ export function PermissionSetup() {
               )}
             </Button>
           )}
-          <Button variant="outline" className="h-11 w-full" onClick={close} disabled={requesting !== null}>
+          <Button
+            variant="outline"
+            className="h-11 w-full"
+            onClick={close}
+            disabled={requesting !== null}
+          >
             {locationReady ? "Continue" : "Not now"}
           </Button>
         </SheetFooter>

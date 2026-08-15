@@ -144,9 +144,7 @@ export function BulkAssetImport({
     instructions.addRow([
       "3. Asset Code is required for PHYSICAL assets. Leave blank for ONLINE (auto-generated).",
     ]);
-    instructions.addRow([
-      "4. Assigned Employee Code is required only when Status is ASSIGNED.",
-    ]);
+    instructions.addRow(["4. Assigned Employee Code is required only when Status is ASSIGNED."]);
     instructions.addRow([
       "5. Rows 2 and 3 are examples. Replace them with real asset details or delete them before upload.",
     ]);
@@ -398,7 +396,9 @@ export function BulkAssetImport({
         return (
           headerMap.get(header) ||
           headerMap.get(header.replace("*", "")) ||
-          [...headerMap.entries()].find(([key]) => key.replace("*", "") === header.replace("*", ""))?.[1]
+          [...headerMap.entries()].find(
+            ([key]) => key.replace("*", "") === header.replace("*", ""),
+          )?.[1]
         );
       }
 
@@ -415,9 +415,7 @@ export function BulkAssetImport({
             return entries;
           }),
       );
-      const catalogByName = new Map(
-        catalog.map((item) => [item.name.trim().toLowerCase(), item]),
-      );
+      const catalogByName = new Map(catalog.map((item) => [item.name.trim().toLowerCase(), item]));
       const existingCodes = new Set(
         existingAssets.map((asset) => asset.assetCode.trim().toLowerCase()),
       );
@@ -456,15 +454,13 @@ export function BulkAssetImport({
         if (!Number.isFinite(purchaseValue) || purchaseValue < 0) {
           errors.push("Purchase Value must be a number >= 0");
         }
-        if (assetType === "PHYSICAL" && !assetCode) errors.push("Asset Code is required for PHYSICAL");
+        if (assetType === "PHYSICAL" && !assetCode)
+          errors.push("Asset Code is required for PHYSICAL");
         if (assetCode && assetCode.length < 2) errors.push("Asset Code is too short");
         if (assetCode && existingCodes.has(assetCode.toLowerCase())) {
           errors.push("Asset Code already exists");
         }
-        if (
-          /^SAMPLE-/i.test(assetCode ?? "") ||
-          /sample row/i.test(cellText(get("Notes")))
-        ) {
+        if (/^SAMPLE-/i.test(assetCode ?? "") || /sample row/i.test(cellText(get("Notes")))) {
           errors.push("Replace or delete this example row before importing");
         }
         if (assignmentScope === "COMPANY" && employeeCode) {
@@ -491,8 +487,15 @@ export function BulkAssetImport({
           if (!assignedEmployeeId) errors.push(`Employee not found: ${employeeCode}`);
         }
 
-        if (catalogItem && assetType && catalogItem.category !== assetType && catalogItem.category !== "Company Asset") {
-          errors.push(`Catalog name "${name}" is category ${catalogItem.category}, not ${assetType}`);
+        if (
+          catalogItem &&
+          assetType &&
+          catalogItem.category !== assetType &&
+          catalogItem.category !== "Company Asset"
+        ) {
+          errors.push(
+            `Catalog name "${name}" is category ${catalogItem.category}, not ${assetType}`,
+          );
         }
 
         parsed.push({
@@ -610,8 +613,8 @@ export function BulkAssetImport({
           <DialogHeader>
             <DialogTitle>Bulk import assets</DialogTitle>
             <DialogDescription>
-              Download the Excel template with dropdowns for catalog names, branches, employees,
-              and allowed values, then upload it for validation before anything is saved.
+              Download the Excel template with dropdowns for catalog names, branches, employees, and
+              allowed values, then upload it for validation before anything is saved.
             </DialogDescription>
           </DialogHeader>
 

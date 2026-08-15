@@ -151,10 +151,7 @@ function DeptPage() {
     () => employees.filter((employee) => !!employee.employeeId),
     [employees],
   );
-  const headEmployeeIds = useMemo(
-    () => headSlots.filter((id) => id !== "none"),
-    [headSlots],
-  );
+  const headEmployeeIds = useMemo(() => headSlots.filter((id) => id !== "none"), [headSlots]);
   const canAddAnotherHead = headOptions.some(
     (employee) => !headEmployeeIds.includes(employee.employeeId!),
   );
@@ -224,9 +221,7 @@ function DeptPage() {
           parentDepartmentId: null,
           unitType: "TEAM",
         });
-        setDepartments((prev) =>
-          [...prev, unit!].sort((a, b) => a.name.localeCompare(b.name)),
-        );
+        setDepartments((prev) => [...prev, unit!].sort((a, b) => a.name.localeCompare(b.name)));
       }
       setEditing(null);
       setAssignCeoHeads(true);
@@ -532,9 +527,7 @@ function DeptPage() {
                   <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
                     <UserRound className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">
-                      {executiveLeadership
-                        ? headsLabel(executiveLeadership)
-                        : "No heads assigned"}
+                      {executiveLeadership ? headsLabel(executiveLeadership) : "No heads assigned"}
                     </span>
                   </p>
                 </div>
@@ -756,7 +749,9 @@ function DeptPage() {
             {assignCeoHeads && (
               <div className="rounded-md border border-border bg-muted/40 px-3 py-2.5">
                 <p className="text-xs font-medium text-muted-foreground">Assigning heads for</p>
-                <p className="mt-1 text-sm font-semibold text-foreground">Chief Executive Officer</p>
+                <p className="mt-1 text-sm font-semibold text-foreground">
+                  Chief Executive Officer
+                </p>
               </div>
             )}
 
@@ -798,9 +793,7 @@ function DeptPage() {
                     <SelectContent>
                       <SelectItem value="none">CEO (top level)</SelectItem>
                       {departments
-                        .filter(
-                          (item) => item.id !== editing.id && !isExecutiveLeadership(item),
-                        )
+                        .filter((item) => item.id !== editing.id && !isExecutiveLeadership(item))
                         .map((item) => (
                           <SelectItem key={item.id} value={item.id}>
                             {item.name}
@@ -820,7 +813,9 @@ function DeptPage() {
             ) : isCreateTopLevel ? (
               <div className="rounded-md border border-border bg-muted/40 px-3 py-2.5">
                 <p className="text-xs font-medium text-muted-foreground">Reports under</p>
-                <p className="mt-1 text-sm font-semibold text-foreground">Chief Executive Officer</p>
+                <p className="mt-1 text-sm font-semibold text-foreground">
+                  Chief Executive Officer
+                </p>
               </div>
             ) : null}
 

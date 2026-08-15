@@ -17,12 +17,12 @@ describe("branch mobile attendance labels", () => {
   it("labels parking hubs as Name - Hub without a Mobile suffix", () => {
     expect(formatLocationPlaceName("Kompally Parking", true)).toBe("Kompally Parking - Hub");
     expect(branchMobileSourceLabel("Kompally Parking", true)).toBe("Kompally Parking - Hub");
-    expect(locationSourceLabel(AttendanceLocationSource.BRANCH_MOBILE, "Kompally Parking", true)).toBe(
-      "Kompally Parking - Hub",
-    );
-    expect(locationSourceLabel(AttendanceLocationSource.THUMB_SCANNER, "Kompally Parking", true)).toBe(
-      "Kompally Parking - Hub · Biometric",
-    );
+    expect(
+      locationSourceLabel(AttendanceLocationSource.BRANCH_MOBILE, "Kompally Parking", true),
+    ).toBe("Kompally Parking - Hub");
+    expect(
+      locationSourceLabel(AttendanceLocationSource.THUMB_SCANNER, "Kompally Parking", true),
+    ).toBe("Kompally Parking - Hub · Biometric");
   });
 
   it("labels location sources with branch names", () => {

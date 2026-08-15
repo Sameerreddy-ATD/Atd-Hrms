@@ -14,15 +14,32 @@ import {
   ResponsiveListShell,
 } from "@/components/common/ResponsiveList";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DateField } from "@/components/ui/date-field";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { EmployeePicker } from "@/components/common/EmployeePicker";
 import { useAuth } from "@/lib/auth";
-import { CANDIDATE_PIPELINE_STAGES, isPeopleLeaderRole, isPeopleOpsRole, labelize } from "@/lib/lifecycle";
+import {
+  CANDIDATE_PIPELINE_STAGES,
+  isPeopleLeaderRole,
+  isPeopleOpsRole,
+  labelize,
+} from "@/lib/lifecycle";
 import { employeesApi, lifecycleApi } from "@/services/api";
 import type { User } from "@/types/domain";
 
@@ -43,7 +60,12 @@ function TalentPage() {
   const [interviewFor, setInterviewFor] = useState<string | null>(null);
   const [offerFor, setOfferFor] = useState<string | null>(null);
   const [hireFor, setHireFor] = useState<string | null>(null);
-  const [jobForm, setJobForm] = useState({ title: "", departmentName: "", openings: "1", description: "" });
+  const [jobForm, setJobForm] = useState({
+    title: "",
+    departmentName: "",
+    openings: "1",
+    description: "",
+  });
   const [candidateForm, setCandidateForm] = useState({
     name: "",
     email: "",
@@ -51,17 +73,34 @@ function TalentPage() {
     source: "",
     expectedCtc: "",
   });
-  const [interviewForm, setInterviewForm] = useState({ roundName: "HR round", interviewerName: "", feedback: "" });
-  const [offerForm, setOfferForm] = useState({ ctcAnnual: "", designation: "", joiningDate: "", employeeId: "" });
-  const [hireForm, setHireForm] = useState({ employeeId: "", designation: "", startOnboarding: true });
+  const [interviewForm, setInterviewForm] = useState({
+    roundName: "HR round",
+    interviewerName: "",
+    feedback: "",
+  });
+  const [offerForm, setOfferForm] = useState({
+    ctcAnnual: "",
+    designation: "",
+    joiningDate: "",
+    employeeId: "",
+  });
+  const [hireForm, setHireForm] = useState({
+    employeeId: "",
+    designation: "",
+    startOnboarding: true,
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [jobRows, people] = await Promise.all([lifecycleApi.jobs(), employeesApi.list().catch(() => [])]);
+      const [jobRows, people] = await Promise.all([
+        lifecycleApi.jobs(),
+        employeesApi.list().catch(() => []),
+      ]);
       setJobs(jobRows);
       setEmployees(people);
-      const nextJob = jobId && jobRows.some((job) => job.id === jobId) ? jobId : String(jobRows[0]?.id ?? "");
+      const nextJob =
+        jobId && jobRows.some((job) => job.id === jobId) ? jobId : String(jobRows[0]?.id ?? "");
       setJobId(nextJob);
       if (nextJob) setCandidates(await lifecycleApi.candidates({ jobId: nextJob }));
       else setCandidates([]);
@@ -143,7 +182,9 @@ function TalentPage() {
         <EmptyState
           icon={UserPlus}
           title="No openings yet"
-          description={canEdit ? "Create a job opening to start hiring." : "HR has not published openings yet."}
+          description={
+            canEdit ? "Create a job opening to start hiring." : "HR has not published openings yet."
+          }
         />
       ) : (
         <>
@@ -163,7 +204,8 @@ function TalentPage() {
                 <SelectContent>
                   {jobs.map((job) => (
                     <SelectItem key={String(job.id)} value={String(job.id)}>
-                      {String(job.title)} ({Number(job.candidateCount ?? 0)}) · {labelize(String(job.status))}
+                      {String(job.title)} ({Number(job.candidateCount ?? 0)}) ·{" "}
+                      {labelize(String(job.status))}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -178,7 +220,9 @@ function TalentPage() {
                     toast.success(`Opening marked ${labelize(status)}`);
                     await load();
                   } catch (error) {
-                    toast.error(error instanceof Error ? error.message : "Could not update opening");
+                    toast.error(
+                      error instanceof Error ? error.message : "Could not update opening",
+                    );
                   }
                 }}
               >
@@ -195,13 +239,19 @@ function TalentPage() {
           </div>
           {selectedJob ? (
             <p className="mb-4 text-sm text-muted-foreground">
-              {String(selectedJob.departmentName || "Company")} · {Number(selectedJob.openings ?? 1)} opening
-              {Number(selectedJob.openings ?? 1) === 1 ? "" : "s"} · {labelize(String(selectedJob.status))}
+              {String(selectedJob.departmentName || "Company")} ·{" "}
+              {Number(selectedJob.openings ?? 1)} opening
+              {Number(selectedJob.openings ?? 1) === 1 ? "" : "s"} ·{" "}
+              {labelize(String(selectedJob.status))}
             </p>
           ) : null}
 
           {candidates.length === 0 ? (
-            <EmptyState icon={UserPlus} title="No candidates yet" description="Add a candidate to start the TA process." />
+            <EmptyState
+              icon={UserPlus}
+              title="No candidates yet"
+              description="Add a candidate to start the TA process."
+            />
           ) : (
             <ResponsiveListShell>
               <MobileList>
@@ -213,12 +263,20 @@ function TalentPage() {
                       trailing={<StatusBadge status={labelize(String(row.stage))} />}
                     />
                     <div className="mt-3 flex flex-col gap-2">
-                      <Button size="sm" variant="outline" onClick={() => setInterviewFor(String(row.id))}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setInterviewFor(String(row.id))}
+                      >
                         Log interview
                       </Button>
                       {canEdit ? (
                         <>
-                          <Button size="sm" variant="outline" onClick={() => setOfferFor(String(row.id))}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setOfferFor(String(row.id))}
+                          >
                             Send offer
                           </Button>
                           <Button
@@ -256,9 +314,13 @@ function TalentPage() {
                       <tr key={String(row.id)} className="border-t">
                         <td className="px-4 py-3">
                           <p className="font-medium">{String(row.name)}</p>
-                          <p className="text-xs text-muted-foreground">{String(row.email || row.phone || "—")}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {String(row.email || row.phone || "—")}
+                          </p>
                           {row.hiredEmployeeName ? (
-                            <p className="text-xs text-muted-foreground">Linked: {String(row.hiredEmployeeName)}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Linked: {String(row.hiredEmployeeName)}
+                            </p>
                           ) : null}
                         </td>
                         <td className="px-4 py-3">
@@ -266,7 +328,9 @@ function TalentPage() {
                             value={String(row.stage)}
                             onValueChange={async (stage) => {
                               if (stage === "HIRED") {
-                                toast.message("Use Hire to convert the candidate and open onboarding.");
+                                toast.message(
+                                  "Use Hire to convert the candidate and open onboarding.",
+                                );
                                 return;
                               }
                               await lifecycleApi.updateCandidate(String(row.id), { stage });
@@ -290,7 +354,9 @@ function TalentPage() {
                             </SelectContent>
                           </Select>
                         </td>
-                        <td className="px-4 py-3">{Array.isArray(row.interviews) ? row.interviews.length : 0}</td>
+                        <td className="px-4 py-3">
+                          {Array.isArray(row.interviews) ? row.interviews.length : 0}
+                        </td>
                         <td className="px-4 py-3">
                           {Array.isArray(row.offers) && row.offers[0]
                             ? labelize(String((row.offers[0] as { status: string }).status))
@@ -298,12 +364,20 @@ function TalentPage() {
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex justify-end gap-2">
-                            <Button size="sm" variant="outline" onClick={() => setInterviewFor(String(row.id))}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setInterviewFor(String(row.id))}
+                            >
                               Interview
                             </Button>
                             {canEdit ? (
                               <>
-                                <Button size="sm" variant="outline" onClick={() => setOfferFor(String(row.id))}>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setOfferFor(String(row.id))}
+                                >
                                   Offer
                                 </Button>
                                 <Button
@@ -341,7 +415,11 @@ function TalentPage() {
           <div className="space-y-3">
             <div>
               <Label>Title</Label>
-              <Input className="mt-1 h-11" value={jobForm.title} onChange={(e) => setJobForm({ ...jobForm, title: e.target.value })} />
+              <Input
+                className="mt-1 h-11"
+                value={jobForm.title}
+                onChange={(e) => setJobForm({ ...jobForm, title: e.target.value })}
+              />
             </div>
             <div>
               <Label>Department</Label>
@@ -370,7 +448,11 @@ function TalentPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button className="h-11 w-full sm:w-auto" onClick={() => void createJob()} disabled={!jobForm.title}>
+            <Button
+              className="h-11 w-full sm:w-auto"
+              onClick={() => void createJob()}
+              disabled={!jobForm.title}
+            >
               Save opening
             </Button>
           </DialogFooter>
@@ -420,7 +502,9 @@ function TalentPage() {
               <Input
                 className="mt-1 h-11"
                 value={candidateForm.expectedCtc}
-                onChange={(e) => setCandidateForm({ ...candidateForm, expectedCtc: e.target.value })}
+                onChange={(e) =>
+                  setCandidateForm({ ...candidateForm, expectedCtc: e.target.value })
+                }
               />
             </div>
           </div>
@@ -455,7 +539,9 @@ function TalentPage() {
               <Input
                 className="mt-1 h-11"
                 value={interviewForm.interviewerName}
-                onChange={(e) => setInterviewForm({ ...interviewForm, interviewerName: e.target.value })}
+                onChange={(e) =>
+                  setInterviewForm({ ...interviewForm, interviewerName: e.target.value })
+                }
               />
             </div>
             <div>
@@ -473,7 +559,10 @@ function TalentPage() {
               onClick={async () => {
                 if (!interviewFor) return;
                 try {
-                  await lifecycleApi.addInterview(interviewFor, { ...interviewForm, outcome: "COMPLETED" });
+                  await lifecycleApi.addInterview(interviewFor, {
+                    ...interviewForm,
+                    outcome: "COMPLETED",
+                  });
                   toast.success("Interview saved");
                   setInterviewFor(null);
                   setCandidates(await lifecycleApi.candidates({ jobId }));
@@ -559,7 +648,8 @@ function TalentPage() {
             <DialogTitle>Convert to hire</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Link an existing User Login (employee profile), mark the candidate Hired, and open onboarding documents.
+            Link an existing User Login (employee profile), mark the candidate Hired, and open
+            onboarding documents.
           </p>
           <EmployeePicker
             employees={employees}

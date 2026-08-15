@@ -71,10 +71,7 @@ export function attendanceDateForShift(
 }
 
 export async function attendanceDateForEmployee(employeeId: string, eventTime: Date) {
-  const shift = await resolveEmployeeShift(
-    employeeId,
-    indiaCalendarDate(eventTime),
-  );
+  const shift = await resolveEmployeeShift(employeeId, indiaCalendarDate(eventTime));
   return attendanceDateForShift(eventTime, shift);
 }
 
@@ -107,10 +104,12 @@ export function attendanceTransitionIssue(
   return undefined;
 }
 
-function eventLocationSource(
-  event: { eventSource: EventSource; branchId?: string | null },
-): AttendanceLocationSource {
-  if (event.eventSource === EventSource.THUMB_SCANNER) return AttendanceLocationSource.THUMB_SCANNER;
+function eventLocationSource(event: {
+  eventSource: EventSource;
+  branchId?: string | null;
+}): AttendanceLocationSource {
+  if (event.eventSource === EventSource.THUMB_SCANNER)
+    return AttendanceLocationSource.THUMB_SCANNER;
   if (event.eventSource === EventSource.MANUAL_CORRECTION) return AttendanceLocationSource.MANUAL;
   if (event.eventSource === EventSource.SYSTEM) return AttendanceLocationSource.SYSTEM;
   if (event.eventSource === EventSource.MOBILE_GPS) {
@@ -251,7 +250,8 @@ export async function recalculateDailySummary(employeeId: string, date: string |
     (e) => outTypes.has(e.eventType) && e.eventSource !== EventSource.SYSTEM,
   );
 
-  const firstCheckIn = realCheckIns[0]?.eventTime ?? events.find((e) => inTypes.has(e.eventType))?.eventTime;
+  const firstCheckIn =
+    realCheckIns[0]?.eventTime ?? events.find((e) => inTypes.has(e.eventType))?.eventTime;
   const lastRealOut = realCheckOuts.at(-1)?.eventTime;
   const { hasOpenPunch } = openPunchState(events);
   // Open session: keep punch-out empty until a real out (never invent a time).
@@ -320,8 +320,8 @@ export async function recalculateDailySummary(employeeId: string, date: string |
 
   const isBranchMismatch = Boolean(
     schedule?.scheduledBranchId &&
-      branches.length &&
-      !branches.includes(schedule.scheduledBranchId),
+    branches.length &&
+    !branches.includes(schedule.scheduledBranchId),
   );
   const fieldIn = events.find(
     (e) => e.eventType === EventType.FIELD_CHECK_IN || e.eventType === EventType.CLIENT_CHECK_IN,

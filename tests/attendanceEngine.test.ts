@@ -5,7 +5,10 @@ import {
   attendanceTransitionIssue,
   openPunchState,
 } from "../server/src/attendanceEngine.js";
-import { attendanceResultFromHours, attendancePunchOutDeadline } from "../server/src/attendancePolicy.js";
+import {
+  attendanceResultFromHours,
+  attendancePunchOutDeadline,
+} from "../server/src/attendancePolicy.js";
 import { endOfAttendanceDayIst } from "../server/src/attendanceDayRules.js";
 import { AttendanceResult } from "@prisma/client";
 

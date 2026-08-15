@@ -128,7 +128,10 @@ function PriorityMark({ priority }: { priority: TaskPriority }) {
     <span
       title={mark.label}
       aria-label={mark.label}
-      className={cn("inline-flex w-3.5 shrink-0 justify-center text-xs font-bold leading-none", mark.className)}
+      className={cn(
+        "inline-flex w-3.5 shrink-0 justify-center text-xs font-bold leading-none",
+        mark.className,
+      )}
     >
       {mark.glyph}
     </span>
@@ -303,12 +306,7 @@ export function BoardWorkspace({
           </span>
           <div className="ml-auto flex flex-wrap items-center gap-2">
             {canChangeBoard && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8"
-                onClick={onEditBoard}
-              >
+              <Button variant="outline" size="sm" className="h-8" onClick={onEditBoard}>
                 <Settings2 className="mr-1.5 h-3.5 w-3.5" />
                 Board settings
               </Button>
@@ -806,7 +804,11 @@ function KanbanView({
                       draggingTaskId === task.id && "opacity-50",
                     )}
                   >
-                    <button type="button" onClick={() => onOpenTask(task)} className="w-full text-left">
+                    <button
+                      type="button"
+                      onClick={() => onOpenTask(task)}
+                      className="w-full text-left"
+                    >
                       <div className="flex items-start gap-1.5">
                         <PriorityMark priority={task.priority} />
                         <span

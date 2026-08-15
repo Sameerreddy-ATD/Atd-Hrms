@@ -166,7 +166,9 @@ function BranchesPage() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">{b.code}</p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {b.code}
+                    </p>
                     {b.isHub && (
                       <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
                         Hub
