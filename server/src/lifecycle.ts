@@ -180,29 +180,13 @@ async function applyEmployeeChange(
     const counterpartId = String(payload.counterpartEmployeeId ?? "");
     const workDate = new Date(String(payload.workDate ?? change.effectiveDate));
     if (!counterpartId) throw new HttpError(400, "Counterpart employee is required");
+    if (counterpartId === employeeId) throw new HttpError(400, "Cannot swap shift with the same employee");
     const [self, other] = await Promise.all([
       prisma.employee.findUnique({ where: { employeeId } }),
       prisma.employee.findUnique({ where: { employeeId: counterpartId } }),
     ]);
     if (!self || !other) throw new HttpError(404, "Employee not found");
-    await prisma.$transaction([
-      prisma.employee.update({
-        where: { employeeId: self.employeeId },
-        data: {
-          shiftType: other.shiftType,
-          shiftStartMinutes: other.shiftStartMinutes,
-          shiftEndMinutes: other.shiftEndMinutes,
-        },
-      }),
-      prisma.employee.update({
-        where: { employeeId: other.employeeId },
-        data: {
-          shiftType: self.shiftType,
-          shiftStartMinutes: self.shiftStartMinutes,
-          shiftEndMinutes: self.shiftEndMinutes,
-        },
-      }),
-    ]);
+    // Day-scoped swap record only — do not rewrite permanent shift templates.
     await prisma.shiftSwapRequest.create({
       data: {
         employeeId,
@@ -1072,6 +1056,32 @@ export function registerLifecycleRoutes(app: Express) {
         })
         .parse(req.body);
       await assertCanSeeEmployee(req.user!, body.employeeId);
+      const kind = body.kind;
+      const payload = body.payload ?? {};
+      if (
+        (kind === "PROMOTION" || kind === "DESIGNATION_CHANGE") &&
+        !String(payload.designation ?? "").trim()
+      ) {
+        throw new HttpError(400, "Designation is required for this change");
+      }
+      if (kind === "SALARY_CHANGE" && !(Number(payload.ctcAnnual) > 0)) {
+        throw new HttpError(400, "Annual CTC is required");
+      }
+      if (kind === "DEPARTMENT_CHANGE" && !payload.departmentId) {
+        throw new HttpError(400, "Department is required");
+      }
+      if (kind === "BRANCH_CHANGE" && !payload.homeBranchId) {
+        throw new HttpError(400, "Branch is required");
+      }
+      if (kind === "MANAGER_CHANGE" && !payload.managerId) {
+        throw new HttpError(400, "Manager is required");
+      }
+      if (kind === "SHIFT_SWAP" && !payload.counterpartEmployeeId) {
+        throw new HttpError(400, "Swap counterpart is required");
+      }
+      if (kind === "ADDRESS_CHANGE" && !String(payload.presentAddress ?? "").trim()) {
+        throw new HttpError(400, "Address is required");
+      }
       const created = await prisma.employeeChangeRequest.create({
         data: {
           employeeId: body.employeeId,
@@ -1114,6 +1124,15 @@ export function registerLifecycleRoutes(app: Express) {
       }
 
       if (body.decision === "REJECT") {
+        if (!isPeopleOps(req.user!.role) && change.status !== "PENDING_MANAGER") {
+          throw new HttpError(403, "Managers can only reject requests waiting for manager approval");
+        }
+        if (
+          isPeopleOps(req.user!.role) &&
+          !["PENDING_MANAGER", "PENDING_HR", "APPROVED"].includes(change.status)
+        ) {
+          throw new HttpError(400, "This change request cannot be rejected from its current status");
+        }
         const updated = await prisma.employeeChangeRequest.update({
           where: { changeId: change.changeId },
           data: { status: "REJECTED" },
@@ -1158,18 +1177,36 @@ export function registerLifecycleRoutes(app: Express) {
       }
       await prisma.employeeChangeRequest.update({
         where: { changeId: change.changeId },
-        data: { hrLetterFileName, hrLetterStorageKey, status: "APPROVED", hrApprovedById: req.user!.id, hrApprovedAt: new Date() },
+        data: {
+          hrLetterFileName,
+          hrLetterStorageKey,
+          status: "APPROVED",
+          hrApprovedById: req.user!.id,
+          hrApprovedAt: new Date(),
+        },
       });
-      const applied = await applyEmployeeChange(
-        { ...change, hrLetterFileName, hrLetterStorageKey },
-        req.user!.id,
-      );
-      await audit({
-        action: "LIFECYCLE_CHANGE_APPLY",
-        performedByUserId: req.user!.id,
-        newValue: { changeId: change.changeId, kind: change.kind },
-      });
-      res.json({ id: applied.changeId, status: applied.status });
+      try {
+        const applied = await applyEmployeeChange(
+          { ...change, hrLetterFileName, hrLetterStorageKey },
+          req.user!.id,
+        );
+        await audit({
+          action: "LIFECYCLE_CHANGE_APPLY",
+          performedByUserId: req.user!.id,
+          newValue: { changeId: change.changeId, kind: change.kind },
+        });
+        res.json({ id: applied.changeId, status: applied.status });
+      } catch (error) {
+        await prisma.employeeChangeRequest.update({
+          where: { changeId: change.changeId },
+          data: {
+            status: change.status === "PENDING_MANAGER" ? "PENDING_MANAGER" : "PENDING_HR",
+            hrLetterFileName: change.hrLetterFileName,
+            hrLetterStorageKey: change.hrLetterStorageKey,
+          },
+        });
+        throw error;
+      }
     }),
   );
 

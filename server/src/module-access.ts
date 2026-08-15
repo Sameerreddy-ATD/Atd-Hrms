@@ -30,6 +30,7 @@ export const DEFAULT_MODULE_ACCESS: ModuleAccessMatrix = {
     "PEOPLE",
     "ATTENDANCE",
     "TASKS",
+    "EMPLOYEE_REQUESTS",
     "LEAVE",
     "COMPANY",
     "PROFILE",

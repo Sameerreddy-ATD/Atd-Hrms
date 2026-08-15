@@ -222,7 +222,7 @@ export const menuGroups: MenuGroup[] = [
         to: "/leave/approvals",
         icon: BadgeCheck,
         // HR/CEO/Admin always; department heads via allowReportingManager.
-        roles: ["hr", "ceo", "main_admin"],
+        roles: ["hr", "ceo", "main_admin", "developer_admin"],
         allowReportingManager: true,
       },
       {
@@ -264,7 +264,7 @@ export const menuGroups: MenuGroup[] = [
         label: "Asset Management",
         to: "/assets",
         icon: Package,
-        roles: ["hr", "developer_admin", "ceo"],
+        roles: ["hr", "developer_admin", "ceo", "main_admin"],
       },
     ],
   },
@@ -323,6 +323,11 @@ export function menuForRole(
       ...g,
       items: g.items
         .filter((i) => {
+          // Developer Admin has full product visibility (all screens, all modules).
+          if (role === "developer_admin") {
+            if (i.requiresEmployeeId && !options?.hasEmployeeId) return false;
+            return true;
+          }
           if (i.requiresEmployeeId && !options?.hasEmployeeId) return false;
           const roleOk = i.roles.includes(role);
           const reportingOk =
@@ -530,8 +535,13 @@ function itemOrderForRole(role: Role): string[] {
         "/performance",
         "/offboarding",
         "/lms",
+        "/attendance/mine",
         "/attendance/locations",
         "/attendance/corrections",
+        "/leave/apply",
+        "/leave/history",
+        "/leave/balance",
+        "/leave/approvals",
         "/leave/reports",
         "/leave/policy",
         "/checklists",
@@ -548,6 +558,7 @@ function itemOrderForRole(role: Role): string[] {
         "/notifications",
         "/my-assets",
         "/profile",
+        "/id-card",
       ];
     default:
       return [];

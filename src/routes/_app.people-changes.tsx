@@ -61,6 +61,7 @@ function PeopleChangesPage() {
     shiftType: "DAY",
     shiftStart: "09:00",
     shiftEnd: "18:00",
+    organizationLevel: "MEMBER",
   });
 
   const load = useCallback(async () => {
@@ -102,19 +103,25 @@ function PeopleChangesPage() {
     if (form.kind === "PROMOTION" || form.kind === "DESIGNATION_CHANGE") {
       data.designation = form.designation;
       data.managerId = form.managerId || undefined;
+      data.organizationLevel = form.organizationLevel || undefined;
       data.ctcAnnual = form.ctcAnnual ? Number(form.ctcAnnual) : undefined;
     } else if (form.kind === "DEPARTMENT_CHANGE") data.departmentId = form.departmentId;
     else if (form.kind === "EMPLOYMENT_TYPE_CHANGE") data.employmentType = form.employmentType;
     else if (form.kind === "SALARY_CHANGE") data.ctcAnnual = Number(form.ctcAnnual || 0);
     else if (form.kind === "BRANCH_CHANGE") data.homeBranchId = form.homeBranchId;
-    else if (form.kind === "MANAGER_CHANGE" || form.kind === "HIERARCHY_CHANGE") data.managerId = form.managerId;
-    else if (form.kind === "ADDRESS_CHANGE") {
+    else if (form.kind === "MANAGER_CHANGE") data.managerId = form.managerId;
+    else if (form.kind === "HIERARCHY_CHANGE") {
+      data.managerId = form.managerId || undefined;
+      data.organizationLevel = form.organizationLevel;
+    } else if (form.kind === "ADDRESS_CHANGE") {
       data.presentAddress = form.presentAddress;
       data.presentCity = form.presentCity || undefined;
       data.presentState = form.presentState || undefined;
       data.presentPincode = form.presentPincode || undefined;
-    } else if (form.kind === "SHIFT_SWAP") data.counterpartEmployeeId = form.counterpartEmployeeId;
-    else if (form.kind === "RECURRING_ALLOWANCE") {
+    } else if (form.kind === "SHIFT_SWAP") {
+      data.counterpartEmployeeId = form.counterpartEmployeeId;
+      data.workDate = form.effectiveDate;
+    } else if (form.kind === "RECURRING_ALLOWANCE") {
       data.name = form.name;
       data.amountMonthly = Number(form.amount || 0);
     } else if (form.kind === "ONE_TIME_PAYMENT") {
@@ -126,6 +133,35 @@ function PeopleChangesPage() {
       data.shiftEndMinutes = timeToMinutes(form.shiftEnd);
     }
     return data;
+  }
+
+  function validateForm() {
+    if (!form.employeeId || !form.effectiveDate) return "Employee and effective date are required";
+    if (["PROMOTION", "DESIGNATION_CHANGE"].includes(form.kind) && !form.designation.trim()) {
+      return "New designation is required";
+    }
+    if (form.kind === "SALARY_CHANGE" && !(Number(form.ctcAnnual) > 0)) return "Annual CTC is required";
+    if (form.kind === "DEPARTMENT_CHANGE" && !form.departmentId) return "Department is required";
+    if (form.kind === "BRANCH_CHANGE" && !form.homeBranchId) return "Branch is required";
+    if (form.kind === "MANAGER_CHANGE" && !form.managerId) return "New manager is required";
+    if (form.kind === "HIERARCHY_CHANGE" && !form.organizationLevel) return "Organization level is required";
+    if (form.kind === "SHIFT_SWAP" && !form.counterpartEmployeeId) return "Swap counterpart is required";
+    if (form.kind === "ADDRESS_CHANGE" && !form.presentAddress.trim()) return "Address is required";
+    if (["RECURRING_ALLOWANCE", "ONE_TIME_PAYMENT"].includes(form.kind)) {
+      if (!form.name.trim()) return "Name is required";
+      if (!(Number(form.amount) > 0)) return "Amount is required";
+    }
+    return "";
+  }
+
+  function canReject(status: string) {
+    if (isHr) return ["PENDING_MANAGER", "PENDING_HR", "APPROVED"].includes(status);
+    return status === "PENDING_MANAGER";
+  }
+
+  function canAct(status: string) {
+    if (isHr) return ["PENDING_HR", "PENDING_MANAGER", "APPROVED"].includes(status);
+    return status === "PENDING_MANAGER";
   }
 
   async function decide(id: string, decision: "APPROVE" | "REJECT" | "APPLY") {
@@ -160,6 +196,20 @@ function PeopleChangesPage() {
         <EmptyState icon={ArrowLeftRight} title="No change requests" description="Raise a change when employment data needs an effective-dated update." />
       ) : (
         <ResponsiveListShell>
+          {isHr ? (
+            <div className="border-b bg-muted/30 px-3 py-3 sm:px-4">
+              <Label className="text-xs font-medium text-muted-foreground">HR letter for apply (optional)</Label>
+              <Input
+                className="mt-1 h-11 max-w-md bg-background"
+                type="file"
+                accept="application/pdf,image/*"
+                onChange={(e) => setHrLetter(e.target.files?.[0])}
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Attached when you tap Apply on a pending request.
+              </p>
+            </div>
+          ) : null}
           <MobileList>
             {rows.map((row) => (
               <MobileListItem key={String(row.id)}>
@@ -174,16 +224,16 @@ function PeopleChangesPage() {
                 </p>
                 {canApprove && String(row.status) !== "APPLIED" && String(row.status) !== "REJECTED" ? (
                   <div className="mt-3 flex flex-col gap-2">
-                    {(isHr
-                      ? ["PENDING_HR", "PENDING_MANAGER", "APPROVED"].includes(String(row.status))
-                      : String(row.status) === "PENDING_MANAGER") ? (
+                    {canAct(String(row.status)) ? (
                       <Button className="h-11 w-full" onClick={() => void decide(String(row.id), isHr ? "APPLY" : "APPROVE")}>
                         {isHr ? "Approve and apply" : "Manager approve"}
                       </Button>
                     ) : null}
-                    <Button variant="outline" className="h-11 w-full" onClick={() => void decide(String(row.id), "REJECT")}>
-                      Reject
-                    </Button>
+                    {canReject(String(row.status)) ? (
+                      <Button variant="outline" className="h-11 w-full" onClick={() => void decide(String(row.id), "REJECT")}>
+                        Reject
+                      </Button>
+                    ) : null}
                   </div>
                 ) : null}
               </MobileListItem>
@@ -215,16 +265,16 @@ function PeopleChangesPage() {
                     <td className="px-4 py-3 text-right">
                       {canApprove && String(row.status) !== "APPLIED" && String(row.status) !== "REJECTED" ? (
                         <div className="flex justify-end gap-2">
-                          {(isHr
-                            ? ["PENDING_HR", "PENDING_MANAGER", "APPROVED"].includes(String(row.status))
-                            : String(row.status) === "PENDING_MANAGER") ? (
+                          {canAct(String(row.status)) ? (
                             <Button size="sm" onClick={() => void decide(String(row.id), isHr ? "APPLY" : "APPROVE")}>
                               {isHr ? "Apply" : "Approve"}
                             </Button>
                           ) : null}
-                          <Button size="sm" variant="outline" onClick={() => void decide(String(row.id), "REJECT")}>
-                            Reject
-                          </Button>
+                          {canReject(String(row.status)) ? (
+                            <Button size="sm" variant="outline" onClick={() => void decide(String(row.id), "REJECT")}>
+                              Reject
+                            </Button>
+                          ) : null}
                         </div>
                       ) : null}
                     </td>
@@ -304,8 +354,35 @@ function PeopleChangesPage() {
                 </Select>
               </div>
             ) : null}
-            {["MANAGER_CHANGE", "HIERARCHY_CHANGE", "PROMOTION"].includes(form.kind) ? (
+            {["MANAGER_CHANGE", "PROMOTION"].includes(form.kind) ? (
               <EmployeePicker employees={employees} value={form.managerId} onChange={(managerId) => setForm({ ...form, managerId })} label="New manager" />
+            ) : null}
+            {form.kind === "HIERARCHY_CHANGE" ? (
+              <>
+                <EmployeePicker
+                  employees={employees}
+                  value={form.managerId}
+                  onChange={(managerId) => setForm({ ...form, managerId })}
+                  label="New manager (optional)"
+                />
+                <div>
+                  <Label>Organization level</Label>
+                  <Select
+                    value={form.organizationLevel}
+                    onValueChange={(organizationLevel) => setForm({ ...form, organizationLevel })}
+                  >
+                    <SelectTrigger className="mt-1 h-11">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="HEAD">Head</SelectItem>
+                      <SelectItem value="SENIOR">Senior</SelectItem>
+                      <SelectItem value="JUNIOR">Junior</SelectItem>
+                      <SelectItem value="MEMBER">Member</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
             ) : null}
             {form.kind === "SHIFT_CHANGE" ? (
               <>
@@ -360,18 +437,17 @@ function PeopleChangesPage() {
               </>
             ) : null}
             <Textarea placeholder="Reason / HR note" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
-            {isHr ? (
-              <div>
-                <Label>HR letter (optional PDF)</Label>
-                <Input className="mt-1 h-11" type="file" accept="application/pdf,image/*" onChange={(e) => setHrLetter(e.target.files?.[0])} />
-              </div>
-            ) : null}
           </div>
           <DialogFooter>
             <Button
               className="h-11 w-full sm:w-auto"
               disabled={!form.employeeId || !form.effectiveDate}
               onClick={async () => {
+                const problem = validateForm();
+                if (problem) {
+                  toast.error(problem);
+                  return;
+                }
                 try {
                   await lifecycleApi.createChange({
                     employeeId: form.employeeId,

@@ -41,10 +41,14 @@ export function AppSidebar() {
 
   useEffect(() => {
     if (!user) return;
+    if (user.role === "developer_admin") {
+      setAllowedModules(undefined);
+      return;
+    }
     moduleAccessApi
       .mine()
       .then((result) => setAllowedModules(result.modules))
-      .catch(() => setAllowedModules([]));
+      .catch(() => setAllowedModules(undefined));
   }, [user]);
 
   if (!user) return null;

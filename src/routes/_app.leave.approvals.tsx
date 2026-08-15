@@ -117,33 +117,29 @@ function LeaveApprovalsPage() {
 
   useEffect(() => {
     if (!user) return;
+    const peopleOps =
+      user.role === "hr" ||
+      user.role === "developer_admin" ||
+      user.role === "main_admin" ||
+      user.role === "ceo";
     employeesApi
       .isReportingManager()
       .then((result) => {
-        setCanApprove(result.isReportingManager);
+        const allowed = result.isReportingManager || peopleOps;
+        setCanApprove(allowed);
         setAccessChecked(true);
-        if (!result.isReportingManager) {
-          const fallback =
-            user.role === "hr" ||
-            user.role === "developer_admin" ||
-            user.role === "main_admin" ||
-            user.role === "ceo"
-              ? "/leave/reports"
-              : "/leave/history";
-          void navigate({ to: fallback, replace: true });
+        if (!allowed) {
+          void navigate({ to: "/leave/history", replace: true });
         }
       })
       .catch(() => {
         setAccessChecked(true);
+        if (peopleOps) {
+          setCanApprove(true);
+          return;
+        }
         setCanApprove(false);
-        const fallback =
-          user.role === "hr" ||
-          user.role === "developer_admin" ||
-          user.role === "main_admin" ||
-          user.role === "ceo"
-            ? "/leave/reports"
-            : "/dashboard";
-        void navigate({ to: fallback, replace: true });
+        void navigate({ to: "/dashboard", replace: true });
       });
   }, [navigate, user]);
 

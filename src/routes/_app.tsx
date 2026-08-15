@@ -167,7 +167,10 @@ function AppLayout() {
   }
 
   const activeModule = moduleForRoute(pathname);
-  const moduleBlocked = Array.isArray(allowedModules) && !allowedModules.includes(activeModule);
+  const moduleBlocked =
+    user.role !== "developer_admin" &&
+    Array.isArray(allowedModules) &&
+    !allowedModules.includes(activeModule);
   const fallbackRoute = user
     ? menuForRole(user.role, { allowedModules: allowedModules ?? undefined })
         .flatMap((group) => group.items)[0]?.to
