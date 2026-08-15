@@ -145,10 +145,19 @@
 
 :root {
   /* Cap insets so a broken WebView cannot report "full screen" as the status bar. */
-  --atd-sat: min(env(safe-area-inset-top, 0px), 4rem);
-  --atd-sab: min(env(safe-area-inset-bottom, 0px), 3rem);
-  --atd-sal: min(env(safe-area-inset-left, 0px), 1.5rem);
-  --atd-sar: min(env(safe-area-inset-right, 0px), 1.5rem);
+  /* Android's WebView derives env(safe-area-inset-*) from a display cutout only,
+     not from the status or navigation bar, so on a notchless phone drawing
+     edge-to-edge these collapse to 0 and the header lands under the clock.
+     MainActivity publishes the real WindowInsets as --atd-inset-*; they are 0px
+     everywhere else, so max() falls through to env() on iOS and the web. */
+  --atd-inset-top: 0px;
+  --atd-inset-bottom: 0px;
+  --atd-inset-left: 0px;
+  --atd-inset-right: 0px;
+  --atd-sat: min(max(env(safe-area-inset-top, 0px), var(--atd-inset-top)), 4rem);
+  --atd-sab: min(max(env(safe-area-inset-bottom, 0px), var(--atd-inset-bottom)), 3rem);
+  --atd-sal: min(max(env(safe-area-inset-left, 0px), var(--atd-inset-left)), 1.5rem);
+  --atd-sar: min(max(env(safe-area-inset-right, 0px), var(--atd-inset-right)), 1.5rem);
   --atd-header-row: 3.5rem;
 }
 

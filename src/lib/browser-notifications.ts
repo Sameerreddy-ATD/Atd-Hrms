@@ -366,17 +366,29 @@ export async function enableDesktopAlerts() {
         // Listeners optional.
       }
 
-      // Android: do not call register() either — some OEM WebViews still route
-      // it through getPermissionStates (S25 Ultra NPE). In-app alerts still work.
-      if (!android) {
-        window.setTimeout(() => {
-          void PushNotifications.register().catch((error) => {
-            console.error("Native push register failed", error);
-          });
-        }, 400);
+      // register() is safe on Android: it goes straight to FCM and does not
+      // touch Bridge.getPermissionStates, which is the call that NPEs on some
+      // Samsung builds. Skipping it entirely meant the Play build never
+      // obtained a token, so no push ever arrived while the toggle read "On".
+      // The POST_NOTIFICATIONS grant is requested natively in MainActivity.
+      let registered = false;
+      try {
+        await new Promise<void>((resolve, reject) => {
+          window.setTimeout(() => {
+            PushNotifications.register().then(() => resolve(), reject);
+          }, 400);
+        });
+        registered = true;
+      } catch (error) {
+        console.error("Native push register failed", error);
       }
 
       setDesktopAlertsEnabled(true);
+      if (!registered) {
+        throw new Error(
+          "Alerts were turned on in the app, but this device could not register for system push. You will still see notifications inside Anytime Workforce.",
+        );
+      }
       return;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
