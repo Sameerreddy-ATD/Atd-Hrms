@@ -263,11 +263,13 @@ Required behavior:
 - A non-working returned asset moves to `UNDER_REPAIR`; other completed returns move to `AVAILABLE`.
 - Asset status is visible on the Asset Management inventory. HR and Developer Admin can add, assign, edit, return, or retire assets; CEO access is read-only and includes investment summaries.
 
-## People Operations Modules (MVP)
+## People Operations Modules
 
 - Field expense claim types on expense claims with optional `claimMeta`.
-- Onboarding/offboarding checklists: HR runs instances; Developer Admin owns templates.
-- Document vault / SOP library deferred (tables retained unused).
+- Onboarding/offboarding **checklists**: HR runs instances; Developer Admin owns templates.
+- **Hire & Career lifecycle** (shipped): Talent Acquisition, Onboarding + NHO, People Changes,
+  Performance (KRA/KPI cycles), Learning (SOP/Training), and Exit/Offboarding. APIs under
+  `/lifecycle/*`; file storage via `LIFECYCLE_FILES_DIR`.
 - Global `/search`, notification digest preferences.
 - Work Planner: soft-archive, attachments, mentions metadata, cross-project move, custom fields,
   project keys, sequential issue keys, issue types, and ranked Board ordering.
@@ -276,7 +278,8 @@ Required behavior:
 
 Payslips/payroll deductions and live biometric device connectors remain out of scope. WhatsApp
 digest delivery is reserved until an approved messaging provider is configured (daily digest
-preference rows are stored today; SMTP email delivery is not wired yet).
+preference rows are stored today; SMTP email delivery is not wired yet). Roster and overtime
+claim tables remain reserved for a later ops release.
 
 ## Performance and Large Lists
 

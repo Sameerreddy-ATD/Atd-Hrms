@@ -20,6 +20,12 @@ This guide explains how Developer Admin, HR, organization heads, employees, fiel
 | Expenses and HR documents      | Review all                                                     | No                      | Review all              | View all              | Own requests                | Own requests                            |
 | Operations reports             | Full                                                           | Full                    | Full                    | Full                  | Team summary                | No                                      |
 | Checklists                     | Templates add/edit/delete; can run instances                   | No                      | Run onboarding/offboarding instances | No                    | No                          | No                                      |
+| Talent Acquisition             | Full                                                           | Full                    | Full                  | Full                  | View + interviews           | No                                      |
+| Onboarding                     | Start/verify                                                   | Start/verify            | Start/verify          | Start/verify          | Team + own                  | Own documents + NHO form                |
+| People Changes                 | Approve/apply                                                  | Approve/apply           | Approve/apply         | Approve/apply         | Request + manager approve   | No                                      |
+| Performance                    | Cycles + assign                                                | Cycles + assign         | Cycles + assign       | Cycles + assign       | Manager / skip-level review | Own review                              |
+| Learning (SOP / Training)      | Publish                                                        | Publish                 | Publish               | Publish               | Read + mark                 | Read + mark                             |
+| Exit / Offboarding             | Full exit case                                                 | Full exit case          | Full exit case        | Full exit case        | No                          | No                                      |
 | System settings                | Full access                                                    | As configured           | No                      | No                    | No                          | No                                      |
 
 ## CEO Workspace
@@ -450,6 +456,61 @@ as they finish. HR can also start instances manually and mark complete/cancel/re
 
 **Developer Admin** alone adds, edits, and deletes the onboarding/offboarding process templates
 (item titles and in-app links). Managers and employees do not see Checklists.
+
+## Hire And Career (lifecycle)
+
+These screens live under **Hire** and **Career** in the sidebar. Backend routes are under
+`/lifecycle/*`. Document uploads are stored on the server under `LIFECYCLE_FILES_DIR`
+(default `.lifecycle-files`).
+
+### Talent Acquisition (HR / admin / CEO / manager)
+
+1. Create a **job opening** (title, department, openings, description).
+2. Add **candidates** and move stage: Applied → Screening → Interview → Offer → Accepted / Hired.
+3. Log interview rounds (interviewer + feedback).
+4. Send an **offer** (annual CTC, designation, joining date; optionally link an existing employee login).
+5. Use **Hire** to convert the candidate: pick the User Login employee profile, mark Hired, and
+   open Onboarding documents automatically.
+
+Managers can interview and move stages; only People Ops roles create openings, offers, and hires.
+
+### Onboarding (all roles — own case; HR starts cases)
+
+1. HR selects the employee and clicks **Start onboarding** (or Talent **Hire** does this).
+2. The hire uploads / signs Offer letter, NDA, Aadhaar, PAN, and Handbook.
+3. HR **Verify** or **Reject** each document. When all are verified, the case moves to NHO.
+4. The hire fills the **New hire form** (name, father name, DOB, addresses, PAN) and submits.
+5. HR **Verify** copies verified fields onto the employee master and sets lifecycle to Active.
+
+Staff see only their own case and form. Managers see their team; HR sees everyone.
+
+### People Changes (HR / managers)
+
+Raise effective-dated changes: shift, swap, promotion, department, employment type, salary,
+designation, branch, address, manager/hierarchy, recurring allowance, one-time payment.
+
+1. Manager or HR submits the request.
+2. Manager **Approve** (moves to Pending HR) when raised by a manager.
+3. HR **Apply** writes the change to the employee record (and compensation / allowance tables
+   when relevant). Optional HR letter PDF can be attached at apply time.
+
+### Performance (everyone for own / team reviews)
+
+1. HR creates an appraisal **cycle** (name, start, end).
+2. HR **Assign review** with one or more KRA/KPI rows (employee must have a reporting manager login).
+3. Employee submits scores and comments → manager review → optional skip-level → sign-off.
+
+### Learning (everyone)
+
+HR publishes **SOP** or **Training** articles (optional PDF/image). Employees open Learning,
+read the material, download attachments, and **Mark as read**.
+
+### Offboarding (HR / admin / CEO)
+
+1. Start an exit case (resignation, termination, intern complete, or absconding) with last day.
+2. Advance steps: access removed → assets cleared → no dues → letters issued → closed.
+3. Upload resignation / experience / intern completion letters as needed.
+4. Access removed deactivates the login; closed marks the employee terminated.
 
 Payroll/payslips and live biometric device connectors remain out of scope.
 

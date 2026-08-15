@@ -136,6 +136,7 @@ Lockout or suspension does not delete or disable the employee record, allowing h
 | `/expense-claims`       | Employee-scoped advances/expenses, private receipt upload, and HR review/payment workflow |
 | `/certificate-requests` | Employee-scoped HR document requests and HR fulfilment                                      |
 | `/checklists`           | HR onboarding/offboarding instances; Developer Admin template CRUD                          |
+| `/lifecycle`            | Hire & Career: jobs/candidates/offers, onboarding + NHO, people changes, performance, LMS, exit |
 | `/announcements`        | Publishing, activation, expiry, and permanent announcement deletion                         |
 | `/notifications`        | User-scoped notification feed and live stream                                               |
 | `/push`                 | VAPID key and browser subscription management                                               |

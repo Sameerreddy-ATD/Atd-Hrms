@@ -69,6 +69,7 @@ receiving company's infrastructure-as-code standards.
 | Attendance calculation and live state  | `attendanceEngine.ts`, `attendanceDayRules.ts`, `attendanceSettlement.ts`, `attendanceLive.ts`, `geofence.ts` |
 | Face identity and attendance proof     | `faceAttendance.ts`                                                                                           |
 | Leave calculation                      | `server/src/leavePolicy.ts`                                                                                   |
+| Hire & Career lifecycle                | `server/src/lifecycle.ts` (jobs, candidates, offers, onboarding/NHO, changes, performance, LMS, offboarding) |
 | Notifications, birthdays, and Web Push | `notificationLive.ts`, `push.ts`, `birthdays.ts`, `birthdayMessages.ts`                                       |
 
 New backend features should use a focused module when logic is independently testable. Route

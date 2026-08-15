@@ -19,8 +19,8 @@ The 26 July 2026 Wave A–C release audit notes:
 - MySQL now contains **58** application tables (HRMS modules plus vehicle asset columns);
 - ACL fixes cover task attachment/archive access and scoped global search boards;
 - private upload paths exist for company documents, expense receipts, and sick-leave medical files;
-- offline punch queueing is available for daily ops. Roster/OT/travel-fuel/appraisals/recruitment
-  tables may still exist in MySQL but product handlers for those surfaces are retired for now.
+- offline punch queueing is available for daily ops. Hire & Career lifecycle (TA, onboarding,
+  people changes, performance, LMS, exit) is live. Roster/OT tables remain reserved.
 
 The previous 25 July 2026 code and workflow audit produced these results:
 
@@ -56,7 +56,7 @@ MySQL 8.0 contains 58 application tables grouped as follows:
 | Employee services     | `expense_claims`, `certificate_requests`                                                                                                                                                                                 | Expense and HR-document workflow state is retained with reviewer and completion timestamps |
 | Assets                | `asset_catalog_items`, `company_assets` (incl. optional vehicle registration/insurance/fitness), `asset_returns` | Current assignment is on the asset; every completed return is a separate historical row |
 | Work Planner          | `task_boards`, `task_stages`, `task_board_roles`, `task_board_members`, `work_tasks`, `task_assignments`, `task_updates`, `task_attachments` | Stage status is canonical; `issue_key` / `rank` / `issue_type` are persisted; assignments and activity are relational history |
-| HRMS extensions       | `checklist_*`, dormant `company_documents`/`document_acks`/`sop_*`/`notification_preferences` (plus dormant `roster_assignments`, `overtime_claims`, `appraisal_*`, `recruitment_jobs`, `candidates`) | Active: onboarding checklists + alert prefs; docs/SOP/roster/OT/ATS/appraisals tables retained unused |
+| HRMS extensions       | `checklist_*`, `sop_*`, `appraisal_*`, `performance_goals`, `recruitment_jobs`, `candidates`, `candidate_interviews`, `offer_letters`, `onboarding_*`, `new_hire_profiles`, `employee_change_requests`, `employee_compensation`, `recurring_allowances`, `one_time_payments`, `shift_swap_requests`, `offboarding_cases`, `notification_preferences` | Active: checklists, Hire & Career lifecycle, alert prefs. Still reserved unused: `roster_assignments`, `overtime_claims`, legacy `company_documents`/`document_acks` |
 
 The physical table `certificate_requests` keeps its historical name for migration safety. The UI and
 documentation call this feature **HR Documents**.

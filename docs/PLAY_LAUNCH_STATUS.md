@@ -17,6 +17,8 @@ Canonical product docs remain in the rest of `docs/`. Credentials stay on the la
 - Digital Asset Links: `public/.well-known/assetlinks.json` (upload-key SHA-256)
 - Security hardening (12 Aug 2026): TTL support password, secret startup checks, Web Push SSRF allowlist, signed ID-card tokens, private-file ownership — see `docs/SECURITY_HARDENING_2026-08-12.md`
 - Deploy host: `ubuntu@13.204.5.57` via `InsidesalesHRMS.pem` → `/opt/anytime-crew-hub` (rsync; no `.git` on server), PM2 `atd-backend` / `atd-frontend`
+- **Hire & Career lifecycle** (15 Aug 2026): Talent → Hire → Onboarding/NHO → People Changes → Performance → Learning → Offboarding; build `2026-08-15-lifecycle-complete`
+- Session persistence on native reopen (refresh no longer races `sessionVersion` clear)
 
 ### Android / Play packaging
 - App id `com.anytimediesel.workforce`

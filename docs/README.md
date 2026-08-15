@@ -108,9 +108,10 @@ This package is intended for internal Anytime Diesel use. Final review changes i
 - Appearance: light/dark toggle only (no Auto).
 
 Still out of scope for this release: automated payslips/payroll deductions, live biometric device
-connectors, WhatsApp messaging providers, and full LMS/ATS enterprise suites.
+connectors, and WhatsApp messaging providers.
 
-Recently added MVP modules (July 2026): Work Planner with project keys, sequential issue keys,
-issue types, ranked Board ordering, archive, attachments, mentions, cross-project move, and custom
-fields; global search; notification digest preferences; operations reports + paid-claims CSV export;
-field claims; and onboarding checklists. Document vault and SOP are deferred.
+Recently added modules: Work Planner with project keys, sequential issue keys, issue types, ranked
+Board ordering, archive, attachments, mentions, cross-project move, and custom fields; global
+search; notification digest preferences; operations reports + paid-claims CSV export; field claims;
+onboarding/offboarding checklists; and **Hire & Career** (Talent, Onboarding/NHO, People Changes,
+Performance, Learning/SOP, Exit) via `/lifecycle`.
