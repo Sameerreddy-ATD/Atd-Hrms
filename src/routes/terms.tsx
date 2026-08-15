@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Logo } from "@/components/common/Logo";
+import { ScrollPage } from "@/components/layout/ScrollPage";
 
 export const Route = createFileRoute("/terms")({
   head: () => ({
@@ -10,7 +11,7 @@ export const Route = createFileRoute("/terms")({
 
 function TermsPage() {
   return (
-    <div className="aw-auth-canvas min-h-[100dvh] px-4 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))]">
+    <ScrollPage>
       <article className="mx-auto w-full max-w-2xl space-y-6 rounded-xl border border-border/70 bg-card/95 p-6 shadow-sm sm:p-8">
         <div className="flex flex-col items-center gap-3 text-center">
           <Logo className="h-auto w-28" />
@@ -73,6 +74,6 @@ function TermsPage() {
           </Link>
         </p>
       </article>
-    </div>
+    </ScrollPage>
   );
 }

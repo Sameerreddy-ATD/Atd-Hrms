@@ -728,6 +728,21 @@
     linear-gradient(180deg, color-mix(in oklab, var(--muted) 70%, transparent), var(--color-background) 48%);
 }
 
+/*
+  Native shells set html/body to overflow:hidden so the authenticated main pane
+  owns scrolling. Public routes (privacy, terms, login, …) sit outside that
+  pane, so they need their own viewport-height scroll container.
+*/
+.aw-scroll-page {
+  box-sizing: border-box;
+  height: 100%;
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
 @media (max-height: 720px) {
   .aw-auth-canvas .login-crew {
     max-width: 7.5rem !important;

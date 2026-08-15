@@ -108,13 +108,15 @@ function AppLayout() {
 
   if (loading || !user || user.mustChangePassword) {
     return (
-      <LoadingState label="Preparing your workspace" showBrandStory className="min-h-[100dvh]" />
+      <div className="aw-scroll-page">
+        <LoadingState label="Preparing your workspace" showBrandStory className="min-h-full" />
+      </div>
     );
   }
 
   if (faceRequired === null) {
     return (
-      <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 px-4 py-[env(safe-area-inset-top)]">
+      <div className="aw-scroll-page flex flex-col items-center justify-center gap-4 px-4 py-[env(safe-area-inset-top)]">
         <LoadingState
           label={facePolicyError ? "Security policy unavailable" : "Checking security policy"}
           showBrandStory
@@ -153,7 +155,11 @@ function AppLayout() {
   }
 
   if (allowedModules === null) {
-    return <LoadingState label="Loading module access" showBrandStory className="min-h-[100dvh]" />;
+    return (
+      <div className="aw-scroll-page">
+        <LoadingState label="Loading module access" showBrandStory className="min-h-full" />
+      </div>
+    );
   }
 
   const activeModule = moduleForRoute(pathname);
@@ -186,7 +192,9 @@ function AppLayout() {
         >
           <div
             className={cn(
-              "flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden bg-background/95 p-4 pb-6 text-card-foreground sm:rounded-xl sm:border sm:border-border/80 sm:bg-background sm:p-5 sm:pb-5 sm:shadow-sm lg:p-6",
+              // Grow with page content so <main> remains the scroll container.
+              // flex-1 + min-h-0 here trapped tall pages and stopped scrolling.
+              "min-h-full min-w-0 overflow-x-hidden bg-background/95 p-4 pb-6 text-card-foreground sm:rounded-xl sm:border sm:border-border/80 sm:bg-background sm:p-5 sm:pb-5 sm:shadow-sm lg:p-6",
               pageEnter && "aw-page-enter",
             )}
           >

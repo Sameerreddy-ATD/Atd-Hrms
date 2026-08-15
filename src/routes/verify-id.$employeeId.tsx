@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Logo } from "@/components/common/Logo";
+import { ScrollPage } from "@/components/layout/ScrollPage";
 import { attendanceApi } from "@/services/api";
 import { ShieldCheck, XCircle, Loader2 } from "lucide-react";
 import { COMPANY_LABELS, PARENT_COMPANY_NAME, type CompanyEntity } from "@/types/domain";
@@ -46,16 +47,18 @@ function VerifyIdCardPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 text-foreground">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-sm text-muted-foreground">Verifying employee credentials...</p>
-      </div>
+      <ScrollPage center className="bg-background" contentClassName="w-full text-foreground">
+        <div className="flex flex-col items-center justify-center">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="mt-4 text-sm text-muted-foreground">Verifying employee credentials...</p>
+        </div>
+      </ScrollPage>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background p-4 text-foreground">
+      <ScrollPage center className="bg-background" contentClassName="w-full text-foreground">
         <Card className="w-full max-w-md border-destructive/40 bg-card text-card-foreground shadow-2xl">
           <CardContent className="flex flex-col items-center p-8 text-center">
             <XCircle className="h-16 w-16 text-destructive" />
@@ -68,12 +71,12 @@ function VerifyIdCardPage() {
                 Error: {error}
               </div>
             )}
-            <div className="mt-6 border-t border-border pt-4 w-full text-[10px] text-muted-foreground uppercase tracking-widest">
+            <div className="mt-6 w-full border-t border-border pt-4 text-[10px] uppercase tracking-widest text-muted-foreground">
               {PARENT_COMPANY_NAME} Secure Verification
             </div>
           </CardContent>
         </Card>
-      </div>
+      </ScrollPage>
     );
   }
 
@@ -84,13 +87,13 @@ function VerifyIdCardPage() {
     .join("");
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4 text-foreground">
-      <Card className="w-full max-w-md border-border bg-card text-card-foreground shadow-2xl overflow-hidden relative">
-        <div className="absolute top-0 right-0 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
+    <ScrollPage center className="bg-background" contentClassName="w-full text-foreground">
+      <Card className="relative w-full max-w-md overflow-hidden border-border bg-card text-card-foreground shadow-2xl">
+        <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
 
         <div className="flex items-center justify-between border-b border-border bg-muted/40 px-6 py-4">
           <Logo className="h-6 w-auto" />
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+          <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
             Verified Active
           </span>
         </div>
@@ -99,11 +102,11 @@ function VerifyIdCardPage() {
           <div className="flex flex-col items-center text-center">
             <div className="relative">
               <Avatar className="h-20 w-20 border-2 border-primary/30">
-                <AvatarFallback className="bg-primary text-primary-foreground text-2xl font-semibold">
+                <AvatarFallback className="bg-primary text-2xl font-semibold text-primary-foreground">
                   {initials}
                 </AvatarFallback>
               </Avatar>
-              <div className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full p-1 border-2 border-background">
+              <div className="absolute -bottom-1 -right-1 rounded-full border-2 border-background bg-primary p-1 text-primary-foreground">
                 <ShieldCheck className="h-4 w-4" />
               </div>
             </div>
@@ -122,21 +125,21 @@ function VerifyIdCardPage() {
             <Row label="Status" value={data.status === "ACTIVE" ? "Active" : data.status} />
           </div>
 
-          <div className="mt-8 border-t border-slate-800 pt-5 flex items-center justify-center gap-2 text-[10px] text-slate-500 uppercase tracking-widest">
+          <div className="mt-8 flex items-center justify-center gap-2 border-t border-slate-800 pt-5 text-[10px] uppercase tracking-widest text-slate-500">
             <ShieldCheck className="h-3 w-3 text-emerald-500" />
             {PARENT_COMPANY_NAME} Employee Verification
           </div>
         </CardContent>
       </Card>
-    </div>
+    </ScrollPage>
   );
 }
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">{label}</p>
-      <p className="mt-0.5 break-words text-slate-200 font-medium">{value}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{label}</p>
+      <p className="mt-0.5 break-words font-medium text-slate-200">{value}</p>
     </div>
   );
 }

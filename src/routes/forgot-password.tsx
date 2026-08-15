@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authApi } from "@/services/api";
+import { ScrollPage } from "@/components/layout/ScrollPage";
 import { ArrowLeft, Loader2, ShieldCheck } from "lucide-react";
 
 export const Route = createFileRoute("/forgot-password")({
@@ -37,7 +38,7 @@ function ForgotPasswordPage() {
   }
 
   return (
-    <div className="aw-auth-canvas flex min-h-screen items-center justify-center px-4 py-8">
+    <ScrollPage center contentClassName="w-full">
       <Card className="aw-enter w-full max-w-md border-border/70 bg-card/95 shadow-sm backdrop-blur-sm">
         <CardContent className="p-6 sm:p-8">
           <div className="mb-6 flex flex-col items-center gap-2 text-center">
@@ -100,6 +101,6 @@ function ForgotPasswordPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </ScrollPage>
   );
 }

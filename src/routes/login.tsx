@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/common/PasswordInput";
 import { LoginCrewMascot, type LoginCrewMode } from "@/components/auth/LoginCrewMascot";
 import { PwaInstallBanner } from "@/components/layout/PwaInstallBanner";
+import { ScrollPage } from "@/components/layout/ScrollPage";
 import { useAuth } from "@/lib/auth";
 import { Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -67,7 +68,7 @@ function LoginPage() {
   }
 
   return (
-    <div className="aw-auth-canvas flex min-h-[100dvh] items-center justify-center px-4 py-8 pb-[max(2rem,var(--atd-sab))] pt-[max(2rem,var(--atd-sat))]">
+    <ScrollPage center contentClassName="w-full">
       <div className="aw-enter mx-auto flex w-full max-w-md flex-col justify-center space-y-4">
         <LoginCrewMascot
           mode={crewMode}
@@ -157,6 +158,6 @@ function LoginPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </ScrollPage>
   );
 }
