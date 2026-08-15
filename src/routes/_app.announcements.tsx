@@ -196,7 +196,6 @@ function AnnouncementsPage() {
         >
           <div className="lg:col-span-2">
             <h2 className="font-semibold">Publish company announcement</h2>
-            <p className="mt-0.5 text-sm text-muted-foreground">
             <p className="mt-1 text-sm text-muted-foreground">
               {t("announcements.contentNote")}
             </p>
