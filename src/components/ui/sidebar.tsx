@@ -8,20 +8,13 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { MobileSidebarDrawer } from "@/components/layout/MobileSidebarDrawer";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 const SIDEBAR_WIDTH = "15rem";
-const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
 
@@ -188,30 +181,9 @@ const Sidebar = React.forwardRef<
 
     if (isMobile) {
       return (
-        <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props} modal={false}>
-          <SheetContent
-            data-sidebar="sidebar"
-            data-mobile="true"
-            overlayClassName="atd-drawer-under-header bg-foreground/40"
-            className="atd-drawer-panel-under-header w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
-            style={
-              {
-                "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
-                top: "calc(var(--atd-sat) + var(--atd-header-row))",
-                height: "calc(100dvh - var(--atd-sat) - var(--atd-header-row) - var(--atd-sab))",
-                maxHeight: "calc(100dvh - var(--atd-sat) - var(--atd-header-row) - var(--atd-sab))",
-                bottom: "auto",
-              } as React.CSSProperties
-            }
-            side={side}
-          >
-            <SheetHeader className="sr-only">
-              <SheetTitle>Sidebar</SheetTitle>
-              <SheetDescription>Displays the mobile sidebar.</SheetDescription>
-            </SheetHeader>
-            <div className="flex h-full w-full flex-col">{children}</div>
-          </SheetContent>
-        </Sheet>
+        <MobileSidebarDrawer open={openMobile} onOpenChange={setOpenMobile} className={className}>
+          <div className="flex h-full w-full flex-col">{children}</div>
+        </MobileSidebarDrawer>
       );
     }
 

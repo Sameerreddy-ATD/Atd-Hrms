@@ -728,6 +728,33 @@
   z-index: 50 !important;
 }
 
+/* Finger-follow mobile sidebar drawer */
+.atd-sidebar-drawer--dragging {
+  transition: none !important;
+}
+
+.atd-sidebar-drawer--settling {
+  transition:
+    transform var(--motion-enter) var(--ease-out),
+    opacity var(--motion-ui) var(--ease-out);
+}
+
+.atd-sidebar-drawer-panel {
+  will-change: transform;
+  overscroll-behavior: contain;
+}
+
+.atd-sidebar-edge-swipe {
+  /* Keep above page content but under the header chrome */
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .atd-sidebar-drawer--settling {
+    transition: none !important;
+  }
+}
+
 .dark .aw-shell-canvas {
   background:
     radial-gradient(ellipse 90% 55% at 0% -10%, color-mix(in oklab, var(--primary) 12%, transparent), transparent 55%),
