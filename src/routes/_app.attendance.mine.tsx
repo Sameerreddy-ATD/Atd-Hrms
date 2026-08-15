@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -8,7 +8,6 @@ import {
   type MissedPunchCorrectionRequest,
 } from "@/components/attendance/MissedPunchRequestPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { attendanceApi } from "@/services/api";
 import type { AttendanceRecord } from "@/types/domain";
@@ -16,12 +15,20 @@ import { useAuth } from "@/lib/auth";
 import { subscribeToAttendanceChanges } from "@/lib/attendance-live";
 import { indiaMonthKey, indiaMonthRange } from "@/lib/india-date";
 
+type MineSearch = { tab?: "history" | "requests" };
+
 export const Route = createFileRoute("/_app/attendance/mine")({
+  validateSearch: (search: Record<string, unknown>): MineSearch => ({
+    tab: search.tab === "requests" ? "requests" : search.tab === "history" ? "history" : undefined,
+  }),
   component: MyAttendancePage,
 });
 
 function MyAttendancePage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { tab: tabSearch } = useSearch({ from: "/_app/attendance/mine" });
+  const activeTab = tabSearch === "requests" ? "requests" : "history";
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
@@ -77,21 +84,13 @@ function MyAttendancePage() {
     return subscribeToAttendanceChanges(() => void load(false));
   }, [load, user?.employeeId]);
 
+  const pendingCount = myRequests.filter((row) => row.status === "PENDING").length;
+
   return (
-    <div className="space-y-5 sm:space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <PageHeader
         title="My Attendance"
-        description="Your own attendance history and missed-punch requests. Check in and out from the dashboard."
-        actions={
-          <>
-            <Button asChild variant="outline" className="min-h-11">
-              <Link to="/leave/apply">Apply Leave</Link>
-            </Button>
-            <Button asChild className="min-h-11">
-              <Link to="/attendance/missed-punch">Missed Punch</Link>
-            </Button>
-          </>
-        }
+        description="This month’s log. Check in and out from the dashboard."
       />
 
       {loading && <LoadingState label="Loading your attendance data" />}
@@ -103,30 +102,43 @@ function MyAttendancePage() {
       )}
 
       {!loading && !error && (
-        <Tabs defaultValue="history" className="w-full space-y-4 sm:space-y-6">
-          <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-lg bg-muted p-1 sm:max-w-sm">
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => {
+            void navigate({
+              to: "/attendance/mine",
+              search: { tab: value === "requests" ? "requests" : "history" },
+              replace: true,
+            });
+          }}
+          className="w-full space-y-4"
+        >
+          <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-xl bg-muted p-1 sm:max-w-md">
             <TabsTrigger
               value="history"
-              className="min-h-11 rounded-md py-2.5 text-xs font-semibold sm:text-sm"
+              className="min-h-11 rounded-lg py-2.5 text-xs font-semibold sm:text-sm"
             >
-              Attendance Log
+              Log
             </TabsTrigger>
             <TabsTrigger
               value="requests"
-              className="min-h-11 rounded-md py-2.5 text-xs font-semibold sm:text-sm"
+              className="min-h-11 rounded-lg py-2.5 text-xs font-semibold sm:text-sm"
             >
-              Missed Punch
+              Missed punch
+              {pendingCount > 0 ? (
+                <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                  {pendingCount}
+                </span>
+              ) : null}
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="history" className="mt-0 space-y-4">
+          <TabsContent value="history" className="mt-0 space-y-3">
             <Card className="border-border shadow-sm">
               <CardHeader className="space-y-1 px-4 pb-3 pt-4 sm:px-6">
-                <CardTitle className="text-base font-semibold text-foreground">
-                  This month’s log
-                </CardTitle>
+                <CardTitle className="text-base font-semibold text-foreground">This month</CardTitle>
                 <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
-                  From the 1st through today. Tap a day to see full punch detail.
+                  Tap a day for punch detail. Apply leave from Leave in the menu.
                 </p>
               </CardHeader>
               <CardContent className="px-3 pb-4 pt-0 sm:px-4 sm:pb-5">
@@ -137,17 +149,23 @@ function MyAttendancePage() {
                 />
               </CardContent>
             </Card>
+            <p className="px-1 text-center text-xs text-muted-foreground sm:text-left">
+              Need time off?{" "}
+              <Link
+                to="/leave/apply"
+                className="font-semibold text-primary underline-offset-2 hover:underline"
+              >
+                Apply leave
+              </Link>
+            </p>
           </TabsContent>
 
-          <TabsContent value="requests" className="mt-0 space-y-4">
+          <TabsContent value="requests" className="mt-0">
             <MissedPunchRequestPanel
               records={records}
               requests={myRequests}
               onSubmitted={() => load(false)}
             />
-            <Button asChild variant="outline" className="min-h-11 w-full sm:w-auto">
-              <Link to="/attendance/missed-punch">Open full Missed Punch page</Link>
-            </Button>
           </TabsContent>
         </Tabs>
       )}

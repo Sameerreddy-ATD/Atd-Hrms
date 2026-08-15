@@ -19,12 +19,12 @@ import {
 import { EmptyState } from "@/components/common/EmptyState";
 import type { AttendanceRecord } from "@/types/domain";
 import {
-  attendanceStatusWithFlags,
+  attendanceStatusParts,
   hasProvisionalSystemOut,
   lastOutLabel,
 } from "@/lib/attendance-labels";
 import { formatStoredWorkedTime, formatWorkedTime } from "@/lib/worked-time";
-import { formatDisplayDate, indiaDateKey } from "@/lib/india-date";
+import { formatDisplayDate, formatDisplayDateWeekday, indiaDateKey } from "@/lib/india-date";
 
 function WorkedTime({ record }: { record: AttendanceRecord }) {
   const [now, setNow] = useState(() => Date.now());
@@ -82,6 +82,18 @@ function WorkedTime({ record }: { record: AttendanceRecord }) {
   return <>{formatStoredWorkedTime(record.totalHours, record.workedMinutes)}</>;
 }
 
+function DayStatusChips({ record }: { record: AttendanceRecord }) {
+  const { status, flags } = attendanceStatusParts(record);
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      <StatusBadge status={status} />
+      {flags.map((flag) => (
+        <StatusBadge key={flag} status={flag} showDot={false} />
+      ))}
+    </div>
+  );
+}
+
 function PunchPair({ record }: { record: AttendanceRecord }) {
   const lastOut = lastOutLabel(record);
   const lastOutAlert =
@@ -89,33 +101,33 @@ function PunchPair({ record }: { record: AttendanceRecord }) {
 
   return (
     <div className="grid grid-cols-2 gap-2">
-      <div className="min-w-0 rounded-md border border-border/80 bg-muted/40 px-2.5 py-2">
+      <div className="min-w-0 rounded-lg border border-border/80 bg-muted/40 px-2.5 py-2.5">
         <p className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
-          <LogIn className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+          <LogIn className="h-3 w-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
           Check in
         </p>
         <p className="mt-1 text-base font-semibold tabular-nums tracking-tight">
           {record.punchIn ?? "—"}
         </p>
       </div>
-      <div className="min-w-0 rounded-md border border-border/80 bg-muted/40 px-2.5 py-2">
+      <div className="min-w-0 rounded-lg border border-border/80 bg-muted/40 px-2.5 py-2.5">
         <p className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
-          <LogOut className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+          <LogOut className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-400" />
           Check out
         </p>
         <p
-          className={`mt-1 text-base font-semibold tabular-nums tracking-tight ${
-            lastOutAlert ? "text-amber-700 dark:text-amber-400" : ""
+          className={`mt-1 text-sm font-semibold leading-snug tracking-tight sm:text-base ${
+            lastOutAlert ? "text-amber-700 dark:text-amber-400" : "tabular-nums"
           }`}
         >
-          {lastOut.text}
+          <span className="break-words">{lastOut.text}</span>
         </p>
       </div>
     </div>
   );
 }
 
-/** Phone-first day row: date + status, punch pair, worked time. Desktop keeps denser columns. */
+/** Phone-first day row: date alone, then status chips, punches, worked time. */
 function DayRecordSummary({
   record,
   showEmployee,
@@ -126,34 +138,44 @@ function DayRecordSummary({
   const lastOut = lastOutLabel(record);
   const lastOutAlert =
     lastOut.provisional || Boolean(lastOut.missing) || lastOut.text === "Punch-out required";
+  const parts = attendanceStatusParts(record);
 
   return (
     <>
-      {/* Mobile / narrow */}
-      <div className="min-w-0 flex-1 space-y-2.5 md:hidden">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            {showEmployee ? (
-              <>
-                <p className="truncate text-sm font-semibold leading-snug">{record.employeeName}</p>
-                <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                  <CalendarDays className="h-3 w-3 shrink-0" />
-                  {formatDisplayDate(record.date)}
-                </p>
-              </>
-            ) : (
-              <p className="flex items-center gap-1.5 text-sm font-semibold">
-                <CalendarDays className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      {/* Mobile / narrow — stacked so long statuses never collide with the date */}
+      <div className="min-w-0 flex-1 space-y-2.5 pr-1 md:hidden">
+        <div className="min-w-0 space-y-1.5">
+          {showEmployee ? (
+            <>
+              <p className="truncate text-sm font-semibold leading-snug text-foreground">
+                {record.employeeName}
+              </p>
+              <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
+                <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+                <span className="font-medium text-foreground">
+                  {formatDisplayDateWeekday(record.date)}
+                </span>
+                <span className="text-border">·</span>
+                <span className="tabular-nums">{formatDisplayDate(record.date)}</span>
+              </p>
+            </>
+          ) : (
+            <div className="min-w-0">
+              <p className="text-base font-semibold leading-tight tracking-tight text-foreground">
+                {formatDisplayDateWeekday(record.date)}
+              </p>
+              <p className="mt-0.5 flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground">
+                <CalendarDays className="h-3.5 w-3.5 shrink-0" />
                 {formatDisplayDate(record.date)}
               </p>
-            )}
-          </div>
-          <StatusBadge status={attendanceStatusWithFlags(record)} />
+            </div>
+          )}
+          <DayStatusChips record={record} />
         </div>
         <PunchPair record={record} />
-        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Clock3 className="h-3.5 w-3.5 shrink-0" />
-          <span className="font-medium text-foreground">
+        <p className="flex min-w-0 items-start gap-1.5 text-xs text-muted-foreground">
+          <Clock3 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span className="min-w-0 font-medium leading-snug text-foreground">
             <WorkedTime record={record} />
           </span>
         </p>
@@ -177,10 +199,13 @@ function DayRecordSummary({
             </p>
           </div>
         )}
-        <div>
+        <div className="min-w-0">
           <p className="text-xs text-muted-foreground">Status</p>
-          <div className="mt-0.5">
-            <StatusBadge status={attendanceStatusWithFlags(record)} />
+          <div className="mt-0.5 flex flex-wrap gap-1">
+            <StatusBadge status={parts.status} />
+            {parts.flags.map((flag) => (
+              <StatusBadge key={flag} status={flag} showDot={false} />
+            ))}
           </div>
         </div>
         <div>
@@ -190,22 +215,24 @@ function DayRecordSummary({
             {record.punchIn ?? "-"}
           </p>
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="text-xs text-muted-foreground">Last out</p>
           <p
-            className={`mt-0.5 flex items-center gap-1 text-sm font-medium tabular-nums ${
-              lastOutAlert ? "text-amber-700 dark:text-amber-400" : ""
+            className={`mt-0.5 flex items-start gap-1 text-sm font-medium ${
+              lastOutAlert ? "text-amber-700 dark:text-amber-400" : "tabular-nums"
             }`}
           >
-            <LogOut className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
-            <span className="min-w-0 break-words">{lastOut.text}</span>
+            <LogOut className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span className="min-w-0 break-words leading-snug">{lastOut.text}</span>
           </p>
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="text-xs text-muted-foreground">Worked</p>
-          <p className="mt-0.5 flex items-center gap-1 text-sm font-semibold tabular-nums">
-            <Clock3 className="h-3.5 w-3.5" />
-            <WorkedTime record={record} />
+          <p className="mt-0.5 flex items-start gap-1 text-sm font-semibold">
+            <Clock3 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0 leading-snug">
+              <WorkedTime record={record} />
+            </span>
           </p>
         </div>
       </div>
@@ -217,7 +244,7 @@ function EmployeeDayRecord({ record, mine }: { record: AttendanceRecord; mine: b
   return (
     <AccordionItem
       value={record.id}
-      className="overflow-hidden rounded-lg border bg-background px-0 [content-visibility:auto] [contain-intrinsic-size:120px]"
+      className="overflow-hidden rounded-xl border bg-background px-0 [content-visibility:auto] [contain-intrinsic-size:120px]"
     >
       <AccordionTrigger className="min-h-11 items-start gap-2 px-3 py-3 text-left hover:no-underline sm:items-center sm:px-3.5 [&_svg]:mt-1 sm:[&_svg]:mt-0">
         <DayRecordSummary record={record} showEmployee />
@@ -269,38 +296,43 @@ export function AttendanceDayList({
     return (
       <Accordion type="multiple" className="space-y-2.5">
         {dateGroups.map(([date, dateRecords]) => {
-          const presentCount = dateRecords.filter((record) =>
-            record.status.toLowerCase().startsWith("present"),
-          ).length;
+          const presentCount = dateRecords.filter((record) => {
+            const status = record.status.toLowerCase();
+            return (
+              status.startsWith("present") || status === "full day" || status === "half day"
+            );
+          }).length;
           return (
             <AccordionItem
               key={date}
               value={`date-${date}`}
-              className="overflow-hidden rounded-lg border bg-background px-0"
+              className="overflow-hidden rounded-xl border bg-background px-0"
             >
               <AccordionTrigger className="min-h-11 items-start gap-3 px-3 py-3 text-left hover:no-underline sm:items-center sm:px-4 [&_svg]:mt-1 sm:[&_svg]:mt-0">
-                <div className="min-w-0 flex-1 space-y-2 md:space-y-0">
-                  <div className="flex items-center justify-between gap-2 md:hidden">
-                    <p className="flex items-center gap-1.5 text-sm font-semibold">
-                      <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-                      {formatDisplayDate(date)}
+                <div className="min-w-0 flex-1 space-y-2.5 md:space-y-0">
+                  <div className="space-y-1 md:hidden">
+                    <p className="text-base font-semibold leading-tight tracking-tight">
+                      {formatDisplayDateWeekday(date)}
                     </p>
-                    <p className="text-xs font-medium tabular-nums text-muted-foreground">
+                    <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs tabular-nums text-muted-foreground">
+                      <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+                      {formatDisplayDate(date)}
+                      <span className="text-border">·</span>
                       {dateRecords.length} people
                     </p>
                   </div>
                   <div className="grid grid-cols-3 gap-2 md:hidden">
-                    <div className="rounded-md bg-muted/50 px-2 py-1.5 text-center">
+                    <div className="rounded-lg bg-muted/50 px-2 py-1.5 text-center">
                       <p className="text-[10px] text-muted-foreground">Total</p>
                       <p className="text-sm font-semibold tabular-nums">{dateRecords.length}</p>
                     </div>
-                    <div className="rounded-md bg-muted/50 px-2 py-1.5 text-center">
+                    <div className="rounded-lg bg-muted/50 px-2 py-1.5 text-center">
                       <p className="text-[10px] text-muted-foreground">Present</p>
                       <p className="text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
                         {presentCount}
                       </p>
                     </div>
-                    <div className="rounded-md bg-muted/50 px-2 py-1.5 text-center">
+                    <div className="rounded-lg bg-muted/50 px-2 py-1.5 text-center">
                       <p className="text-[10px] text-muted-foreground">Other</p>
                       <p className="text-sm font-semibold tabular-nums">
                         {dateRecords.length - presentCount}
@@ -360,9 +392,9 @@ export function AttendanceDayList({
         <AccordionItem
           key={record.id}
           value={record.id}
-          className="overflow-hidden rounded-lg border bg-background px-0 [content-visibility:auto] [contain-intrinsic-size:140px]"
+          className="overflow-hidden rounded-xl border bg-background px-0 [content-visibility:auto] [contain-intrinsic-size:160px]"
         >
-          <AccordionTrigger className="min-h-11 items-start gap-2 px-3 py-3 text-left hover:no-underline sm:items-center sm:px-3.5 [&_svg]:mt-1 sm:[&_svg]:mt-0">
+          <AccordionTrigger className="min-h-11 items-start gap-2 px-3 py-3 text-left hover:no-underline sm:items-center sm:px-3.5 [&_svg]:mt-1.5 sm:[&_svg]:mt-0">
             <DayRecordSummary record={record} showEmployee={false} />
           </AccordionTrigger>
           <AccordionContent className="border-t bg-muted/15 px-2.5 pb-3 pt-2.5 sm:px-3">

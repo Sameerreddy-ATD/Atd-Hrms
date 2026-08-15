@@ -211,10 +211,22 @@ export function attendanceStatusWithFlags(row: {
   hasMissedCheckout?: boolean;
   hasMissingOutEvent?: boolean;
 }) {
+  const { status, flags } = attendanceStatusParts(row);
+  return flags.length ? `${status} · ${flags.join(" · ")}` : status;
+}
+
+/** Split day result vs flags so mobile UI can show chips without crushing the date. */
+export function attendanceStatusParts(row: {
+  status: string;
+  isLate?: boolean;
+  hasMissedCheckout?: boolean;
+  hasMissingOutEvent?: boolean;
+}) {
   const flags: string[] = [];
   // Only after the day punch-out deadline (hasMissedCheckout). Mid-day open punch is not Missed Checkout yet.
   if (row.hasMissedCheckout) flags.push("Missed Checkout");
-  return flags.length ? `${row.status} · ${flags.join(" · ")}` : row.status;
+  if (row.isLate) flags.push("Late");
+  return { status: row.status, flags };
 }
 
 /** Legacy helper — provisional System outs are no longer written; punch-out stays empty. */

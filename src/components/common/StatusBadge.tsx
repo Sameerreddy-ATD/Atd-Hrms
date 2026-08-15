@@ -59,23 +59,35 @@ const dotMap: Record<string, string> = {
   neutral: "bg-muted-foreground",
 };
 
-export function StatusBadge({ status, showDot = true }: { status: string; showDot?: boolean }) {
+export function StatusBadge({
+  status,
+  showDot = true,
+  className,
+}: {
+  status: string;
+  showDot?: boolean;
+  className?: string;
+}) {
   const category = classify(status);
   return (
     <Badge
       variant="outline"
-      className={cn("inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold shadow-2xs backdrop-blur-xs", map[category])}
+      className={cn(
+        "inline-flex max-w-full items-center gap-1.5 whitespace-normal px-2 py-0.5 text-left text-[11px] font-semibold leading-snug shadow-2xs backdrop-blur-xs sm:px-2.5 sm:text-xs",
+        map[category],
+        className,
+      )}
     >
       {showDot && (
         <span
           className={cn(
-            "h-1.5 w-1.5 rounded-full shrink-0",
+            "h-1.5 w-1.5 shrink-0 rounded-full",
             dotMap[category],
             (category === "present" || category === "approved") && "pulse-dot",
           )}
         />
       )}
-      <span>{status}</span>
+      <span className="min-w-0 break-words">{status}</span>
     </Badge>
   );
 }

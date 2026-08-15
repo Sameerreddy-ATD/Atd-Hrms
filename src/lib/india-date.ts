@@ -66,6 +66,25 @@ export function formatDisplayDate(value?: string | Date | null): string {
   }).format(date);
 }
 
+/** Compact weekday label for mobile day cards, e.g. "Sat, 15 Aug". */
+export function formatDisplayDateWeekday(value?: string | Date | null): string {
+  if (value == null || value === "") return "-";
+  let date: Date;
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+    const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+    date = new Date(Date.UTC(year, month - 1, day, 6, 0, 0));
+  } else {
+    date = value instanceof Date ? value : new Date(value);
+  }
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: IST,
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }).format(date);
+}
+
 /** Display date + time in IST as DD/MM/YYYY, HH:MM. */
 export function formatDisplayDateTime(value?: string | Date | null): string {
   if (value == null || value === "") return "-";
