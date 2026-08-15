@@ -242,6 +242,10 @@ export function createApp() {
   const backendStartedAt = new Date();
   const app = express();
   app.disable("x-powered-by");
+  // Keep routing and the module-access gate in agreement: both treat paths as
+  // case-sensitive. Without this, /ASSETS reaches the /assets handler while the
+  // module matcher (which used to compare the raw casing) would miss it.
+  app.set("case sensitive routing", true);
   app.set("trust proxy", config.trustProxy);
   app.use(helmet());
   app.use(compression());
@@ -326,6 +330,17 @@ export function createApp() {
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: "Too many verification attempts. Please wait and try again." },
+  });
+
+  // Face capture is expensive and the scores arrive from the client, so keep
+  // the per-account attempt budget tight even when many employees share an IP.
+  const faceLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    limit: 40,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => req.user?.id ?? req.ip ?? "anonymous",
+    message: { error: "Too many face verification attempts. Please wait and try again." },
   });
 
   function listLimit(req: express.Request, fallback = 500, max = 1000) {
@@ -1264,6 +1279,7 @@ export function createApp() {
   app.post(
     "/face/session",
     requireAuth,
+    faceLimiter,
     asyncHandler(async (req, res) => {
       const body = faceSessionSchema.parse(req.body);
       const settings = await readFaceSettings();
@@ -1283,6 +1299,7 @@ export function createApp() {
   app.post(
     "/face/enrollment",
     requireAuth,
+    faceLimiter,
     asyncHandler(async (req, res) => {
       const capture = faceCaptureSchema.parse(req.body);
       const result = await submitFaceEnrollment({
@@ -2237,6 +2254,7 @@ export function createApp() {
   app.post(
     "/auth/change-password",
     requireAuth,
+    authLimiter,
     asyncHandler(async (req, res) => {
       const body = changePasswordSchema.parse(req.body);
       const user = await prisma.user.findUniqueOrThrow({ where: { id: req.user!.id } });
@@ -5985,12 +6003,14 @@ export function createApp() {
     task: { taskId: string; boardId: string | null },
     assigneeEmployeeIds: string[],
   ) {
-    const { visibleIds } = await taskScope(user);
-    if (!visibleIds || assigneeEmployeeIds.some((id) => visibleIds.includes(id))) return;
+    // Board policy first. Team visibility must not open a gated board the
+    // caller was deliberately kept out of.
     if (task.boardId) {
       await assertBoardAccess(user, task.boardId);
       return;
     }
+    const { visibleIds } = await taskScope(user);
+    if (!visibleIds || assigneeEmployeeIds.some((id) => visibleIds.includes(id))) return;
     throw new HttpError(403, "Task is outside your organization team");
   }
 
@@ -6142,17 +6162,8 @@ export function createApp() {
     return board;
   }
 
-  /** HR/CEO/admins can mutate tasks on boards they can view via task scope, even if not board members. */
+  /** Every mutation of a board-linked task must clear the board's own access policy. */
   async function getMutableBoard(user: NonNullable<express.Request["user"]>, boardId: string) {
-    const unrestrictedRoles: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.CEO, Role.HR];
-    if (unrestrictedRoles.includes(user.role)) {
-      const board = await prisma.taskBoard.findFirst({
-        where: { boardId },
-        include: boardInclude,
-      });
-      if (!board) throw new HttpError(404, "Board not found");
-      return board;
-    }
     return assertBoardAccess(user, boardId);
   }
 

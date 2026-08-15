@@ -196,64 +196,70 @@ export async function saveModuleAccessMatrix(matrix: unknown, updatedById: strin
 }
 
 export function moduleForApiPath(path: string, method = "GET"): ModuleKey | null {
-  if (path === "/module-access/me") return null;
-  if (path.startsWith("/users") || path.startsWith("/departments")) return "PEOPLE";
-  if (path.startsWith("/employees") && method !== "GET") return "PEOPLE";
-  if (path.startsWith("/branches") && method !== "GET") return "COMPANY";
-  if (path.startsWith("/tasks") || path.startsWith("/task-boards")) return "TASKS";
-  if (path.startsWith("/expense-claims") || path.startsWith("/certificate-requests"))
+  // Express matches routes case-insensitively by default, but req.path keeps the
+  // caller's casing. Matching against that casing while failing open on a miss
+  // means GET /ASSETS skips the COMPANY gate. Always compare in lowercase.
+  const normalized = path.toLowerCase();
+  const verb = method.toUpperCase();
+  if (normalized === "/module-access/me") return null;
+  if (normalized.startsWith("/users") || normalized.startsWith("/departments")) return "PEOPLE";
+  if (normalized.startsWith("/employees") && verb !== "GET") return "PEOPLE";
+  if (normalized.startsWith("/branches") && verb !== "GET") return "COMPANY";
+  if (normalized.startsWith("/tasks") || normalized.startsWith("/task-boards")) return "TASKS";
+  if (normalized.startsWith("/expense-claims") || normalized.startsWith("/certificate-requests"))
     return "EMPLOYEE_REQUESTS";
-  if (path.startsWith("/search") || path.startsWith("/notification-preferences")) return null;
-  if (path.startsWith("/checklists")) return "PEOPLE";
-  if (path.includes("/lifecycle/offers/") && path.endsWith("/sign")) return "LIFECYCLE";
+  if (normalized.startsWith("/search") || normalized.startsWith("/notification-preferences"))
+    return null;
+  if (normalized.startsWith("/checklists")) return "PEOPLE";
+  if (normalized.includes("/lifecycle/offers/") && normalized.endsWith("/sign")) return "LIFECYCLE";
   if (
-    path.startsWith("/lifecycle/jobs") ||
-    path.startsWith("/lifecycle/candidates") ||
-    path.startsWith("/lifecycle/offers")
+    normalized.startsWith("/lifecycle/jobs") ||
+    normalized.startsWith("/lifecycle/candidates") ||
+    normalized.startsWith("/lifecycle/offers")
   )
     return "TALENT";
-  if (path.startsWith("/lifecycle/performance")) return "PERFORMANCE";
-  if (path.startsWith("/lifecycle/lms")) return "LMS";
-  if (path.startsWith("/lifecycle/")) return "LIFECYCLE";
+  if (normalized.startsWith("/lifecycle/performance")) return "PERFORMANCE";
+  if (normalized.startsWith("/lifecycle/lms")) return "LMS";
+  if (normalized.startsWith("/lifecycle/")) return "LIFECYCLE";
   if (
-    path.startsWith("/leave/") ||
-    path.startsWith("/weekly-offs") ||
-    path.startsWith("/reports/leave")
+    normalized.startsWith("/leave/") ||
+    normalized.startsWith("/weekly-offs") ||
+    normalized.startsWith("/reports/leave")
   )
     return "LEAVE";
   if (
-    path.startsWith("/attendance/") ||
-    path.startsWith("/biometric/") ||
-    path.startsWith("/reports/attendance") ||
-    path.startsWith("/reports/employee-attendance") ||
-    path.startsWith("/reports/branch-wise") ||
-    path.startsWith("/reports/multi-branch") ||
-    path.startsWith("/reports/field") ||
-    path.startsWith("/reports/client-visits") ||
-    path.startsWith("/reports/late") ||
-    path.startsWith("/reports/absent") ||
-    path.startsWith("/reports/payroll") ||
-    path.startsWith("/reports/timeline") ||
-    path.startsWith("/reports/movement")
+    normalized.startsWith("/attendance/") ||
+    normalized.startsWith("/biometric/") ||
+    normalized.startsWith("/reports/attendance") ||
+    normalized.startsWith("/reports/employee-attendance") ||
+    normalized.startsWith("/reports/branch-wise") ||
+    normalized.startsWith("/reports/multi-branch") ||
+    normalized.startsWith("/reports/field") ||
+    normalized.startsWith("/reports/client-visits") ||
+    normalized.startsWith("/reports/late") ||
+    normalized.startsWith("/reports/absent") ||
+    normalized.startsWith("/reports/payroll") ||
+    normalized.startsWith("/reports/timeline") ||
+    normalized.startsWith("/reports/movement")
   )
     return "ATTENDANCE";
   // Employee "My Assets" is a profile self-service surface; admin asset APIs stay COMPANY.
-  if (path === "/assets/mine") return "PROFILE";
-  if (path.startsWith("/assets")) return "COMPANY";
-  if (path.startsWith("/holidays")) return "COMPANY";
-  if (path.startsWith("/profile/") || path.startsWith("/id-card/")) return "PROFILE";
+  if (normalized === "/assets/mine") return "PROFILE";
+  if (normalized.startsWith("/assets")) return "COMPANY";
+  if (normalized.startsWith("/holidays")) return "COMPANY";
+  if (normalized.startsWith("/profile/") || normalized.startsWith("/id-card/")) return "PROFILE";
   if (
-    path.startsWith("/announcements") ||
-    path.startsWith("/notifications") ||
-    path.startsWith("/push/")
+    normalized.startsWith("/announcements") ||
+    normalized.startsWith("/notifications") ||
+    normalized.startsWith("/push/")
   )
     return "COMMUNICATIONS";
   if (
-    path.startsWith("/audit-logs") ||
-    path.startsWith("/system/") ||
-    path.startsWith("/module-access/") ||
-    path.startsWith("/integration-clients") ||
-    path.startsWith("/face/admin/")
+    normalized.startsWith("/audit-logs") ||
+    normalized.startsWith("/system/") ||
+    normalized.startsWith("/module-access/") ||
+    normalized.startsWith("/integration-clients") ||
+    normalized.startsWith("/face/admin/")
   )
     return "SYSTEM";
   return null;

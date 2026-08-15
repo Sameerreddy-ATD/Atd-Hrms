@@ -5,7 +5,10 @@ export function downloadCsv(filename: string, rows: Array<Record<string, unknown
 
   const headers = Object.keys(rows[0]);
   const escapeCell = (value: unknown) => {
-    const text = value == null ? "" : String(value);
+    let text = value == null ? "" : String(value);
+    // Prefix formula-looking cells so Excel/LibreOffice treat them as text.
+    // Employee names and leave reasons are user-controlled and land in exports.
+    if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
     return `"${text.replaceAll('"', '""')}"`;
   };
   const csv = [

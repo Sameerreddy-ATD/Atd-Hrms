@@ -148,7 +148,7 @@ export function PermissionSetup() {
     <Sheet open={open} onOpenChange={(next) => (next ? setOpen(true) : close())}>
       <SheetContent
         side="bottom"
-        className="max-h-[min(34rem,calc(100dvh-env(safe-area-inset-top)-0.75rem))] gap-0 rounded-t-3xl border-border/70 p-0"
+        className="max-h-[min(34rem,calc(100dvh-env(safe-area-inset-top)-0.75rem))] gap-0 rounded-t-3xl border-border/70 p-0 pb-[var(--atd-sab)]"
       >
         <div className="px-5 pb-2 pt-5 sm:px-6">
           <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-border" aria-hidden />

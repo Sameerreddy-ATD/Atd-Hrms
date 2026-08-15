@@ -545,8 +545,8 @@ function FaceSecurityPage() {
       </div>
 
       <Dialog open={Boolean(evidence)} onOpenChange={(open) => !open && setEvidence(null)}>
-        <DialogContent className="max-w-3xl overflow-hidden p-0 sm:max-w-4xl">
-          <DialogHeader className="border-b px-4 py-4 pr-14 text-left sm:px-5">
+        <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[92dvh] sm:max-w-4xl">
+          <DialogHeader className="shrink-0 border-b px-4 py-4 pr-14 text-left sm:px-5">
             <DialogTitle>Registration photos</DialogTitle>
             <DialogDescription>
               {evidence?.name}
@@ -557,7 +557,7 @@ function FaceSecurityPage() {
               Two front registration photos (eyes open, eyes closed)
             </DialogDescription>
           </DialogHeader>
-          <div className="bg-slate-950 p-3 sm:p-4">
+          <div className="min-h-0 flex-1 overflow-y-auto bg-slate-950 p-3 sm:p-4">
             {(evidence?.enrollmentEvidence?.length
               ? evidence.enrollmentEvidence
               : evidence?.latestEvidence

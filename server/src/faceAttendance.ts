@@ -67,7 +67,7 @@ export const faceCaptureObjectSchema = z.object({
   faceConfidence: z.number().min(0).max(1),
   livenessScore: z.number().min(0).max(1),
   antiSpoofScore: z.number().min(0).max(1),
-  challengeCompleted: z.literal(true),
+  challengeCompleted: z.boolean(),
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),
   locationAccuracy: z.number().min(0).max(10_000).optional(),
@@ -212,6 +212,33 @@ function capturedDescriptors(capture: FaceCaptureInput) {
   return capture.descriptorSamples?.length
     ? [capture.descriptor, ...capture.descriptorSamples]
     : [capture.descriptor];
+}
+
+/**
+ * Rejects a sample set that is all the same floating-point vector. Five copies
+ * of one descriptor score identically to five live frames under
+ * descriptorSetSimilarity, so a forged POST that repeats a single array would
+ * otherwise pass. Real captures always show small inter-frame jitter.
+ */
+export function descriptorsHaveTemporalVariance(descriptors: number[][]) {
+  if (descriptors.length < 2) return true;
+  let maxDistance = 0;
+  for (let i = 0; i < descriptors.length; i += 1) {
+    for (let j = i + 1; j < descriptors.length; j += 1) {
+      const left = descriptors[i];
+      const right = descriptors[j];
+      if (left.length !== right.length) return false;
+      let squared = 0;
+      for (let k = 0; k < left.length; k += 1) {
+        const difference = left[k] - right[k];
+        squared += difference * difference;
+      }
+      maxDistance = Math.max(maxDistance, Math.sqrt(squared));
+    }
+  }
+  // Empirically, identical copies are ~0; live frames of the same person sit
+  // well above this floor. Keep the threshold low so we only reject clones.
+  return maxDistance > 0.001;
 }
 
 export async function readFaceSettings(): Promise<FaceSettings> {
@@ -431,6 +458,9 @@ export async function verifyFaceCapture(input: {
     failureReason = isAttendance
       ? "Blink was not detected. Look at the camera and blink once, then hold still."
       : "The requested face movement was not completed.";
+  }
+  if (!failureReason && !descriptorsHaveTemporalVariance(capturedDescriptors(capture))) {
+    failureReason = "The camera did not capture enough live movement. Hold still, then try again.";
   }
 
   if (!failureReason && isAttendance) {

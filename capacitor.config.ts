@@ -14,6 +14,9 @@ const config: CapacitorConfig = {
   server: {
     url: PROD_ORIGIN,
     cleartext: false,
+    // Bundled mobile/www/index.html — Capacitor only shows it when errorPath is set.
+    // Without this, a cold start with no network renders the raw WebView error page.
+    errorPath: "index.html",
     allowNavigation: ["hrms.anytime-diesel.com", "*.anytime-diesel.com"],
   },
   plugins: {

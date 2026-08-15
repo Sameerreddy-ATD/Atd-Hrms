@@ -49,16 +49,20 @@ export async function assertCanAccessTask(
       assignments: { select: { employeeId: true } },
     },
   });
-  const unrestrictedRoles: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.CEO, Role.HR];
+  // Board policy is the hard gate. A department head or HR who can see an
+  // assignee must not thereby open a MEMBER_GATED board they were excluded
+  // from — the board list already hides those boards from them.
+  if (task.boardId) {
+    await assertBoardAccess(user, task.boardId);
+    return task;
+  }
+  if (user.role === Role.DEVELOPER_ADMIN) return task;
+  const unrestrictedRoles: Role[] = [Role.MAIN_ADMIN, Role.CEO, Role.HR];
   if (unrestrictedRoles.includes(user.role)) return task;
 
   const teamIds = user.employeeId ? await getOrganizationTeamEmployeeIds(user.employeeId) : [];
   const visibleIds = [...new Set([...(user.employeeId ? [user.employeeId] : []), ...teamIds])];
   const assigneeIds = task.assignments.map((entry) => entry.employeeId);
   if (assigneeIds.some((id) => visibleIds.includes(id))) return task;
-  if (task.boardId) {
-    await assertBoardAccess(user, task.boardId);
-    return task;
-  }
   throw new HttpError(403, "Task is outside your organization team");
 }
