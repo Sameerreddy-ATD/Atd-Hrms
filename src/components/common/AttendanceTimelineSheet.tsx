@@ -16,6 +16,7 @@ import {
   movementEventLabel,
   movementSourceLabel,
   captureSourceLabel,
+  formatLocationPlaceName,
 } from "@/lib/attendance-labels";
 import { formatWorkedTime } from "@/lib/worked-time";
 import { formatDisplayDate } from "@/lib/india-date";
@@ -231,11 +232,8 @@ export function AttendanceTimelineSheet({
                           {event.branchName && (
                             <div className="flex items-center gap-1.5 text-foreground">
                               <Building className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                              <span>
-                                {event.isHub || event.branchName.endsWith(" - Hub")
-                                  ? "Hub"
-                                  : "Branch"}
-                                : <span className="font-medium">{event.branchName}</span>
+                              <span className="font-medium">
+                                {formatLocationPlaceName(event.branchName, event.isHub)}
                               </span>
                             </div>
                           )}

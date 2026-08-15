@@ -1,11 +1,26 @@
-/** Place name for attendance / location UI — hubs append " - Hub". */
+/** Place name for any branch/hub UI — hubs always append " - Hub". */
+const HUB_SUFFIX = " - Hub";
+
+function alreadyLabeledAsHub(name: string) {
+  return /(?:\s+-\s*hub|\s+hub)$/i.test(name);
+}
+
+/**
+ * Display label for a branch or parking hub.
+ * Hubs always read as `Name - Hub` so they are never confused with a branch.
+ */
 export function formatBranchLocationLabel(
   branch?: { name?: string | null; isHub?: boolean | null } | null,
   fallback = "-",
 ): string {
   const name = branch?.name?.trim() ?? "";
   if (!name) return fallback;
-  return branch?.isHub ? `${name} - Hub` : name;
+  if (alreadyLabeledAsHub(name)) {
+    // Normalize any "Name Hub" / "Name - hub" variant to the canonical form.
+    const base = name.replace(/(?:\s+-\s*hub|\s+hub)$/i, "").trim();
+    return base ? `${base}${HUB_SUFFIX}` : fallback;
+  }
+  return branch?.isHub ? `${name}${HUB_SUFFIX}` : name;
 }
 
 export function formatBranchLocationLabelById(
@@ -16,4 +31,13 @@ export function formatBranchLocationLabelById(
   if (!id) return fallback;
   const branch = branches.find((row) => row.id === id);
   return formatBranchLocationLabel(branch, fallback);
+}
+
+/** Strip a trailing hub marker so imports can match either "Madhapur" or "Madhapur - Hub". */
+export function branchLookupKey(name: string) {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/(?:\s+-\s*hub|\s+hub)$/i, "")
+    .trim();
 }

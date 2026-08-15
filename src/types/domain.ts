@@ -294,7 +294,7 @@ export interface Branch {
   latitude?: number | null;
   longitude?: number | null;
   attendanceRadiusMeters?: number;
-  /** Parking hub — same geofence model as a branch; attendance shows "Name - Hub". */
+  /** Parking hub — same geofence model as a branch; UI always shows "Name - Hub". */
   isHub?: boolean;
 }
 

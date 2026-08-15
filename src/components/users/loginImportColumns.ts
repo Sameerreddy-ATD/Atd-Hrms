@@ -10,6 +10,7 @@ import {
   type User,
   type WeeklyOffPolicy,
 } from "@/types/domain";
+import { branchLookupKey, formatBranchLocationLabelById } from "@/lib/branch-label";
 
 export const LOGIN_SHEET_NAME = "Create Logins";
 
@@ -116,7 +117,7 @@ export const LOGIN_IMPORT_COLUMNS: LoginImportColumn[] = [
   },
   { key: "phone", label: "Personal Phone", required: false, type: "text", width: 140 },
   { key: "companyPhone", label: "Company Phone", required: false, type: "text", width: 140 },
-  { key: "branchName", label: "Attendance Branch", required: false, type: "branch", width: 160 },
+  { key: "branchName", label: "Attendance Location", required: false, type: "branch", width: 160 },
   {
     key: "mainUnitName",
     label: "Main Organization Unit*",
@@ -379,7 +380,7 @@ export function validateLoginRow(
     ? undefined
     : childChoices.find((choice) => choice.label.toLowerCase() === childText.toLowerCase());
   const branch = context.branches.find(
-    (item) => item.name.trim().toLowerCase() === row.branchName.trim().toLowerCase(),
+    (item) => branchLookupKey(item.name) === branchLookupKey(row.branchName),
   );
 
   if (!row.name.trim()) errors.push("Full name is required");
@@ -397,7 +398,8 @@ export function validateLoginRow(
     if (mainUnit && childUnit && childUnit.parentId !== mainUnit.id)
       errors.push(`${childText} is not under ${row.mainUnitName}`);
   }
-  if (row.branchName.trim() && !branch) errors.push(`Unknown attendance branch: ${row.branchName}`);
+  if (row.branchName.trim() && !branch)
+    errors.push(`Unknown attendance location: ${row.branchName}`);
   if (!row.designation.trim()) errors.push("Designation is required");
   if (!LEVELS.includes(row.organizationLevel.trim().toUpperCase() as (typeof LEVELS)[number]))
     errors.push("Invalid organization level");
@@ -576,7 +578,7 @@ export function rowToCreatePayload(
     ? (childUnit?.id ?? mainUnit?.id ?? null)
     : (childUnit?.id ?? mainUnit?.id);
   const branch = context.branches.find(
-    (item) => item.name.trim().toLowerCase() === row.branchName.trim().toLowerCase(),
+    (item) => branchLookupKey(item.name) === branchLookupKey(row.branchName),
   );
   const managerText = row.managerReference.trim();
   const managerReference =
@@ -717,9 +719,11 @@ export function employeeToEditRow(
   const mainUnitName = parent?.name ?? department?.name ?? "";
   const childUnitName = parent ? `${parent.name} > ${department?.name ?? ""}` : "Use main unit";
   const branchName =
-    employee.homeBranchName ||
-    context.branches.find((branch) => branch.id === employee.homeBranchId)?.name ||
-    "";
+    formatBranchLocationLabelById(
+      context.branches,
+      employee.homeBranchId,
+      employee.homeBranchName || "",
+    ) || "";
 
   const managerEmployee = employee.managerId
     ? (context.directory ?? []).find((item) => item.employeeId === employee.managerId)

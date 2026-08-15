@@ -13,6 +13,7 @@ import {
 import { ROLE_LABELS, type Branch, type Department, type User } from "@/types/domain";
 import { employeesApi, usersApi } from "@/services/api";
 import { cn } from "@/lib/utils";
+import { formatBranchLocationLabel } from "@/lib/branch-label";
 import {
   LOGIN_EDIT_COLUMNS,
   LOGIN_EDIT_SHEET_NAME,
@@ -298,7 +299,7 @@ export function BulkEditLoginSheet({
   }
 
   function cellOptions(columnKey: LoginImportFieldKey, row: LoginEditRow): string[] {
-    if (columnKey === "branchName") return branches.map((branch) => branch.name);
+    if (columnKey === "branchName") return branches.map((branch) => formatBranchLocationLabel(branch));
     if (columnKey === "mainUnitName") return mainUnits.map((unit) => unit.name);
     if (columnKey === "childUnitName") {
       const main = mainUnits.find(

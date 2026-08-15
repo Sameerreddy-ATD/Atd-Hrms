@@ -53,6 +53,7 @@ import { downloadCsv } from "@/lib/csv";
 import { formatWorkedTime, workedTime } from "@/lib/worked-time";
 import { subscribeToAttendanceChanges } from "@/lib/attendance-live";
 import { attendanceSourceLabel } from "@/lib/attendance-labels";
+import { formatBranchLocationLabel, formatBranchLocationLabelById } from "@/lib/branch-label";
 import {
   FaceAttendanceDialog,
   type AttendanceCapture,
@@ -483,11 +484,7 @@ function MarkAttendanceCard({
       }).format(effectiveFirstCheckIn)
     : "Not checked in";
   const homeBranch = branches.find((branch) => branch.id === user.homeBranchId);
-  const branchName = homeBranch
-    ? homeBranch.isHub
-      ? `${homeBranch.name} - Hub`
-      : homeBranch.name
-    : "-";
+  const branchName = formatBranchLocationLabel(homeBranch);
 
   useEffect(() => {
     setClockNow(Date.now());
@@ -1218,7 +1215,9 @@ function CEODashboard({
                   pendingApprovals: data.pendingLeaves,
                   missedPunch: data.missed,
                   branchPresence: data.branchPresentCounts
-                    .map(({ branch, present }) => `${branch.name}: ${present}`)
+                    .map(
+                      ({ branch, present }) => `${formatBranchLocationLabel(branch)}: ${present}`,
+                    )
                     .join("; "),
                 },
               ])
@@ -1250,7 +1249,7 @@ function CEODashboard({
           </div>
           <div className="mt-5 border-t border-border pt-4">
             <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">
-              Branch presence
+              Location presence
             </p>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {data.branchPresentCounts.map(({ branch, present }) => (
@@ -1258,14 +1257,16 @@ function CEODashboard({
                   key={branch.id}
                   className="flex items-center justify-between gap-3 rounded-md border border-border p-3"
                 >
-                  <span className="min-w-0 truncate text-sm font-medium">{branch.name}</span>
+                  <span className="min-w-0 truncate text-sm font-medium">
+                    {formatBranchLocationLabel(branch)}
+                  </span>
                   <span className="shrink-0 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
                     {present} present
                   </span>
                 </div>
               ))}
               {!data.branchPresentCounts.length && (
-                <p className="text-sm text-muted-foreground">No active branches are configured.</p>
+                <p className="text-sm text-muted-foreground">No active locations are configured.</p>
               )}
             </div>
           </div>
@@ -1386,15 +1387,15 @@ function BranchFieldAttendanceCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">Branch & field attendance (today)</CardTitle>
+        <CardTitle className="text-sm">Location & field attendance (today)</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {branchPresentCounts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No branch attendance data for today.</p>
+          <p className="text-sm text-muted-foreground">No location attendance data for today.</p>
         ) : (
           branchPresentCounts.map(({ branch, present }) => (
             <div key={branch.id} className="flex items-center justify-between text-sm">
-              <span className="font-medium">{branch.name}</span>
+              <span className="font-medium">{formatBranchLocationLabel(branch)}</span>
               <span className="text-muted-foreground">{present} present</span>
             </div>
           ))
@@ -1459,11 +1460,7 @@ function TeamAttendanceCard({
     todayParts.find((value) => value.type === type)?.value ?? "";
   const today = `${part("year")}-${part("month")}-${part("day")}`;
   const todayRows = rows.filter((row) => row.date === today);
-  const branchName = (branchId?: string) => {
-    const branch = branches.find((row) => row.id === branchId);
-    if (!branch) return "-";
-    return branch.isHub ? `${branch.name} - Hub` : branch.name;
-  };
+  const branchName = (branchId?: string) => formatBranchLocationLabelById(branches, branchId);
   const time = (value?: string) =>
     value ? new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "-";
 

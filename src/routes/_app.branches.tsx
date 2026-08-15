@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import type { Branch } from "@/types/domain";
 import { branchesApi } from "@/services/api";
+import { formatBranchLocationLabel } from "@/lib/branch-label";
 import { Building2, MapPin, Pencil, Plus, Trash2, Warehouse } from "lucide-react";
 
 export const Route = createFileRoute("/_app/branches")({
@@ -176,7 +177,7 @@ function BranchesPage() {
                     )}
                   </div>
                   <p className="mt-1 truncate text-lg font-semibold">
-                    {b.isHub ? `${b.name} - Hub` : b.name}
+                    {formatBranchLocationLabel(b)}
                   </p>
                   <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
                     <MapPin className="h-3.5 w-3.5" /> {b.address}

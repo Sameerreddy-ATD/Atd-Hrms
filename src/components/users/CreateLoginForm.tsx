@@ -29,6 +29,7 @@ import {
   type WeeklyOffPolicy,
 } from "@/types/domain";
 import { branchesApi, employeesApi, usersApi } from "@/services/api";
+import { formatBranchLocationLabel } from "@/lib/branch-label";
 
 const CAN_CREATE: Record<Role, Role[]> = {
   developer_admin: [
@@ -516,7 +517,7 @@ export function CreateLoginForm({
                   <SelectContent>
                     {branches.map((b) => (
                       <SelectItem key={b.id} value={b.id}>
-                        {b.name}
+                        {formatBranchLocationLabel(b)}
                       </SelectItem>
                     ))}
                   </SelectContent>

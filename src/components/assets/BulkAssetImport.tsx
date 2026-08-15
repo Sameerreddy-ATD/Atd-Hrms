@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import type { AssetCatalogItem, CompanyAsset, User } from "@/types/domain";
 import { assetsApi } from "@/services/api";
+import { branchLookupKey, formatBranchLocationLabel } from "@/lib/branch-label";
 
 interface ImportRow {
   rowNumber: number;
@@ -171,7 +172,9 @@ export function BulkAssetImport({
     const branchSheet = workbook.addWorksheet("Branches");
     branchSheet.addRow(["Branch Name", "Branch ID"]);
     styleReferenceSheet(branchSheet);
-    branches.forEach((branch) => branchSheet.addRow([branch.name, branch.id]));
+    branches.forEach((branch) =>
+      branchSheet.addRow([formatBranchLocationLabel(branch), branch.id]),
+    );
 
     const activeEmployees = employees.filter(
       (person) => person.active && person.employeeId && (person.employeeCode || person.employeeId),
@@ -403,7 +406,13 @@ export function BulkAssetImport({
       }
 
       const branchByName = new Map(
-        branches.map((branch) => [branch.name.trim().toLowerCase(), branch.id]),
+        branches.flatMap((branch) => {
+          const id = branch.id;
+          return [
+            [branchLookupKey(branch.name), id],
+            [branchLookupKey(formatBranchLocationLabel(branch)), id],
+          ] as Array<[string, string]>;
+        }),
       );
       const employeeByCode = new Map(
         employees
@@ -475,7 +484,7 @@ export function BulkAssetImport({
 
         let branchId: string | undefined;
         if (branchName) {
-          branchId = branchByName.get(branchName.toLowerCase());
+          branchId = branchByName.get(branchLookupKey(branchName));
           if (!branchId) errors.push(`Branch not found: ${branchName}`);
         } else if (assetType === "PHYSICAL") {
           // optional but helpful

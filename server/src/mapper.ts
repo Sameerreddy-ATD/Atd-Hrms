@@ -238,7 +238,10 @@ export function employeeDto(
     suspensionStartsAt: employee.user?.suspensionStartsAt?.toISOString() ?? null,
     suspendedUntil: employee.user?.suspendedUntil?.toISOString() ?? null,
     homeBranchId: employee.homeBranchId ?? undefined,
-    homeBranchName: employee.homeBranch?.branchName,
+    homeBranchName: employee.homeBranch
+      ? formatLocationPlaceName(employee.homeBranch.branchName, employee.homeBranch.isHub) ||
+        undefined
+      : undefined,
     department: employee.department?.name ?? employee.departmentId ?? undefined,
     departmentId: employee.departmentId ?? undefined,
     designation: employee.designation ?? undefined,

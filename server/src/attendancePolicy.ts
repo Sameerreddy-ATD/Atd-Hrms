@@ -62,6 +62,10 @@ export function formatLocationPlaceName(
 ): string {
   const name = branchName?.trim() ?? "";
   if (!name) return "";
+  if (/(?:\s+-\s*hub|\s+hub)$/i.test(name)) {
+    const base = name.replace(/(?:\s+-\s*hub|\s+hub)$/i, "").trim();
+    return base ? `${base} - Hub` : "";
+  }
   return isHub ? `${name} - Hub` : name;
 }
 

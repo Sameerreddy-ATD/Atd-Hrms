@@ -14,6 +14,7 @@ import {
 } from "@prisma/client";
 import { z } from "zod";
 import { audit } from "./audit.js";
+import { formatLocationPlaceName } from "./attendancePolicy.js";
 import { asyncHandler, HttpError } from "./errors.js";
 import { prisma } from "./prisma.js";
 import { requireAuth, requireRoles } from "./rbac.js";
@@ -78,7 +79,7 @@ const employeeUpdateSchema = employeeCreateSchema
 
 const employeeInclude = {
   department: { select: { departmentId: true, name: true } },
-  homeBranch: { select: { branchId: true, branchName: true } },
+  homeBranch: { select: { branchId: true, branchName: true, isHub: true } },
   manager: { select: { employeeId: true, employeeCode: true, name: true } },
   user: { select: { id: true, status: true } },
 } satisfies Prisma.EmployeeInclude;
@@ -105,7 +106,9 @@ export function externalEmployeeDto(employee: ExternalEmployee) {
       designation: employee.designation,
       organizationLevel: employee.organizationLevel,
       homeBranchId: employee.homeBranchId,
-      homeBranchName: employee.homeBranch?.branchName ?? null,
+      homeBranchName: employee.homeBranch
+        ? formatLocationPlaceName(employee.homeBranch.branchName, employee.homeBranch.isHub) || null
+        : null,
       managerId: employee.managerId,
       managerEmployeeCode: employee.manager?.employeeCode ?? null,
       managerName: employee.manager?.name ?? null,

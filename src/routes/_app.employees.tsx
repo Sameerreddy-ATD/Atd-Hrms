@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { EmergencyContactSection } from "@/components/profile/EmergencyContactSection";
+import { formatBranchLocationLabel, formatBranchLocationLabelById } from "@/lib/branch-label";
 
 export const Route = createFileRoute("/_app/employees")({
   component: EmployeesPage,
@@ -331,10 +332,10 @@ function EmployeesPage() {
             <SelectValue placeholder="Branch" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All branches</SelectItem>
+            <SelectItem value="all">All locations</SelectItem>
             {branches.map((b) => (
               <SelectItem key={b.id} value={b.id}>
-                {b.name}
+                {formatBranchLocationLabel(b)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -382,11 +383,13 @@ function EmployeesPage() {
                   <p className="mt-0.5 break-words">{employee.department ?? "-"}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Branch</p>
+                  <p className="text-muted-foreground">Location</p>
                   <p className="mt-0.5 break-words">
-                    {branches.find((item) => item.id === employee.homeBranchId)?.name ??
-                      employee.homeBranchName ??
-                      "-"}
+                    {formatBranchLocationLabelById(
+                      branches,
+                      employee.homeBranchId,
+                      employee.homeBranchName ?? "-",
+                    )}
                   </p>
                 </div>
               </div>
@@ -421,7 +424,7 @@ function EmployeesPage() {
                 <TableHead>Employee ID</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Department</TableHead>
-                <TableHead>Home Branch</TableHead>
+                <TableHead>Location</TableHead>
                 <TableHead>Phone</TableHead>
                 <TableHead>Status</TableHead>
                 {canOpenEmployeeActions && <TableHead className="w-[80px]">Actions</TableHead>}
@@ -443,7 +446,11 @@ function EmployeesPage() {
                   <TableCell>{ROLE_LABELS[u.role]}</TableCell>
                   <TableCell>{u.department ?? "-"}</TableCell>
                   <TableCell>
-                    {branches.find((b) => b.id === u.homeBranchId)?.name ?? u.homeBranchName ?? "-"}
+                    {formatBranchLocationLabelById(
+                      branches,
+                      u.homeBranchId,
+                      u.homeBranchName ?? "-",
+                    )}
                   </TableCell>
                   <TableCell className="text-sm">{u.phone ?? "-"}</TableCell>
                   <TableCell>
@@ -571,7 +578,7 @@ function EmployeesPage() {
                     <SelectContent>
                       {branches.map((b) => (
                         <SelectItem key={b.id} value={b.id}>
-                          {b.name}
+                          {formatBranchLocationLabel(b)}
                         </SelectItem>
                       ))}
                     </SelectContent>

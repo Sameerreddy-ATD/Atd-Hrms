@@ -20,6 +20,10 @@ import { attendanceApi, branchesApi, employeesApi } from "@/services/api";
 import { downloadAttendanceExcel } from "@/lib/csv";
 import { punchSourceLabel } from "@/lib/attendance-labels";
 import {
+  formatBranchLocationLabel,
+  formatBranchLocationLabelById,
+} from "@/lib/branch-label";
+import {
   formatDisplayDate,
   formatDisplayDateRange,
   indiaMonthKey,
@@ -164,11 +168,7 @@ function DayLogsPage() {
     }
   }
 
-  const branchName = (id?: string) => {
-    const branch = branches.find((row) => row.id === id);
-    if (!branch) return "-";
-    return branch.isHub ? `${branch.name} - Hub` : branch.name;
-  };
+  const branchName = (id?: string) => formatBranchLocationLabelById(branches, id);
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -252,10 +252,10 @@ function DayLogsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All branches</SelectItem>
+                    <SelectItem value="all">All locations</SelectItem>
                     {branches.map((branch) => (
                       <SelectItem key={branch.id} value={branch.id}>
-                        {branch.name}
+                        {formatBranchLocationLabel(branch)}
                       </SelectItem>
                     ))}
                   </SelectContent>

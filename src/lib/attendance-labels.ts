@@ -24,11 +24,14 @@ export const MISSED_PUNCH_TYPE_OPTIONS = [
   "FIELD_CHECK_OUT",
 ] as const;
 
-/** Place name — hubs already include " - Hub" when passed via API event.branchName. */
+/** Place name — hubs always read as `Name - Hub`. */
 export function formatLocationPlaceName(branchName?: string | null, isHub?: boolean | null) {
   const name = branchName?.trim() ?? "";
   if (!name) return "";
-  if (name.endsWith(" - Hub")) return name;
+  if (/(?:\s+-\s*hub|\s+hub)$/i.test(name)) {
+    const base = name.replace(/(?:\s+-\s*hub|\s+hub)$/i, "").trim();
+    return base ? `${base} - Hub` : "";
+  }
   return isHub ? `${name} - Hub` : name;
 }
 

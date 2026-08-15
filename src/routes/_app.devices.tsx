@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/table";
 import type { BiometricDevice, Branch } from "@/types/domain";
 import { biometricApi, branchesApi } from "@/services/api";
+import { formatBranchLocationLabel } from "@/lib/branch-label";
 import { Fingerprint, Pencil, Plus, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/devices")({
@@ -351,7 +352,7 @@ function DevicesPage() {
                 <SelectContent>
                   {branches.map((branch) => (
                     <SelectItem key={branch.id} value={branch.id}>
-                      {branch.name}
+                      {formatBranchLocationLabel(branch)}
                     </SelectItem>
                   ))}
                 </SelectContent>

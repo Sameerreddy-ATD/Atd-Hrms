@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/table";
 import { biometricApi, branchesApi, employeesApi } from "@/services/api";
 import type { BiometricDevice, BiometricMapping, Branch, User } from "@/types/domain";
+import { formatBranchLocationLabelById } from "@/lib/branch-label";
 import { Pencil } from "lucide-react";
 
 export const Route = createFileRoute("/_app/devices/mapping")({
@@ -72,8 +73,7 @@ function DeviceMappingPage() {
       .finally(() => setLoading(false));
   }
 
-  const branchName = (branchId?: string) =>
-    branches.find((branch) => branch.id === branchId)?.name ?? "-";
+  const branchName = (branchId?: string) => formatBranchLocationLabelById(branches, branchId);
 
   async function saveMapping(e: React.FormEvent) {
     e.preventDefault();

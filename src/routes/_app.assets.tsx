@@ -46,6 +46,7 @@ import { PasswordInput } from "@/components/common/PasswordInput";
 import { assetsApi, branchesApi, employeesApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
 import { formatDisplayDateTime } from "@/lib/india-date";
+import { formatBranchLocationLabel } from "@/lib/branch-label";
 import { isLaptopAssetName } from "@/lib/laptop-asset";
 import {
   Building2,
@@ -828,7 +829,7 @@ function AssetsPage() {
                   <SelectContent>
                     {branches.map((branch) => (
                       <SelectItem key={branch.id} value={branch.id}>
-                        {branch.name}
+                        {formatBranchLocationLabel(branch)}
                       </SelectItem>
                     ))}
                   </SelectContent>
