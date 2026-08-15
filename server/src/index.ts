@@ -2,6 +2,7 @@ import { createApp } from "./app.js";
 import { startAttendanceSettlementScheduler } from "./attendanceSettlement.js";
 import { assertSecureConfig, config } from "./config.js";
 import { startFaceEvidenceCleanupScheduler } from "./faceAttendance.js";
+import { isFaceServerInferenceEnabled, loadFaceInference } from "./faceInference.js";
 import { startManagerDigestScheduler } from "./digestScheduler.js";
 import { startClientLogRetentionScheduler } from "./clientLogs.js";
 import { prisma } from "./prisma.js";
@@ -14,6 +15,14 @@ const server = createApp().listen(config.port, () => {
   startFaceEvidenceCleanupScheduler();
   startManagerDigestScheduler();
   startClientLogRetentionScheduler();
+  if (isFaceServerInferenceEnabled()) {
+    // Warm the models now so the first check-in of the day does not pay the
+    // load cost. A failure here is logged and retried on first use.
+    void loadFaceInference().then(
+      () => console.log("Face inference models ready"),
+      (error) => console.error("Face inference models failed to load", error),
+    );
+  }
 });
 server.requestTimeout = config.requestTimeoutMs;
 server.headersTimeout = config.requestTimeoutMs + 5000;

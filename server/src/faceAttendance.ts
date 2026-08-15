@@ -11,6 +11,7 @@ import { z } from "zod";
 import { config } from "./config.js";
 import { decryptEmployeeField, encryptEmployeeField } from "./employeePrivateData.js";
 import { HttpError } from "./errors.js";
+import { analyzeFaceFrame, isFaceServerInferenceEnabled } from "./faceInference.js";
 import { prisma } from "./prisma.js";
 
 const FACE_SETTING_KEY = "face_attendance_settings";
@@ -433,8 +434,57 @@ export async function verifyFaceCapture(input: {
     input.expectedPurpose === FaceVerificationPurpose.ATTENDANCE_CHECK_OUT;
   const isEnrollment = input.expectedPurpose === FaceVerificationPurpose.ENROLLMENT;
 
-  // Registration keeps directional photos. Daily verify only matches descriptors — no photo storage.
-  if (isEnrollment) {
+  // Recompute every decision input from the submitted frame. The client's own
+  // scores are advisory and a forged POST can claim anything; `serverAnalysed`
+  // records which regime produced the numbers stored on the evidence row.
+  let scores = {
+    faceConfidence: capture.faceConfidence,
+    livenessScore: capture.livenessScore,
+    antiSpoofScore: capture.antiSpoofScore,
+  };
+  let matchDescriptors = capturedDescriptors(capture);
+  let serverAnalysed = false;
+
+  if (isFaceServerInferenceEnabled()) {
+    if (!capture.imageData) {
+      failureReason = "A camera photo is required for face verification.";
+    } else {
+      try {
+        const analysis = await analyzeFaceFrame(capture.imageData);
+        scores = {
+          faceConfidence: analysis.faceConfidence,
+          livenessScore: analysis.livenessScore,
+          antiSpoofScore: analysis.antiSpoofScore,
+        };
+        // The descriptor the client sent is ignored entirely for matching.
+        matchDescriptors = [analysis.descriptor];
+        // Enrollment stores a template, so every photo the admin will review has
+        // to contribute the descriptor we derived from it — otherwise the
+        // approved template is still whatever the client chose to send.
+        if (isEnrollment && capture.enrollmentViews) {
+          for (const view of capture.enrollmentViews) {
+            if (view.imageData === capture.imageData) continue;
+            const viewAnalysis = await analyzeFaceFrame(view.imageData);
+            matchDescriptors.push(viewAnalysis.descriptor);
+            scores.faceConfidence = Math.min(scores.faceConfidence, viewAnalysis.faceConfidence);
+            scores.antiSpoofScore = Math.min(scores.antiSpoofScore, viewAnalysis.antiSpoofScore);
+          }
+        }
+        serverAnalysed = true;
+      } catch (error) {
+        failureReason =
+          error instanceof HttpError
+            ? error.message
+            : "Face verification could not be completed. Please try again.";
+        if (!(error instanceof HttpError)) {
+          console.error("Server-side face inference failed", error);
+        }
+      }
+    }
+  }
+
+  // Registration keeps front photos. Daily verify stores none.
+  if (!failureReason && isEnrollment) {
     if (!capture.imageData) {
       failureReason = "Enrollment requires an eyes-open front face photo.";
     } else {
@@ -447,13 +497,13 @@ export async function verifyFaceCapture(input: {
     }
   }
 
-  if (!failureReason && capture.faceConfidence < settings.minFaceConfidence) {
+  if (!failureReason && scores.faceConfidence < settings.minFaceConfidence) {
     failureReason = "Face confidence is too low. Use better lighting and try again.";
   }
-  if (!failureReason && capture.livenessScore < settings.minLivenessScore) {
+  if (!failureReason && scores.livenessScore < settings.minLivenessScore) {
     failureReason = "Liveness verification failed. Please look directly at the camera.";
   }
-  if (!failureReason && capture.antiSpoofScore < settings.minAntiSpoofScore) {
+  if (!failureReason && scores.antiSpoofScore < settings.minAntiSpoofScore) {
     failureReason = "A real face could not be confirmed. Photos and screens are not accepted.";
   }
   if (!failureReason && !capture.challengeCompleted) {
@@ -461,7 +511,9 @@ export async function verifyFaceCapture(input: {
       ? "Blink was not detected. Look at the camera and blink once, then hold still."
       : "The requested face movement was not completed.";
   }
-  if (!failureReason && !descriptorsHaveTemporalVariance(capturedDescriptors(capture))) {
+  // Only meaningful for client-supplied sample sets; a server descriptor is a
+  // single vector derived from a frame we decoded ourselves.
+  if (!failureReason && !serverAnalysed && !descriptorsHaveTemporalVariance(matchDescriptors)) {
     failureReason = "The camera did not capture enough live movement. Hold still, then try again.";
   }
 
@@ -477,7 +529,7 @@ export async function verifyFaceCapture(input: {
       failureReason = `Precise location accuracy must be within ${settings.maxGpsAccuracyMeters} metres. Turn on Precise location and try again near a window or outdoors.`;
     } else {
       const registered = await approvedDescriptorsForUser(input.userId);
-      similarityScore = descriptorSetSimilarity(registered, capturedDescriptors(capture));
+      similarityScore = descriptorSetSimilarity(registered, matchDescriptors);
       if (similarityScore < settings.matchThreshold) {
         failureReason =
           "Another face detected. Check-in was blocked because this face does not match the registered employee.";
@@ -493,7 +545,7 @@ export async function verifyFaceCapture(input: {
     } else {
       const duplicateSimilarity = await duplicateEnrollmentSimilarity(
         input.userId,
-        capturedDescriptors(capture),
+        matchDescriptors,
       );
       if (duplicateSimilarity >= settings.matchThreshold) {
         similarityScore = duplicateSimilarity;
@@ -511,9 +563,9 @@ export async function verifyFaceCapture(input: {
       purpose: input.expectedPurpose,
       outcome: failureReason ? FaceVerificationOutcome.FAILED : FaceVerificationOutcome.PASSED,
       imageKey,
-      faceConfidence: capture.faceConfidence,
-      livenessScore: capture.livenessScore,
-      antiSpoofScore: capture.antiSpoofScore,
+      faceConfidence: scores.faceConfidence,
+      livenessScore: scores.livenessScore,
+      antiSpoofScore: scores.antiSpoofScore,
       similarityScore,
       latitude: capture.latitude,
       longitude: capture.longitude,
@@ -543,9 +595,9 @@ export async function verifyFaceCapture(input: {
             purpose: FaceVerificationPurpose.ENROLLMENT,
             outcome: FaceVerificationOutcome.PASSED,
             imageKey: viewKey,
-            faceConfidence: capture.faceConfidence,
-            livenessScore: capture.livenessScore,
-            antiSpoofScore: capture.antiSpoofScore,
+            faceConfidence: scores.faceConfidence,
+            livenessScore: scores.livenessScore,
+            antiSpoofScore: scores.antiSpoofScore,
             similarityScore: null,
             failureReason: null,
             capturedAt,
@@ -560,7 +612,9 @@ export async function verifyFaceCapture(input: {
 
   if (isEnrollment) await enforceEvidenceImageLimit(input.userId);
   if (failureReason) throw new HttpError(422, failureReason);
-  return { evidence, settings };
+  // serverDescriptors is null when inference is disabled, so callers can tell a
+  // server-derived template from a client-supplied one.
+  return { evidence, settings, serverDescriptors: serverAnalysed ? matchDescriptors : null };
 }
 
 export async function submitFaceEnrollment(input: {
@@ -583,7 +637,7 @@ export async function submitFaceEnrollment(input: {
   if (existingProfile?.status === FaceEnrollmentStatus.APPROVED) {
     throw new HttpError(409, "Approved face registration must be reset by Developer Admin");
   }
-  await verifyFaceCapture({
+  const { serverDescriptors } = await verifyFaceCapture({
     userId: input.userId,
     employeeId: input.employeeId,
     expectedPurpose: FaceVerificationPurpose.ENROLLMENT,
@@ -591,14 +645,17 @@ export async function submitFaceEnrollment(input: {
   });
   const now = new Date();
   const autoApprove = settings.registrationApprovalMode === "AUTOMATIC";
+  // Bind the stored template to the photos the admin reviews. Falling back to
+  // the client's descriptors only happens when server inference is disabled.
+  const templateDescriptors = serverDescriptors ?? [
+    input.capture.descriptor,
+    ...(input.capture.descriptorSamples ?? []),
+    ...(input.capture.enrollmentViews?.map((view) => view.descriptor) ?? []),
+  ];
   const template = {
     version: 2 as const,
-    centroid: input.capture.descriptor,
-    samples: [
-      ...(input.capture.descriptorSamples ?? []),
-      ...(input.capture.enrollmentViews?.map((view) => view.descriptor) ?? []),
-      input.capture.descriptor,
-    ].slice(0, 12),
+    centroid: templateDescriptors[0],
+    samples: templateDescriptors.slice(0, 12),
   };
   const profile = await prisma.faceProfile.upsert({
     where: { userId: input.userId },

@@ -33,6 +33,14 @@ export const config = {
   // Never silently reuse the refresh JWT secret for field encryption.
   employeeDataEncryptionKey: process.env.EMPLOYEE_DATA_ENCRYPTION_KEY ?? DEFAULT_EMPLOYEE_DATA_KEY,
   faceEvidenceDir: process.env.FACE_EVIDENCE_DIR ?? ".face-evidence",
+  /** Directory holding the Human model weights the server runs inference against. */
+  faceModelsDir: process.env.FACE_MODELS_DIR ?? "public/face-models",
+  /**
+   * Server-side face inference. When on, liveness/anti-spoof/confidence and the
+   * descriptor are derived from the uploaded frame and client-reported scores
+   * are ignored. Turning it off restores the (forgeable) client-trust model.
+   */
+  faceServerInference: process.env.FACE_SERVER_INFERENCE !== "false",
   sessionCookie: process.env.SESSION_COOKIE_NAME ?? "adh_session",
   refreshCookie: process.env.REFRESH_COOKIE_NAME ?? "adh_refresh",
   secureCookies: process.env.COOKIE_SECURE === "true" || process.env.NODE_ENV === "production",

@@ -550,10 +550,15 @@ export function FaceCapture({
                   stableEmbeddings.reduce((sum, embedding) => sum + embedding[index], 0) /
                   stableEmbeddings.length,
               );
+              // The server re-derives the descriptor and the liveness and
+              // anti-spoof scores from this frame; the values below are only a
+              // hint for diagnostics.
+              const verifiedFrame = snapshotFromVideo(video);
               stop();
               await completeRef.current({
                 sessionId: session.sessionId,
                 nonce: session.nonce,
+                imageData: verifiedFrame,
                 descriptor: averagedDescriptor,
                 descriptorSamples: stableEmbeddings,
                 faceConfidence: faceScore,

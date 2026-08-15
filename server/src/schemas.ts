@@ -708,7 +708,8 @@ export const mobileEventSchema = z.object({
         .min(3)
         .max(9)
         .optional(),
-      // Attendance verify matches descriptors only; photos are not accepted/stored here.
+      // The frame is analysed server-side to derive the descriptor and the
+      // liveness and anti-spoof scores; it is not stored for attendance.
       imageData: z
         .string()
         .max(950_000)
@@ -717,7 +718,7 @@ export const mobileEventSchema = z.object({
       faceConfidence: z.number().min(0).max(1),
       livenessScore: z.number().min(0).max(1),
       antiSpoofScore: z.number().min(0).max(1),
-      challengeCompleted: z.literal(true),
+      challengeCompleted: z.boolean(),
     })
     .optional(),
 });
