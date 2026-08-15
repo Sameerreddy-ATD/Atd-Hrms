@@ -203,73 +203,77 @@ export function AppHeader() {
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="group ml-0.5 h-10 gap-1.5 rounded-xl border border-transparent px-1.5 hover:border-border/70 hover:bg-muted data-[state=open]:border-border data-[state=open]:bg-muted sm:pl-1.5 sm:pr-2"
-              aria-label="Open account menu"
+              className="group ml-0.5 h-11 gap-2 rounded-xl border border-transparent px-1.5 hover:border-border/70 hover:bg-muted data-[state=open]:border-border data-[state=open]:bg-muted sm:pl-1.5 sm:pr-2.5"
+              aria-label={t("pages.shell.openAccount")}
             >
-              <Avatar className="h-8 w-8 ring-2 ring-primary/15 transition group-hover:ring-primary/30">
-                <AvatarFallback className="bg-gradient-to-br from-primary to-[color-mix(in_oklab,var(--primary)_72%,black)] text-[12px] font-bold text-primary-foreground">
+              <Avatar className="h-9 w-9 ring-2 ring-primary/15 transition group-hover:ring-primary/30">
+                <AvatarFallback className="bg-gradient-to-br from-primary to-[color-mix(in_oklab,var(--primary)_72%,black)] text-[13px] font-bold text-primary-foreground">
                   {initials}
                 </AvatarFallback>
               </Avatar>
-              <span className="hidden max-w-[7.5rem] truncate text-left text-xs font-semibold leading-tight text-foreground md:inline">
-                {user?.name?.split(" ")[0] ?? "Account"}
+              <span className="hidden max-w-[8rem] truncate text-left text-sm font-semibold leading-tight text-foreground md:inline">
+                {user?.name?.split(" ")[0] ?? t("pages.shell.account")}
               </span>
-              <ChevronDown className="hidden h-3.5 w-3.5 text-muted-foreground transition group-data-[state=open]:rotate-180 sm:inline" />
+              <ChevronDown className="hidden h-4 w-4 text-muted-foreground transition group-data-[state=open]:rotate-180 sm:inline" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
-            sideOffset={6}
-            className="w-[min(16.5rem,calc(100vw-1rem))] overflow-hidden rounded-xl border border-border/80 bg-popover p-1 shadow-lg"
+            sideOffset={8}
+            className="w-[min(20rem,calc(100vw-1rem))] overflow-hidden rounded-xl border border-border/80 bg-popover p-1.5 shadow-lg"
           >
-            <div className="flex items-center gap-2 px-2 py-1.5">
-              <Avatar className="h-8 w-8 shrink-0">
-                <AvatarFallback className="bg-primary text-[11px] font-semibold text-primary-foreground">
+            <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-3 py-3">
+              <Avatar className="h-11 w-11 shrink-0">
+                <AvatarFallback className="bg-primary text-sm font-semibold text-primary-foreground">
                   {initials}
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-semibold leading-tight text-foreground">
+                <p className="truncate text-sm font-semibold leading-tight text-foreground">
                   {user?.name}
                 </p>
-                <p className="mt-0.5 truncate text-[11px] leading-tight text-muted-foreground">
-                  {roleLabel ? `${roleLabel} · ` : ""}
+                {roleLabel && (
+                  <p className="mt-1 truncate text-xs font-medium leading-tight text-primary">
+                    {roleLabel}
+                  </p>
+                )}
+                <p className="mt-1 truncate text-xs leading-tight text-muted-foreground">
                   {user?.email}
                 </p>
               </div>
             </div>
 
-            <DropdownMenuSeparator className="my-1" />
+            <DropdownMenuSeparator className="my-1.5" />
 
             <DropdownMenuItem
               onClick={() => navigate({ to: "/profile" })}
-              className="h-8 cursor-pointer rounded-md px-2 text-[13px]"
+              className="h-11 cursor-pointer gap-3 rounded-lg px-3 text-sm md:h-10 [&>svg]:size-[18px]"
             >
               <UserIcon className="text-muted-foreground" />
               {t("nav.myProfile")}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => navigate({ to: "/preferences" })}
-              className="h-8 cursor-pointer rounded-md px-2 text-[13px]"
+              className="h-11 cursor-pointer gap-3 rounded-lg px-3 text-sm md:h-10 [&>svg]:size-[18px]"
             >
               <Languages className="text-muted-foreground" />
               {t("nav.preferences")}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => navigate({ to: "/id-card" })}
-              className="h-8 cursor-pointer rounded-md px-2 text-[13px]"
+              className="h-11 cursor-pointer gap-3 rounded-lg px-3 text-sm md:h-10 [&>svg]:size-[18px]"
             >
               <IdCard className="text-muted-foreground" />
               {t("nav.idCard")}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => navigate({ to: "/notifications" })}
-              className="h-8 cursor-pointer rounded-md px-2 text-[13px]"
+              className="h-11 cursor-pointer gap-3 rounded-lg px-3 text-sm md:h-10 [&>svg]:size-[18px]"
             >
               <Bell className="text-muted-foreground" />
               <span className="flex-1">{t("common.notifications")}</span>
               {notificationCount > 0 && (
-                <span className="rounded-full bg-primary px-1.5 text-[10px] font-semibold leading-4 text-primary-foreground">
+                <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold leading-4 text-primary-foreground">
                   {notificationCount > 99 ? "99+" : notificationCount}
                 </span>
               )}
@@ -280,20 +284,20 @@ export function AppHeader() {
                 event.preventDefault();
                 void refreshApp();
               }}
-              className="h-8 cursor-pointer rounded-md px-2 text-[13px]"
+              className="h-11 cursor-pointer gap-3 rounded-lg px-3 text-sm md:h-10 [&>svg]:size-[18px]"
             >
               <RefreshCw className={cn("text-muted-foreground", refreshing && "animate-spin")} />
               {refreshing ? t("common.loading") : t("common.refresh")}
             </DropdownMenuItem>
 
             <div
-              className="flex h-8 items-center gap-2 rounded-md px-2 text-[13px]"
+              className="flex h-11 items-center gap-3 rounded-lg px-3 text-sm md:h-10"
               onPointerDown={(event) => event.preventDefault()}
             >
               {darkMode ? (
-                <Moon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <Moon className="h-[18px] w-[18px] shrink-0 text-muted-foreground" />
               ) : (
-                <Sun className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <Sun className="h-[18px] w-[18px] shrink-0 text-muted-foreground" />
               )}
               <span className="min-w-0 flex-1">{t("common.darkMode")}</span>
               <Switch
@@ -303,14 +307,14 @@ export function AppHeader() {
               />
             </div>
 
-            <DropdownMenuSeparator className="my-1" />
+            <DropdownMenuSeparator className="my-1.5" />
 
             <DropdownMenuItem
               onClick={() => {
                 logout();
                 navigate({ to: "/login" });
               }}
-              className="h-8 cursor-pointer rounded-md px-2 text-[13px] text-destructive focus:bg-destructive/10 focus:text-destructive"
+              className="h-11 cursor-pointer gap-3 rounded-lg px-3 text-sm text-destructive focus:bg-destructive/10 focus:text-destructive md:h-10 [&>svg]:size-[18px]"
             >
               <LogOut />
               {t("common.signOut")}
