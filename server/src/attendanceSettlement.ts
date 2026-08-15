@@ -86,24 +86,25 @@ export async function processMissedCheckInNotifications(now = new Date()) {
     if (events > 0) continue;
 
     const tag = `missed-checkin-${employeeId}-${attendanceDate.toISOString().slice(0, 10)}`;
-    const existing = await prisma.attendanceReminder.findFirst({
-      where: { employeeId, eventDate: attendanceDate, eventId: tag },
-    });
-    if (existing) continue;
-
-    // Use reminder table with synthetic eventId key for idempotency
-    await prisma.attendanceReminder
-      .create({
-        data: {
+    // The synthetic eventId is the idempotency key, and it is what the unique
+    // index covers. A read-then-create also matched on eventDate, so a stored
+    // row whose date differed by a whisker was missed and every sweep retried
+    // the insert: a logged constraint error each tick, and — because the
+    // conflict was swallowed and execution continued — the same "missed
+    // check-in" push resent to the employee over and over. Insert first and let
+    // the row count say whether this sweep is the one that owns the notice.
+    const inserted = await prisma.attendanceReminder.createMany({
+      data: [
+        {
           employeeId,
           eventId: tag,
           eventDate: attendanceDate,
           eventTime: bounds.missedCheckInAt,
         },
-      })
-      .catch(async () => {
-        // unique conflict = already notified
-      });
+      ],
+      skipDuplicates: true,
+    });
+    if (inserted.count === 0) continue;
 
     const userId = users.get(employeeId);
     publishNotificationChange("attendance-missed-checkin", tag);
