@@ -1,5 +1,6 @@
 import "@/lib/array-at-polyfill";
-import "@/i18n";
+import { I18nextProvider } from "react-i18next";
+import i18n from "@/i18n";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -252,25 +253,29 @@ function RootComponent() {
     return () => window.removeEventListener("beforeinstallprompt", suppressDesktopInstall);
   }, []);
 
+  // Passing the instance through context (not just the module side effect) keeps
+  // translations working when the bundler splits @/i18n into its own chunk.
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <div className="flex h-full min-h-0 flex-col">
-          <AppOpenSplash />
-          <Outlet />
-          <PortraitOrientationGuard />
-          <StoreUpdateGate />
-          <SystemThemeSync />
-          <NotificationBridge />
-          <Toaster
-            position="top-center"
-            richColors
-            closeButton
-            offset="calc(var(--atd-sat, 0px) + 12px)"
-          />
-        </div>
-      </AuthProvider>
-    </QueryClientProvider>
+    <I18nextProvider i18n={i18n}>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <div className="flex h-full min-h-0 flex-col">
+            <AppOpenSplash />
+            <Outlet />
+            <PortraitOrientationGuard />
+            <StoreUpdateGate />
+            <SystemThemeSync />
+            <NotificationBridge />
+            <Toaster
+              position="top-center"
+              richColors
+              closeButton
+              offset="calc(var(--atd-sat, 0px) + 12px)"
+            />
+          </div>
+        </AuthProvider>
+      </QueryClientProvider>
+    </I18nextProvider>
   );
 }
