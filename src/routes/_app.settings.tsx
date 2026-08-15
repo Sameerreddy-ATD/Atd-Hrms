@@ -14,6 +14,7 @@ import {
   moduleAccessApi,
   integrationClientsApi,
   usersApi,
+  profileSelfEditApi,
   type SystemHealth,
 } from "@/services/api";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,14 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PasswordInput } from "@/components/common/PasswordInput";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,6 +50,8 @@ import {
   type IntegrationClient,
   type IntegrationScope,
   type ModuleKey,
+  type ProfileSelfEditFieldKey,
+  type ProfileSelfEditPolicy,
   type Role,
 } from "@/types/domain";
 import {
@@ -55,6 +66,7 @@ import {
   Fingerprint,
   MemoryStick,
   RefreshCw,
+  Settings2,
   Shield,
   Trash2,
   Users,
@@ -62,6 +74,7 @@ import {
   Copy,
   KeyRound,
   Unplug,
+  UserCog,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/settings")({
@@ -144,6 +157,12 @@ function SettingsPage() {
   const [supportTtlHours, setSupportTtlHours] = useState(4);
   const [supportSaving, setSupportSaving] = useState(false);
   const [supportLoading, setSupportLoading] = useState(false);
+  const [profileSelfEdit, setProfileSelfEdit] = useState<ProfileSelfEditPolicy | null>(null);
+  const [profileSelfEditLoading, setProfileSelfEditLoading] = useState(false);
+  const [profileSelfEditSaving, setProfileSelfEditSaving] = useState(false);
+  const [profileFieldDialogOpen, setProfileFieldDialogOpen] = useState(false);
+  const [draftAllowedFields, setDraftAllowedFields] = useState<ProfileSelfEditFieldKey[]>([]);
+  const [enableAfterFieldSave, setEnableAfterFieldSave] = useState(false);
 
   const refreshHealth = useCallback(async () => {
     setHealthError("");
@@ -233,6 +252,42 @@ function SettingsPage() {
       .catch((err) => toast.error((err as Error).message))
       .finally(() => setSupportLoading(false));
   }, [isDeveloperAdmin]);
+
+  useEffect(() => {
+    if (!isDeveloperAdmin) return;
+    setProfileSelfEditLoading(true);
+    void profileSelfEditApi
+      .get()
+      .then((policy) => {
+        setProfileSelfEdit(policy);
+        setDraftAllowedFields(policy.allowedFields);
+      })
+      .catch((err) => toast.error((err as Error).message))
+      .finally(() => setProfileSelfEditLoading(false));
+  }, [isDeveloperAdmin]);
+
+  async function saveProfileSelfEditPolicy(next: {
+    enabled: boolean;
+    allowedFields: ProfileSelfEditFieldKey[];
+  }) {
+    setProfileSelfEditSaving(true);
+    try {
+      const policy = await profileSelfEditApi.update(next);
+      setProfileSelfEdit(policy);
+      setDraftAllowedFields(policy.allowedFields);
+      toast.success(
+        policy.enabled
+          ? "Employees can edit the selected profile fields"
+          : "Employee profile editing is turned off",
+      );
+      return policy;
+    } catch (err) {
+      toast.error((err as Error).message);
+      return null;
+    } finally {
+      setProfileSelfEditSaving(false);
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -462,6 +517,190 @@ function SettingsPage() {
           </CardContent>
         </Card>
       )}
+
+      {isDeveloperAdmin && (
+        <Card>
+          <CardHeader className="gap-1 border-b border-border/80 px-4 py-3.5 sm:px-5">
+            <div className="flex items-start gap-3">
+              <span className="rounded-md bg-primary/10 p-2 text-primary">
+                <UserCog className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <CardTitle className="text-base">Employee profile editing</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  When enabled, employees can update only the fields you select. Employment, role,
+                  email, and organization fields stay admin-controlled. Changes are audited.
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 px-4 py-4 sm:px-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium">Allow employees to edit profile details</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {profileSelfEditLoading
+                    ? "Loading policy…"
+                    : profileSelfEdit?.enabled
+                      ? `On · ${profileSelfEdit.allowedFields.length} field${
+                          profileSelfEdit.allowedFields.length === 1 ? "" : "s"
+                        } allowed`
+                      : "Off · profiles stay view-only for employees"}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={Boolean(profileSelfEdit?.enabled)}
+                  disabled={
+                    profileSelfEditLoading || profileSelfEditSaving || !profileSelfEdit
+                  }
+                  aria-label="Allow employees to edit profile details"
+                  onCheckedChange={(checked) => {
+                    if (!profileSelfEdit) return;
+                    if (checked && profileSelfEdit.allowedFields.length === 0) {
+                      setDraftAllowedFields(profileSelfEdit.allowedFields);
+                      setEnableAfterFieldSave(true);
+                      setProfileFieldDialogOpen(true);
+                      toast.message("Choose which fields employees may edit");
+                      return;
+                    }
+                    void saveProfileSelfEditPolicy({
+                      enabled: checked,
+                      allowedFields: profileSelfEdit.allowedFields,
+                    });
+                  }}
+                />
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  className="size-9 shrink-0"
+                  disabled={profileSelfEditLoading || profileSelfEditSaving || !profileSelfEdit}
+                  aria-label="Choose editable profile fields"
+                  title="Choose editable fields"
+                  onClick={() => {
+                    if (!profileSelfEdit) return;
+                    setDraftAllowedFields(profileSelfEdit.allowedFields);
+                    setEnableAfterFieldSave(false);
+                    setProfileFieldDialogOpen(true);
+                  }}
+                >
+                  <Settings2 className="size-4" />
+                </Button>
+              </div>
+            </div>
+            {profileSelfEdit && profileSelfEdit.allowedFields.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {profileSelfEdit.availableFields
+                  .filter((field) => profileSelfEdit.allowedFields.includes(field.key))
+                  .map((field) => (
+                    <span
+                      key={field.key}
+                      className="rounded-md border border-border/70 bg-background px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+                    >
+                      {field.label}
+                    </span>
+                  ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <Dialog
+        open={profileFieldDialogOpen}
+        onOpenChange={(open) => {
+          if (profileSelfEditSaving) return;
+          setProfileFieldDialogOpen(open);
+          if (!open) setEnableAfterFieldSave(false);
+        }}
+      >
+        <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editable profile fields</DialogTitle>
+            <DialogDescription>
+              Employees can change only the checked fields on My Profile when editing is enabled.
+              Email, role, department, and other employment fields are never self-editable.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {["Identity and contact", "Banking", "Statutory", "Emergency"].map((group) => {
+              const fields =
+                profileSelfEdit?.availableFields.filter((field) => field.group === group) ?? [];
+              if (fields.length === 0) return null;
+              return (
+                <div key={group} className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {group}
+                  </p>
+                  <div className="space-y-2 rounded-md border border-border/70 p-2">
+                    {fields.map((field) => {
+                      const checked = draftAllowedFields.includes(field.key);
+                      return (
+                        <label
+                          key={field.key}
+                          className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/40"
+                        >
+                          <Checkbox
+                            checked={checked}
+                            disabled={profileSelfEditSaving}
+                            onCheckedChange={(next) => {
+                              setDraftAllowedFields((current) =>
+                                next === true
+                                  ? [...new Set([...current, field.key])]
+                                  : current.filter((item) => item !== field.key),
+                              );
+                            }}
+                          />
+                          <span className="text-sm">{field.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={profileSelfEditSaving}
+              onClick={() => {
+                setProfileFieldDialogOpen(false);
+                setEnableAfterFieldSave(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={profileSelfEditSaving || !profileSelfEdit}
+              onClick={() => {
+                if (!profileSelfEdit) return;
+                if (
+                  draftAllowedFields.length === 0 &&
+                  (enableAfterFieldSave || profileSelfEdit.enabled)
+                ) {
+                  toast.error("Select at least one field");
+                  return;
+                }
+                void saveProfileSelfEditPolicy({
+                  enabled: enableAfterFieldSave ? true : profileSelfEdit.enabled,
+                  allowedFields: draftAllowedFields,
+                }).then((policy) => {
+                  if (policy) {
+                    setProfileFieldDialogOpen(false);
+                    setEnableAfterFieldSave(false);
+                  }
+                });
+              }}
+            >
+              {profileSelfEditSaving ? "Saving…" : "Save fields"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {isDeveloperAdmin && (
         <Card>

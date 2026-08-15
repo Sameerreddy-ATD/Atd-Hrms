@@ -120,7 +120,8 @@ Lockout or suspension does not delete or disable the employee record, allowing h
 | ----------------------- | ------------------------------------------------------------------------------------------- |
 | `/auth`                 | Login, restore, logout, password change/reset                                               |
 | `/users`                | Account creation, bulk add/edit UI, lifecycle, reset, and history-preserving offboard (TERMINATED employee + INACTIVE login) |
-| `/employees`            | Directory, details, organization placement, and birthdays                                   |
+| `/employees`            | Directory, details, organization placement, self-profile updates when policy allows, and birthdays |
+| `/profile`              | Self-edit policy (`/profile/self-edit-policy`) and legacy edit-request stub                 |
 | `/departments`          | Organization hierarchy and unit heads                                                       |
 | `/branches`             | Branches and server-side geofence configuration                                             |
 | `/attendance`           | Mobile events, timelines, summaries, reports, corrections, and live stream                  |
@@ -195,6 +196,11 @@ use its own domain without editing source.
 Employee/account removal is a typed, server-validated `OFFBOARD` operation (`DEACTIVATE` remains accepted). One Prisma transaction marks the employee `TERMINATED` and the login `INACTIVE`, records lifecycle timestamps and an employee change event, and retains attendance, leave, biometric, asset, expense, task, and audit history. Birthdays and active attendance rosters exclude non-active employees. Reactivation synchronizes both records. Developer Admin and the current signed-in account cannot be offboarded through this workflow.
 
 Announcement permanent deletion is available to HR and Developer Admin, requires typed confirmation, and removes the announcement while retaining an audit event.
+
+Employee profile self-edit is controlled by `GET/PUT /profile/self-edit-policy`. When enabled,
+employees may `PATCH /employees/:id` (own record only) with the allow-listed fields and may update
+emergency contact when that field is selected. Developer Admin retains full profile edit; HR
+continues to update reporting manager for others and emergency contact for everyone in scope.
 
 Audit log clear is available to Main Admin and Developer Admin via `DELETE /audit-logs` with body
 `{ "confirmation": "CLEAR" }`. The handler deletes all `audit_logs` rows, then writes one

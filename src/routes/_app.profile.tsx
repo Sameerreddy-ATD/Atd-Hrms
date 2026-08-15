@@ -16,8 +16,22 @@ import {
 } from "@/components/ui/accordion";
 import { useAuth } from "@/lib/auth";
 import { formatDisplayDate } from "@/lib/india-date";
-import { COMPANY_LABELS, PARENT_COMPANY_NAME, ROLE_LABELS, type User } from "@/types/domain";
-import { employeesApi, usersApi } from "@/services/api";
+import {
+  COMPANY_LABELS,
+  PARENT_COMPANY_NAME,
+  ROLE_LABELS,
+  type ProfileSelfEditFieldKey,
+  type ProfileSelfEditPolicy,
+  type User,
+} from "@/types/domain";
+import { employeesApi, profileSelfEditApi, usersApi } from "@/services/api";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Eye, EyeOff, Key, Loader2 } from "lucide-react";
 import { PasswordInput } from "@/components/common/PasswordInput";
 import { PasswordMatchHint } from "@/components/common/PasswordMatchHint";
@@ -34,6 +48,7 @@ function ProfilePage() {
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [companyPhone, setCompanyPhone] = useState(user?.companyPhone ?? "");
   const [dob, setDob] = useState(user?.dateOfBirth ?? "");
+  const [bloodGroup, setBloodGroup] = useState("");
   const [bankAccountHolderName, setBankAccountHolderName] = useState("");
   const [bankAccountNumber, setBankAccountNumber] = useState("");
   const [bankIfscCode, setBankIfscCode] = useState("");
@@ -42,6 +57,7 @@ function ProfilePage() {
   const [uanNumber, setUanNumber] = useState("");
   const [employee, setEmployee] = useState<User | null>(null);
   const [saving, setSaving] = useState(false);
+  const [selfEditPolicy, setSelfEditPolicy] = useState<ProfileSelfEditPolicy | null>(null);
 
   // Self change password states
   const [oldPw, setOldPw] = useState("");
@@ -51,11 +67,19 @@ function ProfilePage() {
   const [openSections, setOpenSections] = useState<string[]>(["identity"]);
 
   useEffect(() => {
+    void profileSelfEditApi
+      .get()
+      .then(setSelfEditPolicy)
+      .catch(() => setSelfEditPolicy(null));
+  }, []);
+
+  useEffect(() => {
     (user?.employeeId ? employeesApi.get(user.employeeId) : Promise.resolve(null))
       .then((employeeDetails) => {
         setEmployee(employeeDetails);
         if (employeeDetails) {
           setCompanyPhone(employeeDetails.companyPhone ?? "");
+          setBloodGroup(employeeDetails.bloodGroup ?? "");
           setBankAccountHolderName(employeeDetails.bankAccountHolderName ?? "");
           setBankAccountNumber(employeeDetails.bankAccountNumber ?? "");
           setBankIfscCode(employeeDetails.bankIfscCode ?? "");
@@ -94,7 +118,16 @@ function ProfilePage() {
 
   if (!user) return null;
   const canSaveDirectly = user.role === "developer_admin";
-  const canEditEmergencyContact = canSaveDirectly || user.role === "hr";
+  const selfEditEnabled = Boolean(selfEditPolicy?.enabled);
+  const allowedSelfFields = new Set(selfEditPolicy?.allowedFields ?? []);
+  const canEditField = (field: ProfileSelfEditFieldKey) =>
+    canSaveDirectly || (selfEditEnabled && allowedSelfFields.has(field));
+  const canEditAnyProfileField =
+    canSaveDirectly ||
+    (selfEditEnabled &&
+      [...allowedSelfFields].some((field) => field !== "emergencyContact"));
+  const canEditEmergencyContact =
+    canSaveDirectly || user.role === "hr" || canEditField("emergencyContact");
   const profile = employee ?? user;
   const initials = user.name
     .split(" ")
@@ -140,7 +173,9 @@ function ProfilePage() {
         description={
           canSaveDirectly
             ? "Developer Admin can update profile fields and emergency contact directly."
-            : "Profile details are view-only. Ask Developer Admin to update employment or account fields. Emergency contact is shown below; HR or Developer Admin can update it. You can still change your own password."
+            : canEditAnyProfileField || canEditEmergencyContact
+              ? "You can update the fields your organization has enabled. Employment and login fields stay admin-controlled. You can still change your own password."
+              : "Profile details are view-only unless Developer Admin enables employee editing in System Settings. Emergency contact may still be updated by HR. You can still change your own password."
         }
       />
       <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
@@ -236,39 +271,61 @@ function ProfilePage() {
             <div className="mb-4 border-b pb-4">
               <h2 className="font-semibold">Personal and employment details</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Open a section below to view your details.
+                {canEditAnyProfileField
+                  ? "Open a section below to view or update the fields available to you."
+                  : "Open a section below to view your details."}
               </p>
             </div>
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
-                if (!canSaveDirectly) return;
+                if (!canEditAnyProfileField) return;
                 setSaving(true);
                 try {
                   let updatedEmployee = employee;
                   let updatedProfile: User;
                   if (user.employeeId) {
-                    updatedEmployee = await employeesApi.update(user.employeeId, {
-                      name,
-                      email,
-                      phone: phone || undefined,
-                      companyPhone: companyPhone || undefined,
-                      dateOfBirth: dob || undefined,
-                      bankAccountHolderName: bankAccountHolderName || undefined,
-                      bankAccountNumber: bankAccountNumber || undefined,
-                      bankIfscCode: bankIfscCode || undefined,
-                      panNumber: panNumber || undefined,
-                      aadhaarNumber: aadhaarNumber || undefined,
-                      uanNumber: uanNumber || undefined,
-                    });
+                    const patch: Record<string, string | undefined> = {};
+                    if (canEditField("name")) patch.name = name;
+                    if (canSaveDirectly) patch.email = email;
+                    if (canEditField("phone")) patch.phone = phone || undefined;
+                    if (canEditField("companyPhone")) {
+                      patch.companyPhone = companyPhone || undefined;
+                    }
+                    if (canEditField("dateOfBirth")) patch.dateOfBirth = dob || undefined;
+                    if (canEditField("bloodGroup")) patch.bloodGroup = bloodGroup || undefined;
+                    if (canEditField("bankAccountHolderName")) {
+                      patch.bankAccountHolderName = bankAccountHolderName || undefined;
+                    }
+                    if (canEditField("bankAccountNumber")) {
+                      patch.bankAccountNumber = bankAccountNumber || undefined;
+                    }
+                    if (canEditField("bankIfscCode")) {
+                      patch.bankIfscCode = bankIfscCode || undefined;
+                    }
+                    if (canEditField("panNumber")) patch.panNumber = panNumber || undefined;
+                    if (canEditField("aadhaarNumber")) {
+                      patch.aadhaarNumber = aadhaarNumber || undefined;
+                    }
+                    if (canEditField("uanNumber")) patch.uanNumber = uanNumber || undefined;
+
+                    if (Object.keys(patch).length === 0) {
+                      toast.error("No editable fields to save");
+                      return;
+                    }
+
+                    updatedEmployee = await employeesApi.update(user.employeeId, patch);
                     setEmployee(updatedEmployee);
                     updatedProfile = { ...user, ...updatedEmployee };
-                  } else {
+                  } else if (canSaveDirectly) {
                     updatedProfile = await usersApi.update(user.id, {
                       name,
                       email,
                       phone: phone || undefined,
                     });
+                  } else {
+                    toast.error("No employee record is linked to this login");
+                    return;
                   }
                   updateCurrentUser(updatedProfile);
                   toast.success("Profile updated");
@@ -295,7 +352,7 @@ function ProfilePage() {
                         label="Full name"
                         value={name}
                         onChange={setName}
-                        editable={canSaveDirectly}
+                        editable={canEditField("name")}
                       />
                       <Field label="Employee code" value={profile.employeeCode ?? "-"} />
                       <Field
@@ -308,23 +365,54 @@ function ProfilePage() {
                         label="Personal phone number"
                         value={phone}
                         onChange={setPhone}
-                        editable={canSaveDirectly}
+                        editable={canEditField("phone")}
                       />
                       <Field
                         label="Company phone number"
-                        value={canSaveDirectly ? companyPhone : companyPhone || "Not provided"}
+                        value={
+                          canEditField("companyPhone")
+                            ? companyPhone
+                            : companyPhone || "Not provided"
+                        }
                         onChange={setCompanyPhone}
-                        editable={canSaveDirectly}
+                        editable={canEditField("companyPhone")}
                       />
                       <Field
                         label="Date of Birth"
                         value={dob}
                         onChange={setDob}
-                        editable={canSaveDirectly}
+                        editable={canEditField("dateOfBirth")}
                         type="date"
                       />
                       <Field label="Gender" value={formatGender(profile.gender)} />
-                      <Field label="Blood group" value={profile.bloodGroup ?? "Not provided"} />
+                      {canEditField("bloodGroup") ? (
+                        <div className="space-y-1.5">
+                          <Label>Blood group</Label>
+                          <Select
+                            value={bloodGroup || "none"}
+                            onValueChange={(next) =>
+                              setBloodGroup(next === "none" ? "" : next)
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Not provided</SelectItem>
+                              {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((group) => (
+                                <SelectItem key={group} value={group}>
+                                  {group}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ) : (
+                        <Field
+                          label="Blood group"
+                          value={bloodGroup || profile.bloodGroup || "Not provided"}
+                        />
+                      )}
                     </div>
                   </AccordionContent>
                 </AccordionItem>
@@ -378,15 +466,15 @@ function ProfilePage() {
                       <Field
                         label="Account holder name"
                         value={
-                          canSaveDirectly
+                          canEditField("bankAccountHolderName")
                             ? bankAccountHolderName
                             : bankAccountHolderName || "Not provided"
                         }
                         onChange={setBankAccountHolderName}
-                        editable={canSaveDirectly}
+                        editable={canEditField("bankAccountHolderName")}
                       />
                       <Field label="Account type" value={formatLabel(profile.bankAccountType)} />
-                      {canSaveDirectly ? (
+                      {canEditField("bankAccountNumber") ? (
                         <Field
                           label="Account number"
                           value={bankAccountNumber}
@@ -398,9 +486,13 @@ function ProfilePage() {
                       )}
                       <Field
                         label="IFSC code"
-                        value={canSaveDirectly ? bankIfscCode : bankIfscCode || "Not provided"}
+                        value={
+                          canEditField("bankIfscCode")
+                            ? bankIfscCode
+                            : bankIfscCode || "Not provided"
+                        }
                         onChange={setBankIfscCode}
-                        editable={canSaveDirectly}
+                        editable={canEditField("bankIfscCode")}
                       />
                     </div>
                   </AccordionContent>
@@ -412,21 +504,40 @@ function ProfilePage() {
                   </AccordionTrigger>
                   <AccordionContent>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      {canSaveDirectly ? (
+                      {canEditField("panNumber") ||
+                      canEditField("aadhaarNumber") ||
+                      canEditField("uanNumber") ? (
                         <>
-                          <Field label="PAN" value={panNumber} onChange={setPanNumber} editable />
-                          <Field
-                            label="Aadhaar number"
-                            value={aadhaarNumber}
-                            onChange={setAadhaarNumber}
-                            editable
-                          />
-                          <Field
-                            label="UAN number"
-                            value={uanNumber}
-                            onChange={setUanNumber}
-                            editable
-                          />
+                          {canEditField("panNumber") ? (
+                            <Field
+                              label="PAN"
+                              value={panNumber}
+                              onChange={setPanNumber}
+                              editable
+                            />
+                          ) : (
+                            <SensitiveField label="PAN" value={panNumber} />
+                          )}
+                          {canEditField("aadhaarNumber") ? (
+                            <Field
+                              label="Aadhaar number"
+                              value={aadhaarNumber}
+                              onChange={setAadhaarNumber}
+                              editable
+                            />
+                          ) : (
+                            <SensitiveField label="Aadhaar number" value={aadhaarNumber} />
+                          )}
+                          {canEditField("uanNumber") ? (
+                            <Field
+                              label="UAN number"
+                              value={uanNumber}
+                              onChange={setUanNumber}
+                              editable
+                            />
+                          ) : (
+                            <SensitiveField label="UAN number" value={uanNumber} />
+                          )}
                         </>
                       ) : (
                         <>
@@ -448,7 +559,7 @@ function ProfilePage() {
                       <p className="mb-3 text-xs text-muted-foreground">
                         {canEditEmergencyContact
                           ? "Used for workplace emergencies and the employee ID card."
-                          : "View-only. Ask HR or Developer Admin to update these details."}
+                          : "View-only. Ask HR or Developer Admin to update these details, or ask Developer Admin to enable emergency-contact editing."}
                       </p>
                       <EmergencyContactSection
                         employeeId={user.employeeId}
@@ -466,9 +577,10 @@ function ProfilePage() {
                 )}
               </Accordion>
 
-              {canSaveDirectly && (
+              {canEditAnyProfileField && (
                 <div className="mt-4 flex justify-end border-t border-border pt-4">
                   <Button type="submit" disabled={saving}>
+                    {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Save profile
                   </Button>
                 </div>

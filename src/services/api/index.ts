@@ -2,6 +2,8 @@ import type {
   AttendanceRecord,
   AttendanceTimelineEvent,
   AuditLog,
+  ProfileSelfEditPolicy,
+  ProfileSelfEditFieldKey,
   AssetCatalogItem,
   AssetReturnRecord,
   BiometricMapping,
@@ -1051,6 +1053,15 @@ export const auditApi = {
     request<{ deleted: number }>("/audit-logs", {
       method: "DELETE",
       body: JSON.stringify({ confirmation }),
+    }),
+};
+
+export const profileSelfEditApi = {
+  get: () => request<ProfileSelfEditPolicy>("/profile/self-edit-policy"),
+  update: (payload: { enabled: boolean; allowedFields: ProfileSelfEditFieldKey[] }) =>
+    request<ProfileSelfEditPolicy>("/profile/self-edit-policy", {
+      method: "PUT",
+      body: JSON.stringify(payload),
     }),
 };
 

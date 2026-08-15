@@ -666,6 +666,26 @@ export interface AuditLog {
   newValue?: Record<string, unknown> | null;
 }
 
+export type ProfileSelfEditFieldKey =
+  | "name"
+  | "phone"
+  | "companyPhone"
+  | "dateOfBirth"
+  | "bloodGroup"
+  | "bankAccountHolderName"
+  | "bankAccountNumber"
+  | "bankIfscCode"
+  | "panNumber"
+  | "aadhaarNumber"
+  | "uanNumber"
+  | "emergencyContact";
+
+export interface ProfileSelfEditPolicy {
+  enabled: boolean;
+  allowedFields: ProfileSelfEditFieldKey[];
+  availableFields: { key: ProfileSelfEditFieldKey; label: string; group: string }[];
+}
+
 export interface NotificationItem {
   id: string;
   title: string;

@@ -24,6 +24,11 @@ Anytime Diesel, Fuelistic Innovations Private Limited, and Royal Petro Park Priv
 first two are presented under the Royal Petro Park Private Limited group. Payroll/statutory
 identifiers are encrypted and are never included in Employee API v1.
 
+Developer Admin can enable limited employee self-service profile editing under **System Settings >
+Employee profile editing** (toggle + gear field picker). The backend stores the policy in
+`system_settings` and enforces allowed fields on `PATCH /employees/:id` and emergency-contact
+updates. See [Employee Profile and ID Card](EMPLOYEE_PROFILE_AND_ID_CARD.md).
+
 ## Role-Aware Workspace
 
 The sidebar and dashboard expose only the areas relevant to the signed-in role. Hiding an action is

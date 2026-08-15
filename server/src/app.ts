@@ -103,6 +103,13 @@ import {
   verifySupportPassword,
   assertSupportPasswordTtlHours,
 } from "./supportPassword.js";
+import {
+  PROFILE_SELF_EDIT_EMPLOYEE_PATCH_KEYS,
+  profileSelfEditPolicyDto,
+  profileSelfEditPolicySchema,
+  readProfileSelfEditPolicy,
+  saveProfileSelfEditPolicy,
+} from "./profile-self-edit.js";
 import { issueIdCardVerificationToken, verifyIdCardVerificationToken } from "./idCardToken.js";
 import { assertSafeWebPushEndpoint } from "./webPushEndpoint.js";
 import { assertOwnsPrivateFileUrl } from "./privateFiles.js";
@@ -2517,10 +2524,24 @@ export function createApp() {
   app.put(
     "/employees/:id/emergency-contact",
     requireAuth,
-    requireRoles(Role.DEVELOPER_ADMIN, Role.HR),
     asyncHandler(async (req, res) => {
       const employeeId = String(req.params.id);
       await assertEmployeeAccess(req.user, employeeId);
+      const isDeveloperAdmin = req.user!.role === Role.DEVELOPER_ADMIN;
+      const isHr = req.user!.role === Role.HR;
+      const isSelf = req.user!.employeeId === employeeId;
+      if (!isDeveloperAdmin && !isHr) {
+        if (!isSelf) {
+          throw new HttpError(403, "You can only update your own emergency contact");
+        }
+        const policy = await readProfileSelfEditPolicy();
+        if (!policy.enabled || !policy.allowedFields.includes("emergencyContact")) {
+          throw new HttpError(
+            403,
+            "Employee emergency-contact editing is turned off. Ask HR or Developer Admin to update it.",
+          );
+        }
+      }
       const body = emergencyContactSchema.parse(req.body);
       const employee = await prisma.employee.findUnique({ where: { employeeId } });
       if (!employee) throw new HttpError(404, "Employee not found");
@@ -2547,7 +2568,9 @@ export function createApp() {
         },
       });
       await audit({
-        action: "employee emergency contact updated",
+        action: isSelf && !isDeveloperAdmin && !isHr
+          ? "employee self-updated emergency contact"
+          : "employee emergency contact updated",
         performedByUserId: req.user!.id,
         affectedUserId: undefined,
         newValue: { employeeId, contactName: contact.contactName },
@@ -2568,17 +2591,59 @@ export function createApp() {
   app.patch(
     "/employees/:id",
     requireAuth,
-    requireRoles(Role.DEVELOPER_ADMIN, Role.HR),
     asyncHandler(async (req, res) => {
       const employeeId = String(req.params.id);
       await assertEmployeeAccess(req.user, employeeId);
-      const body = updateEmployeeSchema.parse(req.body);
-      if (
-        req.user!.role === Role.HR &&
-        (body.managerId === undefined || Object.keys(body).some((key) => key !== "managerId"))
-      ) {
-        throw new HttpError(403, "HR can update only the reporting manager");
+      const isDeveloperAdmin = req.user!.role === Role.DEVELOPER_ADMIN;
+      const isHr = req.user!.role === Role.HR;
+      const isSelf = req.user!.employeeId === employeeId;
+
+      if (!isDeveloperAdmin && !isHr && !isSelf) {
+        throw new HttpError(403, "You do not have permission to update this employee");
       }
+
+      let body = updateEmployeeSchema.parse(req.body);
+
+      if (isDeveloperAdmin) {
+        // Full update allowed.
+      } else if (isSelf) {
+        const policy = await readProfileSelfEditPolicy();
+        if (!policy.enabled) {
+          throw new HttpError(
+            403,
+            "Employee profile editing is turned off. Ask Developer Admin to enable it in System Settings.",
+          );
+        }
+        const allowed = new Set<string>(
+          policy.allowedFields.filter((key) =>
+            (PROFILE_SELF_EDIT_EMPLOYEE_PATCH_KEYS as readonly string[]).includes(key),
+          ),
+        );
+        const requestedKeys = Object.keys(body);
+        const forbidden = requestedKeys.filter((key) => !allowed.has(key));
+        if (forbidden.length > 0) {
+          throw new HttpError(
+            403,
+            `You are not allowed to edit: ${forbidden.join(", ")}. Ask Developer Admin to enable those fields.`,
+          );
+        }
+        if (requestedKeys.length === 0) {
+          throw new HttpError(400, "No editable profile fields were submitted");
+        }
+        const filtered: Record<string, unknown> = {};
+        for (const key of requestedKeys) {
+          filtered[key] = (body as Record<string, unknown>)[key];
+        }
+        body = updateEmployeeSchema.parse(filtered);
+      } else if (isHr) {
+        if (
+          body.managerId === undefined ||
+          Object.keys(body).some((key) => key !== "managerId")
+        ) {
+          throw new HttpError(403, "HR can update only the reporting manager");
+        }
+      }
+
       const existing = await prisma.employee.findUniqueOrThrow({
         where: { employeeId },
         include: { user: true },
@@ -2704,10 +2769,10 @@ export function createApp() {
         });
       } else {
         await audit({
-          action: "employee updated",
+          action: isSelf && !isDeveloperAdmin ? "employee self-updated profile" : "employee updated",
           performedByUserId: req.user!.id,
           affectedUserId: employee.user?.id,
-          newValue: { employeeId },
+          newValue: { employeeId, fields: Object.keys(body) },
           ipAddress: req.ip,
         });
       }
@@ -5447,11 +5512,44 @@ export function createApp() {
     "/profile/edit-requests",
     requireAuth,
     asyncHandler(async (_req, res) => {
-      // Profile-edit approval workflow is intentionally not shipped; employees update via HR.
+      // Profile-edit approval workflow is intentionally not shipped; employees update via policy.
       throw new HttpError(
         501,
-        "Profile edit requests are not available. Only Developer Admin can update employee profiles.",
+        "Profile edit requests are not available. Developer Admin can enable direct employee profile editing in System Settings.",
       );
+    }),
+  );
+
+  app.get(
+    "/profile/self-edit-policy",
+    requireAuth,
+    asyncHandler(async (_req, res) => {
+      const policy = await readProfileSelfEditPolicy();
+      res.json(profileSelfEditPolicyDto(policy));
+    }),
+  );
+
+  app.put(
+    "/profile/self-edit-policy",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const body = profileSelfEditPolicySchema.parse(req.body);
+      try {
+        const policy = await saveProfileSelfEditPolicy(body, req.user!.id);
+        await audit({
+          action: "PROFILE_SELF_EDIT_POLICY_UPDATED",
+          performedByUserId: req.user!.id,
+          newValue: {
+            enabled: policy.enabled,
+            allowedFields: policy.allowedFields,
+          },
+          ipAddress: req.ip,
+        });
+        res.json(profileSelfEditPolicyDto(policy));
+      } catch (error) {
+        throw new HttpError(400, error instanceof Error ? error.message : "Invalid policy");
+      }
     }),
   );
 

@@ -49,6 +49,29 @@ The My Profile page deliberately does not show Attendance Access, Assigned Shift
 Account Status, or Home Branch. Those remain operational settings in their dedicated admin and
 attendance screens.
 
+## Self-service profile editing
+
+Developer Admin controls whether employees can edit their own My Profile fields.
+
+1. Open **System Settings > Employee profile editing**.
+2. Use the **gear** control to choose allowed fields (identity/contact, banking, statutory,
+   emergency contact).
+3. Turn the toggle **on**. Employees can then edit only those fields on **My Profile**.
+
+Rules:
+
+- Email, employee code, role, department, manager, company, and other employment fields are never
+  self-editable.
+- When the toggle is **off**, My Profile stays view-only for employees (HR can still update
+  emergency contact; Developer Admin retains full edit).
+- Enabling the toggle requires at least one selected field.
+- Server enforcement: `PATCH /employees/:id` and `PUT /employees/:id/emergency-contact` reject
+  disallowed self-edits even if the UI is bypassed.
+- Policy API: `GET/PUT /profile/self-edit-policy` (PUT is Developer Admin only).
+- Policy storage: `system_settings` key `employee_profile_self_edit`.
+
+Default stored field selection (while off): personal phone and emergency contact.
+
 ## Encryption and access
 
 Bank account number, PAN, Aadhaar, and UAN are encrypted before Prisma writes them to MySQL.

@@ -27,6 +27,7 @@ This guide explains how Developer Admin, HR, organization heads, employees, fiel
 | Learning (SOP / Training)      | Publish                                                        | Publish                 | Publish               | Publish               | Read + mark                 | Read + mark                             |
 | Exit / Offboarding             | Full exit case                                                 | Full exit case          | Full exit case        | Full exit case        | No                          | No                                      |
 | System settings                | Full access                                                    | As configured           | No                      | No                    | No                          | No                                      |
+| Employee self profile edit policy | Configure toggle + allowed fields                           | No                      | No                      | No                    | No                          | Edit only fields enabled by policy      |
 
 ## CEO Workspace
 
@@ -164,11 +165,20 @@ style of editable grid (Developer Admin accounts are excluded).
 ## Employee: Review My Profile And ID Card
 
 **My Profile** displays identity/contact information first, employment and company information
-second, followed by banking and statutory details and an **Emergency contact** section. Employees
-can view their emergency contact; HR and Developer Admin can edit it (employees cannot self-edit
-pending an approval workflow decision). Sensitive identifiers are masked until the employee selects
-the show icon. Attendance access, shift, work assignment, account status, and attendance location
-are intentionally kept out of this personal profile.
+second, followed by banking and statutory details and an **Emergency contact** section. Sensitive
+identifiers are masked until the employee selects the show icon. Attendance access, shift, work
+assignment, account status, and attendance location are intentionally kept out of this personal
+profile.
+
+Editing rules:
+
+- By default the page is view-only for employees.
+- When Developer Admin turns on **Employee profile editing** in System Settings, employees can
+  change only the fields selected with the gear control, then use **Save profile**.
+- Email, employee code, role, department, manager, and other employment fields stay admin-only.
+- HR and Developer Admin can always update emergency contact; employees can update it only when
+  that field is enabled in the policy.
+- Password change remains available to every signed-in user.
 
 **Employee ID Card** displays the selected employer and Royal Petro Park Private Limited group,
 employee code, designation, department, role, joining date, blood group, and company contact
@@ -221,6 +231,20 @@ history (for example after controlled testing). Prefer a MySQL backup first.
    deleted.
 
 Full rules and API details: [Audit Logs](AUDIT_LOGS.md).
+
+## Developer Admin: Employee Profile Editing
+
+By default My Profile is view-only for employees. Developer Admin can allow limited self-service
+edits:
+
+1. Open **System Settings > Employee profile editing**.
+2. Select the **gear** and check the fields employees may change (phone, banking, statutory,
+   emergency contact, and similar safe fields).
+3. Turn the toggle **on**.
+
+Employees then see editable inputs and **Save profile** only for those fields. Email, role,
+department, manager, and other employment data remain admin-only. Details:
+[Employee Profile and ID Card](EMPLOYEE_PROFILE_AND_ID_CARD.md).
 
 ## Developer Admin: Reset Testing Data Before Go-Live
 
