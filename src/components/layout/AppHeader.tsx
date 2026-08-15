@@ -1,5 +1,6 @@
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +24,7 @@ import {
   Sun,
   Moon,
   RefreshCw,
+  Languages,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { CommandPalette } from "@/components/layout/CommandPalette";
@@ -45,6 +47,7 @@ function toTitle(pathname: string) {
 }
 
 export function AppHeader() {
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
@@ -120,7 +123,7 @@ export function AppHeader() {
           size="icon"
           className="h-10 w-10 shrink-0 rounded-lg transition-colors hover:bg-muted md:hidden"
           onClick={toggleSidebar}
-          aria-label="Open menu"
+          aria-label={t("common.openMenu")}
         >
           <Menu className="h-5 w-5 text-foreground/80" />
         </Button>
@@ -128,8 +131,8 @@ export function AppHeader() {
           <button
             type="button"
             onClick={() => navigate({ to: "/dashboard" })}
-            aria-label="Go to dashboard"
-            title="Go to dashboard"
+            aria-label={t("common.goDashboard")}
+            title={t("common.goDashboard")}
             className="flex h-10 shrink-0 items-center rounded-lg px-1.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Logo variant="mark" className="h-7 w-7 shrink-0 rounded-md ring-1 ring-border/60" />
@@ -149,8 +152,8 @@ export function AppHeader() {
           variant="ghost"
           size="icon"
           className="h-10 w-10 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
-          aria-label="Search pages (Ctrl+K)"
-          title="Search pages (Ctrl+K)"
+          aria-label={t("common.searchPages")}
+          title={t("common.searchPages")}
           onClick={() => setPaletteOpen(true)}
         >
           <Search className="h-[18px] w-[18px]" />
@@ -160,7 +163,7 @@ export function AppHeader() {
           variant="ghost"
           size="icon"
           className="hidden h-10 w-10 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground sm:inline-flex"
-          aria-label="Go to dashboard"
+          aria-label={t("common.goDashboard")}
           onClick={() => navigate({ to: "/dashboard" })}
         >
           <Home className="h-[18px] w-[18px]" />
@@ -171,7 +174,7 @@ export function AppHeader() {
             variant="ghost"
             size="icon"
             className="hidden h-10 w-10 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground sm:inline-flex"
-            aria-label="System Settings"
+            aria-label={t("nav.systemSettings")}
             onClick={() => navigate({ to: "/settings" })}
           >
             <Settings className="h-[18px] w-[18px]" />
@@ -182,7 +185,7 @@ export function AppHeader() {
           variant="ghost"
           size="icon"
           className="relative h-10 w-10 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
-          aria-label={`Notifications${notificationCount ? ` (${notificationCount})` : ""}`}
+          aria-label={`${t("common.notifications")}${notificationCount ? ` (${notificationCount})` : ""}`}
           onClick={() => navigate({ to: "/notifications" })}
         >
           <Bell className="h-[18px] w-[18px]" />
@@ -243,21 +246,28 @@ export function AppHeader() {
               className="h-8 cursor-pointer rounded-md px-2 text-[13px]"
             >
               <UserIcon className="text-muted-foreground" />
-              My profile
+              {t("nav.myProfile")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => navigate({ to: "/preferences" })}
+              className="h-8 cursor-pointer rounded-md px-2 text-[13px]"
+            >
+              <Languages className="text-muted-foreground" />
+              {t("nav.preferences")}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => navigate({ to: "/id-card" })}
               className="h-8 cursor-pointer rounded-md px-2 text-[13px]"
             >
               <IdCard className="text-muted-foreground" />
-              ID card
+              {t("nav.idCard")}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => navigate({ to: "/notifications" })}
               className="h-8 cursor-pointer rounded-md px-2 text-[13px]"
             >
               <Bell className="text-muted-foreground" />
-              <span className="flex-1">Notifications</span>
+              <span className="flex-1">{t("common.notifications")}</span>
               {notificationCount > 0 && (
                 <span className="rounded-full bg-primary px-1.5 text-[10px] font-semibold leading-4 text-primary-foreground">
                   {notificationCount > 99 ? "99+" : notificationCount}
@@ -273,7 +283,7 @@ export function AppHeader() {
               className="h-8 cursor-pointer rounded-md px-2 text-[13px]"
             >
               <RefreshCw className={cn("text-muted-foreground", refreshing && "animate-spin")} />
-              {refreshing ? "Refreshing…" : "Refresh app"}
+              {refreshing ? t("common.loading") : t("common.refresh")}
             </DropdownMenuItem>
 
             <div
@@ -285,11 +295,11 @@ export function AppHeader() {
               ) : (
                 <Sun className="h-4 w-4 shrink-0 text-muted-foreground" />
               )}
-              <span className="min-w-0 flex-1">Dark mode</span>
+              <span className="min-w-0 flex-1">{t("common.darkMode")}</span>
               <Switch
                 checked={darkMode}
                 onCheckedChange={handleDarkModeToggle}
-                aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+                aria-label={darkMode ? t("common.lightMode") : t("common.darkMode")}
               />
             </div>
 
@@ -303,7 +313,7 @@ export function AppHeader() {
               className="h-8 cursor-pointer rounded-md px-2 text-[13px] text-destructive focus:bg-destructive/10 focus:text-destructive"
             >
               <LogOut />
-              Sign out
+              {t("common.signOut")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

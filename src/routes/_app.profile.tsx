@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -57,6 +58,7 @@ export const Route = createFileRoute("/_app/profile")({
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
 
 function ProfilePage() {
+  const { t } = useTranslation();
   const { user, updateCurrentUser, changePassword } = useAuth();
   const [name, setName] = useState(user?.name ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
@@ -432,7 +434,7 @@ function ProfilePage() {
       )}
     >
       <PageHeader
-        title="My Profile"
+        title={t("profile.title")}
         description={
           canEditAnyProfileField || canEditEmergencyContact
             ? "Update the fields available to you. Employment details stay admin-controlled."
@@ -492,20 +494,20 @@ function ProfilePage() {
             onValueChange={setMobileOpen}
             className="space-y-3"
           >
-            <MobileSectionCard value="identity" icon={UserRound} title="Identity and contact">
+            <MobileSectionCard value="identity" icon={UserRound} title={t("profile.identity")}>
               {identityFields}
             </MobileSectionCard>
-            <MobileSectionCard value="employment" icon={BriefcaseBusiness} title="Employment">
+            <MobileSectionCard value="employment" icon={BriefcaseBusiness} title={t("profile.employment")}>
               {employmentFields}
             </MobileSectionCard>
-            <MobileSectionCard value="banking" icon={Landmark} title="Banking">
+            <MobileSectionCard value="banking" icon={Landmark} title={t("profile.banking")}>
               {bankingFields}
             </MobileSectionCard>
-            <MobileSectionCard value="statutory" icon={CreditCard} title="Statutory">
+            <MobileSectionCard value="statutory" icon={CreditCard} title={t("profile.statutory")}>
               {statutoryFields}
             </MobileSectionCard>
             {user.employeeId && (
-              <MobileSectionCard value="emergency" icon={ShieldAlert} title="Emergency contact">
+              <MobileSectionCard value="emergency" icon={ShieldAlert} title={t("profile.emergency")}>
                 <p className="mb-3 text-xs text-muted-foreground">
                   {canEditEmergencyContact
                     ? "Used for workplace emergencies and the ID card."
@@ -531,22 +533,22 @@ function ProfilePage() {
         </div>
 
         <div className="hidden gap-4 md:grid md:grid-cols-2 xl:gap-5">
-          <DesktopSectionCard icon={UserRound} title="Identity and contact">
+          <DesktopSectionCard icon={UserRound} title={t("profile.identity")}>
             {identityFields}
           </DesktopSectionCard>
-          <DesktopSectionCard icon={BriefcaseBusiness} title="Employment">
+          <DesktopSectionCard icon={BriefcaseBusiness} title={t("profile.employment")}>
             {employmentFields}
           </DesktopSectionCard>
-          <DesktopSectionCard icon={Landmark} title="Banking">
+          <DesktopSectionCard icon={Landmark} title={t("profile.banking")}>
             {bankingFields}
           </DesktopSectionCard>
-          <DesktopSectionCard icon={CreditCard} title="Statutory">
+          <DesktopSectionCard icon={CreditCard} title={t("profile.statutory")}>
             {statutoryFields}
           </DesktopSectionCard>
           {user.employeeId && (
             <DesktopSectionCard
               icon={ShieldAlert}
-              title="Emergency contact"
+              title={t("profile.emergency")}
               className="md:col-span-2"
             >
               <p className="mb-3 text-sm text-muted-foreground">
@@ -643,7 +645,7 @@ function ProfilePage() {
             <div className="hidden border border-border/70 bg-card p-4 shadow-sm md:flex md:justify-end md:rounded-xl">
               <Button type="submit" disabled={saving} className="h-9 min-w-32">
                 {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
-                Save profile
+                {t("profile.save")}
               </Button>
             </div>
             {/*
@@ -666,7 +668,7 @@ function ProfilePage() {
                     className="h-11 w-full"
                   >
                     {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
-                    Save profile
+                    {t("profile.save")}
                   </Button>
                 </div>,
                 document.body,

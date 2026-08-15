@@ -24,6 +24,7 @@ import { Route as AppTalentRouteImport } from './routes/_app.talent'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppRolesRouteImport } from './routes/_app.roles'
 import { Route as AppProfileRouteImport } from './routes/_app.profile'
+import { Route as AppPreferencesRouteImport } from './routes/_app.preferences'
 import { Route as AppPerformanceRouteImport } from './routes/_app.performance'
 import { Route as AppPeopleChangesRouteImport } from './routes/_app.people-changes'
 import { Route as AppOnboardingRouteImport } from './routes/_app.onboarding'
@@ -137,6 +138,11 @@ const AppRolesRoute = AppRolesRouteImport.update({
 const AppProfileRoute = AppProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPreferencesRoute = AppPreferencesRouteImport.update({
+  id: '/preferences',
+  path: '/preferences',
   getParentRoute: () => AppRoute,
 } as any)
 const AppPerformanceRoute = AppPerformanceRouteImport.update({
@@ -374,6 +380,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof AppOnboardingRoute
   '/people-changes': typeof AppPeopleChangesRoute
   '/performance': typeof AppPerformanceRoute
+  '/preferences': typeof AppPreferencesRoute
   '/profile': typeof AppProfileRoute
   '/roles': typeof AppRolesRoute
   '/settings': typeof AppSettingsRouteWithChildren
@@ -429,6 +436,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof AppOnboardingRoute
   '/people-changes': typeof AppPeopleChangesRoute
   '/performance': typeof AppPerformanceRoute
+  '/preferences': typeof AppPreferencesRoute
   '/profile': typeof AppProfileRoute
   '/roles': typeof AppRolesRoute
   '/settings': typeof AppSettingsRouteWithChildren
@@ -487,6 +495,7 @@ export interface FileRoutesById {
   '/_app/onboarding': typeof AppOnboardingRoute
   '/_app/people-changes': typeof AppPeopleChangesRoute
   '/_app/performance': typeof AppPerformanceRoute
+  '/_app/preferences': typeof AppPreferencesRoute
   '/_app/profile': typeof AppProfileRoute
   '/_app/roles': typeof AppRolesRoute
   '/_app/settings': typeof AppSettingsRouteWithChildren
@@ -545,6 +554,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/people-changes'
     | '/performance'
+    | '/preferences'
     | '/profile'
     | '/roles'
     | '/settings'
@@ -600,6 +610,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/people-changes'
     | '/performance'
+    | '/preferences'
     | '/profile'
     | '/roles'
     | '/settings'
@@ -657,6 +668,7 @@ export interface FileRouteTypes {
     | '/_app/onboarding'
     | '/_app/people-changes'
     | '/_app/performance'
+    | '/_app/preferences'
     | '/_app/profile'
     | '/_app/roles'
     | '/_app/settings'
@@ -799,6 +811,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof AppProfileRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/preferences': {
+      id: '/_app/preferences'
+      path: '/preferences'
+      fullPath: '/preferences'
+      preLoaderRoute: typeof AppPreferencesRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/performance': {
@@ -1169,6 +1188,7 @@ interface AppRouteChildren {
   AppOnboardingRoute: typeof AppOnboardingRoute
   AppPeopleChangesRoute: typeof AppPeopleChangesRoute
   AppPerformanceRoute: typeof AppPerformanceRoute
+  AppPreferencesRoute: typeof AppPreferencesRoute
   AppProfileRoute: typeof AppProfileRoute
   AppRolesRoute: typeof AppRolesRoute
   AppSettingsRoute: typeof AppSettingsRouteWithChildren
@@ -1208,6 +1228,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppOnboardingRoute: AppOnboardingRoute,
   AppPeopleChangesRoute: AppPeopleChangesRoute,
   AppPerformanceRoute: AppPerformanceRoute,
+  AppPreferencesRoute: AppPreferencesRoute,
   AppProfileRoute: AppProfileRoute,
   AppRolesRoute: AppRolesRoute,
   AppSettingsRoute: AppSettingsRouteWithChildren,

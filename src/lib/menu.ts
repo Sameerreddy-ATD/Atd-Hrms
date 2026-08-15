@@ -1,3 +1,4 @@
+import type { ComponentType } from "react";
 import type { ModuleKey, Role } from "@/types/domain";
 import {
   LayoutDashboard,
@@ -29,8 +30,8 @@ import {
   Target,
   DoorOpen,
   GraduationCap,
+  Languages,
 } from "lucide-react";
-import type { ComponentType } from "react";
 
 export interface MenuItem {
   label: string;
@@ -274,6 +275,12 @@ export const menuGroups: MenuGroup[] = [
       { label: "My Assets", to: "/my-assets", icon: Package, roles: ALL },
       { label: "My Profile", to: "/profile", icon: UserCog, roles: ALL },
       {
+        label: "Preferences",
+        to: "/preferences",
+        icon: Languages,
+        roles: ALL,
+      },
+      {
         label: "ID Card",
         to: "/id-card",
         icon: IdCard,
@@ -489,6 +496,7 @@ function itemOrderForRole(role: Role): string[] {
         "/notifications",
         "/my-assets",
         "/profile",
+        "/preferences",
         "/id-card",
       ];
     case "manager":
@@ -513,6 +521,7 @@ function itemOrderForRole(role: Role): string[] {
         "/notifications",
         "/my-assets",
         "/profile",
+        "/preferences",
         "/id-card",
       ];
     case "hr":
@@ -545,6 +554,7 @@ function itemOrderForRole(role: Role): string[] {
         "/notifications",
         "/my-assets",
         "/profile",
+        "/preferences",
         "/id-card",
       ];
     case "ceo":
@@ -567,6 +577,7 @@ function itemOrderForRole(role: Role): string[] {
         "/notifications",
         "/my-assets",
         "/profile",
+        "/preferences",
       ];
     case "main_admin":
       return [
@@ -597,6 +608,7 @@ function itemOrderForRole(role: Role): string[] {
         "/notifications",
         "/my-assets",
         "/profile",
+        "/preferences",
       ];
     case "developer_admin":
       return [
@@ -633,6 +645,7 @@ function itemOrderForRole(role: Role): string[] {
         "/notifications",
         "/my-assets",
         "/profile",
+        "/preferences",
         "/id-card",
       ];
     default:
@@ -663,7 +676,7 @@ export function moduleForRoute(path: string): ModuleKey {
   if (path === "/employee-services") return "EMPLOYEE_REQUESTS";
   if (path.startsWith("/leave")) return "LEAVE";
   if (["/branches", "/holidays", "/assets"].includes(path)) return "COMPANY";
-  if (["/profile", "/id-card", "/my-assets"].includes(path)) return "PROFILE";
+  if (["/profile", "/id-card", "/my-assets", "/preferences"].includes(path)) return "PROFILE";
   if (["/notifications", "/announcements"].includes(path)) return "COMMUNICATIONS";
   return "SYSTEM";
 }

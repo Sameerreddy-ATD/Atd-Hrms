@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/command";
 import { useAuth } from "@/lib/auth";
 import { menuForRole } from "@/lib/menu";
+import { GROUP_I18N_BY_LABEL, NAV_I18N_BY_PATH } from "@/i18n/nav-keys";
+import { useTranslation } from "react-i18next";
 import { employeesApi, moduleAccessApi, searchApi } from "@/services/api";
 import type { ModuleKey } from "@/types/domain";
 
@@ -25,6 +27,7 @@ export function CommandPalette({
   onOpenChange: (open: boolean) => void;
 }) {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [isReportingManager, setIsReportingManager] = useState(false);
   const [allowedModules, setAllowedModules] = useState<ModuleKey[] | undefined>();
@@ -97,17 +100,27 @@ export function CommandPalette({
     hasEmployeeId: Boolean(user.employeeId),
   });
 
+  function itemLabel(to: string, fallback: string) {
+    const key = NAV_I18N_BY_PATH[to];
+    return key ? t(key) : fallback;
+  }
+
+  function groupLabel(label: string) {
+    const key = GROUP_I18N_BY_LABEL[label];
+    return key ? t(key) : label;
+  }
+
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
       <CommandInput
-        placeholder="Search pages, people, boards, tasks..."
+        placeholder={t("common.search")}
         value={query}
         onValueChange={setQuery}
       />
       <CommandList>
-        <CommandEmpty>No matches found.</CommandEmpty>
+        <CommandEmpty>{t("common.noResults")}</CommandEmpty>
         {hits.length > 0 && (
-          <CommandGroup heading="Results">
+          <CommandGroup heading={t("common.search")}>
             {hits.map((hit) => (
               <CommandItem
                 key={`${hit.type}-${hit.id}`}
@@ -128,21 +141,24 @@ export function CommandPalette({
           </CommandGroup>
         )}
         {groups.map((group) => (
-          <CommandGroup key={group.label} heading={group.label}>
-            {group.items.map((item) => (
-              <CommandItem
-                key={item.to}
-                value={`${group.label} ${item.label}`}
-                className="cursor-pointer gap-3"
-                onSelect={() => {
-                  onOpenChange(false);
-                  navigate({ to: item.to });
-                }}
-              >
-                <item.icon className="h-4 w-4 text-muted-foreground" />
-                <span>{item.label}</span>
-              </CommandItem>
-            ))}
+          <CommandGroup key={group.label} heading={groupLabel(group.label)}>
+            {group.items.map((item) => {
+              const label = itemLabel(item.to, item.label);
+              return (
+                <CommandItem
+                  key={item.to}
+                  value={`${group.label} ${item.label} ${label}`}
+                  className="cursor-pointer gap-3"
+                  onSelect={() => {
+                    onOpenChange(false);
+                    navigate({ to: item.to });
+                  }}
+                >
+                  <item.icon className="h-4 w-4 text-muted-foreground" />
+                  <span>{label}</span>
+                </CommandItem>
+              );
+            })}
           </CommandGroup>
         ))}
       </CommandList>

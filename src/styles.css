@@ -190,6 +190,12 @@
     scroll-margin-block: 5rem;
   }
 
+  html[data-locale="te"] body {
+    font-family: "Noto Sans Telugu", var(--font-sans);
+    letter-spacing: 0;
+    line-height: 1.65;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);

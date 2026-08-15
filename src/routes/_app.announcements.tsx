@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { CalendarClock, LoaderCircle, Megaphone, Plus, Power, Send, Trash2, X } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -41,6 +42,7 @@ const TITLE_LIMIT = 120;
 const MESSAGE_LIMIT = 1000;
 
 function AnnouncementsPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const canManage = user?.role === "hr" || user?.role === "developer_admin";
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -148,8 +150,8 @@ function AnnouncementsPage() {
   return (
     <div>
       <PageHeader
-        title="Announcements"
-        description="Company updates published for every Anytime Diesel employee."
+        title={t("announcements.title")}
+        description={t("announcements.subtitle")}
         actions={
           canManage ? (
             <>
@@ -165,7 +167,7 @@ function AnnouncementsPage() {
               </Select>
               <Button onClick={() => setShowComposer((current) => !current)}>
                 {showComposer ? <X className="mr-2 h-4 w-4" /> : <Plus className="mr-2 h-4 w-4" />}
-                {showComposer ? "Close" : "New announcement"}
+                {showComposer ? t("common.close") : t("announcements.compose")}
               </Button>
             </>
           ) : undefined
@@ -195,12 +197,13 @@ function AnnouncementsPage() {
           <div className="lg:col-span-2">
             <h2 className="font-semibold">Publish company announcement</h2>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              This will be visible to every active employee until the selected time.
+            <p className="mt-1 text-sm text-muted-foreground">
+              {t("announcements.contentNote")}
             </p>
           </div>
           <div className="lg:col-span-2">
             <div className="mb-1.5 flex items-center justify-between gap-3">
-              <Label htmlFor="announcement-page-title">Title</Label>
+              <Label htmlFor="announcement-page-title">{t("announcements.titleLabel")}</Label>
               <span className="text-xs text-muted-foreground">
                 {form.title.length}/{TITLE_LIMIT}
               </span>
@@ -219,7 +222,7 @@ function AnnouncementsPage() {
           </div>
           <div className="lg:col-span-2">
             <div className="mb-1.5 flex items-center justify-between gap-3">
-              <Label htmlFor="announcement-page-message">Announcement</Label>
+              <Label htmlFor="announcement-page-message">{t("announcements.message")}</Label>
               <span className="text-xs text-muted-foreground">
                 {form.message.length}/{MESSAGE_LIMIT}
               </span>
@@ -284,16 +287,12 @@ function AnnouncementsPage() {
       {error && <p className="text-sm text-destructive">{error}</p>}
       {!loading && !error && visible.length === 0 && (
         <EmptyState
-          title="No announcements"
-          description={
-            filter === "active"
-              ? "There are no active company announcements."
-              : `There are no ${filter} announcements.`
-          }
+          title={t("announcements.empty")}
+          description={t("announcements.emptyHint")}
           action={
             canManage && !showComposer ? (
               <Button onClick={() => setShowComposer(true)}>
-                <Plus className="mr-2 h-4 w-4" /> New announcement
+                <Plus className="mr-2 h-4 w-4" /> {t("announcements.compose")}
               </Button>
             ) : undefined
           }

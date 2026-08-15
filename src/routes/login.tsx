@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
+  const { t } = useTranslation();
   const { login, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -79,11 +81,11 @@ function LoginPage() {
 
         <Card className="aw-enter-delayed border-border/70 bg-card/95 shadow-sm backdrop-blur-sm">
           <CardContent className="p-6 sm:p-8">
-            <h2 className="text-lg font-semibold tracking-tight text-foreground">Sign in</h2>
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">{t("auth.signIn")}</h2>
 
             <form onSubmit={handleSubmit} className="mt-5 space-y-4" noValidate>
               <div className="space-y-1.5">
-                <Label htmlFor="email">Work email</Label>
+                <Label htmlFor="email">{t("auth.workEmail")}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -100,12 +102,12 @@ function LoginPage() {
               </div>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password">{t("auth.password")}</Label>
                   <Link
                     to="/forgot-password"
                     className="text-xs font-medium text-primary hover:underline"
                   >
-                    Need help?
+                    {t("auth.needHelp")}
                   </Link>
                 </div>
                 <PasswordInput
@@ -128,31 +130,31 @@ function LoginPage() {
               )}
               <Button type="submit" className="h-11 w-full" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Sign in
+                {t("auth.signIn")}
               </Button>
             </form>
 
             <p className="mt-6 text-center text-[11px] text-muted-foreground/70">
-              AnyTime Diesel Workforce
+              {t("login.tagline")}
             </p>
             <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-[11px]">
               <Link
                 to="/privacy"
                 className="text-muted-foreground hover:text-primary hover:underline"
               >
-                Privacy
+                {t("auth.privacy")}
               </Link>
               <Link
                 to="/terms"
                 className="text-muted-foreground hover:text-primary hover:underline"
               >
-                Terms
+                {t("auth.terms")}
               </Link>
               <Link
                 to="/account-deletion"
                 className="text-muted-foreground hover:text-primary hover:underline"
               >
-                Account deletion
+                {t("auth.accountDeletion")}
               </Link>
             </p>
           </CardContent>

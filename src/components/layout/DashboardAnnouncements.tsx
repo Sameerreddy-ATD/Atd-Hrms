@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight, Megaphone } from "lucide-react";
 import { announcementsApi } from "@/services/api";
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function DashboardAnnouncements({ className }: { className?: string }) {
+  const { t } = useTranslation();
   const [items, setItems] = useState<Announcement[]>([]);
 
   useEffect(() => {
@@ -37,7 +39,7 @@ export function DashboardAnnouncements({ className }: { className?: string }) {
         hasUrgent && "border-destructive/40",
         className,
       )}
-      aria-label="Company announcements"
+      aria-label={t("announcements.title")}
     >
       <div className="flex items-center justify-between gap-3 border-b border-border/80 px-4 py-3 sm:px-5">
         <div className="flex min-w-0 items-center gap-2">
@@ -45,13 +47,13 @@ export function DashboardAnnouncements({ className }: { className?: string }) {
             <Megaphone className="h-4 w-4" />
           </span>
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold tracking-tight">Announcements</h2>
-            <p className="text-xs text-muted-foreground">Urgent and recent company updates</p>
+            <h2 className="text-sm font-semibold tracking-tight">{t("announcements.dashboardTitle")}</h2>
+            <p className="text-xs text-muted-foreground">{t("announcements.dashboardHelp")}</p>
           </div>
         </div>
         <Button asChild variant="ghost" size="sm" className="shrink-0">
           <Link to="/announcements">
-            View all <ArrowRight className="ml-1 h-3.5 w-3.5" />
+            {t("announcements.viewAll")} <ArrowRight className="ml-1 h-3.5 w-3.5" />
           </Link>
         </Button>
       </div>
@@ -64,7 +66,7 @@ export function DashboardAnnouncements({ className }: { className?: string }) {
                 variant={item.priority === "URGENT" ? "destructive" : "outline"}
                 className="shrink-0 capitalize"
               >
-                {item.priority.toLowerCase()}
+                {item.priority === "URGENT" ? t("common.urgent") : t("common.normal")}
               </Badge>
             </div>
             <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">

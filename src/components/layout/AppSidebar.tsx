@@ -1,5 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Sidebar,
   SidebarContent,
@@ -15,12 +16,14 @@ import {
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/lib/auth";
 import { menuForRole } from "@/lib/menu";
+import { GROUP_I18N_BY_LABEL, NAV_I18N_BY_PATH } from "@/i18n/nav-keys";
 import { ROLE_LABELS, type ModuleKey } from "@/types/domain";
 import { employeesApi, moduleAccessApi } from "@/services/api";
 import { cn } from "@/lib/utils";
 import { BrandLockup, Logo } from "@/components/common/Logo";
 
 export function AppSidebar() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { state, setOpenMobile, isMobile } = useSidebar();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
@@ -59,6 +62,16 @@ export function AppSidebar() {
     hasEmployeeId: Boolean(user.employeeId),
   });
 
+  function itemLabel(to: string, fallback: string) {
+    const key = NAV_I18N_BY_PATH[to];
+    return key ? t(key) : fallback;
+  }
+
+  function groupLabel(label: string) {
+    const key = GROUP_I18N_BY_LABEL[label];
+    return key ? t(key) : label;
+  }
+
   return (
     <Sidebar
       collapsible="icon"
@@ -82,7 +95,7 @@ export function AppSidebar() {
           <SidebarGroup key={group.label} className="px-1 py-1.5">
             {!collapsed && (
               <SidebarGroupLabel className="h-7 px-3 text-xs font-semibold text-muted-foreground">
-                {group.label}
+                {groupLabel(group.label)}
               </SidebarGroupLabel>
             )}
             <SidebarGroupContent>
@@ -97,13 +110,14 @@ export function AppSidebar() {
                   );
                   const active =
                     (pathname === item.to || pathname.startsWith(item.to + "/")) && !siblingActive;
+                  const label = itemLabel(item.to, item.label);
                   return (
                     <SidebarMenuItem key={item.to}>
                       <SidebarMenuButton
                         asChild
                         isActive={active}
                         size="default"
-                        tooltip={item.label}
+                        tooltip={label}
                         className={cn(
                           "aw-nav-item h-10 w-full justify-start rounded-md border border-transparent px-3 text-sidebar-foreground/90",
                           active
@@ -125,7 +139,7 @@ export function AppSidebar() {
                               active ? "text-primary dark:text-primary" : "text-muted-foreground",
                             )}
                           />
-                          <span className="truncate text-sm">{item.label}</span>
+                          <span className="truncate text-sm">{label}</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -157,7 +171,7 @@ export function AppSidebar() {
               </div>
             </div>
             <div className="text-center text-[10px] font-medium text-muted-foreground/60">
-              AnyTime Diesel
+              {t("app.company")}
             </div>
           </>
         ) : (
