@@ -6,7 +6,7 @@ White-box findings from the audit were patched as follows (no live exploit run).
 
 | Finding | Fix |
 | ------- | --- |
-| Support password as org-wide master key | TTL 1–24h (default 4); legacy hash-only secrets rejected; support login forces password change + `sessionVersion` bump + audit/notification |
+| Support password as org-wide master key | TTL 1–24h (default 4); legacy hash-only secrets rejected; support login audited + notifies Developer Admin. The forced password change originally shipped with this was removed on 15 Aug 2026 — it locked the employee out of their own working password after a support visit, and the flag blocked every route until they reset it. Containment now rests on the TTL, the audit entry, and the notification. |
 | Default JWT/encryption secrets | `assertSecureConfig` refuses defaults outside `test` unless `ALLOW_INSECURE_DEV_SECRETS=true`; encryption key no longer falls back to refresh JWT |
 | Web Push SSRF | Allowlist push-provider hosts + block private DNS; validate on subscribe and before send |
 | Handoff compose insecure | Documented; `ALLOW_INSECURE_DEV_SECRETS` required for local handoff only |

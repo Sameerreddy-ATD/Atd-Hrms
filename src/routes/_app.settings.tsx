@@ -722,7 +722,8 @@ function SettingsPage() {
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Time-limited break-glass password for non–Developer Admin accounts (1–24 hours).
-                  Using it forces a password change and bumps that user’s sessions. Clear when done.
+                  It signs you in without changing that person’s own password, and every use is
+                  audited. Clear it when done.
                 </p>
                 {supportEnabled && supportUpdatedAt && (
                   <p className="mt-1 text-xs text-muted-foreground">

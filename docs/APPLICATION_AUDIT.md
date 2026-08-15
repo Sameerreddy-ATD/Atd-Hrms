@@ -257,7 +257,7 @@ See [SECURITY_HARDENING_2026-08-12.md](SECURITY_HARDENING_2026-08-12.md). Highli
 
 | Area | Status |
 | ---- | ------ |
-| Support password TTL + forced reset on use | Done |
+| Support password TTL + audit/notify on use (forced reset removed 15 Aug 2026) | Done |
 | Refuse default JWT/encryption secrets (unless `ALLOW_INSECURE_DEV_SECRETS`) | Done |
 | Web Push endpoint allowlist (SSRF) | Done |
 | Signed ID-card verification tokens | Done |

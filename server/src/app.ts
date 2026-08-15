@@ -1745,16 +1745,18 @@ export function createApp() {
       // Signing in registers this device instead of bumping sessionVersion, so
       // an employee can stay signed in on the phone app and the web dashboard
       // at the same time. Account-wide revocation still bumps sessionVersion.
+      //
+      // A support-password login deliberately leaves the account's own password
+      // and its first-login flag untouched. Forcing a change here locked the
+      // employee out of their own working password after a support visit, and
+      // the flag then blocked every route until they reset it. The break-glass
+      // controls that matter stay in place: the password is time-boxed, the
+      // login is audited, and Developer Admin is notified.
       const updated = await prisma.user.update({
         where: { id: user.id },
         data: {
           failedLoginAttempts: 0,
           lastLoginAt: new Date(),
-          ...(usedSupportPassword
-            ? {
-                firstLoginPasswordChangeRequired: true,
-              }
-            : {}),
           ...(user.suspendedUntil && user.suspendedUntil.getTime() <= Date.now()
             ? { suspendedUntil: null, suspensionStartsAt: null }
             : {}),
@@ -1769,7 +1771,7 @@ export function createApp() {
         performedByUserId: user.id,
         affectedUserId: user.id,
         newValue: usedSupportPassword
-          ? { breakGlass: true, forcedPasswordChange: true }
+          ? { breakGlass: true, forcedPasswordChange: false }
           : undefined,
         ipAddress: req.ip,
       }).catch((err) => {
