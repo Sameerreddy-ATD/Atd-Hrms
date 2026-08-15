@@ -596,7 +596,7 @@ export function createApp() {
       leaveTypeId: string;
       managerId?: string | null;
       reviewedByUserId?: string | null;
-      employee?: { name: string; manager?: { name: string } | null } | null;
+      employee?: { name: string; employeeCode?: string; manager?: { name: string } | null } | null;
       leaveType?: { name: string } | null;
       fromDate: Date;
       toDate: Date;
@@ -641,6 +641,7 @@ export function createApp() {
       id: row.leaveRequestId,
       employeeId: row.employeeId,
       employeeName: row.employee?.name ?? row.employeeId,
+      employeeCode: row.employee?.employeeCode,
       managerName: row.employee?.manager?.name,
       approverName,
       reviewedByName,
@@ -1336,6 +1337,7 @@ export function createApp() {
             name: true,
             email: true,
             role: true,
+            employee: { select: { employeeCode: true } },
             faceProfile: {
               select: {
                 status: true,
@@ -1425,6 +1427,7 @@ export function createApp() {
           return {
             userId: user.id,
             employeeId: user.employeeId,
+            employeeCode: user.employee?.employeeCode ?? null,
             name: user.name,
             email: user.email,
             role: user.role,

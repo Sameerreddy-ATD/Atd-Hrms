@@ -246,7 +246,9 @@ function AttendanceCorrectionsPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate font-medium">{req.employeeName}</p>
-                    <p className="text-xs text-muted-foreground">{req.employeeId}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {req.employeeCode || req.employeeId}
+                    </p>
                   </div>
                   <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
                     {punchTypeLabel(req.eventType)}
@@ -334,7 +336,9 @@ function AttendanceCorrectionsPage() {
                     <TableRow key={req.id}>
                       <TableCell>
                         <div className="font-medium">{req.employeeName}</div>
-                        <div className="text-xs text-muted-foreground">{req.employeeId}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {req.employeeCode || req.employeeId}
+                        </div>
                       </TableCell>
                       <TableCell>{formatDisplayDate(req.date)}</TableCell>
                       <TableCell>
@@ -432,7 +436,7 @@ function AttendanceCorrectionsPage() {
                 <MobileListItem key={row.id} intrinsicSize="200px">
                   <MobileListHeader
                     title={row.employeeName}
-                    meta={row.employeeId}
+                    meta={row.employeeCode || row.employeeId}
                     trailing={<StatusBadge status={row.status} />}
                   />
                   <MobileListFields>
@@ -495,7 +499,9 @@ function AttendanceCorrectionsPage() {
                     <TableRow key={row.id}>
                       <TableCell>
                         <div className="font-medium">{row.employeeName}</div>
-                        <div className="text-xs text-muted-foreground">{row.employeeId}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {row.employeeCode || row.employeeId}
+                        </div>
                       </TableCell>
                       <TableCell>{formatDisplayDate(row.date)}</TableCell>
                       <TableCell>{row.punchIn ?? "-"}</TableCell>

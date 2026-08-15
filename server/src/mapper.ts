@@ -493,6 +493,7 @@ export function attendanceRecordDto(
   return {
     id: summary.attendanceId,
     employeeId: summary.employeeId,
+    employeeCode: summary.employee.employeeCode,
     employeeName: summary.employee.name,
     date: summary.date.toISOString().slice(0, 10),
     homeBranchId: summary.homeBranchId ?? "",

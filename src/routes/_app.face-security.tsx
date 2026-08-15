@@ -101,7 +101,7 @@ function FaceSecurityPage() {
     return profiles.filter((profile) => {
       const matchesSearch =
         !query ||
-        [profile.name, profile.email, profile.employeeId, profile.role]
+        [profile.name, profile.email, profile.employeeCode, profile.employeeId, profile.role]
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(query));
       const matchesFilter =
@@ -416,7 +416,8 @@ function FaceSecurityPage() {
                     <div className="truncate font-semibold text-foreground">{profile.name}</div>
                     <div className="truncate text-sm text-muted-foreground">{profile.email}</div>
                     <div className="mt-1 text-xs text-muted-foreground">
-                      {profile.employeeId ?? "System account"} · {profile.role.replaceAll("_", " ")}
+                      {profile.employeeCode ?? profile.employeeId ?? "System account"} ·{" "}
+                      {profile.role.replaceAll("_", " ")}
                     </div>
                   </div>
                   <Badge variant="outline" className={statusTone[profile.status]}>

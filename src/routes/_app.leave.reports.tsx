@@ -69,7 +69,7 @@ function LeaveReportsPage() {
 
   const csvRows = rows.map((row) => ({
     employee: row.employeeName,
-    employeeId: row.employeeId,
+    employeeId: row.employeeCode || row.employeeId,
     organizationApprover: row.approverName ?? row.managerName ?? "",
     leaveType: row.type,
     from: formatDisplayDate(row.from),
@@ -150,7 +150,7 @@ function LeaveReportsPage() {
                 <MobileListItem key={row.id} intrinsicSize="220px">
                   <MobileListHeader
                     title={row.employeeName}
-                    meta={row.employeeId}
+                    meta={row.employeeCode || row.employeeId}
                     trailing={<StatusBadge status={row.status} />}
                   />
                   <MobileListFields>
@@ -215,7 +215,9 @@ function LeaveReportsPage() {
                     <TableRow key={row.id}>
                       <TableCell>
                         <div className="font-medium">{row.employeeName}</div>
-                        <div className="text-xs text-muted-foreground">{row.employeeId}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {row.employeeCode || row.employeeId}
+                        </div>
                         {row.reason && (
                           <div className="mt-1 max-w-xs truncate text-xs text-muted-foreground">
                             {row.reason}

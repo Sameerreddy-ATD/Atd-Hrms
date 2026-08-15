@@ -230,6 +230,7 @@ export interface FaceEvidenceSummary {
 export interface FaceAdminProfile {
   userId: string;
   employeeId: string | null;
+  employeeCode?: string | null;
   name: string;
   email: string;
   role: string;
@@ -516,6 +517,7 @@ export type AttendanceSource =
 export interface AttendanceRecord {
   id: string;
   employeeId: string;
+  employeeCode?: string;
   employeeName: string;
   date: string;
   homeBranchId: string;
@@ -591,6 +593,7 @@ export interface LeaveRequest {
   id: string;
   employeeId: string;
   employeeName: string;
+  employeeCode?: string;
   managerName?: string;
   type: LeaveType;
   from: string;
