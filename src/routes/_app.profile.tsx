@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -478,7 +479,11 @@ function ProfilePage() {
         </CardContent>
       </Card>
 
-      <form onSubmit={(e) => void handleProfileSave(e)} className="space-y-4 lg:space-y-5">
+      <form
+        id="profile-save-form"
+        onSubmit={(e) => void handleProfileSave(e)}
+        className="space-y-4 pb-[calc(5.5rem+var(--atd-sab))] lg:space-y-5 md:pb-0"
+      >
         {/* Mobile: stacked expandable cards. Desktop: open cards in a wide grid. */}
         <div className="md:hidden">
           <Accordion
@@ -633,25 +638,40 @@ function ProfilePage() {
         </Card>
 
         {canEditAnyProfileField && (
-          <div
-            className={cn(
-              "z-20 border border-border/70 bg-card/95 p-3 shadow-sm backdrop-blur-sm",
-              /* Mobile: pinned to viewport bottom only — not sticky mid-scroll */
-              "fixed inset-x-0 bottom-0 rounded-none border-x-0 border-b-0",
-              "pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]",
-              /* Desktop: inline at end of form */
-              "md:static md:flex md:justify-end md:rounded-xl md:border md:p-4 md:pb-4 md:pl-4 md:pr-4 md:backdrop-blur-none",
-            )}
-          >
-            <Button
-              type="submit"
-              disabled={saving}
-              className="h-11 w-full md:h-9 md:w-auto md:min-w-32"
-            >
-              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
-              Save profile
-            </Button>
-          </div>
+          <>
+            {/* Desktop: stays in document flow at the end of the form. */}
+            <div className="hidden border border-border/70 bg-card p-4 shadow-sm md:flex md:justify-end md:rounded-xl">
+              <Button type="submit" disabled={saving} className="h-9 min-w-32">
+                {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+                Save profile
+              </Button>
+            </div>
+            {/*
+              Mobile: portal to body so viewport `fixed` is never trapped by
+              page-enter transforms / overflow ancestors (which pinned the bar
+              mid-screen while scrolling).
+            */}
+            {typeof document !== "undefined" &&
+              createPortal(
+                <div
+                  className={cn(
+                    "fixed inset-x-0 bottom-0 z-[65] border-t border-border/70 bg-card/95 p-3 shadow-[0_-8px_24px_-18px_rgb(15_23_42/0.35)] backdrop-blur-sm md:hidden",
+                    "pb-[max(0.75rem,var(--atd-sab))] pl-[max(0.75rem,var(--atd-sal))] pr-[max(0.75rem,var(--atd-sar))]",
+                  )}
+                >
+                  <Button
+                    type="submit"
+                    form="profile-save-form"
+                    disabled={saving}
+                    className="h-11 w-full"
+                  >
+                    {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+                    Save profile
+                  </Button>
+                </div>,
+                document.body,
+              )}
+          </>
         )}
       </form>
     </div>

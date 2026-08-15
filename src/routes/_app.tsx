@@ -38,7 +38,13 @@ function AppLayout() {
   useEffect(() => {
     setPageEnter(false);
     const frame = window.requestAnimationFrame(() => setPageEnter(true));
-    return () => window.cancelAnimationFrame(frame);
+    // Drop the enter class after the animation so transform does not keep
+    // acting as a containing block for position:fixed UI (e.g. Profile save).
+    const clear = window.setTimeout(() => setPageEnter(false), 320);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(clear);
+    };
   }, [pathname]);
 
   useEffect(() => {
