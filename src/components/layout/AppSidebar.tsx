@@ -75,7 +75,7 @@ export function AppSidebar() {
   return (
     <Sidebar
       collapsible="icon"
-      className="border-r border-border/70 bg-sidebar/90 backdrop-blur-md dark:border-sidebar-border dark:bg-sidebar dark:shadow-[8px_0_24px_rgba(0,0,0,0.12)]"
+      className="border-r border-border/70 bg-sidebar md:bg-sidebar/90 md:backdrop-blur-md dark:border-sidebar-border dark:bg-sidebar dark:shadow-[8px_0_24px_rgba(0,0,0,0.12)]"
     >
       <SidebarHeader
         className={cn(

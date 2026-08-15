@@ -2,20 +2,32 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
-const EDGE_OPEN_PX = 24;
-const OPEN_THRESHOLD = 0.32;
-const CLOSE_THRESHOLD = 0.32;
-const FLING_VELOCITY = 0.4; // px/ms
+const EDGE_ZONE_PX = 28;
+const DIRECTION_SLOP_PX = 8;
+const OPEN_COMMIT = 0.35;
+const CLOSE_COMMIT = 0.5;
+const FLING_PX_PER_MS = 0.3;
+const VELOCITY_WINDOW_MS = 90;
 const PANEL_WIDTH_CSS = "18rem";
 
-type PointerSession = {
+/** Critically damped so the panel lands without wobbling. */
+const SPRING_K = 420;
+const SPRING_C = 2 * Math.sqrt(SPRING_K);
+const MAX_FRAME_S = 0.064;
+const SUB_STEP_S = 1 / 240;
+const REST_PX = 0.4;
+const REST_VELOCITY = 24;
+
+type Origin = "edge" | "panel" | "overlay";
+
+type Session = {
   id: number;
   startX: number;
   startY: number;
-  lastX: number;
-  lastT: number;
-  mode: "undecided" | "horizontal" | "vertical";
-  origin: "edge" | "panel" | "overlay";
+  baseX: number;
+  axis: "undecided" | "horizontal" | "vertical";
+  origin: Origin;
+  samples: Array<{ x: number; t: number }>;
 };
 
 function prefersReducedMotion() {
@@ -28,6 +40,11 @@ function prefersReducedMotion() {
  * - swipe right from the left screen edge to open
  * - drag the open panel left / fling to close
  * - tap the dimmed overlay to close
+ *
+ * The panel position lives in refs and is written straight to `style.transform`,
+ * so a drag never re-renders React. Releases hand the remaining distance to a
+ * spring seeded with the fling velocity, which is what makes an interrupted
+ * drag feel continuous instead of snapping.
  */
 export function MobileSidebarDrawer({
   open,
@@ -41,92 +58,175 @@ export function MobileSidebarDrawer({
   className?: string;
 }) {
   const panelRef = React.useRef<HTMLDivElement>(null);
-  const sessionRef = React.useRef<PointerSession | null>(null);
-  const dragXRef = React.useRef(0);
+  const overlayRef = React.useRef<HTMLDivElement>(null);
+  const sessionRef = React.useRef<Session | null>(null);
   const widthRef = React.useRef(288);
-  const didDragRef = React.useRef(false);
-  const [dragX, setDragX] = React.useState(0);
-  const [dragging, setDragging] = React.useState(false);
+  const xRef = React.useRef(-288);
+  const velocityRef = React.useRef(0);
+  const targetRef = React.useRef(-288);
+  const rafRef = React.useRef<number | null>(null);
+  const lastFrameRef = React.useRef(0);
+  const draggingRef = React.useRef(false);
+  const openRef = React.useRef(open);
   const [mounted, setMounted] = React.useState(false);
-  const [visible, setVisible] = React.useState(open);
 
-  React.useEffect(() => setMounted(true), []);
+  openRef.current = open;
 
   const measureWidth = React.useCallback(() => {
-    const w = panelRef.current?.getBoundingClientRect().width;
-    if (w && w > 0) widthRef.current = w;
+    const measured = panelRef.current?.getBoundingClientRect().width;
+    if (measured && measured > 0) widthRef.current = measured;
     return widthRef.current;
   }, []);
 
-  React.useEffect(() => {
-    if (dragging) return;
-    if (open) {
-      setVisible(true);
-      setDragX(0);
-      dragXRef.current = 0;
-      return;
-    }
-    const width = measureWidth();
-    setDragX(-width);
-    dragXRef.current = -width;
-    if (prefersReducedMotion()) {
-      setVisible(false);
-      return;
-    }
-    const timer = window.setTimeout(() => setVisible(false), 280);
-    return () => window.clearTimeout(timer);
-  }, [open, dragging, measureWidth]);
-
-  const applyDrag = React.useCallback((next: number) => {
+  const paint = React.useCallback(() => {
     const width = widthRef.current;
-    const clamped = Math.min(0, Math.max(-width, next));
-    dragXRef.current = clamped;
-    setDragX(clamped);
+    const x = xRef.current;
+    const progress = Math.min(1, Math.max(0, 1 + x / width));
+    const panel = panelRef.current;
+    const overlay = overlayRef.current;
+    const live = draggingRef.current || progress > 0.001;
+
+    if (panel) {
+      panel.style.transform = `translate3d(${x}px, 0, 0)`;
+      panel.style.visibility = live ? "visible" : "hidden";
+      panel.style.pointerEvents = live ? "auto" : "none";
+    }
+    if (overlay) {
+      overlay.style.opacity = String(progress);
+      overlay.style.pointerEvents = live ? "auto" : "none";
+    }
   }, []);
 
-  const finishGesture = React.useCallback(
-    (velocityX: number) => {
-      const width = widthRef.current || measureWidth();
-      const progress = 1 + dragXRef.current / width;
-      let shouldOpen = open;
+  const stopAnimation = React.useCallback(() => {
+    if (rafRef.current != null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+  }, []);
 
-      if (velocityX > FLING_VELOCITY) shouldOpen = true;
-      else if (velocityX < -FLING_VELOCITY) shouldOpen = false;
-      else if (open) shouldOpen = progress > 1 - CLOSE_THRESHOLD;
-      else shouldOpen = progress > OPEN_THRESHOLD;
+  const step = React.useCallback(
+    (now: number) => {
+      const elapsed = Math.min(MAX_FRAME_S, (now - lastFrameRef.current) / 1000);
+      lastFrameRef.current = now;
 
-      setDragging(false);
-      sessionRef.current = null;
-      applyDrag(shouldOpen ? 0 : -width);
-      onOpenChange(shouldOpen);
-      if (!shouldOpen && prefersReducedMotion()) setVisible(false);
+      const target = targetRef.current;
+      let x = xRef.current;
+      let v = velocityRef.current;
+      let remaining = elapsed;
+
+      while (remaining > 0) {
+        const h = Math.min(remaining, SUB_STEP_S);
+        remaining -= h;
+        v += (-SPRING_K * (x - target) - SPRING_C * v) * h;
+        x += v * h;
+      }
+
+      xRef.current = x;
+      velocityRef.current = v;
+
+      if (Math.abs(x - target) < REST_PX && Math.abs(v) < REST_VELOCITY) {
+        xRef.current = target;
+        velocityRef.current = 0;
+        rafRef.current = null;
+        paint();
+        return;
+      }
+
+      paint();
+      rafRef.current = requestAnimationFrame(step);
     },
-    [applyDrag, measureWidth, onOpenChange, open],
+    [paint],
   );
 
+  const animateTo = React.useCallback(
+    (target: number, velocityPxPerSec?: number) => {
+      targetRef.current = target;
+      if (typeof velocityPxPerSec === "number") velocityRef.current = velocityPxPerSec;
+
+      if (prefersReducedMotion()) {
+        stopAnimation();
+        xRef.current = target;
+        velocityRef.current = 0;
+        paint();
+        return;
+      }
+
+      if (rafRef.current == null) {
+        lastFrameRef.current = performance.now();
+        rafRef.current = requestAnimationFrame(step);
+      }
+    },
+    [paint, step, stopAnimation],
+  );
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (!mounted) return;
+    const width = measureWidth();
+    xRef.current = openRef.current ? 0 : -width;
+    targetRef.current = xRef.current;
+    paint();
+  }, [measureWidth, mounted, paint]);
+
+  React.useEffect(() => {
+    if (!mounted) return;
+    const onResize = () => {
+      const previous = widthRef.current;
+      const width = measureWidth();
+      if (width === previous) return;
+      if (!draggingRef.current && rafRef.current == null) {
+        xRef.current = openRef.current ? 0 : -width;
+        targetRef.current = xRef.current;
+      }
+      paint();
+    };
+    window.addEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("orientationchange", onResize);
+    };
+  }, [measureWidth, mounted, paint]);
+
+  React.useEffect(() => {
+    if (!mounted || draggingRef.current) return;
+    const target = open ? 0 : -measureWidth();
+    if (targetRef.current === target && rafRef.current == null) {
+      paint();
+      return;
+    }
+    animateTo(target);
+  }, [animateTo, measureWidth, mounted, open, paint]);
+
+  React.useEffect(() => stopAnimation, [stopAnimation]);
+
+  const clampX = React.useCallback((value: number) => {
+    return Math.min(0, Math.max(-widthRef.current, value));
+  }, []);
+
   const begin = React.useCallback(
-    (origin: PointerSession["origin"], event: React.PointerEvent) => {
+    (origin: Origin, event: React.PointerEvent) => {
       if (event.pointerType === "mouse" && event.button !== 0) return;
       if (origin === "edge" && open) return;
 
       measureWidth();
-      didDragRef.current = false;
+      stopAnimation();
+      velocityRef.current = 0;
+
       sessionRef.current = {
         id: event.pointerId,
         startX: event.clientX,
         startY: event.clientY,
-        lastX: event.clientX,
-        lastT: performance.now(),
-        mode: "undecided",
+        baseX: origin === "edge" ? -widthRef.current : xRef.current,
+        axis: "undecided",
         origin,
+        samples: [{ x: event.clientX, t: event.timeStamp || performance.now() }],
       };
-
-      if (origin === "edge") {
-        setVisible(true);
-        applyDrag(-widthRef.current);
-      }
     },
-    [applyDrag, measureWidth, open],
+    [measureWidth, open, stopAnimation],
   );
 
   const move = React.useCallback(
@@ -136,80 +236,77 @@ export function MobileSidebarDrawer({
 
       const dx = event.clientX - session.startX;
       const dy = event.clientY - session.startY;
-      const now = performance.now();
 
-      if (session.mode === "undecided") {
-        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
-        if (Math.abs(dy) > Math.abs(dx) * 1.2) {
-          session.mode = "vertical";
+      if (session.axis === "undecided") {
+        if (Math.abs(dx) < DIRECTION_SLOP_PX && Math.abs(dy) < DIRECTION_SLOP_PX) return;
+        if (Math.abs(dy) > Math.abs(dx)) {
           sessionRef.current = null;
           return;
         }
-        if (session.origin === "edge" && dx < 6) return;
-        if (session.origin === "panel" && dx > -6 && Math.abs(dx) < Math.abs(dy)) return;
+        if (session.origin === "edge" && dx <= 0) return;
+        if (session.origin === "panel" && dx >= 0) return;
 
-        session.mode = "horizontal";
-        didDragRef.current = true;
-        setDragging(true);
-        setVisible(true);
+        session.axis = "horizontal";
+        draggingRef.current = true;
         try {
           (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
         } catch {
-          /* ignore */
+          /* pointer capture is best effort */
         }
       }
 
-      if (session.mode !== "horizontal") return;
-      event.preventDefault();
+      if (session.axis !== "horizontal") return;
+      if (event.cancelable) event.preventDefault();
 
-      const width = widthRef.current;
-      const next =
-        session.origin === "edge"
-          ? -width + Math.max(0, dx)
-          : Math.min(0, dx); // panel/overlay: start from open (0)
+      const now = event.timeStamp || performance.now();
+      session.samples.push({ x: event.clientX, t: now });
+      while (session.samples.length > 2 && now - session.samples[0].t > VELOCITY_WINDOW_MS) {
+        session.samples.shift();
+      }
 
-      applyDrag(next);
-      session.lastX = event.clientX;
-      session.lastT = now;
+      xRef.current = clampX(session.baseX + dx);
+      paint();
     },
-    [applyDrag],
+    [clampX, paint],
   );
 
   const end = React.useCallback(
     (event: React.PointerEvent) => {
       const session = sessionRef.current;
-      if (!session || session.id !== event.pointerId) {
-        return;
-      }
-
-      const dt = Math.max(1, performance.now() - session.lastT);
-      const velocityX = (event.clientX - session.lastX) / dt;
-
-      if (session.mode === "horizontal") {
-        finishGesture(velocityX);
-      } else if (session.origin === "overlay" && !didDragRef.current) {
-        sessionRef.current = null;
-        onOpenChange(false);
-      } else if (session.origin === "edge" && !open) {
-        sessionRef.current = null;
-        applyDrag(-widthRef.current);
-        setVisible(false);
-      } else {
-        sessionRef.current = null;
-      }
+      if (!session || session.id !== event.pointerId) return;
+      sessionRef.current = null;
 
       try {
         (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId);
       } catch {
-        /* ignore */
+        /* pointer capture is best effort */
       }
-    },
-    [applyDrag, finishGesture, onOpenChange, open],
-  );
 
-  const width = widthRef.current || 288;
-  const progress = Math.min(1, Math.max(0, 1 + dragX / width));
-  const show = open || visible || dragging;
+      if (session.axis !== "horizontal") {
+        if (session.origin === "overlay") onOpenChange(false);
+        return;
+      }
+
+      draggingRef.current = false;
+
+      const first = session.samples[0];
+      const last = session.samples[session.samples.length - 1];
+      const span = last.t - first.t;
+      const velocity = span > 0 ? (last.x - first.x) / span : 0;
+
+      const width = widthRef.current;
+      const progress = 1 + xRef.current / width;
+      let shouldOpen: boolean;
+
+      if (velocity > FLING_PX_PER_MS) shouldOpen = true;
+      else if (velocity < -FLING_PX_PER_MS) shouldOpen = false;
+      else shouldOpen = open ? progress > CLOSE_COMMIT : progress > OPEN_COMMIT;
+
+      animateTo(shouldOpen ? 0 : -width, velocity * 1000);
+      if (shouldOpen !== open) onOpenChange(shouldOpen);
+    },
+    [animateTo, onOpenChange, open],
+  );
 
   if (!mounted) return null;
 
@@ -223,52 +320,37 @@ export function MobileSidebarDrawer({
             top: "calc(var(--atd-sat) + var(--atd-header-row))",
             bottom: "var(--atd-sab)",
             left: 0,
-            width: EDGE_OPEN_PX,
+            width: EDGE_ZONE_PX,
             touchAction: "none",
           }}
-          onPointerDown={(e) => begin("edge", e)}
+          onPointerDown={(event) => begin("edge", event)}
           onPointerMove={move}
           onPointerUp={end}
           onPointerCancel={end}
         />
       ) : null}
 
-      {show ? (
-        <div
-          role="presentation"
-          className={cn(
-            "atd-drawer-under-header fixed z-[50] md:hidden",
-            dragging ? "atd-sidebar-drawer--dragging" : "atd-sidebar-drawer--settling",
-          )}
-          style={{
-            opacity: progress,
-            pointerEvents: open || dragging ? "auto" : "none",
-            touchAction: "none",
-          }}
-          onPointerDown={(e) => {
-            // Only the dimmed area (not the panel) should own overlay gestures.
-            if (e.target === e.currentTarget || (e.target as HTMLElement).dataset.overlay === "true") {
-              begin("overlay", e);
-            }
-          }}
-          onPointerMove={move}
-          onPointerUp={end}
-          onPointerCancel={end}
-        >
-          <div data-overlay="true" className="absolute inset-0 bg-foreground/40" />
-        </div>
-      ) : null}
+      <div
+        ref={overlayRef}
+        role="presentation"
+        aria-hidden
+        className="atd-drawer-under-header atd-sidebar-scrim fixed z-[50] md:hidden"
+        style={{ opacity: 0, pointerEvents: "none", touchAction: "none" }}
+        onPointerDown={(event) => begin("overlay", event)}
+        onPointerMove={move}
+        onPointerUp={end}
+        onPointerCancel={end}
+      />
 
       <div
         ref={panelRef}
         role="dialog"
         aria-modal={open}
-        aria-hidden={!open && !dragging}
+        aria-hidden={!open}
         data-sidebar="sidebar"
         data-mobile="true"
         className={cn(
-          "atd-drawer-panel-under-header atd-sidebar-drawer-panel fixed left-0 z-[50] flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-xl md:hidden",
-          dragging ? "atd-sidebar-drawer--dragging" : "atd-sidebar-drawer--settling",
+          "atd-drawer-panel-under-header atd-sidebar-drawer-panel fixed left-0 z-[50] flex flex-col border-r border-sidebar-border text-sidebar-foreground shadow-xl md:hidden",
           className,
         )}
         style={{
@@ -276,11 +358,11 @@ export function MobileSidebarDrawer({
           maxWidth: "min(18rem, 92vw)",
           top: "calc(var(--atd-sat) + var(--atd-header-row))",
           height: "calc(100dvh - var(--atd-sat) - var(--atd-header-row) - var(--atd-sab))",
-          transform: `translate3d(${show || dragging ? dragX : -width}px, 0, 0)`,
-          visibility: show ? "visible" : "hidden",
+          transform: "translate3d(-100%, 0, 0)",
+          visibility: "hidden",
           touchAction: "pan-y",
         }}
-        onPointerDown={(e) => begin("panel", e)}
+        onPointerDown={(event) => begin("panel", event)}
         onPointerMove={move}
         onPointerUp={end}
         onPointerCancel={end}

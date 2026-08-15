@@ -728,20 +728,25 @@
   z-index: 50 !important;
 }
 
-/* Finger-follow mobile sidebar drawer */
-.atd-sidebar-drawer--dragging {
-  transition: none !important;
-}
-
-.atd-sidebar-drawer--settling {
-  transition:
-    transform var(--motion-enter) var(--ease-out),
-    opacity var(--motion-ui) var(--ease-out);
-}
-
+/* Finger-follow mobile sidebar drawer.
+   Position and scrim opacity are driven per frame from JS, so no CSS
+   transition may fight the spring. The panel stays fully opaque: a
+   translucent, blurred panel washes the menu out over page content. */
 .atd-sidebar-drawer-panel {
+  background: var(--sidebar) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: none !important;
   will-change: transform;
   overscroll-behavior: contain;
+}
+
+.atd-sidebar-scrim {
+  background: color-mix(in oklab, var(--foreground) 45%, transparent);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: none !important;
+  will-change: opacity;
 }
 
 .atd-sidebar-edge-swipe {
@@ -760,10 +765,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .atd-sidebar-drawer--settling {
-    transition: none !important;
-  }
-
   .atd-page-swipe--idle {
     transition: none !important;
   }
