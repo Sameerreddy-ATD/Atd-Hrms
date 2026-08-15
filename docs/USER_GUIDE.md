@@ -180,9 +180,9 @@ Editing rules:
   that field is enabled in the policy.
 - Password change remains available to every signed-in user.
 
-On phones, My Profile opens with an identity badge (avatar, role, employee chips), quick links to
-**ID card** and **Password**, then grouped expandable sections with large tap targets and a sticky
-**Save profile** bar when editing is enabled.
+On phones and laptops, My Profile uses one narrow column: a compact identity strip, a single
+details panel with simple expandable sections, a separate password panel, and text links for
+privacy. Spacing is even throughout (`space-y-3`, tight section padding).
 
 **Employee ID Card** displays the selected employer and Royal Petro Park Private Limited group,
 employee code, designation, department, role, joining date, blood group, and company contact
