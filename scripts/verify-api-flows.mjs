@@ -17,6 +17,20 @@ function record(name, ok, detail) {
   console.log(`[${mark}] ${name}${detail ? ` — ${detail}` : ""}`);
 }
 
+/**
+ * Staff without an approved face are refused everything with a 403, which would
+ * make every RBAC assertion below pass for the wrong reason. Any denial we count
+ * as an authorization result has to be checked against that.
+ */
+function isFaceGate(payload) {
+  return /face registration/i.test(String(payload?.error ?? ""));
+}
+
+function deniedByAuthorization(response) {
+  if (response.status !== 403 && response.status !== 404) return false;
+  return !isFaceGate(response.payload);
+}
+
 function parseCookies(res) {
   const raw = res.headers.getSetCookie?.() ?? [];
   const jar = {};
@@ -196,7 +210,7 @@ async function main() {
   const empDeviceList = await call(`/users/${devUserId}/sessions`, { jar: emp0.cookies });
   record(
     "an employee cannot read another user's device list",
-    empDeviceList.status === 403,
+    deniedByAuthorization(empDeviceList),
     `status ${empDeviceList.status}`,
   );
 
@@ -253,20 +267,30 @@ async function main() {
     `userId ${empUserId}, employeeId ${empEmployeeId}`,
   );
 
+  record(
+    "the employee is past the face gate, so the denials below are authorization results",
+    !isFaceGate((await call("/tasks", { jar: empJar })).payload),
+    "GET /tasks is not refused for a missing face profile",
+  );
+
   const empListUsers = await call("/users", { jar: empJar });
   record(
     "employee cannot list user accounts",
-    empListUsers.status === 403,
+    deniedByAuthorization(empListUsers),
     `status ${empListUsers.status}`,
   );
 
   const empAudit = await call("/audit-logs", { jar: empJar });
-  record("employee cannot read audit logs", empAudit.status === 403, `status ${empAudit.status}`);
+  record(
+    "employee cannot read audit logs",
+    deniedByAuthorization(empAudit),
+    `status ${empAudit.status}`,
+  );
 
   const empModuleAccess = await call("/module-access", { jar: empJar });
   record(
     "employee cannot read the module access matrix",
-    empModuleAccess.status === 403 || empModuleAccess.status === 404,
+    deniedByAuthorization(empModuleAccess),
     `status ${empModuleAccess.status}`,
   );
 
@@ -282,14 +306,14 @@ async function main() {
   });
   record(
     "employee cannot create a developer admin account",
-    empCreateUser.status === 403,
+    deniedByAuthorization(empCreateUser),
     `status ${empCreateUser.status}`,
   );
 
   const empFaceAdmin = await call("/face/admin/profiles", { jar: empJar });
   record(
     "employee cannot reach face administration",
-    empFaceAdmin.status === 403,
+    deniedByAuthorization(empFaceAdmin),
     `status ${empFaceAdmin.status}`,
   );
 
@@ -303,7 +327,7 @@ async function main() {
     const idor = await call(`/employees/${victim.employeeId}`, { jar: empJar });
     record(
       "employee cannot read another employee's full record",
-      idor.status === 403 || idor.status === 404,
+      deniedByAuthorization(idor),
       `status ${idor.status} reading ${victim.employeeId}`,
     );
 
@@ -314,14 +338,21 @@ async function main() {
     });
     record(
       "employee cannot modify another employee's record",
-      idorWrite.status === 403 || idorWrite.status === 404,
+      deniedByAuthorization(idorWrite),
       `status ${idorWrite.status}`,
+    );
+
+    const ownRecord = await call(`/employees/${empEmployeeId}`, { jar: empJar });
+    record(
+      "employee can still read their own record",
+      ownRecord.status === 200,
+      `status ${ownRecord.status}`,
     );
 
     const privateData = await call(`/employees/${victim.employeeId}/private`, { jar: empJar });
     record(
       "employee cannot read another employee's private bank/PAN data",
-      privateData.status === 403 || privateData.status === 404,
+      deniedByAuthorization(privateData),
       `status ${privateData.status}`,
     );
   } else {
@@ -335,13 +366,13 @@ async function main() {
   const ceoDeleteUser = await call(`/users/${empUserId}`, { method: "DELETE", jar: ceoJar });
   record(
     "ceo cannot delete a user account",
-    ceoDeleteUser.status === 403 || ceoDeleteUser.status === 404,
+    deniedByAuthorization(ceoDeleteUser),
     `status ${ceoDeleteUser.status}`,
   );
   const ceoSystem = await call("/system/settings", { jar: ceoJar });
   record(
     "ceo cannot read system settings",
-    ceoSystem.status === 403 || ceoSystem.status === 404,
+    deniedByAuthorization(ceoSystem),
     `status ${ceoSystem.status}`,
   );
 
