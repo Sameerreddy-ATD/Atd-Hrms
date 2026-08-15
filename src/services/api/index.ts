@@ -31,6 +31,7 @@ import type {
   TaskStatus,
   TaskStage,
   User,
+  UserSessionList,
   WorkTask,
   ModuleKey,
   IntegrationClient,
@@ -337,6 +338,12 @@ export const usersApi = {
       method: "POST",
       body: JSON.stringify({ password }),
     }),
+  /** Devices this account is currently signed in on (Developer Admin only). */
+  sessions: (id: string) => request<UserSessionList>(`/users/${id}/sessions`),
+  revokeSession: (id: string, sessionId: string) =>
+    request<{ ok: boolean }>(`/users/${id}/sessions/${sessionId}`, { method: "DELETE" }),
+  revokeAllSessions: (id: string) =>
+    request<{ ok: boolean }>(`/users/${id}/sessions`, { method: "DELETE" }),
 };
 
 export const employeesApi = {

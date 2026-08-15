@@ -298,9 +298,40 @@ model User {
   authoredSopArticles              SopArticle[]              @relation("SopAuthor")
   appraisalReviewsAsManager        AppraisalReview[]         @relation("AppraisalManager")
   createdRecruitmentJobs           RecruitmentJob[]          @relation("JobCreator")
+  sessions                         UserSession[]
 
   @@index([status, role])
   @@map("users")
+}
+
+/// One row per signed-in device. Sessions coexist so an employee can stay signed
+/// in on the phone app and the web dashboard at once, and Developer Admin can
+/// see and revoke individual devices. `User.sessionVersion` remains the
+/// account-wide kill switch for password changes and status changes.
+model UserSession {
+  sessionId      String    @id @default(cuid()) @map("session_id")
+  userId         String    @map("user_id")
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The account-wide version this device was issued against. Any bump of
+  /// User.sessionVersion (password change, deactivation, suspension, role
+  /// change) leaves this behind, which retires the row without each of those
+  /// call sites having to know about the session table.
+  sessionVersion Int       @map("session_version")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  lastSeenAt     DateTime  @default(now()) @map("last_seen_at")
+  expiresAt      DateTime  @map("expires_at")
+  revokedAt      DateTime? @map("revoked_at")
+  /// Why the session ended, for the admin device list: LOGOUT | PASSWORD_CHANGE |
+  /// ADMIN_REVOKED | ACCOUNT_STATUS.
+  revokedReason  String?   @map("revoked_reason") @db.VarChar(32)
+  ipAddress      String?   @map("ip_address") @db.VarChar(64)
+  userAgent      String?   @map("user_agent") @db.VarChar(400)
+  /// Coarse client label derived from the user agent: Android app, iPhone, Web.
+  platform       String?   @db.VarChar(40)
+
+  @@index([userId, revokedAt, expiresAt])
+  @@index([expiresAt])
+  @@map("user_sessions")
 }
 
 model PrivateFile {

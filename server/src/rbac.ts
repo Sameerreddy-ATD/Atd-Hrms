@@ -6,6 +6,7 @@ import { clearCookies, verifyAccessToken } from "./security.js";
 import { config } from "./config.js";
 import { moduleForApiPath, roleHasModuleAccess } from "./module-access.js";
 import { userHasApprovedFace } from "./faceAttendance.js";
+import { findActiveSession, touchSession } from "./sessions.js";
 
 declare global {
   namespace Express {
@@ -86,6 +87,14 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       clearCookies(res);
       return next(new HttpError(401, "Session has been revoked. Sign in again"));
     }
+    // Devices are tracked individually so several can stay signed in at once.
+    // A token without a session id predates that and is no longer accepted.
+    const session = await findActiveSession(user.sid, account.id);
+    if (!session) {
+      clearCookies(res);
+      return next(new HttpError(401, "This device was signed out. Sign in again"));
+    }
+    void touchSession(session.sessionId, session.lastSeenAt);
     if (
       account.suspensionStartsAt &&
       account.suspendedUntil &&
@@ -103,6 +112,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       email: account.email,
       mustChangePassword: account.firstLoginPasswordChangeRequired,
       sessionVersion: account.sessionVersion,
+      sid: session.sessionId,
     };
     req.user = user;
   } catch (error) {

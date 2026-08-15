@@ -12,6 +12,8 @@ export interface SessionUser {
   email: string;
   mustChangePassword: boolean;
   sessionVersion: number;
+  /** Identifies the signed-in device. Absent on tokens issued before per-device sessions. */
+  sid?: string;
 }
 
 const cookieOptions = {
@@ -49,6 +51,7 @@ export function issueCookies(
     | "firstLoginPasswordChangeRequired"
     | "sessionVersion"
   >,
+  sessionId: string,
 ) {
   const payload: SessionUser = {
     id: user.id,
@@ -58,13 +61,14 @@ export function issueCookies(
     email: user.email,
     mustChangePassword: user.firstLoginPasswordChangeRequired,
     sessionVersion: user.sessionVersion,
+    sid: sessionId,
   };
   const access = jwt.sign(payload, config.accessSecret, {
     expiresIn: "15m",
     algorithm: "HS256",
   });
   const refresh = jwt.sign(
-    { id: user.id, sessionVersion: user.sessionVersion },
+    { id: user.id, sessionVersion: user.sessionVersion, sid: sessionId },
     config.refreshSecret,
     { expiresIn: "7d", algorithm: "HS256" },
   );
@@ -81,8 +85,12 @@ export function verifyAccessToken(token: string): SessionUser {
   return jwt.verify(token, config.accessSecret, { algorithms: ["HS256"] }) as SessionUser;
 }
 
-export function verifyRefreshToken(token: string): { id: string; sessionVersion: number } {
+export function verifyRefreshToken(token: string): {
+  id: string;
+  sessionVersion: number;
+  sid?: string;
+} {
   return jwt.verify(token, config.refreshSecret, {
     algorithms: ["HS256"],
-  }) as { id: string; sessionVersion: number };
+  }) as { id: string; sessionVersion: number; sid?: string };
 }

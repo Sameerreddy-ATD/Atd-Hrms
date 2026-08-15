@@ -102,11 +102,18 @@ async function main() {
 
   const devFirst = await login("dev@anytimediesel.local", SEED_PASSWORD);
   record("developer admin can sign in", devFirst.status === 200, `status ${devFirst.status}`);
-  record(
-    "a first-login account cannot reach data routes before changing its password",
-    (await call("/employees", { jar: devFirst.cookies })).status === 403,
-    "GET /employees while mustChangePassword is set",
-  );
+  // Only meaningful on a freshly seeded database; a later run has already
+  // cleared the flag, so skip rather than report a false failure.
+  const devFirstMe = await call("/auth/me", { jar: devFirst.cookies });
+  if (devFirstMe.payload?.user?.mustChangePassword) {
+    record(
+      "a first-login account cannot reach data routes before changing its password",
+      (await call("/employees", { jar: devFirst.cookies })).status === 403,
+      "GET /employees while mustChangePassword is set",
+    );
+  } else {
+    console.log("[SKIP] first-login gate — this account already changed its password");
+  }
   const dev = await loginReady("dev@anytimediesel.local", SEED_PASSWORD);
   record("first-login password change completes", dev.status === 200, `status ${dev.status}`);
 
@@ -148,16 +155,90 @@ async function main() {
     `status ${anonEmployees.status}`,
   );
 
-  // ---- Concurrent sessions ----------------------------------------------
-  const devSecond = await login("dev@anytimediesel.local", SEED_PASSWORD);
+  // ---- Concurrent device sessions ----------------------------------------
+  const phone = await login("dev@anytimediesel.local", SEED_PASSWORD);
   const firstStillValid = await call("/auth/me", { jar: devJar });
   record(
     "signing in on a second device keeps the first device signed in",
     firstStillValid.status === 200,
     `first session status ${firstStillValid.status} after a second login`,
   );
-  const devJar2 = (await loginReady("dev@anytimediesel.local", SEED_PASSWORD)).cookies;
-  void devSecond;
+  record(
+    "the second device is also signed in",
+    (await call("/auth/me", { jar: phone.cookies })).status === 200,
+    "both sessions answer /auth/me",
+  );
+
+  const devJar2 = devJar;
+  const devUserId = (await call("/auth/me", { jar: devJar2 })).payload?.user?.id;
+  const deviceList = await call(`/users/${devUserId}/sessions`, { jar: devJar2 });
+  record(
+    "developer admin can see how many devices a user is signed in on",
+    deviceList.status === 200 && deviceList.payload?.activeDeviceCount >= 2,
+    `count ${deviceList.payload?.activeDeviceCount}, platforms ${(
+      deviceList.payload?.sessions ?? []
+    )
+      .map((s) => s.platform)
+      .join(", ")}`,
+  );
+  record(
+    "the device list marks which entry is the calling device",
+    (deviceList.payload?.sessions ?? []).some((s) => s.isCurrentDevice),
+    "isCurrentDevice flag present",
+  );
+  record(
+    "the device list does not expose a session token",
+    !/adh_session|eyJhbGciOi/.test(JSON.stringify(deviceList.payload ?? {})),
+    "checked serialized device list",
+  );
+
+  const emp0 = await loginReady("route.senior@anytimediesel.local", SEED_PASSWORD);
+  const empDeviceList = await call(`/users/${devUserId}/sessions`, { jar: emp0.cookies });
+  record(
+    "an employee cannot read another user's device list",
+    empDeviceList.status === 403,
+    `status ${empDeviceList.status}`,
+  );
+
+  // Revoke just the phone; the original device must survive.
+  const phoneSession = (deviceList.payload?.sessions ?? []).find((s) => !s.isCurrentDevice);
+  if (phoneSession) {
+    const revoked = await call(`/users/${devUserId}/sessions/${phoneSession.sessionId}`, {
+      method: "DELETE",
+      jar: devJar2,
+    });
+    record(
+      "developer admin can sign out a single device",
+      revoked.status === 200,
+      `status ${revoked.status}`,
+    );
+    record(
+      "the revoked device is rejected on its next request",
+      (await call("/auth/me", { jar: phone.cookies })).status === 401,
+      "revoked device calls /auth/me",
+    );
+    record(
+      "revoking one device leaves the other signed in",
+      (await call("/auth/me", { jar: devJar2 })).status === 200,
+      "surviving device calls /auth/me",
+    );
+  } else {
+    record("a second device was available to revoke", false, "no non-current session found");
+  }
+
+  // Signing out one device must not sign out the others.
+  const laptop = await login("dev@anytimediesel.local", SEED_PASSWORD);
+  await call("/auth/logout", { method: "POST", jar: laptop.cookies });
+  record(
+    "logging out one device leaves the other devices signed in",
+    (await call("/auth/me", { jar: devJar2 })).status === 200,
+    "other device still authenticated after a logout elsewhere",
+  );
+  record(
+    "the logged-out device is rejected",
+    (await call("/auth/me", { jar: laptop.cookies })).status === 401,
+    "logged-out device calls /auth/me",
+  );
 
   // ---- Employee role: RBAC + IDOR ---------------------------------------
   const emp = await loginReady("data.entry@anytimediesel.local", SEED_PASSWORD);

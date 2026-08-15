@@ -1,9 +1,10 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CreateLoginForm } from "@/components/users/CreateLoginForm";
 import { BulkLoginSheet } from "@/components/users/BulkLoginSheet";
 import { BulkEditLoginSheet } from "@/components/users/BulkEditLoginSheet";
+import { UserDevicesDialog } from "@/components/users/UserDevicesDialog";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +31,7 @@ import { ROLE_LABELS, type Branch, type Department, type User } from "@/types/do
 import { branchesApi, usersApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
 import { formatDisplayDate, formatDisplayDateTime, indiaDateKeyShift } from "@/lib/india-date";
-import { Plus, Trash2, Key, Loader2 } from "lucide-react";
+import { Plus, Trash2, Key, Loader2, MonitorSmartphone } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -75,6 +76,7 @@ function UsersPage() {
   const [deleteUser, setDeleteUser] = useState<User | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [devicesUser, setDevicesUser] = useState<User | null>(null);
   const [resetUser, setResetUser] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -84,6 +86,12 @@ function UsersPage() {
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+
+  const applyDeviceCount = useCallback((userId: string, count: number) => {
+    setUsers((current) =>
+      current.map((row) => (row.id === userId ? { ...row, activeDeviceCount: count } : row)),
+    );
+  }, []);
 
   useEffect(() => {
     loadUsers();
@@ -346,6 +354,10 @@ function UsersPage() {
                   <p className="text-muted-foreground">Last login</p>
                   <p className="mt-0.5">{formatLastLogin(user.lastLoginAt)}</p>
                 </div>
+                <div>
+                  <p className="text-muted-foreground">Devices</p>
+                  <p className="mt-0.5">{describeDeviceCount(user.activeDeviceCount)}</p>
+                </div>
                 {user.department && (
                   <div>
                     <p className="text-muted-foreground">Department</p>
@@ -362,6 +374,9 @@ function UsersPage() {
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <Button size="sm" variant="outline" onClick={() => openReset(user)}>
                   <Key className="h-4 w-4" /> Reset password
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setDevicesUser(user)}>
+                  <MonitorSmartphone className="h-4 w-4" /> Devices
                 </Button>
                 {user.role !== "developer_admin" &&
                   (user.active && !user.suspensionStartsAt ? (
@@ -406,6 +421,7 @@ function UsersPage() {
                 <TableHead>Employee ID</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Last login</TableHead>
+                <TableHead>Devices</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -424,8 +440,25 @@ function UsersPage() {
                   <TableCell className="text-xs text-muted-foreground">
                     {formatLastLogin(u.lastLoginAt)}
                   </TableCell>
+                  <TableCell className="text-xs">
+                    <button
+                      type="button"
+                      className="rounded underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => setDevicesUser(u)}
+                    >
+                      {describeDeviceCount(u.activeDeviceCount)}
+                    </button>
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setDevicesUser(u)}
+                        title="Signed-in devices"
+                      >
+                        <MonitorSmartphone className="h-4 w-4" />
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
@@ -602,6 +635,12 @@ function UsersPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <UserDevicesDialog
+        user={devicesUser}
+        onOpenChange={(open) => !open && setDevicesUser(null)}
+        onCountChange={applyDeviceCount}
+      />
+
       <Dialog open={!!resetUser} onOpenChange={(open) => !open && setResetUser(null)}>
         <DialogContent className="sm:max-w-md">
           <form onSubmit={performResetPassword}>
@@ -694,6 +733,11 @@ function canOffboardUser(user: User, currentUserId?: string) {
 function formatLastLogin(value?: string | null) {
   if (!value) return "Never";
   return formatDisplayDateTime(value);
+}
+
+function describeDeviceCount(count?: number) {
+  if (!count) return "None";
+  return count === 1 ? "1 device" : `${count} devices`;
 }
 
 function LoginStatus({ user }: { user: User }) {

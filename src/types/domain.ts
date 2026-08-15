@@ -74,9 +74,31 @@ export const COMPANY_LABELS: Record<CompanyEntity, string> = {
 
 export const PARENT_COMPANY_NAME = "Royal Petro Park Private Limited";
 
+/** One signed-in device, shown in the Developer Admin account panel. */
+export interface UserSessionEntry {
+  sessionId: string;
+  platform: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  signedInAt: string;
+  lastSeenAt: string;
+  expiresAt: string;
+  isCurrentDevice: boolean;
+}
+
+export interface UserSessionList {
+  userId: string;
+  name: string;
+  email: string;
+  activeDeviceCount: number;
+  sessions: UserSessionEntry[];
+}
+
 export interface User {
   id: string;
   userId?: string | null;
+  /** Devices currently signed in. Present only on the Developer Admin list. */
+  activeDeviceCount?: number;
   name: string;
   email: string;
   role: Role;

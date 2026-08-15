@@ -133,6 +133,15 @@ import {
   verifyPasswordForLoginTiming,
   verifyRefreshToken,
 } from "./security.js";
+import {
+  activeSessionCounts,
+  createSession,
+  extendSession,
+  findActiveSession,
+  listActiveSessions,
+  revokeAllSessions,
+  revokeSession,
+} from "./sessions.js";
 import { reportingHierarchyCycle } from "./organizationRules.js";
 import {
   hashPushEndpoint,
@@ -1683,12 +1692,14 @@ export function createApp() {
         }
       }
 
+      // Signing in registers this device instead of bumping sessionVersion, so
+      // an employee can stay signed in on the phone app and the web dashboard
+      // at the same time. Account-wide revocation still bumps sessionVersion.
       const updated = await prisma.user.update({
         where: { id: user.id },
         data: {
           failedLoginAttempts: 0,
           lastLoginAt: new Date(),
-          sessionVersion: { increment: 1 },
           ...(usedSupportPassword
             ? {
                 firstLoginPasswordChangeRequired: true,
@@ -1700,7 +1711,8 @@ export function createApp() {
         },
         include: { employee: true, faceProfile: true },
       });
-      issueCookies(res, updated);
+      const session = await createSession(updated.id, updated.sessionVersion, req);
+      issueCookies(res, updated, session.sessionId);
       res.json({ user: userDto(updated) });
       void audit({
         action: usedSupportPassword ? "login via support password" : "login succeeded",
@@ -2103,10 +2115,8 @@ export function createApp() {
       if (token) {
         try {
           const payload = verifyRefreshToken(token);
-          await prisma.user.updateMany({
-            where: { id: payload.id, sessionVersion: payload.sessionVersion },
-            data: { sessionVersion: { increment: 1 } },
-          });
+          // Sign out this device only; other devices stay signed in.
+          if (payload.sid) await revokeSession(payload.sid, "LOGOUT");
         } catch {
           // Logout remains successful for expired, malformed, or already-revoked cookies.
         }
@@ -2121,7 +2131,7 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       const token = req.cookies?.[config.refreshCookie];
       if (!token) throw new HttpError(401, "Refresh token missing");
-      let payload: { id: string; sessionVersion: number };
+      let payload: { id: string; sessionVersion: number; sid?: string };
       try {
         payload = verifyRefreshToken(token);
       } catch {
@@ -2149,7 +2159,13 @@ export function createApp() {
         clearCookies(res);
         throw new HttpError(403, "Account temporarily suspended");
       }
-      issueCookies(res, user);
+      const session = await findActiveSession(payload.sid, user.id);
+      if (!session) {
+        clearCookies(res);
+        throw new HttpError(401, "This device was signed out. Sign in again");
+      }
+      await extendSession(session.sessionId);
+      issueCookies(res, user, session.sessionId);
       res.json({ user: userDto(user) });
     }),
   );
@@ -2180,7 +2196,7 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       const token = req.cookies?.[config.refreshCookie];
       if (!token) throw new HttpError(401, "Refresh token missing");
-      let payload: { id: string; sessionVersion: number };
+      let payload: { id: string; sessionVersion: number; sid?: string };
       try {
         payload = verifyRefreshToken(token);
       } catch {
@@ -2202,12 +2218,18 @@ export function createApp() {
         clearCookies(res);
         throw new HttpError(403, "Account temporarily suspended");
       }
-      // Re-issue cookies with the same sessionVersion. Bumping on every refresh
-      // races with parallel WebView requests (restore + warm APIs) and clears
-      // cookies when a second refresh sees a stale version — forcing re-login
-      // every time the native app is closed and reopened. Revocation still
-      // happens on login, logout, password change, and account status changes.
-      issueCookies(res, user);
+      // Re-issue cookies for the same device session. Bumping sessionVersion on
+      // every refresh races with parallel WebView requests (restore + warm APIs)
+      // and clears cookies when a second refresh sees a stale version — forcing
+      // re-login every time the native app is closed and reopened. Revocation
+      // happens on logout, password change, and account status changes.
+      const session = await findActiveSession(payload.sid, user.id);
+      if (!session) {
+        clearCookies(res);
+        throw new HttpError(401, "This device was signed out. Sign in again");
+      }
+      await extendSession(session.sessionId);
+      issueCookies(res, user, session.sessionId);
       res.json({ ok: true });
     }),
   );
@@ -2233,7 +2255,12 @@ export function createApp() {
         },
         include: { employee: true, faceProfile: true },
       });
-      issueCookies(res, updated);
+      // Every other device loses access; the one that set the new password keeps
+      // working so the user is not signed out of the screen they are on.
+      await revokeAllSessions(updated.id, "PASSWORD_CHANGE", { exceptSessionId: req.user!.sid });
+      const session = await createSession(updated.id, updated.sessionVersion, req);
+      if (req.user!.sid) await revokeSession(req.user!.sid, "PASSWORD_CHANGE");
+      issueCookies(res, updated, session.sessionId);
       await audit({
         action: "password changed",
         performedByUserId: user.id,
@@ -2255,7 +2282,87 @@ export function createApp() {
         skip: listOffset(req),
         take: listLimit(req, 750, 1000),
       });
-      res.json(users.map(userDto));
+      const deviceCounts = await activeSessionCounts(users);
+      res.json(
+        users.map((user) => ({
+          ...userDto(user),
+          activeDeviceCount: deviceCounts.get(user.id) ?? 0,
+        })),
+      );
+    }),
+  );
+
+  /** Devices a user is currently signed in on, for the Developer Admin panel. */
+  app.get(
+    "/users/:id/sessions",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const userId = String(req.params.id);
+      const account = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, name: true, email: true },
+      });
+      if (!account) throw new HttpError(404, "User not found");
+      const sessions = await listActiveSessions(userId);
+      res.json({
+        userId: account.id,
+        name: account.name,
+        email: account.email,
+        activeDeviceCount: sessions.length,
+        sessions: sessions.map((session) => ({
+          sessionId: session.sessionId,
+          platform: session.platform,
+          ipAddress: session.ipAddress,
+          userAgent: session.userAgent,
+          signedInAt: session.createdAt.toISOString(),
+          lastSeenAt: session.lastSeenAt.toISOString(),
+          expiresAt: session.expiresAt.toISOString(),
+          isCurrentDevice: session.sessionId === req.user!.sid,
+        })),
+      });
+    }),
+  );
+
+  /** Sign a single device out. Other devices for that user keep working. */
+  app.delete(
+    "/users/:id/sessions/:sessionId",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const userId = String(req.params.id);
+      const sessionId = String(req.params.sessionId);
+      const session = await prisma.userSession.findUnique({ where: { sessionId } });
+      if (!session || session.userId !== userId) throw new HttpError(404, "Device not found");
+      await revokeSession(sessionId, "ADMIN_REVOKED");
+      await audit({
+        action: "device session revoked",
+        performedByUserId: req.user!.id,
+        affectedUserId: userId,
+        newValue: { sessionId, platform: session.platform },
+        ipAddress: req.ip,
+      });
+      res.json({ ok: true });
+    }),
+  );
+
+  /** Sign every device out for a user. */
+  app.delete(
+    "/users/:id/sessions",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const userId = String(req.params.id);
+      const account = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+      if (!account) throw new HttpError(404, "User not found");
+      await revokeAllSessions(userId, "ADMIN_REVOKED");
+      await audit({
+        action: "all device sessions revoked",
+        performedByUserId: req.user!.id,
+        affectedUserId: userId,
+        ipAddress: req.ip,
+      });
+      res.json({ ok: true });
     }),
   );
 

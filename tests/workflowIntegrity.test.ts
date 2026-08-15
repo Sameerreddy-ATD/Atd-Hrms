@@ -31,7 +31,7 @@ describe("account and employee workflow integrity", () => {
     expect(updateEmployeeSchema.safeParse({ dateOfBirth: "2999-01-01" }).success).toBe(false);
   });
 
-  it("embeds the revocable session version in both browser tokens", () => {
+  it("embeds the revocable session version and device id in both browser tokens", () => {
     const cookies = new Map<string, string>();
     issueCookies(
       {
@@ -48,10 +48,14 @@ describe("account and employee workflow integrity", () => {
         firstLoginPasswordChangeRequired: false,
         sessionVersion: 7,
       },
+      "device-session-1",
     );
     const tokens = [...cookies.values()];
     expect(verifyAccessToken(tokens[0]).sessionVersion).toBe(7);
     expect(verifyRefreshToken(tokens[1]).sessionVersion).toBe(7);
+    // Both tokens must name the device so one device can be signed out alone.
+    expect(verifyAccessToken(tokens[0]).sid).toBe("device-session-1");
+    expect(verifyRefreshToken(tokens[1]).sid).toBe("device-session-1");
   });
 });
 
