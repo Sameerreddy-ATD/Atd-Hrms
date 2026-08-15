@@ -30,7 +30,7 @@ function AppLayout() {
   const [faceRequired, setFaceRequired] = useState<boolean | null>(null);
   const [facePolicyError, setFacePolicyError] = useState("");
   const [allowedModules, setAllowedModules] = useState<ModuleKey[] | null | undefined>(null);
-  const [pageEnter, setPageEnter] = useState(true);
+  const [pageEnter, setPageEnter] = useState(false);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const userId = user?.id;
   const userRole = user?.role;
