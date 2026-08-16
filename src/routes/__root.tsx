@@ -1,6 +1,7 @@
 import "@/lib/array-at-polyfill";
 import { I18nextProvider } from "react-i18next";
-import i18n from "@/i18n";
+import { i18nForLocale, loadLocale } from "@/i18n";
+import { resolveRequestLocale } from "@/lib/request-locale";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -10,7 +11,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth";
@@ -96,6 +97,13 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  // Resolved before the first byte is rendered, and serialised into the page so
+  // the browser hydrates against the same language the server chose.
+  loader: async () => {
+    const locale = resolveRequestLocale();
+    await loadLocale(locale);
+    return { locale };
+  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -177,6 +185,8 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const { locale } = Route.useLoaderData();
+  const renderI18n = useMemo(() => i18nForLocale(locale), [locale]);
 
   useEffect(() => installClientErrorReporter(), []);
 
@@ -254,9 +264,11 @@ function RootComponent() {
   }, []);
 
   // Passing the instance through context (not just the module side effect) keeps
-  // translations working when the bundler splits @/i18n into its own chunk.
+  // translations working when the bundler splits @/i18n into its own chunk. On
+  // the server this is a per-request clone, so concurrent requests in different
+  // languages cannot overwrite each other mid-render.
   return (
-    <I18nextProvider i18n={i18n}>
+    <I18nextProvider i18n={renderI18n}>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}

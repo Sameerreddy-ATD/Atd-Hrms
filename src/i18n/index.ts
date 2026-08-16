@@ -22,11 +22,41 @@ export const LOCALE_PREF_KEYS: Record<
 
 export const LOCALE_STORAGE_KEY = "atd-locale";
 
+const LOCALE_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
+
 export function isAppLocale(value: unknown): value is AppLocale {
   return value === "en" || value === "te" || value === "hi";
 }
 
+/** Pulls the locale out of a `document.cookie` or request `Cookie` string. */
+export function readLocaleCookie(cookieHeader: string | null | undefined): AppLocale | null {
+  if (!cookieHeader) return null;
+  for (const part of cookieHeader.split(";")) {
+    const [name, ...rest] = part.split("=");
+    if (name.trim() !== LOCALE_STORAGE_KEY) continue;
+    const value = decodeURIComponent(rest.join("=").trim());
+    return isAppLocale(value) ? value : null;
+  }
+  return null;
+}
+
+/**
+ * The cookie is what lets the server render the reader's language. localStorage
+ * is kept in step for the inline script in the document head, which sets the
+ * lang attribute before any JavaScript bundle has loaded.
+ */
+function persistLocale(locale: AppLocale) {
+  if (typeof document !== "undefined") {
+    document.cookie = `${LOCALE_STORAGE_KEY}=${locale}; path=/; max-age=${LOCALE_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax`;
+  }
+  if (typeof localStorage !== "undefined") {
+    localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+  }
+}
+
 export function getStoredLocale(): AppLocale {
+  const fromCookie = typeof document === "undefined" ? null : readLocaleCookie(document.cookie);
+  if (fromCookie) return fromCookie;
   if (typeof localStorage === "undefined") return "en";
   const raw = localStorage.getItem(LOCALE_STORAGE_KEY);
   return isAppLocale(raw) ? raw : "en";
@@ -93,15 +123,33 @@ void i18n.use(initReactI18next).init({
 
 applyDocumentLocale(getStoredLocale());
 
-// Start the chosen language on its way before anything renders. Until it
-// lands, i18next serves the bundled English through fallbackLng.
-if (getStoredLocale() !== "en") void loadLocale(getStoredLocale());
+/**
+ * Prepares the browser to hydrate in `locale`, and writes the cookie so the
+ * next request is server-rendered in it too. Called from the client entry
+ * before hydration, which is what keeps the first client render identical to
+ * the server markup.
+ */
+export async function prepareClientLocale(locale: AppLocale) {
+  persistLocale(locale);
+  applyDocumentLocale(locale);
+  await loadLocale(locale);
+  if (i18n.language !== locale) await i18n.changeLanguage(locale);
+}
+
+/**
+ * Server-side rendering is concurrent, so the language cannot live on the
+ * shared instance — a second request in another language would change it
+ * mid-render. Each request renders through its own clone, which still reads
+ * from the one resource store.
+ */
+export function i18nForLocale(locale: AppLocale) {
+  if (typeof document !== "undefined") return i18n;
+  return i18n.cloneInstance({ lng: locale });
+}
 
 export async function setAppLocale(locale: AppLocale) {
   await loadLocale(locale);
-  if (typeof localStorage !== "undefined") {
-    localStorage.setItem(LOCALE_STORAGE_KEY, locale);
-  }
+  persistLocale(locale);
   applyDocumentLocale(locale);
   await i18n.changeLanguage(locale);
 }
