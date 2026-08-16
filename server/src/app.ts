@@ -324,6 +324,27 @@ export function createApp() {
     message: { error: "Too many sign-in attempts. Please wait and try again." },
   });
 
+  /**
+   * Rate limits the account being targeted rather than the address attempting
+   * it, so one office sharing a public IP cannot exhaust everyone's budget
+   * while a password guesser still runs out after a handful of tries.
+   */
+  const authIdentityLimiter = rateLimit({
+    windowMs: config.authRateLimitWindowMs,
+    limit: config.authIdentityRateLimitMax,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => {
+      const email = (req.body as { email?: unknown } | undefined)?.email;
+      if (typeof email === "string" && email.trim()) return `email:${email.trim().toLowerCase()}`;
+      // Requests with no account to attribute share one bucket; they fail
+      // schema validation anyway, so the only thing they can starve is
+      // other malformed requests.
+      return req.user?.id ? `user:${req.user.id}` : "unattributed";
+    },
+    message: { error: "Too many sign-in attempts for this account. Please wait and try again." },
+  });
+
   const verifyIdLimiter = rateLimit({
     windowMs: config.verifyIdRateLimitWindowMs,
     limit: config.verifyIdRateLimitMax,
@@ -1666,6 +1687,7 @@ export function createApp() {
   app.post(
     "/auth/login",
     authLimiter,
+    authIdentityLimiter,
     asyncHandler(async (req, res) => {
       const body = loginSchema.parse(req.body);
       const genericInvalid = "Invalid email address or password.";
@@ -1789,6 +1811,7 @@ export function createApp() {
   app.post(
     "/auth/forgot-password",
     authLimiter,
+    authIdentityLimiter,
     asyncHandler(async (req, res) => {
       const body = forgotPasswordSchema.parse(req.body);
       const email = body.email.toLowerCase();
@@ -2293,6 +2316,7 @@ export function createApp() {
     "/auth/change-password",
     requireAuth,
     authLimiter,
+    authIdentityLimiter,
     asyncHandler(async (req, res) => {
       const body = changePasswordSchema.parse(req.body);
       const user = await prisma.user.findUniqueOrThrow({ where: { id: req.user!.id } });
