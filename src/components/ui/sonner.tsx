@@ -25,7 +25,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--width": "min(20rem, calc(100vw - 2rem))",
         } as React.CSSProperties
       }
-      duration={2500}
+      duration={1000}
       gap={8}
       icons={{
         success: <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" />,

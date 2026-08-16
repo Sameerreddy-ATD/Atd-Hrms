@@ -279,7 +279,7 @@ function RootComponent() {
             <StoreUpdateGate />
             <SystemThemeSync />
             <NotificationBridge />
-            <Toaster position="top-center" offset="calc(var(--atd-sat, 0px) + 12px)" />
+            <Toaster position="bottom-center" offset="calc(var(--atd-sab, 0px) + 16px)" />
           </div>
         </AuthProvider>
       </QueryClientProvider>
