@@ -75,6 +75,22 @@ npm run repo:audit
 
 Run it before every commit and after adding, moving, or deleting documentation.
 
+## `check-i18n-keys.ts`
+
+Compares every translation key the UI references against the English, Telugu, and Hindi locale
+files. A missing key is a user-visible bug: i18next falls back to printing the key itself, so a
+button reads `pages.assets.tabEquipment` instead of "Employee equipment". The check also reports
+keys defined in English but absent from the other languages, and duplicate keys inside a locale
+file, where the later copy silently wins.
+
+```bash
+npm run check:i18n
+```
+
+Keys assembled at runtime, such as `` t(`pages.settings.moduleLabels.${module}`) ``, cannot be
+verified and are listed at the end of a passing run so they can be checked by hand. `npm run build`
+runs this script through `prebuild`, so a missing key fails the build instead of reaching users.
+
 ## `smoke-tasks.ps1`
 
 Runs the complete Work Planner flow against a disposable local database: board creation/configuration,

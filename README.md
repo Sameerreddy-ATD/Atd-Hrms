@@ -195,6 +195,7 @@ npx prisma validate
 npm run repo:audit
 npm run typecheck
 npm run lint
+npm run check:i18n
 npm test
 npm run build
 npm run build:backend
@@ -204,6 +205,11 @@ npm run audit:deps
 
 Use `npm run db:verify` and `npm run db:audit` when the configured MySQL database is available.
 The audit is read-only and verifies every foreign key plus cross-table business invariants.
+
+`npm run check:i18n` compares every translation key used in the UI against the English, Telugu,
+and Hindi locale files and fails on anything missing, so a key never renders on screen as literal
+text like `pages.assets.tabEquipment`. It also reports keys that exist in English but not the other
+languages, and duplicate keys inside a locale file. `npm run build` runs it automatically.
 
 ## Security and Data Rules
 
