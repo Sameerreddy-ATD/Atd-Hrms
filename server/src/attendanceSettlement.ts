@@ -244,17 +244,22 @@ export async function processMissedCheckouts(now = new Date()) {
     await recalculateDailySummary(employeeId, latest.eventDate);
 
     const tag = `missed-checkout-${employeeId}-${latest.eventDate.toISOString().slice(0, 10)}`;
-    const reminder = await prisma.attendanceReminder
-      .create({
-        data: {
+    // Same idempotency shape as the missed check-in sweep above: the insert
+    // decides ownership. A plain create() here threw on every later sweep for
+    // an employee who already had the reminder, and the swallowed rejection
+    // still cost a round trip and logged a prisma:error each tick.
+    const inserted = await prisma.attendanceReminder.createMany({
+      data: [
+        {
           employeeId,
           eventId: tag,
           eventDate: latest.eventDate,
           eventTime: deadline,
         },
-      })
-      .catch(() => null);
-    if (!reminder) continue;
+      ],
+      skipDuplicates: true,
+    });
+    if (inserted.count === 0) continue;
 
     const userId = users.get(employeeId);
     publishNotificationChange("attendance-missed-checkout", tag);
