@@ -60,8 +60,10 @@ function matchPathIndex(paths: string[], pathname: string) {
 }
 
 /**
- * Carousel-style drag / swipe between sidebar destinations (mouse + touch).
- * Drag left → next menu page, drag right → previous — same idea as dashboard cards.
+ * Carousel-style swipe between sidebar destinations, touch screens only.
+ * Swipe left for the next menu page, right for the previous one. Pointer
+ * drags are ignored on desktop, where a stray mouse drag over a table or
+ * card would navigate away from the page instead of selecting text.
  */
 export function PageSwipeNavigator({
   paths,
@@ -116,12 +118,12 @@ export function PageSwipeNavigator({
 
   const onPointerDown = useCallback(
     (event: React.PointerEvent) => {
-      if (openMobile) return;
+      if (!isMobile || openMobile) return;
       if (paths.length < 2 || index < 0) return;
-      if (event.pointerType === "mouse" && event.button !== 0) return;
+      if (event.pointerType === "mouse") return;
       if (isInteractiveTarget(event.target)) return;
       // Leave the left edge for the mobile menu drawer gesture.
-      if (isMobile && event.clientX <= EDGE_GUARD_PX) return;
+      if (event.clientX <= EDGE_GUARD_PX) return;
 
       widthRef.current = (event.currentTarget as HTMLElement).clientWidth || window.innerWidth;
       sessionRef.current = {
@@ -218,7 +220,7 @@ export function PageSwipeNavigator({
       )}
       style={{
         transform: offsetX ? `translate3d(${offsetX}px, 0, 0)` : undefined,
-        touchAction: "pan-y",
+        touchAction: isMobile ? "pan-y" : undefined,
       }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
