@@ -1,4 +1,4 @@
-import bcrypt from "bcryptjs";
+import { hash as bcryptHash, verify as bcryptVerify } from "@node-rs/bcrypt";
 import type { Response } from "express";
 import jwt from "jsonwebtoken";
 import type { Role, User } from "@prisma/client";
@@ -26,12 +26,24 @@ const cookieOptions = {
 /** Precomputed bcrypt hash used only to equalize login timing for unknown emails. */
 const LOGIN_TIMING_DUMMY_HASH = "$2a$12$CdGAMCWpSeIMX4GNum3D1eKMGW2Wv29eVWFWsVtTODtDuwliModBe";
 
+const BCRYPT_COST = 12;
+
+/**
+ * Hashing runs on the libuv thread pool, not the event loop.
+ *
+ * The pure-JS bcryptjs this replaced held the single Node thread for ~375ms per
+ * comparison — measured on the production box, the loop ticked 5 times out of an
+ * expected 789 across 20 concurrent logins. A shift-start sign-in rush therefore
+ * stalled attendance punches and face verification behind it. Hashes are
+ * interchangeable in both directions ($2a$ from before still verifies, and the
+ * $2b$ written now is readable by bcryptjs), so this is reversible.
+ */
 export async function hashPassword(password: string) {
-  return bcrypt.hash(password, 12);
+  return bcryptHash(password, BCRYPT_COST);
 }
 
 export async function verifyPassword(password: string, hash: string) {
-  return bcrypt.compare(password, hash);
+  return bcryptVerify(password, hash);
 }
 
 /** Run a password compare even when the account is unknown (timing hardening). */
