@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { cpus } from "node:os";
 
 export function parseTrustProxy(value?: string): string | number | boolean {
   const normalized = value?.trim();
@@ -22,7 +23,15 @@ export const config = {
   // stricter limiter while regular dashboard traffic can tolerate shared NAT.
   generalRateLimitMax: Number(process.env.GENERAL_RATE_LIMIT_MAX ?? 12000),
   authRateLimitWindowMs: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS ?? 15 * 60 * 1000),
-  authRateLimitMax: Number(process.env.AUTH_RATE_LIMIT_MAX ?? 50),
+  /**
+   * Per-IP ceiling. A whole office arrives behind one NAT address, so at the
+   * old budget of 50 the fifty-first person to sign in on a shift change was
+   * locked out for fifteen minutes. Brute force is held off per account by
+   * authIdentityRateLimitMax instead, which is what makes this headroom safe.
+   */
+  authRateLimitMax: Number(process.env.AUTH_RATE_LIMIT_MAX ?? 300),
+  /** Attempts allowed against a single account, regardless of source address. */
+  authIdentityRateLimitMax: Number(process.env.AUTH_IDENTITY_RATE_LIMIT_MAX ?? 10),
   verifyIdRateLimitWindowMs: Number(process.env.VERIFY_ID_RATE_LIMIT_WINDOW_MS ?? 15 * 60 * 1000),
   verifyIdRateLimitMax: Number(process.env.VERIFY_ID_RATE_LIMIT_MAX ?? 60),
   uploadRateLimitWindowMs: Number(process.env.UPLOAD_RATE_LIMIT_WINDOW_MS ?? 15 * 60 * 1000),
@@ -41,6 +50,20 @@ export const config = {
    * are ignored. Turning it off restores the (forgeable) client-trust model.
    */
   faceServerInference: process.env.FACE_SERVER_INFERENCE !== "false",
+  /**
+   * Worker threads running face inference. One per spare core: a detect pins its
+   * thread outright, so oversubscribing steals time from the event loop that
+   * still has to answer every other request.
+   */
+  faceInferenceWorkers: Number(
+    process.env.FACE_INFERENCE_WORKERS ?? Math.max(1, Math.min(4, cpus().length - 1)),
+  ),
+  /**
+   * Frames allowed to wait for a worker. At roughly two verifications a second
+   * a deeper queue would outlive the request timeout, so the frame is refused
+   * with a retry message instead of dying as a stalled connection.
+   */
+  faceInferenceQueueLimit: Number(process.env.FACE_INFERENCE_QUEUE_LIMIT ?? 40),
   sessionCookie: process.env.SESSION_COOKIE_NAME ?? "adh_session",
   refreshCookie: process.env.REFRESH_COOKIE_NAME ?? "adh_refresh",
   secureCookies: process.env.COOKIE_SECURE === "true" || process.env.NODE_ENV === "production",
