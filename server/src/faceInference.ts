@@ -208,14 +208,19 @@ export async function analyzeFaceFrame(dataUrl: string): Promise<FaceFrameAnalys
   const jpeg = new Uint8Array(decoded.length);
   jpeg.set(decoded);
 
-  // Past this depth the wait would outlast the request timeout anyway, and a
-  // frame the employee can retry beats a connection that dies silently.
-  if (queue.length >= config.faceInferenceQueueLimit) {
-    throw new HttpError(503, "Face verification is busy right now. Please try again in a moment.");
-  }
-
   await loadFaceInference();
   return new Promise<FaceFrameAnalysis>((resolve, reject) => {
+    // Measured at the moment of joining, not before the await above: a burst
+    // that arrives together would otherwise every one of them read an empty
+    // queue and enqueue anyway, which is exactly the case the cap exists for.
+    // Past this depth the wait outlasts the request timeout, and a frame the
+    // employee can retry beats a connection that dies holding it.
+    if (queue.length >= config.faceInferenceQueueLimit) {
+      reject(
+        new HttpError(503, "Face verification is busy right now. Please try again in a moment."),
+      );
+      return;
+    }
     queue.push({ jpeg, resolve, reject });
     drain();
   });
