@@ -376,6 +376,54 @@ function DashboardPage() {
   );
 }
 
+/**
+ * Owns the one-second tick for the running work timer.
+ *
+ * The clock used to live in MarkAttendanceCard, so every second re-rendered
+ * that whole card — punch buttons, branch panels, face capture triggers — to
+ * advance a single line of text. Keeping the state down here means the tick
+ * repaints only the duration.
+ */
+function LiveWorkedTime({
+  baseMilliseconds,
+  since,
+}: {
+  baseMilliseconds: number;
+  /** Start of the currently open stretch, or null when the day is closed. */
+  since: number | null;
+}) {
+  const { t } = useTranslation();
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (since === null) return;
+    const tick = () => {
+      if (document.visibilityState === "visible") setNow(Date.now());
+    };
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, [since]);
+
+  const label = formatWorkedTime(
+    since === null ? baseMilliseconds : baseMilliseconds + Math.max(0, now - since),
+  );
+
+  return (
+    <p
+      className="font-mono text-2xl font-semibold tabular-nums text-foreground min-[360px]:text-3xl sm:text-4xl"
+      aria-live="polite"
+      aria-label={`${t("pages.dashboard.workedToday")} ${label}`}
+    >
+      {label}
+    </p>
+  );
+}
+
 function DashboardSkeleton() {
   const { t } = useTranslation();
   return (
@@ -460,20 +508,22 @@ function MarkAttendanceCard({
   const { t } = useTranslation();
   const [actionLoading, setActionLoading] = useState(false);
   const [faceAction, setFaceAction] = useState<"check-in" | "check-out" | null>(null);
-  const [clockNow, setClockNow] = useState(() => Date.now());
   const [optimisticSession, setOptimisticSession] = useState<{
     state: "CHECKED_IN" | "CHECKED_OUT";
     startedAt?: number;
   } | null>(null);
   const [leaveCheckIn, setLeaveCheckIn] = useState<AttendanceCapture | null>(null);
-  const workSession = useMemo(() => workedTime(timeline, clockNow), [clockNow, timeline]);
+  // Nothing here depends on the passing second any more; only the open stretch
+  // does, and LiveWorkedTime tracks that on its own.
+  const workSession = useMemo(() => workedTime(timeline), [timeline]);
   const isCheckedIn = optimisticSession
     ? optimisticSession.state === "CHECKED_IN"
     : workSession.isCheckedIn;
-  const workedMilliseconds =
-    optimisticSession?.state === "CHECKED_IN" && optimisticSession.startedAt
-      ? workSession.milliseconds + Math.max(0, clockNow - optimisticSession.startedAt)
-      : workSession.milliseconds;
+  const runningSince = isCheckedIn
+    ? optimisticSession?.state === "CHECKED_IN" && optimisticSession.startedAt
+      ? optimisticSession.startedAt
+      : workSession.activeStart
+    : null;
   const effectiveFirstCheckIn =
     workSession.firstCheckIn ??
     (optimisticSession?.state === "CHECKED_IN" && optimisticSession.startedAt
@@ -489,20 +539,6 @@ function MarkAttendanceCard({
     : t("pages.dashboard.notCheckedIn");
   const homeBranch = branches.find((branch) => branch.id === user.homeBranchId);
   const branchName = formatBranchLocationLabel(homeBranch);
-
-  useEffect(() => {
-    setClockNow(Date.now());
-    if (!isCheckedIn) return;
-    const tick = () => {
-      if (document.visibilityState === "visible") setClockNow(Date.now());
-    };
-    const timer = window.setInterval(tick, 1000);
-    document.addEventListener("visibilitychange", tick);
-    return () => {
-      window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", tick);
-    };
-  }, [isCheckedIn]);
 
   useEffect(() => {
     if (!optimisticSession) return;
@@ -609,7 +645,6 @@ function MarkAttendanceCard({
         confirmLeaveCancellation,
       });
       setOptimisticSession({ state: "CHECKED_IN", startedAt: Date.now() });
-      setClockNow(Date.now());
       setLeaveCheckIn(null);
       toast.success(t("pages.dashboard.toastCheckedIn"));
       onAttendanceChanged();
@@ -744,13 +779,14 @@ function MarkAttendanceCard({
               <p className="text-xs font-medium text-muted-foreground">
                 {t("pages.dashboard.workedToday")}
               </p>
-              <p
-                className="font-mono text-2xl font-semibold tabular-nums text-foreground min-[360px]:text-3xl sm:text-4xl"
-                aria-live="polite"
-                aria-label={`${t("pages.dashboard.workedToday")} ${formatWorkedTime(workedMilliseconds)}`}
-              >
-                {formatWorkedTime(workedMilliseconds)}
-              </p>
+              <LiveWorkedTime
+                baseMilliseconds={
+                  runningSince === null
+                    ? workSession.milliseconds
+                    : workSession.completedMilliseconds
+                }
+                since={runningSince}
+              />
             </div>
           </div>
           <div className="grid grid-cols-2 divide-x divide-border/60">
@@ -870,7 +906,12 @@ function ManagerDashboard({
           icon={UserCheck}
           tone="success"
         />
-        <StatCard label={t("pages.dashboard.onLeave")} value={data.onLeave} icon={PlaneTakeoff} tone="info" />
+        <StatCard
+          label={t("pages.dashboard.onLeave")}
+          value={data.onLeave}
+          icon={PlaneTakeoff}
+          tone="info"
+        />
         <StatCard
           label={t("pages.dashboard.pendingLeaveApprovals")}
           value={data.pendingLeaves}
@@ -968,7 +1009,11 @@ function HRDashboard({
           icon={AlertTriangle}
           tone="warning"
         />
-        <StatCard label={t("pages.dashboard.fieldPresent")} value={data.fieldPresent} icon={MapPin} />
+        <StatCard
+          label={t("pages.dashboard.fieldPresent")}
+          value={data.fieldPresent}
+          icon={MapPin}
+        />
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2">
@@ -1211,7 +1256,8 @@ function CEODashboard({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-sm">
-              <BriefcaseBusiness className="h-4 w-4 text-primary" /> {t("pages.dashboard.workDelivery")}
+              <BriefcaseBusiness className="h-4 w-4 text-primary" />{" "}
+              {t("pages.dashboard.workDelivery")}
             </CardTitle>
             <p className="text-xs text-muted-foreground">{t("pages.dashboard.workDeliveryHelp")}</p>
           </CardHeader>
@@ -1242,7 +1288,10 @@ function CEODashboard({
             <p className="text-xs text-muted-foreground">{t("pages.dashboard.investmentHelp")}</p>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <ExecutiveMetric label={t("pages.dashboard.employeesEquipped")} value={investments.length} />
+            <ExecutiveMetric
+              label={t("pages.dashboard.employeesEquipped")}
+              value={investments.length}
+            />
             <ExecutiveMetric
               label={t("pages.dashboard.monthlyRecurring")}
               value={formatCompactInr(investmentSummary.monthly)}
@@ -1616,7 +1665,9 @@ function TeamAttendanceCard({
           </Table>
         </div>
         {todayRows.length === 0 && (
-          <p className="p-5 text-sm text-muted-foreground">{t("pages.dashboard.noAttendanceToday")}</p>
+          <p className="p-5 text-sm text-muted-foreground">
+            {t("pages.dashboard.noAttendanceToday")}
+          </p>
         )}
       </CardContent>
     </Card>

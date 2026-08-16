@@ -40,6 +40,12 @@ export function workedTime(timeline: TimelinePunch[], now = Date.now()) {
     activeStart,
     firstCheckIn,
     isCheckedIn: activeStart !== null,
+    /**
+     * Closed intervals only. Exposed separately so a live counter can add the
+     * open stretch itself every second without the caller having to recompute
+     * the whole session — and re-render everything around it — on each tick.
+     */
+    completedMilliseconds,
     milliseconds:
       completedMilliseconds + (activeStart === null ? 0 : Math.max(0, now - activeStart)),
   };
