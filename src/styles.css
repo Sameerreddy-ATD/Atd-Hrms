@@ -1116,3 +1116,54 @@
     transition: none;
   }
 }
+
+/* Toasts.
+
+   Sonner ships an opaque 356px card with a 16px pad and a drop shadow, in its
+   own system font stack, stretched edge to edge below 600px. At that size a
+   "Saved" confirmation reads as a page-level banner rather than something
+   passing through.
+
+   These rules live here rather than in the component because Tailwind wraps
+   `group-[.toaster]:` variants in `:where()`, which zeroes their specificity —
+   they tie with sonner's own selectors and lose on source order, since sonner
+   injects its stylesheet at runtime. Matching sonner's `[data-styled]` hook and
+   adding element specificity is what actually wins. */
+html body [data-sonner-toaster] {
+  font-family: inherit;
+}
+
+html body [data-sonner-toast][data-styled="true"] {
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+  border-radius: 0.75rem;
+  background: color-mix(in oklab, var(--background) 82%, transparent);
+  color: var(--foreground);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
+  font-size: 13px;
+  line-height: 1.35;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+/* Sonner hardcodes #3f3f3f here, which ignores the theme in both modes. */
+html body [data-sonner-toast][data-styled="true"] [data-description] {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+/* Below 600px sonner goes full-bleed and drops the centring transform. */
+@media (max-width: 600px) {
+  html body [data-sonner-toaster][data-x-position="center"] {
+    right: auto;
+    left: 50%;
+    width: var(--width);
+    transform: translateX(-50%);
+  }
+
+  html body [data-sonner-toaster] [data-sonner-toast] {
+    width: 100%;
+  }
+}
