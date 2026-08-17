@@ -266,6 +266,11 @@ export const departmentSchema = z.object({
 
 export const departmentUpdateSchema = departmentSchema.partial();
 
+export const departmentReorderSchema = z.object({
+  parentDepartmentId: z.string().nullable(),
+  orderedIds: z.array(z.string().min(1)).min(1).max(200),
+});
+
 export const taskSchema = z
   .object({
     title: z.string().trim().min(2).max(200),

@@ -192,6 +192,7 @@ import {
   expenseClaimSchema,
   departmentSchema,
   departmentUpdateSchema,
+  departmentReorderSchema,
   holidaySchema,
   holidayUpdateSchema,
   shiftDefinitionSchema,
@@ -3616,13 +3617,19 @@ export function createApp() {
         });
       }
       const department = await prisma.$transaction(async (tx) => {
+        const siblingMax = await tx.department.aggregate({
+          where: { parentDepartmentId: body.parentDepartmentId ?? null },
+          _max: { sortOrder: true },
+        });
+        const nextSortOrder =
+          body.sortOrder ?? (siblingMax._max.sortOrder ?? -1) + 1;
         const created = await tx.department.create({
           data: {
             name: body.name,
             headEmployeeId: headEmployeeIds[0] ?? undefined,
             parentDepartmentId: body.parentDepartmentId ?? undefined,
             unitType: body.unitType ?? "TEAM",
-            sortOrder: body.sortOrder ?? 0,
+            sortOrder: nextSortOrder,
             faceVerificationEnabled: body.faceVerificationEnabled ?? true,
           },
         });
@@ -3643,6 +3650,51 @@ export function createApp() {
         ipAddress: req.ip,
       });
       res.status(201).json(departmentDto(department));
+    }),
+  );
+
+  app.post(
+    "/departments/reorder",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const body = departmentReorderSchema.parse(req.body);
+      const siblings = await prisma.department.findMany({
+        where: { parentDepartmentId: body.parentDepartmentId },
+        select: { departmentId: true },
+      });
+      const siblingIds = new Set(siblings.map((row) => row.departmentId));
+      if (
+        body.orderedIds.length !== siblingIds.size ||
+        !body.orderedIds.every((id) => siblingIds.has(id))
+      ) {
+        throw new HttpError(
+          400,
+          "orderedIds must list every organizational unit under that parent exactly once",
+        );
+      }
+      await prisma.$transaction(
+        body.orderedIds.map((departmentId, index) =>
+          prisma.department.update({
+            where: { departmentId },
+            data: { sortOrder: index },
+          }),
+        ),
+      );
+      await audit({
+        action: "departments reordered",
+        performedByUserId: req.user!.id,
+        newValue: {
+          parentDepartmentId: body.parentDepartmentId,
+          orderedIds: body.orderedIds,
+        },
+        ipAddress: req.ip,
+      });
+      const departments = await prisma.department.findMany({
+        include: departmentInclude,
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      });
+      res.json(departments.map(departmentDto));
     }),
   );
 

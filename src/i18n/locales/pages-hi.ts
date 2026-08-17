@@ -331,6 +331,8 @@ const pages = {
     orgChartTitle: "संगठन चार्ट",
     tapToExpand: "नीचे की टीमों को विस्तृत करने के लिए इकाई पर टैप करें।",
     dragScrollbar: "चार्ट में आगे बढ़ने के लिए नीचे की स्क्रॉलबार खींचें।",
+    dragToReorder: "इकाइयाँ व्यवस्थित करने के लिए ग्रिप हैंडल खींचें। नई इकाइयाँ अंत में जुड़ती हैं।",
+    toastReordered: "संगठन क्रम अपडेट हो गया",
     leadershipLabel: "Leadership",
     ceoTitle: "Chief Executive Officer",
     orgUnitsLabel: "संगठन इकाइयाँ",

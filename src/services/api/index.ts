@@ -823,6 +823,14 @@ export const branchesApi = {
     },
   ) => request<Department>(`/departments/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteDepartment: (id: string) => request<Department>(`/departments/${id}`, { method: "DELETE" }),
+  reorderDepartments: (payload: {
+    parentDepartmentId: string | null;
+    orderedIds: string[];
+  }) =>
+    request<Department[]>("/departments/reorder", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 };
 
 type CompanyAssetPayload = Omit<

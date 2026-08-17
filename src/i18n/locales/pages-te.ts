@@ -331,6 +331,8 @@ const pages = {
     orgChartTitle: "సంస్థా చార్ట్",
     tapToExpand: "కింద ఉన్న టీమ్‌లను విస్తరించడానికి యూనిట్‌ను నొక్కండి.",
     dragScrollbar: "చార్ట్ అంతటా వెళ్లడానికి కింది స్క్రాల్‌బార్‌ను లాగండి.",
+    dragToReorder: "యూనిట్లను అమర్చడానికి గ్రిప్ హ్యాండిల్‌ను లాగండి. కొత్త యూనిట్లు చివర జోడవుతాయి.",
+    toastReordered: "సంస్థ క్రమం నవీకరించబడింది",
     leadershipLabel: "Leadership",
     ceoTitle: "Chief Executive Officer",
     orgUnitsLabel: "సంస్థా యూనిట్‌లు",

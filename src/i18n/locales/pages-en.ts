@@ -332,6 +332,8 @@ const pages = {
     orgChartTitle: "Organization chart",
     tapToExpand: "Tap a unit to expand teams underneath.",
     dragScrollbar: "Drag the lower scrollbar to move across the chart.",
+    dragToReorder: "Drag the grip handle to rearrange units. New units are added at the end.",
+    toastReordered: "Organization order updated",
     leadershipLabel: "Leadership",
     ceoTitle: "Chief Executive Officer",
     orgUnitsLabel: "Organization units",

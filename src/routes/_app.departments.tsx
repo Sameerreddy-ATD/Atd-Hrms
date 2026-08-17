@@ -47,6 +47,7 @@ import { branchesApi, employeesApi } from "@/services/api";
 import {
   ChevronDown,
   Crown,
+  GripVertical,
   Network,
   Pencil,
   Plus,
@@ -64,6 +65,10 @@ export const Route = createFileRoute("/_app/departments")({
 
 /** Reserved unit that holds multiple heads under the CEO / Leadership card. */
 const EXECUTIVE_LEADERSHIP_NAME = "Executive Leadership";
+
+function byDepartmentOrder(a: Department, b: Department) {
+  return (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name);
+}
 
 function isExecutiveLeadership(department: Department) {
   return department.name.trim().toLowerCase() === EXECUTIVE_LEADERSHIP_NAME.toLowerCase();
@@ -105,6 +110,9 @@ function DeptPage() {
   const [error, setError] = useState("");
   const [zoom, setZoom] = useState(0.8);
   const [expandedUnits, setExpandedUnits] = useState<Set<string>>(() => new Set());
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
 
   function toggleUnit(unitId: string) {
     setExpandedUnits((current) => {
@@ -175,7 +183,7 @@ function DeptPage() {
     () =>
       departments
         .filter((department) => !department.parentDepartmentId)
-        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
+        .sort(byDepartmentOrder),
     [departments],
   );
   /** Org units shown under Leadership (hide the reserved CEO heads unit). */
@@ -189,8 +197,78 @@ function DeptPage() {
   const childrenOf = (parentId: string) =>
     departments
       .filter((department) => department.parentDepartmentId === parentId)
-      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+      .sort(byDepartmentOrder);
   const chartWidth = Math.max(1120, chartTopLevelDepartments.length * 388 - 28);
+
+  function applyDepartmentList(next: Department[]) {
+    setDepartments([...next].sort(byDepartmentOrder));
+  }
+
+  async function reorderSiblings(parentDepartmentId: string | null, orderedIds: string[]) {
+    setReordering(true);
+    try {
+      const next = await branchesApi.reorderDepartments({ parentDepartmentId, orderedIds });
+      applyDepartmentList(next);
+      toast.success(t("pages.departments.toastReordered"));
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setReordering(false);
+      setDraggingId(null);
+      setDropTargetId(null);
+    }
+  }
+
+  function moveSiblingBefore(
+    parentDepartmentId: string | null,
+    draggedId: string,
+    targetId: string,
+  ) {
+    if (draggedId === targetId) return;
+    const dragged = departments.find((department) => department.id === draggedId);
+    const target = departments.find((department) => department.id === targetId);
+    if (!dragged || !target) return;
+    const draggedParent = dragged.parentDepartmentId ?? null;
+    const targetParent = target.parentDepartmentId ?? null;
+    if (draggedParent !== targetParent) return;
+    if (parentDepartmentId !== null && draggedParent !== parentDepartmentId) return;
+
+    if (!parentDepartmentId) {
+      const visible = departments
+        .filter(
+          (department) =>
+            !department.parentDepartmentId && !isExecutiveLeadership(department),
+        )
+        .sort(byDepartmentOrder);
+      const without = visible.filter((department) => department.id !== draggedId);
+      const targetIndex = without.findIndex((department) => department.id === targetId);
+      if (targetIndex < 0) return;
+      without.splice(targetIndex, 0, dragged);
+      const hidden = departments
+        .filter(
+          (department) =>
+            !department.parentDepartmentId && isExecutiveLeadership(department),
+        )
+        .sort(byDepartmentOrder);
+      void reorderSiblings(
+        null,
+        [...without, ...hidden].map((department) => department.id),
+      );
+      return;
+    }
+
+    const siblings = departments
+      .filter((department) => department.parentDepartmentId === parentDepartmentId)
+      .sort(byDepartmentOrder);
+    const without = siblings.filter((department) => department.id !== draggedId);
+    const targetIndex = without.findIndex((department) => department.id === targetId);
+    if (targetIndex < 0) return;
+    without.splice(targetIndex, 0, dragged);
+    void reorderSiblings(
+      parentDepartmentId,
+      without.map((department) => department.id),
+    );
+  }
 
   function resetForm() {
     setEditing(null);
@@ -227,7 +305,7 @@ function DeptPage() {
           parentDepartmentId: null,
           unitType: "TEAM",
         });
-        setDepartments((prev) => [...prev, unit!].sort((a, b) => a.name.localeCompare(b.name)));
+        setDepartments((prev) => [...prev, unit!].sort(byDepartmentOrder));
       }
       setEditing(null);
       setAssignCeoHeads(true);
@@ -297,9 +375,7 @@ function DeptPage() {
       if (assignCeoHeads) {
         const saved = await branchesApi.updateDepartment(ceoHeadsUnitId, { headEmployeeIds });
         setDepartments((prev) =>
-          prev
-            .map((row) => (row.id === saved.id ? saved : row))
-            .sort((a, b) => a.name.localeCompare(b.name)),
+          prev.map((row) => (row.id === saved.id ? saved : row)).sort(byDepartmentOrder),
         );
         toast.success(t("pages.departments.toastCeoHeadsUpdated"));
         resetForm();
@@ -322,7 +398,7 @@ function DeptPage() {
         : await branchesApi.createDepartment(payload);
       setDepartments((prev) =>
         (editing ? prev.map((row) => (row.id === saved.id ? saved : row)) : [...prev, saved]).sort(
-          (a, b) => a.name.localeCompare(b.name),
+          byDepartmentOrder,
         ),
       );
       toast.success(
@@ -361,8 +437,25 @@ function DeptPage() {
   function renderChildNode(department: Department): ReactNode {
     const children = childrenOf(department.id);
     const isExpanded = expandedUnits.has(department.id);
+    const parentId = department.parentDepartmentId ?? null;
+    const isDropTarget = dropTargetId === department.id && draggingId !== department.id;
     return (
-      <div key={department.id} className="relative">
+      <div
+        key={department.id}
+        className={`relative ${isDropTarget ? "rounded-md ring-2 ring-primary/40" : ""} ${
+          draggingId === department.id ? "opacity-50" : ""
+        }`}
+        onDragOver={(event) => {
+          if (!draggingId || draggingId === department.id) return;
+          event.preventDefault();
+          setDropTargetId(department.id);
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          if (!draggingId) return;
+          moveSiblingBefore(parentId, draggingId, department.id);
+        }}
+      >
         <div
           className="relative cursor-pointer rounded-md border border-border bg-background p-3 shadow-sm transition-[border-color,box-shadow,transform] duration-200 before:absolute before:-left-4 before:top-6 before:h-px before:w-4 before:animate-pulse before:border-t before:border-dashed before:border-primary/60 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
           role="button"
@@ -377,19 +470,40 @@ function DeptPage() {
           }}
         >
           <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="break-words text-sm font-semibold text-foreground">{department.name}</p>
-              <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <UserRound className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">
-                  {headsLabel(department, t("pages.departments.headNotAssigned"))}
-                </span>
-              </p>
-              <p className="mt-1 text-[11px] font-medium text-muted-foreground">
-                {department.faceVerificationEnabled === false
-                  ? t("pages.departments.faceOff")
-                  : t("pages.departments.faceOn")}
-              </p>
+            <div className="flex min-w-0 items-start gap-1.5">
+              <button
+                type="button"
+                draggable
+                title={t("pages.departments.dragToReorder")}
+                aria-label={t("pages.departments.dragToReorder")}
+                className="mt-0.5 cursor-grab touch-none rounded p-0.5 text-muted-foreground hover:bg-muted active:cursor-grabbing"
+                onClick={(event) => event.stopPropagation()}
+                onDragStart={(event) => {
+                  event.stopPropagation();
+                  setDraggingId(department.id);
+                  event.dataTransfer.effectAllowed = "move";
+                }}
+                onDragEnd={() => {
+                  setDraggingId(null);
+                  setDropTargetId(null);
+                }}
+              >
+                <GripVertical className="h-4 w-4" />
+              </button>
+              <div className="min-w-0">
+                <p className="break-words text-sm font-semibold text-foreground">{department.name}</p>
+                <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <UserRound className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">
+                    {headsLabel(department, t("pages.departments.headNotAssigned"))}
+                  </span>
+                </p>
+                <p className="mt-1 text-[11px] font-medium text-muted-foreground">
+                  {department.faceVerificationEnabled === false
+                    ? t("pages.departments.faceOff")
+                    : t("pages.departments.faceOn")}
+                </p>
+              </div>
             </div>
             <div className="flex shrink-0 gap-1">
               {children.length > 0 && (
@@ -479,7 +593,7 @@ function DeptPage() {
               </p>
               <p className="text-xs text-muted-foreground">
                 <span className="md:hidden">{t("pages.departments.tapToExpand")}</span>
-                <span className="hidden md:inline">{t("pages.departments.dragScrollbar")}</span>
+                <span className="hidden md:inline">{t("pages.departments.dragToReorder")}</span>
               </p>
             </div>
             <div className="flex items-center gap-1 rounded-md border border-border bg-background p-1">
@@ -593,10 +707,23 @@ function DeptPage() {
                 {chartTopLevelDepartments.map((department) => {
                   const children = childrenOf(department.id);
                   const isExpanded = expandedUnits.has(department.id);
+                  const isDropTarget = dropTargetId === department.id && draggingId !== department.id;
                   return (
                     <section
                       key={department.id}
-                      className="relative w-full shrink-0 pt-0 before:hidden md:w-[360px] md:pt-6 md:before:absolute md:before:left-1/2 md:before:top-0 md:before:block md:before:h-6 md:before:w-px md:before:bg-border"
+                      className={`relative w-full shrink-0 pt-0 before:hidden md:w-[360px] md:pt-6 md:before:absolute md:before:left-1/2 md:before:top-0 md:before:block md:before:h-6 md:before:w-px md:before:bg-border ${
+                        isDropTarget ? "rounded-md ring-2 ring-primary/40" : ""
+                      } ${draggingId === department.id ? "opacity-50" : ""}`}
+                      onDragOver={(event) => {
+                        if (!draggingId || draggingId === department.id) return;
+                        event.preventDefault();
+                        setDropTargetId(department.id);
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        if (!draggingId) return;
+                        moveSiblingBefore(null, draggingId, department.id);
+                      }}
                     >
                       <div
                         className="cursor-pointer rounded-md border border-border bg-background p-4 shadow-sm transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
@@ -612,18 +739,39 @@ function DeptPage() {
                         }}
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-xs font-medium uppercase text-muted-foreground">
-                              {(department.unitType ?? "TEAM").toLowerCase()}
-                            </p>
-                            <h2 className="mt-1 break-words text-base font-semibold text-foreground">
-                              {department.name}
-                            </h2>
-                            <p className="mt-1 text-[11px] font-medium text-muted-foreground">
-                              {department.faceVerificationEnabled === false
-                                ? t("pages.departments.faceOff")
-                                : t("pages.departments.faceOn")}
-                            </p>
+                          <div className="flex min-w-0 items-start gap-2">
+                            <button
+                              type="button"
+                              draggable={!reordering}
+                              title={t("pages.departments.dragToReorder")}
+                              aria-label={t("pages.departments.dragToReorder")}
+                              className="mt-0.5 cursor-grab touch-none rounded p-0.5 text-muted-foreground hover:bg-muted active:cursor-grabbing"
+                              onClick={(event) => event.stopPropagation()}
+                              onDragStart={(event) => {
+                                event.stopPropagation();
+                                setDraggingId(department.id);
+                                event.dataTransfer.effectAllowed = "move";
+                              }}
+                              onDragEnd={() => {
+                                setDraggingId(null);
+                                setDropTargetId(null);
+                              }}
+                            >
+                              <GripVertical className="h-4 w-4" />
+                            </button>
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium uppercase text-muted-foreground">
+                                {(department.unitType ?? "TEAM").toLowerCase()}
+                              </p>
+                              <h2 className="mt-1 break-words text-base font-semibold text-foreground">
+                                {department.name}
+                              </h2>
+                              <p className="mt-1 text-[11px] font-medium text-muted-foreground">
+                                {department.faceVerificationEnabled === false
+                                  ? t("pages.departments.faceOff")
+                                  : t("pages.departments.faceOn")}
+                              </p>
+                            </div>
                           </div>
                           <div className="flex shrink-0 gap-1">
                             {children.length > 0 && (
