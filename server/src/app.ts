@@ -6556,16 +6556,10 @@ export function createApp() {
   app.post(
     "/task-boards",
     requireAuth,
-    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.CEO, Role.HR, Role.MANAGER),
     asyncHandler(async (req, res) => {
       const body = taskBoardSchema.parse(req.body);
-      const { assignableIds } = await taskScope(req.user!);
-      if (
-        assignableIds &&
-        body.memberEmployeeIds.some((employeeId) => !assignableIds.includes(employeeId))
-      ) {
-        throw new HttpError(403, "Boards can include only members of your organization team");
-      }
+      // Any person with Tasks access can create a project. Member lists are
+      // validated as active employees below — not limited to org-team scope.
       if (body.memberEmployeeIds.length > 0) {
         const uniqueMemberIds = [...new Set(body.memberEmployeeIds)];
         const activeMembers = await prisma.employee.count({
@@ -6668,13 +6662,6 @@ export function createApp() {
       const body = taskBoardUpdateSchema.parse(req.body);
       if (existing.archived) {
         throw new HttpError(409, "Restore this board before changing its configuration");
-      }
-      const { assignableIds } = await taskScope(req.user!);
-      if (
-        assignableIds &&
-        body.memberEmployeeIds.some((employeeId) => !assignableIds.includes(employeeId))
-      ) {
-        throw new HttpError(403, "Boards can include only members of your organization team");
       }
       const uniqueMemberIds = [...new Set(body.memberEmployeeIds)];
       if (uniqueMemberIds.length > 0) {
@@ -6937,7 +6924,9 @@ export function createApp() {
         where: {
           status: "ACTIVE",
           AND: [
-            ...(assignableIds ? [{ employeeId: { in: assignableIds } }] : []),
+            // On a board, anyone who can open it may assign anyone the board allows.
+            // Off-board lists stay limited to org-team / self.
+            ...(boardId || !assignableIds ? [] : [{ employeeId: { in: assignableIds } }]),
             ...boardFilters,
             { OR: [{ user: null }, { user: { role: { not: Role.DEVELOPER_ADMIN } } }] },
           ],
@@ -7073,9 +7062,6 @@ export function createApp() {
       const body = taskSchema.parse(req.body);
       const { assignableIds } = await taskScope(req.user!);
       const employeeIds = [...new Set(body.assigneeEmployeeIds)];
-      if (assignableIds && employeeIds.some((id) => !assignableIds.includes(id))) {
-        throw new HttpError(403, "Tasks can only be assigned within your organization team");
-      }
       const activeAssigneeCount = await prisma.employee.count({
         where: { employeeId: { in: employeeIds }, status: "ACTIVE" },
       });
@@ -7096,8 +7082,13 @@ export function createApp() {
         if (!stage) throw new HttpError(400, "Select a stage from this board");
         stageId = stage.stageId;
         selectedStage = stage;
-      } else if (stageId) {
-        throw new HttpError(400, "A stage requires a board");
+      } else {
+        if (assignableIds && employeeIds.some((id) => !assignableIds.includes(id))) {
+          throw new HttpError(403, "Tasks can only be assigned within your organization team");
+        }
+        if (stageId) {
+          throw new HttpError(400, "A stage requires a board");
+        }
       }
       if (body.parentTaskId) {
         await assertValidParentTask(req.user!, body.parentTaskId, boardId, null);
@@ -7179,14 +7170,18 @@ export function createApp() {
       const existingEmployeeIds = existingAssignments.map(({ employeeId }) => employeeId);
       await assertCanViewTask(req.user!, existing, existingEmployeeIds);
       const isOwn = !!req.user!.employeeId && existingEmployeeIds.includes(req.user!.employeeId);
-      const canManage =
-        assignableIds === undefined || existingEmployeeIds.some((id) => assignableIds.includes(id));
       const hasBoardAccess = existing.boardId
         ? !!(await prisma.taskBoard.findFirst({
             where: { boardId: existing.boardId, ...boardAccessWhere(req.user!) },
             select: { boardId: true },
           }))
         : false;
+      // Org heads / HR keep team-wide manage rights; anyone on the board can
+      // fully edit issues on that board (create/assign was opened to all).
+      const canManage =
+        assignableIds === undefined ||
+        existingEmployeeIds.some((id) => assignableIds.includes(id)) ||
+        hasBoardAccess;
       if (!canManage && !isOwn && !hasBoardAccess) {
         throw new HttpError(403, "You cannot update this task");
       }
@@ -7207,12 +7202,6 @@ export function createApp() {
       ) {
         throw new HttpError(403, "Employees can update only task status and progress");
       }
-      if (
-        body.assigneeEmployeeIds &&
-        assignableIds &&
-        body.assigneeEmployeeIds.some((id) => !assignableIds.includes(id))
-      )
-        throw new HttpError(403, "Tasks can only be reassigned within your organization team");
       const replacementIds = body.assigneeEmployeeIds
         ? [...new Set(body.assigneeEmployeeIds)]
         : undefined;
@@ -7244,6 +7233,15 @@ export function createApp() {
           throw new HttpError(409, "Restore this board before moving tasks onto it");
         }
         nextBoardId = targetBoard.boardId;
+      }
+
+      if (replacementIds) {
+        const boardForAssignees = targetBoard ?? sourceBoard;
+        if (boardForAssignees) {
+          await assertAssigneesAllowedOnBoard(boardForAssignees, replacementIds);
+        } else if (assignableIds && replacementIds.some((id) => !assignableIds.includes(id))) {
+          throw new HttpError(403, "Tasks can only be reassigned within your organization team");
+        }
       }
 
       let nextStageId: string | null | undefined;

@@ -15,8 +15,6 @@ import type { TaskAssignee, TaskBoard, TaskPriority, WorkTask } from "@/types/do
 
 export const Route = createFileRoute("/_app/tasks")({ component: TaskBoardsPage });
 
-const BOARD_MANAGER_ROLES = new Set(["developer_admin", "main_admin", "ceo", "hr", "manager"]);
-
 function TaskBoardsPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -42,7 +40,8 @@ function TaskBoardsPage() {
   const [defaultStageId, setDefaultStageId] = useState<string | undefined>();
   const [directoryMineOnly, setDirectoryMineOnly] = useState(false);
 
-  const canManageBoards = !!user && BOARD_MANAGER_ROLES.has(user.role);
+  // Heads, team members, sales, HR — anyone who can open Work Planner can create projects.
+  const canManageBoards = !!user;
   const canChangeBoard = useCallback(
     (board: TaskBoard) =>
       !!user && (user.role === "developer_admin" || board.createdByUserId === user.id),
