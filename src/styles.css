@@ -177,14 +177,24 @@ html.atd-native {
     max(env(safe-area-inset-bottom, 0px), var(--atd-inset-bottom), 1.25rem),
     3rem
   );
+  /* S25 Ultra / curved One UI edges need more than a hairline side floor —
+     otherwise search / bell / profile and card edges clip on the right. */
   --atd-sal: min(
-    max(env(safe-area-inset-left, 0px), var(--atd-inset-left), 0.5rem),
+    max(env(safe-area-inset-left, 0px), var(--atd-inset-left), 0.75rem),
     1.5rem
   );
   --atd-sar: min(
-    max(env(safe-area-inset-right, 0px), var(--atd-inset-right), 0.5rem),
+    max(env(safe-area-inset-right, 0px), var(--atd-inset-right), 1rem),
     1.5rem
   );
+}
+
+/* Keep native page chrome from painting into the curved display sides. */
+@media (max-width: 639.98px) {
+  html.atd-native #main-content {
+    padding-left: max(0.75rem, var(--atd-sal));
+    padding-right: max(1rem, var(--atd-sar));
+  }
 }
 
 @media (min-width: 640px) {

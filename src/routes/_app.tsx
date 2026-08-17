@@ -232,7 +232,7 @@ function AppLayout() {
         <main
           id="main-content"
           tabIndex={-1}
-          className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain p-0 pb-[max(1.25rem,var(--atd-sab))] pl-[max(0.5rem,var(--atd-sal))] pr-[max(0.5rem,var(--atd-sar))] outline-none sm:p-3 sm:pb-[max(0.75rem,var(--atd-sab))] lg:p-4"
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain overflow-x-hidden p-0 pb-[max(1.25rem,var(--atd-sab))] pl-[max(0.75rem,var(--atd-sal))] pr-[max(1rem,var(--atd-sar))] outline-none sm:p-3 sm:pb-[max(0.75rem,var(--atd-sab))] sm:pl-[max(0.75rem,var(--atd-sal))] sm:pr-[max(1rem,var(--atd-sar))] lg:p-4"
         >
           <PageSwipeNavigator
             paths={swipePaths}

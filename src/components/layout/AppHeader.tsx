@@ -116,7 +116,7 @@ export function AppHeader() {
   const roleLabel = user ? ROLE_LABELS[user.role] : "";
 
   return (
-    <header className="sticky top-0 z-[60] flex min-h-[calc(var(--atd-header-row)+var(--atd-sat))] shrink-0 items-center justify-between gap-1 border-b border-border/80 bg-background px-2 pt-[var(--atd-sat)] pointer-events-auto transition-[background-color,border-color] duration-[var(--motion-ui)] dark:bg-card dark:shadow-[0_1px_0_0_color-mix(in_oklab,white_6%,transparent)] sm:gap-3 sm:px-4 md:px-6">
+    <header className="sticky top-0 z-[60] flex min-h-[calc(var(--atd-header-row)+var(--atd-sat))] shrink-0 items-center justify-between gap-1 border-b border-border/80 bg-background pt-[var(--atd-sat)] pointer-events-auto transition-[background-color,border-color] duration-[var(--motion-ui)] dark:bg-card dark:shadow-[0_1px_0_0_color-mix(in_oklab,white_6%,transparent)] sm:gap-3 pl-[max(0.5rem,calc(0.5rem+var(--atd-sal)))] pr-[max(0.75rem,calc(0.75rem+var(--atd-sar)))] sm:pl-[max(1rem,calc(1rem+var(--atd-sal)))] sm:pr-[max(1rem,calc(1rem+var(--atd-sar)))] md:pl-[max(1.5rem,calc(1.5rem+var(--atd-sal)))] md:pr-[max(1.5rem,calc(1.5rem+var(--atd-sar)))]">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <Button
           variant="ghost"

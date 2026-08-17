@@ -160,7 +160,7 @@ export function BirthdayMarquee() {
           type="button"
           variant="outline"
           size="icon"
-          className="absolute left-2 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-full border-border/80 bg-background/95 shadow-sm backdrop-blur-sm sm:left-3"
+          className="absolute left-3 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-full border-border/80 bg-background/95 shadow-sm backdrop-blur-sm sm:left-4"
           onClick={() => api?.scrollPrev()}
           aria-label="Previous birthday"
         >
@@ -170,7 +170,7 @@ export function BirthdayMarquee() {
           type="button"
           variant="outline"
           size="icon"
-          className="absolute right-2 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-full border-border/80 bg-background/95 shadow-sm backdrop-blur-sm sm:right-3"
+          className="absolute right-3 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-full border-border/80 bg-background/95 shadow-sm backdrop-blur-sm sm:right-4"
           onClick={() => api?.scrollNext()}
           aria-label="Next birthday"
         >
