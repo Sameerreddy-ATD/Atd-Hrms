@@ -524,7 +524,7 @@ model EmployeeShiftAssignment {
 
 model Department {
   departmentId       String                     @id @default(cuid()) @map("department_id")
-  name               String                     @unique
+  name               String
   /// Primary / first head (kept in sync with department_head_assignments for legacy lookups).
   headEmployeeId     String?                    @map("head_employee_id")
   headEmployee       Employee?                  @relation("DepartmentHead", fields: [headEmployeeId], references: [employeeId])
@@ -540,6 +540,7 @@ model Department {
   employees          Employee[]
 
   @@index([parentDepartmentId])
+  @@index([name])
   @@map("departments")
 }
 

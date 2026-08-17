@@ -523,6 +523,36 @@ export function createApp() {
     return null;
   }
 
+  /**
+   * Same display name is allowed under different parents (e.g. "Sales" under
+   * each of three sub-heads). It is not allowed among siblings of one parent.
+   */
+  async function assertUniqueDepartmentNameAmongSiblings(input: {
+    name: string;
+    parentDepartmentId: string | null;
+    excludeDepartmentId?: string;
+  }) {
+    const trimmed = input.name.trim();
+    const siblings = await prisma.department.findMany({
+      where: {
+        parentDepartmentId: input.parentDepartmentId,
+        ...(input.excludeDepartmentId
+          ? { departmentId: { not: input.excludeDepartmentId } }
+          : {}),
+      },
+      select: { name: true },
+    });
+    const clash = siblings.some(
+      (row) => row.name.trim().toLowerCase() === trimmed.toLowerCase(),
+    );
+    if (clash) {
+      throw new HttpError(
+        409,
+        "An organizational unit with this name already exists under the same parent. Use the same name only under a different parent.",
+      );
+    }
+  }
+
   /** Mark an employee as an org head; the same person may head multiple departments. */
   async function syncAssignedOrganizationHead(
     tx: Prisma.TransactionClient | typeof prisma,
@@ -3616,6 +3646,10 @@ export function createApp() {
           where: { departmentId: body.parentDepartmentId },
         });
       }
+      await assertUniqueDepartmentNameAmongSiblings({
+        name: body.name,
+        parentDepartmentId: body.parentDepartmentId ?? null,
+      });
       const department = await prisma.$transaction(async (tx) => {
         const siblingMax = await tx.department.aggregate({
           where: { parentDepartmentId: body.parentDepartmentId ?? null },
@@ -3725,6 +3759,21 @@ export function createApp() {
             });
           cursor = parent?.parentDepartmentId ?? null;
         }
+      }
+      const nextParentId =
+        body.parentDepartmentId !== undefined
+          ? body.parentDepartmentId
+          : existing.parentDepartmentId;
+      const nextName = body.name !== undefined ? body.name : existing.name;
+      if (
+        body.name !== undefined ||
+        body.parentDepartmentId !== undefined
+      ) {
+        await assertUniqueDepartmentNameAmongSiblings({
+          name: nextName,
+          parentDepartmentId: nextParentId,
+          excludeDepartmentId: existing.departmentId,
+        });
       }
       const department = await prisma.$transaction(async (tx) => {
         await tx.department.update({
