@@ -21,6 +21,7 @@
 @theme inline {
   --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
   --font-brand: "Barlow Condensed", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sidebar: "Manrope", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
   --atd-mark-red: #d33b27;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -200,6 +201,19 @@
     font-family: "Noto Sans Devanagari", var(--font-sans);
     letter-spacing: 0;
     line-height: 1.65;
+  }
+
+  /* Nav labels only — brand lockup keeps Barlow via .atd-wordmark. */
+  [data-sidebar="sidebar"] {
+    font-family: var(--font-sidebar);
+  }
+
+  html[data-locale="te"] [data-sidebar="sidebar"] {
+    font-family: "Noto Sans Telugu", var(--font-sidebar);
+  }
+
+  html[data-locale="hi"] [data-sidebar="sidebar"] {
+    font-family: "Noto Sans Devanagari", var(--font-sidebar);
   }
 
   body {

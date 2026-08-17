@@ -24,7 +24,7 @@ forms, attendance, leave). Not a marketing site.
 
 ## Typography
 
-- UI: Plus Jakarta Sans. Brand lockup: Barlow Condensed italic, Diesel in logo red `#d33b27`, slight right skew to match the mark. Do not introduce Inter/Roboto/Arial.
+- UI: Plus Jakarta Sans. Sidebar nav: Manrope. Brand lockup: Barlow Condensed italic, Diesel in logo red `#d33b27`, slight right skew to match the mark. Do not introduce Inter/Roboto/Arial.
 - Hierarchy: page title > section accordion/trigger > field label > helper text
 - Avoid introducing Inter/Roboto/Arial as new defaults
 
