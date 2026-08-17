@@ -1,6 +1,5 @@
 import {
   COMPANY_LABELS,
-  ROLE_LABELS,
   WEEKLY_OFF_POLICY_LABELS,
   type BankAccountType,
   type Branch,
@@ -11,20 +10,13 @@ import {
   type WeeklyOffPolicy,
 } from "@/types/domain";
 import { branchLookupKey, formatBranchLocationLabelById } from "@/lib/branch-label";
-import { formatDepartmentPath } from "@/lib/department-label";
+import {
+  CEO_NO_UNIT_LABEL as CEO_NO_UNIT_LABEL_CANONICAL,
+  formatDepartmentPath,
+  inferLoginRoleFromDepartment,
+} from "@/lib/department-label";
 
 export const LOGIN_SHEET_NAME = "Create Logins";
-
-export const CREATABLE_ROLES: Role[] = [
-  "ceo",
-  "main_admin",
-  "hr",
-  "manager",
-  "employee",
-  "sales",
-  "driver",
-  "field_staff",
-];
 
 export const LEVELS = ["HEAD", "SENIOR", "JUNIOR", "MEMBER"] as const;
 export const GENDERS = ["MALE", "FEMALE", "PREFER_NOT_TO_SAY"] as const;
@@ -44,15 +36,14 @@ export type LoginImportColumnType =
   | "branch"
   | "mainOrgUnit"
   | "childOrgUnit"
-  | "manager"
-  | "company"
-  | "role";
+  | "company";
 
 export type LoginImportFieldKey =
   | "employeeCode"
   | "name"
   | "email"
   | "password"
+  /** Kept on the row for typing only — never shown; role comes from org unit. */
   | "role"
   | "companyEntity"
   | "phone"
@@ -98,15 +89,6 @@ export const LOGIN_IMPORT_COLUMNS: LoginImportColumn[] = [
   { key: "name", label: "Full Name*", required: true, type: "text", width: 180 },
   { key: "email", label: "Email*", required: true, type: "email", width: 220 },
   { key: "password", label: "Temporary Password*", required: true, type: "password", width: 160 },
-  {
-    key: "role",
-    label: "Login Role*",
-    required: true,
-    type: "role",
-    width: 140,
-    defaultValue: ROLE_LABELS.employee,
-    enumOptions: CREATABLE_ROLES.map((role) => ROLE_LABELS[role]),
-  },
   {
     key: "companyEntity",
     label: "Employer Company*",
@@ -178,14 +160,6 @@ export const LOGIN_IMPORT_COLUMNS: LoginImportColumn[] = [
     type: "time",
     width: 110,
     defaultValue: "18:00",
-  },
-  {
-    key: "managerReference",
-    label: "Reporting Manager",
-    required: false,
-    type: "manager",
-    width: 180,
-    defaultValue: "Automatic",
   },
   { key: "joiningDate", label: "Joining Date", required: false, type: "date", width: 130 },
   { key: "dateOfBirth", label: "Date of Birth", required: false, type: "date", width: 130 },
@@ -263,7 +237,13 @@ export function emptyLoginRow(id: string): LoginImportRow {
   const values = Object.fromEntries(
     LOGIN_IMPORT_COLUMNS.map((column) => [column.key, column.defaultValue ?? ""]),
   ) as LoginImportRowValues;
-  return { id, ...values, errors: [] };
+  return {
+    id,
+    ...values,
+    role: "",
+    managerReference: "",
+    errors: [],
+  };
 }
 
 export function createBlankRows(count: number, startIndex = 0): LoginImportRow[] {
@@ -279,18 +259,6 @@ export function isRowBlank(row: LoginImportRowValues) {
     row.password?.trim() ||
     row.employeeCode?.trim()
   );
-}
-
-export function resolveLoginRole(raw: string): Role | undefined {
-  const text = raw.trim().toLowerCase();
-  if (!text) return undefined;
-  const byKey = CREATABLE_ROLES.find((role) => role === text || role.replace(/_/g, " ") === text);
-  if (byKey) return byKey;
-  const byLabel = CREATABLE_ROLES.find((role) => ROLE_LABELS[role].toLowerCase() === text);
-  if (byLabel) return byLabel;
-  if (text === "admin" || text === "administration head") return "main_admin";
-  if (text === "department head") return "manager";
-  return undefined;
 }
 
 export function resolveCompany(raw: string): CompanyEntity | undefined {
@@ -343,7 +311,53 @@ function normalizeDate(text: string): string | undefined {
   return parsed.toISOString().slice(0, 10);
 }
 
-export const CEO_NO_UNIT_LABEL = "CEO (no organization unit)";
+export const CEO_NO_UNIT_LABEL = CEO_NO_UNIT_LABEL_CANONICAL;
+
+function isCeoUnitLabel(raw: string) {
+  const text = raw.trim().toLowerCase();
+  return (
+    !text ||
+    text === CEO_NO_UNIT_LABEL.toLowerCase() ||
+    text === "ceo (no organization unit)" ||
+    text === "ceo" ||
+    text === "none"
+  );
+}
+
+function resolveImportDepartment(
+  row: LoginImportRowValues,
+  departments: Department[],
+): { department: Department | undefined; isCeoUnit: boolean; mainUnit?: Department; childUnit?: { id: string; parentId: string; label: string } } {
+  const mainUnits = departments.filter((department) => !department.parentDepartmentId);
+  const mainUnitNameNormalized = row.mainUnitName.trim().toLowerCase();
+  const ceoUnit = isCeoUnitLabel(row.mainUnitName);
+  const mainUnit = ceoUnit
+    ? undefined
+    : mainUnits.find((department) => department.name.trim().toLowerCase() === mainUnitNameNormalized);
+  const childChoices = childUnitChoices(departments);
+  const childText = row.childUnitName.trim();
+  const useMainUnit =
+    !childText ||
+    childText.toLowerCase() === "use main unit" ||
+    isCeoUnitLabel(childText);
+  const childUnit = useMainUnit
+    ? undefined
+    : childChoices.find((choice) => choice.label.toLowerCase() === childText.toLowerCase());
+  const department = childUnit
+    ? departments.find((item) => item.id === childUnit.id)
+    : mainUnit;
+  return { department, isCeoUnit: ceoUnit, mainUnit, childUnit };
+}
+
+/** Login role is always derived from organization unit selection. */
+export function resolveRoleForImportRow(
+  row: LoginImportRowValues,
+  departments: Department[],
+): Role {
+  const { department, isCeoUnit } = resolveImportDepartment(row, departments);
+  if (isCeoUnit) return "ceo";
+  return inferLoginRoleFromDepartment(department, departments);
+}
 
 export function childUnitChoices(departments: Department[]) {
   return departments
@@ -365,47 +379,44 @@ export function validateLoginRow(
   if (isRowBlank(row)) return [];
 
   const errors: string[] = [];
-  const role = resolveLoginRole(row.role);
+  const role = resolveRoleForImportRow(row, context.departments);
   const isCeo = role === "ceo";
+  const isBowserPilot = role === "driver";
   const companyEntity = resolveCompany(row.companyEntity);
   const weeklyOffPolicy = resolveWeeklyOff(row.weeklyOffPolicy);
-  const mainUnits = context.departments.filter((department) => !department.parentDepartmentId);
-  const mainUnitNameNormalized = row.mainUnitName.trim().toLowerCase();
-  const ceoHasNoUnit =
-    isCeo &&
-    (!mainUnitNameNormalized ||
-      mainUnitNameNormalized === CEO_NO_UNIT_LABEL.toLowerCase() ||
-      mainUnitNameNormalized === "ceo" ||
-      mainUnitNameNormalized === "none");
-  const mainUnit = ceoHasNoUnit
-    ? undefined
-    : mainUnits.find(
-        (department) => department.name.trim().toLowerCase() === mainUnitNameNormalized,
-      );
-  const childChoices = childUnitChoices(context.departments);
+  const { department, isCeoUnit, mainUnit, childUnit } = resolveImportDepartment(
+    row,
+    context.departments,
+  );
   const childText = row.childUnitName.trim();
-  const useMainUnit = !childText || childText.toLowerCase() === "use main unit";
-  const childUnit = useMainUnit
-    ? undefined
-    : childChoices.find((choice) => choice.label.toLowerCase() === childText.toLowerCase());
+  const useMainUnit =
+    !childText ||
+    childText.toLowerCase() === "use main unit" ||
+    isCeoUnitLabel(childText);
   const branch = context.branches.find(
     (item) => branchLookupKey(item.name) === branchLookupKey(row.branchName),
   );
 
   if (!row.name.trim()) errors.push("Full name is required");
   const email = row.email.trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push("Valid email is required");
-  if (!role) errors.push(`Unknown login role: ${row.role || "blank"}`);
+  const phoneDigits = row.phone.replace(/\D/g, "");
+  if (isBowserPilot) {
+    if (phoneDigits.length < 10) errors.push("Bowser Pilots need a valid mobile number");
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push("Valid email is required");
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errors.push("Valid email is required");
+  }
   if (!companyEntity) errors.push(`Unknown employer company: ${row.companyEntity || "blank"}`);
   if (row.phone.trim().length > 30) errors.push("Personal phone must be 30 characters or fewer");
   if (row.companyPhone.trim().length > 30)
     errors.push("Company phone must be 30 characters or fewer");
 
-  if (!isCeo) {
+  if (!isCeo && !isCeoUnit) {
     if (!mainUnit) errors.push(`Unknown main organization unit: ${row.mainUnitName || "blank"}`);
     if (!useMainUnit && !childUnit) errors.push(`Unknown child organization unit: ${childText}`);
     if (mainUnit && childUnit && childUnit.parentId !== mainUnit.id)
       errors.push(`${childText} is not under ${row.mainUnitName}`);
+    if (!department) errors.push("Organization unit is required");
   }
   if (row.branchName.trim() && !branch)
     errors.push(`Unknown attendance location: ${row.branchName}`);
@@ -479,22 +490,6 @@ export function validateLoginRow(
       errors.push("Employee ID already exists");
   }
 
-  const managerText = row.managerReference.trim();
-  const managerReference =
-    managerText && managerText.toLowerCase() !== "automatic" ? managerText.toLowerCase() : "";
-  if (managerReference) {
-    const known = context.existingEmployees.some((employee) =>
-      [employee.employeeCode, employee.employeeId, employee.email]
-        .filter(Boolean)
-        .some((key) => String(key).trim().toLowerCase() === managerReference),
-    );
-    const inSheet =
-      context.sheetEmails.has(managerReference) || context.sheetCodes.has(managerReference);
-    if (!known && !inSheet) errors.push(`Reporting manager not found: ${managerText}`);
-    if (managerReference === email || managerReference === code)
-      errors.push("Employee cannot be their own reporting manager");
-  }
-
   return errors;
 }
 
@@ -526,7 +521,7 @@ export function revalidateRows(
 
 export interface LoginCreatePayload {
   name: string;
-  email: string;
+  email?: string;
   role: Role;
   phone?: string;
   companyPhone?: string;
@@ -568,44 +563,18 @@ export function rowToCreatePayload(
     managerId?: string | null;
   },
 ): LoginCreatePayload {
-  const role = resolveLoginRole(row.role) ?? "employee";
+  const role = resolveRoleForImportRow(row, context.departments);
   const isCeo = role === "ceo";
   const companyEntity = resolveCompany(row.companyEntity) ?? "ANYTIME_DIESEL";
   const weeklyOffPolicy = resolveWeeklyOff(row.weeklyOffPolicy) ?? "SELECTABLE";
-  const mainUnitNameNormalized = row.mainUnitName.trim().toLowerCase();
-  const ceoHasNoUnit =
-    isCeo &&
-    (!mainUnitNameNormalized ||
-      mainUnitNameNormalized === CEO_NO_UNIT_LABEL.toLowerCase() ||
-      mainUnitNameNormalized === "ceo" ||
-      mainUnitNameNormalized === "none");
-  const mainUnit = ceoHasNoUnit
-    ? undefined
-    : context.departments.find(
-        (department) =>
-          !department.parentDepartmentId &&
-          department.name.trim().toLowerCase() === mainUnitNameNormalized,
-      );
-  const childChoices = childUnitChoices(context.departments);
-  const childText = row.childUnitName.trim();
-  const useMainUnit =
-    !childText ||
-    childText.toLowerCase() === "use main unit" ||
-    childText.toLowerCase() === CEO_NO_UNIT_LABEL.toLowerCase();
-  const childUnit = useMainUnit
-    ? undefined
-    : childChoices.find((choice) => choice.label.toLowerCase() === childText.toLowerCase());
-  const departmentId = isCeo
-    ? (childUnit?.id ?? mainUnit?.id ?? null)
-    : (childUnit?.id ?? mainUnit?.id);
+  const { department, isCeoUnit, mainUnit, childUnit } = resolveImportDepartment(
+    row,
+    context.departments,
+  );
+  const departmentId = isCeo || isCeoUnit ? null : (department?.id ?? childUnit?.id ?? mainUnit?.id);
   const branch = context.branches.find(
     (item) => branchLookupKey(item.name) === branchLookupKey(row.branchName),
   );
-  const managerText = row.managerReference.trim();
-  const managerReference =
-    managerText && managerText.toLowerCase() !== "automatic"
-      ? managerText.toLowerCase()
-      : undefined;
   const level = row.organizationLevel.trim().toUpperCase();
   const organizationLevel = (
     LEVELS.includes(level as never) ? level : "MEMBER"
@@ -620,7 +589,7 @@ export function rowToCreatePayload(
 
   return {
     name: row.name.trim(),
-    email: row.email.trim().toLowerCase(),
+    email: row.email.trim().toLowerCase() || undefined,
     role,
     phone: row.phone.trim() || undefined,
     companyPhone: row.companyPhone.trim() || undefined,
@@ -629,8 +598,8 @@ export function rowToCreatePayload(
     departmentId,
     homeBranchId: branch?.id,
     designation: row.designation.trim() || undefined,
-    managerId: context.managerId ?? null,
-    managerReference,
+    managerId: null,
+    managerReference: undefined,
     organizationLevel: isCeo ? "HEAD" : organizationLevel,
     weeklyOffPolicy: isCeo ? undefined : weeklyOffPolicy,
     shiftType,
@@ -753,22 +722,12 @@ export function employeeToEditRow(
       employee.homeBranchName || "",
     ) || "";
 
-  const managerEmployee = employee.managerId
-    ? (context.directory ?? []).find((item) => item.employeeId === employee.managerId)
-    : undefined;
-  const managerReference = managerEmployee
-    ? managerEmployee.employeeCode ||
-      managerEmployee.email ||
-      managerEmployee.employeeId ||
-      "Automatic"
-    : employee.managerId || "Automatic";
-
   const values: LoginImportRowValues = {
     employeeCode: employee.employeeCode || "",
     name: employee.name || "",
     email: employee.email || "",
     password: "",
-    role: ROLE_LABELS[employee.role] || employee.role || ROLE_LABELS.employee,
+    role: "",
     companyEntity: employee.companyEntity
       ? COMPANY_LABELS[employee.companyEntity]
       : COMPANY_LABELS.ANYTIME_DIESEL,
@@ -782,10 +741,10 @@ export function employeeToEditRow(
     weeklyOffPolicy: employee.weeklyOffPolicy
       ? WEEKLY_OFF_POLICY_LABELS[employee.weeklyOffPolicy]
       : WEEKLY_OFF_POLICY_LABELS.SELECTABLE,
+    managerReference: "",
     shiftType: employee.shiftType || "DAY",
     shiftStart: minutesToHhMm(employee.shiftStartMinutes) || "09:00",
     shiftEnd: minutesToHhMm(employee.shiftEndMinutes) || "18:00",
-    managerReference,
     joiningDate: employee.joiningDate || "",
     dateOfBirth: employee.dateOfBirth || "",
     gender: employee.gender || "PREFER_NOT_TO_SAY",
@@ -853,12 +812,12 @@ export function validateLoginEditRow(row: LoginEditRow, context: LoginImportCont
 
   if (!row.employeeId) {
     const orgTouched = LOGIN_EDIT_COLUMNS.some((column) => {
-      if (["name", "email", "phone", "role", "password"].includes(column.key)) return false;
+      if (["name", "email", "phone", "password"].includes(column.key)) return false;
       return (row[column.key] ?? "").trim() !== (row.baseline[column.key] ?? "").trim();
     });
     if (orgTouched) {
       errors.push(
-        "No employee profile linked — only name, email, phone, role, and password can be edited",
+        "No employee profile linked — only name, email, phone, and password can be edited",
       );
     }
   }
@@ -892,13 +851,7 @@ export function revalidateEditRows(
 }
 
 export function isEditRowDirty(row: LoginEditRow) {
-  const loginOnlyKeys = new Set<LoginImportFieldKey>([
-    "name",
-    "email",
-    "phone",
-    "role",
-    "password",
-  ]);
+  const loginOnlyKeys = new Set<LoginImportFieldKey>(["name", "email", "phone", "password"]);
   return LOGIN_EDIT_COLUMNS.some((column) => {
     if (!row.employeeId && !loginOnlyKeys.has(column.key)) return false;
     const current = row[column.key] ?? "";
@@ -935,7 +888,7 @@ export function rowToUpdatePayloads(
     departmentId: create.departmentId ?? null,
     homeBranchId: create.homeBranchId ?? null,
     designation: create.designation ?? null,
-    managerId: context.managerId === undefined ? undefined : context.managerId,
+    managerId: null,
     organizationLevel: create.organizationLevel,
     weeklyOffPolicy: create.weeklyOffPolicy,
     shiftType: create.shiftType,

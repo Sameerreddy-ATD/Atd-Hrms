@@ -32,24 +32,81 @@ export function canCreateRole(actor: Role, target: Role) {
   return creationRules[actor]?.includes(target) ?? false;
 }
 
+type OrgUnitRef = { id: string; name: string; parentDepartmentId?: string | null };
+
+/** Full ancestry path, e.g. "Operations / Sales". */
+export function formatOrgUnitPath(
+  unit: OrgUnitRef | null | undefined,
+  units: OrgUnitRef[],
+): string {
+  if (!unit) return "";
+  const byId = new Map(units.map((row) => [row.id, row]));
+  const names: string[] = [];
+  const seen = new Set<string>();
+  let cursor: OrgUnitRef | undefined = unit;
+  while (cursor) {
+    if (seen.has(cursor.id)) break;
+    seen.add(cursor.id);
+    const label = cursor.name.trim();
+    if (label) names.unshift(label);
+    const parentId = cursor.parentDepartmentId ?? undefined;
+    cursor = parentId ? byId.get(parentId) : undefined;
+  }
+  return names.join(" / ");
+}
+
 /**
- * Prefer an explicit role from Developer Admin create-login.
- * Otherwise infer from organization unit name + level (legacy path).
+ * Login role is assigned from the organization unit only.
+ * Heads / managers are set under Departments — not via a create-login role picker.
+ * - No unit → CEO
+ * - Fleet & Driver Team (or legacy "Drivers") → Bowser Pilot
+ * - HR / Human Resources → HR
+ * - Sales path → Sales
+ * - Everything else → Team Member
  */
 export function resolveTargetLoginRole(input: {
-  explicitRole?: Role | null;
   unitName?: string | null;
+  unitPath?: string | null;
+  /** Ignored on create — kept optional so old clients do not break validation. */
+  explicitRole?: Role | null;
   organizationLevel?: string | null;
 }): Role {
-  if (input.explicitRole) return input.explicitRole;
-  const unitName = (input.unitName ?? "").trim().toLowerCase();
-  const level = input.organizationLevel ?? "MEMBER";
-  if (unitName === "executive leadership") return Role.CEO;
-  if (unitName === "human resources") return Role.HR;
-  if (unitName === "administration" && level === "HEAD") return Role.MAIN_ADMIN;
-  if (unitName === "drivers") return Role.DRIVER;
-  if (level === "HEAD") return Role.MANAGER;
-  if (unitName.includes("sales")) return Role.SALES;
+  const name = (input.unitName ?? "").trim().toLowerCase();
+  const path = (input.unitPath ?? name).trim().toLowerCase();
+  if (!name && !path) return Role.CEO;
+
+  // Legacy top-level CEO bucket (pre "no unit" create path).
+  if (name === "executive leadership") return Role.CEO;
+
+  if (
+    name.includes("fleet & driver") ||
+    path.includes("fleet & driver") ||
+    name === "drivers" ||
+    path === "drivers"
+  ) {
+    return Role.DRIVER;
+  }
+
+  if (
+    name === "hr" ||
+    name.includes("hr department") ||
+    name.includes("human resources") ||
+    path.includes("human resources") ||
+    /(^|\/)\s*hr(\s|\/|$)/.test(path)
+  ) {
+    return Role.HR;
+  }
+
+  if (
+    name.includes("sales") ||
+    path.includes("sales team") ||
+    path.includes("inside sales") ||
+    path.includes("field sales") ||
+    path.includes("tele sales")
+  ) {
+    return Role.SALES;
+  }
+
   return Role.EMPLOYEE;
 }
 

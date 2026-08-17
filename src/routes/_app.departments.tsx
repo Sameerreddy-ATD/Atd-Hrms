@@ -48,6 +48,7 @@ import { branchesApi, employeesApi } from "@/services/api";
 import {
   ChevronDown,
   Crown,
+  Briefcase,
   GripVertical,
   Network,
   Pencil,
@@ -68,6 +69,9 @@ export const Route = createFileRoute("/_app/departments")({
 /** Reserved unit that holds multiple heads under the CEO / Leadership card. */
 const EXECUTIVE_LEADERSHIP_NAME = "Executive Leadership";
 
+/** Permanent leadership unit that sits under CEO on the org chart. */
+const CHIEF_OF_STAFF_NAME = "Chief of Staff";
+
 /** Shared org-chart unit box (fixed size + visible border; see styles.css). */
 const DEPT_ORG_UNIT_CARD_CLASS =
   "dept-org-unit-card cursor-pointer";
@@ -78,6 +82,10 @@ function byDepartmentOrder(a: Department, b: Department) {
 
 function isExecutiveLeadership(department: Department) {
   return department.name.trim().toLowerCase() === EXECUTIVE_LEADERSHIP_NAME.toLowerCase();
+}
+
+function isChiefOfStaff(department: Department) {
+  return department.name.trim().toLowerCase() === CHIEF_OF_STAFF_NAME.toLowerCase();
 }
 
 function headsLabel(department: Department, headNotAssignedLabel: string) {
@@ -194,6 +202,10 @@ function DeptPage() {
     () => departments.find(isExecutiveLeadership) ?? null,
     [departments],
   );
+  const chiefOfStaff = useMemo(() => {
+    const match = departments.find(isChiefOfStaff);
+    return match ?? null;
+  }, [departments]);
   const ceoPeople = useMemo(
     () =>
       employees
@@ -214,13 +226,24 @@ function DeptPage() {
         .sort(byDepartmentOrder),
     [departments],
   );
-  /** Org units shown under Leadership (hide the reserved CEO heads unit). */
-  const chartTopLevelDepartments = useMemo(
-    () => topLevelDepartments.filter((department) => !isExecutiveLeadership(department)),
+  /** Direct teams under permanent Chief of Staff (main chart row). */
+  const chartUnitsUnderCos = useMemo(() => {
+    if (!chiefOfStaff) return [];
+    return departments
+      .filter((department) => department.parentDepartmentId === chiefOfStaff.id)
+      .sort(byDepartmentOrder);
+  }, [departments, chiefOfStaff]);
+  /** Any other top-level units (should be rare after CoS restructure). */
+  const chartOtherTopLevel = useMemo(
+    () =>
+      topLevelDepartments.filter(
+        (department) => !isExecutiveLeadership(department) && !isChiefOfStaff(department),
+      ),
     [topLevelDepartments],
   );
   const needsUnitName = !assignCeoHeads; // create/edit need a name; CEO heads does not
   const isCreateTopLevel = !editing && !assignCeoHeads && parentDepartmentId === "none";
+  const isEditingChiefOfStaff = Boolean(editing && isChiefOfStaff(editing));
 
   const childrenOf = (parentId: string) =>
     departments
@@ -235,7 +258,10 @@ function DeptPage() {
       ? t("pages.departments.memberCountOne")
       : t("pages.departments.memberCount", { count });
   }
-  const chartWidth = Math.max(1120, chartTopLevelDepartments.length * 388 - 28);
+  const chartWidth = Math.max(
+    1120,
+    Math.max(chartUnitsUnderCos.length, chartOtherTopLevel.length, 1) * 388 - 28,
+  );
 
   function applyDepartmentList(next: Department[]) {
     setDepartments([...next].sort(byDepartmentOrder));
@@ -274,7 +300,9 @@ function DeptPage() {
       const visible = departments
         .filter(
           (department) =>
-            !department.parentDepartmentId && !isExecutiveLeadership(department),
+            !department.parentDepartmentId &&
+            !isExecutiveLeadership(department) &&
+            !isChiefOfStaff(department),
         )
         .sort(byDepartmentOrder);
       const without = visible.filter((department) => department.id !== draggedId);
@@ -284,7 +312,8 @@ function DeptPage() {
       const hidden = departments
         .filter(
           (department) =>
-            !department.parentDepartmentId && isExecutiveLeadership(department),
+            !department.parentDepartmentId &&
+            (isExecutiveLeadership(department) || isChiefOfStaff(department)),
         )
         .sort(byDepartmentOrder);
       void reorderSiblings(
@@ -325,7 +354,8 @@ function DeptPage() {
     setCeoHeadsUnitId("");
     setName("");
     setHeadSlots(["none"]);
-    setParentDepartmentId("none");
+    // New teams hang under permanent Chief of Staff (CEO → CoS → teams).
+    setParentDepartmentId(chiefOfStaff?.id ?? "none");
     setUnitType("TEAM");
     setFaceVerificationEnabled(true);
     setShowForm(true);
@@ -459,6 +489,11 @@ function DeptPage() {
   async function performDeleteDepartment(dept: Department) {
     if (isExecutiveLeadership(dept)) {
       toast.error(t("pages.departments.toastCannotDeleteCeoUnit"));
+      setDeleteDept(null);
+      return;
+    }
+    if (isChiefOfStaff(dept)) {
+      toast.error(t("pages.departments.toastCannotDeleteCos"));
       setDeleteDept(null);
       return;
     }
@@ -726,16 +761,6 @@ function DeptPage() {
                     type="button"
                     size="icon"
                     variant="ghost"
-                    title={t("pages.departments.createUnit")}
-                    aria-label={t("pages.departments.createUnit")}
-                    onClick={openCreateTopLevel}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
                     title={t("pages.departments.assignCeoHeads")}
                     aria-label={t("pages.departments.assignCeoHeads")}
                     disabled={ensuringCeoUnit}
@@ -747,23 +772,85 @@ function DeptPage() {
               </div>
 
               <div className="mx-auto h-6 w-px bg-border" />
+
+              {/* Permanent Chief of Staff — centered under CEO */}
+              <div className="mx-auto flex max-w-md items-center gap-3 rounded-md border border-border bg-card px-4 py-3 shadow-sm">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
+                  <Briefcase className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">
+                    {t("pages.departments.cosLabel")}
+                  </p>
+                  <p className="font-semibold text-foreground">
+                    {chiefOfStaff?.name ?? t("pages.departments.cosTitle")}
+                  </p>
+                  <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <UserRound className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">
+                      {chiefOfStaff
+                        ? headsLabel(chiefOfStaff, t("pages.departments.headNotAssigned"))
+                        : t("pages.departments.headNotAssigned")}
+                    </span>
+                  </p>
+                  {chiefOfStaff ? (
+                    <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Users className="h-3.5 w-3.5 shrink-0" />
+                      <span>{membersLabel(membersUnder(chiefOfStaff.id))}</span>
+                    </p>
+                  ) : null}
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    title={t("pages.departments.createUnit")}
+                    aria-label={t("pages.departments.createUnit")}
+                    disabled={!chiefOfStaff}
+                    onClick={openCreateTopLevel}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                  {chiefOfStaff ? (
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      title={t("pages.departments.editUnitBtn")}
+                      aria-label={t("pages.departments.editUnitBtn")}
+                      onClick={() => openEditDialog(chiefOfStaff)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="mx-auto h-6 w-px bg-border" />
               <div className="relative mb-6 flex items-center justify-center">
                 <div className="absolute inset-x-0 top-1/2 hidden h-px bg-border sm:block" />
                 <span className="relative flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground">
-                  <Network className="h-3.5 w-3.5" /> {t("pages.departments.orgUnitsLabel")}
+                  <Network className="h-3.5 w-3.5" /> {t("pages.departments.teamsUnderCos")}
                 </span>
               </div>
 
               <div className="flex w-full max-w-full flex-col items-stretch gap-4 md:w-max md:flex-row md:items-start md:gap-7">
-                {chartTopLevelDepartments.length === 0 && (
+                {!chiefOfStaff && (
+                  <div className="dept-org-unit-card flex w-full items-center justify-center border-dashed text-center text-sm text-muted-foreground md:w-[360px]">
+                    {t("pages.departments.cosMissing")}
+                  </div>
+                )}
+                {chiefOfStaff && chartUnitsUnderCos.length === 0 && (
                   <div className="dept-org-unit-card flex w-full items-center justify-center border-dashed text-center text-sm text-muted-foreground md:w-[360px]">
                     {t("pages.departments.noUnitsYet")}
                   </div>
                 )}
-                {chartTopLevelDepartments.map((department) => {
+                {chartUnitsUnderCos.map((department) => {
                   const children = childrenOf(department.id);
                   const isExpanded = expandedUnits.has(department.id);
                   const isDropTarget = dropTargetId === department.id && draggingId !== department.id;
+                  const reorderParentId = chiefOfStaff?.id ?? null;
                   return (
                     <section
                       key={department.id}
@@ -777,8 +864,8 @@ function DeptPage() {
                       }}
                       onDrop={(event) => {
                         event.preventDefault();
-                        if (!draggingId) return;
-                        moveSiblingBefore(null, draggingId, department.id);
+                        if (!draggingId || !reorderParentId) return;
+                        moveSiblingBefore(reorderParentId, draggingId, department.id);
                       }}
                     >
                       <div
@@ -898,6 +985,84 @@ function DeptPage() {
                   );
                 })}
               </div>
+
+              {chartOtherTopLevel.length > 0 ? (
+                <>
+                  <div className="relative mb-4 mt-8 flex items-center justify-center">
+                    <div className="absolute inset-x-0 top-1/2 hidden h-px bg-border sm:block" />
+                    <span className="relative rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                      {t("pages.departments.otherTopLevel")}
+                    </span>
+                  </div>
+                  <div className="flex w-full max-w-full flex-col items-stretch gap-4 md:w-max md:flex-row md:items-start md:gap-7">
+                    {chartOtherTopLevel.map((department) => {
+                      const children = childrenOf(department.id);
+                      const isExpanded = expandedUnits.has(department.id);
+                      return (
+                        <section
+                          key={department.id}
+                          className="relative flex w-full shrink-0 flex-col md:w-[360px]"
+                        >
+                          <div
+                            className={DEPT_ORG_UNIT_CARD_CLASS}
+                            role="button"
+                            tabIndex={0}
+                            aria-expanded={isExpanded}
+                            onClick={() => children.length > 0 && toggleUnit(department.id)}
+                            onKeyDown={(event) => {
+                              if (
+                                children.length > 0 &&
+                                (event.key === "Enter" || event.key === " ")
+                              ) {
+                                event.preventDefault();
+                                toggleUnit(department.id);
+                              }
+                            }}
+                          >
+                            <div className="flex flex-1 items-start justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                                  {(department.unitType ?? "TEAM").toLowerCase()}
+                                </p>
+                                <h2 className="dept-org-unit-card__name mt-0.5 text-base font-semibold leading-snug text-foreground">
+                                  {department.name}
+                                </h2>
+                                <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                                  <UserRound className="h-3.5 w-3.5 shrink-0" />
+                                  <span className="truncate">
+                                    {headsLabel(
+                                      department,
+                                      t("pages.departments.headNotAssigned"),
+                                    )}
+                                  </span>
+                                </p>
+                              </div>
+                              <div className="flex shrink-0 gap-1">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  title={t("pages.departments.editUnitBtn")}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    openEditDialog(department);
+                                  }}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                          {children.length > 0 && isExpanded && (
+                            <div className="ml-5 space-y-3 border-l border-border pl-4 pt-4">
+                              {children.map((child) => renderChildNode(child))}
+                            </div>
+                          )}
+                        </section>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : null}
             </div>
           </div>
         </div>
@@ -940,14 +1105,16 @@ function DeptPage() {
                         <Pencil className="mr-2 h-4 w-4" />
                         {t("common.edit")}
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => setDeleteDept(d)}
-                        title={t("pages.departments.deleteDept")}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {!isExecutiveLeadership(d) && !isChiefOfStaff(d) ? (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => setDeleteDept(d)}
+                          title={t("pages.departments.deleteDept")}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      ) : null}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -1027,14 +1194,22 @@ function DeptPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>{t("pages.departments.reportsUnder")}</Label>
-                  <Select value={parentDepartmentId} onValueChange={setParentDepartmentId}>
+                  <Select
+                    value={parentDepartmentId}
+                    onValueChange={setParentDepartmentId}
+                    disabled={isEditingChiefOfStaff}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">{t("pages.departments.ceoTopLevel")}</SelectItem>
                       {departments
-                        .filter((item) => item.id !== editing.id && !isExecutiveLeadership(item))
+                        .filter(
+                          (item) =>
+                            item.id !== editing!.id &&
+                            !isExecutiveLeadership(item),
+                        )
                         .map((item) => (
                           <SelectItem key={item.id} value={item.id}>
                             {formatDepartmentPath(item, departments)}
@@ -1043,13 +1218,15 @@ function DeptPage() {
                     </SelectContent>
                   </Select>
                   <p className="break-words text-xs text-muted-foreground">
-                    {name.trim()
-                      ? parentDepartmentId === "none"
-                        ? `Full path: ${name.trim()}`
-                        : `Full path: ${formatDepartmentPathById(departments, parentDepartmentId)} / ${name.trim()}`
-                      : parentDepartmentId === "none"
-                        ? t("pages.departments.ceoTopLevel")
-                        : `Under ${formatDepartmentPathById(departments, parentDepartmentId)}`}
+                    {isEditingChiefOfStaff
+                      ? t("pages.departments.cosReportsToCeo")
+                      : name.trim()
+                        ? parentDepartmentId === "none"
+                          ? `Full path: ${name.trim()}`
+                          : `Full path: ${formatDepartmentPathById(departments, parentDepartmentId)} / ${name.trim()}`
+                        : parentDepartmentId === "none"
+                          ? t("pages.departments.ceoTopLevel")
+                          : `Under ${formatDepartmentPathById(departments, parentDepartmentId)}`}
                   </p>
                 </div>
               </>

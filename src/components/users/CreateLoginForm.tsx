@@ -31,7 +31,13 @@ import {
 } from "@/types/domain";
 import { branchesApi, employeesApi, usersApi } from "@/services/api";
 import { formatBranchLocationLabel } from "@/lib/branch-label";
-import { formatDepartmentPath, FLEET_DRIVER_TEAM_NAME, findDepartmentByName } from "@/lib/department-label";
+import {
+  CEO_NO_UNIT_LABEL,
+  CEO_NO_UNIT_VALUE,
+  FLEET_DRIVER_TEAM_NAME,
+  formatDepartmentPath,
+  inferLoginRoleFromDepartment,
+} from "@/lib/department-label";
 
 const CAN_CREATE: Record<Role, Role[]> = {
   developer_admin: [
@@ -53,25 +59,6 @@ const CAN_CREATE: Record<Role, Role[]> = {
   driver: [],
   field_staff: [],
 };
-
-const LOGIN_ROLE_OPTIONS: { value: Role; label: string; hint: string }[] = [
-  { value: "ceo", label: "CEO", hint: "Company-wide executive overview; no attendance required" },
-  { value: "main_admin", label: "Admin", hint: "Administration head with company setup access" },
-  { value: "hr", label: "HR", hint: "People, leave, and attendance operations" },
-  {
-    value: "manager",
-    label: "Department Head",
-    hint: "Team head — assign units under Departments (multi-head supported)",
-  },
-  { value: "employee", label: "Team Member", hint: "Standard team member workspace (email sign-in)" },
-  { value: "sales", label: "Sales Team", hint: "Sales / field sales workspace" },
-  {
-    value: "driver",
-    label: "Bowser Pilot",
-    hint: "Fleet & Driver Team — mobile number sign-in, attendance only",
-  },
-  { value: "field_staff", label: "Field Staff", hint: "Field attendance workspace" },
-];
 
 const WEEK_OFF_OPTIONS: {
   value: WeeklyOffPolicy;
@@ -149,7 +136,6 @@ export function CreateLoginForm({
   const allowed = user ? CAN_CREATE[user.role] : [];
   const [branches, setBranches] = useState<Branch[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [employees, setEmployees] = useState<User[]>([]);
   const [unlinkedEmployees, setUnlinkedEmployees] = useState<User[]>([]);
   const [creationMode] = useState<"new" | "link">("new");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
@@ -162,8 +148,6 @@ export function CreateLoginForm({
   const [branch, setBranch] = useState("");
   const [dept, setDept] = useState("");
   const [designation, setDesignation] = useState("");
-  const [managerId, setManagerId] = useState("none");
-  const [loginRole, setLoginRole] = useState<Role>("employee");
   const [organizationLevel, setOrganizationLevel] = useState<
     "HEAD" | "SENIOR" | "JUNIOR" | "MEMBER"
   >("MEMBER");
@@ -198,34 +182,31 @@ export function CreateLoginForm({
       ),
     [departments],
   );
-  const selectedUnit = departments.find((department) => department.id === dept);
-  const role: Role = loginRole;
+  const selectedUnit =
+    dept && dept !== CEO_NO_UNIT_VALUE
+      ? departments.find((department) => department.id === dept)
+      : undefined;
+  const role: Role = useMemo(
+    () =>
+      dept === CEO_NO_UNIT_VALUE || !dept
+        ? "ceo"
+        : inferLoginRoleFromDepartment(selectedUnit, departments),
+    [dept, selectedUnit, departments],
+  );
   const isCeo = role === "ceo";
   const isBowserPilot = role === "driver";
   const needsOrganizationUnit = !isCeo;
   const needsAttendanceConfig = !isCeo;
-  const roleOption = LOGIN_ROLE_OPTIONS.find((option) => option.value === role);
   const positionTitle = designation.trim() || defaultTitleForRole(role, selectedUnit?.name);
 
-  function changeLoginRole(nextRole: Role) {
-    setLoginRole(nextRole);
-    setOrganizationLevel(defaultLevelForRole(nextRole));
-    if (nextRole === "ceo") {
-      setDept("");
-      return;
+  useEffect(() => {
+    setOrganizationLevel(defaultLevelForRole(role));
+    if (isCeo) {
+      setAttendanceRequired(false);
+    } else if (role === "driver") {
+      setAttendanceRequired(true);
     }
-    if (nextRole === "driver") {
-      const fleet = findDepartmentByName(departments, FLEET_DRIVER_TEAM_NAME);
-      if (fleet) {
-        setDept(fleet.id);
-        return;
-      }
-    }
-    if (!dept) {
-      const firstUnit = departments[0];
-      if (firstUnit) setDept(firstUnit.id);
-    }
-  }
+  }, [role, isCeo]);
 
   useEffect(() => {
     Promise.all([
@@ -234,12 +215,11 @@ export function CreateLoginForm({
       employeesApi.list(),
       usersApi.list(),
     ])
-      .then(([branchRows, departmentRows, employees, usersList]) => {
+      .then(([branchRows, departmentRows, employeeRows, usersList]) => {
         setBranches(branchRows);
         setDepartments(departmentRows);
-        setEmployees(employees);
         const userEmpIds = new Set(usersList.map((u) => u.employeeId).filter(Boolean));
-        const unlinked = employees.filter((e) => !userEmpIds.has(e.employeeId));
+        const unlinked = employeeRows.filter((e) => !userEmpIds.has(e.employeeId));
         setUnlinkedEmployees(unlinked);
         if (unlinked.length > 0) {
           setSelectedEmployeeId(unlinked[0].employeeId ?? "");
@@ -251,7 +231,6 @@ export function CreateLoginForm({
       .catch(() => {
         setBranches([]);
         setDepartments([]);
-        setEmployees([]);
         setUnlinkedEmployees([]);
       });
   }, []);
@@ -268,7 +247,6 @@ export function CreateLoginForm({
         setBranch(emp.homeBranchId || branches[0]?.id || "");
         setDept(emp.departmentId || departments[0]?.id || "");
         setDesignation(emp.designation || "");
-        setManagerId(emp.managerId || "none");
         setJoiningDate(emp.joiningDate || "");
         setGender(emp.gender || "PREFER_NOT_TO_SAY");
         setBloodGroup(emp.bloodGroup || "");
@@ -289,11 +267,18 @@ export function CreateLoginForm({
       toast.error("Temporary password is required");
       return;
     }
+    if (!allowed.includes(role)) {
+      toast.error(`You cannot create a ${ROLE_LABELS[role]} login`);
+      return;
+    }
     if (isBowserPilot) {
       if (phone.replace(/\D/g, "").length < 10) {
         toast.error("Bowser Pilots sign in with a mobile number");
         return;
       }
+    } else if (!isCeo && !email.trim()) {
+      toast.error("Work email is required for Team Member sign-in");
+      return;
     } else if (!email.trim() && !phone.trim()) {
       toast.error("Email or mobile number is required");
       return;
@@ -306,10 +291,10 @@ export function CreateLoginForm({
       toast.error("Enter a valid mobile number");
       return;
     }
-    if (needsOrganizationUnit && !dept) {
+    if (needsOrganizationUnit && (!dept || dept === CEO_NO_UNIT_VALUE)) {
       toast.error(
         isBowserPilot
-          ? `Select ${FLEET_DRIVER_TEAM_NAME} (or another unit) for this Bowser Pilot`
+          ? `Select ${FLEET_DRIVER_TEAM_NAME} for this Bowser Pilot`
           : "Select an organization unit",
       );
       return;
@@ -334,7 +319,6 @@ export function CreateLoginForm({
         active: true,
         mustChangePassword: true,
         password: temporaryPassword,
-        role,
       };
 
       if (creationMode === "link") {
@@ -342,9 +326,9 @@ export function CreateLoginForm({
       } else {
         payload.employeeCode = employeeCode.trim() || undefined;
         payload.homeBranchId = branch || undefined;
-        payload.departmentId = isCeo ? dept || null : dept || undefined;
+        payload.departmentId = isCeo ? null : dept || undefined;
         payload.designation = designation.trim() || positionTitle;
-        payload.managerId = managerId === "none" ? null : managerId;
+        payload.managerId = null;
         payload.organizationLevel = isCeo ? "HEAD" : organizationLevel;
         payload.weeklyOffPolicy = isCeo ? undefined : weeklyOffPolicy;
         payload.attendanceRequired = isCeo ? false : attendanceRequired;
@@ -493,28 +477,9 @@ export function CreateLoginForm({
           <>
             <FormSection
               icon={UserRound}
-              title="Organization & role"
-              description="Login role controls modules. Place the person in a unit; heads are assigned later under Departments."
+              title="Organization"
+              description="Pick the org unit — login type follows the hierarchy. Department heads are assigned under Departments (not here)."
             >
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>Login role</Label>
-                <Select value={loginRole} onValueChange={(value) => changeLoginRole(value as Role)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {LOGIN_ROLE_OPTIONS.filter((option) => allowed.includes(option.value)).map(
-                      (option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ),
-                    )}
-                  </SelectContent>
-                </Select>
-                {roleOption && <p className="text-xs text-muted-foreground">{roleOption.hint}</p>}
-              </div>
-
               <div className="space-y-1.5">
                 <Label>Employer company</Label>
                 <Select
@@ -556,49 +521,53 @@ export function CreateLoginForm({
                 </p>
               </div>
 
-              {!isCeo && (
-                <>
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <Label>Organization unit</Label>
-                    <Select value={dept} onValueChange={setDept}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select organization unit" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {departmentsByPath.map((d) => (
-                          <SelectItem key={d.id} value={d.id}>
-                            {formatDepartmentPath(d, departments)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      {isBowserPilot
-                        ? `Bowser Pilots belong under ${FLEET_DRIVER_TEAM_NAME}.`
-                        : "Full org path — same picker style as Employees."}
-                    </p>
-                  </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>Organization unit</Label>
+                <Select value={dept || CEO_NO_UNIT_VALUE} onValueChange={setDept}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select organization unit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={CEO_NO_UNIT_VALUE}>{CEO_NO_UNIT_LABEL}</SelectItem>
+                    {departmentsByPath.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {formatDepartmentPath(d, departments)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {isBowserPilot
+                    ? `Bowser Pilots belong under ${FLEET_DRIVER_TEAM_NAME}.`
+                    : isCeo
+                      ? "CEO sits above departments — no reporting manager needed."
+                      : "Leave approval uses department heads assigned under Departments."}
+                </p>
+              </div>
 
-                  <div className="space-y-1.5">
-                    <Label>Organization level</Label>
-                    <Select
-                      value={organizationLevel}
-                      onValueChange={(value) =>
-                        setOrganizationLevel(value as typeof organizationLevel)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="HEAD">Head</SelectItem>
-                        <SelectItem value="SENIOR">Senior</SelectItem>
-                        <SelectItem value="JUNIOR">Junior</SelectItem>
-                        <SelectItem value="MEMBER">Member</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </>
+              {!isCeo && (
+                <div className="space-y-1.5">
+                  <Label>Organization level</Label>
+                  <Select
+                    value={organizationLevel}
+                    onValueChange={(value) =>
+                      setOrganizationLevel(value as typeof organizationLevel)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="HEAD">Head</SelectItem>
+                      <SelectItem value="SENIOR">Senior</SelectItem>
+                      <SelectItem value="JUNIOR">Junior</SelectItem>
+                      <SelectItem value="MEMBER">Member</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    For unit heads, also assign them under Departments so leave routing stays correct.
+                  </p>
+                </div>
               )}
 
               <div className="space-y-1.5">
@@ -610,41 +579,17 @@ export function CreateLoginForm({
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <Label>Reporting manager</Label>
-                <Select value={managerId} onValueChange={setManagerId}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Leave empty (recommended)</SelectItem>
-                    {employees
-                      .filter((employee) => employee.employeeId)
-                      .map((employee) => (
-                        <SelectItem key={employee.employeeId} value={employee.employeeId!}>
-                          {employee.name}
-                          {employee.employeeCode ? ` · ${employee.employeeCode}` : ""}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Leave approval uses organization heads set under Departments.
-                </p>
-              </div>
-
               <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 sm:col-span-2">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Position preview
                 </p>
                 <p className="mt-1 text-base font-semibold text-foreground">{positionTitle}</p>
                 <p className="mt-1 break-words text-xs text-muted-foreground">
-                  {ROLE_LABELS[role]}
                   {isCeo
-                    ? " · company-wide access · sits above departments"
+                    ? "Company-wide · sits above departments"
                     : selectedUnit
-                      ? ` · ${formatDepartmentPath(selectedUnit, departments)}`
-                      : " · choose a unit to continue"}
+                      ? formatDepartmentPath(selectedUnit, departments)
+                      : "Choose a unit to continue"}
                 </p>
               </div>
             </FormSection>

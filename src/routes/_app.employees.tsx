@@ -82,8 +82,6 @@ function EmployeesPage() {
 
   const [editingEmployee, setEditingEmployee] = useState<User | null>(null);
   const [hrManagingEmployee, setHrManagingEmployee] = useState<User | null>(null);
-  const [hrManagerId, setHrManagerId] = useState("");
-  const [hrSaving, setHrSaving] = useState(false);
   const [editForm, setEditForm] = useState({
     name: "",
     email: "",
@@ -168,32 +166,6 @@ function EmployeesPage() {
       return;
     }
     setHrManagingEmployee(fullEmployee);
-    setHrManagerId(fullEmployee.managerId ?? "");
-  }
-
-  async function saveHrManager(event: React.FormEvent) {
-    event.preventDefault();
-    if (!hrManagingEmployee) return;
-    setHrSaving(true);
-    try {
-      const updated = await employeesApi.update(
-        hrManagingEmployee.employeeId ?? hrManagingEmployee.id,
-        { managerId: hrManagerId },
-      );
-      setEmployees((current) =>
-        current.map((row) =>
-          (row.employeeId ?? row.id) === (updated.employeeId ?? updated.id)
-            ? { ...row, ...updated }
-            : row,
-        ),
-      );
-      setHrManagingEmployee((current) => (current ? { ...current, ...updated } : current));
-      toast.success(t("pages.employees.toastManagerUpdated"));
-    } catch (error) {
-      toast.error((error as Error).message);
-    } finally {
-      setHrSaving(false);
-    }
   }
 
   async function openEditDialog(emp: User) {
@@ -269,7 +241,7 @@ function EmployeesPage() {
       };
       const updated = await employeesApi.update(
         editingEmployee.employeeId ?? editingEmployee.id,
-        payload,
+        payload as never,
       );
       setEmployees((prev) =>
         prev.map((row) => (row.employeeId === updated.employeeId ? { ...row, ...updated } : row)),
@@ -974,47 +946,6 @@ function EmployeesPage() {
               </DialogDescription>
             </DialogHeader>
             <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4 sm:px-6">
-              <form onSubmit={(event) => void saveHrManager(event)} className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label>Reporting manager</Label>
-                  <Select
-                    value={hrManagerId || "none"}
-                    onValueChange={(value) => setHrManagerId(value === "none" ? "" : value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select manager" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">
-                        {t("pages.employees.noReportingManager")}
-                      </SelectItem>
-                      {employees
-                        .filter(
-                          (candidate) =>
-                            (candidate.employeeId ?? candidate.id) !==
-                            (hrManagingEmployee.employeeId ?? hrManagingEmployee.id),
-                        )
-                        .map((candidate) => (
-                          <SelectItem
-                            key={candidate.employeeId ?? candidate.id}
-                            value={candidate.employeeId ?? candidate.id}
-                          >
-                            {candidate.name}
-                            {candidate.employeeCode ? ` (${candidate.employeeCode})` : ""}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    {t("pages.employees.current", {
-                      name: hrManagingEmployee.managerName ?? t("pages.employees.notAssigned"),
-                    })}
-                  </p>
-                </div>
-                <Button type="submit" disabled={hrSaving} className="w-full sm:w-auto">
-                  {hrSaving ? t("pages.employees.saving") : t("pages.employees.saveManager")}
-                </Button>
-              </form>
               <EmergencyContactSection
                 employeeId={hrManagingEmployee.employeeId ?? hrManagingEmployee.id}
                 value={hrManagingEmployee.emergencyContact}

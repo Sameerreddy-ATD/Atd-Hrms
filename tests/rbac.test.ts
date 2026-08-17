@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { Role } from "@prisma/client";
-import { canCreateRole, resolveTargetLoginRole } from "../server/src/rbac.js";
+import {
+  canCreateRole,
+  formatOrgUnitPath,
+  resolveTargetLoginRole,
+} from "../server/src/rbac.js";
 
 describe("login creation rules", () => {
   it("allows Developer Admin to create all logins including CEO", () => {
@@ -24,56 +28,82 @@ describe("login creation rules", () => {
 });
 
 describe("resolveTargetLoginRole", () => {
-  it("uses an explicit CEO role without requiring Executive Leadership", () => {
-    expect(
-      resolveTargetLoginRole({
-        explicitRole: Role.CEO,
-        unitName: null,
-        organizationLevel: "HEAD",
-      }),
-    ).toBe(Role.CEO);
+  it("maps no organization unit to CEO", () => {
+    expect(resolveTargetLoginRole({})).toBe(Role.CEO);
+    expect(resolveTargetLoginRole({ unitName: null, unitPath: null })).toBe(Role.CEO);
   });
 
-  it("uses explicit department head role even when unit is not a special name", () => {
+  it("ignores a client-sent explicit role — unit wins", () => {
     expect(
       resolveTargetLoginRole({
         explicitRole: Role.MANAGER,
-        unitName: "Software",
-        organizationLevel: "MEMBER",
+        unitName: "Fleet & Driver Team",
+        unitPath: "Operations / Fleet & Driver Team",
       }),
-    ).toBe(Role.MANAGER);
+    ).toBe(Role.DRIVER);
+    expect(
+      resolveTargetLoginRole({
+        explicitRole: Role.CEO,
+        unitName: "Operations",
+        unitPath: "Operations",
+      }),
+    ).toBe(Role.EMPLOYEE);
   });
 
-  it("falls back to unit-name inference when no explicit role is provided", () => {
+  it("does not promote HEAD organization level to manager", () => {
+    expect(
+      resolveTargetLoginRole({
+        unitName: "Software",
+        unitPath: "Software",
+        organizationLevel: "HEAD",
+      }),
+    ).toBe(Role.EMPLOYEE);
+  });
+
+  it("maps Fleet, HR, and Sales units from name or path", () => {
+    expect(
+      resolveTargetLoginRole({
+        unitName: "Fleet & Driver Team",
+        unitPath: "Ops / Fleet & Driver Team",
+      }),
+    ).toBe(Role.DRIVER);
+    expect(
+      resolveTargetLoginRole({
+        unitName: "Hr Department",
+        unitPath: "Chief of Staff / Hr Department",
+      }),
+    ).toBe(Role.HR);
+    expect(
+      resolveTargetLoginRole({
+        unitName: "Inside Sales",
+        unitPath: "Sales Team / Inside Sales",
+      }),
+    ).toBe(Role.SALES);
+    expect(
+      resolveTargetLoginRole({
+        unitName: "Drivers",
+      }),
+    ).toBe(Role.DRIVER);
+  });
+
+  it("keeps legacy Executive Leadership as CEO", () => {
     expect(
       resolveTargetLoginRole({
         unitName: "Executive Leadership",
         organizationLevel: "HEAD",
       }),
     ).toBe(Role.CEO);
-    expect(
-      resolveTargetLoginRole({
-        unitName: "Human Resources",
-        organizationLevel: "SENIOR",
-      }),
-    ).toBe(Role.HR);
-    expect(
-      resolveTargetLoginRole({
-        unitName: "Administration",
-        organizationLevel: "HEAD",
-      }),
-    ).toBe(Role.MAIN_ADMIN);
-    expect(
-      resolveTargetLoginRole({
-        unitName: "Software",
-        organizationLevel: "HEAD",
-      }),
-    ).toBe(Role.MANAGER);
-    expect(
-      resolveTargetLoginRole({
-        unitName: "Field Sales",
-        organizationLevel: "MEMBER",
-      }),
-    ).toBe(Role.SALES);
+  });
+});
+
+describe("formatOrgUnitPath", () => {
+  const units = [
+    { id: "ops", name: "Operations", parentDepartmentId: null },
+    { id: "fleet", name: "Fleet & Driver Team", parentDepartmentId: "ops" },
+  ];
+
+  it("joins ancestors", () => {
+    expect(formatOrgUnitPath(units[1], units)).toBe("Operations / Fleet & Driver Team");
+    expect(formatOrgUnitPath(units[0], units)).toBe("Operations");
   });
 });

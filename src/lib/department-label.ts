@@ -1,9 +1,13 @@
-import type { Department } from "@/types/domain";
+import type { Department, Role } from "@/types/domain";
 
 type DepartmentRef = Pick<Department, "id" | "name" | "parentDepartmentId">;
 
 /** Org unit for Bowser Pilot (driver) logins — mobile-number portal. */
 export const FLEET_DRIVER_TEAM_NAME = "Fleet & Driver Team";
+
+/** Create-login option: no department → CEO / company-wide. */
+export const CEO_NO_UNIT_VALUE = "none";
+export const CEO_NO_UNIT_LABEL = "CEO / company-wide (no unit)";
 
 export function findDepartmentByName(
   departments: DepartmentRef[],
@@ -12,6 +16,49 @@ export function findDepartmentByName(
   const needle = name.trim().toLowerCase();
   if (!needle) return undefined;
   return departments.find((row) => row.name.trim().toLowerCase() === needle);
+}
+
+/**
+ * Login role follows the org unit (heads / managers are assigned under Departments).
+ * - No unit → CEO
+ * - Fleet & Driver Team (unit or ancestor path) → Bowser Pilot
+ * - HR units → HR
+ * - Sales units → Sales Team
+ * - Everything else → Team Member
+ */
+export function inferLoginRoleFromDepartment(
+  department: DepartmentRef | null | undefined,
+  departments: DepartmentRef[],
+): Role {
+  if (!department) return "ceo";
+  const path = formatDepartmentPath(department, departments).toLowerCase();
+  const name = department.name.trim().toLowerCase();
+
+  if (name.includes("fleet & driver") || path.includes("fleet & driver")) {
+    return "driver";
+  }
+
+  if (
+    name === "hr" ||
+    name.includes("hr department") ||
+    name.includes("human resources") ||
+    path.includes("human resources") ||
+    /(^|\/)\s*hr(\s|\/|$)/.test(path)
+  ) {
+    return "hr";
+  }
+
+  if (
+    name.includes("sales") ||
+    path.includes("sales team") ||
+    path.includes("inside sales") ||
+    path.includes("field sales") ||
+    path.includes("tele sales")
+  ) {
+    return "sales";
+  }
+
+  return "employee";
 }
 
 /**

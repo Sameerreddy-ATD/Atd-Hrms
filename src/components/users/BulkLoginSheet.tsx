@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ROLE_LABELS, type Branch, type Department, type User } from "@/types/domain";
+import { type Branch, type Department, type User } from "@/types/domain";
 import { usersApi } from "@/services/api";
 import { cn } from "@/lib/utils";
 import { formatBranchLocationLabel } from "@/lib/branch-label";
@@ -56,16 +56,6 @@ export function BulkLoginSheet({
     [departments],
   );
   const childChoices = useMemo(() => childUnitChoices(departments), [departments]);
-  const managerOptions = useMemo(() => {
-    return existingEmployees
-      .filter((employee) => employee.employeeId)
-      .sort((left, right) => left.name.localeCompare(right.name))
-      .map((employee) => ({
-        value: employee.employeeCode || employee.email || employee.employeeId || "",
-        label: `${employee.name}${employee.employeeCode ? ` (${employee.employeeCode})` : ""}`,
-      }))
-      .filter((option) => option.value);
-  }, [existingEmployees]);
 
   const filledRows = useMemo(() => rows.filter((row) => !isRowBlank(row)), [rows]);
   const invalidCount = useMemo(
@@ -150,59 +140,22 @@ export function BulkLoginSheet({
     setImporting(true);
     setProgress({ completed: 0, total: validRows.length });
     const failures: Array<{ id: string; message: string }> = [];
-    const resolvedManagerIds = new Map<string, string>();
-    existingEmployees.forEach((employee) => {
-      if (!employee.employeeId) return;
-      [employee.employeeCode, employee.employeeId, employee.email]
-        .filter(Boolean)
-        .forEach((key) => {
-          resolvedManagerIds.set(String(key).trim().toLowerCase(), employee.employeeId!);
-        });
-    });
-
     const pending = [...validRows];
     while (pending.length) {
-      const ready = pending
-        .filter((row) => {
-          const payload = rowToCreatePayload(row, { branches, departments });
-          return !payload.managerReference || resolvedManagerIds.has(payload.managerReference);
-        })
-        .slice(0, 4);
-      if (!ready.length) {
-        pending.forEach((row) =>
-          failures.push({
-            id: row.id,
-            message:
-              "Reporting manager could not be created or resolved. Check for a failed manager or circular reporting relationship.",
-          }),
-        );
-        setProgress((current) => ({
-          ...current,
-          completed: current.completed + pending.length,
-        }));
-        pending.length = 0;
-        break;
-      }
-      ready.forEach((row) => pending.splice(pending.indexOf(row), 1));
+      const ready = pending.splice(0, 4);
       await Promise.all(
         ready.map(async (row) => {
           try {
-            const draft = rowToCreatePayload(row, { branches, departments });
-            const managerId = draft.managerReference
-              ? resolvedManagerIds.get(draft.managerReference)
-              : undefined;
-            const { managerReference: _managerReference, ...body } = rowToCreatePayload(row, {
+            const {
+              managerReference: _managerReference,
+              role: _role,
+              ...body
+            } = rowToCreatePayload(row, {
               branches,
               departments,
-              managerId: managerId ?? null,
+              managerId: null,
             });
-            const created = await usersApi.create(body as never);
-            if (created.employeeId) {
-              resolvedManagerIds.set(row.email.trim().toLowerCase(), created.employeeId);
-              if (row.employeeCode.trim()) {
-                resolvedManagerIds.set(row.employeeCode.trim().toLowerCase(), created.employeeId);
-              }
-            }
+            await usersApi.create(body as never);
           } catch (error) {
             failures.push({ id: row.id, message: (error as Error).message });
           } finally {
@@ -248,9 +201,6 @@ export function BulkLoginSheet({
         : childChoices;
       return ["Use main unit", ...filtered.map((choice) => choice.label)];
     }
-    if (columnKey === "managerReference") {
-      return ["Automatic", ...managerOptions.map((option) => option.value)];
-    }
     const column = LOGIN_IMPORT_COLUMNS.find((item) => item.key === columnKey);
     return column?.enumOptions ? [...column.enumOptions] : [];
   }
@@ -266,12 +216,10 @@ export function BulkLoginSheet({
 
     if (
       column.type === "enum" ||
-      column.type === "role" ||
       column.type === "company" ||
       column.type === "branch" ||
       column.type === "mainOrgUnit" ||
-      column.type === "childOrgUnit" ||
-      column.type === "manager"
+      column.type === "childOrgUnit"
     ) {
       const options = cellOptions(key, row);
       const known = options.includes(value);
@@ -287,9 +235,7 @@ export function BulkLoginSheet({
           {!known && value ? <option value={value}>{value}</option> : null}
           {options.map((option) => (
             <option key={option} value={option}>
-              {key === "managerReference" && option !== "Automatic"
-                ? managerOptions.find((item) => item.value === option)?.label || option
-                : option}
+              {option}
             </option>
           ))}
         </select>
@@ -427,7 +373,7 @@ export function BulkLoginSheet({
                           </span>
                         ) : (
                           <span className="text-emerald-700 dark:text-emerald-400">
-                            {ROLE_LABELS[rowToCreatePayload(row, { branches, departments }).role]}
+                            Ready
                           </span>
                         )}
                       </td>

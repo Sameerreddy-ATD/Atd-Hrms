@@ -6,6 +6,7 @@ import {
   formatDepartmentParentPath,
   formatDepartmentPath,
   formatDepartmentPathById,
+  inferLoginRoleFromDepartment,
 } from "../src/lib/department-label";
 
 const departments = [
@@ -15,6 +16,9 @@ const departments = [
   { id: "sales-a", name: "Sales", parentDepartmentId: "a" },
   { id: "sales-b", name: "Sales", parentDepartmentId: "b" },
   { id: "fleet", name: "Fleet & Driver Team", parentDepartmentId: "a" },
+  { id: "ops", name: "Operations Department", parentDepartmentId: "a" },
+  { id: "hr", name: "Hr Department", parentDepartmentId: "b" },
+  { id: "inside", name: "Inside Sales", parentDepartmentId: "head" },
 ];
 
 describe("formatDepartmentPath", () => {
@@ -37,6 +41,26 @@ describe("findDepartmentByName", () => {
   it("finds Fleet & Driver Team for Bowser Pilot placement", () => {
     expect(findDepartmentByName(departments, FLEET_DRIVER_TEAM_NAME)?.id).toBe("fleet");
     expect(findDepartmentByName(departments, "fleet & driver team")?.id).toBe("fleet");
+  });
+});
+
+describe("inferLoginRoleFromDepartment", () => {
+  it("maps no unit to CEO", () => {
+    expect(inferLoginRoleFromDepartment(null, departments)).toBe("ceo");
+  });
+
+  it("maps Fleet & Driver Team to Bowser Pilot", () => {
+    expect(inferLoginRoleFromDepartment(departments[5], departments)).toBe("driver");
+  });
+
+  it("maps HR and sales units", () => {
+    expect(inferLoginRoleFromDepartment(departments[7], departments)).toBe("hr");
+    expect(inferLoginRoleFromDepartment(departments[8], departments)).toBe("sales");
+    expect(inferLoginRoleFromDepartment(departments[3], departments)).toBe("sales");
+  });
+
+  it("defaults other units to team member", () => {
+    expect(inferLoginRoleFromDepartment(departments[6], departments)).toBe("employee");
   });
 });
 

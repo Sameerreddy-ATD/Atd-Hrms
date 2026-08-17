@@ -171,6 +171,7 @@ import {
   isAssignedOrganizationHead,
   requireAuth,
   requireRoles,
+  formatOrgUnitPath,
   resolveTargetLoginRole,
 } from "./rbac.js";
 import {
@@ -2554,13 +2555,30 @@ export function createApp() {
       if (body.employeeId && !linkedEmployee) throw new HttpError(404, "Employee not found");
       if (linkedEmployee?.user) throw new HttpError(409, "Employee already has a login account");
       const organizationUnitId = body.departmentId ?? linkedEmployee?.departmentId;
-      const organizationUnit = organizationUnitId
-        ? await prisma.department.findUnique({ where: { departmentId: organizationUnitId } })
+      const [organizationUnit, organizationUnits] = await Promise.all([
+        organizationUnitId
+          ? prisma.department.findUnique({ where: { departmentId: organizationUnitId } })
+          : Promise.resolve(null),
+        prisma.department.findMany({
+          select: { departmentId: true, name: true, parentDepartmentId: true },
+        }),
+      ]);
+      // Never trust a client-sent role — login role follows the org unit only.
+      const unitRefs = organizationUnits.map((row) => ({
+        id: row.departmentId,
+        name: row.name,
+        parentDepartmentId: row.parentDepartmentId,
+      }));
+      const selectedUnit = organizationUnit
+        ? {
+            id: organizationUnit.departmentId,
+            name: organizationUnit.name,
+            parentDepartmentId: organizationUnit.parentDepartmentId,
+          }
         : null;
       const targetRole = resolveTargetLoginRole({
-        explicitRole: body.role ?? null,
-        unitName: organizationUnit?.name,
-        organizationLevel: body.organizationLevel,
+        unitName: selectedUnit?.name,
+        unitPath: formatOrgUnitPath(selectedUnit, unitRefs),
       });
       if (targetRole !== Role.CEO && !organizationUnit) {
         throw new HttpError(400, "Select an organization unit");

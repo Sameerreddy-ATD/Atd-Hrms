@@ -1,4 +1,4 @@
-import { Prisma, Role, type PrismaClient } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 
 type Tx = Prisma.TransactionClient | PrismaClient;
 
@@ -10,7 +10,9 @@ async function isStillOrganizationHead(tx: Tx, employeeId: string) {
   return assignmentCount > 0 || legacyCount > 0;
 }
 
-/** Mark an employee as an org head; the same person may head multiple departments. */
+/** Mark an employee as an org head; the same person may head multiple departments.
+ * Login role stays tied to organization unit (Sales/HR/etc.) — headship is chart-only.
+ */
 export async function syncAssignedOrganizationHead(tx: Tx, headEmployeeId: string | null | undefined) {
   if (!headEmployeeId) return;
   const head = await tx.employee.findUnique({
@@ -22,13 +24,6 @@ export async function syncAssignedOrganizationHead(tx: Tx, headEmployeeId: strin
     await tx.employee.update({
       where: { employeeId: headEmployeeId },
       data: { organizationLevel: "HEAD" },
-    });
-  }
-  const promoteable: Role[] = [Role.EMPLOYEE, Role.SALES, Role.DRIVER, Role.FIELD_STAFF];
-  if (promoteable.includes(head.user.role)) {
-    await tx.user.update({
-      where: { id: head.user.id },
-      data: { role: Role.MANAGER },
     });
   }
 }

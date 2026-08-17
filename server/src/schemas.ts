@@ -105,7 +105,7 @@ export const createUserSchema = z
       .max(200)
       .regex(/[A-Z]/, "Password must contain an uppercase letter")
       .regex(/[0-9]/, "Password must contain a number"),
-    role: z.nativeEnum(Role).optional(),
+    role: z.nativeEnum(Role).optional(), // ignored — role is inferred from organization unit
     employeeId: z.string().optional(),
     employeeCode: z.string().trim().min(1).max(40).optional(),
     departmentId: z.string().nullable().optional(),

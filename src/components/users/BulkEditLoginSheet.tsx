@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ROLE_LABELS, type Branch, type Department, type User } from "@/types/domain";
+import { type Branch, type Department, type User } from "@/types/domain";
 import { employeesApi, usersApi } from "@/services/api";
 import { cn } from "@/lib/utils";
 import { formatBranchLocationLabel } from "@/lib/branch-label";
@@ -24,7 +24,7 @@ import {
   isRowBlank,
   parseClipboardTsv,
   pastedEditRowsMatchHeaders,
-  resolveLoginRole,
+  resolveRoleForImportRow,
   revalidateEditRows,
   rowToUpdatePayloads,
   type LoginEditRow,
@@ -58,16 +58,6 @@ export function BulkEditLoginSheet({
     [departments],
   );
   const childChoices = useMemo(() => childUnitChoices(departments), [departments]);
-  const managerOptions = useMemo(() => {
-    return directory
-      .filter((employee) => employee.employeeId && employee.role !== "developer_admin")
-      .sort((left, right) => left.name.localeCompare(right.name))
-      .map((employee) => ({
-        value: employee.employeeCode || employee.email || employee.employeeId || "",
-        label: `${employee.name}${employee.employeeCode ? ` (${employee.employeeCode})` : ""}`,
-      }))
-      .filter((option) => option.value);
-  }, [directory]);
 
   const uniquenessPool = useMemo(() => {
     const byKey = new Map<string, User>();
@@ -213,15 +203,6 @@ export function BulkEditLoginSheet({
     setSaving(true);
     setProgress({ completed: 0, total: validRows.length });
     const failures: Array<{ id: string; message: string }> = [];
-    const resolvedManagerIds = new Map<string, string>();
-    uniquenessPool.forEach((employee) => {
-      if (!employee.employeeId) return;
-      [employee.employeeCode, employee.employeeId, employee.email]
-        .filter(Boolean)
-        .forEach((key) => {
-          resolvedManagerIds.set(String(key).trim().toLowerCase(), employee.employeeId!);
-        });
-    });
 
     const queue = [...validRows];
     while (queue.length) {
@@ -229,34 +210,25 @@ export function BulkEditLoginSheet({
       await Promise.all(
         batch.map(async (row) => {
           try {
-            const managerText = row.managerReference.trim().toLowerCase();
-            const managerId =
-              !managerText || managerText === "automatic"
-                ? null
-                : (resolvedManagerIds.get(managerText) ?? null);
-            if (managerText && managerText !== "automatic" && !managerId) {
-              throw new Error(`Reporting manager not found: ${row.managerReference}`);
-            }
             const payloads = rowToUpdatePayloads(row, {
               branches,
               departments,
-              managerId,
+              managerId: null,
             });
 
             if (payloads.employeeId) {
               await employeesApi.update(payloads.employeeId, payloads.employeePatch as never);
             }
 
-            const role = resolveLoginRole(row.role);
-            const baselineRole = resolveLoginRole(row.baseline.role);
-            if (role && role !== baselineRole) {
+            const role = resolveRoleForImportRow(row, departments);
+            const baselineRole = resolveRoleForImportRow(row.baseline, departments);
+            if (role !== baselineRole) {
               await usersApi.update(payloads.userId, { role });
             } else if (!payloads.employeeId) {
               await usersApi.update(payloads.userId, {
                 name: row.name.trim(),
                 email: row.email.trim().toLowerCase(),
                 phone: row.phone.trim() || null,
-                ...(role ? { role } : {}),
               });
             }
 
@@ -312,9 +284,6 @@ export function BulkEditLoginSheet({
         : childChoices;
       return ["Use main unit", ...filtered.map((choice) => choice.label)];
     }
-    if (columnKey === "managerReference") {
-      return ["Automatic", ...managerOptions.map((option) => option.value)];
-    }
     const column = LOGIN_EDIT_COLUMNS.find((item) => item.key === columnKey);
     return column?.enumOptions ? [...column.enumOptions] : [];
   }
@@ -330,12 +299,10 @@ export function BulkEditLoginSheet({
 
     if (
       column.type === "enum" ||
-      column.type === "role" ||
       column.type === "company" ||
       column.type === "branch" ||
       column.type === "mainOrgUnit" ||
-      column.type === "childOrgUnit" ||
-      column.type === "manager"
+      column.type === "childOrgUnit"
     ) {
       const options = cellOptions(key, row);
       const known = options.includes(value);
@@ -351,9 +318,7 @@ export function BulkEditLoginSheet({
           {!known && value ? <option value={value}>{value}</option> : null}
           {options.map((option) => (
             <option key={option} value={option}>
-              {key === "managerReference" && option !== "Automatic"
-                ? managerOptions.find((item) => item.value === option)?.label || option
-                : option}
+              {option}
             </option>
           ))}
         </select>
@@ -525,9 +490,7 @@ export function BulkEditLoginSheet({
                           ) : isRowBlank(row) ? (
                             <span className="text-muted-foreground">Empty</span>
                           ) : (
-                            <span className="text-muted-foreground">
-                              {ROLE_LABELS[resolveLoginRole(row.role) ?? "employee"]}
-                            </span>
+                            <span className="text-muted-foreground">Unchanged</span>
                           )}
                         </td>
                       </tr>
