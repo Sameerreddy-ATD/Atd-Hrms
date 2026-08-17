@@ -14,7 +14,8 @@ import { attendanceApi } from "@/services/api";
 import type { AttendanceRecord } from "@/types/domain";
 import { useAuth } from "@/lib/auth";
 import { subscribeToAttendanceChanges } from "@/lib/attendance-live";
-import { indiaMonthKey, indiaMonthRange } from "@/lib/india-date";
+import { indiaDateKey } from "@/lib/india-date";
+import { currentAttendanceCycle } from "@/lib/attendance-cycle";
 
 type MineSearch = { tab?: "history" | "requests" };
 
@@ -41,7 +42,7 @@ function MyAttendancePage() {
       if (showLoading) setLoading(true);
       setError("");
       try {
-        const { from, to } = indiaMonthRange(indiaMonthKey());
+        const { from, to } = currentAttendanceCycle(indiaDateKey());
         const [attendanceRows, requestsList] = await Promise.all([
           attendanceApi.listMine(user?.employeeId ?? "", { from, to }),
           attendanceApi.listCorrectionRequests(),

@@ -1,4 +1,4 @@
-import { formatDisplayDate } from "./india-date.js";
+import { formatDisplayDate, formatDisplayDateRange } from "./india-date.js";
 
 export function downloadCsv(filename: string, rows: Array<Record<string, unknown>>) {
   if (rows.length === 0) return;
@@ -107,6 +107,11 @@ export function downloadAttendanceExcel(
     sourceOut: string;
     workedSeconds: number;
   }>,
+  options?: {
+    periodLabel?: string;
+    from?: string;
+    to?: string;
+  },
 ) {
   if (rows.length === 0) return;
 
@@ -119,6 +124,15 @@ export function downloadAttendanceExcel(
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&apos;");
   };
+
+  const periodMeta = [
+    options?.periodLabel ? `Pay period: ${options.periodLabel}` : null,
+    options?.from || options?.to
+      ? `Range: ${formatDisplayDateRange(options.from, options.to)}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   const summaryMap = new Map<
     string,
@@ -166,7 +180,15 @@ export function downloadAttendanceExcel(
 
   const summaries = Array.from(summaryMap.values()).sort((a, b) => a.name.localeCompare(b.name));
 
-  let overviewRowsXml = `
+  let overviewRowsXml = periodMeta
+    ? `
+    <Row ss:Height="20">
+      <Cell ss:MergeAcross="6" ss:StyleID="Meta"><Data ss:Type="String">${escapeXml(periodMeta)}</Data></Cell>
+    </Row>
+  `
+    : "";
+
+  overviewRowsXml += `
     <Row ss:Height="22">
       <Cell ss:StyleID="Header"><Data ss:Type="String">Employee Name</Data></Cell>
       <Cell ss:StyleID="Header"><Data ss:Type="String">Employee ID</Data></Cell>
@@ -313,6 +335,10 @@ export function downloadAttendanceExcel(
       <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
       <Font ss:FontName="Segoe UI" ss:Size="10" ss:Color="#22C55E" ss:Bold="1"/>
       <Interior ss:Color="#F0FDF4" ss:Pattern="Solid"/>
+    </Style>
+    <Style ss:ID="Meta">
+      <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
+      <Font ss:FontName="Segoe UI" ss:Size="10" ss:Color="#475569" ss:Bold="1"/>
     </Style>
   </Styles>
   ${worksheetsXml}

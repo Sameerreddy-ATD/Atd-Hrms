@@ -27,9 +27,15 @@ import {
 import {
   formatDisplayDate,
   formatDisplayDateRange,
-  indiaMonthKey,
-  indiaMonthRange,
+  indiaDateKey,
 } from "@/lib/india-date";
+import {
+  attendanceCycleFileSlug,
+  attendanceCycleForDate,
+  attendanceCycleLabel,
+  attendanceCycleRange,
+  currentAttendanceCycle,
+} from "@/lib/attendance-cycle";
 import { CalendarRange } from "lucide-react";
 
 export const Route = createFileRoute("/_app/attendance/locations")({
@@ -55,22 +61,40 @@ function readSavedSelection(): SavedDayLogSelection | null {
 
 function DayLogsPage() {
   const { t } = useTranslation();
+  const todayKey = indiaDateKey();
   const initialSelection = useMemo(() => readSavedSelection(), []);
-  const defaultMonth = initialSelection?.from?.slice(0, 7) || indiaMonthKey();
-  const defaultRange = indiaMonthRange(defaultMonth);
+  const defaultCycle = useMemo(() => {
+    if (initialSelection?.from) {
+      return attendanceCycleForDate(initialSelection.from, {
+        clampToToday: true,
+        todayKey: todayKey,
+      });
+    }
+    return currentAttendanceCycle(todayKey);
+  }, [initialSelection, todayKey]);
 
   const [employees, setEmployees] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(
     () => initialSelection?.employeeId || "all",
   );
-  const [month, setMonth] = useState(defaultMonth);
-  const [from, setFrom] = useState(() => initialSelection?.from || defaultRange.from);
-  const [to, setTo] = useState(() => initialSelection?.to || defaultRange.to);
+  const [periodKey, setPeriodKey] = useState(defaultCycle.periodKey);
+  const [from, setFrom] = useState(() => initialSelection?.from || defaultCycle.from);
+  const [to, setTo] = useState(() => initialSelection?.to || defaultCycle.to);
   const [branchId, setBranchId] = useState("all");
   const [employeeRows, setEmployeeRows] = useState<AttendanceRecord[]>([]);
   const [loadingEmployeeRows, setLoadingEmployeeRows] = useState(true);
   const [employeeError, setEmployeeError] = useState("");
+
+  const cycleBounds = useMemo(
+    () => attendanceCycleRange(periodKey, { clampToToday: true, todayKey }),
+    [periodKey, todayKey],
+  );
+  const periodLabel = useMemo(() => attendanceCycleLabel(periodKey), [periodKey]);
+  const currentPeriodKey = useMemo(
+    () => currentAttendanceCycle(todayKey).periodKey,
+    [todayKey],
+  );
 
   useEffect(() => {
     Promise.all([employeesApi.list(), branchesApi.list()])
@@ -140,18 +164,27 @@ function DayLogsPage() {
     if (employeeId !== "all") setBranchId("all");
   }
 
-  function changeMonth(nextMonth: string) {
-    if (!nextMonth) return;
-    const range = indiaMonthRange(nextMonth);
-    setMonth(nextMonth);
+  function changePeriod(nextPeriod: string) {
+    if (!nextPeriod) return;
+    const range = attendanceCycleRange(nextPeriod, { clampToToday: true, todayKey });
+    setPeriodKey(range.periodKey);
     setFrom(range.from);
     setTo(range.to);
   }
 
   function changeFrom(nextFrom: string) {
-    setFrom(nextFrom);
-    if (nextFrom) setMonth(nextFrom.slice(0, 7));
-    if (to && nextFrom && to < nextFrom) setTo(nextFrom);
+    if (!nextFrom) {
+      setFrom(nextFrom);
+      return;
+    }
+    const cycle = attendanceCycleForDate(nextFrom, { clampToToday: true, todayKey });
+    const min = cycle.from;
+    const max = cycle.to;
+    const clamped = nextFrom < min ? min : nextFrom > max ? max : nextFrom;
+    setPeriodKey(cycle.periodKey);
+    setFrom(clamped);
+    if (to && to < clamped) setTo(clamped);
+    else if (to && (to < cycle.from || to > cycle.to)) setTo(cycle.to);
   }
 
   function changeTo(nextTo: string) {
@@ -159,15 +192,10 @@ function DayLogsPage() {
       setTo(nextTo);
       return;
     }
-    const monthKey =
-      (!from || nextTo.slice(0, 7) === from.slice(0, 7) ? nextTo.slice(0, 7) : month) ||
-      nextTo.slice(0, 7);
-    const capped = indiaMonthRange(monthKey).to;
-    const clamped = nextTo > capped ? capped : nextTo;
+    const cycle = attendanceCycleRange(periodKey, { clampToToday: true, todayKey });
+    const clamped = nextTo > cycle.to ? cycle.to : nextTo < cycle.from ? cycle.from : nextTo;
     setTo(clamped);
-    if (!from || clamped.slice(0, 7) === from.slice(0, 7)) {
-      setMonth(clamped.slice(0, 7));
-    }
+    if (from && clamped < from) setFrom(clamped);
   }
 
   const branchName = (id?: string) => formatBranchLocationLabelById(branches, id);
@@ -215,22 +243,23 @@ function DayLogsPage() {
               </Select>
             </div>
             <div className="min-w-0 space-y-1">
-              <Label className="text-xs sm:text-sm">{t("pages.dayLogs.month")}</Label>
+              <Label className="text-xs sm:text-sm">{t("pages.dayLogs.period")}</Label>
               <Input
                 type="month"
                 className="px-2.5"
-                value={month}
-                max={indiaMonthKey()}
-                onChange={(event) => changeMonth(event.target.value)}
+                value={periodKey}
+                max={currentPeriodKey}
+                onChange={(event) => changePeriod(event.target.value)}
               />
+              <p className="truncate text-[11px] text-muted-foreground">{periodLabel}</p>
             </div>
             <div className="grid grid-cols-2 gap-2.5 sm:contents">
               <div className="min-w-0 space-y-1">
                 <Label className="text-xs sm:text-sm">{t("pages.dayLogs.from")}</Label>
                 <DateField
                   value={from}
-                  min={indiaMonthRange(month).from}
-                  max={to || indiaMonthRange(month).to}
+                  min={cycleBounds.from}
+                  max={to || cycleBounds.to}
                   onChange={changeFrom}
                   aria-label={t("pages.dayLogs.ariaFromDate")}
                 />
@@ -239,8 +268,8 @@ function DayLogsPage() {
                 <Label className="text-xs sm:text-sm">{t("pages.dayLogs.to")}</Label>
                 <DateField
                   value={to}
-                  min={from || indiaMonthRange(month).from}
-                  max={indiaMonthRange(month).to}
+                  min={from || cycleBounds.from}
+                  max={cycleBounds.to}
                   onChange={changeTo}
                   aria-label={t("pages.dayLogs.ariaToDate")}
                 />
@@ -298,10 +327,10 @@ function DayLogsPage() {
               <CalendarRange className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">
                 {from && to
-                  ? formatDisplayDateRange(from, to)
+                  ? `${periodLabel} · ${formatDisplayDateRange(from, to)}`
                   : from || to
                     ? formatDisplayDate(from || to)
-                    : t("pages.dayLogs.selectMonth")}
+                    : t("pages.dayLogs.selectPeriod")}
               </span>
             </div>
             <Button
@@ -310,7 +339,7 @@ function DayLogsPage() {
               disabled={employeeRows.length === 0}
               onClick={() =>
                 downloadAttendanceExcel(
-                  `${selectedEmployeeId === "all" ? "all-employees" : (selectedEmployee?.employeeCode ?? selectedEmployeeId).toLowerCase()}-attendance-overview.xls`,
+                  `ATD-Attendance-${attendanceCycleFileSlug(periodKey)}-${selectedEmployeeId === "all" ? "all" : (selectedEmployee?.employeeCode ?? selectedEmployeeId).toLowerCase()}.xls`,
                   employeeRows.map((row) => {
                     const emp = employees.find((e) => (e.employeeId || e.id) === row.employeeId);
                     return {
@@ -337,6 +366,11 @@ function DayLogsPage() {
                       ),
                     };
                   }),
+                  {
+                    periodLabel,
+                    from,
+                    to,
+                  },
                 )
               }
             >

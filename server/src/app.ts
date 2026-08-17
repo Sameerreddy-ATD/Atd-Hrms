@@ -41,12 +41,12 @@ import {
   eachDateInRange,
   ensureDailySummariesForRange,
   findApprovedLeaveForDay,
-  istMonthRangeThroughToday,
   recalculateLeaveDateRange,
   startOfDayUtc,
   todayIstDate,
   istDateParts,
 } from "./attendanceDayRules.js";
+import { currentAttendanceCycle } from "./attendanceCycle.js";
 import {
   attendanceDateForEmployee,
   attendancePunchEventTypes,
@@ -4420,10 +4420,10 @@ export function createApp() {
       await recalculateDailySummary(req.user!.employeeId, attendanceDate).catch(() => undefined);
       const rawFrom = dateFromQuery(req.query.from);
       const rawTo = dateFromQuery(req.query.to);
-      const defaults = istMonthRangeThroughToday();
+      const defaults = currentAttendanceCycle();
       const { from, to } = clampAttendanceRangeToToday({
-        from: rawFrom ?? defaults.from,
-        to: rawTo ?? defaults.to,
+        from: rawFrom ?? defaults.fromDate,
+        to: rawTo ?? defaults.toDate,
       });
       const rows = await prisma.attendanceDailySummary.findMany({
         where: {
