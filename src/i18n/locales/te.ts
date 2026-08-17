@@ -123,6 +123,12 @@ const te = {
   "auth": {
     "signIn": "సైన్ ఇన్",
     "workEmail": "వర్క్ ఇమెయిల్",
+    "loginId": "ఇమెయిల్ లేదా మొబైల్",
+    "loginIdPlaceholder": "name@anytimediesel.com లేదా 98xxxxxxxx",
+    "loginIdRequired": "ఇమెయిల్ లేదా మొబైల్ నంబర్ అవసరం",
+    "loginIdInvalid": "వర్క్ ఇమెయిల్ లేదా సరైన మొబైల్ నంబర్ ఇవ్వండి",
+    "loginIdInvalidEmail": "సరైన ఇమెయిల్ ఇవ్వండి",
+    "passwordRequired": "పాస్‌వర్డ్ అవసరం",
     "password": "పాస్‌వర్డ్",
     "needHelp": "సహాయం కావాలా?",
     "privacy": "గోప్యత",

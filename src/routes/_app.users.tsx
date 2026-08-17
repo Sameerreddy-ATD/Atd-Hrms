@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -65,7 +66,7 @@ export const Route = createFileRoute("/_app/users")({
 
 function UsersPage() {
   const { t } = useTranslation();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, updateCurrentUser } = useAuth();
   const { create } = useSearch({ from: "/_app/users" });
   const [users, setUsers] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -156,6 +157,25 @@ function UsersPage() {
       });
       setUsers((prev) => prev.map((row) => (row.id === user.id ? { ...row, ...updated } : row)));
       toast.success(t("pages.users.toastReactivated"));
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  }
+
+  async function setAttendanceRequired(user: User, required: boolean) {
+    if (!user.employeeId) {
+      toast.error(t("pages.users.toastNoEmployeeForAttendance"));
+      return;
+    }
+    try {
+      const updated = await usersApi.update(user.id, { attendanceRequired: required });
+      setUsers((prev) => prev.map((row) => (row.id === user.id ? { ...row, ...updated } : row)));
+      if (currentUser?.id === user.id) updateCurrentUser(updated);
+      toast.success(
+        required
+          ? t("pages.users.toastAttendanceOn", { name: user.name.split(" ")[0] })
+          : t("pages.users.toastAttendanceOff", { name: user.name.split(" ")[0] }),
+      );
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -372,6 +392,23 @@ function UsersPage() {
                     <p className="mt-0.5 break-words">{user.designation}</p>
                   </div>
                 )}
+                {user.employeeId && user.role !== "developer_admin" && (
+                  <div className="col-span-2 flex items-start justify-between gap-3 rounded-md border border-border bg-muted/30 px-3 py-2.5">
+                    <div className="min-w-0 space-y-0.5">
+                      <p className="text-sm font-medium text-foreground">
+                        {t("pages.users.attendanceLeave")}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {t("pages.users.attendanceLeaveHint")}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={user.attendanceRequired !== false}
+                      onCheckedChange={(checked) => void setAttendanceRequired(user, checked)}
+                      aria-label={t("pages.users.attendanceLeave")}
+                    />
+                  </div>
+                )}
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <Button size="sm" variant="outline" onClick={() => openReset(user)}>
@@ -422,6 +459,7 @@ function UsersPage() {
                 <TableHead>{t("common.role")}</TableHead>
                 <TableHead>{t("common.employeeId")}</TableHead>
                 <TableHead>{t("common.status")}</TableHead>
+                <TableHead>{t("pages.users.attendanceLeave")}</TableHead>
                 <TableHead>{t("pages.users.lastLogin")}</TableHead>
                 <TableHead>{t("pages.users.devicesBtn")}</TableHead>
                 <TableHead className="text-right">{t("common.actions")}</TableHead>
@@ -438,6 +476,24 @@ function UsersPage() {
                   </TableCell>
                   <TableCell>
                     <LoginStatus user={u} />
+                  </TableCell>
+                  <TableCell>
+                    {u.employeeId && u.role !== "developer_admin" ? (
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={u.attendanceRequired !== false}
+                          onCheckedChange={(checked) => void setAttendanceRequired(u, checked)}
+                          aria-label={t("pages.users.attendanceLeave")}
+                        />
+                        <span className="text-xs text-muted-foreground">
+                          {u.attendanceRequired === false
+                            ? t("pages.users.attendanceOff")
+                            : t("pages.users.attendanceOn")}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {formatLastLogin(u.lastLoginAt)}

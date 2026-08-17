@@ -295,6 +295,13 @@ const pages = {
     toastPasswordTooShort: "పాస్‌వర్డ్ కనీసం 8 అక్షరాలు ఉండాలి",
     toastPasswordMismatch: "పాస్‌వర్డ్‌లు సరిపోలలేదు",
     toastPasswordReset: "{{name}} కోసం పాస్‌వర్డ్ రీసెట్ చేయబడింది. వారు మళ్లీ sign in చేసేవరకు స్థితి Created గా ఉంటుంది.",
+    attendanceLeave: "హాజరు & సెలవు",
+    attendanceLeaveHint: "ఆఫ్ చేస్తే ఈ వ్యక్తికి పంచ్, ముఖ చెక్-ఇన్, సెలవు కనిపించవు.",
+    attendanceOn: "ఆన్",
+    attendanceOff: "ఆఫ్",
+    toastAttendanceOn: "{{name}} కోసం హాజరు & సెలవు ఆన్ చేయబడింది",
+    toastAttendanceOff: "{{name}} కోసం హాజరు & సెలవు ఆఫ్ చేయబడింది",
+    toastNoEmployeeForAttendance: "హాజరు మార్చడానికి ముందు ఉద్యోగి ప్రొఫైల్ లింక్ చేయండి",
   },
   departments: {
     title: "విభాగాలు",
@@ -351,6 +358,11 @@ const pages = {
     toastDeptAdded: "విభాగం జోడించబడింది",
     toastCannotDeleteCeoUnit: "CEO Leadership heads యూనిట్‌ను తొలగించలేరు. బదులుగా heads క్లియర్ చేయండి.",
     toastDeptDeleted: "విభాగం విజయవంతంగా తొలగించబడింది",
+    faceVerification: "ముఖ ధృవీకరణ",
+    faceVerificationHint:
+      "ఆన్ ఉన్నప్పుడు ఈ యూనిట్ వారు నమోదు చేసుకొని చెక్-ఇన్‌కు కెమెరా ఉపయోగించాలి. Face Security సంస్థా పాజ్ అందరికీ వర్తిస్తుంది.",
+    faceOn: "ముఖ చెక్-ఇన్ ఆన్",
+    faceOff: "ముఖ చెక్-ఇన్ ఆఫ్",
   },
   talent: {
     title: "టాలెంట్ acquisition",

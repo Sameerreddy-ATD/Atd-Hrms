@@ -123,6 +123,12 @@ const hi = {
   "auth": {
     "signIn": "साइन इन",
     "workEmail": "कार्य ईमेल",
+    "loginId": "ईमेल या मोबाइल",
+    "loginIdPlaceholder": "name@anytimediesel.com या 98xxxxxxxx",
+    "loginIdRequired": "ईमेल या मोबाइल नंबर आवश्यक है",
+    "loginIdInvalid": "कार्य ईमेल या सही मोबाइल नंबर दर्ज करें",
+    "loginIdInvalidEmail": "सही ईमेल दर्ज करें",
+    "passwordRequired": "पासवर्ड आवश्यक है",
     "password": "पासवर्ड",
     "needHelp": "मदद चाहिए?",
     "privacy": "गोपनीयता",

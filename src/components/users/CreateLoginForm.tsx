@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -164,6 +165,7 @@ export function CreateLoginForm({
     "HEAD" | "SENIOR" | "JUNIOR" | "MEMBER"
   >("MEMBER");
   const [weeklyOffPolicy, setWeeklyOffPolicy] = useState<WeeklyOffPolicy>("SELECTABLE");
+  const [attendanceRequired, setAttendanceRequired] = useState(true);
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [joiningDate, setJoiningDate] = useState("");
   const [gender, setGender] = useState<"FEMALE" | "MALE" | "PREFER_NOT_TO_SAY">(
@@ -292,8 +294,20 @@ export function CreateLoginForm({
       toast.error("Full name is required");
       return;
     }
-    if (!email || !temporaryPassword) {
-      toast.error("Email and temporary password are required");
+    if (!temporaryPassword) {
+      toast.error("Temporary password is required");
+      return;
+    }
+    if (!email.trim() && !phone.trim()) {
+      toast.error("Email or mobile number is required");
+      return;
+    }
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      toast.error("Enter a valid email");
+      return;
+    }
+    if (!email.trim() && phone.replace(/\D/g, "").length < 10) {
+      toast.error("Enter a valid mobile number");
       return;
     }
     if (needsOrganizationUnit && !dept) {
@@ -313,7 +327,7 @@ export function CreateLoginForm({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const payload: any = {
         name,
-        email,
+        email: email.trim() || undefined,
         phone: phone.trim() || undefined,
         companyPhone: companyPhone.trim() || undefined,
         companyEntity,
@@ -333,6 +347,7 @@ export function CreateLoginForm({
         payload.managerId = managerId === "none" ? null : managerId;
         payload.organizationLevel = isCeo ? "HEAD" : organizationLevel;
         payload.weeklyOffPolicy = isCeo ? undefined : weeklyOffPolicy;
+        payload.attendanceRequired = isCeo ? false : attendanceRequired;
         payload.dateOfBirth = dateOfBirth || undefined;
         payload.joiningDate = joiningDate || undefined;
         payload.gender = gender;
@@ -413,14 +428,14 @@ export function CreateLoginForm({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="create-email">Email</Label>
+            <Label htmlFor="create-email">Email (optional if mobile is set)</Label>
             <Input
               id="create-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={creationMode === "link"}
-              required
+              placeholder="name@anytimediesel.com"
             />
           </div>
 
@@ -442,13 +457,18 @@ export function CreateLoginForm({
           </div>
 
           <div className="space-y-1.5">
-            <Label>Personal phone</Label>
+            <Label>Personal phone (optional if email is set)</Label>
             <Input
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="Personal contact number"
+              disabled={creationMode === "link"}
+              inputMode="tel"
+              placeholder="98xxxxxxxx"
             />
+            <p className="text-xs text-muted-foreground">
+              Drivers and field staff can sign in with this number when they have no email.
+            </p>
           </div>
 
           <div className="space-y-1.5">
@@ -643,9 +663,24 @@ export function CreateLoginForm({
             {needsAttendanceConfig && (
               <FormSection
                 icon={CalendarDays}
-                title="Week off policy"
-                description="Choose how this employee's weekly off works with attendance and leave."
+                title="Attendance & leave"
+                description="Turn off for people who do not mark attendance or take leave."
               >
+                <div className="flex items-start justify-between gap-3 rounded-md border border-border bg-muted/30 px-3 py-3 sm:col-span-2">
+                  <div className="min-w-0 space-y-1">
+                    <Label htmlFor="create-attendance-required" className="cursor-pointer">
+                      Require attendance & leave
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      When off, this login skips punch, face check-in, and leave menus.
+                    </p>
+                  </div>
+                  <Switch
+                    id="create-attendance-required"
+                    checked={attendanceRequired}
+                    onCheckedChange={setAttendanceRequired}
+                  />
+                </div>
                 <div
                   className="grid gap-3 sm:col-span-2 sm:grid-cols-2"
                   role="radiogroup"

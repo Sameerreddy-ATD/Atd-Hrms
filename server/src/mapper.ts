@@ -12,6 +12,7 @@ import type {
 } from "@prisma/client";
 import { roleToUi } from "./rbac.js";
 import { decryptEmployeeField } from "./employeePrivateData.js";
+import { isPhonePlaceholderEmail } from "./phone.js";
 import { isLaptopAssetName } from "./laptopAsset.js";
 import {
   branchMobileSourceLabel,
@@ -69,6 +70,7 @@ export function userDto(
       | "departmentId"
       | "designation"
       | "attendanceMode"
+      | "attendanceRequired"
       | "isFieldEmployee"
       | "weeklyOffPolicy"
       | "employeeCode"
@@ -98,7 +100,7 @@ export function userDto(
     id: user.id,
     employeeId: user.employeeId ?? undefined,
     name: user.name,
-    email: user.email,
+    email: isPhonePlaceholderEmail(user.email) ? (user.phone ?? user.email) : user.email,
     phone: user.phone ?? undefined,
     role: roleToUi(user.role),
     status: user.status,
@@ -129,6 +131,7 @@ export function userDto(
     faceEnrollmentSubmittedAt: user.faceProfile?.submittedAt?.toISOString(),
     faceEnrollmentApprovedAt: user.faceProfile?.approvedAt?.toISOString(),
     attendanceMode: user.employee?.attendanceMode ?? undefined,
+    attendanceRequired: user.employee?.attendanceRequired ?? undefined,
     isFieldEmployee: user.employee?.isFieldEmployee ?? undefined,
     weeklyOffPolicy: user.employee?.weeklyOffPolicy ?? undefined,
     employeeCode: user.employee?.employeeCode ?? undefined,
@@ -248,6 +251,7 @@ export function employeeDto(
     managerId: employee.managerId ?? undefined,
     managerName: employee.manager?.name,
     attendanceMode: employee.attendanceMode,
+    attendanceRequired: employee.attendanceRequired,
     isFieldEmployee: employee.isFieldEmployee,
     weeklyOffPolicy: employee.weeklyOffPolicy,
     joiningDate: employee.joiningDate?.toISOString().slice(0, 10),
@@ -315,6 +319,7 @@ export function departmentDto(department: {
   parentDepartmentId: string | null;
   unitType: string;
   sortOrder: number;
+  faceVerificationEnabled?: boolean;
   headEmployee?: Pick<Employee, "name"> | null;
   headAssignments?: Array<{
     employeeId: string;
@@ -349,6 +354,7 @@ export function departmentDto(department: {
     parentDepartmentId: department.parentDepartmentId ?? undefined,
     unitType: department.unitType,
     sortOrder: department.sortOrder,
+    faceVerificationEnabled: department.faceVerificationEnabled ?? true,
   };
 }
 

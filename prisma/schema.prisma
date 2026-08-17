@@ -258,7 +258,7 @@ model User {
   employee                         Employee?                 @relation(fields: [employeeId], references: [employeeId])
   name                             String
   email                            String                    @unique
-  phone                            String?
+  phone                            String?                   @unique
   passwordHash                     String                    @map("password_hash")
   role                             Role
   status                           UserStatus                @default(ACTIVE)
@@ -534,6 +534,9 @@ model Department {
   childDepartments   Department[]               @relation("DepartmentHierarchy")
   unitType           String                     @default("TEAM") @map("unit_type") @db.VarChar(20)
   sortOrder          Int                        @default(0) @map("sort_order")
+  /// When false, people in this unit skip face enrollment and check-in camera.
+  /// Global Face Security pause still wins for the whole org.
+  faceVerificationEnabled Boolean                @default(true) @map("face_verification_enabled")
   employees          Employee[]
 
   @@index([parentDepartmentId])

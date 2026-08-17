@@ -15,10 +15,12 @@ import {
   type ReactNode,
 } from "react";
 import type { Role, User } from "@/types/domain";
-import { authApi, warmAuthenticatedWorkspace } from "@/services/api";
+import { authApi, keepSessionAlive, warmAuthenticatedWorkspace } from "@/services/api";
 import { isNativeApp, markNativeLoginGrace } from "@/lib/native-app";
 
 const SESSION_USER_KEY = "atd.session.user";
+/** Access cookies last 15 minutes; renew a few minutes early while the app is open. */
+const SESSION_KEEPALIVE_MS = 12 * 60 * 1000;
 
 function writeSessionUser(user: User | null) {
   if (typeof window === "undefined") return;
@@ -94,6 +96,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, []);
+
+  // Keep the access cookie warm while the app is open so a quiet period or a
+  // frontend deploy reload does not wipe the refresh cookie and force /login.
+  useEffect(() => {
+    if (!user) return;
+
+    const renew = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      void keepSessionAlive();
+    };
+
+    renew();
+    const timer = window.setInterval(renew, SESSION_KEEPALIVE_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") renew();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", renew);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", renew);
+    };
+  }, [user]);
 
   const login = useCallback(async (email: string, password: string) => {
     const { user } = await authApi.login(email, password);

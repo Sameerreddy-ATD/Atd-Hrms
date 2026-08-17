@@ -79,6 +79,15 @@ async function refreshSession() {
   return refreshRequest;
 }
 
+/**
+ * Quietly renew the access cookie before it expires.
+ * Call from the auth shell on an interval / when the tab becomes visible so a
+ * deploy reload or a quiet 15-minute gap does not bounce people to /login.
+ */
+export function keepSessionAlive() {
+  return refreshSession();
+}
+
 type ApiRequestOptions = RequestInit & { timeoutMs?: number };
 
 async function requestNetwork<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {

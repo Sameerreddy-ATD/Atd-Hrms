@@ -57,6 +57,7 @@ function AppLayout() {
       isReportingManager,
       allowedModules: allowedModules === null ? undefined : allowedModules,
       hasEmployeeId: Boolean(user.employeeId),
+      attendanceRequired: user.attendanceRequired !== false,
     }).flatMap((group) => group.items.map((item) => item.to));
   }, [user, isReportingManager, allowedModules]);
 
@@ -209,9 +210,11 @@ function AppLayout() {
     Array.isArray(allowedModules) &&
     !allowedModules.includes(activeModule);
   const fallbackRoute = user
-    ? menuForRole(user.role, { allowedModules: allowedModules ?? undefined }).flatMap(
-        (group) => group.items,
-      )[0]?.to
+    ? menuForRole(user.role, {
+        allowedModules: allowedModules ?? undefined,
+        hasEmployeeId: Boolean(user.employeeId),
+        attendanceRequired: user.attendanceRequired !== false,
+      }).flatMap((group) => group.items)[0]?.to
     : undefined;
 
   return (

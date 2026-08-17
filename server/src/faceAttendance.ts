@@ -699,9 +699,31 @@ export function invalidateFaceStatusCache(userId?: string) {
   else faceStatusCache.clear();
 }
 
-export async function userHasApprovedFace(userId: string) {
+export async function isFaceVerificationRequiredForUser(userId: string) {
   const settings = await readFaceSettings();
-  if (!settings.verificationEnabled) return true;
+  if (!settings.verificationEnabled) return false;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      role: true,
+      employee: {
+        select: {
+          attendanceRequired: true,
+          department: { select: { faceVerificationEnabled: true } },
+        },
+      },
+    },
+  });
+  if (!user || user.role === Role.DEVELOPER_ADMIN) return false;
+  // People excused from attendance/leave also skip face enrollment and punch camera.
+  if (user.employee && user.employee.attendanceRequired === false) return false;
+  if (!user.employee?.department) return true;
+  return user.employee.department.faceVerificationEnabled;
+}
+
+export async function userHasApprovedFace(userId: string) {
+  if (!(await isFaceVerificationRequiredForUser(userId))) return true;
   const cached = faceStatusCache.get(userId);
   if (cached && cached.expiresAt > Date.now()) return cached.approved;
   const profile = await prisma.faceProfile.findUnique({

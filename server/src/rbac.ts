@@ -60,7 +60,9 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   try {
     user = verifyAccessToken(token);
   } catch {
-    clearCookies(res);
+    // Leave the refresh cookie alone. The client retries via /auth/refresh;
+    // wiping both cookies here was forcing a full re-login every time the
+    // 15-minute access token expired (including after a quiet deploy reload).
     return next(new HttpError(401, "Session expired"));
   }
   try {

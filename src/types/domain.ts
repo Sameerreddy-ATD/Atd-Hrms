@@ -128,6 +128,8 @@ export interface User {
   managerId?: string;
   managerName?: string;
   attendanceMode?: "THUMB_ONLY" | "MOBILE_GPS_ONLY" | "BOTH";
+  /** When false, this person is excused from attendance and leave. */
+  attendanceRequired?: boolean;
   isFieldEmployee?: boolean;
   weeklyOffPolicy?: WeeklyOffPolicy;
   joiningDate?: string;
@@ -311,6 +313,8 @@ export interface Department {
   parentDepartmentId?: string;
   unitType?: "TEAM" | "SUBTEAM" | "FUNCTION";
   sortOrder?: number;
+  /** When false, people in this unit skip face enrollment and check-in camera. */
+  faceVerificationEnabled?: boolean;
 }
 
 export interface BiometricDevice {

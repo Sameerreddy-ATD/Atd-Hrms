@@ -166,7 +166,11 @@ function DashboardPage() {
     () => ["employee", "sales", "driver", "field_staff"].includes(user?.role ?? ""),
     [user?.role],
   );
-  const selfPunchRoles = Boolean(user?.employeeId && !["developer_admin"].includes(user.role));
+  const selfPunchRoles = Boolean(
+    user?.employeeId &&
+      user.attendanceRequired !== false &&
+      !["developer_admin"].includes(user.role),
+  );
 
   const refreshDashboard = useCallback(() => {
     setReloadKey((value) => value + 1);
@@ -255,7 +259,10 @@ function DashboardPage() {
   const total = people.filter((person) => person.employeeId && person.active !== false).length;
   const attendanceRequiredTotal = people.filter(
     (person) =>
-      person.employeeId && person.active !== false && !["developer_admin"].includes(person.role),
+      person.employeeId &&
+      person.active !== false &&
+      person.attendanceRequired !== false &&
+      !["developer_admin"].includes(person.role),
   ).length;
   const presentToday = countUniquePresent(todayAttendance);
   const absent = countStatus(todayAttendance, "Absent");
@@ -476,14 +483,16 @@ function EmployeeDashboard({
   return (
     <div className="space-y-4">
       <div className="grid gap-3 lg:grid-cols-2">
-        <MarkAttendanceCard
-          user={user}
-          timeline={timeline}
-          branches={branches}
-          onAttendanceChanged={onAttendanceChanged}
-          attendanceReady={attendanceReady}
-          className="lg:col-span-2"
-        />
+        {user.attendanceRequired !== false && (
+          <MarkAttendanceCard
+            user={user}
+            timeline={timeline}
+            branches={branches}
+            onAttendanceChanged={onAttendanceChanged}
+            attendanceReady={attendanceReady}
+            className="lg:col-span-2"
+          />
+        )}
         <UpcomingBirthdaysCard birthdays={birthdays} />
       </div>
     </div>
@@ -927,14 +936,16 @@ function ManagerDashboard({
         />
       </div>
       <div className="grid gap-3 lg:grid-cols-2">
-        <MarkAttendanceCard
-          user={user}
-          timeline={timeline}
-          branches={branches}
-          onAttendanceChanged={onAttendanceChanged}
-          attendanceReady={attendanceReady}
-          className="lg:col-span-2"
-        />
+        {user.attendanceRequired !== false && (
+          <MarkAttendanceCard
+            user={user}
+            timeline={timeline}
+            branches={branches}
+            onAttendanceChanged={onAttendanceChanged}
+            attendanceReady={attendanceReady}
+            className="lg:col-span-2"
+          />
+        )}
         <div className="lg:col-span-2">
           <TeamAttendanceCard
             rows={attendance}
@@ -1036,7 +1047,7 @@ function HRDashboard({
       </div>
 
       <div className="grid gap-3 lg:grid-cols-2">
-        {user.employeeId && (
+        {user.employeeId && user.attendanceRequired !== false && (
           <MarkAttendanceCard
             user={user}
             timeline={timeline}
@@ -1475,7 +1486,7 @@ function AdminDashboard({
         />
       </div>
       <div className="grid gap-3 lg:grid-cols-2">
-        {user.employeeId && (
+        {user.employeeId && user.attendanceRequired !== false && (
           <MarkAttendanceCard
             user={user}
             timeline={timeline}

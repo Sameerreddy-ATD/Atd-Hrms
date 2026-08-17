@@ -81,7 +81,8 @@ function validateEmploymentDates(
 }
 
 export const loginSchema = z.object({
-  email: z.string().email().max(255),
+  /** Work email or mobile number — field name kept for older clients. */
+  email: z.string().trim().min(3).max(255),
   password: z.string().min(1).max(200),
 });
 
@@ -92,7 +93,7 @@ export const forgotPasswordSchema = z.object({
 export const createUserSchema = z
   .object({
     name: z.string().min(2).max(120),
-    email: z.string().email().max(255),
+    email: z.union([z.string().email().max(255), z.literal("")]).optional(),
     phone: z.string().max(30).optional(),
     companyPhone: z.string().max(30).optional(),
     companyEntity: z.nativeEnum(CompanyEntity).default(CompanyEntity.ANYTIME_DIESEL),
@@ -110,6 +111,7 @@ export const createUserSchema = z
     homeBranchId: z.string().nullable().optional(),
     managerId: z.string().nullable().optional(),
     attendanceMode: z.nativeEnum(AttendanceMode).optional(),
+    attendanceRequired: z.boolean().optional(),
     isFieldEmployee: z.boolean().optional(),
     weeklyOffPolicy: z.nativeEnum(WeeklyOffPolicy).optional(),
     joiningDate: z.coerce.date().nullable().optional(),
@@ -129,7 +131,18 @@ export const createUserSchema = z
     shiftStartMinutes: z.number().int().min(0).max(1439).optional(),
     shiftEndMinutes: z.number().int().min(0).max(1439).optional(),
   })
-  .superRefine(validateEmploymentDates);
+  .superRefine((value, context) => {
+    validateEmploymentDates(value, context);
+    const email = value.email?.trim() ?? "";
+    const phone = value.phone?.trim() ?? "";
+    if (!email && !phone) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Email or mobile number is required",
+        path: ["email"],
+      });
+    }
+  });
 
 export const updateUserSchema = z.object({
   name: z.string().min(2).max(120).optional(),
@@ -140,6 +153,8 @@ export const updateUserSchema = z.object({
   firstLoginPasswordChangeRequired: z.boolean().optional(),
   suspendedUntil: z.coerce.date().nullable().optional(),
   suspensionStartsAt: z.coerce.date().nullable().optional(),
+  /** When false, this person skips attendance and leave (menu, punch, apply leave). */
+  attendanceRequired: z.boolean().optional(),
 });
 
 export const changePasswordSchema = z.object({
@@ -201,6 +216,7 @@ export const updateEmployeeSchema = z
     aadhaarNumber: aadhaarNumberSchema.nullable().optional(),
     uanNumber: uanNumberSchema.nullable().optional(),
     attendanceMode: z.nativeEnum(AttendanceMode).optional(),
+    attendanceRequired: z.boolean().optional(),
     isFieldEmployee: z.boolean().optional(),
     weeklyOffPolicy: z.nativeEnum(WeeklyOffPolicy).optional(),
     status: z.nativeEnum(EmployeeStatus).optional(),
@@ -243,6 +259,7 @@ export const departmentSchema = z.object({
   parentDepartmentId: z.string().nullable().optional(),
   unitType: z.enum(["TEAM", "SUBTEAM", "FUNCTION"]).optional(),
   sortOrder: z.coerce.number().int().min(0).max(10000).optional(),
+  faceVerificationEnabled: z.boolean().optional(),
 });
 
 export const departmentUpdateSchema = departmentSchema.partial();

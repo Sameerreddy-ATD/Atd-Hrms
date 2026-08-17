@@ -123,6 +123,12 @@ const en = {
   "auth": {
     "signIn": "Sign in",
     "workEmail": "Work email",
+    "loginId": "Email or mobile",
+    "loginIdPlaceholder": "name@anytimediesel.com or 98xxxxxxxx",
+    "loginIdRequired": "Email or mobile number is required",
+    "loginIdInvalid": "Enter a work email or a valid mobile number",
+    "loginIdInvalidEmail": "Enter a valid email",
+    "passwordRequired": "Password is required",
     "password": "Password",
     "needHelp": "Need help?",
     "privacy": "Privacy",

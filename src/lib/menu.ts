@@ -42,6 +42,8 @@ export interface MenuItem {
   allowReportingManager?: boolean;
   /** Hide unless the signed-in user has an employee profile (can punch / own attendance). */
   requiresEmployeeId?: boolean;
+  /** Hide personal attendance / leave items when this account is excused from time tracking. */
+  requiresAttendance?: boolean;
 }
 
 export interface MenuGroup {
@@ -150,6 +152,7 @@ export const menuGroups: MenuGroup[] = [
         // Punch-capable roles only — CEO does not mark attendance.
         roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "main_admin"],
         requiresEmployeeId: true,
+        requiresAttendance: true,
       },
       {
         label: "Day Logs",
@@ -203,18 +206,21 @@ export const menuGroups: MenuGroup[] = [
         to: "/leave/apply",
         icon: PlaneTakeoff,
         roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "main_admin"],
+        requiresAttendance: true,
       },
       {
         label: "Leave History",
         to: "/leave/history",
         icon: History,
         roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "main_admin"],
+        requiresAttendance: true,
       },
       {
         label: "My Leave Balance",
         to: "/leave/balance",
         icon: CalendarCheck,
         roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "main_admin"],
+        requiresAttendance: true,
       },
       {
         label: "Leave Approvals",
@@ -319,10 +325,12 @@ export function menuForRole(
     isReportingManager?: boolean;
     allowedModules?: ModuleKey[];
     hasEmployeeId?: boolean;
+    attendanceRequired?: boolean;
   },
 ): MenuGroup[] {
   const groupOrder = groupOrderForRole(role);
   const itemOrder = itemOrderForRole(role);
+  const attendanceOn = options?.attendanceRequired !== false;
   return menuGroups
     .map((g) => ({
       ...g,
@@ -331,9 +339,11 @@ export function menuForRole(
           // Developer Admin has full product visibility (all screens, all modules).
           if (role === "developer_admin") {
             if (i.requiresEmployeeId && !options?.hasEmployeeId) return false;
+            if (i.requiresAttendance && !attendanceOn) return false;
             return true;
           }
           if (i.requiresEmployeeId && !options?.hasEmployeeId) return false;
+          if (i.requiresAttendance && !attendanceOn) return false;
           const roleOk = i.roles.includes(role);
           const reportingOk =
             i.requiresReportingManager || i.allowReportingManager

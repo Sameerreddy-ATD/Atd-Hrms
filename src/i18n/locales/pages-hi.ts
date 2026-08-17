@@ -295,6 +295,13 @@ const pages = {
     toastPasswordTooShort: "पासवर्ड कम से कम 8 अक्षर का होना चाहिए",
     toastPasswordMismatch: "पासवर्ड मेल नहीं खाते",
     toastPasswordReset: "{{name}} के लिए पासवर्ड रीसेट किया गया। जब तक वे फिर से sign in नहीं करते, स्थिति Created रहेगी।",
+    attendanceLeave: "हाजिरी और छुट्टी",
+    attendanceLeaveHint: "बंद होने पर इस व्यक्ति के लिए पंच, चेहरा चेक-इन और छुट्टी छिप जाती है।",
+    attendanceOn: "चालू",
+    attendanceOff: "बंद",
+    toastAttendanceOn: "{{name}} के लिए हाजिरी और छुट्टी चालू की गई",
+    toastAttendanceOff: "{{name}} के लिए हाजिरी और छुट्टी बंद की गई",
+    toastNoEmployeeForAttendance: "हाजिरी बदलने से पहले कर्मचारी प्रोफ़ाइल लिंक करें",
   },
   departments: {
     title: "विभाग",
@@ -351,6 +358,11 @@ const pages = {
     toastDeptAdded: "विभाग जोड़ा गया",
     toastCannotDeleteCeoUnit: "CEO Leadership heads इकाई हटाई नहीं जा सकती। इसके बजाय heads साफ़ करें।",
     toastDeptDeleted: "विभाग सफलतापूर्वक हटाया गया",
+    faceVerification: "चेहरे की पुष्टि",
+    faceVerificationHint:
+      "चालू होने पर इस इकाई के लोगों को नामांकन और चेक-इन के लिए कैमरा चाहिए। Face Security का संगठन पॉज़ सभी पर लागू रहता है।",
+    faceOn: "चेहरा चेक-इन चालू",
+    faceOff: "चेहरा चेक-इन बंद",
   },
   talent: {
     title: "टैलेंट acquisition",

@@ -14,6 +14,15 @@ import { useAuth } from "@/lib/auth";
 import { Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
+function looksLikeEmail(value: string) {
+  return value.includes("@");
+}
+
+function looksLikePhone(value: string) {
+  const digits = value.replace(/\D/g, "");
+  return digits.length >= 10 && digits.length <= 15;
+}
+
 export const Route = createFileRoute("/login")({
   head: () => ({
     links: [{ rel: "preload", href: "/login-crew-mascot.png", as: "image", type: "image/png" }],
@@ -25,10 +34,10 @@ function LoginPage() {
   const { t } = useTranslation();
   const { login, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{ loginId?: string; password?: string }>({});
   const [loginError, setLoginError] = useState("");
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -47,17 +56,22 @@ function LoginPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const trimmed = loginId.trim();
     const errs: typeof errors = {};
-    if (!email) errs.email = "Email is required";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.email = "Enter a valid email";
-    if (!password) errs.password = "Password is required";
+    if (!trimmed) errs.loginId = t("auth.loginIdRequired");
+    else if (!looksLikeEmail(trimmed) && !looksLikePhone(trimmed)) {
+      errs.loginId = t("auth.loginIdInvalid");
+    } else if (looksLikeEmail(trimmed) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      errs.loginId = t("auth.loginIdInvalidEmail");
+    }
+    if (!password) errs.password = t("auth.passwordRequired");
     setErrors(errs);
     if (Object.keys(errs).length) return;
 
     setLoading(true);
     setLoginError("");
     try {
-      const signedIn = await login(email, password);
+      const signedIn = await login(trimmed, password);
       toast.success(`Welcome${signedIn.name ? `, ${signedIn.name.split(" ")[0]}` : ""}`);
       navigate({ to: signedIn.mustChangePassword ? "/first-login" : "/dashboard" });
     } catch (err) {
@@ -85,21 +99,22 @@ function LoginPage() {
 
             <form onSubmit={handleSubmit} className="mt-5 space-y-4" noValidate>
               <div className="space-y-1.5">
-                <Label htmlFor="email">{t("auth.workEmail")}</Label>
+                <Label htmlFor="login-id">{t("auth.loginId")}</Label>
                 <Input
-                  id="email"
-                  type="email"
+                  id="login-id"
+                  type="text"
                   autoComplete="username"
                   inputMode="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={loginId}
+                  onChange={(e) => setLoginId(e.target.value)}
                   onFocus={() => setPasswordFocused(false)}
-                  placeholder="name@anytimediesel.com"
+                  placeholder={t("auth.loginIdPlaceholder")}
                   className="h-11 transition-[box-shadow,border-color] duration-[var(--motion-fast)]"
-                  aria-invalid={!!errors.email}
+                  aria-invalid={!!errors.loginId}
                 />
-                {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+                {errors.loginId && <p className="text-xs text-destructive">{errors.loginId}</p>}
               </div>
+
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <Label htmlFor="password">{t("auth.password")}</Label>
@@ -118,16 +133,18 @@ function LoginPage() {
                   onFocus={() => setPasswordFocused(true)}
                   onBlur={() => setPasswordFocused(false)}
                   onVisibilityChange={setPasswordVisible}
-                  className="h-11 transition-[box-shadow,border-color] duration-[var(--motion-fast)]"
+                  className="h-11"
                   aria-invalid={!!errors.password}
                 />
                 {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
               </div>
+
               {loginError && (
-                <Alert variant="destructive" role="alert">
+                <Alert variant="destructive">
                   <AlertDescription>{loginError}</AlertDescription>
                 </Alert>
               )}
+
               <Button type="submit" className="h-11 w-full" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {t("auth.signIn")}
@@ -144,10 +161,7 @@ function LoginPage() {
               >
                 {t("auth.privacy")}
               </Link>
-              <Link
-                to="/terms"
-                className="text-muted-foreground hover:text-primary hover:underline"
-              >
+              <Link to="/terms" className="text-muted-foreground hover:text-primary hover:underline">
                 {t("auth.terms")}
               </Link>
               <Link

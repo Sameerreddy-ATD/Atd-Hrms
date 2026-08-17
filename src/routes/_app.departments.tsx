@@ -7,6 +7,7 @@ import { LoadingState } from "@/components/common/LoadingState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -91,6 +92,7 @@ function DeptPage() {
   const [headSlots, setHeadSlots] = useState<string[]>(["none"]);
   const [parentDepartmentId, setParentDepartmentId] = useState("none");
   const [unitType, setUnitType] = useState<"TEAM" | "SUBTEAM" | "FUNCTION">("TEAM");
+  const [faceVerificationEnabled, setFaceVerificationEnabled] = useState(true);
   const [editing, setEditing] = useState<Department | null>(null);
   /** Leadership: assign multiple heads for the CEO (Executive Leadership unit). */
   const [assignCeoHeads, setAssignCeoHeads] = useState(false);
@@ -198,6 +200,7 @@ function DeptPage() {
     setHeadSlots(["none"]);
     setParentDepartmentId("none");
     setUnitType("TEAM");
+    setFaceVerificationEnabled(true);
     setShowForm(false);
   }
 
@@ -209,6 +212,7 @@ function DeptPage() {
     setHeadSlots(["none"]);
     setParentDepartmentId("none");
     setUnitType("TEAM");
+    setFaceVerificationEnabled(true);
     setShowForm(true);
   }
 
@@ -248,6 +252,7 @@ function DeptPage() {
     setHeadSlots(["none"]);
     setParentDepartmentId(parent.id);
     setUnitType(parent.parentDepartmentId ? "FUNCTION" : "SUBTEAM");
+    setFaceVerificationEnabled(true);
     setShowForm(true);
   }
 
@@ -263,6 +268,7 @@ function DeptPage() {
     setHeadSlots(headsFromDepartment(department));
     setParentDepartmentId(department.parentDepartmentId ?? "none");
     setUnitType(department.unitType ?? "TEAM");
+    setFaceVerificationEnabled(department.faceVerificationEnabled ?? true);
     setShowForm(true);
   }
 
@@ -306,6 +312,7 @@ function DeptPage() {
         headEmployeeIds: isCreateTopLevel ? [] : headEmployeeIds,
         parentDepartmentId: parentDepartmentId === "none" ? null : parentDepartmentId,
         unitType,
+        faceVerificationEnabled,
       };
       const saved = editing
         ? await branchesApi.updateDepartment(editing.id, {
@@ -377,6 +384,11 @@ function DeptPage() {
                 <span className="truncate">
                   {headsLabel(department, t("pages.departments.headNotAssigned"))}
                 </span>
+              </p>
+              <p className="mt-1 text-[11px] font-medium text-muted-foreground">
+                {department.faceVerificationEnabled === false
+                  ? t("pages.departments.faceOff")
+                  : t("pages.departments.faceOn")}
               </p>
             </div>
             <div className="flex shrink-0 gap-1">
@@ -607,6 +619,11 @@ function DeptPage() {
                             <h2 className="mt-1 break-words text-base font-semibold text-foreground">
                               {department.name}
                             </h2>
+                            <p className="mt-1 text-[11px] font-medium text-muted-foreground">
+                              {department.faceVerificationEnabled === false
+                                ? t("pages.departments.faceOff")
+                                : t("pages.departments.faceOn")}
+                            </p>
                           </div>
                           <div className="flex shrink-0 gap-1">
                             {children.length > 0 && (
@@ -833,6 +850,24 @@ function DeptPage() {
                 </p>
               </div>
             ) : null}
+
+            {!assignCeoHeads && (
+              <div className="flex items-start justify-between gap-3 rounded-md border border-border bg-muted/30 px-3 py-3">
+                <div className="min-w-0 space-y-1">
+                  <Label htmlFor="dept-face-verification" className="cursor-pointer">
+                    {t("pages.departments.faceVerification")}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {t("pages.departments.faceVerificationHint")}
+                  </p>
+                </div>
+                <Switch
+                  id="dept-face-verification"
+                  checked={faceVerificationEnabled}
+                  onCheckedChange={setFaceVerificationEnabled}
+                />
+              </div>
+            )}
 
             {!isCreateTopLevel && (
               <div className="space-y-3">

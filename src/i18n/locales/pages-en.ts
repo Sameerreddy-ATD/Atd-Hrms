@@ -296,6 +296,13 @@ const pages = {
     toastPasswordTooShort: "Password must be at least 8 characters",
     toastPasswordMismatch: "Passwords do not match",
     toastPasswordReset: "Password reset for {{name}}. Status is Created until they sign in again.",
+    attendanceLeave: "Attendance & leave",
+    attendanceLeaveHint: "Off hides punch, face check-in, and leave for this person.",
+    attendanceOn: "On",
+    attendanceOff: "Off",
+    toastAttendanceOn: "Attendance & leave enabled for {{name}}",
+    toastAttendanceOff: "Attendance & leave turned off for {{name}}",
+    toastNoEmployeeForAttendance: "Link an employee profile before changing attendance",
   },
   departments: {
     title: "Departments",
@@ -352,6 +359,11 @@ const pages = {
     toastDeptAdded: "Department added",
     toastCannotDeleteCeoUnit: "CEO Leadership heads unit cannot be deleted. Clear heads instead.",
     toastDeptDeleted: "Department deleted successfully",
+    faceVerification: "Face verification",
+    faceVerificationHint:
+      "When on, people in this unit must enroll and use the camera for check-in. The Face Security org pause still wins for everyone.",
+    faceOn: "Face check-in on",
+    faceOff: "Face check-in off",
   },
   talent: {
     title: "Talent acquisition",

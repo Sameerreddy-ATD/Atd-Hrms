@@ -61,6 +61,13 @@ import { closePriorOpenPunchForNewDay } from "./attendanceSettlement.js";
 import { openAttendanceStream } from "./attendanceLive.js";
 import { config } from "./config.js";
 import {
+  isEmailIdentifier,
+  isPhoneIdentifier,
+  normalizePhoneDigits,
+  phoneLookupVariants,
+  phonePlaceholderEmail,
+} from "./phone.js";
+import {
   ensureChecklistInstance,
   completeFaceEnrollmentChecklistItems,
 } from "./checklistService.js";
@@ -80,6 +87,7 @@ import {
   faceCaptureSchema,
   faceSessionSchema,
   invalidateFaceStatusCache,
+  isFaceVerificationRequiredForUser,
   readDecryptedEvidence,
   readFaceSettings,
   removeFaceEvidenceFiles,
@@ -336,7 +344,9 @@ export function createApp() {
     legacyHeaders: false,
     keyGenerator: (req) => {
       const email = (req.body as { email?: unknown } | undefined)?.email;
-      if (typeof email === "string" && email.trim()) return `email:${email.trim().toLowerCase()}`;
+      if (typeof email === "string" && email.trim()) {
+        return `login:${email.trim().toLowerCase()}`;
+      }
       // Requests with no account to attribute share one bucket; they fail
       // schema validation anyway, so the only thing they can starve is
       // other malformed requests.
@@ -573,6 +583,7 @@ export function createApp() {
     parentDepartmentId: string | null;
     unitType: string;
     sortOrder: number;
+    faceVerificationEnabled?: boolean;
     headEmployee?: { name: string } | null;
     headAssignments?: Array<{
       employeeId: string;
@@ -607,6 +618,7 @@ export function createApp() {
       parentDepartmentId: department.parentDepartmentId ?? undefined,
       unitType: department.unitType,
       sortOrder: department.sortOrder,
+      faceVerificationEnabled: department.faceVerificationEnabled ?? true,
     };
   }
 
@@ -1279,16 +1291,15 @@ export function createApp() {
         },
       });
       const settings = await readFaceSettings();
+      const faceRequired = await isFaceVerificationRequiredForUser(req.user!.id);
       res.json({
         status:
           req.user!.role === Role.DEVELOPER_ADMIN
             ? "DISABLED"
             : (profile?.status ?? "NOT_REGISTERED"),
-        required:
-          settings.verificationEnabled &&
-          req.user!.role !== Role.DEVELOPER_ADMIN &&
-          profile?.status !== FaceEnrollmentStatus.APPROVED,
-        verificationEnabled: settings.verificationEnabled,
+        required: faceRequired && profile?.status !== FaceEnrollmentStatus.APPROVED,
+        // Effective for this user: global on AND their department opts in.
+        verificationEnabled: faceRequired,
         rejectionReason: profile?.rejectionReason ?? null,
         submittedAt: profile?.submittedAt?.toISOString() ?? null,
         approvedAt: profile?.approvedAt?.toISOString() ?? null,
@@ -1307,6 +1318,12 @@ export function createApp() {
       const settings = await readFaceSettings();
       if (!settings.verificationEnabled) {
         throw new HttpError(409, "Face verification is currently disabled by Developer Admin");
+      }
+      if (
+        body.purpose === FaceVerificationPurpose.ATTENDANCE_CHECK_IN &&
+        !(await isFaceVerificationRequiredForUser(req.user!.id))
+      ) {
+        throw new HttpError(409, "Face verification is not required for your department");
       }
       if (
         body.purpose !== FaceVerificationPurpose.ENROLLMENT &&
@@ -1690,22 +1707,34 @@ export function createApp() {
     authIdentityLimiter,
     asyncHandler(async (req, res) => {
       const body = loginSchema.parse(req.body);
-      const genericInvalid = "Invalid email address or password.";
+      const identifier = body.email.trim();
+      const genericInvalid = "Invalid email, mobile number, or password.";
       const recordFailedLogin = (reason: string, affectedUserId?: string) => {
         void audit({
           action: "login failed",
           affectedUserId,
           newValue: {
             reason,
-            emailHash: createHash("sha256").update(body.email.toLowerCase()).digest("hex"),
+            emailHash: createHash("sha256").update(identifier.toLowerCase()).digest("hex"),
           },
           ipAddress: req.ip,
         }).catch((error) => console.error("Failed to write login failure audit", error));
       };
-      const user = await prisma.user.findUnique({
-        where: { email: body.email.toLowerCase() },
-        include: { employee: true, faceProfile: true },
-      });
+
+      let user =
+        isEmailIdentifier(identifier)
+          ? await prisma.user.findUnique({
+              where: { email: identifier.toLowerCase() },
+              include: { employee: true, faceProfile: true },
+            })
+          : null;
+      if (!user && isPhoneIdentifier(identifier)) {
+        const variants = phoneLookupVariants(identifier);
+        user = await prisma.user.findFirst({
+          where: { phone: { in: variants } },
+          include: { employee: true, faceProfile: true },
+        });
+      }
       if (!user) {
         await verifyPasswordForLoginTiming(body.password);
         recordFailedLogin("unknown_account");
@@ -1892,6 +1921,7 @@ export function createApp() {
               name: body.name,
               email: body.email?.toLowerCase(),
               phone: body.phone,
+              attendanceRequired: body.attendanceRequired,
               status:
                 body.status === UserStatus.INACTIVE
                   ? EmployeeStatus.TERMINATED
@@ -1921,7 +1951,16 @@ export function createApp() {
                 employeeId: employee.employeeId,
                 employeeCode: employee.employeeCode,
                 version: employee.version,
+                attendanceRequired: employee.attendanceRequired,
               },
+            },
+          });
+        } else if (existing.employeeId && body.attendanceRequired !== undefined) {
+          await tx.employee.update({
+            where: { employeeId: existing.employeeId },
+            data: {
+              attendanceRequired: body.attendanceRequired,
+              version: { increment: 1 },
             },
           });
         }
@@ -2489,9 +2528,34 @@ export function createApp() {
       // from Departments (unit headEmployeeId); leave approval resolves from that chart.
       const reportingManagerId = body.managerId ?? null;
       if (shouldCreateEmployee) await assertValidManager("new-employee", reportingManagerId);
-      if (linkedEmployee && !linkedEmployee.email) {
-        throw new HttpError(409, "Add an email to the employee profile before creating a login");
+      if (linkedEmployee && !linkedEmployee.email && !linkedEmployee.phone) {
+        throw new HttpError(
+          409,
+          "Add an email or mobile number to the employee profile before creating a login",
+        );
       }
+      const requestedPhone = normalizePhoneDigits(body.phone ?? linkedEmployee?.phone ?? "");
+      const requestedEmail = (body.email?.trim() || linkedEmployee?.email || "").toLowerCase();
+      if (!requestedEmail && !requestedPhone) {
+        throw new HttpError(400, "Email or mobile number is required");
+      }
+      if (requestedPhone && !isPhoneIdentifier(requestedPhone)) {
+        throw new HttpError(400, "Enter a valid mobile number");
+      }
+      const loginEmail = requestedEmail || phonePlaceholderEmail(requestedPhone);
+      const loginPhone = requestedPhone || null;
+      if (loginPhone) {
+        const phoneClash = await prisma.user.findFirst({
+          where: { phone: { in: phoneLookupVariants(loginPhone) } },
+          select: { id: true },
+        });
+        if (phoneClash) throw new HttpError(409, "That mobile number already has a login");
+      }
+      const emailClash = await prisma.user.findUnique({
+        where: { email: loginEmail },
+        select: { id: true },
+      });
+      if (emailClash) throw new HttpError(409, "That email already has a login");
       const requestedEmployeeCode = body.employeeCode?.trim();
       if (shouldCreateEmployee && requestedEmployeeCode) {
         const clash = await prisma.employee.findFirst({
@@ -2511,8 +2575,8 @@ export function createApp() {
               data: {
                 employeeCode: requestedEmployeeCode || nextEmployeeCode(),
                 name: body.name,
-                email: body.email.toLowerCase(),
-                phone: body.phone,
+                email: requestedEmail || null,
+                phone: loginPhone,
                 companyPhone: body.companyPhone,
                 companyEntity: body.companyEntity,
                 departmentId: body.departmentId ?? undefined,
@@ -2520,7 +2584,7 @@ export function createApp() {
                 homeBranchId: body.homeBranchId ?? undefined,
                 managerId: reportingManagerId ?? undefined,
                 attendanceMode: body.attendanceMode ?? "BOTH",
-                attendanceRequired: targetRole !== Role.CEO,
+                attendanceRequired: body.attendanceRequired ?? targetRole !== Role.CEO,
                 isFieldEmployee:
                   body.isFieldEmployee ??
                   ([Role.SALES, Role.DRIVER, Role.FIELD_STAFF] as Role[]).includes(targetRole),
@@ -2565,8 +2629,8 @@ export function createApp() {
         return tx.user.create({
           data: {
             name: employee?.name ?? body.name,
-            email: (employee?.email ?? body.email).toLowerCase(),
-            phone: employee?.phone ?? body.phone,
+            email: loginEmail,
+            phone: loginPhone ?? employee?.phone ?? undefined,
             passwordHash,
             role: targetRole,
             employeeId: employee?.employeeId,
@@ -3529,6 +3593,7 @@ export function createApp() {
             parentDepartmentId: body.parentDepartmentId ?? undefined,
             unitType: body.unitType ?? "TEAM",
             sortOrder: body.sortOrder ?? 0,
+            faceVerificationEnabled: body.faceVerificationEnabled ?? true,
           },
         });
         await replaceDepartmentHeads(tx, created.departmentId, headEmployeeIds);
@@ -3587,6 +3652,7 @@ export function createApp() {
             parentDepartmentId: body.parentDepartmentId,
             unitType: body.unitType,
             sortOrder: body.sortOrder,
+            faceVerificationEnabled: body.faceVerificationEnabled,
           },
         });
         if (nextHeadIds) {
@@ -3597,17 +3663,22 @@ export function createApp() {
           include: departmentInclude,
         });
       });
+      // Face requirement is resolved through the department flag; clear so
+      // people in this unit pick up the change within the next request.
+      invalidateFaceStatusCache();
       await audit({
         action: "department updated",
         performedByUserId: req.user!.id,
         oldValue: {
           name: existing.name,
           headEmployeeIds: existing.headAssignments.map((row) => row.employeeId),
+          faceVerificationEnabled: existing.faceVerificationEnabled,
         },
         newValue: {
           departmentId: department.departmentId,
           name: department.name,
           headEmployeeIds: department.headAssignments.map((row) => row.employeeId),
+          faceVerificationEnabled: department.faceVerificationEnabled,
         },
         ipAddress: req.ip,
       });
@@ -3941,6 +4012,13 @@ export function createApp() {
       throw new HttpError(403, "Mobile attendance can only be recorded for your own profile");
     }
     await assertEmployeeAccess(req.user, employeeId);
+    const employeeAttendance = await prisma.employee.findUnique({
+      where: { employeeId },
+      select: { attendanceRequired: true },
+    });
+    if (employeeAttendance && !employeeAttendance.attendanceRequired) {
+      throw new HttpError(403, "Attendance is turned off for this account");
+    }
     const isCheckOut = type === EventType.FIELD_CHECK_OUT || type === EventType.CLIENT_CHECK_OUT;
     const faceSettings = await readFaceSettings();
     if (body.locationAccuracy > faceSettings.maxGpsAccuracyMeters) {
@@ -4029,7 +4107,7 @@ export function createApp() {
       }
     }
     let verifiedFace: Awaited<ReturnType<typeof verifyFaceCapture>> | null = null;
-    if (!isCheckOut && faceSettings.verificationEnabled) {
+    if (!isCheckOut && (await isFaceVerificationRequiredForUser(req.user!.id))) {
       if (!body.faceVerification) {
         throw new HttpError(400, "Live face verification is required for check-in");
       }
@@ -5439,6 +5517,13 @@ export function createApp() {
     requireAuth,
     asyncHandler(async (req, res) => {
       if (!req.user!.employeeId) throw new HttpError(400, "No employee profile");
+      const leaveEmployee = await prisma.employee.findUnique({
+        where: { employeeId: req.user!.employeeId },
+        select: { attendanceRequired: true },
+      });
+      if (leaveEmployee && !leaveEmployee.attendanceRequired) {
+        throw new HttpError(403, "Leave is turned off for this account");
+      }
       const body = leaveRequestSchema.parse(req.body);
       const policy = await validateLeaveApplication({
         employeeId: req.user!.employeeId,

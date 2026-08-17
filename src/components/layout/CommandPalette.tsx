@@ -98,6 +98,7 @@ export function CommandPalette({
     isReportingManager,
     allowedModules,
     hasEmployeeId: Boolean(user.employeeId),
+    attendanceRequired: user.attendanceRequired !== false,
   });
 
   function itemLabel(to: string, fallback: string) {
