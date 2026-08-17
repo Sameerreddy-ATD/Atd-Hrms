@@ -1023,6 +1023,18 @@
   .login-crew__stage {
     width: min(100%, 8.5rem);
   }
+
+  /* Auth screen keeps a compact mascot so the card stays the focus on laptops. */
+  .login-crew--auth .login-crew__stage {
+    width: min(100%, 7.25rem);
+  }
+
+  .login-crew--auth .login-crew__caption {
+    max-width: 14rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted-foreground);
+  }
 }
 
 @media (max-width: 380px) {
