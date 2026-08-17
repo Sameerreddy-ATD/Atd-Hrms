@@ -276,7 +276,7 @@ function DashboardPage() {
   }));
 
   return (
-    <div className="aw-enter w-full min-w-0 max-w-full space-y-1 overflow-x-clip">
+    <div className="aw-enter w-full min-w-0 max-w-full space-y-1 overflow-x-hidden">
       <PageHeader
         eyebrow={t("pages.dashboard.eyebrow")}
         title={t("pages.dashboard.welcome", { name: user.name?.split(" ")[0] ?? "there" })}

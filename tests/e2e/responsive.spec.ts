@@ -66,7 +66,6 @@ async function findOverflow(page: Page) {
     const docWidth = document.documentElement.clientWidth;
     // 1px of slack absorbs sub-pixel rounding in the layout engine.
     const limit = docWidth + 1;
-    if (document.documentElement.scrollWidth <= limit) return null;
     let worst: { selector: string; right: number } | null = null;
     for (const el of Array.from(document.body.querySelectorAll<HTMLElement>("*"))) {
       const rect = el.getBoundingClientRect();
@@ -97,7 +96,12 @@ async function findOverflow(page: Page) {
         };
       }
     }
-    return { docWidth, scrollWidth: document.documentElement.scrollWidth, worst };
+    if (!worst && document.documentElement.scrollWidth <= limit) return null;
+    return {
+      docWidth,
+      scrollWidth: Math.max(document.documentElement.scrollWidth, worst?.right ?? 0),
+      worst,
+    };
   });
 }
 

@@ -36,7 +36,6 @@ function AppLayout() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const userId = user?.id;
   const userRole = user?.role;
-  const employeeId = user?.employeeId;
 
   useEffect(() => {
     setPageEnter(false);
@@ -195,7 +194,7 @@ function AppLayout() {
     : undefined;
 
   return (
-      <SidebarProvider className="h-dvh max-h-dvh">
+      <SidebarProvider className="h-dvh max-h-dvh min-w-0 overflow-hidden">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-[100] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-ring"
@@ -204,16 +203,18 @@ function AppLayout() {
       </a>
       <AppSidebar />
       <PermissionSetup />
-      <SidebarInset className="aw-shell-canvas flex h-dvh max-h-dvh min-h-0 min-w-0 flex-col overflow-hidden bg-muted/35 dark:bg-background">
+      <SidebarInset className="aw-shell-canvas flex h-full min-h-0 min-w-0 max-h-full flex-col overflow-hidden bg-muted/35 dark:bg-background">
         <AppHeader />
+        {/* Single document <main>. SidebarInset is a div so SSR never auto-closes
+            this landmark out of the flex shell (nested <main> caused right-edge clip). */}
         <main
           id="main-content"
           tabIndex={-1}
-          className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain p-0 pb-[max(1.25rem,var(--atd-sab))] pl-[var(--atd-sal)] pr-[var(--atd-sar)] outline-none sm:p-3 sm:pb-[max(0.75rem,var(--atd-sab))] lg:p-4"
+          className="box-border flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain pb-[max(1.25rem,var(--atd-sab))] pl-[max(0.75rem,var(--atd-sal))] pr-[max(0.75rem,var(--atd-sar))] pt-0 outline-none sm:pb-[max(0.75rem,var(--atd-sab))] lg:pl-[max(1rem,var(--atd-sal))] lg:pr-[max(1rem,var(--atd-sar))]"
         >
           <div
             className={cn(
-              "min-h-full min-w-0 max-w-full overflow-x-hidden bg-background/95 p-4 pb-6 text-card-foreground sm:rounded-xl sm:border sm:border-border/80 sm:bg-background sm:p-5 sm:pb-5 sm:shadow-sm lg:p-6",
+              "box-border min-h-full min-w-0 w-full max-w-full overflow-x-hidden bg-background/95 p-3 pb-6 text-card-foreground sm:rounded-xl sm:border sm:border-border/80 sm:bg-background sm:p-5 sm:pb-5 sm:shadow-sm lg:p-6",
               pageEnter && "aw-page-enter",
             )}
           >

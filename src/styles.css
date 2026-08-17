@@ -181,7 +181,7 @@ html.atd-native {
     1.5rem
   );
   --atd-sar: min(
-    max(env(safe-area-inset-right, 0px), var(--atd-inset-right), 0.5rem),
+    max(env(safe-area-inset-right, 0px), var(--atd-inset-right), 0.75rem),
     1.5rem
   );
 }
@@ -746,6 +746,16 @@ html.atd-native {
     radial-gradient(ellipse 90% 55% at 0% -10%, color-mix(in oklab, var(--primary) 8%, transparent), transparent 55%),
     radial-gradient(ellipse 70% 45% at 100% 0%, color-mix(in oklab, var(--primary) 5%, transparent), transparent 50%),
     var(--color-background);
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Keep page chrome from painting past the shell width (hidden overflow alone
+   can clip without widening scrollWidth, which looks like a “cut” right edge). */
+.aw-shell-canvas > header,
+.aw-shell-canvas > #main-content {
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Mobile menu sits under AppHeader so hamburger, bell, and profile stay visible.

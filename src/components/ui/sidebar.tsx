@@ -288,16 +288,19 @@ const SidebarRail = React.forwardRef<HTMLButtonElement, React.ComponentProps<"bu
 );
 SidebarRail.displayName = "SidebarRail";
 
-const SidebarInset = React.forwardRef<HTMLDivElement, React.ComponentProps<"main">>(
+const SidebarInset = React.forwardRef<HTMLDivElement, React.ComponentProps<"div">>(
   ({ className, ...props }, ref) => {
     return (
-      <main
+      <div
         ref={ref}
+        data-slot="sidebar-inset"
         className={cn(
-          // min-w-0 is required in a flex row: `w-full` alone makes the inset
-          // claim 100% of the parent *plus* the sidebar gap, which clips the
-          // right edge of every page (dashboard included) on phones and desktop.
-          "relative flex min-w-0 flex-1 flex-col bg-background",
+          // Must be a div (not <main>): the scroll pane is the document <main>.
+          // Nested <main> breaks SSR HTML parsing and can eject the content pane
+          // from the flex/overflow shell, clipping the right edge on every device.
+          // min-w-0 is required in a flex row so the pane shrinks instead of
+          // overflowing past the viewport (w-full + sidebar gap).
+          "relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background",
           "md:peer-data-[variant=inset]:m-2 md:peer-data-[state=collapsed]:peer-data-[variant=inset]:ml-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow",
           className,
         )}

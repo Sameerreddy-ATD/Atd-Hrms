@@ -143,9 +143,9 @@ export function BirthdayMarquee() {
           opts={{ loop: true, align: "start", watchDrag: true, dragFree: false }}
           className="w-full min-w-0"
         >
-          <CarouselContent className="-ml-0">
+          <CarouselContent>
             {celebrants.map((birthday) => (
-              <CarouselItem key={birthday.employeeId} className="basis-full pl-0">
+              <CarouselItem key={birthday.employeeId} className="basis-full">
                 <BirthdayCard
                   birthday={birthday}
                   isSelf={birthday.employeeId === user?.employeeId}
