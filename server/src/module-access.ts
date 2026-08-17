@@ -111,18 +111,8 @@ export const DEFAULT_MODULE_ACCESS: ModuleAccessMatrix = {
     "PERFORMANCE",
     "LMS",
   ],
-  DRIVER: [
-    "DASHBOARD",
-    "ATTENDANCE",
-    "TASKS",
-    "EMPLOYEE_REQUESTS",
-    "LEAVE",
-    "PROFILE",
-    "COMMUNICATIONS",
-    "LIFECYCLE",
-    "PERFORMANCE",
-    "LMS",
-  ],
+  // Drivers: attendance + history (+ profile). Birthdays live on the dashboard.
+  DRIVER: ["DASHBOARD", "ATTENDANCE", "PROFILE"],
   FIELD_STAFF: [
     "DASHBOARD",
     "ATTENDANCE",
@@ -140,6 +130,8 @@ export const DEFAULT_MODULE_ACCESS: ModuleAccessMatrix = {
 const STAFF_ROLES: Role[] = [Role.EMPLOYEE, Role.SALES, Role.DRIVER, Role.FIELD_STAFF];
 /** Staff may complete their own onboarding (LIFECYCLE) but never open TA hiring tools. */
 const STAFF_HIDDEN_MODULES: ModuleKey[] = ["TALENT"];
+/** Drivers stay on attendance + profile even if an old matrix grants more. */
+const DRIVER_MODULES: ModuleKey[] = ["DASHBOARD", "ATTENDANCE", "PROFILE"];
 
 const SETTING_KEY = "module_access_matrix";
 let cached: { value: ModuleAccessMatrix; expiresAt: number } | null = null;
@@ -151,6 +143,8 @@ export function normalizeModuleAccess(value: unknown): ModuleAccessMatrix {
   const source = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
   return Object.fromEntries(
     Object.values(Role).map((role) => {
+      if (role === Role.DEVELOPER_ADMIN) return [role, ALL_MODULES];
+      if (role === Role.DRIVER) return [role, [...DRIVER_MODULES]];
       const configured = Array.isArray(source[role]) ? source[role] : DEFAULT_MODULE_ACCESS[role];
       const allowed = configured.filter((item): item is ModuleKey =>
         MODULE_KEYS.includes(item as ModuleKey),
@@ -165,7 +159,7 @@ export function normalizeModuleAccess(value: unknown): ModuleAccessMatrix {
       const scoped = STAFF_ROLES.includes(role)
         ? merged.filter((key) => !STAFF_HIDDEN_MODULES.includes(key))
         : merged;
-      return [role, role === Role.DEVELOPER_ADMIN ? ALL_MODULES : [...new Set(scoped)]];
+      return [role, [...new Set(scoped)]];
     }),
   ) as ModuleAccessMatrix;
 }

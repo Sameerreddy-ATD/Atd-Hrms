@@ -235,20 +235,25 @@ export async function warmAuthenticatedWorkspace(user: User) {
   // On native (especially Samsung), avoid stampeding the WebView with large
   // parallel JSON payloads right after login — that correlates with process death.
   const native = isNativeApp();
+  const isDriver = user.role === "driver";
   const paths = native
     ? [
         ownAttendance ? `/attendance/my/today` : `/attendance/hr/daily${attendanceQuery}`,
-        "/branches",
+        ...(isDriver ? [] : ["/branches"]),
         "/employees/birthdays",
       ]
     : [
         ownAttendance
           ? `/attendance/my/report${attendanceQuery}`
           : `/attendance/hr/daily${attendanceQuery}`,
-        "/branches",
-        user.role === "developer_admin" ? "/users" : "/employees",
-        "/employees/birthdays",
-        "/leave/requests",
+        ...(isDriver
+          ? ["/employees/birthdays"]
+          : [
+              "/branches",
+              user.role === "developer_admin" ? "/users" : "/employees",
+              "/employees/birthdays",
+              "/leave/requests",
+            ]),
       ];
   if (!native && user.employeeId && !["ceo", "developer_admin"].includes(user.role)) {
     paths.push("/attendance/my/timeline");
@@ -285,10 +290,10 @@ function toQuery(params: Record<string, string | number | boolean | undefined>) 
 
 export const authApi = {
   restore: () => request<{ user: User }>("/auth/restore", { method: "POST" }),
-  login: (email: string, password: string) =>
+  login: (email: string, password: string, portal?: "employee" | "driver") =>
     request<{ user: User }>("/auth/login", {
       method: "POST",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, portal }),
     }),
   forgotPassword: (email: string) =>
     request<{ ok: boolean; message: string }>("/auth/forgot-password", {

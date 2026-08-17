@@ -28,7 +28,11 @@ import {
 import { parse } from "csv-parse/sync";
 import { audit } from "./audit.js";
 import { birthdayMessage } from "./birthdayMessages.js";
-import { isUpcomingBirthday, nextBirthdayDetails } from "./birthdays.js";
+import {
+  birthdayVisibilityWhere,
+  isUpcomingBirthday,
+  nextBirthdayDetails,
+} from "./birthdays.js";
 import {
   activeEmployeeIdsExcludingDeveloperAdmin,
   cancelApprovedLeaveForDay,
@@ -1708,18 +1712,36 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       const body = loginSchema.parse(req.body);
       const identifier = body.email.trim();
-      const genericInvalid = "Invalid email, mobile number, or password.";
+      const portal = body.portal;
+      const genericInvalid =
+        portal === "driver"
+          ? "Invalid mobile number or password."
+          : portal === "employee"
+            ? "Invalid email or password."
+            : "Invalid email, mobile number, or password.";
       const recordFailedLogin = (reason: string, affectedUserId?: string) => {
         void audit({
           action: "login failed",
           affectedUserId,
           newValue: {
             reason,
+            portal: portal ?? null,
             emailHash: createHash("sha256").update(identifier.toLowerCase()).digest("hex"),
           },
           ipAddress: req.ip,
         }).catch((error) => console.error("Failed to write login failure audit", error));
       };
+
+      if (portal === "driver" && !isPhoneIdentifier(identifier)) {
+        await verifyPasswordForLoginTiming(body.password);
+        recordFailedLogin("driver_portal_requires_phone");
+        throw new HttpError(401, "Bowser Pilots sign in with a mobile number.");
+      }
+      if (portal === "employee" && !isEmailIdentifier(identifier)) {
+        await verifyPasswordForLoginTiming(body.password);
+        recordFailedLogin("employee_portal_requires_email");
+        throw new HttpError(401, "Team Members sign in with a work email.");
+      }
 
       let user =
         isEmailIdentifier(identifier)
@@ -1739,6 +1761,17 @@ export function createApp() {
         await verifyPasswordForLoginTiming(body.password);
         recordFailedLogin("unknown_account");
         throw new HttpError(401, genericInvalid);
+      }
+
+      if (portal === "driver" && user.role !== Role.DRIVER) {
+        await verifyPasswordForLoginTiming(body.password);
+        recordFailedLogin("wrong_portal_not_driver", user.id);
+        throw new HttpError(401, "Use Team Members sign-in with your work email.");
+      }
+      if (portal === "employee" && user.role === Role.DRIVER) {
+        await verifyPasswordForLoginTiming(body.password);
+        recordFailedLogin("wrong_portal_driver", user.id);
+        throw new HttpError(401, "Use Bowser Pilots sign-in with your mobile number.");
       }
 
       const isDeveloperAdmin = user.role === Role.DEVELOPER_ADMIN;
@@ -2714,10 +2747,7 @@ export function createApp() {
     requireAuth,
     asyncHandler(async (req, res) => {
       const employees = await prisma.employee.findMany({
-        where: {
-          dateOfBirth: { not: null },
-          status: "ACTIVE",
-        },
+        where: birthdayVisibilityWhere(req.user!.role),
         select: {
           employeeId: true,
           name: true,
@@ -7723,26 +7753,33 @@ export function createApp() {
           take: canSeeTeam && !canSeeOperational ? 16 : 8,
         }),
         (async () => {
-          // Birthdays: self for staff; team for managers; company-wide for HR/leadership.
-          let birthdayWhere: Prisma.EmployeeWhereInput = {
-            dateOfBirth: { not: null },
-            status: "ACTIVE",
-            employeeId: "__none__",
-          };
-          if (canSeeOperational) {
-            birthdayWhere = { dateOfBirth: { not: null }, status: "ACTIVE" };
-          } else if (canSeeTeam && req.user!.employeeId) {
-            const teamIds = teamEmployeeIds;
+          // Birthdays today in notifications: same audience rules as /employees/birthdays.
+          // Managers still see their team, but only within that audience.
+          let birthdayWhere: Prisma.EmployeeWhereInput = birthdayVisibilityWhere(req.user!.role);
+          if (!canSeeOperational && canSeeTeam && req.user!.employeeId) {
+            const audience = birthdayVisibilityWhere(req.user!.role);
             birthdayWhere = {
-              dateOfBirth: { not: null },
-              status: "ACTIVE",
-              employeeId: { in: [...new Set([req.user!.employeeId, ...teamIds])] },
+              AND: [
+                audience,
+                {
+                  employeeId: {
+                    in: [...new Set([req.user!.employeeId, ...teamEmployeeIds])],
+                  },
+                },
+              ],
             };
-          } else if (req.user!.employeeId) {
+          } else if (!canSeeOperational && !canSeeTeam && req.user!.employeeId) {
+            birthdayWhere = {
+              AND: [
+                birthdayVisibilityWhere(req.user!.role),
+                { employeeId: req.user!.employeeId },
+              ],
+            };
+          } else if (!canSeeOperational && !req.user!.employeeId) {
             birthdayWhere = {
               dateOfBirth: { not: null },
               status: "ACTIVE",
-              employeeId: req.user!.employeeId,
+              employeeId: "__none__",
             };
           }
           return prisma.employee.findMany({

@@ -11,8 +11,11 @@ import { LoginCrewMascot, type LoginCrewMode } from "@/components/auth/LoginCrew
 import { PwaInstallBanner } from "@/components/layout/PwaInstallBanner";
 import { ScrollPage } from "@/components/layout/ScrollPage";
 import { useAuth } from "@/lib/auth";
-import { Loader2 } from "lucide-react";
+import { ArrowLeft, Briefcase, Loader2, Truck } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
+
+export type LoginPortal = "employee" | "driver";
 
 function looksLikeEmail(value: string) {
   return value.includes("@");
@@ -27,6 +30,9 @@ export const Route = createFileRoute("/login")({
   head: () => ({
     links: [{ rel: "preload", href: "/login-crew-mascot.png", as: "image", type: "image/png" }],
   }),
+  validateSearch: (search: Record<string, unknown>): { as?: LoginPortal } => ({
+    as: search.as === "employee" || search.as === "driver" ? search.as : undefined,
+  }),
   component: LoginPage,
 });
 
@@ -34,6 +40,7 @@ function LoginPage() {
   const { t } = useTranslation();
   const { login, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const { as: portal } = Route.useSearch();
   const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -54,15 +61,36 @@ function LoginPage() {
     else if (user) navigate({ to: "/dashboard", replace: true });
   }, [user, authLoading, navigate]);
 
+  useEffect(() => {
+    setLoginId("");
+    setPassword("");
+    setErrors({});
+    setLoginError("");
+    setPasswordFocused(false);
+  }, [portal]);
+
+  function choosePortal(next: LoginPortal) {
+    void navigate({ to: "/login", search: { as: next } });
+  }
+
+  function clearPortal() {
+    void navigate({ to: "/login", search: {} });
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!portal) return;
     const trimmed = loginId.trim();
     const errs: typeof errors = {};
-    if (!trimmed) errs.loginId = t("auth.loginIdRequired");
-    else if (!looksLikeEmail(trimmed) && !looksLikePhone(trimmed)) {
-      errs.loginId = t("auth.loginIdInvalid");
-    } else if (looksLikeEmail(trimmed) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      errs.loginId = t("auth.loginIdInvalidEmail");
+    if (!trimmed) {
+      errs.loginId =
+        portal === "driver" ? t("auth.mobileRequired") : t("auth.emailRequired");
+    } else if (portal === "employee") {
+      if (!looksLikeEmail(trimmed) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+        errs.loginId = t("auth.loginIdInvalidEmail");
+      }
+    } else if (!looksLikePhone(trimmed)) {
+      errs.loginId = t("auth.mobileInvalid");
     }
     if (!password) errs.password = t("auth.passwordRequired");
     setErrors(errs);
@@ -71,7 +99,7 @@ function LoginPage() {
     setLoading(true);
     setLoginError("");
     try {
-      const signedIn = await login(trimmed, password);
+      const signedIn = await login(trimmed, password, portal);
       toast.success(`Welcome${signedIn.name ? `, ${signedIn.name.split(" ")[0]}` : ""}`);
       navigate({ to: signedIn.mustChangePassword ? "/first-login" : "/dashboard" });
     } catch (err) {
@@ -95,61 +123,144 @@ function LoginPage() {
 
         <Card className="aw-enter-delayed border-border/70 bg-card/95 shadow-sm backdrop-blur-sm">
           <CardContent className="p-6 sm:p-8">
-            <h2 className="text-lg font-semibold tracking-tight text-foreground">{t("auth.signIn")}</h2>
-
-            <form onSubmit={handleSubmit} className="mt-5 space-y-4" noValidate>
-              <div className="space-y-1.5">
-                <Label htmlFor="login-id">{t("auth.loginId")}</Label>
-                <Input
-                  id="login-id"
-                  type="text"
-                  autoComplete="username"
-                  inputMode="email"
-                  value={loginId}
-                  onChange={(e) => setLoginId(e.target.value)}
-                  onFocus={() => setPasswordFocused(false)}
-                  placeholder={t("auth.loginIdPlaceholder")}
-                  className="h-11 transition-[box-shadow,border-color] duration-[var(--motion-fast)]"
-                  aria-invalid={!!errors.loginId}
-                />
-                {errors.loginId && <p className="text-xs text-destructive">{errors.loginId}</p>}
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <Label htmlFor="password">{t("auth.password")}</Label>
-                  <Link
-                    to="/forgot-password"
-                    className="text-xs font-medium text-primary hover:underline"
-                  >
-                    {t("auth.needHelp")}
-                  </Link>
+            {!portal ? (
+              <div className="space-y-5">
+                <div className="space-y-1.5 text-center sm:text-left">
+                  <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                    {t("auth.choosePortal")}
+                  </h2>
+                  <p className="text-sm text-muted-foreground">{t("auth.choosePortalHelp")}</p>
                 </div>
-                <PasswordInput
-                  id="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onFocus={() => setPasswordFocused(true)}
-                  onBlur={() => setPasswordFocused(false)}
-                  onVisibilityChange={setPasswordVisible}
-                  className="h-11"
-                  aria-invalid={!!errors.password}
-                />
-                {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
+
+                <div className="grid gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-auto justify-start gap-3 px-4 py-4 text-left"
+                    onClick={() => choosePortal("employee")}
+                  >
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                      <Briefcase className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-base font-semibold text-foreground">
+                        {t("auth.portalEmployee")}
+                      </span>
+                      <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                        {t("auth.portalEmployeeHelp")}
+                      </span>
+                    </span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-auto justify-start gap-3 px-4 py-4 text-left"
+                    onClick={() => choosePortal("driver")}
+                  >
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                      <Truck className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-base font-semibold text-foreground">
+                        {t("auth.portalDriver")}
+                      </span>
+                      <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                        {t("auth.portalDriverHelp")}
+                      </span>
+                    </span>
+                  </Button>
+                </div>
               </div>
+            ) : (
+              <>
+                <div className="flex items-start gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="mt-0.5 h-9 w-9 shrink-0"
+                    onClick={clearPortal}
+                    aria-label={t("common.back")}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                      {portal === "driver" ? t("auth.driverSignIn") : t("auth.employeeSignIn")}
+                    </h2>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                      {portal === "driver" ? t("auth.driverSignInHelp") : t("auth.employeeSignInHelp")}
+                    </p>
+                  </div>
+                </div>
 
-              {loginError && (
-                <Alert variant="destructive">
-                  <AlertDescription>{loginError}</AlertDescription>
-                </Alert>
-              )}
+                <form onSubmit={handleSubmit} className="mt-5 space-y-4" noValidate>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="login-id">
+                      {portal === "driver" ? t("auth.mobile") : t("auth.workEmail")}
+                    </Label>
+                    <Input
+                      id="login-id"
+                      type={portal === "driver" ? "tel" : "email"}
+                      autoComplete="username"
+                      inputMode={portal === "driver" ? "tel" : "email"}
+                      value={loginId}
+                      onChange={(e) => setLoginId(e.target.value)}
+                      onFocus={() => setPasswordFocused(false)}
+                      placeholder={
+                        portal === "driver"
+                          ? t("auth.mobilePlaceholder")
+                          : t("auth.emailPlaceholder")
+                      }
+                      className={cn(
+                        "h-11 transition-[box-shadow,border-color] duration-[var(--motion-fast)]",
+                      )}
+                      aria-invalid={!!errors.loginId}
+                    />
+                    {errors.loginId && <p className="text-xs text-destructive">{errors.loginId}</p>}
+                  </div>
 
-              <Button type="submit" className="h-11 w-full" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {t("auth.signIn")}
-              </Button>
-            </form>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label htmlFor="password">{t("auth.password")}</Label>
+                      {portal === "employee" && (
+                        <Link
+                          to="/forgot-password"
+                          className="text-xs font-medium text-primary hover:underline"
+                        >
+                          {t("auth.needHelp")}
+                        </Link>
+                      )}
+                    </div>
+                    <PasswordInput
+                      id="password"
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      onFocus={() => setPasswordFocused(true)}
+                      onBlur={() => setPasswordFocused(false)}
+                      onVisibilityChange={setPasswordVisible}
+                      className="h-11"
+                      aria-invalid={!!errors.password}
+                    />
+                    {errors.password && (
+                      <p className="text-xs text-destructive">{errors.password}</p>
+                    )}
+                  </div>
+
+                  {loginError && (
+                    <Alert variant="destructive">
+                      <AlertDescription>{loginError}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <Button type="submit" className="h-11 w-full" disabled={loading}>
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {t("auth.signIn")}
+                  </Button>
+                </form>
+              </>
+            )}
 
             <p className="mt-6 text-center text-[11px] text-muted-foreground/70">
               {t("login.tagline")}

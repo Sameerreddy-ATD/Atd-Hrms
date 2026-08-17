@@ -88,9 +88,10 @@ export function shortcutsForRole(
   };
 
   switch (role) {
+    case "driver":
+      return [attendance, myAttendance, profile];
     case "employee":
     case "sales":
-    case "driver":
     case "field_staff":
       return [
         attendance,

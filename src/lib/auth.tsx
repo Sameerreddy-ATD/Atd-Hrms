@@ -51,7 +51,7 @@ function readSessionUser() {
 interface AuthState {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<User>;
+  login: (email: string, password: string, portal?: "employee" | "driver") => Promise<User>;
   loginAsRole: (role: Role) => Promise<User>;
   changePassword: (oldPassword: string, nextPassword: string) => Promise<User>;
   updateCurrentUser: (user: User) => void;
@@ -121,8 +121,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [user]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const { user } = await authApi.login(email, password);
+  const login = useCallback(async (email: string, password: string, portal?: "employee" | "driver") => {
+    const { user } = await authApi.login(email, password, portal);
     if (isNativeApp()) markNativeLoginGrace();
     setUser(user);
     writeSessionUser(user);

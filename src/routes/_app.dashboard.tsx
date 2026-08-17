@@ -284,7 +284,7 @@ function DashboardPage() {
       />
 
       <BirthdayMarquee />
-      <DashboardAnnouncements />
+      {user.role !== "driver" && <DashboardAnnouncements />}
 
       {secondaryLoading && (
         <div className="mb-3 text-xs font-medium text-muted-foreground">

@@ -154,6 +154,7 @@ describe("task boards and module access", () => {
     expect(DEFAULT_MODULE_ACCESS.EMPLOYEE).not.toContain("SYSTEM");
     expect(DEFAULT_MODULE_ACCESS.EMPLOYEE).toContain("PERFORMANCE");
     expect(DEFAULT_MODULE_ACCESS.EMPLOYEE).toContain("LMS");
+    expect(DEFAULT_MODULE_ACCESS.DRIVER).toEqual(["DASHBOARD", "ATTENDANCE", "PROFILE"]);
     expect(DEFAULT_MODULE_ACCESS.HR).toContain("LIFECYCLE");
     expect(DEFAULT_MODULE_ACCESS.CEO).not.toContain("SYSTEM");
   });
@@ -163,9 +164,10 @@ describe("task boards and module access", () => {
       Object.keys(DEFAULT_MODULE_ACCESS).map((role) => [role, ["TALENT", "SYSTEM", "PEOPLE"]]),
     );
     const normalized = normalizeModuleAccess(forced);
-    for (const role of ["EMPLOYEE", "SALES", "DRIVER", "FIELD_STAFF"] as const) {
+    for (const role of ["EMPLOYEE", "SALES", "FIELD_STAFF"] as const) {
       expect(normalized[role]).not.toContain("TALENT");
     }
+    expect(normalized.DRIVER).toEqual(["DASHBOARD", "ATTENDANCE", "PROFILE"]);
     expect(normalized.DEVELOPER_ADMIN).toContain("SYSTEM");
   });
 });

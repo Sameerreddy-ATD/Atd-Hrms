@@ -1,7 +1,32 @@
+import { Prisma, Role } from "@prisma/client";
+
 export const BIRTHDAY_LOOKAHEAD_DAYS = 90;
 
 export function isUpcomingBirthday(daysUntil: number): boolean {
   return daysUntil >= 0 && daysUntil <= BIRTHDAY_LOOKAHEAD_DAYS;
+}
+
+/**
+ * Birthday lists are audience-scoped:
+ * - Drivers see only other drivers
+ * - Employees / other staff see non-driver birthdays
+ * - HR and Developer Admin see everyone
+ */
+export function birthdayVisibilityWhere(viewerRole: Role): Prisma.EmployeeWhereInput {
+  const base: Prisma.EmployeeWhereInput = {
+    dateOfBirth: { not: null },
+    status: "ACTIVE",
+  };
+  if (viewerRole === Role.HR || viewerRole === Role.DEVELOPER_ADMIN) {
+    return base;
+  }
+  if (viewerRole === Role.DRIVER) {
+    return { ...base, user: { is: { role: Role.DRIVER } } };
+  }
+  return {
+    ...base,
+    OR: [{ user: null }, { user: { is: { role: { not: Role.DRIVER } } } }],
+  };
 }
 
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;

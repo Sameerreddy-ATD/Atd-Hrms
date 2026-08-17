@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { Role } from "@prisma/client";
 import {
   BIRTHDAY_LOOKAHEAD_DAYS,
+  birthdayVisibilityWhere,
   isUpcomingBirthday,
   nextBirthdayDetails,
 } from "../server/src/birthdays.js";
@@ -12,6 +14,35 @@ describe("birthday lookahead", () => {
     expect(isUpcomingBirthday(90)).toBe(true);
     expect(isUpcomingBirthday(91)).toBe(false);
     expect(isUpcomingBirthday(-1)).toBe(false);
+  });
+});
+
+describe("birthdayVisibilityWhere", () => {
+  it("lets HR and developer admin see everyone", () => {
+    expect(birthdayVisibilityWhere(Role.HR)).toEqual({
+      dateOfBirth: { not: null },
+      status: "ACTIVE",
+    });
+    expect(birthdayVisibilityWhere(Role.DEVELOPER_ADMIN)).toEqual({
+      dateOfBirth: { not: null },
+      status: "ACTIVE",
+    });
+  });
+
+  it("scopes drivers to driver accounts only", () => {
+    expect(birthdayVisibilityWhere(Role.DRIVER)).toEqual({
+      dateOfBirth: { not: null },
+      status: "ACTIVE",
+      user: { is: { role: Role.DRIVER } },
+    });
+  });
+
+  it("scopes employees to non-driver birthdays", () => {
+    expect(birthdayVisibilityWhere(Role.EMPLOYEE)).toEqual({
+      dateOfBirth: { not: null },
+      status: "ACTIVE",
+      OR: [{ user: null }, { user: { is: { role: { not: Role.DRIVER } } } }],
+    });
   });
 });
 

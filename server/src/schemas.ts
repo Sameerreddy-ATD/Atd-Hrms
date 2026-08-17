@@ -84,6 +84,8 @@ export const loginSchema = z.object({
   /** Work email or mobile number — field name kept for older clients. */
   email: z.string().trim().min(3).max(255),
   password: z.string().min(1).max(200),
+  /** Employee portal = email; Driver portal = mobile. Optional for older clients. */
+  portal: z.enum(["employee", "driver"]).optional(),
 });
 
 export const forgotPasswordSchema = z.object({

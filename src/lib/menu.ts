@@ -63,6 +63,9 @@ const ALL: Role[] = [
   "field_staff",
 ];
 
+/** Drivers only need attendance + profile; birthdays show on the dashboard. */
+const DRIVER_ROUTES = new Set(["/dashboard", "/attendance/mine", "/profile", "/preferences"]);
+
 /** HR / admin / CEO — run hire-to-exit operations. */
 const PEOPLE_OPS: Role[] = ["developer_admin", "main_admin", "ceo", "hr"];
 /** People ops plus managers who approve team changes and see joining. */
@@ -109,7 +112,7 @@ export const menuGroups: MenuGroup[] = [
         label: "Onboarding",
         to: "/onboarding",
         icon: ClipboardPen,
-        roles: ALL,
+        roles: ALL.filter((r) => r !== "driver"),
       },
     ],
   },
@@ -126,7 +129,7 @@ export const menuGroups: MenuGroup[] = [
         label: "Performance",
         to: "/performance",
         icon: Target,
-        roles: ALL,
+        roles: ALL.filter((r) => r !== "driver"),
       },
       {
         label: "Offboarding",
@@ -138,7 +141,7 @@ export const menuGroups: MenuGroup[] = [
         label: "Learning",
         to: "/lms",
         icon: GraduationCap,
-        roles: ALL,
+        roles: ALL.filter((r) => r !== "driver"),
       },
     ],
   },
@@ -174,7 +177,7 @@ export const menuGroups: MenuGroup[] = [
   {
     label: "Work",
     items: [
-      { label: "Work Planner", to: "/tasks", icon: ListTodo, roles: ALL },
+      { label: "Work Planner", to: "/tasks", icon: ListTodo, roles: ALL.filter((r) => r !== "driver") },
       {
         label: "Employee Requests",
         to: "/employee-services",
@@ -186,7 +189,6 @@ export const menuGroups: MenuGroup[] = [
           "manager",
           "employee",
           "sales",
-          "driver",
           "field_staff",
         ],
       },
@@ -205,21 +207,21 @@ export const menuGroups: MenuGroup[] = [
         label: "Apply Leave",
         to: "/leave/apply",
         icon: PlaneTakeoff,
-        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "main_admin"],
+        roles: ["employee", "manager", "hr", "sales", "field_staff", "main_admin"],
         requiresAttendance: true,
       },
       {
         label: "Leave History",
         to: "/leave/history",
         icon: History,
-        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "main_admin"],
+        roles: ["employee", "manager", "hr", "sales", "field_staff", "main_admin"],
         requiresAttendance: true,
       },
       {
         label: "My Leave Balance",
         to: "/leave/balance",
         icon: CalendarCheck,
-        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "main_admin"],
+        roles: ["employee", "manager", "hr", "sales", "field_staff", "main_admin"],
         requiresAttendance: true,
       },
       {
@@ -276,9 +278,9 @@ export const menuGroups: MenuGroup[] = [
   {
     label: "Me",
     items: [
-      { label: "Announcements", to: "/announcements", icon: Megaphone, roles: ALL },
-      { label: "Notifications", to: "/notifications", icon: BellRing, roles: ALL },
-      { label: "My Assets", to: "/my-assets", icon: Package, roles: ALL },
+      { label: "Announcements", to: "/announcements", icon: Megaphone, roles: ALL.filter((r) => r !== "driver") },
+      { label: "Notifications", to: "/notifications", icon: BellRing, roles: ALL.filter((r) => r !== "driver") },
+      { label: "My Assets", to: "/my-assets", icon: Package, roles: ALL.filter((r) => r !== "driver") },
       { label: "My Profile", to: "/profile", icon: UserCog, roles: ALL },
       {
         label: "Preferences",
@@ -290,7 +292,7 @@ export const menuGroups: MenuGroup[] = [
         label: "ID Card",
         to: "/id-card",
         icon: IdCard,
-        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff"],
+        roles: ["employee", "manager", "hr", "sales", "field_staff"],
       },
     ],
   },
@@ -342,6 +344,12 @@ export function menuForRole(
             if (i.requiresAttendance && !attendanceOn) return false;
             return true;
           }
+          if (role === "driver") {
+            if (!DRIVER_ROUTES.has(i.to)) return false;
+            if (i.requiresEmployeeId && !options?.hasEmployeeId) return false;
+            if (i.requiresAttendance && !attendanceOn) return false;
+            return true;
+          }
           if (i.requiresEmployeeId && !options?.hasEmployeeId) return false;
           if (i.requiresAttendance && !attendanceOn) return false;
           const roleOk = i.roles.includes(role);
@@ -384,9 +392,10 @@ export function menuForRole(
 /** Sidebar section order for each login role — daily work first. */
 function groupOrderForRole(role: Role): string[] {
   switch (role) {
+    case "driver":
+      return ["Overview", "Attendance", "Me"];
     case "employee":
     case "sales":
-    case "driver":
     case "field_staff":
       return [
         "Overview",
@@ -484,9 +493,10 @@ function groupOrderForRole(role: Role): string[] {
 /** Item order within sections for each login role — matches everyday shortcuts. */
 function itemOrderForRole(role: Role): string[] {
   switch (role) {
+    case "driver":
+      return ["/dashboard", "/attendance/mine", "/profile", "/preferences"];
     case "employee":
     case "sales":
-    case "driver":
     case "field_staff":
       return [
         "/dashboard",
