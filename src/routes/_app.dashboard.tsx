@@ -55,6 +55,7 @@ import { formatWorkedTime, workedTime } from "@/lib/worked-time";
 import { subscribeToAttendanceChanges } from "@/lib/attendance-live";
 import { attendanceSourceLabel } from "@/lib/attendance-labels";
 import { formatBranchLocationLabel, formatBranchLocationLabelById } from "@/lib/branch-label";
+import { cn } from "@/lib/utils";
 import {
   FaceAttendanceDialog,
   type AttendanceCapture,
@@ -424,7 +425,7 @@ function LiveWorkedTime({
 
   return (
     <p
-      className="truncate font-mono text-2xl font-semibold tabular-nums text-foreground min-[360px]:text-3xl sm:text-4xl"
+      className="truncate font-mono text-xl font-semibold tabular-nums tracking-tight text-foreground min-[360px]:text-2xl sm:text-3xl md:text-4xl"
       aria-live="polite"
       aria-label={`${t("pages.dashboard.workedToday")} ${label}`}
     >
@@ -483,8 +484,8 @@ function EmployeeDashboard({
   attendanceReady: boolean;
 }) {
   return (
-    <div className="space-y-4">
-      <div className="grid gap-3 lg:grid-cols-2">
+    <div className="min-w-0 max-w-full space-y-4">
+      <div className="grid min-w-0 gap-3 lg:grid-cols-2">
         {user.attendanceRequired !== false && (
           <MarkAttendanceCard
             user={user}
@@ -492,7 +493,7 @@ function EmployeeDashboard({
             branches={branches}
             onAttendanceChanged={onAttendanceChanged}
             attendanceReady={attendanceReady}
-            className="lg:col-span-2"
+            className="min-w-0 lg:col-span-2"
           />
         )}
         <UpcomingBirthdaysCard birthdays={birthdays} />
@@ -769,8 +770,8 @@ function MarkAttendanceCard({
   }
 
   return (
-    <Card className={`min-w-0 border-border shadow-sm ${className ?? ""}`}>
-      <CardHeader className="p-4 sm:p-5">
+    <Card className={cn("min-w-0 max-w-full overflow-hidden border-border shadow-sm", className)}>
+      <CardHeader className="min-w-0 p-3 sm:p-5">
         <div className="min-w-0">
           <CardTitle className="text-base font-semibold text-foreground">
             {t("pages.dashboard.markAttendance")}
@@ -778,15 +779,15 @@ function MarkAttendanceCard({
           <p className="mt-0.5 text-xs text-muted-foreground">{t("pages.dashboard.liveSession")}</p>
         </div>
       </CardHeader>
-      <CardContent className="grid min-w-0 gap-4 p-4 pt-0 sm:p-5 sm:pt-0 md:grid-cols-[minmax(0,1fr)_minmax(0,0.72fr)]">
+      <CardContent className="grid min-w-0 gap-3 p-3 pt-0 sm:gap-4 sm:p-5 sm:pt-0 md:grid-cols-[minmax(0,1fr)_minmax(0,0.72fr)]">
         <div className="min-w-0 overflow-hidden rounded-md border border-border/70 bg-muted/15">
-          <div className="flex items-center gap-3 border-b border-border/60 p-3 sm:p-4">
+          <div className="flex min-w-0 items-center gap-3 border-b border-border/60 p-3 sm:p-4">
             <span
               className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${isCheckedIn ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}
             >
               <Clock3 className="h-5 w-5" />
             </span>
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 overflow-hidden">
               <p className="text-xs font-medium text-muted-foreground">
                 {t("pages.dashboard.workedToday")}
               </p>
@@ -800,7 +801,7 @@ function MarkAttendanceCard({
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 divide-x divide-border/60">
+          <div className="grid min-w-0 grid-cols-2 divide-x divide-border/60">
             <div className="min-w-0 p-3 sm:p-4">
               <p className="text-xs text-muted-foreground">{t("pages.dashboard.firstCheckIn")}</p>
               <p className="mt-1 truncate text-sm font-medium text-foreground">
@@ -814,29 +815,31 @@ function MarkAttendanceCard({
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-col justify-center gap-3 rounded-md border border-border/70 p-3 sm:p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-col justify-center gap-3 overflow-hidden rounded-md border border-border/70 p-3 sm:p-4">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2 text-sm font-medium">
               <Fingerprint className="h-4 w-4 shrink-0 text-primary" />
               <span className="truncate">{t("pages.dashboard.attendanceStatus")}</span>
             </div>
             <span
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${isCheckedIn ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}
+              className={`inline-flex max-w-full shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${isCheckedIn ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}
             >
               <span
-                className={`h-1.5 w-1.5 rounded-full ${isCheckedIn ? "animate-pulse bg-emerald-600 dark:bg-emerald-400" : "bg-muted-foreground/60"}`}
+                className={`h-1.5 w-1.5 shrink-0 rounded-full ${isCheckedIn ? "animate-pulse bg-emerald-600 dark:bg-emerald-400" : "bg-muted-foreground/60"}`}
               />
-              {isCheckedIn ? t("pages.dashboard.checkedIn") : t("pages.dashboard.checkedOut")}
+              <span className="truncate">
+                {isCheckedIn ? t("pages.dashboard.checkedIn") : t("pages.dashboard.checkedOut")}
+              </span>
             </span>
           </div>
-          <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+          <div className="grid min-w-0 grid-cols-1 gap-2 min-[420px]:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
             <Button
               onClick={checkIn}
               disabled={!attendanceReady || actionLoading || isCheckedIn}
-              className="h-12 w-full"
+              className="h-12 w-full min-w-0 max-w-full overflow-hidden"
             >
               <LogIn className="mr-2 h-4 w-4 shrink-0" />
-              <span className="truncate">
+              <span className="min-w-0 truncate">
                 {!attendanceReady
                   ? t("pages.dashboard.checkingStatus")
                   : actionLoading
@@ -848,10 +851,10 @@ function MarkAttendanceCard({
               variant="outline"
               onClick={checkOut}
               disabled={!attendanceReady || actionLoading || !isCheckedIn}
-              className="h-12 w-full bg-background"
+              className="h-12 w-full min-w-0 max-w-full overflow-hidden bg-background"
             >
               <LogOut className="mr-2 h-4 w-4 shrink-0 text-destructive" />
-              <span className="truncate">
+              <span className="min-w-0 truncate">
                 {!attendanceReady
                   ? t("pages.dashboard.checkingStatus")
                   : actionLoading
@@ -941,7 +944,7 @@ function ManagerDashboard({
           hint={t("pages.dashboard.missedPunchHint")}
         />
       </div>
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid min-w-0 gap-3 lg:grid-cols-2">
         {user.attendanceRequired !== false && (
           <MarkAttendanceCard
             user={user}
@@ -949,17 +952,17 @@ function ManagerDashboard({
             branches={branches}
             onAttendanceChanged={onAttendanceChanged}
             attendanceReady={attendanceReady}
-            className="lg:col-span-2"
+            className="min-w-0 lg:col-span-2"
           />
         )}
-        <div className="lg:col-span-2">
+        <div className="min-w-0 lg:col-span-2">
           <TeamAttendanceCard
             rows={attendance}
             branches={branches}
             title={t("pages.dashboard.teamAttendanceToday")}
           />
         </div>
-        <div className="lg:col-span-2">
+        <div className="min-w-0 lg:col-span-2">
           <UpcomingBirthdaysCard birthdays={birthdays} />
         </div>
       </div>
@@ -1052,7 +1055,7 @@ function HRDashboard({
         </Button>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid min-w-0 gap-3 lg:grid-cols-2">
         {user.employeeId && user.attendanceRequired !== false && (
           <MarkAttendanceCard
             user={user}
@@ -1060,14 +1063,14 @@ function HRDashboard({
             branches={branches}
             onAttendanceChanged={onAttendanceChanged}
             attendanceReady={attendanceReady}
-            className="lg:col-span-2"
+            className="min-w-0 lg:col-span-2"
           />
         )}
         <BranchFieldAttendanceCard
           branchPresentCounts={branchPresentCounts}
           fieldPresent={data.fieldPresent}
         />
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
             <CardTitle className="text-sm">{t("pages.dashboard.pendingLeaveRequests")}</CardTitle>
             <Button
@@ -1101,7 +1104,7 @@ function HRDashboard({
             )}
           </CardContent>
         </Card>
-        <div className="lg:col-span-2">
+        <div className="min-w-0 lg:col-span-2">
           <UpcomingBirthdaysCard birthdays={birthdays} />
         </div>
       </div>
@@ -1412,7 +1415,7 @@ function CEODashboard({
         title={t("pages.dashboard.companyAttendanceDetail")}
         viewAllHref="/attendance/locations"
       />
-      <div className="mt-4">
+      <div className="mt-4 min-w-0">
         <UpcomingBirthdaysCard birthdays={birthdays} />
       </div>
     </div>
@@ -1491,7 +1494,7 @@ function AdminDashboard({
           tone="warning"
         />
       </div>
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid min-w-0 gap-3 lg:grid-cols-2">
         {user.employeeId && user.attendanceRequired !== false && (
           <MarkAttendanceCard
             user={user}
@@ -1499,12 +1502,12 @@ function AdminDashboard({
             branches={branches}
             onAttendanceChanged={onAttendanceChanged}
             attendanceReady={attendanceReady}
-            className="lg:col-span-2"
+            className="min-w-0 lg:col-span-2"
           />
         )}
         <RecentAttendanceCard rows={attendance} />
         <AttendanceAnalyticsCard rows={attendance} />
-        <div className="lg:col-span-2">
+        <div className="min-w-0 lg:col-span-2">
           <UpcomingBirthdaysCard birthdays={birthdays} />
         </div>
       </div>
@@ -1808,31 +1811,31 @@ function UpcomingBirthdaysCard({
   };
 
   return (
-    <Card className="h-full">
-      <CardHeader className="flex flex-col items-start gap-1 pb-2 sm:flex-row sm:items-center sm:justify-between">
-        <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+    <Card className="h-full min-w-0 max-w-full overflow-hidden">
+      <CardHeader className="flex min-w-0 flex-col items-start gap-1 pb-2 sm:flex-row sm:items-center sm:justify-between">
+        <CardTitle className="flex min-w-0 items-center gap-2 text-sm font-semibold">
           <Cake className="h-4 w-4 shrink-0 text-primary" />{" "}
-          <span className="min-w-0">{t("pages.dashboard.upcomingBirthdays")}</span>
+          <span className="min-w-0 truncate">{t("pages.dashboard.upcomingBirthdays")}</span>
         </CardTitle>
-        <span className="text-xs text-muted-foreground">
+        <span className="shrink-0 text-xs text-muted-foreground">
           {t("pages.dashboard.nextNDays", { count: BIRTHDAY_LOOKAHEAD_DAYS })}
         </span>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="min-w-0 space-y-4 overflow-hidden">
         {birthdaysToday.length > 0 && (
-          <div className="space-y-2">
+          <div className="min-w-0 space-y-2">
             {birthdaysToday.map((birthday) => {
               const isSelf = birthday.employeeId === user?.employeeId;
               return (
                 <div
                   key={birthday.employeeId}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-primary/25 bg-primary/[0.05] p-3 text-sm"
+                  className="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-primary/25 bg-primary/[0.05] p-3 text-sm sm:gap-3"
                 >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="rounded-xl bg-primary/10 p-2 text-primary">
+                  <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+                    <div className="shrink-0 rounded-xl bg-primary/10 p-2 text-primary">
                       <Cake className="h-4 w-4" />
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 overflow-hidden">
                       <p className="truncate font-semibold text-foreground">
                         {isSelf ? t("pages.dashboard.yourBirthday") : birthday.name}
                       </p>
@@ -1866,26 +1869,26 @@ function UpcomingBirthdaysCard({
               : t("pages.dashboard.noBirthdays")}
           </p>
         ) : (
-          <div className="max-h-[300px] space-y-2.5 overflow-y-auto pr-1">
+          <div className="max-h-[300px] min-w-0 space-y-2.5 overflow-x-hidden overflow-y-auto">
             {upcoming.map((b) => {
               const isSelf = b.employeeId === user?.employeeId;
 
               return (
                 <div
                   key={b.employeeId}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-border/80 bg-card p-3 text-sm transition-colors hover:bg-muted/40"
+                  className="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-border/80 bg-card p-3 text-sm transition-colors hover:bg-muted/40 sm:gap-3"
                 >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="rounded-xl bg-muted p-2 text-muted-foreground">
+                  <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+                    <div className="shrink-0 rounded-xl bg-muted p-2 text-muted-foreground">
                       <Cake className="h-4 w-4" />
                     </div>
-                    <div className="min-w-0">
-                      <p className="flex flex-wrap items-center gap-1.5 font-medium">
-                        <span className="truncate">
+                    <div className="min-w-0 overflow-hidden">
+                      <p className="flex min-w-0 items-center gap-1.5 font-medium">
+                        <span className="min-w-0 truncate">
                           {isSelf ? t("pages.dashboard.yourBirthday") : b.name}
                         </span>
                         {isSelf && (
-                          <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
+                          <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
                             {t("pages.dashboard.you")}
                           </span>
                         )}
@@ -1898,9 +1901,9 @@ function UpcomingBirthdaysCard({
                       </p>
                     </div>
                   </div>
-                  <div className="shrink-0 text-right">
-                    <p className="font-semibold text-foreground">{formatDob(b.dateOfBirth)}</p>
-                    <p className="text-[10px] text-muted-foreground">
+                  <div className="max-w-[40%] shrink-0 text-right">
+                    <p className="truncate font-semibold text-foreground">{formatDob(b.dateOfBirth)}</p>
+                    <p className="truncate text-[10px] text-muted-foreground">
                       {isSelf
                         ? t("pages.dashboard.inNDays", { count: b.daysUntil })
                         : t("pages.dashboard.daysLeft", { count: b.daysUntil })}

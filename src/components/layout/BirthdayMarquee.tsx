@@ -41,22 +41,22 @@ function BirthdayCard({
   return (
     <div
       className={cn(
-        "relative w-full overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-br from-primary/[0.06] via-card to-card shadow-sm",
+        "relative w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-br from-primary/[0.06] via-card to-card shadow-sm",
         className,
       )}
     >
-      <div className="flex items-center justify-between gap-3 border-b border-primary/15 bg-primary/[0.04] px-4 py-2.5 sm:px-5">
-        <Logo variant="mark" className="h-6 w-6" />
-        <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary">
+      <div className="flex min-w-0 items-center justify-between gap-2 border-b border-primary/15 bg-primary/[0.04] px-3 py-2.5 sm:gap-3 sm:px-5">
+        <Logo variant="mark" className="h-6 w-6 shrink-0" />
+        <span className="max-w-[70%] truncate rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary">
           {isSelf ? "Your birthday" : "Birthday today"}
         </span>
       </div>
-      <div className="flex items-center gap-3.5 p-4 sm:gap-4 sm:p-5">
+      <div className="flex min-w-0 items-start gap-3 p-3 sm:items-center sm:gap-4 sm:p-5">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground sm:h-14 sm:w-14">
           <Cake className="h-6 w-6 sm:h-7 sm:w-7" />
         </div>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 overflow-hidden">
           <p className="truncate text-base font-semibold tracking-tight text-foreground sm:text-lg">
             {birthday.name}
           </p>
@@ -126,7 +126,7 @@ export function BirthdayMarquee() {
 
   if (celebrants.length === 1) {
     return (
-      <div className="mb-5 w-full min-w-0 max-w-full overflow-x-clip">
+      <div className="mb-5 w-full min-w-0 max-w-full overflow-hidden">
         <BirthdayCard
           birthday={celebrants[0]}
           isSelf={celebrants[0].employeeId === user?.employeeId}
@@ -136,16 +136,17 @@ export function BirthdayMarquee() {
   }
 
   return (
-    <div className="mb-5 w-full min-w-0 max-w-full space-y-2.5 overflow-x-clip">
-      <div className="relative min-w-0 overflow-hidden">
+    <div className="mb-5 w-full min-w-0 max-w-full space-y-2.5 overflow-hidden">
+      <div className="relative min-w-0 max-w-full overflow-hidden">
         <Carousel
           setApi={setApi}
           opts={{ loop: true, align: "start", watchDrag: true, dragFree: false }}
           className="w-full min-w-0"
         >
-          <CarouselContent>
+          {/* Zero out default -ml/pl so full-width slides never exceed the shell. */}
+          <CarouselContent className="-ml-0">
             {celebrants.map((birthday) => (
-              <CarouselItem key={birthday.employeeId} className="basis-full">
+              <CarouselItem key={birthday.employeeId} className="basis-full pl-0">
                 <BirthdayCard
                   birthday={birthday}
                   isSelf={birthday.employeeId === user?.employeeId}
@@ -159,7 +160,7 @@ export function BirthdayMarquee() {
           type="button"
           variant="outline"
           size="icon"
-          className="absolute left-3 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-full border-border/80 bg-background/95 shadow-sm backdrop-blur-sm sm:left-4"
+          className="absolute left-2 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-full border-border/80 bg-background/95 shadow-sm backdrop-blur-sm sm:left-3"
           onClick={() => api?.scrollPrev()}
           aria-label="Previous birthday"
         >
@@ -169,7 +170,7 @@ export function BirthdayMarquee() {
           type="button"
           variant="outline"
           size="icon"
-          className="absolute right-3 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-full border-border/80 bg-background/95 shadow-sm backdrop-blur-sm sm:right-4"
+          className="absolute right-2 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-full border-border/80 bg-background/95 shadow-sm backdrop-blur-sm sm:right-3"
           onClick={() => api?.scrollNext()}
           aria-label="Next birthday"
         >

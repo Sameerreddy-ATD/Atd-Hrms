@@ -120,7 +120,7 @@ const Carousel = React.forwardRef<
       <div
         ref={ref}
         onKeyDownCapture={handleKeyDown}
-        className={cn("relative", className)}
+        className={cn("relative min-w-0 max-w-full overflow-hidden", className)}
         role="region"
         aria-roledescription="carousel"
         {...props}
@@ -142,9 +142,7 @@ const CarouselContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HT
           ref={ref}
           className={cn(
             "flex",
-            // Gap instead of -ml-4 / pl-4: negative margin made horizontal
-            // carousels wider than the viewport and clipped the shell edge.
-            orientation === "horizontal" ? "gap-4" : "flex-col gap-4",
+            orientation === "horizontal" ? "-ml-4" : "-mt-4 flex-col",
             className,
           )}
           {...props}
@@ -157,12 +155,18 @@ CarouselContent.displayName = "CarouselContent";
 
 const CarouselItem = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => {
+    const { orientation } = useCarousel();
+
     return (
       <div
         ref={ref}
         role="group"
         aria-roledescription="slide"
-        className={cn("min-w-0 shrink-0 grow-0 basis-full", className)}
+        className={cn(
+          "min-w-0 shrink-0 grow-0 basis-full",
+          orientation === "horizontal" ? "pl-4" : "pt-4",
+          className,
+        )}
         {...props}
       />
     );
