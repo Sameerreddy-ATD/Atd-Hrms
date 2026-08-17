@@ -68,6 +68,10 @@ export const Route = createFileRoute("/_app/departments")({
 /** Reserved unit that holds multiple heads under the CEO / Leadership card. */
 const EXECUTIVE_LEADERSHIP_NAME = "Executive Leadership";
 
+/** Shared org-chart unit box (fixed size + visible border; see styles.css). */
+const DEPT_ORG_UNIT_CARD_CLASS =
+  "dept-org-unit-card cursor-pointer";
+
 function byDepartmentOrder(a: Department, b: Department) {
   return (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name);
 }
@@ -490,7 +494,7 @@ function DeptPage() {
         }}
       >
         <div
-          className="relative cursor-pointer rounded-md border border-border bg-background p-3 shadow-sm transition-[border-color,box-shadow,transform] duration-200 before:absolute before:-left-4 before:top-6 before:h-px before:w-4 before:animate-pulse before:border-t before:border-dashed before:border-primary/60 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+          className={`${DEPT_ORG_UNIT_CARD_CLASS} relative before:absolute before:-left-4 before:top-7 before:h-px before:w-4 before:bg-border`}
           role="button"
           tabIndex={0}
           aria-expanded={isExpanded}
@@ -502,8 +506,8 @@ function DeptPage() {
             }
           }}
         >
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex min-w-0 items-start gap-1.5">
+          <div className="flex flex-1 items-start justify-between gap-2">
+            <div className="flex min-w-0 flex-1 items-start gap-1.5">
               <button
                 type="button"
                 draggable
@@ -523,9 +527,14 @@ function DeptPage() {
               >
                 <GripVertical className="h-4 w-4" />
               </button>
-              <div className="min-w-0">
-                <p className="break-words text-sm font-semibold text-foreground">{department.name}</p>
-                <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  {(department.unitType ?? "TEAM").toLowerCase()}
+                </p>
+                <p className="dept-org-unit-card__name mt-0.5 text-sm font-semibold leading-snug text-foreground">
+                  {department.name}
+                </p>
+                <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
                   <UserRound className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">
                     {headsLabel(department, t("pages.departments.headNotAssigned"))}
@@ -592,7 +601,7 @@ function DeptPage() {
           </div>
         </div>
         {children.length > 0 && isExpanded && (
-          <div className="ml-5 animate-in space-y-3 border-l border-dashed border-primary/50 pl-4 pt-4 duration-300 fade-in slide-in-from-top-2">
+          <div className="ml-5 animate-in space-y-3 border-l border-border pl-4 pt-4 duration-300 fade-in slide-in-from-top-2 motion-reduce:animate-none">
             {children.map((child) => renderChildNode(child))}
           </div>
         )}
@@ -747,7 +756,7 @@ function DeptPage() {
 
               <div className="flex w-full max-w-full flex-col items-stretch gap-4 md:w-max md:flex-row md:items-start md:gap-7">
                 {chartTopLevelDepartments.length === 0 && (
-                  <div className="w-full rounded-md border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground md:w-[360px]">
+                  <div className="dept-org-unit-card flex w-full items-center justify-center border-dashed text-center text-sm text-muted-foreground md:w-[360px]">
                     {t("pages.departments.noUnitsYet")}
                   </div>
                 )}
@@ -758,7 +767,7 @@ function DeptPage() {
                   return (
                     <section
                       key={department.id}
-                      className={`relative w-full shrink-0 pt-0 before:hidden md:w-[360px] md:pt-6 md:before:absolute md:before:left-1/2 md:before:top-0 md:before:block md:before:h-6 md:before:w-px md:before:bg-border ${
+                      className={`relative flex w-full shrink-0 flex-col pt-0 before:hidden md:w-[360px] md:pt-6 md:before:absolute md:before:left-1/2 md:before:top-0 md:before:block md:before:h-6 md:before:w-px md:before:bg-border ${
                         isDropTarget ? "rounded-md ring-2 ring-primary/40" : ""
                       } ${draggingId === department.id ? "opacity-50" : ""}`}
                       onDragOver={(event) => {
@@ -773,7 +782,7 @@ function DeptPage() {
                       }}
                     >
                       <div
-                        className="cursor-pointer rounded-md border border-border bg-background p-4 shadow-sm transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                        className={DEPT_ORG_UNIT_CARD_CLASS}
                         role="button"
                         tabIndex={0}
                         aria-expanded={isExpanded}
@@ -785,8 +794,8 @@ function DeptPage() {
                           }
                         }}
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex min-w-0 items-start gap-2">
+                        <div className="flex flex-1 items-start justify-between gap-3">
+                          <div className="flex min-w-0 flex-1 items-start gap-2">
                             <button
                               type="button"
                               draggable={!reordering}
@@ -806,13 +815,19 @@ function DeptPage() {
                             >
                               <GripVertical className="h-4 w-4" />
                             </button>
-                            <div className="min-w-0">
-                              <p className="text-xs font-medium uppercase text-muted-foreground">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                                 {(department.unitType ?? "TEAM").toLowerCase()}
                               </p>
-                              <h2 className="mt-1 break-words text-base font-semibold text-foreground">
+                              <h2 className="dept-org-unit-card__name mt-0.5 text-base font-semibold leading-snug text-foreground">
                                 {department.name}
                               </h2>
+                              <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <UserRound className="h-3.5 w-3.5 shrink-0" />
+                                <span className="truncate">
+                                  {headsLabel(department, t("pages.departments.headNotAssigned"))}
+                                </span>
+                              </p>
                               <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                                 <Users className="h-3.5 w-3.5 shrink-0" />
                                 <span>{membersLabel(membersUnder(department.id))}</span>
@@ -872,16 +887,10 @@ function DeptPage() {
                             </Button>
                           </div>
                         </div>
-                        <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-                          <UserRound className="h-4 w-4 shrink-0" />
-                          <span className="truncate">
-                            {headsLabel(department, t("pages.departments.headNotAssigned"))}
-                          </span>
-                        </div>
                       </div>
 
                       {children.length > 0 && isExpanded && (
-                        <div className="ml-5 animate-in space-y-3 border-l border-dashed border-primary/50 pl-4 pt-4 duration-300 fade-in slide-in-from-top-2">
+                        <div className="ml-5 animate-in space-y-3 border-l border-border pl-4 pt-4 duration-300 fade-in slide-in-from-top-2 motion-reduce:animate-none">
                           {children.map((child) => renderChildNode(child))}
                         </div>
                       )}
