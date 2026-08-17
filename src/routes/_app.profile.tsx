@@ -321,6 +321,14 @@ function ProfilePage() {
         value={formatOrganizationLevel(profile.organizationLevel)}
       />
       <Field label={t("common.department")} value={profile.department ?? "—"} />
+      <Field
+        label={t("pages.profilePage.headsUnits")}
+        value={
+          profile.headedDepartments && profile.headedDepartments.length > 0
+            ? profile.headedDepartments.map((unit) => unit.name).join(" · ")
+            : "—"
+        }
+      />
       <Field label={t("pages.profilePage.designation")} value={profile.designation ?? "—"} />
       <Field
         label={t("pages.profilePage.reportingManager")}

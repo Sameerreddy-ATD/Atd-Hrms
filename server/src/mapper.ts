@@ -175,6 +175,9 @@ export function employeeDto(
   },
   reqUser?: { id: string; role: string; employeeId?: string | null },
   includePrivateDetails = false,
+  extras?: {
+    headedDepartments?: Array<{ id: string; name: string }>;
+  },
 ) {
   const showFullDOB =
     !reqUser ||
@@ -247,6 +250,7 @@ export function employeeDto(
       : undefined,
     department: employee.department?.name ?? employee.departmentId ?? undefined,
     departmentId: employee.departmentId ?? undefined,
+    headedDepartments: extras?.headedDepartments,
     designation: employee.designation ?? undefined,
     managerId: employee.managerId ?? undefined,
     managerName: employee.manager?.name,

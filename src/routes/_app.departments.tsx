@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/dialog";
 import type { Department, User } from "@/types/domain";
 import { useAuth } from "@/lib/auth";
-import { formatDepartmentPath, formatDepartmentPathById } from "@/lib/department-label";
+import { formatDepartmentPath, formatDepartmentPathById, departmentMemberCountInTree } from "@/lib/department-label";
 import { branchesApi, employeesApi } from "@/services/api";
 import {
   ChevronDown,
@@ -54,6 +54,7 @@ import {
   Plus,
   RotateCcw,
   Trash2,
+  Users,
   UserRound,
   UserRoundPlus,
   ZoomIn,
@@ -86,6 +87,15 @@ function headsLabel(department: Department, headNotAssignedLabel: string) {
   if (names.length === 1) return names[0];
   if (names.length === 2) return names.join(" · ");
   return `${names[0]} · +${names.length - 1} more`;
+}
+
+function isActiveEmployee(employee: User) {
+  return (
+    employee.status !== "TERMINATED" &&
+    employee.status !== "INACTIVE" &&
+    !employee.terminatedAt &&
+    employee.active !== false
+  );
 }
 
 function DeptPage() {
@@ -161,7 +171,7 @@ function DeptPage() {
   }, []);
 
   const headOptions = useMemo(
-    () => employees.filter((employee) => !!employee.employeeId),
+    () => employees.filter((employee) => !!employee.employeeId && isActiveEmployee(employee)),
     [employees],
   );
   const headEmployeeIds = useMemo(() => headSlots.filter((id) => id !== "none"), [headSlots]);
@@ -199,6 +209,15 @@ function DeptPage() {
     departments
       .filter((department) => department.parentDepartmentId === parentId)
       .sort(byDepartmentOrder);
+
+  const membersUnder = (departmentId: string) =>
+    departmentMemberCountInTree(departmentId, departments);
+
+  function membersLabel(count: number) {
+    return count === 1
+      ? t("pages.departments.memberCountOne")
+      : t("pages.departments.memberCount", { count });
+  }
   const chartWidth = Math.max(1120, chartTopLevelDepartments.length * 388 - 28);
 
   function applyDepartmentList(next: Department[]) {
@@ -499,6 +518,10 @@ function DeptPage() {
                     {headsLabel(department, t("pages.departments.headNotAssigned"))}
                   </span>
                 </p>
+                <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Users className="h-3.5 w-3.5 shrink-0" />
+                  <span>{membersLabel(membersUnder(department.id))}</span>
+                </p>
                 <p className="mt-1 text-[11px] font-medium text-muted-foreground">
                   {department.faceVerificationEnabled === false
                     ? t("pages.departments.faceOff")
@@ -767,6 +790,10 @@ function DeptPage() {
                               <h2 className="mt-1 break-words text-base font-semibold text-foreground">
                                 {department.name}
                               </h2>
+                              <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <Users className="h-3.5 w-3.5 shrink-0" />
+                                <span>{membersLabel(membersUnder(department.id))}</span>
+                              </p>
                               <p className="mt-1 text-[11px] font-medium text-muted-foreground">
                                 {department.faceVerificationEnabled === false
                                   ? t("pages.departments.faceOff")
@@ -851,6 +878,7 @@ function DeptPage() {
                 <TableHead>{t("pages.departments.tableName")}</TableHead>
                 <TableHead>{t("pages.departments.tableType")}</TableHead>
                 <TableHead>{t("pages.departments.reportsUnder")}</TableHead>
+                <TableHead>{t("pages.departments.tableMembers")}</TableHead>
                 <TableHead>{t("pages.departments.tableHead")}</TableHead>
                 <TableHead className="text-right">{t("common.actions")}</TableHead>
               </TableRow>
@@ -872,6 +900,7 @@ function DeptPage() {
                       ? formatDepartmentPathById(departments, d.parentDepartmentId)
                       : "CEO"}
                   </TableCell>
+                  <TableCell>{membersLabel(membersUnder(d.id))}</TableCell>
                   <TableCell>{headsLabel(d, t("pages.departments.headNotAssigned"))}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">

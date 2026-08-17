@@ -174,6 +174,11 @@ import {
   resolveTargetLoginRole,
 } from "./rbac.js";
 import {
+  headedDepartmentsForEmployee,
+  replaceDepartmentHeads,
+  syncEmployeeHeadshipFromProfile,
+} from "./departmentHeads.js";
+import {
   announcementSchema,
   announcementUpdateSchema,
   biometricMappingSchema,
@@ -553,56 +558,6 @@ export function createApp() {
     }
   }
 
-  /** Mark an employee as an org head; the same person may head multiple departments. */
-  async function syncAssignedOrganizationHead(
-    tx: Prisma.TransactionClient | typeof prisma,
-    headEmployeeId: string | null | undefined,
-  ) {
-    if (!headEmployeeId) return;
-    const head = await tx.employee.findUnique({
-      where: { employeeId: headEmployeeId },
-      include: { user: true },
-    });
-    if (!head?.user) return;
-    if (head.organizationLevel !== "HEAD") {
-      await tx.employee.update({
-        where: { employeeId: headEmployeeId },
-        data: { organizationLevel: "HEAD" },
-      });
-    }
-    const promoteable: Role[] = [Role.EMPLOYEE, Role.SALES, Role.DRIVER, Role.FIELD_STAFF];
-    if (promoteable.includes(head.user.role)) {
-      await tx.user.update({
-        where: { id: head.user.id },
-        data: { role: Role.MANAGER },
-      });
-    }
-  }
-
-  async function replaceDepartmentHeads(
-    tx: Prisma.TransactionClient | typeof prisma,
-    departmentId: string,
-    headEmployeeIds: string[],
-  ) {
-    await tx.departmentHeadAssignment.deleteMany({ where: { departmentId } });
-    if (headEmployeeIds.length > 0) {
-      await tx.departmentHeadAssignment.createMany({
-        data: headEmployeeIds.map((employeeId, index) => ({
-          departmentId,
-          employeeId,
-          sortOrder: index,
-        })),
-      });
-    }
-    await tx.department.update({
-      where: { departmentId },
-      data: { headEmployeeId: headEmployeeIds[0] ?? null },
-    });
-    for (const headEmployeeId of headEmployeeIds) {
-      await syncAssignedOrganizationHead(tx, headEmployeeId);
-    }
-  }
-
   const departmentInclude = {
     headEmployee: true,
     headAssignments: {
@@ -611,7 +566,39 @@ export function createApp() {
     },
   };
 
-  function departmentDto(department: {
+  async function activeMemberCountByDepartment() {
+    const groups = await prisma.employee.groupBy({
+      by: ["departmentId"],
+      where: {
+        status: EmployeeStatus.ACTIVE,
+        departmentId: { not: null },
+      },
+      _count: { _all: true },
+    });
+    return new Map(
+      groups
+        .filter((row): row is typeof row & { departmentId: string } =>
+          Boolean(row.departmentId),
+        )
+        .map((row) => [row.departmentId, row._count._all]),
+    );
+  }
+
+  async function listDepartmentDtos() {
+    const [departments, memberCounts] = await Promise.all([
+      prisma.department.findMany({
+        include: departmentInclude,
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      }),
+      activeMemberCountByDepartment(),
+    ]);
+    return departments.map((department) =>
+      departmentDto(department, memberCounts.get(department.departmentId) ?? 0),
+    );
+  }
+
+  function departmentDto(
+    department: {
     departmentId: string;
     name: string;
     headEmployeeId: string | null;
@@ -625,7 +612,9 @@ export function createApp() {
       sortOrder: number;
       employee?: { name: string } | null;
     }>;
-  }) {
+  },
+    memberCount = 0,
+  ) {
     const assignmentHeads = [...(department.headAssignments ?? [])].sort(
       (a, b) => a.sortOrder - b.sortOrder || a.employeeId.localeCompare(b.employeeId),
     );
@@ -654,6 +643,7 @@ export function createApp() {
       unitType: department.unitType,
       sortOrder: department.sortOrder,
       faceVerificationEnabled: department.faceVerificationEnabled ?? true,
+      memberCount,
     };
   }
 
@@ -2690,6 +2680,25 @@ export function createApp() {
             },
           });
         }
+        if (employee && organizationLevel === "HEAD") {
+          const departmentId = body.departmentId ?? employee.departmentId;
+          if (linkedEmployee && body.organizationLevel) {
+            await tx.employee.update({
+              where: { employeeId: employee.employeeId },
+              data: {
+                organizationLevel,
+                departmentId: body.departmentId ?? undefined,
+              },
+            });
+          }
+          await syncEmployeeHeadshipFromProfile(tx, {
+            employeeId: employee.employeeId,
+            organizationLevel,
+            departmentId,
+            previousOrganizationLevel: linkedEmployee?.organizationLevel,
+            previousDepartmentId: linkedEmployee?.departmentId,
+          });
+        }
         return tx.user.create({
           data: {
             name: employee?.name ?? body.name,
@@ -2840,7 +2849,8 @@ export function createApp() {
           emergencyContact: true,
         },
       });
-      res.json(employeeDto(employee, req.user!, true));
+      const headedDepartments = await headedDepartmentsForEmployee(prisma, employeeId);
+      res.json(employeeDto(employee, req.user!, true, { headedDepartments }));
     }),
   );
 
@@ -3074,18 +3084,42 @@ export function createApp() {
             },
           },
         });
+        if (
+          body.organizationLevel !== undefined ||
+          body.departmentId !== undefined
+        ) {
+          await syncEmployeeHeadshipFromProfile(tx, {
+            employeeId,
+            organizationLevel:
+              body.organizationLevel ?? updatedEmployee.organizationLevel,
+            departmentId:
+              body.departmentId !== undefined
+                ? body.departmentId
+                : updatedEmployee.departmentId,
+            previousOrganizationLevel: existing.organizationLevel,
+            previousDepartmentId: existing.departmentId,
+          });
+        }
         return tx.employee.findUniqueOrThrow({
           where: { employeeId },
           include: { user: true, department: true, homeBranch: true, manager: true },
         });
       });
+      const responseEmployee =
+        body.organizationLevel !== undefined || body.departmentId !== undefined
+          ? await prisma.employee.findUniqueOrThrow({
+              where: { employeeId },
+              include: { user: true, department: true, homeBranch: true, manager: true },
+            })
+          : employee;
+      const headedDepartments = await headedDepartmentsForEmployee(prisma, employeeId);
       if (body.managerId !== undefined && body.managerId !== existing.managerId) {
         await audit({
           action: "employee manager changed",
           performedByUserId: req.user!.id,
-          affectedUserId: employee.user?.id,
+          affectedUserId: responseEmployee.user?.id,
           oldValue: { managerId: existing.managerId },
-          newValue: { managerId: employee.managerId },
+          newValue: { managerId: responseEmployee.managerId },
           ipAddress: req.ip,
         });
       } else {
@@ -3093,7 +3127,7 @@ export function createApp() {
           action:
             isSelf && !isDeveloperAdmin ? "employee self-updated profile" : "employee updated",
           performedByUserId: req.user!.id,
-          affectedUserId: employee.user?.id,
+          affectedUserId: responseEmployee.user?.id,
           newValue: { employeeId, fields: Object.keys(body) },
           ipAddress: req.ip,
         });
@@ -3113,9 +3147,9 @@ export function createApp() {
           include: { shift: true },
           orderBy: { effectiveFrom: "desc" },
         });
-        const nextType = employee.shiftType;
-        const nextStart = employee.shiftStartMinutes;
-        const nextEnd = employee.shiftEndMinutes;
+        const nextType = responseEmployee.shiftType;
+        const nextStart = responseEmployee.shiftStartMinutes;
+        const nextEnd = responseEmployee.shiftEndMinutes;
         const matches =
           active?.shift &&
           active.shift.shiftType === nextType &&
@@ -3131,7 +3165,7 @@ export function createApp() {
           await ensureEmployeeShiftAssignment(employeeId, today, req.user!.employeeId);
         }
       }
-      res.json(employeeDto(employee, req.user!, true));
+      res.json(employeeDto(responseEmployee, req.user!, true, { headedDepartments }));
     }),
   );
 
@@ -3625,11 +3659,7 @@ export function createApp() {
     requireAuth,
     requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.CEO, Role.HR, Role.MANAGER),
     asyncHandler(async (_req, res) => {
-      const departments = await prisma.department.findMany({
-        include: departmentInclude,
-        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-      });
-      res.json(departments.map(departmentDto));
+      res.json(await listDepartmentDtos());
     }),
   );
 
@@ -3683,7 +3713,13 @@ export function createApp() {
         },
         ipAddress: req.ip,
       });
-      res.status(201).json(departmentDto(department));
+      const memberCount = await prisma.employee.count({
+        where: {
+          departmentId: department.departmentId,
+          status: EmployeeStatus.ACTIVE,
+        },
+      });
+      res.status(201).json(departmentDto(department, memberCount));
     }),
   );
 
@@ -3724,11 +3760,8 @@ export function createApp() {
         },
         ipAddress: req.ip,
       });
-      const departments = await prisma.department.findMany({
-        include: departmentInclude,
-        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-      });
-      res.json(departments.map(departmentDto));
+      const departments = await listDepartmentDtos();
+      res.json(departments);
     }),
   );
 
@@ -3813,7 +3846,13 @@ export function createApp() {
         },
         ipAddress: req.ip,
       });
-      res.json(departmentDto(department));
+      const memberCount = await prisma.employee.count({
+        where: {
+          departmentId: department.departmentId,
+          status: EmployeeStatus.ACTIVE,
+        },
+      });
+      res.json(departmentDto(department, memberCount));
     }),
   );
 
@@ -3823,7 +3862,10 @@ export function createApp() {
     requireRoles(Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const employeeCount = await prisma.employee.count({
-        where: { departmentId: String(req.params.id) },
+        where: {
+          departmentId: String(req.params.id),
+          status: EmployeeStatus.ACTIVE,
+        },
       });
       if (employeeCount > 0) throw new HttpError(400, "Department has employees assigned");
       const childCount = await prisma.department.count({
@@ -3843,7 +3885,7 @@ export function createApp() {
         },
         ipAddress: req.ip,
       });
-      res.json(departmentDto({ ...department, headEmployee: null, headAssignments: [] }));
+      res.json(departmentDto({ ...department, headEmployee: null, headAssignments: [] }, 0));
     }),
   );
 

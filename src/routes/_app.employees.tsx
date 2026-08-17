@@ -643,6 +643,14 @@ function EmployeesPage() {
                       <SelectItem value="MEMBER">Member</SelectItem>
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {editForm.organizationLevel === "HEAD"
+                      ? "Setting Head also lists this person as a head of their department on the organization chart."
+                      : editingEmployee?.headedDepartments &&
+                          editingEmployee.headedDepartments.length > 0
+                        ? `Currently heads: ${editingEmployee.headedDepartments.map((unit) => unit.name).join(" · ")}. Changing away from Head removes them from those units.`
+                        : "Heads assigned under Departments also update this level to Head."}
+                  </p>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Date of Birth</Label>

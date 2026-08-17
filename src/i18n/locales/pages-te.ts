@@ -365,6 +365,9 @@ const pages = {
       "ఆన్ ఉన్నప్పుడు ఈ యూనిట్ వారు నమోదు చేసుకొని చెక్-ఇన్‌కు కెమెరా ఉపయోగించాలి. Face Security సంస్థా పాజ్ అందరికీ వర్తిస్తుంది.",
     faceOn: "ముఖ చెక్-ఇన్ ఆన్",
     faceOff: "ముఖ చెక్-ఇన్ ఆఫ్",
+    tableMembers: "సభ్యులు",
+    memberCountOne: "1 సభ్యుడు",
+    memberCount: "{{count}} సభ్యులు",
   },
   talent: {
     title: "టాలెంట్ acquisition",
@@ -1311,6 +1314,7 @@ const pages = {
     parentGroup: "parent group",
     employmentType: "employment type",
     orgLevel: "organization level",
+    headsUnits: "వీటికి హెడ్",
     designation: "Designation",
     reportingManager: "reporting manager",
     joiningDate: "joining date",

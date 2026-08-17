@@ -18,6 +18,7 @@ import { audit } from "./audit.js";
 import { ensureChecklistInstance } from "./checklistService.js";
 import { encryptEmployeeField, lastFour } from "./employeePrivateData.js";
 import { reportingHierarchyCycle } from "./organizationRules.js";
+import { syncEmployeeHeadshipFromProfile } from "./departmentHeads.js";
 import {
   detectAllowedUploadMime,
   assertClientMimeMatches,
@@ -221,15 +222,33 @@ async function applyEmployeeChange(
       },
     });
   } else if (kind === "PROMOTION" || kind === "DESIGNATION_CHANGE") {
-    await prisma.employee.update({
+    const existing = await prisma.employee.findUniqueOrThrow({
       where: { employeeId },
-      data: {
-        designation: payload.designation ? String(payload.designation) : undefined,
-        managerId: payload.managerId ? String(payload.managerId) : undefined,
-        organizationLevel: payload.organizationLevel
-          ? String(payload.organizationLevel)
-          : undefined,
-      },
+      select: { organizationLevel: true, departmentId: true },
+    });
+    const nextLevel = payload.organizationLevel
+      ? String(payload.organizationLevel)
+      : existing.organizationLevel;
+    await prisma.$transaction(async (tx) => {
+      await tx.employee.update({
+        where: { employeeId },
+        data: {
+          designation: payload.designation ? String(payload.designation) : undefined,
+          managerId: payload.managerId ? String(payload.managerId) : undefined,
+          organizationLevel: payload.organizationLevel
+            ? String(payload.organizationLevel)
+            : undefined,
+        },
+      });
+      if (payload.organizationLevel) {
+        await syncEmployeeHeadshipFromProfile(tx, {
+          employeeId,
+          organizationLevel: nextLevel,
+          departmentId: existing.departmentId,
+          previousOrganizationLevel: existing.organizationLevel,
+          previousDepartmentId: existing.departmentId,
+        });
+      }
     });
     if (payload.ctcAnnual != null) {
       await prisma.employeeCompensation.create({
@@ -245,9 +264,23 @@ async function applyEmployeeChange(
       });
     }
   } else if (kind === "DEPARTMENT_CHANGE") {
-    await prisma.employee.update({
+    const existing = await prisma.employee.findUniqueOrThrow({
       where: { employeeId },
-      data: { departmentId: payload.departmentId ? String(payload.departmentId) : null },
+      select: { organizationLevel: true, departmentId: true },
+    });
+    const nextDepartmentId = payload.departmentId ? String(payload.departmentId) : null;
+    await prisma.$transaction(async (tx) => {
+      await tx.employee.update({
+        where: { employeeId },
+        data: { departmentId: nextDepartmentId },
+      });
+      await syncEmployeeHeadshipFromProfile(tx, {
+        employeeId,
+        organizationLevel: existing.organizationLevel,
+        departmentId: nextDepartmentId,
+        previousOrganizationLevel: existing.organizationLevel,
+        previousDepartmentId: existing.departmentId,
+      });
     });
   } else if (kind === "EMPLOYMENT_TYPE_CHANGE") {
     const next = String(payload.employmentType ?? "") as EmploymentType;
@@ -295,14 +328,32 @@ async function applyEmployeeChange(
       const cycle = reportingHierarchyCycle(hierarchy, employeeId, managerId);
       if (cycle) throw new HttpError(400, "That manager change would create a reporting cycle");
     }
-    await prisma.employee.update({
+    const existing = await prisma.employee.findUniqueOrThrow({
       where: { employeeId },
-      data: {
-        managerId,
-        organizationLevel: payload.organizationLevel
-          ? String(payload.organizationLevel)
-          : undefined,
-      },
+      select: { organizationLevel: true, departmentId: true },
+    });
+    const nextLevel = payload.organizationLevel
+      ? String(payload.organizationLevel)
+      : existing.organizationLevel;
+    await prisma.$transaction(async (tx) => {
+      await tx.employee.update({
+        where: { employeeId },
+        data: {
+          managerId,
+          organizationLevel: payload.organizationLevel
+            ? String(payload.organizationLevel)
+            : undefined,
+        },
+      });
+      if (payload.organizationLevel) {
+        await syncEmployeeHeadshipFromProfile(tx, {
+          employeeId,
+          organizationLevel: nextLevel,
+          departmentId: existing.departmentId,
+          previousOrganizationLevel: existing.organizationLevel,
+          previousDepartmentId: existing.departmentId,
+        });
+      }
     });
   } else if (kind === "RECURRING_ALLOWANCE") {
     await prisma.recurringAllowance.create({

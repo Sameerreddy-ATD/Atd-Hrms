@@ -110,6 +110,8 @@ export interface User {
   homeBranchName?: string;
   department?: string;
   departmentId?: string;
+  /** Units this person currently heads (from Departments chart). */
+  headedDepartments?: Array<{ id: string; name: string }>;
   designation?: string;
   phone?: string;
   companyPhone?: string;
@@ -315,6 +317,8 @@ export interface Department {
   sortOrder?: number;
   /** When false, people in this unit skip face enrollment and check-in camera. */
   faceVerificationEnabled?: boolean;
+  /** Active employees assigned directly to this unit (excludes left/terminated). */
+  memberCount?: number;
 }
 
 export interface BiometricDevice {

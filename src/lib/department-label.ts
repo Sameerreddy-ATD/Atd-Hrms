@@ -50,3 +50,31 @@ export function formatDepartmentParentPath(
   if (!department?.parentDepartmentId) return topLevelLabel;
   return formatDepartmentPathById(departments, department.parentDepartmentId, topLevelLabel);
 }
+
+/**
+ * Active members in this unit plus every descendant unit.
+ * Direct `memberCount` values must already exclude left/terminated people.
+ */
+export function departmentMemberCountInTree(
+  departmentId: string,
+  departments: Array<{ id: string; parentDepartmentId?: string; memberCount?: number }>,
+): number {
+  const childrenByParent = new Map<string | undefined, string[]>();
+  for (const row of departments) {
+    const parentKey = row.parentDepartmentId;
+    const list = childrenByParent.get(parentKey) ?? [];
+    list.push(row.id);
+    childrenByParent.set(parentKey, list);
+  }
+  const directById = new Map(
+    departments.map((row) => [row.id, Math.max(0, row.memberCount ?? 0)]),
+  );
+  const walk = (id: string): number => {
+    let total = directById.get(id) ?? 0;
+    for (const childId of childrenByParent.get(id) ?? []) {
+      total += walk(childId);
+    }
+    return total;
+  };
+  return walk(departmentId);
+}

@@ -365,6 +365,9 @@ const pages = {
       "चालू होने पर इस इकाई के लोगों को नामांकन और चेक-इन के लिए कैमरा चाहिए। Face Security का संगठन पॉज़ सभी पर लागू रहता है।",
     faceOn: "चेहरा चेक-इन चालू",
     faceOff: "चेहरा चेक-इन बंद",
+    tableMembers: "सदस्य",
+    memberCountOne: "1 सदस्य",
+    memberCount: "{{count}} सदस्य",
   },
   talent: {
     title: "टैलेंट acquisition",
@@ -1312,6 +1315,7 @@ const pages = {
     parentGroup: "parent group",
     employmentType: "employment type",
     orgLevel: "organization level",
+    headsUnits: "इन इकाइयों के प्रमुख",
     designation: "Designation",
     reportingManager: "reporting manager",
     joiningDate: "joining date",

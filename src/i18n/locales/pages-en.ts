@@ -366,6 +366,9 @@ const pages = {
       "When on, people in this unit must enroll and use the camera for check-in. The Face Security org pause still wins for everyone.",
     faceOn: "Face check-in on",
     faceOff: "Face check-in off",
+    tableMembers: "Members",
+    memberCountOne: "1 member",
+    memberCount: "{{count}} members",
   },
   talent: {
     title: "Talent acquisition",
@@ -1313,6 +1316,7 @@ const pages = {
     parentGroup: "Parent group",
     employmentType: "Employment type",
     orgLevel: "Organization level",
+    headsUnits: "Heads of",
     designation: "Designation",
     reportingManager: "Reporting manager",
     joiningDate: "Joining date",
