@@ -49,7 +49,7 @@ export function formatOrgUnitPath(
     seen.add(cursor.id);
     const label = cursor.name.trim();
     if (label) names.unshift(label);
-    const parentId = cursor.parentDepartmentId ?? undefined;
+    const parentId: string | undefined = cursor.parentDepartmentId ?? undefined;
     cursor = parentId ? byId.get(parentId) : undefined;
   }
   return names.join(" / ");
