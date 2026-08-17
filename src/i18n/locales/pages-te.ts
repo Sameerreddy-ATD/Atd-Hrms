@@ -238,6 +238,7 @@ const pages = {
     allLocations: "అన్ని లొకేషన్లు",
     filterDepartment: "విభాగం",
     allDepartments: "అన్ని విభాగాలు",
+    noDepartmentCeo: "CEO / కంపెనీ-వైడ్ (యూనిట్ లేదు)",
     noneFound: "ఉద్యోగులు కనుగొనబడలేదు.",
     editEmployeeDetailsTitle: "ఉద్యోగి వివరాలు సవరించండి",
     hrEmployeeUpdateTitle: "HR ఉద్యోగి అప్‌డేట్",
@@ -368,6 +369,7 @@ const pages = {
     tableMembers: "సభ్యులు",
     memberCountOne: "1 సభ్యుడు",
     memberCount: "{{count}} సభ్యులు",
+    headsUnderCeo: "CEO కింది heads",
   },
   talent: {
     title: "టాలెంట్ acquisition",

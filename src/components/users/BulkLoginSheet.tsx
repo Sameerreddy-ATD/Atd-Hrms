@@ -17,6 +17,7 @@ import { formatBranchLocationLabel } from "@/lib/branch-label";
 import {
   LOGIN_IMPORT_COLUMNS,
   LOGIN_SHEET_NAME,
+  CEO_NO_UNIT_LABEL,
   childUnitChoices,
   createBlankRows,
   isRowBlank,
@@ -236,7 +237,8 @@ export function BulkLoginSheet({
 
   function cellOptions(columnKey: LoginImportFieldKey, row: LoginImportRow): string[] {
     if (columnKey === "branchName") return branches.map((branch) => formatBranchLocationLabel(branch));
-    if (columnKey === "mainUnitName") return mainUnits.map((unit) => unit.name);
+    if (columnKey === "mainUnitName")
+      return [CEO_NO_UNIT_LABEL, ...mainUnits.map((unit) => unit.name)];
     if (columnKey === "childUnitName") {
       const main = mainUnits.find(
         (unit) => unit.name.trim().toLowerCase() === row.mainUnitName.trim().toLowerCase(),

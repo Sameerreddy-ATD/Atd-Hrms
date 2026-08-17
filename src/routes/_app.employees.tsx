@@ -213,7 +213,7 @@ function EmployeesPage() {
       companyEntity: fullEmployee.companyEntity || "ANYTIME_DIESEL",
       employeeCode: fullEmployee.employeeCode || "",
       homeBranchId: fullEmployee.homeBranchId || "",
-      departmentId: fullEmployee.departmentId || "",
+      departmentId: fullEmployee.departmentId || "none",
       designation: fullEmployee.designation || "",
       bloodGroup: fullEmployee.bloodGroup || "",
       bankAccountType: fullEmployee.bankAccountType || "",
@@ -247,7 +247,7 @@ function EmployeesPage() {
         companyEntity: editForm.companyEntity,
         employeeCode: editForm.employeeCode.trim() || undefined,
         homeBranchId: editForm.homeBranchId || undefined,
-        departmentId: editForm.departmentId || undefined,
+        departmentId: editForm.departmentId === "none" ? null : editForm.departmentId || undefined,
         designation: editForm.designation || undefined,
         bloodGroup: editForm.bloodGroup || undefined,
         bankAccountType: editForm.bankAccountType || undefined,
@@ -289,7 +289,11 @@ function EmployeesPage() {
           if (q && !`${u.name} ${u.email} ${u.employeeId}`.toLowerCase().includes(q.toLowerCase()))
             return false;
           if (branch !== "all" && u.homeBranchId !== branch) return false;
-          if (dept !== "all" && u.departmentId !== dept && u.department !== dept) return false;
+          if (dept === "none") {
+            if (u.departmentId) return false;
+          } else if (dept !== "all" && u.departmentId !== dept && u.department !== dept) {
+            return false;
+          }
           return true;
         }),
     [q, branch, dept, employees],
@@ -349,6 +353,7 @@ function EmployeesPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("pages.employees.allDepartments")}</SelectItem>
+            <SelectItem value="none">{t("pages.employees.noDepartmentCeo")}</SelectItem>
             {visibleDepartments.map((d) => (
               <SelectItem key={d.id} value={d.id}>
                 {formatDepartmentPath(d, departments)}
@@ -383,7 +388,12 @@ function EmployeesPage() {
                 </div>
                 <div>
                   <p className="text-muted-foreground">{t("common.department")}</p>
-                  <p className="mt-0.5 break-words">{employee.department ?? "-"}</p>
+                  <p className="mt-0.5 break-words">
+                    {employee.department ??
+                      (employee.role === "ceo"
+                        ? t("pages.employees.noDepartmentCeo")
+                        : "-")}
+                  </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">{t("common.branch")}</p>
@@ -449,7 +459,12 @@ function EmployeesPage() {
                     {u.employeeCode ?? u.employeeId}
                   </TableCell>
                   <TableCell>{ROLE_LABELS[u.role]}</TableCell>
-                  <TableCell>{u.department ?? "-"}</TableCell>
+                  <TableCell>
+                    {u.department ??
+                      (u.role === "ceo"
+                        ? t("pages.employees.noDepartmentCeo")
+                        : "-")}
+                  </TableCell>
                   <TableCell>
                     {formatBranchLocationLabelById(
                       branches,
@@ -600,13 +615,16 @@ function EmployeesPage() {
                 <div className="space-y-1.5">
                   <Label>Department</Label>
                   <Select
-                    value={editForm.departmentId}
+                    value={editForm.departmentId || "none"}
                     onValueChange={(val) => setEditForm((c) => ({ ...c, departmentId: val }))}
                   >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select department" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="none">
+                        {t("pages.employees.noDepartmentCeo")}
+                      </SelectItem>
                       {departments.map((d) => (
                         <SelectItem key={d.id} value={d.id}>
                           {formatDepartmentPath(d, departments)}

@@ -239,6 +239,7 @@ const pages = {
     allLocations: "All locations",
     filterDepartment: "Department",
     allDepartments: "All departments",
+    noDepartmentCeo: "CEO / company-wide (no unit)",
     noneFound: "No employees found.",
       editEmployeeDetailsTitle: "Edit Employee Details",
       hrEmployeeUpdateTitle: "HR employee update",
@@ -369,6 +370,7 @@ const pages = {
     tableMembers: "Members",
     memberCountOne: "1 member",
     memberCount: "{{count}} members",
+    headsUnderCeo: "Heads under CEO",
   },
   talent: {
     title: "Talent acquisition",

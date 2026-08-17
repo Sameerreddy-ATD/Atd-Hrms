@@ -161,7 +161,7 @@ function DeptPage() {
   }
 
   useEffect(() => {
-    Promise.all([branchesApi.departments(), employeesApi.list()])
+    Promise.all([branchesApi.departments(), employeesApi.list({ limit: 1000 })])
       .then(([departmentRows, employeeRows]) => {
         setDepartments(departmentRows);
         setEmployees(employeeRows);
@@ -190,6 +190,19 @@ function DeptPage() {
     () => departments.find(isExecutiveLeadership) ?? null,
     [departments],
   );
+  const ceoPeople = useMemo(
+    () =>
+      employees
+        .filter((employee) => employee.role === "ceo" && isActiveEmployee(employee))
+        .sort((left, right) => left.name.localeCompare(right.name)),
+    [employees],
+  );
+  const ceoPeopleLabel = useMemo(() => {
+    if (ceoPeople.length === 0) return null;
+    if (ceoPeople.length === 1) return ceoPeople[0].name;
+    if (ceoPeople.length === 2) return ceoPeople.map((person) => person.name).join(" · ");
+    return `${ceoPeople[0].name} · +${ceoPeople.length - 1} more`;
+  }, [ceoPeople]);
   const topLevelDepartments = useMemo(
     () =>
       departments
@@ -683,11 +696,21 @@ function DeptPage() {
                   <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
                     <UserRound className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">
-                      {executiveLeadership
-                        ? headsLabel(executiveLeadership, t("pages.departments.headNotAssigned"))
-                        : t("pages.departments.noHeads")}
+                      {ceoPeopleLabel ??
+                        (executiveLeadership
+                          ? headsLabel(
+                              executiveLeadership,
+                              t("pages.departments.headNotAssigned"),
+                            )
+                          : t("pages.departments.noHeads"))}
                     </span>
                   </p>
+                  {ceoPeopleLabel && executiveLeadership ? (
+                    <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                      {t("pages.departments.headsUnderCeo")}:{" "}
+                      {headsLabel(executiveLeadership, t("pages.departments.noHeads"))}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="flex shrink-0 gap-1">
                   <Button

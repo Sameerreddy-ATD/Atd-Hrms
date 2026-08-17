@@ -238,6 +238,7 @@ const pages = {
     allLocations: "सभी स्थान",
     filterDepartment: "विभाग",
     allDepartments: "सभी विभाग",
+    noDepartmentCeo: "CEO / कंपनी-व्यापी (कोई इकाई नहीं)",
     noneFound: "कोई कर्मचारी नहीं मिला।",
     editEmployeeDetailsTitle: "कर्मचारी विवरण संपादित करें",
     hrEmployeeUpdateTitle: "HR कर्मचारी अपडेट",
@@ -368,6 +369,7 @@ const pages = {
     tableMembers: "सदस्य",
     memberCountOne: "1 सदस्य",
     memberCount: "{{count}} सदस्य",
+    headsUnderCeo: "CEO के अधीन heads",
   },
   talent: {
     title: "टैलेंट acquisition",

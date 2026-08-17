@@ -343,6 +343,8 @@ function normalizeDate(text: string): string | undefined {
   return parsed.toISOString().slice(0, 10);
 }
 
+export const CEO_NO_UNIT_LABEL = "CEO (no organization unit)";
+
 export function childUnitChoices(departments: Department[]) {
   return departments
     .filter((department) => department.parentDepartmentId)
@@ -368,9 +370,18 @@ export function validateLoginRow(
   const companyEntity = resolveCompany(row.companyEntity);
   const weeklyOffPolicy = resolveWeeklyOff(row.weeklyOffPolicy);
   const mainUnits = context.departments.filter((department) => !department.parentDepartmentId);
-  const mainUnit = mainUnits.find(
-    (department) => department.name.trim().toLowerCase() === row.mainUnitName.trim().toLowerCase(),
-  );
+  const mainUnitNameNormalized = row.mainUnitName.trim().toLowerCase();
+  const ceoHasNoUnit =
+    isCeo &&
+    (!mainUnitNameNormalized ||
+      mainUnitNameNormalized === CEO_NO_UNIT_LABEL.toLowerCase() ||
+      mainUnitNameNormalized === "ceo" ||
+      mainUnitNameNormalized === "none");
+  const mainUnit = ceoHasNoUnit
+    ? undefined
+    : mainUnits.find(
+        (department) => department.name.trim().toLowerCase() === mainUnitNameNormalized,
+      );
   const childChoices = childUnitChoices(context.departments);
   const childText = row.childUnitName.trim();
   const useMainUnit = !childText || childText.toLowerCase() === "use main unit";
@@ -561,14 +572,26 @@ export function rowToCreatePayload(
   const isCeo = role === "ceo";
   const companyEntity = resolveCompany(row.companyEntity) ?? "ANYTIME_DIESEL";
   const weeklyOffPolicy = resolveWeeklyOff(row.weeklyOffPolicy) ?? "SELECTABLE";
-  const mainUnit = context.departments.find(
-    (department) =>
-      !department.parentDepartmentId &&
-      department.name.trim().toLowerCase() === row.mainUnitName.trim().toLowerCase(),
-  );
+  const mainUnitNameNormalized = row.mainUnitName.trim().toLowerCase();
+  const ceoHasNoUnit =
+    isCeo &&
+    (!mainUnitNameNormalized ||
+      mainUnitNameNormalized === CEO_NO_UNIT_LABEL.toLowerCase() ||
+      mainUnitNameNormalized === "ceo" ||
+      mainUnitNameNormalized === "none");
+  const mainUnit = ceoHasNoUnit
+    ? undefined
+    : context.departments.find(
+        (department) =>
+          !department.parentDepartmentId &&
+          department.name.trim().toLowerCase() === mainUnitNameNormalized,
+      );
   const childChoices = childUnitChoices(context.departments);
   const childText = row.childUnitName.trim();
-  const useMainUnit = !childText || childText.toLowerCase() === "use main unit";
+  const useMainUnit =
+    !childText ||
+    childText.toLowerCase() === "use main unit" ||
+    childText.toLowerCase() === CEO_NO_UNIT_LABEL.toLowerCase();
   const childUnit = useMainUnit
     ? undefined
     : childChoices.find((choice) => choice.label.toLowerCase() === childText.toLowerCase());
@@ -714,10 +737,15 @@ export function employeeToEditRow(
   const parent = department?.parentDepartmentId
     ? context.departments.find((item) => item.id === department.parentDepartmentId)
     : undefined;
-  const mainUnitName = parent?.name ?? department?.name ?? "";
+  const mainUnitName =
+    employee.role === "ceo" && !department
+      ? CEO_NO_UNIT_LABEL
+      : (parent?.name ?? department?.name ?? "");
   const childUnitName = parent
     ? formatDepartmentPath(department, context.departments)
-    : "Use main unit";
+    : employee.role === "ceo" && !department
+      ? CEO_NO_UNIT_LABEL
+      : "Use main unit";
   const branchName =
     formatBranchLocationLabelById(
       context.branches,
