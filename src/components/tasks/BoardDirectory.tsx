@@ -232,8 +232,8 @@ export function BoardDirectory({
                       {board.description ||
                         (board.accessType === "OPEN"
                           ? "Open project"
-                          : board.accessType === "ROLE_GATED"
-                            ? "Role-gated"
+                          : board.accessType === "DEPARTMENT_GATED"
+                            ? "Unit-gated"
                             : "Member-gated")}
                     </span>
                   </span>

@@ -4,15 +4,25 @@ import { prisma } from "./prisma.js";
 import { HttpError } from "./errors.js";
 import { getOrganizationTeamEmployeeIds } from "./rbac.js";
 
-export function boardAccessWhere(
+/** Pure board ACL filter — pass the caller's departmentId when known. */
+export function boardAccessWhereFor(
   user: NonNullable<express.Request["user"]>,
+  departmentId: string | null | undefined,
 ): Prisma.TaskBoardWhereInput {
   if (user.role === Role.DEVELOPER_ADMIN) return {};
+
   return {
     OR: [
       { createdByUserId: user.id },
       { accessType: TaskBoardAccessType.OPEN },
-      { accessType: TaskBoardAccessType.ROLE_GATED, roleAccess: { some: { role: user.role } } },
+      ...(departmentId
+        ? [
+            {
+              accessType: TaskBoardAccessType.DEPARTMENT_GATED,
+              departmentAccess: { some: { departmentId } },
+            },
+          ]
+        : []),
       ...(user.employeeId
         ? [
             {
@@ -25,12 +35,29 @@ export function boardAccessWhere(
   };
 }
 
+export async function boardAccessWhere(
+  user: NonNullable<express.Request["user"]>,
+): Promise<Prisma.TaskBoardWhereInput> {
+  if (user.role === Role.DEVELOPER_ADMIN) return {};
+
+  let departmentId: string | null = null;
+  if (user.employeeId) {
+    const employee = await prisma.employee.findUnique({
+      where: { employeeId: user.employeeId },
+      select: { departmentId: true },
+    });
+    departmentId = employee?.departmentId ?? null;
+  }
+
+  return boardAccessWhereFor(user, departmentId);
+}
+
 export async function assertBoardAccess(
   user: NonNullable<express.Request["user"]>,
   boardId: string,
 ) {
   const board = await prisma.taskBoard.findFirst({
-    where: { boardId, ...boardAccessWhere(user) },
+    where: { boardId, ...(await boardAccessWhere(user)) },
     select: { boardId: true },
   });
   if (!board) throw new HttpError(403, "This board is not available to your account");

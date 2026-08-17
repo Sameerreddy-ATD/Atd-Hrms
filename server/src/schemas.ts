@@ -324,7 +324,7 @@ const taskBoardStageSchema = z.object({
 function validateTaskBoardConfiguration(
   value: {
     accessType: TaskBoardAccessType;
-    allowedRoles: Role[];
+    allowedDepartmentIds: string[];
     memberEmployeeIds: string[];
     stages: Array<z.infer<typeof taskBoardStageSchema>>;
   },
@@ -365,11 +365,14 @@ function validateTaskBoardConfiguration(
       message: "Stage names must be unique",
     });
   }
-  if (value.accessType === TaskBoardAccessType.ROLE_GATED && value.allowedRoles.length === 0) {
+  if (
+    value.accessType === TaskBoardAccessType.DEPARTMENT_GATED &&
+    value.allowedDepartmentIds.length === 0
+  ) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
-      path: ["allowedRoles"],
-      message: "Select at least one role",
+      path: ["allowedDepartmentIds"],
+      message: "Select at least one organization unit",
     });
   }
   if (
@@ -405,7 +408,7 @@ const taskBoardConfigurationSchema = z.object({
     .optional(),
   description: z.string().trim().max(1000).nullable().optional(),
   accessType: z.nativeEnum(TaskBoardAccessType).default(TaskBoardAccessType.OPEN),
-  allowedRoles: z.array(z.nativeEnum(Role)).max(20).default([]),
+  allowedDepartmentIds: z.array(z.string().min(1)).max(200).default([]),
   memberEmployeeIds: z.array(z.string().min(1)).max(500).default([]),
   stages: z.array(taskBoardStageSchema).min(2).max(12),
   customFieldDefs: z.array(customFieldDefSchema).max(20).optional(),

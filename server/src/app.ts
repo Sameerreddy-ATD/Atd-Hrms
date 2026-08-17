@@ -179,6 +179,7 @@ import {
   replaceDepartmentHeads,
   syncEmployeeHeadshipFromProfile,
 } from "./departmentHeads.js";
+import { boardAccessWhere as resolveBoardAccessWhere } from "./taskBoardAccess.js";
 import {
   announcementSchema,
   announcementUpdateSchema,
@@ -6428,7 +6429,7 @@ export function createApp() {
 
   const boardInclude = {
     stages: { orderBy: { sortOrder: "asc" as const } },
-    roleAccess: { select: { role: true } },
+    departmentAccess: { select: { departmentId: true } },
     members: { select: { employeeId: true } },
     tasks: {
       where: {
@@ -6458,7 +6459,7 @@ export function createApp() {
       archived: board.archived,
       version: board.version,
       customFieldDefs: Array.isArray(board.customFieldDefs) ? board.customFieldDefs : [],
-      allowedRoles: board.roleAccess.map((entry) => entry.role),
+      allowedDepartmentIds: board.departmentAccess.map((entry) => entry.departmentId),
       memberEmployeeIds: board.members.map((entry) => entry.employeeId),
       stages: board.stages.map((stage) => ({
         id: stage.stageId,
@@ -6479,28 +6480,13 @@ export function createApp() {
     return stage.status;
   }
 
-  function boardAccessWhere(user: NonNullable<express.Request["user"]>) {
-    if (user.role === Role.DEVELOPER_ADMIN) return {};
-    return {
-      OR: [
-        { createdByUserId: user.id },
-        { accessType: TaskBoardAccessType.OPEN },
-        { accessType: TaskBoardAccessType.ROLE_GATED, roleAccess: { some: { role: user.role } } },
-        ...(user.employeeId
-          ? [
-              {
-                accessType: TaskBoardAccessType.MEMBER_GATED,
-                members: { some: { employeeId: user.employeeId } },
-              },
-            ]
-          : []),
-      ],
-    } satisfies Prisma.TaskBoardWhereInput;
+  async function boardAccessWhere(user: NonNullable<express.Request["user"]>) {
+    return resolveBoardAccessWhere(user);
   }
 
   async function assertBoardAccess(user: NonNullable<express.Request["user"]>, boardId: string) {
     const board = await prisma.taskBoard.findFirst({
-      where: { boardId, ...boardAccessWhere(user) },
+      where: { boardId, ...(await boardAccessWhere(user)) },
       include: boardInclude,
     });
     if (!board) throw new HttpError(403, "This board is not available to your account");
@@ -6523,17 +6509,21 @@ export function createApp() {
         throw new HttpError(400, "Every assignee must be a member of this board");
       }
     }
-    if (board.accessType === TaskBoardAccessType.ROLE_GATED) {
-      const allowedRoles = new Set(board.roleAccess.map((entry) => entry.role));
-      const employeeUsers = await prisma.employee.findMany({
+    if (board.accessType === TaskBoardAccessType.DEPARTMENT_GATED) {
+      const allowedDepartments = new Set(
+        board.departmentAccess.map((entry) => entry.departmentId),
+      );
+      const employees = await prisma.employee.findMany({
         where: { employeeId: { in: employeeIds } },
-        select: { employeeId: true, user: { select: { role: true } } },
+        select: { employeeId: true, departmentId: true },
       });
       if (
-        employeeUsers.length !== employeeIds.length ||
-        employeeUsers.some((employee) => !employee.user || !allowedRoles.has(employee.user.role))
+        employees.length !== employeeIds.length ||
+        employees.some(
+          (employee) => !employee.departmentId || !allowedDepartments.has(employee.departmentId),
+        )
       ) {
-        throw new HttpError(400, "Every assignee must have a role allowed by this board");
+        throw new HttpError(400, "Every assignee must belong to an organization unit on this board");
       }
     }
   }
@@ -6544,7 +6534,7 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       const archived = req.query.archived === "true";
       const boards = await prisma.taskBoard.findMany({
-        where: { archived, ...boardAccessWhere(req.user!) },
+        where: { archived, ...(await boardAccessWhere(req.user!)) },
         include: boardInclude,
         orderBy: [{ updatedAt: "desc" }, { name: "asc" }],
         take: 250,
@@ -6560,6 +6550,15 @@ export function createApp() {
       const body = taskBoardSchema.parse(req.body);
       // Any person with Tasks access can create a project. Member lists are
       // validated as active employees below — not limited to org-team scope.
+      if (body.accessType === TaskBoardAccessType.DEPARTMENT_GATED) {
+        const uniqueDepartmentIds = [...new Set(body.allowedDepartmentIds)];
+        const activeDepartments = await prisma.department.count({
+          where: { departmentId: { in: uniqueDepartmentIds } },
+        });
+        if (activeDepartments !== uniqueDepartmentIds.length) {
+          throw new HttpError(400, "Select valid organization units for board access");
+        }
+      }
       if (body.memberEmployeeIds.length > 0) {
         const uniqueMemberIds = [...new Set(body.memberEmployeeIds)];
         const activeMembers = await prisma.employee.count({
@@ -6597,10 +6596,12 @@ export function createApp() {
               isCompleted: stage.status === TaskStatus.COMPLETED,
             })),
           },
-          roleAccess: {
+          departmentAccess: {
             create:
-              body.accessType === TaskBoardAccessType.ROLE_GATED
-                ? [...new Set(body.allowedRoles)].map((role) => ({ role }))
+              body.accessType === TaskBoardAccessType.DEPARTMENT_GATED
+                ? [...new Set(body.allowedDepartmentIds)].map((departmentId) => ({
+                    departmentId,
+                  }))
                 : [],
           },
           members: {
@@ -6670,6 +6671,15 @@ export function createApp() {
         });
         if (activeMembers !== uniqueMemberIds.length) {
           throw new HttpError(400, "Select active employees for board access");
+        }
+      }
+      if (body.accessType === TaskBoardAccessType.DEPARTMENT_GATED) {
+        const uniqueDepartmentIds = [...new Set(body.allowedDepartmentIds)];
+        const activeDepartments = await prisma.department.count({
+          where: { departmentId: { in: uniqueDepartmentIds } },
+        });
+        if (activeDepartments !== uniqueDepartmentIds.length) {
+          throw new HttpError(400, "Select valid organization units for board access");
         }
       }
 
@@ -6755,10 +6765,7 @@ export function createApp() {
 
         const boardAssignments = await transaction.taskAssignment.findMany({
           where: { task: { boardId: existing.boardId } },
-          select: {
-            employeeId: true,
-            employee: { select: { user: { select: { role: true } } } },
-          },
+          select: { employeeId: true },
           distinct: ["employeeId"],
         });
         if (
@@ -6770,28 +6777,32 @@ export function createApp() {
             "Add every current task assignee as a board member before restricting member access",
           );
         }
-        if (body.accessType === TaskBoardAccessType.ROLE_GATED) {
-          const allowedRoles = new Set(body.allowedRoles);
+        if (body.accessType === TaskBoardAccessType.DEPARTMENT_GATED) {
+          const allowedDepartments = new Set(body.allowedDepartmentIds);
+          const assigneeDepartments = await transaction.employee.findMany({
+            where: { employeeId: { in: boardAssignments.map((row) => row.employeeId) } },
+            select: { employeeId: true, departmentId: true },
+          });
           if (
-            boardAssignments.some(
-              (assignment) =>
-                !assignment.employee.user || !allowedRoles.has(assignment.employee.user.role),
+            assigneeDepartments.some(
+              (employee) =>
+                !employee.departmentId || !allowedDepartments.has(employee.departmentId),
             )
           ) {
             throw new HttpError(
               409,
-              "Add the roles of every current task assignee before restricting role access",
+              "Include the organization unit of every current task assignee before restricting unit access",
             );
           }
         }
 
-        await transaction.taskBoardRole.deleteMany({ where: { boardId: existing.boardId } });
+        await transaction.taskBoardDepartment.deleteMany({ where: { boardId: existing.boardId } });
         await transaction.taskBoardMember.deleteMany({ where: { boardId: existing.boardId } });
-        if (body.accessType === TaskBoardAccessType.ROLE_GATED) {
-          await transaction.taskBoardRole.createMany({
-            data: [...new Set(body.allowedRoles)].map((role) => ({
+        if (body.accessType === TaskBoardAccessType.DEPARTMENT_GATED) {
+          await transaction.taskBoardDepartment.createMany({
+            data: [...new Set(body.allowedDepartmentIds)].map((departmentId) => ({
               boardId: existing.boardId,
-              role,
+              departmentId,
             })),
           });
         }
@@ -6914,9 +6925,11 @@ export function createApp() {
           boardFilters.push({
             employeeId: { in: board.members.map((member) => member.employeeId) },
           });
-        } else if (board.accessType === TaskBoardAccessType.ROLE_GATED) {
+        } else if (board.accessType === TaskBoardAccessType.DEPARTMENT_GATED) {
           boardFilters.push({
-            user: { role: { in: board.roleAccess.map((entry) => entry.role) } },
+            departmentId: {
+              in: board.departmentAccess.map((entry) => entry.departmentId),
+            },
           });
         }
       }
@@ -6941,6 +6954,7 @@ export function createApp() {
           employeeCode: employee.employeeCode,
           designation: employee.designation ?? undefined,
           department: employee.department?.name,
+          departmentId: employee.departmentId ?? undefined,
           role: employee.user?.role,
         })),
       );
@@ -7004,7 +7018,12 @@ export function createApp() {
           AND: [
             boardId
               ? {}
-              : { OR: [{ boardId: null }, { board: { is: boardAccessWhere(req.user!) } }] },
+              : {
+                  OR: [
+                    { boardId: null },
+                    { board: { is: await boardAccessWhere(req.user!) } },
+                  ],
+                },
             ...assignmentFilters,
             ...(query
               ? [
@@ -7172,7 +7191,7 @@ export function createApp() {
       const isOwn = !!req.user!.employeeId && existingEmployeeIds.includes(req.user!.employeeId);
       const hasBoardAccess = existing.boardId
         ? !!(await prisma.taskBoard.findFirst({
-            where: { boardId: existing.boardId, ...boardAccessWhere(req.user!) },
+            where: { boardId: existing.boardId, ...(await boardAccessWhere(req.user!)) },
             select: { boardId: true },
           }))
         : false;

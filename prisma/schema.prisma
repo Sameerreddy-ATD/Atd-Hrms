@@ -220,7 +220,7 @@ enum TaskActivityType {
 
 enum TaskBoardAccessType {
   OPEN
-  ROLE_GATED
+  DEPARTMENT_GATED
   MEMBER_GATED
 }
 
@@ -538,6 +538,7 @@ model Department {
   /// Global Face Security pause still wins for the whole org.
   faceVerificationEnabled Boolean                @default(true) @map("face_verification_enabled")
   employees          Employee[]
+  taskBoardAccess    TaskBoardDepartment[]
 
   @@index([parentDepartmentId])
   @@index([name])
@@ -1273,12 +1274,12 @@ model TaskBoard {
   customFieldDefs Json?               @map("custom_field_defs")
   createdByUserId String              @map("created_by_user_id")
   createdBy       User                @relation("TaskBoardCreator", fields: [createdByUserId], references: [id])
-  stages          TaskStage[]
-  roleAccess      TaskBoardRole[]
-  members         TaskBoardMember[]
-  tasks           WorkTask[]
-  createdAt       DateTime            @default(now()) @map("created_at")
-  updatedAt       DateTime            @updatedAt @map("updated_at")
+  stages           TaskStage[]
+  departmentAccess  TaskBoardDepartment[]
+  members          TaskBoardMember[]
+  tasks            WorkTask[]
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
 
   @@index([archived, updatedAt])
   @@map("task_boards")
@@ -1300,13 +1301,15 @@ model TaskStage {
   @@map("task_stages")
 }
 
-model TaskBoardRole {
-  boardId String    @map("board_id")
-  board   TaskBoard @relation(fields: [boardId], references: [boardId], onDelete: Cascade)
-  role    Role
+model TaskBoardDepartment {
+  boardId      String     @map("board_id")
+  board        TaskBoard  @relation(fields: [boardId], references: [boardId], onDelete: Cascade)
+  departmentId String     @map("department_id")
+  department   Department @relation(fields: [departmentId], references: [departmentId], onDelete: Cascade)
 
-  @@id([boardId, role])
-  @@map("task_board_roles")
+  @@id([boardId, departmentId])
+  @@index([departmentId])
+  @@map("task_board_departments")
 }
 
 model TaskBoardMember {

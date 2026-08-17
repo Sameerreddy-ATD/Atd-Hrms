@@ -17,8 +17,8 @@ describe("task boards and module access", () => {
   it("accepts a board with custom stages and a completed stage", () => {
     const board = taskBoardSchema.parse({
       name: "Operations board",
-      accessType: "ROLE_GATED",
-      allowedRoles: ["MANAGER", "HR"],
+      accessType: "DEPARTMENT_GATED",
+      allowedDepartmentIds: ["dept-ops", "dept-sales"],
       stages: [
         { name: "Queued", color: "SLATE", status: "TODO" },
         { name: "Working", color: "AMBER", status: "IN_PROGRESS" },
@@ -26,7 +26,7 @@ describe("task boards and module access", () => {
       ],
     });
     expect(board.stages).toHaveLength(3);
-    expect(board.allowedRoles).toContain("HR");
+    expect(board.allowedDepartmentIds).toContain("dept-ops");
   });
 
   it("rejects a board without a completed stage", () => {
@@ -47,7 +47,7 @@ describe("task boards and module access", () => {
       taskBoardSchema.parse({
         name: "Delivery",
         accessType: "OPEN",
-        allowedRoles: [],
+        allowedDepartmentIds: [],
         memberEmployeeIds: [],
         stages: [
           { name: "To do", color: "SLATE", status: "TODO" },

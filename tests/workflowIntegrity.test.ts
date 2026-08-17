@@ -10,7 +10,7 @@ import {
 } from "../server/src/schemas.js";
 import { moduleForApiPath } from "../server/src/module-access.js";
 import { issueCookies, verifyAccessToken, verifyRefreshToken } from "../server/src/security.js";
-import { boardAccessWhere } from "../server/src/taskBoardAccess.js";
+import { boardAccessWhereFor } from "../server/src/taskBoardAccess.js";
 
 describe("account and employee workflow integrity", () => {
   it("rejects future birth dates and impossible employment chronology", () => {
@@ -164,19 +164,24 @@ describe("asset and HR-document persistence integrity", () => {
 
 describe("task board ACL helpers", () => {
   it("scopes board access for non-developer roles and leaves developers unrestricted", () => {
-    expect(boardAccessWhere({ id: "u1", role: Role.DEVELOPER_ADMIN } as never)).toEqual({});
-    const employeeScope = boardAccessWhere({
-      id: "u2",
-      employeeId: "e1",
-      role: Role.EMPLOYEE,
-    } as never);
+    expect(boardAccessWhereFor({ id: "u1", role: Role.DEVELOPER_ADMIN } as never, null)).toEqual(
+      {},
+    );
+    const employeeScope = boardAccessWhereFor(
+      {
+        id: "u2",
+        employeeId: "e1",
+        role: Role.EMPLOYEE,
+      } as never,
+      "dept-sales",
+    );
     expect(employeeScope).toMatchObject({
       OR: expect.arrayContaining([
         { createdByUserId: "u2" },
         { accessType: TaskBoardAccessType.OPEN },
         {
-          accessType: TaskBoardAccessType.ROLE_GATED,
-          roleAccess: { some: { role: Role.EMPLOYEE } },
+          accessType: TaskBoardAccessType.DEPARTMENT_GATED,
+          departmentAccess: { some: { departmentId: "dept-sales" } },
         },
         {
           accessType: TaskBoardAccessType.MEMBER_GATED,

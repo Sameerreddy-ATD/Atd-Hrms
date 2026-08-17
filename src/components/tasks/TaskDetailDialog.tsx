@@ -189,8 +189,11 @@ export function TaskDetailDialog({
       if (activeBoard.accessType === "MEMBER_GATED") {
         return activeBoard.memberEmployeeIds.includes(person.id);
       }
-      if (activeBoard.accessType === "ROLE_GATED") {
-        return !!person.role && activeBoard.allowedRoles.includes(person.role);
+      if (activeBoard.accessType === "DEPARTMENT_GATED") {
+        return (
+          !!person.departmentId &&
+          activeBoard.allowedDepartmentIds.includes(person.departmentId)
+        );
       }
       return true;
     });

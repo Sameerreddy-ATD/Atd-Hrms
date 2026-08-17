@@ -20,11 +20,10 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import type { TaskAssignee, TaskBoard, TaskStage, TaskStatus } from "@/types/domain";
+import type { Department, TaskAssignee, TaskBoard, TaskStage, TaskStatus } from "@/types/domain";
+import { formatDepartmentPath } from "@/lib/department-label";
 import { PeopleMultiSelect } from "./PeopleMultiSelect";
 import {
-  BOARD_ROLES,
-  BOARD_ROLE_LABELS,
   boardKeyPrefix,
   boardToForm,
   DEFAULT_BOARD_FORM,
@@ -38,6 +37,7 @@ type BoardFormDialogProps = {
   onOpenChange: (open: boolean) => void;
   board?: TaskBoard | null;
   assignees: TaskAssignee[];
+  departments: Department[];
   saving: boolean;
   onSave: (form: BoardForm) => Promise<void>;
 };
@@ -120,12 +120,14 @@ export function BoardFormDialog({
   onOpenChange,
   board,
   assignees,
+  departments,
   saving,
   onSave,
 }: BoardFormDialogProps) {
   const { t } = useTranslation();
   const [form, setForm] = useState<BoardForm>(emptyBoardForm);
   const [memberQuery, setMemberQuery] = useState("");
+  const [departmentQuery, setDepartmentQuery] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -133,6 +135,7 @@ export function BoardFormDialog({
     const next = board ? boardToForm(board) : emptyBoardForm();
     setForm({ ...next, stages: normalizeStageStatuses(next.stages) });
     setMemberQuery("");
+    setDepartmentQuery("");
     setError("");
   }, [board, open]);
 
@@ -145,6 +148,24 @@ export function BoardFormDialog({
         .some((value) => String(value).toLowerCase().includes(query)),
     );
   }, [assignees, memberQuery]);
+
+  const departmentOptions = useMemo(
+    () =>
+      [...departments].sort((left, right) =>
+        formatDepartmentPath(left, departments).localeCompare(
+          formatDepartmentPath(right, departments),
+        ),
+      ),
+    [departments],
+  );
+
+  const filteredDepartments = useMemo(() => {
+    const query = departmentQuery.trim().toLowerCase();
+    if (!query) return departmentOptions;
+    return departmentOptions.filter((department) =>
+      formatDepartmentPath(department, departments).toLowerCase().includes(query),
+    );
+  }, [departmentOptions, departmentQuery, departments]);
 
   function updateStage(index: number, patch: Partial<BoardForm["stages"][number]>) {
     setForm((current) => ({
@@ -218,8 +239,8 @@ export function BoardFormDialog({
     if (!form.stages.some((stage) => stage.status === "COMPLETED")) {
       return "Mark one stage as Done.";
     }
-    if (form.accessType === "ROLE_GATED" && form.allowedRoles.length === 0) {
-      return "Select at least one role.";
+    if (form.accessType === "DEPARTMENT_GATED" && form.allowedDepartmentIds.length === 0) {
+      return "Select at least one organization unit.";
     }
     if (form.accessType === "MEMBER_GATED" && form.memberEmployeeIds.length === 0) {
       return "Select at least one member.";
@@ -457,7 +478,7 @@ export function BoardFormDialog({
             <div className="grid grid-cols-3 rounded-xl border bg-muted/30 p-1">
               {[
                 ["OPEN", "Open"],
-                ["ROLE_GATED", "Role-gated"],
+                ["DEPARTMENT_GATED", "Unit-gated"],
                 ["MEMBER_GATED", "Member-gated"],
               ].map(([value, label]) => (
                 <button
@@ -467,7 +488,8 @@ export function BoardFormDialog({
                     setForm({
                       ...form,
                       accessType: value as TaskBoard["accessType"],
-                      allowedRoles: value === "ROLE_GATED" ? form.allowedRoles : [],
+                      allowedDepartmentIds:
+                        value === "DEPARTMENT_GATED" ? form.allowedDepartmentIds : [],
                       memberEmployeeIds: value === "MEMBER_GATED" ? form.memberEmployeeIds : [],
                     })
                   }
@@ -489,34 +511,48 @@ export function BoardFormDialog({
               </p>
             )}
 
-            {form.accessType === "ROLE_GATED" && (
+            {form.accessType === "DEPARTMENT_GATED" && (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  Only users holding one of the selected roles can access this board.
+                  Only people in the selected organization units can open this board.
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  {BOARD_ROLES.map((role) => {
-                    const selected = form.allowedRoles.includes(role);
-                    return (
-                      <Button
-                        key={role}
-                        type="button"
-                        size="sm"
-                        variant={selected ? "secondary" : "outline"}
-                        className="rounded-full"
-                        onClick={() =>
-                          setForm({
-                            ...form,
-                            allowedRoles: selected
-                              ? form.allowedRoles.filter((entry) => entry !== role)
-                              : [...form.allowedRoles, role],
-                          })
-                        }
-                      >
-                        {BOARD_ROLE_LABELS[role]}
-                      </Button>
-                    );
-                  })}
+                <Input
+                  value={departmentQuery}
+                  onChange={(event) => setDepartmentQuery(event.target.value)}
+                  placeholder="Search organization units"
+                />
+                <div className="max-h-52 space-y-1 overflow-y-auto rounded-md border p-2">
+                  {filteredDepartments.length === 0 ? (
+                    <p className="px-2 py-3 text-sm text-muted-foreground">No units found.</p>
+                  ) : (
+                    filteredDepartments.map((department) => {
+                      const selected = form.allowedDepartmentIds.includes(department.id);
+                      const label = formatDepartmentPath(department, departments);
+                      return (
+                        <button
+                          key={department.id}
+                          type="button"
+                          onClick={() =>
+                            setForm({
+                              ...form,
+                              allowedDepartmentIds: selected
+                                ? form.allowedDepartmentIds.filter((id) => id !== department.id)
+                                : [...form.allowedDepartmentIds, department.id],
+                            })
+                          }
+                          className={cn(
+                            "flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm",
+                            selected
+                              ? "bg-primary/10 text-foreground"
+                              : "hover:bg-muted/60 text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          <span className="truncate">{label}</span>
+                          {selected ? <span className="text-xs font-medium">Selected</span> : null}
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             )}

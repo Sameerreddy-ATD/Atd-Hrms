@@ -10,8 +10,8 @@ import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { TaskFormDialog, type TaskFormValue } from "@/components/tasks/TaskFormDialog";
 import type { BoardForm } from "@/components/tasks/task-utils";
 import { useAuth } from "@/lib/auth";
-import { tasksApi } from "@/services/api";
-import type { TaskAssignee, TaskBoard, TaskPriority, WorkTask } from "@/types/domain";
+import { branchesApi, tasksApi } from "@/services/api";
+import type { Department, TaskAssignee, TaskBoard, TaskPriority, WorkTask } from "@/types/domain";
 
 export const Route = createFileRoute("/_app/tasks")({ component: TaskBoardsPage });
 
@@ -23,6 +23,7 @@ function TaskBoardsPage() {
   const [assignedTotal, setAssignedTotal] = useState(0);
   const [assignees, setAssignees] = useState<TaskAssignee[]>([]);
   const [boardAssignees, setBoardAssignees] = useState<TaskAssignee[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [boards, setBoards] = useState<TaskBoard[]>([]);
   const [archivedBoards, setArchivedBoards] = useState<TaskBoard[]>([]);
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
@@ -52,17 +53,19 @@ function TaskBoardsPage() {
     if (showLoading) setLoading(true);
     setError("");
     try {
-      const [mineRows, employeeRows, boardRows, archivedRows] = await Promise.all([
+      const [mineRows, employeeRows, boardRows, archivedRows, departmentRows] = await Promise.all([
         tasksApi.list("mine", { limit: 100, detail: "summary" }),
         tasksApi.assignees().catch(() => []),
         tasksApi.boards(),
         tasksApi.boards(true),
+        branchesApi.departments().catch(() => []),
       ]);
       setAssignedTasks(mineRows);
       setAssignedTotal(mineRows.length);
       setAssignees(employeeRows);
       setBoards(boardRows);
       setArchivedBoards(archivedRows);
+      setDepartments(departmentRows);
       setSelectedBoardId((current) =>
         current && boardRows.some((board) => board.id === current) ? current : null,
       );
@@ -137,7 +140,7 @@ function TaskBoardsPage() {
         keyPrefix: form.keyPrefix || undefined,
         description: form.description || null,
         accessType: form.accessType,
-        allowedRoles: form.allowedRoles,
+        allowedDepartmentIds: form.allowedDepartmentIds,
         memberEmployeeIds: form.memberEmployeeIds,
         stages: form.stages,
         customFieldDefs: form.customFieldDefs,
@@ -488,6 +491,7 @@ function TaskBoardsPage() {
         onOpenChange={setBoardDialogOpen}
         board={editingBoard}
         assignees={assignees}
+        departments={departments}
         saving={boardSaving}
         onSave={saveBoard}
       />

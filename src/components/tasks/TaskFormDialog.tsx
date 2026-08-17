@@ -88,8 +88,10 @@ export function TaskFormDialog({
     const allowed = assignees.filter((person) => {
       if (!board) return false;
       if (board.accessType === "MEMBER_GATED") return board.memberEmployeeIds.includes(person.id);
-      if (board.accessType === "ROLE_GATED") {
-        return !!person.role && board.allowedRoles.includes(person.role);
+      if (board.accessType === "DEPARTMENT_GATED") {
+        return (
+          !!person.departmentId && board.allowedDepartmentIds.includes(person.departmentId)
+        );
       }
       return true;
     });

@@ -1284,10 +1284,10 @@ export const tasksApi = {
     keyPrefix?: string;
     description?: string | null;
     accessType: TaskBoard["accessType"];
-    allowedRoles: string[];
+    allowedDepartmentIds: string[];
     memberEmployeeIds: string[];
     stages: Array<{ id?: string; name: string; color: TaskStage["color"]; status: TaskStatus }>;
-    customFieldDefs?: NonNullable<TaskBoard["customFieldDefs"]>;
+  customFieldDefs?: NonNullable<TaskBoard["customFieldDefs"]>;
   }) => request<TaskBoard>("/task-boards", { method: "POST", body: JSON.stringify(payload) }),
   updateBoard: (
     id: string,
@@ -1297,7 +1297,7 @@ export const tasksApi = {
       keyPrefix?: string;
       description?: string | null;
       accessType: TaskBoard["accessType"];
-      allowedRoles: string[];
+      allowedDepartmentIds: string[];
       memberEmployeeIds: string[];
       stages: Array<{
         id?: string;

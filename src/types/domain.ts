@@ -815,10 +815,10 @@ export interface TaskBoard {
   keyPrefix?: string;
   nextIssueNumber?: number;
   description?: string;
-  accessType: "OPEN" | "ROLE_GATED" | "MEMBER_GATED";
+  accessType: "OPEN" | "DEPARTMENT_GATED" | "MEMBER_GATED";
   archived: boolean;
   version: number;
-  allowedRoles: string[];
+  allowedDepartmentIds: string[];
   memberEmployeeIds: string[];
   stages: TaskStage[];
   taskCount: number;
@@ -834,6 +834,7 @@ export interface TaskAssignee {
   employeeCode: string;
   designation?: string;
   department?: string;
+  departmentId?: string;
   role?: string;
 }
 

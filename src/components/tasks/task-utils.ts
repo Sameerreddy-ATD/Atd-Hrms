@@ -87,29 +87,6 @@ export const STAGE_COLORS: Record<TaskStage["color"], { dot: string; soft: strin
     RED: { dot: "bg-rose-600", soft: "bg-rose-100", text: "text-rose-700" },
   };
 
-export const BOARD_ROLE_LABELS: Record<string, string> = {
-  DEVELOPER_ADMIN: "Developer Admin",
-  MAIN_ADMIN: "Company Admin",
-  CEO: "CEO",
-  HR: "HR",
-  MANAGER: "Manager",
-  EMPLOYEE: "Employee",
-  SALES: "Sales",
-  DRIVER: "Driver",
-  FIELD_STAFF: "Field Staff",
-};
-
-export const BOARD_ROLES = [
-  "MAIN_ADMIN",
-  "CEO",
-  "HR",
-  "MANAGER",
-  "EMPLOYEE",
-  "SALES",
-  "DRIVER",
-  "FIELD_STAFF",
-];
-
 export type BoardFormStage = {
   id?: string;
   name: string;
@@ -122,7 +99,7 @@ export type BoardForm = {
   keyPrefix: string;
   description: string;
   accessType: TaskBoard["accessType"];
-  allowedRoles: string[];
+  allowedDepartmentIds: string[];
   memberEmployeeIds: string[];
   stages: BoardFormStage[];
   customFieldDefs: Array<{ key: string; label: string; type: "text" | "number" | "select" }>;
@@ -133,7 +110,7 @@ export const DEFAULT_BOARD_FORM: BoardForm = {
   keyPrefix: "",
   description: "",
   accessType: "OPEN",
-  allowedRoles: [],
+  allowedDepartmentIds: [],
   memberEmployeeIds: [],
   stages: [
     { name: "To do", color: "SLATE", status: "TODO" },
@@ -150,7 +127,7 @@ export function boardToForm(board: TaskBoard): BoardForm {
     keyPrefix: board.keyPrefix ?? boardKeyPrefix(board.name),
     description: board.description ?? "",
     accessType: board.accessType,
-    allowedRoles: board.allowedRoles,
+    allowedDepartmentIds: board.allowedDepartmentIds,
     memberEmployeeIds: board.memberEmployeeIds,
     stages: board.stages.map((stage) => ({
       id: stage.id,
