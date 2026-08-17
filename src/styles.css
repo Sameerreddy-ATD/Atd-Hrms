@@ -162,6 +162,31 @@
   --atd-header-row: 3.5rem;
 }
 
+/*
+  Capacitor / Samsung One UI (S25 Ultra, etc.): edge-to-edge often leaves
+  env(safe-area-*) and --atd-inset-* at 0 until (or unless) the native bridge
+  injects bars. Floor the chrome so the dashboard is never drawn under the
+  status icons or gesture bar.
+*/
+html.atd-native {
+  --atd-sat: min(
+    max(env(safe-area-inset-top, 0px), var(--atd-inset-top), 1.75rem),
+    4rem
+  );
+  --atd-sab: min(
+    max(env(safe-area-inset-bottom, 0px), var(--atd-inset-bottom), 1.25rem),
+    3rem
+  );
+  --atd-sal: min(
+    max(env(safe-area-inset-left, 0px), var(--atd-inset-left), 0.5rem),
+    1.5rem
+  );
+  --atd-sar: min(
+    max(env(safe-area-inset-right, 0px), var(--atd-inset-right), 0.5rem),
+    1.5rem
+  );
+}
+
 @media (min-width: 640px) {
   :root {
     --atd-header-row: 4rem;
@@ -178,8 +203,12 @@
 
   html.atd-native,
   html.atd-native body {
+    /* Prefer dynamic viewport height — Samsung gesture nav can make 100% shorter
+       than the visible WebView and clip the dashboard bottom. */
     height: 100%;
+    height: 100dvh;
     max-height: 100%;
+    max-height: 100dvh;
     overflow: hidden;
   }
 

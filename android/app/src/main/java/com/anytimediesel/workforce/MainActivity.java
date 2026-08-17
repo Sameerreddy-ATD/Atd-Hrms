@@ -25,6 +25,9 @@ import com.getcapacitor.BridgeActivity;
  *    CSS variables — Chromium only derives env(safe-area-inset-*) from a display
  *    cutout, so a notchless phone would otherwise report zero while drawing
  *    edge-to-edge and put the header under the status icons.
+ *    Listen on the decor/content root as well as the WebView — Samsung One UI
+ *    often delivers WindowInsets to the decor view first and the WebView alone
+ *    can stay at 0 (S25 Ultra / edge-to-edge).
  * 3) Request POST_NOTIFICATIONS directly. Capacitor's permission path runs
  *    through Bridge.getPermissionStates, which NPEs on some Samsung builds.
  */
@@ -61,48 +64,111 @@ public class MainActivity extends BridgeActivity {
             // CookieManager can throw on some OEM WebView builds; never block launch.
         }
         publishSystemBarInsets();
+        // Bridge / StatusBar overlay can attach after onCreate — republish once
+        // the first layout pass has real bars (critical on Samsung One UI 7).
+        try {
+            View content = findViewById(android.R.id.content);
+            if (content != null) {
+                content.post(this::publishSystemBarInsets);
+                content.postDelayed(this::publishSystemBarInsets, 400);
+                content.postDelayed(this::publishSystemBarInsets, 1200);
+            }
+        } catch (Exception ignored) {
+            // Never block launch.
+        }
         requestNotificationPermission();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            publishSystemBarInsets();
+        }
     }
 
     /** Mirrors the real system-bar insets into CSS custom properties. */
     private void publishSystemBarInsets() {
         try {
             final WebView webView = getBridge() != null ? getBridge().getWebView() : null;
-            if (webView == null) return;
-            ViewCompat.setOnApplyWindowInsetsListener(webView, (View view, WindowInsetsCompat insets) -> {
-                try {
-                    Insets bars = insets.getInsets(
-                        WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout()
-                    );
-                    DisplayMetrics metrics = getResources().getDisplayMetrics();
-                    float density = metrics.density <= 0 ? 1f : metrics.density;
-                    final String script = String.format(
-                        java.util.Locale.US,
-                        "(function(){var s=document.documentElement.style;"
-                            + "s.setProperty('--atd-inset-top','%.2fpx');"
-                            + "s.setProperty('--atd-inset-bottom','%.2fpx');"
-                            + "s.setProperty('--atd-inset-left','%.2fpx');"
-                            + "s.setProperty('--atd-inset-right','%.2fpx');})();",
-                        bars.top / density,
-                        bars.bottom / density,
-                        bars.left / density,
-                        bars.right / density
-                    );
-                    webView.post(() -> {
-                        try {
-                            webView.evaluateJavascript(script, null);
-                        } catch (Exception ignored) {
-                            // WebView may be tearing down.
-                        }
-                    });
-                } catch (Exception ignored) {
-                    // Never block layout.
-                }
+            View content = findViewById(android.R.id.content);
+            View decor = getWindow() != null ? getWindow().getDecorView() : null;
+
+            View.OnApplyWindowInsetsListener listener = (View view, WindowInsetsCompat insets) -> {
+                applyInsetsToWeb(webView, insets);
                 return insets;
-            });
-            ViewCompat.requestApplyInsets(webView);
+            };
+
+            // Decor + content receive insets even when the WebView child does not
+            // (Samsung One UI edge-to-edge). Still listen on the WebView itself.
+            if (decor != null) {
+                ViewCompat.setOnApplyWindowInsetsListener(decor, (view, insets) -> {
+                    applyInsetsToWeb(webView, insets);
+                    return insets;
+                });
+                ViewCompat.requestApplyInsets(decor);
+            }
+            if (content != null && content != decor) {
+                ViewCompat.setOnApplyWindowInsetsListener(content, listener);
+                ViewCompat.requestApplyInsets(content);
+            }
+            if (webView != null) {
+                ViewCompat.setOnApplyWindowInsetsListener(webView, (View view, WindowInsetsCompat insets) -> {
+                    applyInsetsToWeb(webView, insets);
+                    return insets;
+                });
+                ViewCompat.requestApplyInsets(webView);
+                // If the WebView already has insets from a prior pass, push them now.
+                WindowInsetsCompat existing = ViewCompat.getRootWindowInsets(webView);
+                if (existing != null) {
+                    applyInsetsToWeb(webView, existing);
+                }
+            } else if (decor != null) {
+                WindowInsetsCompat existing = ViewCompat.getRootWindowInsets(decor);
+                if (existing != null) {
+                    applyInsetsToWeb(null, existing);
+                }
+            }
         } catch (Exception ignored) {
             // Never block launch.
+        }
+    }
+
+    private void applyInsetsToWeb(WebView webView, WindowInsetsCompat insets) {
+        try {
+            Insets bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout()
+            );
+            DisplayMetrics metrics = getResources().getDisplayMetrics();
+            float density = metrics.density <= 0 ? 1f : metrics.density;
+            final String script = String.format(
+                java.util.Locale.US,
+                "(function(){var s=document.documentElement.style;"
+                    + "s.setProperty('--atd-inset-top','%.2fpx');"
+                    + "s.setProperty('--atd-inset-bottom','%.2fpx');"
+                    + "s.setProperty('--atd-inset-left','%.2fpx');"
+                    + "s.setProperty('--atd-inset-right','%.2fpx');"
+                    + "document.documentElement.classList.add('atd-native');})();",
+                bars.top / density,
+                bars.bottom / density,
+                bars.left / density,
+                bars.right / density
+            );
+            WebView target = webView;
+            if (target == null && getBridge() != null) {
+                target = getBridge().getWebView();
+            }
+            if (target == null) return;
+            final WebView injectTarget = target;
+            injectTarget.post(() -> {
+                try {
+                    injectTarget.evaluateJavascript(script, null);
+                } catch (Exception ignored) {
+                    // WebView may be tearing down.
+                }
+            });
+        } catch (Exception ignored) {
+            // Never block layout.
         }
     }
 

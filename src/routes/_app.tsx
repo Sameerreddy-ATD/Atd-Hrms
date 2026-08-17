@@ -218,7 +218,7 @@ function AppLayout() {
     : undefined;
 
   return (
-    <SidebarProvider>
+      <SidebarProvider className="h-dvh max-h-dvh">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-[100] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-ring"
@@ -227,12 +227,12 @@ function AppLayout() {
       </a>
       <AppSidebar />
       <PermissionSetup />
-      <SidebarInset className="aw-shell-canvas flex h-full max-h-full min-h-0 min-w-0 flex-col overflow-hidden bg-muted/35 dark:bg-background">
+      <SidebarInset className="aw-shell-canvas flex h-dvh max-h-dvh min-h-0 min-w-0 flex-col overflow-hidden bg-muted/35 dark:bg-background">
         <AppHeader />
         <main
           id="main-content"
           tabIndex={-1}
-          className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain p-0 pb-[max(1.25rem,var(--atd-sab))] pl-[var(--atd-sal)] pr-[var(--atd-sar)] outline-none sm:p-3 sm:pb-[max(0.75rem,var(--atd-sab))] lg:p-4"
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain p-0 pb-[max(1.25rem,var(--atd-sab))] pl-[max(0.5rem,var(--atd-sal))] pr-[max(0.5rem,var(--atd-sar))] outline-none sm:p-3 sm:pb-[max(0.75rem,var(--atd-sab))] lg:p-4"
         >
           <PageSwipeNavigator
             paths={swipePaths}

@@ -108,11 +108,48 @@ async function configureStatusBar() {
     // itself stays compact via clamped --atd-sat (never a full-screen top bar).
     if (getNativePlatform() === "android") {
       await StatusBar.setOverlaysWebView({ overlay: true });
+      // Samsung One UI can leave CSS insets at 0 after overlay flips — re-assert
+      // floors so the dashboard never draws under the status / gesture bars.
+      ensureAndroidInsetFloors();
+      window.setTimeout(ensureAndroidInsetFloors, 300);
+      window.setTimeout(ensureAndroidInsetFloors, 1000);
     }
     await StatusBar.setBackgroundColor({ color: dark ? "#1a1f2a" : "#F6F8FC" });
     await StatusBar.setStyle({ style: dark ? Style.Light : Style.Dark });
   } catch {
     document.documentElement.classList.add("atd-native");
+    if (getNativePlatform() === "android") ensureAndroidInsetFloors();
+  }
+}
+
+/**
+ * When MainActivity has not injected real WindowInsets yet (common on Samsung
+ * S25 / One UI edge-to-edge), keep a floor so chrome stays clear of system bars.
+ * Does not lower an already-correct larger inset from the native bridge.
+ */
+function ensureAndroidInsetFloors() {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  const style = getComputedStyle(root);
+  const readPx = (name: string) => {
+    const raw = style.getPropertyValue(name).trim();
+    const n = Number.parseFloat(raw);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const floorTop = 28;
+  const floorBottom = 20;
+  const floorSide = 8;
+  if (readPx("--atd-inset-top") < floorTop) {
+    root.style.setProperty("--atd-inset-top", `${floorTop}px`);
+  }
+  if (readPx("--atd-inset-bottom") < floorBottom) {
+    root.style.setProperty("--atd-inset-bottom", `${floorBottom}px`);
+  }
+  if (readPx("--atd-inset-left") < floorSide) {
+    root.style.setProperty("--atd-inset-left", `${floorSide}px`);
+  }
+  if (readPx("--atd-inset-right") < floorSide) {
+    root.style.setProperty("--atd-inset-right", `${floorSide}px`);
   }
 }
 
