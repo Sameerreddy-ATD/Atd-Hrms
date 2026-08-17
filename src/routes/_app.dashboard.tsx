@@ -1629,7 +1629,7 @@ function TeamAttendanceCard({
                     {branchName(row.actualBranchId ?? row.homeBranchId)}
                   </p>
                 </div>
-                <StatusBadge status={row.status} />
+                <StatusBadge status={row.status} className="shrink-0" />
               </div>
               <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
                 <div className="min-w-0">
