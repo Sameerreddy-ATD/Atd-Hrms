@@ -2590,7 +2590,14 @@ export function createApp() {
       }
       const requestedPhone = normalizePhoneDigits(body.phone ?? linkedEmployee?.phone ?? "");
       const requestedEmail = (body.email?.trim() || linkedEmployee?.email || "").toLowerCase();
-      if (!requestedEmail && !requestedPhone) {
+      if (targetRole === Role.DRIVER) {
+        if (!requestedPhone || !isPhoneIdentifier(requestedPhone)) {
+          throw new HttpError(
+            400,
+            "Bowser Pilots need a mobile number for sign-in (Fleet & Driver Team)",
+          );
+        }
+      } else if (!requestedEmail && !requestedPhone) {
         throw new HttpError(400, "Email or mobile number is required");
       }
       if (requestedPhone && !isPhoneIdentifier(requestedPhone)) {

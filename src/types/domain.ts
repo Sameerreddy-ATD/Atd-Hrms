@@ -48,9 +48,9 @@ export const ROLE_LABELS: Record<Role, string> = {
   ceo: "CEO",
   hr: "HR",
   manager: "Manager",
-  employee: "Employee",
+  employee: "Team Member",
   sales: "Sales Team",
-  driver: "Driver",
+  driver: "Bowser Pilot",
   field_staff: "Field Staff",
 };
 

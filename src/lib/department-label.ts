@@ -2,6 +2,18 @@ import type { Department } from "@/types/domain";
 
 type DepartmentRef = Pick<Department, "id" | "name" | "parentDepartmentId">;
 
+/** Org unit for Bowser Pilot (driver) logins — mobile-number portal. */
+export const FLEET_DRIVER_TEAM_NAME = "Fleet & Driver Team";
+
+export function findDepartmentByName(
+  departments: DepartmentRef[],
+  name: string,
+): DepartmentRef | undefined {
+  const needle = name.trim().toLowerCase();
+  if (!needle) return undefined;
+  return departments.find((row) => row.name.trim().toLowerCase() === needle);
+}
+
 /**
  * Full ancestry path for an org unit, e.g. "Operations / Sales".
  * Top-level units stay a single name. Same labels under different parents
@@ -22,7 +34,7 @@ export function formatDepartmentPath(
     seen.add(cursor.id);
     const label = cursor.name.trim();
     if (label) names.unshift(label);
-    const parentId = cursor.parentDepartmentId;
+    const parentId: string | undefined = cursor.parentDepartmentId;
     cursor = parentId ? byId.get(parentId) : undefined;
   }
   return names.length > 0 ? names.join(" / ") : fallback;

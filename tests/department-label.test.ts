@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   departmentMemberCountInTree,
+  findDepartmentByName,
+  FLEET_DRIVER_TEAM_NAME,
   formatDepartmentParentPath,
   formatDepartmentPath,
   formatDepartmentPathById,
@@ -12,6 +14,7 @@ const departments = [
   { id: "b", name: "Sub-head B", parentDepartmentId: "head" },
   { id: "sales-a", name: "Sales", parentDepartmentId: "a" },
   { id: "sales-b", name: "Sales", parentDepartmentId: "b" },
+  { id: "fleet", name: "Fleet & Driver Team", parentDepartmentId: "a" },
 ];
 
 describe("formatDepartmentPath", () => {
@@ -27,6 +30,13 @@ describe("formatDepartmentPath", () => {
   it("describes reports-under for a unit", () => {
     expect(formatDepartmentParentPath(departments[3], departments)).toBe("Head / Sub-head A");
     expect(formatDepartmentParentPath(departments[0], departments)).toBe("CEO");
+  });
+});
+
+describe("findDepartmentByName", () => {
+  it("finds Fleet & Driver Team for Bowser Pilot placement", () => {
+    expect(findDepartmentByName(departments, FLEET_DRIVER_TEAM_NAME)?.id).toBe("fleet");
+    expect(findDepartmentByName(departments, "fleet & driver team")?.id).toBe("fleet");
   });
 });
 

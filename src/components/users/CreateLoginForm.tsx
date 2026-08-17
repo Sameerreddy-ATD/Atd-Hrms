@@ -31,7 +31,7 @@ import {
 } from "@/types/domain";
 import { branchesApi, employeesApi, usersApi } from "@/services/api";
 import { formatBranchLocationLabel } from "@/lib/branch-label";
-import { formatDepartmentPath } from "@/lib/department-label";
+import { formatDepartmentPath, FLEET_DRIVER_TEAM_NAME, findDepartmentByName } from "@/lib/department-label";
 
 const CAN_CREATE: Record<Role, Role[]> = {
   developer_admin: [
@@ -63,9 +63,13 @@ const LOGIN_ROLE_OPTIONS: { value: Role; label: string; hint: string }[] = [
     label: "Department Head",
     hint: "Team head — assign units under Departments (multi-head supported)",
   },
-  { value: "employee", label: "Employee", hint: "Standard employee workspace" },
+  { value: "employee", label: "Team Member", hint: "Standard team member workspace (email sign-in)" },
   { value: "sales", label: "Sales Team", hint: "Sales / field sales workspace" },
-  { value: "driver", label: "Driver", hint: "Driver attendance and work tools" },
+  {
+    value: "driver",
+    label: "Bowser Pilot",
+    hint: "Fleet & Driver Team — mobile number sign-in, attendance only",
+  },
   { value: "field_staff", label: "Field Staff", hint: "Field attendance workspace" },
 ];
 
@@ -102,9 +106,9 @@ function defaultTitleForRole(role: Role, unitName?: string): string {
   if (role === "hr") return "HR";
   if (role === "manager") return unitName ? `${unitName} Head` : "Department Head";
   if (role === "sales") return unitName || "Sales";
-  if (role === "driver") return "Driver";
+  if (role === "driver") return "Bowser Pilot";
   if (role === "field_staff") return "Field Staff";
-  return unitName || "Employee";
+  return unitName || "Team Member";
 }
 
 function FormSection({
@@ -157,8 +161,6 @@ export function CreateLoginForm({
   const [companyEntity, setCompanyEntity] = useState<CompanyEntity>("ANYTIME_DIESEL");
   const [branch, setBranch] = useState("");
   const [dept, setDept] = useState("");
-  const [organizationUnitId, setOrganizationUnitId] = useState("");
-  const [childOrganizationUnitId, setChildOrganizationUnitId] = useState("none");
   const [designation, setDesignation] = useState("");
   const [managerId, setManagerId] = useState("none");
   const [loginRole, setLoginRole] = useState<Role>("employee");
@@ -189,17 +191,17 @@ export function CreateLoginForm({
   const [temporaryPassword, setTemporaryPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const topLevelUnits = useMemo(
-    () => departments.filter((department) => !department.parentDepartmentId),
+  const departmentsByPath = useMemo(
+    () =>
+      [...departments].sort((a, b) =>
+        formatDepartmentPath(a, departments).localeCompare(formatDepartmentPath(b, departments)),
+      ),
     [departments],
-  );
-  const childUnits = useMemo(
-    () => departments.filter((department) => department.parentDepartmentId === organizationUnitId),
-    [departments, organizationUnitId],
   );
   const selectedUnit = departments.find((department) => department.id === dept);
   const role: Role = loginRole;
   const isCeo = role === "ceo";
+  const isBowserPilot = role === "driver";
   const needsOrganizationUnit = !isCeo;
   const needsAttendanceConfig = !isCeo;
   const roleOption = LOGIN_ROLE_OPTIONS.find((option) => option.value === role);
@@ -209,15 +211,19 @@ export function CreateLoginForm({
     setLoginRole(nextRole);
     setOrganizationLevel(defaultLevelForRole(nextRole));
     if (nextRole === "ceo") {
-      setOrganizationUnitId("");
-      setChildOrganizationUnitId("none");
       setDept("");
-    } else if (!organizationUnitId) {
-      const firstTopLevel = departments.find((department) => !department.parentDepartmentId);
-      if (firstTopLevel) {
-        setOrganizationUnitId(firstTopLevel.id);
-        setDept(firstTopLevel.id);
+      return;
+    }
+    if (nextRole === "driver") {
+      const fleet = findDepartmentByName(departments, FLEET_DRIVER_TEAM_NAME);
+      if (fleet) {
+        setDept(fleet.id);
+        return;
       }
+    }
+    if (!dept) {
+      const firstUnit = departments[0];
+      if (firstUnit) setDept(firstUnit.id);
     }
   }
 
@@ -240,9 +246,7 @@ export function CreateLoginForm({
         }
 
         setBranch((current) => current || branchRows[0]?.id || "");
-        const firstTopLevel = departmentRows.find((department) => !department.parentDepartmentId);
-        setOrganizationUnitId((current) => current || firstTopLevel?.id || "");
-        setDept((current) => current || firstTopLevel?.id || "");
+        setDept((current) => current || departmentRows[0]?.id || "");
       })
       .catch(() => {
         setBranches([]);
@@ -251,20 +255,6 @@ export function CreateLoginForm({
         setUnlinkedEmployees([]);
       });
   }, []);
-
-  useEffect(() => {
-    const selectedChild = childOrganizationUnitId === "none" ? "" : childOrganizationUnitId;
-    setDept(selectedChild || organizationUnitId);
-  }, [organizationUnitId, childOrganizationUnitId]);
-
-  useEffect(() => {
-    if (
-      childOrganizationUnitId !== "none" &&
-      !childUnits.some((unit) => unit.id === childOrganizationUnitId)
-    ) {
-      setChildOrganizationUnitId("none");
-    }
-  }, [childOrganizationUnitId, childUnits]);
 
   useEffect(() => {
     if (creationMode === "link" && selectedEmployeeId) {
@@ -299,7 +289,12 @@ export function CreateLoginForm({
       toast.error("Temporary password is required");
       return;
     }
-    if (!email.trim() && !phone.trim()) {
+    if (isBowserPilot) {
+      if (phone.replace(/\D/g, "").length < 10) {
+        toast.error("Bowser Pilots sign in with a mobile number");
+        return;
+      }
+    } else if (!email.trim() && !phone.trim()) {
       toast.error("Email or mobile number is required");
       return;
     }
@@ -307,12 +302,16 @@ export function CreateLoginForm({
       toast.error("Enter a valid email");
       return;
     }
-    if (!email.trim() && phone.replace(/\D/g, "").length < 10) {
+    if (!isBowserPilot && !email.trim() && phone.replace(/\D/g, "").length < 10) {
       toast.error("Enter a valid mobile number");
       return;
     }
     if (needsOrganizationUnit && !dept) {
-      toast.error("Select an organization unit");
+      toast.error(
+        isBowserPilot
+          ? `Select ${FLEET_DRIVER_TEAM_NAME} (or another unit) for this Bowser Pilot`
+          : "Select an organization unit",
+      );
       return;
     }
     if (
@@ -429,7 +428,9 @@ export function CreateLoginForm({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="create-email">Email (optional if mobile is set)</Label>
+            <Label htmlFor="create-email">
+              {isBowserPilot ? "Email (optional)" : "Work email"}
+            </Label>
             <Input
               id="create-email"
               type="email"
@@ -458,7 +459,9 @@ export function CreateLoginForm({
           </div>
 
           <div className="space-y-1.5">
-            <Label>Personal phone (optional if email is set)</Label>
+            <Label>
+              {isBowserPilot ? "Mobile number (required for Bowser Pilot sign-in)" : "Personal phone"}
+            </Label>
             <Input
               type="tel"
               value={phone}
@@ -466,9 +469,12 @@ export function CreateLoginForm({
               disabled={creationMode === "link"}
               inputMode="tel"
               placeholder="98xxxxxxxx"
+              required={isBowserPilot}
             />
             <p className="text-xs text-muted-foreground">
-              Drivers and field staff can sign in with this number when they have no email.
+              {isBowserPilot
+                ? `Used on the Bowser Pilots login. Place them under ${FLEET_DRIVER_TEAM_NAME}.`
+                : "Optional if work email is set. Field staff can also use mobile sign-in when needed."}
             </p>
           </div>
 
@@ -552,41 +558,25 @@ export function CreateLoginForm({
 
               {!isCeo && (
                 <>
-                  <div className="space-y-1.5">
-                    <Label>Main organization unit</Label>
-                    <Select value={organizationUnitId} onValueChange={setOrganizationUnitId}>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label>Organization unit</Label>
+                    <Select value={dept} onValueChange={setDept}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select main unit" />
+                        <SelectValue placeholder="Select organization unit" />
                       </SelectTrigger>
                       <SelectContent>
-                        {topLevelUnits.map((d) => (
+                        {departmentsByPath.map((d) => (
                           <SelectItem key={d.id} value={d.id}>
-                            {d.name}
+                            {formatDepartmentPath(d, departments)}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label>Child organization unit</Label>
-                    <Select
-                      value={childOrganizationUnitId}
-                      onValueChange={setChildOrganizationUnitId}
-                      disabled={childUnits.length === 0}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select child unit" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Use main unit</SelectItem>
-                        {childUnits.map((unit) => (
-                          <SelectItem key={unit.id} value={unit.id}>
-                            {formatDepartmentPath(unit, departments)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {isBowserPilot
+                        ? `Bowser Pilots belong under ${FLEET_DRIVER_TEAM_NAME}.`
+                        : "Full org path — same picker style as Employees."}
+                    </p>
                   </div>
 
                   <div className="space-y-1.5">
