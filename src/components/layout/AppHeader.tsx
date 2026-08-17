@@ -116,7 +116,7 @@ export function AppHeader() {
   const roleLabel = user ? ROLE_LABELS[user.role] : "";
 
   return (
-    <header className="sticky top-0 z-[60] flex min-h-[calc(var(--atd-header-row)+var(--atd-sat))] shrink-0 items-center justify-between gap-1 border-b border-border/80 bg-background px-2 pt-[var(--atd-sat)] pl-[max(0.5rem,var(--atd-sal))] pr-[max(0.5rem,var(--atd-sar))] pointer-events-auto transition-[background-color,border-color] duration-[var(--motion-ui)] dark:bg-card dark:shadow-[0_1px_0_0_color-mix(in_oklab,white_6%,transparent)] sm:gap-3 sm:px-4 sm:pl-[max(1rem,var(--atd-sal))] sm:pr-[max(1rem,var(--atd-sar))] md:px-6 md:pl-[max(1.5rem,var(--atd-sal))] md:pr-[max(1.5rem,var(--atd-sar))]">
+    <header className="sticky top-0 z-[60] flex min-h-[calc(var(--atd-header-row)+var(--atd-sat))] shrink-0 items-center justify-between gap-1 border-b border-border/80 bg-background pt-[var(--atd-sat)] pl-[max(0.75rem,var(--atd-sal))] pr-[max(0.75rem,var(--atd-sar))] pointer-events-auto transition-[background-color,border-color] duration-[var(--motion-ui)] dark:bg-card dark:shadow-[0_1px_0_0_color-mix(in_oklab,white_6%,transparent)] sm:gap-3 sm:pl-[max(1rem,var(--atd-sal))] sm:pr-[max(1rem,var(--atd-sar))] md:pl-[max(1.5rem,var(--atd-sal))] md:pr-[max(1.5rem,var(--atd-sar))]">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <Button
           variant="ghost"
@@ -220,7 +220,7 @@ export function AppHeader() {
           <DropdownMenuContent
             align="end"
             sideOffset={8}
-            className="w-[min(20rem,calc(100vw-1rem))] overflow-hidden rounded-xl border border-border/80 bg-popover p-1.5 shadow-lg"
+            className="w-[min(20rem,calc(100dvw-1.5rem))] max-w-[calc(100dvw-1.5rem)] overflow-hidden rounded-xl border border-border/80 bg-popover p-1.5 shadow-lg"
           >
             <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-3 py-3">
               <Avatar className="h-11 w-11 shrink-0">

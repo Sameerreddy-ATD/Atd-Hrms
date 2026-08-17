@@ -276,7 +276,7 @@ function DashboardPage() {
   }));
 
   return (
-    <div className="aw-enter min-w-0 max-w-full space-y-1">
+    <div className="aw-enter w-full min-w-0 max-w-full space-y-1 overflow-x-clip">
       <PageHeader
         eyebrow={t("pages.dashboard.eyebrow")}
         title={t("pages.dashboard.welcome", { name: user.name?.split(" ")[0] ?? "there" })}
@@ -1632,13 +1632,13 @@ function TeamAttendanceCard({
                 <StatusBadge status={row.status} />
               </div>
               <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                <div>
+                <div className="min-w-0">
                   <p className="text-muted-foreground">In</p>
-                  <p className="mt-0.5 font-medium">{time(row.punchIn)}</p>
+                  <p className="mt-0.5 truncate font-medium">{time(row.punchIn)}</p>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-muted-foreground">Out</p>
-                  <p className="mt-0.5 font-medium">{time(row.punchOut)}</p>
+                  <p className="mt-0.5 truncate font-medium">{time(row.punchOut)}</p>
                 </div>
                 <div className="min-w-0">
                   <p className="text-muted-foreground">Source</p>

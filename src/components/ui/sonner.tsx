@@ -22,7 +22,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           zIndex: 90,
           // Sonner sets --width inline at 356px, so a stylesheet rule cannot
           // reach it; the style prop is spread last and wins.
-          "--width": "min(20rem, calc(100vw - 2rem))",
+          "--width": "min(20rem, calc(100dvw - 2rem))",
         } as React.CSSProperties
       }
       duration={1000}

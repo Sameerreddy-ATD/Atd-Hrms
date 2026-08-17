@@ -126,7 +126,7 @@ export function BirthdayMarquee() {
 
   if (celebrants.length === 1) {
     return (
-      <div className="mb-5 w-full">
+      <div className="mb-5 w-full min-w-0 max-w-full overflow-x-clip">
         <BirthdayCard
           birthday={celebrants[0]}
           isSelf={celebrants[0].employeeId === user?.employeeId}
@@ -136,12 +136,12 @@ export function BirthdayMarquee() {
   }
 
   return (
-    <div className="mb-5 w-full space-y-2.5">
-      <div className="relative">
+    <div className="mb-5 w-full min-w-0 max-w-full space-y-2.5 overflow-x-clip">
+      <div className="relative min-w-0 overflow-hidden">
         <Carousel
           setApi={setApi}
           opts={{ loop: true, align: "start", watchDrag: true, dragFree: false }}
-          className="w-full cursor-grab active:cursor-grabbing"
+          className="w-full min-w-0"
         >
           <CarouselContent className="-ml-0">
             {celebrants.map((birthday) => (

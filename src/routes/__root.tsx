@@ -175,7 +175,7 @@ function RootShell({ children }: { children: ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
       </head>
-      <body className="h-full">
+      <body className="h-full min-w-0 overflow-x-hidden">
         {children}
         <Scripts />
       </body>
@@ -272,7 +272,7 @@ function RootComponent() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-          <div className="flex h-full min-h-0 flex-col">
+          <div className="flex h-full min-h-0 min-w-0 w-full flex-col overflow-x-hidden">
             <AppOpenSplash />
             <Outlet />
             <PortraitOrientationGuard />

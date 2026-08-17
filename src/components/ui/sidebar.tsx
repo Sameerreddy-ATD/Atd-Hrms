@@ -128,7 +128,7 @@ const SidebarProvider = React.forwardRef<
               } as React.CSSProperties
             }
             className={cn(
-              "group/sidebar-wrapper flex h-full min-h-full w-full has-[[data-variant=inset]]:bg-sidebar",
+              "group/sidebar-wrapper flex h-full min-h-full min-w-0 w-full overflow-x-hidden has-[[data-variant=inset]]:bg-sidebar",
               className,
             )}
             ref={ref}
@@ -294,7 +294,10 @@ const SidebarInset = React.forwardRef<HTMLDivElement, React.ComponentProps<"main
       <main
         ref={ref}
         className={cn(
-          "relative flex w-full flex-1 flex-col bg-background",
+          // min-w-0 is required in a flex row: `w-full` alone makes the inset
+          // claim 100% of the parent *plus* the sidebar gap, which clips the
+          // right edge of every page (dashboard included) on phones and desktop.
+          "relative flex min-w-0 flex-1 flex-col bg-background",
           "md:peer-data-[variant=inset]:m-2 md:peer-data-[state=collapsed]:peer-data-[variant=inset]:ml-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow",
           className,
         )}
