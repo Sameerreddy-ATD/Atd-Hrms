@@ -25,20 +25,23 @@ async function main() {
 
   const units = new Map<string, string>();
   for (const [name, parentName, unitType, sortOrder] of unitData) {
-    const unit = await prisma.department.upsert({
-      where: { name },
-      update: {
-        unitType,
-        sortOrder,
-        parentDepartmentId: parentName ? units.get(parentName) : null,
-      },
-      create: {
-        name,
-        unitType,
-        sortOrder,
-        parentDepartmentId: parentName ? units.get(parentName) : undefined,
-      },
+    const parentDepartmentId = parentName ? (units.get(parentName) ?? null) : null;
+    const existing = await prisma.department.findFirst({
+      where: { name, parentDepartmentId },
     });
+    const unit = existing
+      ? await prisma.department.update({
+          where: { departmentId: existing.departmentId },
+          data: { unitType, sortOrder, parentDepartmentId },
+        })
+      : await prisma.department.create({
+          data: {
+            name,
+            unitType,
+            sortOrder,
+            parentDepartmentId: parentDepartmentId ?? undefined,
+          },
+        });
     units.set(name, unit.departmentId);
   }
 
