@@ -138,7 +138,7 @@ function ensureAndroidInsetFloors() {
   };
   const floorTop = 28;
   const floorBottom = 20;
-  const floorSide = 16;
+  const floorSide = 8;
   if (readPx("--atd-inset-top") < floorTop) {
     root.style.setProperty("--atd-inset-top", `${floorTop}px`);
   }

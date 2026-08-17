@@ -1,18 +1,17 @@
 import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ShieldX } from "lucide-react";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { PermissionSetup } from "@/components/layout/PermissionSetup";
-import { PageSwipeNavigator } from "@/components/layout/PageSwipeNavigator";
 import { LoadingState } from "@/components/common/LoadingState";
 import { useAuth } from "@/lib/auth";
 import { FaceEnrollmentGate } from "@/components/face/FaceEnrollmentGate";
 import { PwaInstallBanner } from "@/components/layout/PwaInstallBanner";
 import { faceApi } from "@/services/api";
-import { employeesApi, moduleAccessApi } from "@/services/api";
+import { moduleAccessApi } from "@/services/api";
 import { menuForRole, moduleForRoute } from "@/lib/menu";
 import type { ModuleKey } from "@/types/domain";
 import { Button } from "@/components/ui/button";
@@ -33,33 +32,11 @@ function AppLayout() {
   const [faceRequired, setFaceRequired] = useState<boolean | null>(null);
   const [facePolicyError, setFacePolicyError] = useState("");
   const [allowedModules, setAllowedModules] = useState<ModuleKey[] | null | undefined>(null);
-  const [isReportingManager, setIsReportingManager] = useState(false);
   const [pageEnter, setPageEnter] = useState(false);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const userId = user?.id;
   const userRole = user?.role;
   const employeeId = user?.employeeId;
-
-  useEffect(() => {
-    if (!employeeId) {
-      setIsReportingManager(false);
-      return;
-    }
-    employeesApi
-      .isReportingManager()
-      .then((result) => setIsReportingManager(result.isReportingManager))
-      .catch(() => setIsReportingManager(false));
-  }, [employeeId]);
-
-  const swipePaths = useMemo(() => {
-    if (!user) return [];
-    return menuForRole(user.role, {
-      isReportingManager,
-      allowedModules: allowedModules === null ? undefined : allowedModules,
-      hasEmployeeId: Boolean(user.employeeId),
-      attendanceRequired: user.attendanceRequired !== false,
-    }).flatMap((group) => group.items.map((item) => item.to));
-  }, [user, isReportingManager, allowedModules]);
 
   useEffect(() => {
     setPageEnter(false);
@@ -232,14 +209,11 @@ function AppLayout() {
         <main
           id="main-content"
           tabIndex={-1}
-          className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain overflow-x-hidden p-0 pb-[max(1.25rem,var(--atd-sab))] pl-[max(0.75rem,var(--atd-sal))] pr-[max(1rem,var(--atd-sar))] outline-none sm:p-3 sm:pb-[max(0.75rem,var(--atd-sab))] sm:pl-[max(0.75rem,var(--atd-sal))] sm:pr-[max(1rem,var(--atd-sar))] lg:p-4"
+          className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain p-0 pb-[max(1.25rem,var(--atd-sab))] pl-[var(--atd-sal)] pr-[var(--atd-sar)] outline-none sm:p-3 sm:pb-[max(0.75rem,var(--atd-sab))] lg:p-4"
         >
-          <PageSwipeNavigator
-            paths={swipePaths}
+          <div
             className={cn(
-              // Grow with page content so <main> remains the scroll container.
-              // flex-1 + min-h-0 here trapped tall pages and stopped scrolling.
-              "min-h-full min-w-0 max-w-full overflow-x-hidden bg-background/95 p-3 pb-6 text-card-foreground sm:rounded-xl sm:border sm:border-border/80 sm:bg-background sm:p-5 sm:pb-5 sm:shadow-sm lg:p-6",
+              "min-h-full min-w-0 max-w-full overflow-x-hidden bg-background/95 p-4 pb-6 text-card-foreground sm:rounded-xl sm:border sm:border-border/80 sm:bg-background sm:p-5 sm:pb-5 sm:shadow-sm lg:p-6",
               pageEnter && "aw-page-enter",
             )}
           >
@@ -264,7 +238,7 @@ function AppLayout() {
                 <Outlet />
               </>
             )}
-          </PageSwipeNavigator>
+          </div>
         </main>
       </SidebarInset>
     </SidebarProvider>

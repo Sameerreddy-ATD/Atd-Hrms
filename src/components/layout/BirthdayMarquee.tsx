@@ -142,7 +142,6 @@ export function BirthdayMarquee() {
           setApi={setApi}
           opts={{ loop: true, align: "start", watchDrag: true, dragFree: false }}
           className="w-full cursor-grab active:cursor-grabbing"
-          data-no-page-swipe
         >
           <CarouselContent className="-ml-0">
             {celebrants.map((birthday) => (

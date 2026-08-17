@@ -163,10 +163,9 @@
 }
 
 /*
-  Capacitor / Samsung One UI (S25 Ultra, etc.): edge-to-edge often leaves
-  env(safe-area-*) and --atd-inset-* at 0 until (or unless) the native bridge
-  injects bars. Floor the chrome so the dashboard is never drawn under the
-  status icons or gesture bar.
+  Capacitor / Samsung One UI: edge-to-edge often leaves env(safe-area-*) at 0.
+  Floor top/bottom so chrome clears status + gesture bars. Side floors stay light —
+  heavy side padding made the dashboard look squeezed after earlier fixes.
 */
 html.atd-native {
   --atd-sat: min(
@@ -177,24 +176,14 @@ html.atd-native {
     max(env(safe-area-inset-bottom, 0px), var(--atd-inset-bottom), 1.25rem),
     3rem
   );
-  /* S25 Ultra / curved One UI edges need more than a hairline side floor —
-     otherwise search / bell / profile and card edges clip on the right. */
   --atd-sal: min(
-    max(env(safe-area-inset-left, 0px), var(--atd-inset-left), 0.75rem),
+    max(env(safe-area-inset-left, 0px), var(--atd-inset-left), 0.5rem),
     1.5rem
   );
   --atd-sar: min(
-    max(env(safe-area-inset-right, 0px), var(--atd-inset-right), 1rem),
+    max(env(safe-area-inset-right, 0px), var(--atd-inset-right), 0.5rem),
     1.5rem
   );
-}
-
-/* Keep native page chrome from painting into the curved display sides. */
-@media (max-width: 639.98px) {
-  html.atd-native #main-content {
-    padding-left: max(0.75rem, var(--atd-sal));
-    padding-right: max(1rem, var(--atd-sar));
-  }
 }
 
 @media (min-width: 640px) {
@@ -805,22 +794,6 @@ html.atd-native {
 .atd-sidebar-edge-swipe {
   /* Keep above page content but under the header chrome */
   -webkit-tap-highlight-color: transparent;
-}
-
-/* Carousel-style page drag between sidebar destinations */
-.atd-page-swipe--dragging {
-  transition: none !important;
-  will-change: transform;
-}
-
-.atd-page-swipe--idle {
-  transition: transform var(--motion-ui) var(--ease-out);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .atd-page-swipe--idle {
-    transition: none !important;
-  }
 }
 
 .dark .aw-shell-canvas {
