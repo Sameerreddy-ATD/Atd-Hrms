@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollPage } from "@/components/layout/ScrollPage";
 
 const HR_MAIL =
-  "mailto:hrms@anytimediesel.com?subject=Anytime%20Workforce%20account%20deletion%20request";
+  "mailto:hr@anytimediesel.com?subject=Anytime%20Workforce%20account%20deletion%20request";
 
 export const Route = createFileRoute("/account-deletion")({
   head: () => ({
@@ -43,7 +43,7 @@ function AccountDeletionPage() {
             <li>
               Or email{" "}
               <a className="font-medium text-primary hover:underline" href={HR_MAIL}>
-                hrms@anytimediesel.com
+                hr@anytimediesel.com
               </a>{" "}
               from your work email with subject “Anytime Workforce account deletion request”, your
               full name, and employee code.

@@ -630,7 +630,7 @@ function ProfilePage() {
                 </Link>
               </div>
               <Button asChild variant="outline" size="sm">
-                <a href="mailto:hrms@anytimediesel.com?subject=Anytime%20Workforce%20account%20deletion%20request">
+                <a href="mailto:hr@anytimediesel.com?subject=Anytime%20Workforce%20account%20deletion%20request">
                   Email HR
                 </a>
               </Button>
@@ -669,7 +669,7 @@ function ProfilePage() {
               </Link>
             </div>
             <Button asChild variant="outline" className="h-11 w-full">
-              <a href="mailto:hrms@anytimediesel.com?subject=Anytime%20Workforce%20account%20deletion%20request">
+              <a href="mailto:hr@anytimediesel.com?subject=Anytime%20Workforce%20account%20deletion%20request">
                 Email HR
               </a>
             </Button>

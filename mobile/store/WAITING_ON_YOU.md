@@ -39,7 +39,7 @@ We put stringified JSON in production `.env` as `FCM_SERVICE_ACCOUNT_JSON` (+ `F
 
 ### Support / contact email
 
-Confirm listing email (e.g. `hrms@anytimediesel.com`).
+Confirm listing email (e.g. `hr@anytimediesel.com`).
 
 ## Reply template
 
