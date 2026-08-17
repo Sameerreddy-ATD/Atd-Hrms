@@ -13,17 +13,20 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/common/PageHeader";
+import { formatDepartmentPathById } from "@/lib/department-label";
 import { cn } from "@/lib/utils";
-import type { TaskBoard, WorkTask } from "@/types/domain";
+import type { Department, TaskBoard, WorkTask } from "@/types/domain";
 import { boardKeyPrefix, dueLabel, initials, issueKey, PRIORITY_MARK } from "./task-utils";
 
 const ASSIGNED_PREVIEW = 8;
+const GATED_UNITS_LABEL_MAX = 72;
 
 type BoardDirectoryProps = {
   boards: TaskBoard[];
   archivedBoards: TaskBoard[];
   tasks: WorkTask[];
   assignedTotal: number;
+  departments?: Department[];
   employeeId?: string;
   canManage: boolean;
   canChangeBoard: (board: TaskBoard) => boolean;
@@ -33,6 +36,20 @@ type BoardDirectoryProps = {
   onArchiveBoard: (board: TaskBoard, archived: boolean) => Promise<void>;
   onViewAllAssigned: () => void;
 };
+
+function gatedUnitsSubtitle(board: TaskBoard, departments: Department[]): string {
+  if (departments.length === 0 || board.allowedDepartmentIds.length === 0) {
+    return "Unit-gated";
+  }
+  const names = board.allowedDepartmentIds
+    .map((id) => formatDepartmentPathById(departments, id, ""))
+    .map((label) => label.trim())
+    .filter(Boolean);
+  if (names.length === 0) return "Unit-gated";
+  const joined = names.join(", ");
+  if (joined.length <= GATED_UNITS_LABEL_MAX) return joined;
+  return `${joined.slice(0, GATED_UNITS_LABEL_MAX - 1).trimEnd()}…`;
+}
 
 function PriorityMark({ priority }: { priority: WorkTask["priority"] }) {
   const mark = PRIORITY_MARK[priority];
@@ -55,6 +72,7 @@ export function BoardDirectory({
   archivedBoards,
   tasks,
   assignedTotal: _assignedTotal,
+  departments = [],
   employeeId,
   canManage,
   canChangeBoard,
@@ -233,7 +251,7 @@ export function BoardDirectory({
                         (board.accessType === "OPEN"
                           ? "Open project"
                           : board.accessType === "DEPARTMENT_GATED"
-                            ? "Unit-gated"
+                            ? gatedUnitsSubtitle(board, departments)
                             : "Member-gated")}
                     </span>
                   </span>

@@ -10,7 +10,7 @@ import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { TaskFormDialog, type TaskFormValue } from "@/components/tasks/TaskFormDialog";
 import type { BoardForm } from "@/components/tasks/task-utils";
 import { useAuth } from "@/lib/auth";
-import { branchesApi, tasksApi } from "@/services/api";
+import { tasksApi } from "@/services/api";
 import type { Department, TaskAssignee, TaskBoard, TaskPriority, WorkTask } from "@/types/domain";
 
 export const Route = createFileRoute("/_app/tasks")({ component: TaskBoardsPage });
@@ -58,14 +58,14 @@ function TaskBoardsPage() {
         tasksApi.assignees().catch(() => []),
         tasksApi.boards(),
         tasksApi.boards(true),
-        branchesApi.departments().catch(() => []),
+        tasksApi.organizationUnits().catch(() => []),
       ]);
       setAssignedTasks(mineRows);
       setAssignedTotal(mineRows.length);
       setAssignees(employeeRows);
       setBoards(boardRows);
       setArchivedBoards(archivedRows);
-      setDepartments(departmentRows);
+      setDepartments(departmentRows as Department[]);
       setSelectedBoardId((current) =>
         current && boardRows.some((board) => board.id === current) ? current : null,
       );
@@ -463,6 +463,7 @@ function TaskBoardsPage() {
           archivedBoards={archivedBoards}
           tasks={assignedTasks}
           assignedTotal={assignedTotal}
+          departments={departments}
           employeeId={user?.employeeId}
           canManage={canManageBoards}
           canChangeBoard={canChangeBoard}

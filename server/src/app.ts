@@ -6556,6 +6556,35 @@ export function createApp() {
     }),
   );
 
+  // Must be registered before /task-boards/:id so "organization-units" is not captured as an id.
+  app.get(
+    "/task-boards/organization-units",
+    requireAuth,
+    asyncHandler(async (_req, res) => {
+      const [departments, memberCounts] = await Promise.all([
+        prisma.department.findMany({
+          select: {
+            departmentId: true,
+            name: true,
+            parentDepartmentId: true,
+            sortOrder: true,
+          },
+          orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+        }),
+        activeMemberCountByDepartment(),
+      ]);
+      res.json(
+        departments.map((department) => ({
+          id: department.departmentId,
+          name: department.name,
+          parentDepartmentId: department.parentDepartmentId ?? undefined,
+          memberCount: memberCounts.get(department.departmentId) ?? 0,
+          sortOrder: department.sortOrder,
+        })),
+      );
+    }),
+  );
+
   app.post(
     "/task-boards",
     requireAuth,

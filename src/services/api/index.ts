@@ -1279,6 +1279,17 @@ export const tasksApi = {
   ) => request<WorkTask>(`/tasks/${id}/logs`, { method: "POST", body: JSON.stringify(payload) }),
   boards: (archived = false) =>
     request<TaskBoard[]>(`/task-boards${archived ? "?archived=true" : ""}`),
+  /** Org units available for unit-gated boards (works for all auth Work Planner users). */
+  organizationUnits: () =>
+    request<
+      Array<{
+        id: string;
+        name: string;
+        parentDepartmentId?: string;
+        memberCount?: number;
+        sortOrder?: number;
+      }>
+    >("/task-boards/organization-units"),
   createBoard: (payload: {
     name: string;
     keyPrefix?: string;

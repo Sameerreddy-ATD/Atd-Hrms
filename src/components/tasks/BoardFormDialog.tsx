@@ -514,20 +514,45 @@ export function BoardFormDialog({
             {form.accessType === "DEPARTMENT_GATED" && (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  Only people in the selected organization units can open this board.
+                  Everyone assigned to a selected organization unit can open this board. Pick one or
+                  more units below.
                 </p>
-                <Input
-                  value={departmentQuery}
-                  onChange={(event) => setDepartmentQuery(event.target.value)}
-                  placeholder="Search organization units"
-                />
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Input
+                    value={departmentQuery}
+                    onChange={(event) => setDepartmentQuery(event.target.value)}
+                    placeholder="Search organization units"
+                    className="min-w-0 flex-1"
+                    disabled={departments.length === 0}
+                  />
+                  {form.allowedDepartmentIds.length > 0 && (
+                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                      {form.allowedDepartmentIds.length === 1
+                        ? "1 unit selected"
+                        : `${form.allowedDepartmentIds.length} units selected`}
+                    </span>
+                  )}
+                </div>
                 <div className="max-h-52 space-y-1 overflow-y-auto rounded-md border p-2">
-                  {filteredDepartments.length === 0 ? (
-                    <p className="px-2 py-3 text-sm text-muted-foreground">No units found.</p>
+                  {departments.length === 0 ? (
+                    <p className="px-2 py-3 text-sm text-muted-foreground">
+                      No organization units are available to pick. Try refreshing the page, or ask
+                      an admin if units have been set up.
+                    </p>
+                  ) : filteredDepartments.length === 0 ? (
+                    <p className="px-2 py-3 text-sm text-muted-foreground">
+                      No units match “{departmentQuery.trim()}”.
+                    </p>
                   ) : (
                     filteredDepartments.map((department) => {
                       const selected = form.allowedDepartmentIds.includes(department.id);
                       const label = formatDepartmentPath(department, departments);
+                      const members =
+                        typeof department.memberCount === "number"
+                          ? department.memberCount === 1
+                            ? "1 member"
+                            : `${department.memberCount} members`
+                          : null;
                       return (
                         <button
                           key={department.id}
@@ -541,14 +566,21 @@ export function BoardFormDialog({
                             })
                           }
                           className={cn(
-                            "flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm",
+                            "flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm",
                             selected
                               ? "bg-primary/10 text-foreground"
                               : "hover:bg-muted/60 text-muted-foreground hover:text-foreground",
                           )}
                         >
-                          <span className="truncate">{label}</span>
-                          {selected ? <span className="text-xs font-medium">Selected</span> : null}
+                          <span className="min-w-0 flex-1 truncate">
+                            {label}
+                            {members ? (
+                              <span className="ml-1.5 text-xs text-muted-foreground">
+                                · {members}
+                              </span>
+                            ) : null}
+                          </span>
+                          {selected ? <span className="shrink-0 text-xs font-medium">Selected</span> : null}
                         </button>
                       );
                     })
