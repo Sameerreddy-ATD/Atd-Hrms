@@ -60,8 +60,8 @@ function BirthdayCard({
           <p className="truncate text-base font-semibold tracking-tight text-foreground sm:text-lg">
             {birthday.name}
           </p>
-          <p className="mt-1 text-sm leading-5 text-foreground/90">{teamWish}</p>
-          {detail && <p className="mt-1.5 text-xs text-muted-foreground">{detail}</p>}
+          <p className="mt-1 break-words text-sm leading-5 text-foreground/90">{teamWish}</p>
+          {detail && <p className="mt-1.5 truncate text-xs text-muted-foreground">{detail}</p>}
         </div>
 
         <PartyPopper className="hidden h-6 w-6 shrink-0 text-primary sm:block" aria-hidden="true" />

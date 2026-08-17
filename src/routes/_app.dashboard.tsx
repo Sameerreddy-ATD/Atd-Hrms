@@ -276,7 +276,7 @@ function DashboardPage() {
   }));
 
   return (
-    <div className="aw-enter space-y-1">
+    <div className="aw-enter min-w-0 max-w-full space-y-1">
       <PageHeader
         eyebrow={t("pages.dashboard.eyebrow")}
         title={t("pages.dashboard.welcome", { name: user.name?.split(" ")[0] ?? "there" })}
@@ -322,7 +322,9 @@ function DashboardPage() {
           onAttendanceChanged={refreshDashboard}
           attendanceReady={!summaryLoading}
         />
-      ) : user.role === "hr" || user.role === "developer_admin" ? (
+      ) : user.role === "hr" ||
+        user.role === "developer_admin" ||
+        user.role === "chief_of_staff" ? (
         <HRDashboard
           user={user}
           data={{
@@ -422,7 +424,7 @@ function LiveWorkedTime({
 
   return (
     <p
-      className="font-mono text-2xl font-semibold tabular-nums text-foreground min-[360px]:text-3xl sm:text-4xl"
+      className="truncate font-mono text-2xl font-semibold tabular-nums text-foreground min-[360px]:text-3xl sm:text-4xl"
       aria-live="polite"
       aria-label={`${t("pages.dashboard.workedToday")} ${label}`}
     >
@@ -435,7 +437,7 @@ function DashboardSkeleton() {
   const { t } = useTranslation();
   return (
     <div className="space-y-4" aria-label={t("pages.dashboard.loadingAria")}>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
           <div key={index} className="rounded-md border bg-card p-4">
             <Skeleton className="h-3 w-24" />
@@ -767,7 +769,7 @@ function MarkAttendanceCard({
   }
 
   return (
-    <Card className={`border-border shadow-sm ${className ?? ""}`}>
+    <Card className={`min-w-0 border-border shadow-sm ${className ?? ""}`}>
       <CardHeader className="p-4 sm:p-5">
         <div className="min-w-0">
           <CardTitle className="text-base font-semibold text-foreground">
@@ -776,15 +778,15 @@ function MarkAttendanceCard({
           <p className="mt-0.5 text-xs text-muted-foreground">{t("pages.dashboard.liveSession")}</p>
         </div>
       </CardHeader>
-      <CardContent className="grid gap-4 p-4 pt-0 sm:p-5 sm:pt-0 md:grid-cols-[minmax(0,1fr)_minmax(260px,0.72fr)]">
-        <div className="overflow-hidden rounded-md border border-border/70 bg-muted/15">
-          <div className="flex items-center gap-3 border-b border-border/60 p-4">
+      <CardContent className="grid min-w-0 gap-4 p-4 pt-0 sm:p-5 sm:pt-0 md:grid-cols-[minmax(0,1fr)_minmax(0,0.72fr)]">
+        <div className="min-w-0 overflow-hidden rounded-md border border-border/70 bg-muted/15">
+          <div className="flex items-center gap-3 border-b border-border/60 p-3 sm:p-4">
             <span
               className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${isCheckedIn ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}
             >
               <Clock3 className="h-5 w-5" />
             </span>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-muted-foreground">
                 {t("pages.dashboard.workedToday")}
               </p>
@@ -812,14 +814,14 @@ function MarkAttendanceCard({
           </div>
         </div>
 
-        <div className="flex flex-col justify-center gap-3 rounded-md border border-border/70 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Fingerprint className="h-4 w-4 text-primary" />
-              {t("pages.dashboard.attendanceStatus")}
+        <div className="flex min-w-0 flex-col justify-center gap-3 rounded-md border border-border/70 p-3 sm:p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2 text-sm font-medium">
+              <Fingerprint className="h-4 w-4 shrink-0 text-primary" />
+              <span className="truncate">{t("pages.dashboard.attendanceStatus")}</span>
             </div>
             <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${isCheckedIn ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${isCheckedIn ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}
             >
               <span
                 className={`h-1.5 w-1.5 rounded-full ${isCheckedIn ? "animate-pulse bg-emerald-600 dark:bg-emerald-400" : "bg-muted-foreground/60"}`}
@@ -833,12 +835,14 @@ function MarkAttendanceCard({
               disabled={!attendanceReady || actionLoading || isCheckedIn}
               className="h-12 w-full"
             >
-              <LogIn className="mr-2 h-4 w-4" />
-              {!attendanceReady
-                ? t("pages.dashboard.checkingStatus")
-                : actionLoading
-                  ? t("pages.dashboard.verifying")
-                  : t("pages.dashboard.checkIn")}
+              <LogIn className="mr-2 h-4 w-4 shrink-0" />
+              <span className="truncate">
+                {!attendanceReady
+                  ? t("pages.dashboard.checkingStatus")
+                  : actionLoading
+                    ? t("pages.dashboard.verifying")
+                    : t("pages.dashboard.checkIn")}
+              </span>
             </Button>
             <Button
               variant="outline"
@@ -846,12 +850,14 @@ function MarkAttendanceCard({
               disabled={!attendanceReady || actionLoading || !isCheckedIn}
               className="h-12 w-full bg-background"
             >
-              <LogOut className="mr-2 h-4 w-4 text-destructive" />
-              {!attendanceReady
-                ? t("pages.dashboard.checkingStatus")
-                : actionLoading
-                  ? t("pages.dashboard.verifying")
-                  : t("pages.dashboard.checkOut")}
+              <LogOut className="mr-2 h-4 w-4 shrink-0 text-destructive" />
+              <span className="truncate">
+                {!attendanceReady
+                  ? t("pages.dashboard.checkingStatus")
+                  : actionLoading
+                    ? t("pages.dashboard.verifying")
+                    : t("pages.dashboard.checkOut")}
+              </span>
             </Button>
           </div>
         </div>
@@ -908,7 +914,7 @@ function ManagerDashboard({
   const { t } = useTranslation();
   return (
     <div className="space-y-4">
-      <div className="aw-enter-delayed grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+      <div className="aw-enter-delayed grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         <StatCard
           label={t("pages.dashboard.teamPresent")}
           value={data.present}
@@ -993,7 +999,7 @@ function HRDashboard({
   const navigate = useNavigate();
   return (
     <div className="space-y-4">
-      <div className="aw-enter-delayed grid grid-cols-2 gap-3 min-[480px]:grid-cols-3 lg:grid-cols-6">
+      <div className="aw-enter-delayed grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 min-[480px]:grid-cols-3 lg:grid-cols-6">
         <StatCard label={t("pages.dashboard.totalEmployees")} value={data.total} icon={Users} />
         <StatCard
           label={t("pages.dashboard.presentToday")}
@@ -1193,7 +1199,7 @@ function CEODashboard({
     <div className="space-y-5">
       <section aria-labelledby="executive-summary-title">
         <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-          <div>
+          <div className="min-w-0">
             <h2 id="executive-summary-title" className="text-base font-semibold tracking-tight">
               {t("pages.dashboard.executiveSummary")}
             </h2>
@@ -1201,11 +1207,11 @@ function CEODashboard({
               {t("pages.dashboard.executiveHelp")}
             </p>
           </div>
-          <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+          <p className="shrink-0 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
             {t("pages.dashboard.attendanceAccounted", { pct: attendanceCoverage })}
           </p>
         </div>
-        <div className="aw-enter-delayed grid grid-cols-2 gap-3 min-[480px]:grid-cols-3 xl:grid-cols-6">
+        <div className="aw-enter-delayed grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 min-[480px]:grid-cols-3 xl:grid-cols-6">
           <StatCard label={t("pages.dashboard.totalWorkforce")} value={data.total} icon={Users} />
           <StatCard
             label={t("pages.dashboard.presentToday")}
@@ -1474,7 +1480,7 @@ function AdminDashboard({
   const { t } = useTranslation();
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         <StatCard label={t("pages.dashboard.totalUsers")} value={data.users} icon={Users} />
         <StatCard label={t("pages.dashboard.totalEmployees")} value={data.total} icon={UserCheck} />
         <StatCard label={t("pages.dashboard.branches")} value={data.branches} icon={Building2} />
@@ -1524,9 +1530,11 @@ function BranchFieldAttendanceCard({
           <p className="text-sm text-muted-foreground">{t("pages.dashboard.noLocationData")}</p>
         ) : (
           branchPresentCounts.map(({ branch, present }) => (
-            <div key={branch.id} className="flex items-center justify-between text-sm">
-              <span className="font-medium">{formatBranchLocationLabel(branch)}</span>
-              <span className="text-muted-foreground">
+            <div key={branch.id} className="flex items-center justify-between gap-3 text-sm">
+              <span className="min-w-0 truncate font-medium">
+                {formatBranchLocationLabel(branch)}
+              </span>
+              <span className="shrink-0 text-muted-foreground">
                 {t("pages.dashboard.nPresent", { count: present })}
               </span>
             </div>
@@ -1559,13 +1567,13 @@ function RecentAttendanceCard({ rows }: { rows: AttendanceRecord[] }) {
               key={a.id}
               className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-sm"
             >
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">{a.employeeName}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="truncate text-xs text-muted-foreground">
                   {formatDisplayDate(a.date)} · {a.source} · {a.deviceName ?? a.address ?? "-"}
                 </p>
               </div>
-              <StatusBadge status={a.status} />
+              <StatusBadge status={a.status} className="shrink-0" />
             </div>
           ))
         )}
@@ -1801,9 +1809,10 @@ function UpcomingBirthdaysCard({
 
   return (
     <Card className="h-full">
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          <Cake className="h-4 w-4 text-primary" /> {t("pages.dashboard.upcomingBirthdays")}
+      <CardHeader className="flex flex-col items-start gap-1 pb-2 sm:flex-row sm:items-center sm:justify-between">
+        <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+          <Cake className="h-4 w-4 shrink-0 text-primary" />{" "}
+          <span className="min-w-0">{t("pages.dashboard.upcomingBirthdays")}</span>
         </CardTitle>
         <span className="text-xs text-muted-foreground">
           {t("pages.dashboard.nextNDays", { count: BIRTHDAY_LOOKAHEAD_DAYS })}

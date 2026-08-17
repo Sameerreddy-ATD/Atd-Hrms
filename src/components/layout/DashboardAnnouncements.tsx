@@ -41,7 +41,7 @@ export function DashboardAnnouncements({ className }: { className?: string }) {
       )}
       aria-label={t("announcements.title")}
     >
-      <div className="flex items-center justify-between gap-3 border-b border-border/80 px-4 py-3 sm:px-5">
+      <div className="flex flex-col gap-2 border-b border-border/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
         <div className="flex min-w-0 items-center gap-2">
           <span className="rounded-lg bg-primary/10 p-1.5 text-primary">
             <Megaphone className="h-4 w-4" />
@@ -51,7 +51,7 @@ export function DashboardAnnouncements({ className }: { className?: string }) {
             <p className="text-xs text-muted-foreground">{t("announcements.dashboardHelp")}</p>
           </div>
         </div>
-        <Button asChild variant="ghost" size="sm" className="shrink-0">
+        <Button asChild variant="ghost" size="sm" className="h-9 w-full shrink-0 sm:w-auto">
           <Link to="/announcements">
             {t("announcements.viewAll")} <ArrowRight className="ml-1 h-3.5 w-3.5" />
           </Link>

@@ -239,7 +239,7 @@ function AppLayout() {
             className={cn(
               // Grow with page content so <main> remains the scroll container.
               // flex-1 + min-h-0 here trapped tall pages and stopped scrolling.
-              "min-h-full min-w-0 overflow-x-hidden bg-background/95 p-4 pb-6 text-card-foreground sm:rounded-xl sm:border sm:border-border/80 sm:bg-background sm:p-5 sm:pb-5 sm:shadow-sm lg:p-6",
+              "min-h-full min-w-0 max-w-full overflow-x-hidden bg-background/95 p-3 pb-6 text-card-foreground sm:rounded-xl sm:border sm:border-border/80 sm:bg-background sm:p-5 sm:pb-5 sm:shadow-sm lg:p-6",
               pageEnter && "aw-page-enter",
             )}
           >
