@@ -49,6 +49,18 @@ describe("inferLoginRoleFromDepartment", () => {
     expect(inferLoginRoleFromDepartment(null, departments)).toBe("ceo");
   });
 
+  it("maps Chief of Staff unit to CoS", () => {
+    const cos = { id: "cos", name: "Chief of Staff", parentDepartmentId: undefined as undefined };
+    const salesUnderCos = {
+      id: "sales-under-cos",
+      name: "Sales Team",
+      parentDepartmentId: "cos",
+    };
+    const tree = [cos, salesUnderCos];
+    expect(inferLoginRoleFromDepartment(cos, tree)).toBe("chief_of_staff");
+    expect(inferLoginRoleFromDepartment(salesUnderCos, tree)).toBe("sales");
+  });
+
   it("maps Fleet & Driver Team to Bowser Pilot", () => {
     expect(inferLoginRoleFromDepartment(departments[5], departments)).toBe("driver");
   });

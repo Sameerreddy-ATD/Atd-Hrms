@@ -42,6 +42,7 @@ import {
 const CAN_CREATE: Record<Role, Role[]> = {
   developer_admin: [
     "ceo",
+    "chief_of_staff",
     "main_admin",
     "hr",
     "manager",
@@ -53,6 +54,7 @@ const CAN_CREATE: Record<Role, Role[]> = {
   main_admin: [],
   hr: [],
   ceo: [],
+  chief_of_staff: [],
   manager: [],
   employee: [],
   sales: [],
@@ -82,13 +84,15 @@ const WEEK_OFF_OPTIONS: {
 ];
 
 function defaultLevelForRole(role: Role): "HEAD" | "SENIOR" | "JUNIOR" | "MEMBER" {
-  if (role === "ceo" || role === "main_admin" || role === "manager") return "HEAD";
+  if (role === "ceo" || role === "main_admin" || role === "manager" || role === "chief_of_staff")
+    return "HEAD";
   if (role === "hr") return "SENIOR";
   return "MEMBER";
 }
 
 function defaultTitleForRole(role: Role, unitName?: string): string {
   if (role === "ceo") return "CEO";
+  if (role === "chief_of_staff") return "Chief of Staff";
   if (role === "main_admin") return unitName ? `${unitName} Head` : "Administration Head";
   if (role === "hr") return "HR";
   if (role === "manager") return unitName ? `${unitName} Head` : "Department Head";

@@ -55,6 +55,7 @@ const ALL: Role[] = [
   "developer_admin",
   "main_admin",
   "ceo",
+  "chief_of_staff",
   "hr",
   "manager",
   "employee",
@@ -68,8 +69,8 @@ const DRIVER_ROUTES = new Set(["/dashboard", "/attendance/mine", "/profile", "/p
 
 /** HR / admin / CEO — run hire-to-exit operations. */
 const PEOPLE_OPS: Role[] = ["developer_admin", "main_admin", "ceo", "hr"];
-/** People ops plus managers who approve team changes and see joining. */
-const PEOPLE_LEADERS: Role[] = [...PEOPLE_OPS, "manager"];
+/** People ops plus managers / CoS who approve team changes and see joining. */
+const PEOPLE_LEADERS: Role[] = [...PEOPLE_OPS, "manager", "chief_of_staff"];
 
 export const menuGroups: MenuGroup[] = [
   {
@@ -83,7 +84,7 @@ export const menuGroups: MenuGroup[] = [
         label: "Employees",
         to: "/employees",
         icon: Users,
-        roles: ["developer_admin", "main_admin", "ceo", "hr", "manager"],
+        roles: ["developer_admin", "main_admin", "ceo", "hr", "manager", "chief_of_staff"],
       },
       {
         label: "User Logins",
@@ -106,7 +107,7 @@ export const menuGroups: MenuGroup[] = [
         label: "Talent Acquisition",
         to: "/talent",
         icon: UserPlus,
-        roles: ["developer_admin", "main_admin", "ceo", "hr", "manager"],
+        roles: ["developer_admin", "main_admin", "ceo", "hr", "manager", "chief_of_staff"],
       },
       {
         label: "Onboarding",
@@ -153,7 +154,7 @@ export const menuGroups: MenuGroup[] = [
         to: "/attendance/mine",
         icon: CalendarCheck,
         // Punch-capable roles only — CEO does not mark attendance.
-        roles: ["employee", "manager", "hr", "sales", "driver", "field_staff", "main_admin"],
+        roles: ["employee", "manager", "chief_of_staff", "hr", "sales", "driver", "field_staff", "main_admin"],
         requiresEmployeeId: true,
         requiresAttendance: true,
       },
@@ -162,7 +163,7 @@ export const menuGroups: MenuGroup[] = [
         to: "/attendance/locations",
         icon: MapPin,
         // Org-wide for HR/admin/CEO; team heads (any role) via allowReportingManager.
-        roles: ["manager", "hr", "main_admin", "ceo", "developer_admin"],
+        roles: ["manager", "chief_of_staff", "hr", "main_admin", "ceo", "developer_admin"],
         allowReportingManager: true,
       },
       {
@@ -186,7 +187,7 @@ export const menuGroups: MenuGroup[] = [
           "developer_admin",
           "ceo",
           "hr",
-          "manager",
+          "manager", "chief_of_staff",
           "employee",
           "sales",
           "field_staff",
@@ -207,21 +208,21 @@ export const menuGroups: MenuGroup[] = [
         label: "Apply Leave",
         to: "/leave/apply",
         icon: PlaneTakeoff,
-        roles: ["employee", "manager", "hr", "sales", "field_staff", "main_admin"],
+        roles: ["employee", "manager", "chief_of_staff", "hr", "sales", "field_staff", "main_admin"],
         requiresAttendance: true,
       },
       {
         label: "Leave History",
         to: "/leave/history",
         icon: History,
-        roles: ["employee", "manager", "hr", "sales", "field_staff", "main_admin"],
+        roles: ["employee", "manager", "chief_of_staff", "hr", "sales", "field_staff", "main_admin"],
         requiresAttendance: true,
       },
       {
         label: "My Leave Balance",
         to: "/leave/balance",
         icon: CalendarCheck,
-        roles: ["employee", "manager", "hr", "sales", "field_staff", "main_admin"],
+        roles: ["employee", "manager", "chief_of_staff", "hr", "sales", "field_staff", "main_admin"],
         requiresAttendance: true,
       },
       {
@@ -292,7 +293,7 @@ export const menuGroups: MenuGroup[] = [
         label: "ID Card",
         to: "/id-card",
         icon: IdCard,
-        roles: ["employee", "manager", "hr", "sales", "field_staff"],
+        roles: ["employee", "manager", "chief_of_staff", "hr", "sales", "field_staff"],
       },
     ],
   },
@@ -448,6 +449,19 @@ function groupOrderForRole(role: Role): string[] {
         "Me",
         "System",
       ];
+    case "chief_of_staff":
+      return [
+        "Overview",
+        "People",
+        "Hire",
+        "Career",
+        "Attendance",
+        "Leave",
+        "Work",
+        "Company",
+        "Me",
+        "System",
+      ];
     case "main_admin":
       return [
         "Overview",
@@ -578,6 +592,28 @@ function itemOrderForRole(role: Role): string[] {
         "/id-card",
       ];
     case "ceo":
+      return [
+        "/dashboard",
+        "/employees",
+        "/talent",
+        "/onboarding",
+        "/people-changes",
+        "/performance",
+        "/offboarding",
+        "/lms",
+        "/attendance/locations",
+        "/leave/approvals",
+        "/leave/reports",
+        "/tasks",
+        "/employee-services",
+        "/assets",
+        "/announcements",
+        "/notifications",
+        "/my-assets",
+        "/profile",
+        "/preferences",
+      ];
+    case "chief_of_staff":
       return [
         "/dashboard",
         "/employees",

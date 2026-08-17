@@ -84,7 +84,7 @@ export async function assertCanAccessTask(
     return task;
   }
   if (user.role === Role.DEVELOPER_ADMIN) return task;
-  const unrestrictedRoles: Role[] = [Role.MAIN_ADMIN, Role.CEO, Role.HR];
+  const unrestrictedRoles: Role[] = [Role.MAIN_ADMIN, Role.CEO, Role.CHIEF_OF_STAFF, Role.HR];
   if (unrestrictedRoles.includes(user.role)) return task;
 
   const teamIds = user.employeeId ? await getOrganizationTeamEmployeeIds(user.employeeId) : [];

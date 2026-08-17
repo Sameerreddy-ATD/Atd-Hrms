@@ -31,6 +31,7 @@ function resolveRole(unitName, unitPath) {
   const path = (unitPath ?? name).trim().toLowerCase();
   if (!name && !path) return Role.CEO;
   if (name === "executive leadership") return Role.CEO;
+  if (name === "chief of staff" || name === "cos") return Role.CHIEF_OF_STAFF;
   if (
     name.includes("fleet & driver") ||
     path.includes("fleet & driver") ||

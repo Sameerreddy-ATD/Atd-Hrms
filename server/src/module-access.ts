@@ -57,6 +57,22 @@ export const DEFAULT_MODULE_ACCESS: ModuleAccessMatrix = {
     "PERFORMANCE",
     "LMS",
   ],
+  // Chief of Staff: sits under CEO and oversees teams — same workspace breadth as CEO.
+  CHIEF_OF_STAFF: [
+    "DASHBOARD",
+    "PEOPLE",
+    "ATTENDANCE",
+    "TASKS",
+    "EMPLOYEE_REQUESTS",
+    "LEAVE",
+    "COMPANY",
+    "PROFILE",
+    "COMMUNICATIONS",
+    "TALENT",
+    "LIFECYCLE",
+    "PERFORMANCE",
+    "LMS",
+  ],
   HR: [
     "DASHBOARD",
     "PEOPLE",

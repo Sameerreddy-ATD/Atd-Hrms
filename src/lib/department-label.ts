@@ -5,6 +5,9 @@ type DepartmentRef = Pick<Department, "id" | "name" | "parentDepartmentId">;
 /** Org unit for Bowser Pilot (driver) logins — mobile-number portal. */
 export const FLEET_DRIVER_TEAM_NAME = "Fleet & Driver Team";
 
+/** Permanent unit under CEO — maps to the CoS login role. */
+export const CHIEF_OF_STAFF_UNIT_NAME = "Chief of Staff";
+
 /** Create-login option: no department → CEO / company-wide. */
 export const CEO_NO_UNIT_VALUE = "none";
 export const CEO_NO_UNIT_LABEL = "CEO / company-wide (no unit)";
@@ -21,6 +24,7 @@ export function findDepartmentByName(
 /**
  * Login role follows the org unit (heads / managers are assigned under Departments).
  * - No unit → CEO
+ * - Chief of Staff (the CoS unit itself) → CoS
  * - Fleet & Driver Team (unit or ancestor path) → Bowser Pilot
  * - HR units → HR
  * - Sales units → Sales Team
@@ -33,6 +37,11 @@ export function inferLoginRoleFromDepartment(
   if (!department) return "ceo";
   const path = formatDepartmentPath(department, departments).toLowerCase();
   const name = department.name.trim().toLowerCase();
+
+  // Only the CoS unit itself — not every team under CoS.
+  if (name === "chief of staff" || name === "cos") {
+    return "chief_of_staff";
+  }
 
   if (name.includes("fleet & driver") || path.includes("fleet & driver")) {
     return "driver";

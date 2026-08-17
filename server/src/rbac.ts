@@ -20,6 +20,7 @@ const creationRules: Record<Role, Role[]> = {
   DEVELOPER_ADMIN: Object.values(Role),
   MAIN_ADMIN: [],
   CEO: [],
+  CHIEF_OF_STAFF: [],
   HR: [],
   MANAGER: [],
   EMPLOYEE: [],
@@ -77,6 +78,11 @@ export function resolveTargetLoginRole(input: {
 
   // Legacy top-level CEO bucket (pre "no unit" create path).
   if (name === "executive leadership") return Role.CEO;
+
+  // Only the CoS unit itself — not teams under Chief of Staff.
+  if (name === "chief of staff" || name === "cos") {
+    return Role.CHIEF_OF_STAFF;
+  }
 
   if (
     name.includes("fleet & driver") ||
@@ -243,6 +249,7 @@ const ORG_WIDE_ATTENDANCE_ROLES: Role[] = [
   Role.MAIN_ADMIN,
   Role.DEVELOPER_ADMIN,
   Role.CEO,
+  Role.CHIEF_OF_STAFF,
 ];
 
 /** HR/admin/CEO see org-wide attendance; managers and org heads see their team only. */
@@ -337,7 +344,8 @@ export async function assertEmployeeAccess(viewer: Express.Request["user"], empl
     viewer.role === Role.DEVELOPER_ADMIN ||
     viewer.role === Role.MAIN_ADMIN ||
     viewer.role === Role.HR ||
-    viewer.role === Role.CEO
+    viewer.role === Role.CEO ||
+    viewer.role === Role.CHIEF_OF_STAFF
   ) {
     return;
   }

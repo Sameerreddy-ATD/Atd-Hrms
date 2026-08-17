@@ -2589,6 +2589,7 @@ export function createApp() {
       const employeeRoles = [
         Role.MAIN_ADMIN,
         Role.CEO,
+        Role.CHIEF_OF_STAFF,
         Role.HR,
         Role.MANAGER,
         Role.EMPLOYEE,
@@ -6361,8 +6362,20 @@ export function createApp() {
   }
 
   async function taskScope(user: NonNullable<express.Request["user"]>) {
-    const unrestrictedRoles: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.CEO, Role.HR];
-    const assignmentAdminRoles: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.CEO, Role.HR];
+    const unrestrictedRoles: Role[] = [
+      Role.DEVELOPER_ADMIN,
+      Role.MAIN_ADMIN,
+      Role.CEO,
+      Role.CHIEF_OF_STAFF,
+      Role.HR,
+    ];
+    const assignmentAdminRoles: Role[] = [
+      Role.DEVELOPER_ADMIN,
+      Role.MAIN_ADMIN,
+      Role.CEO,
+      Role.CHIEF_OF_STAFF,
+      Role.HR,
+    ];
     const unrestricted = unrestrictedRoles.includes(user.role);
     const teamIds = user.employeeId ? await getOrganizationTeamEmployeeIds(user.employeeId) : [];
     const visibleIds = unrestricted

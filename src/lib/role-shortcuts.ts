@@ -226,6 +226,40 @@ export function shortcutsForRole(
         announcements,
         notifications,
       ];
+    case "chief_of_staff":
+      return [
+        {
+          label: "Workforce",
+          to: "/employees",
+          description: "Company headcount",
+          icon: Users,
+        },
+        {
+          label: "Attendance overview",
+          to: "/attendance/locations",
+          description: "Day logs and movement",
+          icon: MapPin,
+        },
+        {
+          label: "Leave overview",
+          to: "/leave/reports",
+          description: "Leave status company-wide",
+          icon: FileText,
+        },
+        ...(options?.isReportingManager
+          ? [
+              {
+                label: "Leave approvals",
+                to: "/leave/approvals",
+                description: "Approve unit leave",
+                icon: BadgeCheck,
+              } satisfies RoleShortcut,
+            ]
+          : []),
+        tasks,
+        announcements,
+        notifications,
+      ];
     case "main_admin":
       return [
         {

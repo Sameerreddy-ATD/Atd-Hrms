@@ -60,6 +60,15 @@ describe("resolveTargetLoginRole", () => {
     ).toBe(Role.EMPLOYEE);
   });
 
+  it("maps Chief of Staff unit to CoS", () => {
+    expect(
+      resolveTargetLoginRole({
+        unitName: "Chief of Staff",
+        unitPath: "Chief of Staff",
+      }),
+    ).toBe(Role.CHIEF_OF_STAFF);
+  });
+
   it("maps Fleet, HR, and Sales units from name or path", () => {
     expect(
       resolveTargetLoginRole({

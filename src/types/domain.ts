@@ -5,6 +5,7 @@ export type Role =
   | "developer_admin"
   | "main_admin"
   | "ceo"
+  | "chief_of_staff"
   | "hr"
   | "manager"
   | "employee"
@@ -46,6 +47,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   developer_admin: "Developer Admin",
   main_admin: "Admin",
   ceo: "CEO",
+  chief_of_staff: "CoS",
   hr: "HR",
   manager: "Manager",
   employee: "Team Member",
