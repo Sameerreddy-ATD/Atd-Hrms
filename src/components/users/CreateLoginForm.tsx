@@ -31,6 +31,7 @@ import {
 } from "@/types/domain";
 import { branchesApi, employeesApi, usersApi } from "@/services/api";
 import { formatBranchLocationLabel } from "@/lib/branch-label";
+import { formatDepartmentPath } from "@/lib/department-label";
 
 const CAN_CREATE: Record<Role, Role[]> = {
   developer_admin: [
@@ -581,7 +582,7 @@ export function CreateLoginForm({
                         <SelectItem value="none">Use main unit</SelectItem>
                         {childUnits.map((unit) => (
                           <SelectItem key={unit.id} value={unit.id}>
-                            {unit.name}
+                            {formatDepartmentPath(unit, departments)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -651,11 +652,9 @@ export function CreateLoginForm({
                   {ROLE_LABELS[role]}
                   {isCeo
                     ? " · company-wide access · sits above departments"
-                    : selectedUnit?.parentDepartmentId
-                      ? ` · ${departments.find((unit) => unit.id === selectedUnit.parentDepartmentId)?.name ?? "Organization"} / ${selectedUnit.name}`
-                      : selectedUnit?.name
-                        ? ` · ${selectedUnit.name}`
-                        : " · choose a unit to continue"}
+                    : selectedUnit
+                      ? ` · ${formatDepartmentPath(selectedUnit, departments)}`
+                      : " · choose a unit to continue"}
                 </p>
               </div>
             </FormSection>

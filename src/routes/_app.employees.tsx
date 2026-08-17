@@ -48,6 +48,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { EmergencyContactSection } from "@/components/profile/EmergencyContactSection";
 import { formatBranchLocationLabel, formatBranchLocationLabelById } from "@/lib/branch-label";
+import { formatDepartmentPath } from "@/lib/department-label";
 
 export const Route = createFileRoute("/_app/employees")({
   component: EmployeesPage,
@@ -343,14 +344,14 @@ function EmployeesPage() {
           </SelectContent>
         </Select>
         <Select value={dept} onValueChange={setDept}>
-          <SelectTrigger className="sm:w-44">
+          <SelectTrigger className="sm:w-64">
             <SelectValue placeholder={t("pages.employees.filterDepartment")} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("pages.employees.allDepartments")}</SelectItem>
             {visibleDepartments.map((d) => (
               <SelectItem key={d.id} value={d.id}>
-                {d.name}
+                {formatDepartmentPath(d, departments)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -608,7 +609,7 @@ function EmployeesPage() {
                     <SelectContent>
                       {departments.map((d) => (
                         <SelectItem key={d.id} value={d.id}>
-                          {d.name}
+                          {formatDepartmentPath(d, departments)}
                         </SelectItem>
                       ))}
                     </SelectContent>

@@ -11,6 +11,7 @@ import {
   type WeeklyOffPolicy,
 } from "@/types/domain";
 import { branchLookupKey, formatBranchLocationLabelById } from "@/lib/branch-label";
+import { formatDepartmentPath } from "@/lib/department-label";
 
 export const LOGIN_SHEET_NAME = "Create Logins";
 
@@ -346,13 +347,10 @@ export function childUnitChoices(departments: Department[]) {
   return departments
     .filter((department) => department.parentDepartmentId)
     .map((department) => {
-      const parent = departments.find(
-        (candidate) => candidate.id === department.parentDepartmentId,
-      );
       return {
         id: department.id,
         parentId: department.parentDepartmentId!,
-        label: `${parent?.name ?? "Parent"} > ${department.name}`,
+        label: formatDepartmentPath(department, departments),
       };
     });
 }
@@ -717,7 +715,9 @@ export function employeeToEditRow(
     ? context.departments.find((item) => item.id === department.parentDepartmentId)
     : undefined;
   const mainUnitName = parent?.name ?? department?.name ?? "";
-  const childUnitName = parent ? `${parent.name} > ${department?.name ?? ""}` : "Use main unit";
+  const childUnitName = parent
+    ? formatDepartmentPath(department, context.departments)
+    : "Use main unit";
   const branchName =
     formatBranchLocationLabelById(
       context.branches,

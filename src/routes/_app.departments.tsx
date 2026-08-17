@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/dialog";
 import type { Department, User } from "@/types/domain";
 import { useAuth } from "@/lib/auth";
+import { formatDepartmentPath, formatDepartmentPathById } from "@/lib/department-label";
 import { branchesApi, employeesApi } from "@/services/api";
 import {
   ChevronDown,
@@ -867,8 +868,9 @@ function DeptPage() {
                     {(d.unitType ?? "TEAM").toLowerCase()}
                   </TableCell>
                   <TableCell>
-                    {departments.find((parent) => parent.id === d.parentDepartmentId)?.name ??
-                      "CEO"}
+                    {d.parentDepartmentId
+                      ? formatDepartmentPathById(departments, d.parentDepartmentId)
+                      : "CEO"}
                   </TableCell>
                   <TableCell>{headsLabel(d, t("pages.departments.headNotAssigned"))}</TableCell>
                   <TableCell className="text-right">
@@ -910,7 +912,7 @@ function DeptPage() {
                   : isCreateTopLevel
                     ? t("pages.departments.createUnit")
                     : parentDepartmentId !== "none"
-                      ? `Add under ${departments.find((item) => item.id === parentDepartmentId)?.name ?? "unit"}`
+                      ? `Add under ${formatDepartmentPathById(departments, parentDepartmentId, "unit")}`
                       : t("pages.departments.addUnit")}
             </DialogTitle>
             <DialogDescription>
@@ -974,18 +976,27 @@ function DeptPage() {
                         .filter((item) => item.id !== editing.id && !isExecutiveLeadership(item))
                         .map((item) => (
                           <SelectItem key={item.id} value={item.id}>
-                            {item.name}
+                            {formatDepartmentPath(item, departments)}
                           </SelectItem>
                         ))}
                     </SelectContent>
                   </Select>
+                  <p className="break-words text-xs text-muted-foreground">
+                    {name.trim()
+                      ? parentDepartmentId === "none"
+                        ? `Full path: ${name.trim()}`
+                        : `Full path: ${formatDepartmentPathById(departments, parentDepartmentId)} / ${name.trim()}`
+                      : parentDepartmentId === "none"
+                        ? t("pages.departments.ceoTopLevel")
+                        : `Under ${formatDepartmentPathById(departments, parentDepartmentId)}`}
+                  </p>
                 </div>
               </>
             ) : !assignCeoHeads && !isCreateTopLevel ? (
               <div className="rounded-md border border-border bg-muted/40 px-3 py-2.5">
                 <p className="text-xs font-medium text-muted-foreground">Adding under</p>
                 <p className="mt-1 text-sm font-semibold text-foreground">
-                  {departments.find((item) => item.id === parentDepartmentId)?.name}
+                  {formatDepartmentPathById(departments, parentDepartmentId)}
                 </p>
               </div>
             ) : isCreateTopLevel ? (

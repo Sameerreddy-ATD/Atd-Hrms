@@ -45,6 +45,7 @@ import {
   timeToMinutes,
 } from "@/lib/lifecycle";
 import { formatBranchLocationLabel } from "@/lib/branch-label";
+import { formatDepartmentPath } from "@/lib/department-label";
 import { branchesApi, employeesApi, lifecycleApi } from "@/services/api";
 import type { Branch, Department, User } from "@/types/domain";
 
@@ -422,7 +423,7 @@ function PeopleChangesPage() {
                   <SelectContent>
                     {departments.map((department) => (
                       <SelectItem key={department.id} value={department.id}>
-                        {department.name}
+                        {formatDepartmentPath(department, departments)}
                       </SelectItem>
                     ))}
                   </SelectContent>
