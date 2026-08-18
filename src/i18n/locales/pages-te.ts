@@ -618,7 +618,7 @@ const pages = {
     applyLeave: "సెలవు apply",
   },
   dayLogs: {
-    title: "రోజు లాగ్‌లు",
+    title: "రోజువారీ లాగ్‌లు",
     subtitle: "ఎంచుకున్న పే పీరియడ్ (21 నుండి 20) నుండి నేటి వరకు మీ టీమ్ రోజువారీ హాజరు ట్రాక్ చేయండి. ఏ తేదీనైనా expand చేసి ప్రతి punch క్రమంలో చూడండి.",
     filters: "Filters",
     filtersHelp: "employee మరియు పే పీరియడ్ ఎంచుకోండి. filters మార్చినప్పుడు results update అవుతాయి.",

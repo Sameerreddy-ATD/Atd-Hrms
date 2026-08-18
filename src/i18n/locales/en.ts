@@ -79,7 +79,7 @@ const en = {
     "offboarding": "Offboarding",
     "lms": "Learning",
     "myAttendance": "My Attendance",
-    "attendanceLocations": "Attendance Locations",
+    "attendanceLocations": "Daily Logs",
     "attendanceCorrections": "Corrections",
     "missedPunch": "Missed Punch",
     "fieldAttendance": "Field Attendance",

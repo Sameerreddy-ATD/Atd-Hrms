@@ -130,7 +130,7 @@ const pages = {
     pendingLeaveRequests: "Pending leave requests",
     missedPunch: "Missed punch",
     fieldPresent: "Field present",
-    dayLogs: "Day logs",
+    dayLogs: "Daily Logs",
     leaveRequests: "Leave requests",
     viewAll: "View all",
     noPendingLeave: "No pending leave requests.",
@@ -620,7 +620,7 @@ const pages = {
     applyLeave: "Apply leave",
   },
   dayLogs: {
-    title: "Day Logs",
+    title: "Daily Logs",
     subtitle: "Track your team's day-wise attendance for the selected pay period (21st to 20th), through today. Expand any date for every punch in order.",
     filters: "Filters",
     filtersHelp: "Choose employee and pay period. Results update as you change filters.",

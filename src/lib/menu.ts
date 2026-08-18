@@ -159,7 +159,7 @@ export const menuGroups: MenuGroup[] = [
         requiresAttendance: true,
       },
       {
-        label: "Day Logs",
+        label: "Daily Logs",
         to: "/attendance/locations",
         icon: MapPin,
         // Org-wide for HR/admin/CEO; team heads (any role) via allowReportingManager.
@@ -369,7 +369,7 @@ export function menuForRole(
           if (role !== "ceo") return item;
           const executiveLabels: Record<string, string> = {
             "/employees": "Workforce",
-            "/attendance/locations": "Attendance Overview",
+            "/attendance/locations": "Daily Logs",
             "/tasks": "Work Planner",
             "/leave/reports": "Leave Overview",
             "/assets": "Asset Management",

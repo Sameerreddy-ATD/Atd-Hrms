@@ -79,7 +79,7 @@ const te = {
     "offboarding": "ఆఫ్‌బోర్డింగ్",
     "lms": "లెర్నింగ్",
     "myAttendance": "నా హాజరు",
-    "attendanceLocations": "హాజరు స్థలాలు",
+    "attendanceLocations": "రోజువారీ లాగ్‌లు",
     "attendanceCorrections": "సవరణలు",
     "missedPunch": "మిస్డ్ పంచ్",
     "fieldAttendance": "ఫీల్డ్ హాజరు",

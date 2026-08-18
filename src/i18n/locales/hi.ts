@@ -79,7 +79,7 @@ const hi = {
     "offboarding": "ऑफ़बोर्डिंग",
     "lms": "लर्निंग",
     "myAttendance": "मेरी हाज़िरी",
-    "attendanceLocations": "हाज़िरी स्थान",
+    "attendanceLocations": "दैनिक लॉग",
     "attendanceCorrections": "सुधार",
     "missedPunch": "मिस्ड पंच",
     "fieldAttendance": "फ़ील्ड हाज़िरी",

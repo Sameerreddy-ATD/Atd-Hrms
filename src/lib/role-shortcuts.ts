@@ -99,7 +99,7 @@ export function shortcutsForRole(
         ...(options?.isReportingManager
           ? [
               {
-                label: "Team day logs",
+                label: "Team daily logs",
                 to: "/attendance/locations",
                 description: "Track your team's attendance",
                 icon: MapPin,
@@ -124,7 +124,7 @@ export function shortcutsForRole(
         attendance,
         myAttendance,
         {
-          label: "Team day logs",
+          label: "Team daily logs",
           to: "/attendance/locations",
           description: "Track your team's attendance",
           icon: MapPin,
@@ -154,7 +154,7 @@ export function shortcutsForRole(
           icon: Users,
         },
         {
-          label: "Day logs",
+          label: "Daily Logs",
           to: "/attendance/locations",
           description: "Track team attendance by day",
           icon: MapPin,
@@ -203,7 +203,7 @@ export function shortcutsForRole(
         {
           label: "Attendance overview",
           to: "/attendance/locations",
-          description: "Day logs and movement",
+          description: "Daily Logs and movement",
           icon: MapPin,
         },
         {
@@ -237,7 +237,7 @@ export function shortcutsForRole(
         {
           label: "Attendance overview",
           to: "/attendance/locations",
-          description: "Day logs and movement",
+          description: "Daily Logs and movement",
           icon: MapPin,
         },
         {
@@ -269,7 +269,7 @@ export function shortcutsForRole(
           icon: Users,
         },
         {
-          label: "Day logs",
+          label: "Daily Logs",
           to: "/attendance/locations",
           description: "Attendance operations",
           icon: MapPin,
@@ -319,7 +319,7 @@ export function shortcutsForRole(
           icon: UserCog,
         },
         {
-          label: "Day logs",
+          label: "Daily Logs",
           to: "/attendance/locations",
           description: "Track team attendance by day",
           icon: MapPin,
