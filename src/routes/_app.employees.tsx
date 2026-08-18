@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -34,7 +34,7 @@ import type {
 } from "@/types/domain";
 import { COMPANY_LABELS, ROLE_LABELS, WEEKLY_OFF_POLICY_LABELS } from "@/types/domain";
 import { branchesApi, employeesApi, shiftsApi } from "@/services/api";
-import { Search, Pencil, UserCog } from "lucide-react";
+import { Search, Pencil, UserCog, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { formatDisplayDate, indiaDateKey } from "@/lib/india-date";
 import {
@@ -48,7 +48,20 @@ import {
 import { Label } from "@/components/ui/label";
 import { EmergencyContactSection } from "@/components/profile/EmergencyContactSection";
 import { formatBranchLocationLabel, formatBranchLocationLabelById } from "@/lib/branch-label";
-import { formatDepartmentPath } from "@/lib/department-label";
+import { formatDepartmentPath, formatDepartmentPathById } from "@/lib/department-label";
+import {
+  buildUnitSubtree,
+  hasUnassignedDesignation,
+  hasUnassignedLocation,
+  hasUnassignedUnit,
+  matchesDirectoryPerson,
+  occupiedBranchOptions,
+  occupiedCompanyOptions,
+  occupiedDesignations,
+  occupiedEmploymentTypes,
+  occupiedUnitOptions,
+  type DirectoryFilters,
+} from "@/lib/directory-filters";
 
 export const Route = createFileRoute("/_app/employees")({
   component: EmployeesPage,
@@ -79,6 +92,9 @@ function EmployeesPage() {
   const [q, setQ] = useState("");
   const [branch, setBranch] = useState("all");
   const [dept, setDept] = useState("all");
+  const [company, setCompany] = useState("all");
+  const [designation, setDesignation] = useState("all");
+  const [employmentType, setEmploymentType] = useState("all");
 
   const [editingEmployee, setEditingEmployee] = useState<User | null>(null);
   const [hrManagingEmployee, setHrManagingEmployee] = useState<User | null>(null);
@@ -101,6 +117,7 @@ function EmployeesPage() {
     aadhaarNumber: "",
     uanNumber: "",
     dateOfBirth: "",
+    joiningDate: "",
     gender: "PREFER_NOT_TO_SAY" as "FEMALE" | "MALE" | "PREFER_NOT_TO_SAY",
     employmentType: "FULL_TIME" as "FULL_TIME" | "PART_TIME" | "INTERN",
     organizationLevel: "MEMBER" as "HEAD" | "SENIOR" | "JUNIOR" | "MEMBER",
@@ -197,6 +214,7 @@ function EmployeesPage() {
       aadhaarNumber: fullEmployee.aadhaarNumber || "",
       uanNumber: fullEmployee.uanNumber || "",
       dateOfBirth: fullEmployee.dateOfBirth || "",
+      joiningDate: fullEmployee.joiningDate || "",
       gender: fullEmployee.gender || "PREFER_NOT_TO_SAY",
       employmentType: fullEmployee.employmentType || "FULL_TIME",
       organizationLevel: fullEmployee.organizationLevel || "MEMBER",
@@ -231,6 +249,7 @@ function EmployeesPage() {
         aadhaarNumber: editForm.aadhaarNumber || undefined,
         uanNumber: editForm.uanNumber || undefined,
         dateOfBirth: editForm.dateOfBirth || undefined,
+        joiningDate: editForm.joiningDate || undefined,
         gender: editForm.gender,
         employmentType: editForm.employmentType,
         organizationLevel: editForm.organizationLevel,
@@ -254,22 +273,23 @@ function EmployeesPage() {
     }
   }
 
-  const rows = useMemo(
-    () =>
-      employees
-        .filter((u) => u.employeeId)
-        .filter((u) => {
-          if (q && !`${u.name} ${u.email} ${u.employeeId}`.toLowerCase().includes(q.toLowerCase()))
-            return false;
-          if (branch !== "all" && u.homeBranchId !== branch) return false;
-          if (dept === "none") {
-            if (u.departmentId) return false;
-          } else if (dept !== "all" && u.departmentId !== dept && u.department !== dept) {
-            return false;
-          }
-          return true;
-        }),
-    [q, branch, dept, employees],
+  const directoryPeople = useMemo(
+    () => employees.filter((employee) => employee.employeeId),
+    [employees],
+  );
+  const directoryFilters: DirectoryFilters = useMemo(
+    () => ({
+      company,
+      branch,
+      unit: dept,
+      designation,
+      employmentType,
+    }),
+    [company, branch, dept, designation, employmentType],
+  );
+  const unitSubtree = useMemo(
+    () => buildUnitSubtree(departments, dept),
+    [departments, dept],
   );
 
   const visibleDepartments = useMemo(() => {
@@ -280,6 +300,122 @@ function EmployeesPage() {
       (department) => allowedIds.has(department.id) || allowedNames.has(department.name),
     );
   }, [canSeeCompanyDirectory, departments, employees]);
+
+  const facetedPeople = useCallback(
+    (skip?: keyof DirectoryFilters) =>
+      directoryPeople.filter((person) =>
+        matchesDirectoryPerson(person, directoryFilters, unitSubtree, skip),
+      ),
+    [directoryPeople, directoryFilters, unitSubtree],
+  );
+
+  const companyOptions = useMemo(
+    () => occupiedCompanyOptions(facetedPeople("company")),
+    [facetedPeople],
+  );
+  const branchOptions = useMemo(
+    () => occupiedBranchOptions(facetedPeople("branch"), branches),
+    [facetedPeople, branches],
+  );
+  const unitOptions = useMemo(
+    () => occupiedUnitOptions(facetedPeople("unit"), visibleDepartments),
+    [facetedPeople, visibleDepartments],
+  );
+  const designationOptions = useMemo(
+    () => occupiedDesignations(facetedPeople("designation")),
+    [facetedPeople],
+  );
+  const employmentTypeOptions = useMemo(
+    () => occupiedEmploymentTypes(facetedPeople("employmentType")),
+    [facetedPeople],
+  );
+  const showUnassignedLocation = useMemo(
+    () => hasUnassignedLocation(facetedPeople("branch")),
+    [facetedPeople],
+  );
+  const showUnassignedUnit = useMemo(
+    () => hasUnassignedUnit(facetedPeople("unit")),
+    [facetedPeople],
+  );
+  const showUnassignedDesignation = useMemo(
+    () => hasUnassignedDesignation(facetedPeople("designation")),
+    [facetedPeople],
+  );
+
+  const rows = useMemo(() => {
+    const search = q.trim().toLowerCase();
+    return facetedPeople().filter((person) => {
+      if (!search) return true;
+      const companyLabel = person.companyEntity ? COMPANY_LABELS[person.companyEntity] : "";
+      const unitLabel = formatDepartmentPathById(
+        departments,
+        person.departmentId || person.department,
+        "",
+      );
+      return `${person.name} ${person.email} ${person.employeeCode ?? ""} ${person.employeeId ?? ""} ${person.phone ?? ""} ${person.companyPhone ?? ""} ${person.designation ?? ""} ${companyLabel} ${unitLabel}`
+        .toLowerCase()
+        .includes(search);
+    });
+  }, [facetedPeople, q, departments]);
+
+  const filtersActive =
+    Boolean(q.trim()) ||
+    company !== "all" ||
+    branch !== "all" ||
+    dept !== "all" ||
+    designation !== "all" ||
+    employmentType !== "all";
+
+  useEffect(() => {
+    if (company !== "all" && !companyOptions.includes(company as (typeof companyOptions)[number])) {
+      setCompany("all");
+    }
+  }, [company, companyOptions]);
+
+  useEffect(() => {
+    if (branch === "all") return;
+    if (branch === "none") {
+      if (!showUnassignedLocation) setBranch("all");
+      return;
+    }
+    if (!branchOptions.some((row) => row.id === branch)) setBranch("all");
+  }, [branch, branchOptions, showUnassignedLocation]);
+
+  useEffect(() => {
+    if (dept === "all") return;
+    if (dept === "none") {
+      if (!showUnassignedUnit) setDept("all");
+      return;
+    }
+    if (!unitOptions.some((row) => row.id === dept)) setDept("all");
+  }, [dept, unitOptions, showUnassignedUnit]);
+
+  useEffect(() => {
+    if (designation === "all") return;
+    if (designation === "none") {
+      if (!showUnassignedDesignation) setDesignation("all");
+      return;
+    }
+    if (!designationOptions.includes(designation)) setDesignation("all");
+  }, [designation, designationOptions, showUnassignedDesignation]);
+
+  useEffect(() => {
+    if (
+      employmentType !== "all" &&
+      !employmentTypeOptions.includes(employmentType as (typeof employmentTypeOptions)[number])
+    ) {
+      setEmploymentType("all");
+    }
+  }, [employmentType, employmentTypeOptions]);
+
+  function clearDirectoryFilters() {
+    setQ("");
+    setCompany("all");
+    setBranch("all");
+    setDept("all");
+    setDesignation("all");
+    setEmploymentType("all");
+  }
 
   return (
     <div>
@@ -311,13 +447,29 @@ function EmployeesPage() {
             className="pl-8"
           />
         </div>
+        <Select value={company} onValueChange={setCompany}>
+          <SelectTrigger className="sm:w-52" aria-label={t("pages.employees.filterCompany")}>
+            <SelectValue placeholder={t("pages.employees.filterCompany")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("pages.employees.allCompanies")}</SelectItem>
+            {companyOptions.map((value) => (
+              <SelectItem key={value} value={value}>
+                {COMPANY_LABELS[value]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={branch} onValueChange={setBranch}>
-          <SelectTrigger className="sm:w-44">
+          <SelectTrigger className="sm:w-44" aria-label={t("pages.employees.filterBranch")}>
             <SelectValue placeholder={t("pages.employees.filterBranch")} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("pages.employees.allLocations")}</SelectItem>
-            {branches.map((b) => (
+            {showUnassignedLocation && (
+              <SelectItem value="none">{t("pages.employees.notAssigned")}</SelectItem>
+            )}
+            {branchOptions.map((b) => (
               <SelectItem key={b.id} value={b.id}>
                 {formatBranchLocationLabel(b)}
               </SelectItem>
@@ -325,20 +477,65 @@ function EmployeesPage() {
           </SelectContent>
         </Select>
         <Select value={dept} onValueChange={setDept}>
-          <SelectTrigger className="sm:w-64">
+          <SelectTrigger className="sm:w-64" aria-label={t("pages.employees.filterDepartment")}>
             <SelectValue placeholder={t("pages.employees.filterDepartment")} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("pages.employees.allDepartments")}</SelectItem>
-            <SelectItem value="none">{t("pages.employees.noDepartmentCeo")}</SelectItem>
-            {visibleDepartments.map((d) => (
+            {showUnassignedUnit && (
+              <SelectItem value="none">{t("pages.employees.noDepartmentCeo")}</SelectItem>
+            )}
+            {unitOptions.map((d) => (
               <SelectItem key={d.id} value={d.id}>
                 {formatDepartmentPath(d, departments)}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
+        <Select value={designation} onValueChange={setDesignation}>
+          <SelectTrigger className="sm:w-52" aria-label={t("pages.employees.filterDesignation")}>
+            <SelectValue placeholder={t("pages.employees.filterDesignation")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("pages.employees.allDesignations")}</SelectItem>
+            {showUnassignedDesignation && (
+              <SelectItem value="none">{t("pages.employees.notAssigned")}</SelectItem>
+            )}
+            {designationOptions.map((value) => (
+              <SelectItem key={value} value={value}>
+                {value}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={employmentType} onValueChange={setEmploymentType}>
+          <SelectTrigger className="sm:w-44" aria-label={t("pages.employees.filterEmploymentType")}>
+            <SelectValue placeholder={t("pages.employees.filterEmploymentType")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("pages.employees.allEmploymentTypes")}</SelectItem>
+            {employmentTypeOptions.map((value) => (
+              <SelectItem key={value} value={value}>
+                {employmentTypeLabel(value)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {filtersActive && (
+          <Button variant="ghost" size="sm" onClick={clearDirectoryFilters}>
+            <X className="h-4 w-4" />
+            {t("pages.employees.clearFilters")}
+          </Button>
+        )}
       </TableToolbar>
+      {!loading && (
+        <p className="mb-3 text-xs text-muted-foreground">
+          {t("pages.employees.showingCount", {
+            shown: rows.length,
+            total: directoryPeople.length,
+          })}
+        </p>
+      )}
 
       <div className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="space-y-2 p-3 md:hidden">
@@ -351,6 +548,11 @@ function EmployeesPage() {
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{employee.name}</p>
                   <p className="truncate text-xs text-muted-foreground">{employee.email}</p>
+                  {employee.employmentType && employee.employmentType !== "FULL_TIME" && (
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {employmentTypeLabel(employee.employmentType)}
+                    </p>
+                  )}
                 </div>
                 <EmployeeAccountStatus employee={employee} />
               </div>
@@ -360,16 +562,23 @@ function EmployeesPage() {
                   <p className="mt-0.5 font-mono">{employee.employeeCode ?? employee.employeeId}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">{t("common.role")}</p>
-                  <p className="mt-0.5">{ROLE_LABELS[employee.role]}</p>
+                  <p className="text-muted-foreground">{t("pages.employees.company")}</p>
+                  <p className="mt-0.5 break-words">
+                    {employee.companyEntity ? COMPANY_LABELS[employee.companyEntity] : "-"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">{t("pages.employees.designation")}</p>
+                  <p className="mt-0.5 break-words">{employee.designation || "-"}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">{t("common.department")}</p>
                   <p className="mt-0.5 break-words">
-                    {employee.department ??
-                      (employee.role === "ceo"
+                    {employee.departmentId
+                      ? formatDepartmentPathById(departments, employee.departmentId)
+                      : employee.role === "ceo"
                         ? t("pages.employees.noDepartmentCeo")
-                        : "-")}
+                        : "-"}
                   </p>
                 </div>
                 <div>
@@ -381,6 +590,22 @@ function EmployeesPage() {
                       employee.homeBranchName ?? "-",
                     )}
                   </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">{t("pages.employees.phones")}</p>
+                  <p className="mt-0.5 break-words">
+                    {formatEmployeePhones(employee.phone, employee.companyPhone)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">{t("pages.employees.joined")}</p>
+                  <p className="mt-0.5">
+                    {employee.joiningDate ? formatDisplayDate(employee.joiningDate) : "-"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">{t("common.role")}</p>
+                  <p className="mt-0.5">{ROLE_LABELS[employee.role]}</p>
                 </div>
               </div>
               {canOpenEmployeeActions && (
@@ -407,15 +632,17 @@ function EmployeesPage() {
           ))}
         </div>
         <div className="hidden overflow-x-auto md:block">
-          <Table>
+          <Table className="min-w-[1080px]">
             <TableHeader>
               <TableRow>
                 <TableHead>{t("common.employee")}</TableHead>
                 <TableHead>{t("common.employeeId")}</TableHead>
-                <TableHead>{t("common.role")}</TableHead>
+                <TableHead>{t("pages.employees.company")}</TableHead>
+                <TableHead>{t("pages.employees.designation")}</TableHead>
                 <TableHead>{t("common.department")}</TableHead>
                 <TableHead>{t("common.branch")}</TableHead>
-                <TableHead>Phone</TableHead>
+                <TableHead>{t("pages.employees.phones")}</TableHead>
+                <TableHead>{t("pages.employees.joined")}</TableHead>
                 <TableHead>{t("common.status")}</TableHead>
                 {canOpenEmployeeActions && (
                   <TableHead className="w-[80px]">{t("common.actions")}</TableHead>
@@ -431,16 +658,25 @@ function EmployeesPage() {
                   <TableCell>
                     <div className="font-medium">{u.name}</div>
                     <div className="text-xs text-muted-foreground">{u.email}</div>
+                    {u.employmentType && u.employmentType !== "FULL_TIME" && (
+                      <div className="mt-0.5 text-[11px] text-muted-foreground">
+                        {employmentTypeLabel(u.employmentType)}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="font-mono text-xs">
                     {u.employeeCode ?? u.employeeId}
                   </TableCell>
-                  <TableCell>{ROLE_LABELS[u.role]}</TableCell>
-                  <TableCell>
-                    {u.department ??
-                      (u.role === "ceo"
+                  <TableCell className="max-w-[160px] text-xs">
+                    {u.companyEntity ? COMPANY_LABELS[u.companyEntity] : "-"}
+                  </TableCell>
+                  <TableCell className="max-w-[160px] text-sm">{u.designation || "-"}</TableCell>
+                  <TableCell className="max-w-[200px] text-sm">
+                    {u.departmentId
+                      ? formatDepartmentPathById(departments, u.departmentId)
+                      : u.role === "ceo"
                         ? t("pages.employees.noDepartmentCeo")
-                        : "-")}
+                        : "-"}
                   </TableCell>
                   <TableCell>
                     {formatBranchLocationLabelById(
@@ -449,7 +685,12 @@ function EmployeesPage() {
                       u.homeBranchName ?? "-",
                     )}
                   </TableCell>
-                  <TableCell className="text-sm">{u.phone ?? "-"}</TableCell>
+                  <TableCell className="text-sm">
+                    {formatEmployeePhones(u.phone, u.companyPhone)}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-sm">
+                    {u.joiningDate ? formatDisplayDate(u.joiningDate) : "-"}
+                  </TableCell>
                   <TableCell>
                     <EmployeeAccountStatus employee={u} />
                   </TableCell>
@@ -481,7 +722,13 @@ function EmployeesPage() {
             {t("pages.employees.noneFound")}
           </div>
         )}
-        {hasMore && !q && branch === "all" && dept === "all" && (
+        {hasMore &&
+          !q &&
+          branch === "all" &&
+          dept === "all" &&
+          company === "all" &&
+          designation === "all" &&
+          employmentType === "all" && (
           <div className="border-t p-3 text-center">
             <Button variant="outline" onClick={() => void loadMore()} disabled={loadingMore}>
               {loadingMore
@@ -500,6 +747,10 @@ function EmployeesPage() {
             </DialogHeader>
             <form onSubmit={saveEmployee} className="flex min-h-0 flex-1 flex-col">
               <div className="grid flex-1 grid-cols-1 gap-x-5 gap-y-4 overflow-y-auto px-3 py-4 sm:grid-cols-2 sm:px-6 sm:py-5">
+                <EditSectionHeading
+                  title="Identity & contact"
+                  description="How this person is identified and reached."
+                />
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label>Full name</Label>
                   <Input
@@ -548,6 +799,10 @@ function EmployeesPage() {
                     }
                   />
                 </div>
+                <EditSectionHeading
+                  title="Organization"
+                  description="Employer, workplace, and place on the company chart."
+                />
                 <div className="space-y-1.5">
                   <Label>Employer company</Label>
                   <Select
@@ -647,6 +902,36 @@ function EmployeesPage() {
                         : "Heads assigned under Departments also update this level to Head."}
                   </p>
                 </div>
+                <EditSectionHeading
+                  title="Employment"
+                  description="Joining, contract type, and personal employment records."
+                />
+                <div className="space-y-1.5">
+                  <Label>Joining date</Label>
+                  <DateField
+                    value={editForm.joiningDate}
+                    onChange={(next) => setEditForm((c) => ({ ...c, joiningDate: next }))}
+                    aria-label="Joining date"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Employment type</Label>
+                  <Select
+                    value={editForm.employmentType}
+                    onValueChange={(value: "FULL_TIME" | "PART_TIME" | "INTERN") =>
+                      setEditForm((current) => ({ ...current, employmentType: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="FULL_TIME">Full-time</SelectItem>
+                      <SelectItem value="PART_TIME">Part-time</SelectItem>
+                      <SelectItem value="INTERN">Intern</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-1.5">
                   <Label>Date of Birth</Label>
                   <DateField
@@ -701,30 +986,10 @@ function EmployeesPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Employment type</Label>
-                  <Select
-                    value={editForm.employmentType}
-                    onValueChange={(value: "FULL_TIME" | "PART_TIME" | "INTERN") =>
-                      setEditForm((current) => ({ ...current, employmentType: value }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="FULL_TIME">Full-time</SelectItem>
-                      <SelectItem value="PART_TIME">Part-time</SelectItem>
-                      <SelectItem value="INTERN">Intern</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="border-t border-border pt-4 sm:col-span-2">
-                  <h3 className="text-sm font-semibold">Banking and statutory details</h3>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Sensitive identifiers are encrypted before storage.
-                  </p>
-                </div>
+                <EditSectionHeading
+                  title="Banking"
+                  description="Account numbers are encrypted before they are stored."
+                />
                 <div className="space-y-1.5">
                   <Label>Account holder name</Label>
                   <Input
@@ -764,6 +1029,26 @@ function EmployeesPage() {
                 {[
                   ["Account number", "bankAccountNumber"],
                   ["IFSC code", "bankIfscCode"],
+                ].map(([label, key]) => (
+                  <div className="space-y-1.5" key={key}>
+                    <Label>{label}</Label>
+                    <Input
+                      autoComplete="off"
+                      value={editForm[key as keyof typeof editForm] as string}
+                      onChange={(event) =>
+                        setEditForm((current) => ({
+                          ...current,
+                          [key]: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                ))}
+                <EditSectionHeading
+                  title="Statutory identifiers"
+                  description="PAN, Aadhaar, and UAN are encrypted and access-restricted."
+                />
+                {[
                   ["PAN number", "panNumber"],
                   ["Aadhaar number", "aadhaarNumber"],
                   ["UAN number", "uanNumber"],
@@ -782,9 +1067,7 @@ function EmployeesPage() {
                     />
                   </div>
                 ))}
-                <div className="border-t border-border pt-4 sm:col-span-2">
-                  <h3 className="text-sm font-semibold">Attendance configuration</h3>
-                </div>
+                <EditSectionHeading title="Attendance configuration" />
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label>Week off policy</Label>
                   <Select
@@ -972,6 +1255,35 @@ function EmployeesPage() {
       )}
     </div>
   );
+}
+
+function EditSectionHeading({ title, description }: { title: string; description?: string }) {
+  return (
+    <div className="border-t border-border pt-4 sm:col-span-2 first:border-t-0 first:pt-0">
+      <h3 className="text-sm font-semibold">{title}</h3>
+      {description ? <p className="mt-1 text-xs text-muted-foreground">{description}</p> : null}
+    </div>
+  );
+}
+
+function formatEmployeePhones(personal?: string, company?: string) {
+  const personalPhone = personal?.trim();
+  const companyPhone = company?.trim();
+  if (personalPhone && companyPhone && personalPhone !== companyPhone) {
+    return (
+      <span>
+        {personalPhone}
+        <span className="mt-0.5 block text-[11px] text-muted-foreground">Work {companyPhone}</span>
+      </span>
+    );
+  }
+  return personalPhone || companyPhone || "-";
+}
+
+function employmentTypeLabel(type?: User["employmentType"]) {
+  if (type === "PART_TIME") return "Part-time";
+  if (type === "INTERN") return "Intern";
+  return "Full-time";
 }
 
 function EmployeeAccountStatus({ employee }: { employee: User }) {

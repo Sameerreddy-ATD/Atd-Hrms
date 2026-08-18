@@ -8,11 +8,11 @@ import {
 } from "../server/src/birthdays.js";
 
 describe("birthday lookahead", () => {
-  it("includes today through the next 90 days", () => {
-    expect(BIRTHDAY_LOOKAHEAD_DAYS).toBe(90);
+  it("includes today through the next 60 days", () => {
+    expect(BIRTHDAY_LOOKAHEAD_DAYS).toBe(60);
     expect(isUpcomingBirthday(0)).toBe(true);
-    expect(isUpcomingBirthday(90)).toBe(true);
-    expect(isUpcomingBirthday(91)).toBe(false);
+    expect(isUpcomingBirthday(60)).toBe(true);
+    expect(isUpcomingBirthday(61)).toBe(false);
     expect(isUpcomingBirthday(-1)).toBe(false);
   });
 });

@@ -120,6 +120,7 @@ export function userDto(
     homeBranchId: user.employee?.homeBranchId ?? undefined,
     companyEntity: user.employee?.companyEntity,
     companyPhone: user.employee?.companyPhone ?? undefined,
+    departmentId: user.employee?.departmentId ?? undefined,
     department: user.employee?.departmentId ?? undefined,
     designation: user.employee?.designation ?? undefined,
     mustChangePassword: user.firstLoginPasswordChangeRequired,

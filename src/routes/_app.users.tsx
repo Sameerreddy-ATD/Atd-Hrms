@@ -29,11 +29,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ROLE_LABELS, type Branch, type Department, type User } from "@/types/domain";
+import { COMPANY_LABELS, ROLE_LABELS, type Branch, type Department, type Role, type User } from "@/types/domain";
 import { branchesApi, usersApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
 import { formatDisplayDate, formatDisplayDateTime, indiaDateKeyShift } from "@/lib/india-date";
-import { Plus, Trash2, Key, Loader2, MonitorSmartphone } from "lucide-react";
+import { Plus, Trash2, Key, Loader2, MonitorSmartphone, Search, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -55,7 +55,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search } from "lucide-react";
+import { formatDepartmentPath, formatDepartmentPathById } from "@/lib/department-label";
+import {
+  buildUnitSubtree,
+  hasUnassignedDesignation,
+  hasUnassignedUnit,
+  matchesDirectoryPerson,
+  occupiedCompanyOptions,
+  occupiedDesignations,
+  occupiedRoles,
+  occupiedUnitOptions,
+  type DirectoryFilters,
+} from "@/lib/directory-filters";
 
 export const Route = createFileRoute("/_app/users")({
   component: UsersPage,
@@ -63,6 +74,8 @@ export const Route = createFileRoute("/_app/users")({
     create: search.create === "1" || search.create === 1 || search.create === true,
   }),
 });
+
+const LOGIN_STATUS_FILTERS = ["created", "password_change", "active", "inactive"] as const;
 
 function UsersPage() {
   const { t } = useTranslation();
@@ -89,6 +102,9 @@ function UsersPage() {
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [company, setCompany] = useState("all");
+  const [unit, setUnit] = useState("all");
+  const [designation, setDesignation] = useState("all");
 
   const applyDeviceCount = useCallback((userId: string, count: number) => {
     setUsers((current) =>
@@ -243,27 +259,134 @@ function UsersPage() {
     }
   }
 
+  const directoryFilters: DirectoryFilters = useMemo(
+    () => ({
+      company,
+      branch: "all",
+      unit,
+      designation,
+      employmentType: "all",
+    }),
+    [company, unit, designation],
+  );
+  const unitSubtree = useMemo(() => buildUnitSubtree(departments, unit), [departments, unit]);
+  const roleOrder = useMemo(() => Object.keys(ROLE_LABELS) as Role[], []);
+
+  const facetedUsers = useCallback(
+    (skip?: "company" | "unit" | "designation" | "role" | "status") => {
+      const directorySkip =
+        skip === "company" || skip === "unit" || skip === "designation" ? skip : undefined;
+      return users.filter((user) => {
+        if (!matchesDirectoryPerson(user, directoryFilters, unitSubtree, directorySkip)) {
+          return false;
+        }
+        if (skip !== "role" && roleFilter !== "all" && user.role !== roleFilter) return false;
+        if (skip !== "status" && statusFilter !== "all") {
+          if (loginStatusBucket(user) !== statusFilter) return false;
+        }
+        return true;
+      });
+    },
+    [users, directoryFilters, unitSubtree, roleFilter, statusFilter],
+  );
+
+  const companyOptions = useMemo(
+    () => occupiedCompanyOptions(facetedUsers("company")),
+    [facetedUsers],
+  );
+  const unitOptions = useMemo(
+    () => occupiedUnitOptions(facetedUsers("unit"), departments),
+    [facetedUsers, departments],
+  );
+  const designationOptions = useMemo(
+    () => occupiedDesignations(facetedUsers("designation")),
+    [facetedUsers],
+  );
+  const roleOptions = useMemo(
+    () => occupiedRoles(facetedUsers("role"), roleOrder),
+    [facetedUsers, roleOrder],
+  );
+  const statusOptions = useMemo(() => {
+    const present = new Set(facetedUsers("status").map(loginStatusBucket));
+    return LOGIN_STATUS_FILTERS.filter((value) => present.has(value));
+  }, [facetedUsers]);
+  const showUnassignedUnit = useMemo(
+    () => hasUnassignedUnit(facetedUsers("unit")),
+    [facetedUsers],
+  );
+  const showUnassignedDesignation = useMemo(
+    () => hasUnassignedDesignation(facetedUsers("designation")),
+    [facetedUsers],
+  );
+
   const visibleUsers = useMemo(() => {
     const search = query.trim().toLowerCase();
-    return users.filter((user) => {
-      if (roleFilter !== "all" && user.role !== roleFilter) return false;
-      const lifecycle = resolveUserLoginLifecycle(user);
-      if (statusFilter === "created" && lifecycle !== "CREATED") return false;
-      if (statusFilter === "password_change" && lifecycle !== "PASSWORD_CHANGE") return false;
-      if (statusFilter === "active" && lifecycle !== "ACTIVE") return false;
-      if (
-        statusFilter === "inactive" &&
-        lifecycle !== "INACTIVE" &&
-        lifecycle !== "SUSPENDED" &&
-        lifecycle !== "LOCKED"
-      ) {
-        return false;
-      }
+    return facetedUsers().filter((user) => {
+      if (!search) return true;
+      const unitLabel = formatDepartmentPathById(
+        departments,
+        user.departmentId || user.department,
+        "",
+      );
+      const companyLabel = user.companyEntity ? COMPANY_LABELS[user.companyEntity] : "";
       const searchable =
-        `${user.name} ${user.email} ${user.employeeCode ?? ""} ${user.employeeId ?? ""}`.toLowerCase();
-      return !search || searchable.includes(search);
+        `${user.name} ${user.email} ${user.employeeCode ?? ""} ${user.employeeId ?? ""} ${user.phone ?? ""} ${user.companyPhone ?? ""} ${user.designation ?? ""} ${companyLabel} ${unitLabel}`.toLowerCase();
+      return searchable.includes(search);
     });
-  }, [query, roleFilter, statusFilter, users]);
+  }, [facetedUsers, query, departments]);
+
+  const filtersActive =
+    Boolean(query.trim()) ||
+    company !== "all" ||
+    unit !== "all" ||
+    designation !== "all" ||
+    roleFilter !== "all" ||
+    statusFilter !== "all";
+
+  useEffect(() => {
+    if (company !== "all" && !companyOptions.includes(company as (typeof companyOptions)[number])) {
+      setCompany("all");
+    }
+  }, [company, companyOptions]);
+
+  useEffect(() => {
+    if (unit === "all") return;
+    if (unit === "none") {
+      if (!showUnassignedUnit) setUnit("all");
+      return;
+    }
+    if (!unitOptions.some((row) => row.id === unit)) setUnit("all");
+  }, [unit, unitOptions, showUnassignedUnit]);
+
+  useEffect(() => {
+    if (designation === "all") return;
+    if (designation === "none") {
+      if (!showUnassignedDesignation) setDesignation("all");
+      return;
+    }
+    if (!designationOptions.includes(designation)) setDesignation("all");
+  }, [designation, designationOptions, showUnassignedDesignation]);
+
+  useEffect(() => {
+    if (roleFilter !== "all" && !roleOptions.includes(roleFilter as Role)) {
+      setRoleFilter("all");
+    }
+  }, [roleFilter, roleOptions]);
+
+  useEffect(() => {
+    if (statusFilter !== "all" && !statusOptions.includes(statusFilter as (typeof LOGIN_STATUS_FILTERS)[number])) {
+      setStatusFilter("all");
+    }
+  }, [statusFilter, statusOptions]);
+
+  function clearLoginFilters() {
+    setQuery("");
+    setCompany("all");
+    setUnit("all");
+    setDesignation("all");
+    setRoleFilter("all");
+    setStatusFilter("all");
+  }
 
   function openReset(user: User) {
     setResetUser(user);
@@ -324,34 +447,95 @@ function UsersPage() {
             placeholder={t("pages.users.search")}
           />
         </div>
+        <Select value={company} onValueChange={setCompany}>
+          <SelectTrigger className="sm:w-52" aria-label={t("pages.users.filterCompany")}>
+            <SelectValue placeholder={t("pages.users.filterCompany")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("pages.users.allCompanies")}</SelectItem>
+            {companyOptions.map((value) => (
+              <SelectItem key={value} value={value}>
+                {COMPANY_LABELS[value]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={unit} onValueChange={setUnit}>
+          <SelectTrigger className="sm:w-64" aria-label={t("pages.users.filterUnit")}>
+            <SelectValue placeholder={t("pages.users.filterUnit")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("pages.users.allUnits")}</SelectItem>
+            {showUnassignedUnit && (
+              <SelectItem value="none">{t("pages.employees.noDepartmentCeo")}</SelectItem>
+            )}
+            {unitOptions.map((row) => (
+              <SelectItem key={row.id} value={row.id}>
+                {formatDepartmentPath(row, departments)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={designation} onValueChange={setDesignation}>
+          <SelectTrigger className="sm:w-52" aria-label={t("pages.users.filterDesignation")}>
+            <SelectValue placeholder={t("pages.users.filterDesignation")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("pages.users.allDesignations")}</SelectItem>
+            {showUnassignedDesignation && (
+              <SelectItem value="none">{t("pages.employees.notAssigned")}</SelectItem>
+            )}
+            {designationOptions.map((value) => (
+              <SelectItem key={value} value={value}>
+                {value}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={roleFilter} onValueChange={setRoleFilter}>
-          <SelectTrigger className="sm:w-44">
+          <SelectTrigger className="sm:w-44" aria-label={t("pages.users.filterRole")}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("pages.users.allRoles")}</SelectItem>
-            {Object.entries(ROLE_LABELS).map(([value, label]) => (
+            {roleOptions.map((value) => (
               <SelectItem key={value} value={value}>
-                {label}
+                {ROLE_LABELS[value]}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="sm:w-48">
+          <SelectTrigger className="sm:w-48" aria-label={t("pages.users.filterStatus")}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("pages.users.allStatuses")}</SelectItem>
-            <SelectItem value="created">{t("pages.users.statusCreated")}</SelectItem>
-            <SelectItem value="password_change">
-              {t("pages.users.statusPasswordChange")}
-            </SelectItem>
-            <SelectItem value="active">{t("pages.users.statusActive")}</SelectItem>
-            <SelectItem value="inactive">{t("pages.users.statusInactive")}</SelectItem>
+            {statusOptions.map((value) => (
+              <SelectItem key={value} value={value}>
+                {value === "created"
+                  ? t("pages.users.statusCreated")
+                  : value === "password_change"
+                    ? t("pages.users.statusPasswordChange")
+                    : value === "active"
+                      ? t("pages.users.statusActive")
+                      : t("pages.users.statusInactive")}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
+        {filtersActive && (
+          <Button variant="ghost" size="sm" onClick={clearLoginFilters}>
+            <X className="h-4 w-4" />
+            {t("pages.users.clearFilters")}
+          </Button>
+        )}
       </TableToolbar>
+      {!loading && (
+        <p className="mb-3 text-xs text-muted-foreground">
+          {t("pages.users.showingCount", { shown: visibleUsers.length, total: users.length })}
+        </p>
+      )}
       <div className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="space-y-2 p-3 md:hidden">
           {visibleUsers.map((user) => (
@@ -380,18 +564,34 @@ function UsersPage() {
                   <p className="text-muted-foreground">Devices</p>
                   <p className="mt-0.5">{describeDeviceCount(user.activeDeviceCount)}</p>
                 </div>
-                {user.department && (
-                  <div>
-                    <p className="text-muted-foreground">Department</p>
-                    <p className="mt-0.5 break-words">{user.department}</p>
-                  </div>
-                )}
+                <div>
+                  <p className="text-muted-foreground">{t("pages.users.company")}</p>
+                  <p className="mt-0.5 break-words">
+                    {user.companyEntity ? COMPANY_LABELS[user.companyEntity] : "-"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">{t("pages.users.unit")}</p>
+                  <p className="mt-0.5 break-words">
+                    {formatDepartmentPathById(
+                      departments,
+                      user.departmentId || user.department,
+                      user.role === "ceo" ? t("pages.employees.noDepartmentCeo") : "-",
+                    )}
+                  </p>
+                </div>
                 {user.designation && (
                   <div>
-                    <p className="text-muted-foreground">Designation</p>
+                    <p className="text-muted-foreground">{t("pages.employees.designation")}</p>
                     <p className="mt-0.5 break-words">{user.designation}</p>
                   </div>
                 )}
+                <div>
+                  <p className="text-muted-foreground">{t("pages.users.joined")}</p>
+                  <p className="mt-0.5">
+                    {user.joiningDate ? formatDisplayDate(user.joiningDate) : "-"}
+                  </p>
+                </div>
                 {user.employeeId && user.role !== "developer_admin" && (
                   <div className="col-span-2 flex items-start justify-between gap-3 rounded-md border border-border bg-muted/30 px-3 py-2.5">
                     <div className="min-w-0 space-y-0.5">
@@ -451,13 +651,16 @@ function UsersPage() {
           ))}
         </div>
         <div className="hidden overflow-x-auto md:block">
-          <Table className="min-w-[860px]">
+          <Table className="min-w-[1180px]">
             <TableHeader>
               <TableRow>
                 <TableHead>{t("common.name")}</TableHead>
                 <TableHead>{t("common.email")}</TableHead>
                 <TableHead>{t("common.role")}</TableHead>
                 <TableHead>{t("common.employeeId")}</TableHead>
+                <TableHead>{t("pages.users.company")}</TableHead>
+                <TableHead>{t("pages.users.unit")}</TableHead>
+                <TableHead>{t("pages.users.joined")}</TableHead>
                 <TableHead>{t("common.status")}</TableHead>
                 <TableHead>{t("pages.users.attendanceLeave")}</TableHead>
                 <TableHead>{t("pages.users.lastLogin")}</TableHead>
@@ -468,11 +671,29 @@ function UsersPage() {
             <TableBody>
               {visibleUsers.map((u) => (
                 <TableRow key={u.id}>
-                  <TableCell className="font-medium">{u.name}</TableCell>
+                  <TableCell>
+                    <div className="font-medium">{u.name}</div>
+                    {u.designation ? (
+                      <div className="text-xs text-muted-foreground">{u.designation}</div>
+                    ) : null}
+                  </TableCell>
                   <TableCell>{u.email}</TableCell>
                   <TableCell>{ROLE_LABELS[u.role]}</TableCell>
                   <TableCell className="font-mono text-xs">
                     {u.employeeCode || u.employeeId || "-"}
+                  </TableCell>
+                  <TableCell className="max-w-[160px] text-xs">
+                    {u.companyEntity ? COMPANY_LABELS[u.companyEntity] : "-"}
+                  </TableCell>
+                  <TableCell className="max-w-[200px] text-sm">
+                    {formatDepartmentPathById(
+                      departments,
+                      u.departmentId || u.department,
+                      u.role === "ceo" ? t("pages.employees.noDepartmentCeo") : "-",
+                    )}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-sm">
+                    {u.joiningDate ? formatDisplayDate(u.joiningDate) : "-"}
                   </TableCell>
                   <TableCell>
                     <LoginStatus user={u} />
@@ -758,6 +979,14 @@ function UsersPage() {
       </Dialog>
     </div>
   );
+}
+
+function loginStatusBucket(user: User): (typeof LOGIN_STATUS_FILTERS)[number] {
+  const lifecycle = resolveUserLoginLifecycle(user);
+  if (lifecycle === "CREATED") return "created";
+  if (lifecycle === "PASSWORD_CHANGE") return "password_change";
+  if (lifecycle === "ACTIVE") return "active";
+  return "inactive";
 }
 
 function resolveUserLoginLifecycle(user: User): NonNullable<User["loginLifecycle"]> {

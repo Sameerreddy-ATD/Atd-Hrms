@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  departmentIdsInSubtree,
   departmentMemberCountInTree,
   findDepartmentByName,
   FLEET_DRIVER_TEAM_NAME,
@@ -89,5 +90,17 @@ describe("departmentMemberCountInTree", () => {
     expect(departmentMemberCountInTree("a", withCounts)).toBe(7);
     expect(departmentMemberCountInTree("head", withCounts)).toBe(11);
     expect(departmentMemberCountInTree("sales-b", withCounts)).toBe(3);
+  });
+});
+
+describe("departmentIdsInSubtree", () => {
+  it("includes the selected unit and every child team", () => {
+    const ids = departmentIdsInSubtree(departments, "a");
+    expect(ids.has("a")).toBe(true);
+    expect(ids.has("sales-a")).toBe(true);
+    expect(ids.has("fleet")).toBe(true);
+    expect(ids.has("ops")).toBe(true);
+    expect(ids.has("head")).toBe(false);
+    expect(ids.has("b")).toBe(false);
   });
 });

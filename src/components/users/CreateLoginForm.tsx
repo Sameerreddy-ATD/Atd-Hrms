@@ -672,14 +672,79 @@ export function CreateLoginForm({
                     );
                   })}
                 </div>
+                <div className="space-y-1.5">
+                  <Label>Shift</Label>
+                  <Select
+                    value={shiftType}
+                    onValueChange={(value: "DAY" | "NIGHT") => {
+                      setShiftType(value);
+                      setShiftStart(value === "NIGHT" ? "21:00" : "09:00");
+                      setShiftEnd(value === "NIGHT" ? "06:00" : "18:00");
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DAY">Day shift</SelectItem>
+                      <SelectItem value="NIGHT">Night shift</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-3 sm:col-span-2">
+                  <div className="space-y-1.5">
+                    <Label>Shift starts</Label>
+                    <Input
+                      type="time"
+                      value={shiftStart}
+                      onChange={(e) => setShiftStart(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Shift ends</Label>
+                    <Input
+                      type="time"
+                      value={shiftEnd}
+                      onChange={(e) => setShiftEnd(e.target.value)}
+                    />
+                  </div>
+                </div>
               </FormSection>
             )}
 
             <FormSection
               icon={UserRound}
               title="Employment details"
-              description="Personal and shift information for the employee profile."
+              description="Joining date, contract type, and personal employment records."
             >
+              <div className="space-y-1.5">
+                <Label htmlFor="create-login-joining">Joining date</Label>
+                <DateField
+                  id="create-login-joining"
+                  value={joiningDate}
+                  onChange={setJoiningDate}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Employment type</Label>
+                <Select
+                  value={employmentType}
+                  onValueChange={(value) =>
+                    setEmploymentType(value as "FULL_TIME" | "PART_TIME" | "INTERN")
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="FULL_TIME">Full-time</SelectItem>
+                    <SelectItem value="PART_TIME">Part-time</SelectItem>
+                    <SelectItem value="INTERN">Intern</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="space-y-1.5">
                 <Label htmlFor="create-login-dob">Date of birth</Label>
                 <DateField
@@ -687,15 +752,6 @@ export function CreateLoginForm({
                   value={dateOfBirth}
                   onChange={setDateOfBirth}
                   max={indiaDateKey()}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="create-login-joining">Joining date</Label>
-                <DateField
-                  id="create-login-joining"
-                  value={joiningDate}
-                  onChange={setJoiningDate}
                 />
               </div>
 
@@ -736,64 +792,6 @@ export function CreateLoginForm({
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Employment type</Label>
-                <Select
-                  value={employmentType}
-                  onValueChange={(value) =>
-                    setEmploymentType(value as "FULL_TIME" | "PART_TIME" | "INTERN")
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="FULL_TIME">Full-time</SelectItem>
-                    <SelectItem value="PART_TIME">Part-time</SelectItem>
-                    <SelectItem value="INTERN">Intern</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Shift</Label>
-                <Select
-                  value={shiftType}
-                  onValueChange={(value: "DAY" | "NIGHT") => {
-                    setShiftType(value);
-                    setShiftStart(value === "NIGHT" ? "21:00" : "09:00");
-                    setShiftEnd(value === "NIGHT" ? "06:00" : "18:00");
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="DAY">Day shift</SelectItem>
-                    <SelectItem value="NIGHT">Night shift</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 sm:col-span-2">
-                <div className="space-y-1.5">
-                  <Label>Shift starts</Label>
-                  <Input
-                    type="time"
-                    value={shiftStart}
-                    onChange={(e) => setShiftStart(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Shift ends</Label>
-                  <Input
-                    type="time"
-                    value={shiftEnd}
-                    onChange={(e) => setShiftEnd(e.target.value)}
-                  />
-                </div>
               </div>
             </FormSection>
 

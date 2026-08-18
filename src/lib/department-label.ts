@@ -119,6 +119,35 @@ export function formatDepartmentParentPath(
   return formatDepartmentPathById(departments, department.parentDepartmentId, topLevelLabel);
 }
 
+function childrenByParentId(
+  departments: Array<{ id: string; parentDepartmentId?: string }>,
+): Map<string | undefined, string[]> {
+  const childrenByParent = new Map<string | undefined, string[]>();
+  for (const row of departments) {
+    const parentKey = row.parentDepartmentId;
+    const list = childrenByParent.get(parentKey) ?? [];
+    list.push(row.id);
+    childrenByParent.set(parentKey, list);
+  }
+  return childrenByParent;
+}
+
+/** This unit plus every descendant — used when a directory filter should include child teams. */
+export function departmentIdsInSubtree(
+  departments: Array<{ id: string; parentDepartmentId?: string }>,
+  rootId: string,
+): Set<string> {
+  const childrenByParent = childrenByParentId(departments);
+  const ids = new Set<string>();
+  const walk = (id: string) => {
+    if (ids.has(id)) return;
+    ids.add(id);
+    for (const childId of childrenByParent.get(id) ?? []) walk(childId);
+  };
+  walk(rootId);
+  return ids;
+}
+
 /**
  * Active members in this unit plus every descendant unit.
  * Direct `memberCount` values must already exclude left/terminated people.
@@ -127,13 +156,7 @@ export function departmentMemberCountInTree(
   departmentId: string,
   departments: Array<{ id: string; parentDepartmentId?: string; memberCount?: number }>,
 ): number {
-  const childrenByParent = new Map<string | undefined, string[]>();
-  for (const row of departments) {
-    const parentKey = row.parentDepartmentId;
-    const list = childrenByParent.get(parentKey) ?? [];
-    list.push(row.id);
-    childrenByParent.set(parentKey, list);
-  }
+  const childrenByParent = childrenByParentId(departments);
   const directById = new Map(
     departments.map((row) => [row.id, Math.max(0, row.memberCount ?? 0)]),
   );
