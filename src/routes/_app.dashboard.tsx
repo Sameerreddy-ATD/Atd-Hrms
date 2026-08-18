@@ -116,17 +116,31 @@ function countBranchPresent(rows: AttendanceRecord[], branchId: string) {
   return ids.size;
 }
 
+function isFieldPresentRow(row: AttendanceRecord) {
+  return (
+    row.status.includes("Field") ||
+    (row.fieldHours ?? 0) > 0 ||
+    (row.fieldVisitCount ?? 0) > 0
+  );
+}
+
 function countFieldPresent(rows: AttendanceRecord[]) {
   const ids = new Set<string>();
   for (const row of rows) {
     if (!isPresentStatus(row.status)) continue;
-    if (
-      row.status.includes("Field") ||
-      (row.fieldHours ?? 0) > 0 ||
-      (row.fieldVisitCount ?? 0) > 0
-    ) {
-      ids.add(row.employeeId);
-    }
+    if (isFieldPresentRow(row)) ids.add(row.employeeId);
+  }
+  return ids.size;
+}
+
+/** Present people not at a listed branch and not already counted as field. */
+function countOtherLocationPresent(rows: AttendanceRecord[], listedBranchIds: Set<string>) {
+  const ids = new Set<string>();
+  for (const row of rows) {
+    if (!isPresentStatus(row.status)) continue;
+    const atListedBranch = Boolean(row.actualBranchId && listedBranchIds.has(row.actualBranchId));
+    if (atListedBranch || isFieldPresentRow(row)) continue;
+    ids.add(row.employeeId);
   }
   return ids.size;
 }
@@ -274,10 +288,12 @@ function DashboardPage() {
   const missed = countStatusIncludes(todayAttendance, "Missed");
   const pendingLeaves = leaves.filter((l) => l.status === "Pending").length;
   const pendingLeaveRows = leaves.filter((leave) => leave.status === "Pending").slice(0, 8);
+  const listedBranchIds = new Set(branches.map((branch) => branch.id));
   const branchPresentCounts = branches.map((branch) => ({
     branch,
     present: countBranchPresent(todayAttendance, branch.id),
   }));
+  const otherPresent = countOtherLocationPresent(todayAttendance, listedBranchIds);
   const isExecutive = user.role === "ceo" || user.role === "chief_of_staff";
   const headerDescription = isExecutive
     ? t(user.role === "ceo" ? "pages.dashboard.descriptionCeo" : "pages.dashboard.descriptionCos", {
@@ -345,6 +361,7 @@ function DashboardPage() {
           }}
           pendingLeaveRows={pendingLeaveRows}
           branchPresentCounts={branchPresentCounts}
+          otherPresent={otherPresent}
           timeline={timeline}
           branches={branches}
           birthdays={birthdays}
@@ -363,10 +380,10 @@ function DashboardPage() {
             missed,
             branchPresentCounts,
             fieldPresent,
+            otherPresent,
             pendingLeaves,
             onLeave,
           }}
-          attendance={todayAttendance}
           branches={branches}
           birthdays={birthdays}
           tasks={executiveTasks}
@@ -988,6 +1005,7 @@ function HRDashboard({
   data,
   pendingLeaveRows,
   branchPresentCounts,
+  otherPresent,
   timeline,
   branches,
   birthdays,
@@ -1005,6 +1023,7 @@ function HRDashboard({
   };
   pendingLeaveRows: LeaveRequest[];
   branchPresentCounts: Array<{ branch: Branch; present: number }>;
+  otherPresent: number;
   timeline: AttendanceTimelineEvent[];
   branches: Branch[];
   birthdays: BirthdayItem[];
@@ -1082,6 +1101,7 @@ function HRDashboard({
         <BranchFieldAttendanceCard
           branchPresentCounts={branchPresentCounts}
           fieldPresent={data.fieldPresent}
+          otherPresent={otherPresent}
         />
         <Card className="min-w-0 overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
@@ -1129,7 +1149,6 @@ function ExecutiveDashboard({
   user,
   variant,
   data,
-  attendance,
   branches,
   birthdays,
   tasks,
@@ -1149,10 +1168,10 @@ function ExecutiveDashboard({
     missed: number;
     branchPresentCounts: Array<{ branch: Branch; present: number }>;
     fieldPresent: number;
+    otherPresent: number;
     pendingLeaves: number;
     onLeave: number;
   };
-  attendance: AttendanceRecord[];
   branches: Branch[];
   birthdays: BirthdayItem[];
   tasks: WorkTask[];
@@ -1447,11 +1466,13 @@ function ExecutiveDashboard({
                   onLeaveToday: data.onLeave,
                   pendingApprovals: data.pendingLeaves,
                   missedPunch: data.missed,
-                  branchPresence: data.branchPresentCounts
-                    .map(
+                  branchPresence: [
+                    ...data.branchPresentCounts.map(
                       ({ branch, present }) => `${formatBranchLocationLabel(branch)}: ${present}`,
-                    )
-                    .join("; "),
+                    ),
+                    `Field: ${data.fieldPresent}`,
+                    `Other: ${data.otherPresent}`,
+                  ].join("; "),
                 },
               ])
             }
@@ -1490,34 +1511,39 @@ function ExecutiveDashboard({
             </p>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {data.branchPresentCounts.map(({ branch, present }) => (
-                <div
+                <LocationPresenceTile
                   key={branch.id}
-                  className="flex items-center justify-between gap-3 rounded-md border border-border p-3"
-                >
-                  <span className="min-w-0 truncate text-sm font-medium">
-                    {formatBranchLocationLabel(branch)}
-                  </span>
-                  <span className="shrink-0 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-                    {t("pages.dashboard.nPresent", { count: present })}
-                  </span>
-                </div>
+                  label={formatBranchLocationLabel(branch)}
+                  count={present}
+                />
               ))}
-              {!data.branchPresentCounts.length && (
-                <p className="text-sm text-muted-foreground">{t("pages.dashboard.noLocations")}</p>
-              )}
+              <LocationPresenceTile
+                label={t("pages.dashboard.field")}
+                count={data.fieldPresent}
+              />
+              <LocationPresenceTile
+                label={t("pages.dashboard.locationOther")}
+                count={data.otherPresent}
+              />
             </div>
           </div>
         </CardContent>
       </Card>
-      <TeamAttendanceCard
-        rows={attendance}
-        branches={branches}
-        title={t("pages.dashboard.companyAttendanceDetail")}
-        viewAllHref="/attendance/locations"
-      />
       <div className="mt-4 min-w-0">
         <UpcomingBirthdaysCard birthdays={birthdays} />
       </div>
+    </div>
+  );
+}
+
+function LocationPresenceTile({ label, count }: { label: string; count: number }) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-md border border-border p-3">
+      <span className="min-w-0 truncate text-sm font-medium">{label}</span>
+      <span className="shrink-0 text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
+        {t("pages.dashboard.nPresent", { count })}
+      </span>
     </div>
   );
 }
@@ -1618,9 +1644,11 @@ function AdminDashboard({
 function BranchFieldAttendanceCard({
   branchPresentCounts,
   fieldPresent,
+  otherPresent,
 }: {
   branchPresentCounts: Array<{ branch: Branch; present: number }>;
   fieldPresent: number;
+  otherPresent: number;
 }) {
   const { t } = useTranslation();
   return (
@@ -1647,6 +1675,12 @@ function BranchFieldAttendanceCard({
           <span className="font-medium">{t("pages.dashboard.field")}</span>
           <span className="text-muted-foreground">
             {t("pages.dashboard.nPresent", { count: fieldPresent })}
+          </span>
+        </div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="font-medium">{t("pages.dashboard.locationOther")}</span>
+          <span className="text-muted-foreground">
+            {t("pages.dashboard.nPresent", { count: otherPresent })}
           </span>
         </div>
       </CardContent>
