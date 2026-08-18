@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
-import { formatDisplayDate } from "@/lib/india-date";
+import { formatDisplayDate, indiaDateKey } from "@/lib/india-date";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -51,6 +52,19 @@ import { CalendarDays, Pencil, Plus, Trash2 } from "lucide-react";
 
 const HOLIDAY_MANAGERS = new Set(["hr", "main_admin", "developer_admin"]);
 
+type HolidayTiming = "today" | "upcoming" | "past";
+
+function holidayDateKey(date: string) {
+  return date.slice(0, 10);
+}
+
+function holidayTiming(date: string, today: string): HolidayTiming {
+  const key = holidayDateKey(date);
+  if (key === today) return "today";
+  if (key > today) return "upcoming";
+  return "past";
+}
+
 export const Route = createFileRoute("/_app/holidays")({
   component: HolidaysPage,
 });
@@ -71,6 +85,18 @@ function HolidaysPage() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const today = indiaDateKey();
+  const { upcomingHolidays, completedHolidays } = useMemo(() => {
+    const upcoming: Holiday[] = [];
+    const completed: Holiday[] = [];
+    for (const holiday of holidays) {
+      if (holidayDateKey(holiday.date) >= today) upcoming.push(holiday);
+      else completed.push(holiday);
+    }
+    upcoming.sort((a, b) => holidayDateKey(a.date).localeCompare(holidayDateKey(b.date)));
+    completed.sort((a, b) => holidayDateKey(b.date).localeCompare(holidayDateKey(a.date)));
+    return { upcomingHolidays: upcoming, completedHolidays: completed };
+  }, [holidays, today]);
 
   useEffect(() => {
     reportsApi
@@ -146,6 +172,169 @@ function HolidaysPage() {
     return t("pages.holidays.restricted");
   };
 
+  const timingLabel = (timing: HolidayTiming) => {
+    if (timing === "today") return t("pages.holidays.today");
+    if (timing === "upcoming") return t("pages.holidays.upcoming");
+    return t("pages.holidays.completed");
+  };
+
+  const colCount = canManage ? 5 : 4;
+
+  function WhenBadge({ timing }: { timing: HolidayTiming }) {
+    const isUpcoming = timing !== "past";
+    return (
+      <Badge
+        className={cn(
+          isUpcoming
+            ? "border-primary/30 bg-primary/10 text-primary"
+            : "border-border bg-muted text-muted-foreground",
+          timing === "today" && "border-transparent bg-primary text-primary-foreground",
+        )}
+      >
+        {timingLabel(timing)}
+      </Badge>
+    );
+  }
+
+  function SectionHeading({ label, upcoming }: { label: string; upcoming?: boolean }) {
+    return (
+      <p
+        className={cn(
+          "text-[11px] font-semibold uppercase tracking-[0.14em]",
+          upcoming ? "text-primary" : "text-muted-foreground",
+        )}
+      >
+        {label}
+      </p>
+    );
+  }
+
+  function HolidayCard({ holiday }: { holiday: Holiday }) {
+    const timing = holidayTiming(holiday.date, today);
+    const isUpcoming = timing !== "past";
+    return (
+      <Card
+        className={cn(
+          isUpcoming && "border-primary/40 bg-primary/[0.04]",
+          timing === "today" && "border-primary/60 bg-primary/10",
+          !isUpcoming && "border-dashed bg-muted/30",
+        )}
+      >
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className={cn("font-semibold", !isUpcoming && "text-muted-foreground line-through")}>
+                  {holiday.name}
+                </p>
+                <WhenBadge timing={timing} />
+              </div>
+              <p
+                className={cn(
+                  "mt-1 flex items-center gap-1.5 text-sm text-muted-foreground",
+                  !isUpcoming && "line-through",
+                )}
+              >
+                <CalendarDays className="h-4 w-4" /> {formatDisplayDate(holiday.date)}
+              </p>
+              {holiday.description && (
+                <p
+                  className={cn(
+                    "mt-2 text-sm text-muted-foreground",
+                    !isUpcoming && "line-through",
+                  )}
+                >
+                  {holiday.description}
+                </p>
+              )}
+            </div>
+            <Badge variant="outline">{holidayTypeLabel(holiday.type)}</Badge>
+          </div>
+          {canManage && (
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <Button variant="outline" onClick={() => openEditDialog(holiday)}>
+                <Pencil className="mr-2 h-4 w-4" /> {t("common.edit")}
+              </Button>
+              <Button
+                className="bg-red-600 text-white hover:bg-red-700"
+                onClick={() => setDeleteHolidayTarget(holiday)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> {t("common.delete")}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  function HolidayTableRow({ holiday }: { holiday: Holiday }) {
+    const timing = holidayTiming(holiday.date, today);
+    const isUpcoming = timing !== "past";
+    return (
+      <TableRow
+        className={cn(
+          isUpcoming && "bg-primary/[0.04] hover:bg-primary/[0.07]",
+          timing === "today" && "bg-primary/10 hover:bg-primary/[0.14]",
+          !isUpcoming && "text-muted-foreground",
+        )}
+      >
+        <TableCell className={cn(!isUpcoming && "line-through")}>
+          {formatDisplayDate(holiday.date)}
+        </TableCell>
+        <TableCell className="font-medium">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={cn(!isUpcoming && "line-through")}>{holiday.name}</span>
+            <WhenBadge timing={timing} />
+          </div>
+        </TableCell>
+        <TableCell>
+          <Badge variant="outline">{holidayTypeLabel(holiday.type)}</Badge>
+        </TableCell>
+        <TableCell
+          className={cn(
+            "max-w-xs truncate text-muted-foreground",
+            !isUpcoming && "line-through",
+          )}
+        >
+          {holiday.description || "—"}
+        </TableCell>
+        {canManage && (
+          <TableCell className="text-right">
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="outline" onClick={() => openEditDialog(holiday)}>
+                <Pencil className="mr-2 h-4 w-4" /> {t("common.edit")}
+              </Button>
+              <Button
+                size="sm"
+                className="bg-red-600 text-white hover:bg-red-700"
+                onClick={() => setDeleteHolidayTarget(holiday)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> {t("common.delete")}
+              </Button>
+            </div>
+          </TableCell>
+        )}
+      </TableRow>
+    );
+  }
+
+  function TableSectionRow({ label, upcoming }: { label: string; upcoming?: boolean }) {
+    return (
+      <TableRow className="hover:bg-transparent">
+        <TableCell
+          colSpan={colCount}
+          className={cn(
+            "py-2 text-[11px] font-semibold uppercase tracking-[0.14em]",
+            upcoming ? "bg-primary/10 text-primary" : "bg-muted/50 text-muted-foreground",
+          )}
+        >
+          {label}
+        </TableCell>
+      </TableRow>
+    );
+  }
+
   return (
     <div>
       <PageHeader
@@ -162,37 +351,22 @@ function HolidaysPage() {
       {loading && <LoadingState label={t("pages.loading.holidays")} />}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="grid gap-3 md:hidden">
-        {holidays.map((holiday) => (
-          <Card key={holiday.id}>
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-semibold">{holiday.name}</p>
-                  <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <CalendarDays className="h-4 w-4" /> {formatDisplayDate(holiday.date)}
-                  </p>
-                  {holiday.description && (
-                    <p className="mt-2 text-sm text-muted-foreground">{holiday.description}</p>
-                  )}
-                </div>
-                <Badge variant="outline">{holidayTypeLabel(holiday.type)}</Badge>
-              </div>
-              {canManage && (
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <Button variant="outline" onClick={() => openEditDialog(holiday)}>
-                    <Pencil className="mr-2 h-4 w-4" /> {t("common.edit")}
-                  </Button>
-                  <Button
-                    className="bg-red-600 text-white hover:bg-red-700"
-                    onClick={() => setDeleteHolidayTarget(holiday)}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" /> {t("common.delete")}
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+        {upcomingHolidays.length > 0 && (
+          <>
+            <SectionHeading upcoming label={t("pages.holidays.upcoming")} />
+            {upcomingHolidays.map((holiday) => (
+              <HolidayCard key={holiday.id} holiday={holiday} />
+            ))}
+          </>
+        )}
+        {completedHolidays.length > 0 && (
+          <>
+            <SectionHeading label={t("pages.holidays.completed")} />
+            {completedHolidays.map((holiday) => (
+              <HolidayCard key={holiday.id} holiday={holiday} />
+            ))}
+          </>
+        )}
       </div>
       {!loading && holidays.length === 0 && (
         <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground md:hidden">
@@ -212,34 +386,22 @@ function HolidaysPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {holidays.map((h) => (
-                <TableRow key={h.id}>
-                  <TableCell>{formatDisplayDate(h.date)}</TableCell>
-                  <TableCell className="font-medium">{h.name}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{holidayTypeLabel(h.type)}</Badge>
-                  </TableCell>
-                  <TableCell className="max-w-xs truncate text-muted-foreground">
-                    {h.description || "—"}
-                  </TableCell>
-                  {canManage && (
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button size="sm" variant="outline" onClick={() => openEditDialog(h)}>
-                          <Pencil className="mr-2 h-4 w-4" /> {t("common.edit")}
-                        </Button>
-                        <Button
-                          size="sm"
-                          className="bg-red-600 text-white hover:bg-red-700"
-                          onClick={() => setDeleteHolidayTarget(h)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" /> {t("common.delete")}
-                        </Button>
-                      </div>
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))}
+              {upcomingHolidays.length > 0 && (
+                <>
+                  <TableSectionRow upcoming label={t("pages.holidays.upcoming")} />
+                  {upcomingHolidays.map((holiday) => (
+                    <HolidayTableRow key={holiday.id} holiday={holiday} />
+                  ))}
+                </>
+              )}
+              {completedHolidays.length > 0 && (
+                <>
+                  <TableSectionRow label={t("pages.holidays.completed")} />
+                  {completedHolidays.map((holiday) => (
+                    <HolidayTableRow key={holiday.id} holiday={holiday} />
+                  ))}
+                </>
+              )}
             </TableBody>
           </Table>
         </div>
