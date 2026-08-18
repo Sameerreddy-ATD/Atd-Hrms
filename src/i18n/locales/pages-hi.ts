@@ -1478,7 +1478,7 @@ const pages = {
   notifications: {
     title: "सूचनाएँ",
     empty: "आप सब देख चुके हैं",
-    emptyHelp: "leave, attendance, announcement और birthday updates यहाँ दिखेंगे।",
+    emptyHelp: "आप पर लागू leave, attendance और company alerts यहाँ अपने आप दिखेंगे।",
     immediate: "Immediate",
     pauseAll: "सभी pause",
     appNotifications: "app notifications",
@@ -1496,10 +1496,12 @@ const pages = {
     savePreferences: "Save preferences",
     preferencesSaved: "Preferences saved",
     inbox: "Inbox",
+    inboxHelp: "आपकी role पर लागू alerts अपने आप आती हैं।",
     none: "None",
     updateOne: "{{count}} update",
     updates: "{{count}} updates",
-    descriptionNative: "Company updates in this app. banners के लिए app notifications on करें।",
+    descriptionNative:
+      "आपकी role के alerts — leave, attendance और company updates. इस phone पर banners के लिए app notifications on करें।",
     descriptionPwa: "Home Screen shortcut added. background banners के लिए alerts enable करें।",
     descriptionBrowser: "Leave, attendance, company alerts. push reminders के लिए browser alerts optional।",
     alertsHelpNative: "Uses this app — not Chrome. phone Settings में allow करें।",

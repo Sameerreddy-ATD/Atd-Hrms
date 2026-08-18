@@ -1,4 +1,4 @@
-import { LeaveStatus } from "@prisma/client";
+import { LeaveStatus, Role } from "@prisma/client";
 import { prisma } from "./prisma.js";
 
 export const APPROVED_LEAVE_STATUSES: LeaveStatus[] = [
@@ -120,7 +120,11 @@ export function eachDateInRange(from: string | Date, to: string | Date) {
 }
 
 export async function findHolidayForEmployee(employeeId: string, eventDate: Date) {
-  void employeeId;
+  const login = await prisma.user.findFirst({
+    where: { employeeId },
+    select: { role: true },
+  });
+  if (login?.role === Role.DRIVER) return null;
   return prisma.holiday.findFirst({
     where: {
       status: "ACTIVE",

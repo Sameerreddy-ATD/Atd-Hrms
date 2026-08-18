@@ -1480,7 +1480,7 @@ const pages = {
   notifications: {
     title: "Notifications",
     empty: "You're all caught up",
-    emptyHelp: "New leave, attendance, announcement, and birthday updates will appear here.",
+    emptyHelp: "Leave, attendance, and company alerts that apply to you will show up here automatically.",
     immediate: "Immediate",
     pauseAll: "Pause all",
     appNotifications: "App notifications",
@@ -1499,17 +1499,18 @@ const pages = {
     savePreferences: "Save preferences",
     preferencesSaved: "Preferences saved",
     inbox: "Inbox",
+    inboxHelp: "You automatically get the alerts that apply to your role.",
     none: "None",
     updateOne: "{{count}} update",
     updates: "{{count}} updates",
     descriptionNative:
-      "Company updates in this app. Turn on app notifications to get banners from Anytime Workforce.",
+      "Alerts for your role — leave, attendance, and company updates. Turn on app notifications for banners on this phone.",
     descriptionPwa:
       "You added Anytime Workforce to your Home Screen. Enable alerts if you want banners when the app is in the background.",
     descriptionBrowser:
-      "Leave, attendance, and company alerts. Enable browser alerts only if you want push reminders.",
+      "Alerts for your role appear here. Enable browser alerts only if you also want banners when the tab is in the background.",
     alertsHelpNative:
-      "Uses this app — not Chrome. Allow Anytime Workforce in phone Settings if banners do not appear.",
+      "You'll get the alerts that apply to your role. Allow Anytime Workforce in phone Settings if banners do not appear.",
     alertsHelpPwa: "Uses this Home Screen app's browser permission.",
     alertsHelpBrowser: "Optional. In-app alerts still appear here if you leave this off.",
     alertsBlocked:

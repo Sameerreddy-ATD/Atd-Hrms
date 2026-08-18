@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -333,6 +333,10 @@ function HolidaysPage() {
         </TableCell>
       </TableRow>
     );
+  }
+
+  if (user?.role === "driver") {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return (

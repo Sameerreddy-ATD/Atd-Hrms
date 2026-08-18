@@ -6,6 +6,7 @@ describe("driver menu", () => {
       .flatMap((g) => g.items.map((i) => i.to))
       .sort();
     expect(paths).toEqual(["/attendance/mine", "/dashboard", "/preferences", "/profile"]);
+    expect(paths).not.toContain("/holidays");
   });
 });
 

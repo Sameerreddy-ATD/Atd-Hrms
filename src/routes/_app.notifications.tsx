@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { notificationsApi, notificationPreferencesApi } from "@/services/api";
 import type { NotificationItem } from "@/types/domain";
 import { formatDisplayDateTime } from "@/lib/india-date";
+import { useAuth } from "@/lib/auth";
 import {
   clearNotifications,
   disableDesktopAlerts,
@@ -36,6 +37,7 @@ import {
   BellOff,
   BellRing,
   CalendarCheck,
+  ChevronRight,
   ClipboardCheck,
   Cake,
   Download,
@@ -52,13 +54,35 @@ export const Route = createFileRoute("/_app/notifications")({
   component: NotificationsPage,
 });
 
-const CATEGORY_LABEL_KEYS: Record<string, string> = {
-  leave: "pages.notifications.categoryLeave",
-  tasks: "pages.notifications.categoryTasks",
-  claims: "pages.notifications.categoryClaims",
-  checklists: "pages.notifications.categoryChecklists",
-  corrections: "pages.notifications.categoryCorrections",
-};
+function destinationFor(item: NotificationItem, role?: string): string | undefined {
+  if (item.href) {
+    if (item.href === "/holidays" && role === "driver") return undefined;
+    return item.href;
+  }
+  if (item.type === "announcement") return "/announcements";
+  if (item.type === "task") return "/tasks";
+  if (item.type === "birthday") return "/dashboard";
+  if (item.type === "holiday") return role === "driver" ? undefined : "/holidays";
+  if (item.type === "attendance") {
+    const title = item.title.toLowerCase();
+    if (title.includes("punch") || title.includes("correction")) return "/attendance/corrections";
+    return "/attendance/mine";
+  }
+  if (item.type === "leave") {
+    const title = item.title.toLowerCase();
+    if (title.includes("pending") || title.includes("approval")) return "/leave/approvals";
+    if (title.includes("weekly")) return "/leave/apply";
+    return "/leave/history";
+  }
+  const title = item.title.toLowerCase();
+  if (title.includes("expense") || title.includes("hr document") || title.includes("certificate")) {
+    return "/employee-services";
+  }
+  if (title.includes("onboarding") || title.includes("offboarding")) return "/checklists";
+  if (title.includes("password")) return "/users";
+  if (title.includes("suspension")) return "/profile";
+  return undefined;
+}
 
 function typeMeta(type: NotificationItem["type"], t: (key: string) => string) {
   if (type === "leave") {
@@ -93,7 +117,7 @@ function typeMeta(type: NotificationItem["type"], t: (key: string) => string) {
     return {
       icon: ListTodo,
       label: t("pages.notifications.task"),
-      className: "bg-violet-500/12 text-violet-700 dark:text-violet-300",
+      className: "bg-teal-500/12 text-teal-800 dark:text-teal-300",
     };
   }
   if (type === "attendance") {
@@ -106,98 +130,10 @@ function typeMeta(type: NotificationItem["type"], t: (key: string) => string) {
   return { icon: Bell, label: t("pages.notifications.update"), className: "bg-muted text-muted-foreground" };
 }
 
-function NotificationPreferencesCard() {
-  const { t } = useTranslation();
-  const [digestMode, setDigestMode] = useState("immediate");
-  const [categories, setCategories] = useState<Record<string, boolean>>({
-    leave: true,
-    tasks: true,
-    claims: true,
-    checklists: true,
-    corrections: true,
-  });
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    void notificationPreferencesApi
-      .get()
-      .then((pref) => {
-        setDigestMode(pref.digestMode === "off" ? "off" : "immediate");
-        if (pref.categories && typeof pref.categories === "object") {
-          setCategories((current) => ({ ...current, ...pref.categories }));
-        }
-      })
-      .catch(() => undefined);
-  }, []);
-
-  return (
-    <Card className="mb-4 border-border/80 shadow-none">
-      <CardContent className="space-y-4 p-4 sm:p-5">
-        <div>
-          <h2 className="text-sm font-semibold tracking-tight">{t("pages.notifications.whatToReceive")}</h2>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            {t("pages.notifications.whatToReceiveHelp")}
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {(
-            [
-              { id: "immediate", label: t("pages.notifications.immediate") },
-              { id: "off", label: t("pages.notifications.pauseAll") },
-            ] as const
-          ).map((mode) => (
-            <button
-              key={mode.id}
-              type="button"
-              onClick={() => setDigestMode(mode.id)}
-              className={cn(
-                "min-h-11 rounded-xl border px-3 text-sm font-medium transition-colors",
-                digestMode === mode.id
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background text-foreground hover:bg-muted/60",
-              )}
-            >
-              {mode.label}
-            </button>
-          ))}
-        </div>
-        <ul className="divide-y divide-border/70 rounded-xl border border-border/80">
-          {Object.entries(categories).map(([key, enabled]) => (
-            <li key={key} className="flex min-h-12 items-center justify-between gap-3 px-3.5 py-2">
-              <span className="text-sm font-medium capitalize">
-                {t(CATEGORY_LABEL_KEYS[key] ?? key)}
-              </span>
-              <Switch
-                checked={enabled}
-                onCheckedChange={(next) =>
-                  setCategories((current) => ({ ...current, [key]: next }))
-                }
-                aria-label={t(CATEGORY_LABEL_KEYS[key] ?? key)}
-              />
-            </li>
-          ))}
-        </ul>
-        <Button
-          className="h-11 w-full sm:w-auto"
-          disabled={saving}
-          onClick={() => {
-            setSaving(true);
-            void notificationPreferencesApi
-              .save({ digestMode, categories })
-              .then(() => toast.success(t("pages.notifications.preferencesSaved")))
-              .catch((error) => toast.error((error as Error).message))
-              .finally(() => setSaving(false));
-          }}
-        >
-          {t("pages.notifications.savePreferences")}
-        </Button>
-      </CardContent>
-    </Card>
-  );
-}
-
 function NotificationsPage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -307,6 +243,7 @@ function NotificationsPage() {
           <Button
             variant="outline"
             size="sm"
+            className="min-h-11"
             disabled={items.length === 0}
             onClick={() => {
               const snapshot = items;
@@ -458,12 +395,13 @@ function NotificationsPage() {
         </div>
       )}
 
-      <NotificationPreferencesCard />
-
       <div className="mb-3 flex items-end justify-between gap-3">
-        <h2 className="text-sm font-semibold tracking-tight">{t("pages.notifications.inbox")}</h2>
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold tracking-tight">{t("pages.notifications.inbox")}</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">{t("pages.notifications.inboxHelp")}</p>
+        </div>
         {!loading && (
-          <p className="text-xs text-muted-foreground">
+          <p className="shrink-0 text-xs text-muted-foreground">
             {items.length === 0
               ? t("pages.notifications.none")
               : items.length === 1
@@ -481,14 +419,15 @@ function NotificationsPage() {
           {items.map((n, index) => {
             const meta = typeMeta(n.type, t);
             const Icon = meta.icon;
-            return (
-              <article
-                key={n.id}
-                className={cn(
-                  "flex items-start gap-3 bg-card px-4 py-3.5 sm:px-5",
-                  index > 0 && "border-t border-border/70",
-                )}
-              >
+            const href = destinationFor(n, user?.role);
+            const rowClass = cn(
+              "flex w-full items-start gap-3 bg-card px-4 py-3.5 text-left sm:px-5",
+              index > 0 && "border-t border-border/70",
+              href &&
+                "min-h-14 transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none active:bg-muted/55",
+            );
+            const body = (
+              <>
                 <div
                   className={cn(
                     "mt-0.5 grid size-10 shrink-0 place-items-center rounded-xl",
@@ -514,13 +453,37 @@ function NotificationsPage() {
                   <p className="mt-0.5 text-sm font-semibold tracking-tight text-foreground">
                     {n.title}
                   </p>
-                  <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">{n.desc}</p>
+                  <p className="mt-0.5 line-clamp-3 text-sm leading-relaxed text-muted-foreground">
+                    {n.desc}
+                  </p>
                   {n.type === "announcement" && n.authorName && (
                     <p className="mt-1 text-xs font-medium text-muted-foreground">
                       {t("pages.notifications.fromAuthor", { name: n.authorName })}
                     </p>
                   )}
                 </div>
+                {href && (
+                  <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-muted-foreground/70" aria-hidden />
+                )}
+              </>
+            );
+            if (href) {
+              return (
+                <button
+                  key={n.id}
+                  type="button"
+                  className={rowClass}
+                  onClick={() => {
+                    void navigate({ to: href as never });
+                  }}
+                >
+                  {body}
+                </button>
+              );
+            }
+            return (
+              <article key={n.id} className={rowClass}>
+                {body}
               </article>
             );
           })}

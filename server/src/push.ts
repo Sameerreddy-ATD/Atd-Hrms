@@ -142,11 +142,18 @@ async function sendFcmHttpV1(token: string, payload: PushPayload) {
             tag: payload.tag ?? "",
           },
           android: {
-            priority: payload.priority === "URGENT" ? "HIGH" : "NORMAL",
+            priority: payload.priority === "URGENT" || payload.priority === "IMPORTANT" ? "HIGH" : "NORMAL",
             notification: {
               channelId: "anytime_workforce",
               tag: payload.tag,
-              clickAction: "FLUTTER_NOTIFICATION_CLICK",
+              icon: "ic_stat_notify",
+              color: "#DC2F20",
+              sound: "default",
+              defaultSound: true,
+              notificationPriority:
+                payload.priority === "URGENT" || payload.priority === "IMPORTANT"
+                  ? "PRIORITY_HIGH"
+                  : "PRIORITY_DEFAULT",
             },
           },
         },

@@ -729,6 +729,7 @@ export interface NotificationItem {
   type: "leave" | "holiday" | "system" | "birthday" | "task" | "announcement" | "attendance";
   priority?: "NORMAL" | "IMPORTANT" | "URGENT";
   authorName?: string;
+  href?: string;
 }
 
 export interface Announcement {

@@ -342,6 +342,22 @@ export async function enableDesktopAlerts() {
       }
 
       try {
+        await PushNotifications.createChannel({
+          id: "anytime_workforce",
+          name: "Anytime Workforce",
+          description: "Leave, attendance, and company alerts for your role.",
+          importance: 4,
+          visibility: 1,
+          sound: "default",
+          vibration: true,
+          lights: true,
+          lightColor: "#DC2F20",
+        });
+      } catch {
+        // Channel already exists, or this platform has no channels.
+      }
+
+      try {
         await PushNotifications.removeAllListeners();
       } catch {
         // ignore

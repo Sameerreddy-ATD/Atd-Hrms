@@ -1,6 +1,9 @@
 package com.anytimediesel.workforce;
 
 import android.Manifest;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.graphics.Color;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -11,6 +14,7 @@ import android.webkit.WebView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
+import androidx.core.view.OnApplyWindowInsetsListener;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -77,6 +81,7 @@ public class MainActivity extends BridgeActivity {
             // Never block launch.
         }
         requestNotificationPermission();
+        ensureNotificationChannel();
     }
 
     @Override
@@ -94,7 +99,7 @@ public class MainActivity extends BridgeActivity {
             View content = findViewById(android.R.id.content);
             View decor = getWindow() != null ? getWindow().getDecorView() : null;
 
-            View.OnApplyWindowInsetsListener listener = (View view, WindowInsetsCompat insets) -> {
+            OnApplyWindowInsetsListener listener = (view, insets) -> {
                 applyInsetsToWeb(webView, insets);
                 return insets;
             };
@@ -113,7 +118,7 @@ public class MainActivity extends BridgeActivity {
                 ViewCompat.requestApplyInsets(content);
             }
             if (webView != null) {
-                ViewCompat.setOnApplyWindowInsetsListener(webView, (View view, WindowInsetsCompat insets) -> {
+                ViewCompat.setOnApplyWindowInsetsListener(webView, (view, insets) -> {
                     applyInsetsToWeb(webView, insets);
                     return insets;
                 });
@@ -190,6 +195,27 @@ public class MainActivity extends BridgeActivity {
             );
         } catch (Exception ignored) {
             // A refused or unavailable prompt must never block launch.
+        }
+    }
+
+    /** Heads-up channel used by FCM so Play Store banners use the brand icon and colour. */
+    private void ensureNotificationChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+        try {
+            NotificationChannel channel = new NotificationChannel(
+                "anytime_workforce",
+                "Anytime Workforce",
+                NotificationManager.IMPORTANCE_HIGH
+            );
+            channel.setDescription("Leave, attendance, and company alerts for your role.");
+            channel.enableVibration(true);
+            channel.enableLights(true);
+            channel.setLightColor(Color.parseColor("#DC2F20"));
+            channel.setShowBadge(true);
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) manager.createNotificationChannel(channel);
+        } catch (Exception ignored) {
+            // Channel creation must never block launch.
         }
     }
 

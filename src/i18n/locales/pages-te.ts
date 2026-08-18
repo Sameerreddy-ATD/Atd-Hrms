@@ -1477,7 +1477,7 @@ const pages = {
   notifications: {
     title: "నోటిఫికేషన్లు",
     empty: "మీరు అన్నీ చూశారు",
-    emptyHelp: "leave, attendance, announcement మరియు birthday updates ఇక్కడ కనిపిస్తాయి.",
+    emptyHelp: "మీకు వర్తించే leave, attendance మరియు company alerts ఇక్కడ automatic గా కనిపిస్తాయి.",
     immediate: "Immediate",
     pauseAll: "అన్నీ pause",
     appNotifications: "app notifications",
@@ -1495,10 +1495,12 @@ const pages = {
     savePreferences: "Save preferences",
     preferencesSaved: "Preferences saved",
     inbox: "Inbox",
+    inboxHelp: "మీ roleకు వర్తించే alerts automatic గా వస్తాయి.",
     none: "None",
     updateOne: "{{count}} update",
     updates: "{{count}} updates",
-    descriptionNative: "Company updates in this app. app notifications on for banners.",
+    descriptionNative:
+      "Alerts for your role — leave, attendance, and company updates. Turn on app notifications for banners on this phone.",
     descriptionPwa: "Home Screen shortcut added. background banners కోసం alerts enable.",
     descriptionBrowser: "Leave, attendance, company alerts. push reminders కోసం browser alerts optional.",
     alertsHelpNative: "Uses this app — not Chrome. phone Settingsలో allow.",

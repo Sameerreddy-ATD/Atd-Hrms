@@ -1,8 +1,8 @@
 {
   "buildId": "2026-08-15-p0-security-hardening",
   "forceReload": true,
-  "androidVersionCode": 15,
-  "androidVersionName": "1.0.14",
-  "minAndroidVersionCode": 15,
+  "androidVersionCode": 16,
+  "androidVersionName": "1.0.15",
+  "minAndroidVersionCode": 16,
   "playStoreUrl": "https://play.google.com/store/apps/details?id=com.anytimediesel.workforce"
 }

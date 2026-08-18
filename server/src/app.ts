@@ -41,6 +41,7 @@ import {
   eachDateInRange,
   ensureDailySummariesForRange,
   findApprovedLeaveForDay,
+  findHolidayForEmployee,
   recalculateLeaveDateRange,
   startOfDayUtc,
   todayIstDate,
@@ -5272,9 +5273,9 @@ export function createApp() {
         throw new HttpError(400, "A Sunday weekly off cannot be selected in the past");
       }
       await assertWeeklyOffNotConsecutive(req.user!.employeeId, date);
-      const holiday = await prisma.holiday.findFirst({
-        where: { status: "ACTIVE", date },
-      });
+      const holiday = req.user!.employeeId
+        ? await findHolidayForEmployee(req.user!.employeeId, date)
+        : null;
       // Holiday overlap: allow selecting another day in the same week (caller retries); block same holiday date
       if (holiday) {
         throw new HttpError(
@@ -8170,6 +8171,7 @@ export function createApp() {
               : `Today is ${emp.name}'s birthday. Wish them well.`,
             time: new Date(Date.UTC(todayIst.year, todayMonth, todayDate)).toISOString(),
             type: "birthday" as const,
+            href: "/dashboard",
           };
         });
 
@@ -8239,6 +8241,7 @@ export function createApp() {
           type: "announcement" as const,
           priority: announcement.priority,
           authorName: announcement.createdBy.name,
+          href: "/announcements",
         })),
         ...assignedTasks.map((task) => ({
           id: `task-${task.taskId}-${task.updatedAt.toISOString()}`,
@@ -8246,6 +8249,7 @@ export function createApp() {
           desc: `${task.title}${task.dueDate ? ` - due ${task.dueDate.toISOString().slice(0, 10)}` : ""}`,
           time: task.updatedAt.toISOString(),
           type: "task" as const,
+          href: "/tasks",
         })),
         ...upcomingSuspensions.map((account) => {
           const endDate = account.suspendedUntil!.toISOString().slice(0, 10);
@@ -8260,6 +8264,7 @@ export function createApp() {
             desc: `Your account will be suspended in ${daysRemaining} day${daysRemaining === 1 ? "" : "s"}, from ${startDate} through ${endDate}. Contact HR if you need help.`,
             time: account.suspensionStartsAt!.toISOString(),
             type: "system" as const,
+            href: "/profile",
           };
         }),
         ...birthdayItems,
@@ -8269,6 +8274,7 @@ export function createApp() {
           desc: `You have been checked in for more than 9 hours since ${reminder.eventTime.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" })}. Check out when your work is complete.`,
           time: reminder.createdAt.toISOString(),
           type: "attendance" as const,
+          href: "/attendance/mine",
         })),
         ...actionableLeaves.map((leave) => ({
           id: `leave-${leave.leaveRequestId}`,
@@ -8281,6 +8287,7 @@ export function createApp() {
             .slice(0, 10)} to ${leave.toDate.toISOString().slice(0, 10)}`,
           time: (leave.updatedAt ?? leave.createdAt).toISOString(),
           type: "leave" as const,
+          href: leave.employeeId === req.user!.employeeId ? "/leave/history" : "/leave/approvals",
         })),
         ...overdueMedicalLeaves.map((leave) => ({
           id: `medical-overdue-${leave.leaveRequestId}`,
@@ -8311,6 +8318,7 @@ export function createApp() {
           desc: `${request.employee.name} - ${request.eventType.replaceAll("_", " ").toLowerCase()} on ${request.date.toISOString().slice(0, 10)}`,
           time: request.updatedAt.toISOString(),
           type: "attendance" as const,
+          href: "/attendance/corrections",
         })),
         ...actionableWeeklyOffs.map((request) => ({
           id: `weekly-off-${request.weeklyOffRequestId}-${request.updatedAt.toISOString()}`,
@@ -8323,6 +8331,7 @@ export function createApp() {
           desc: `${request.employee.name} - ${request.date.toISOString().slice(0, 10)}`,
           time: request.updatedAt.toISOString(),
           type: "leave" as const,
+          href: request.employeeId === req.user!.employeeId ? "/leave/apply" : "/leave/approvals",
         })),
         ...actionableExpenses.map((claim) => ({
           id: `expense-${claim.claimId}-${claim.updatedAt.toISOString()}`,
@@ -8333,6 +8342,7 @@ export function createApp() {
           desc: `${claim.employee.name} - ${claim.claimType === "ADVANCE" ? "advance expense" : (claim.title ?? "expense")} - INR ${Number(claim.amount).toLocaleString("en-IN")}`,
           time: claim.updatedAt.toISOString(),
           type: "system" as const,
+          href: "/employee-services",
         })),
         ...actionableCertificates.map((request) => ({
           id: `certificate-${request.certificateRequestId}-${request.updatedAt.toISOString()}`,
@@ -8343,6 +8353,7 @@ export function createApp() {
           desc: `${request.employee.name} - ${request.certificateType.replaceAll("_", " ").toLowerCase()}`,
           time: request.updatedAt.toISOString(),
           type: "system" as const,
+          href: "/employee-services",
         })),
         ...mentionUpdates
           .filter((update) => {
@@ -8362,6 +8373,7 @@ export function createApp() {
             desc: `${update.author.name} on “${update.task.title}”: ${update.message.slice(0, 140)}`,
             time: update.createdAt.toISOString(),
             type: "task" as const,
+            href: "/tasks",
           })),
         ...openChecklistItems.map((item) => ({
           id: `checklist-${item.stateId}`,
@@ -8440,6 +8452,9 @@ export function createApp() {
     "/holidays",
     requireAuth,
     asyncHandler(async (req, res) => {
+      if (req.user!.role === Role.DRIVER) {
+        throw new HttpError(403, "Company holidays do not apply to Bowser Pilots.");
+      }
       const activeOnly = req.query.includeInactive !== "true";
       const holidays = await prisma.holiday.findMany({
         where: activeOnly ? { status: "ACTIVE" } : {},
