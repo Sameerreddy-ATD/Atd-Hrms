@@ -230,14 +230,14 @@ export const menuGroups: MenuGroup[] = [
         to: "/leave/approvals",
         icon: BadgeCheck,
         // HR/CEO/Admin always; department heads via allowReportingManager.
-        roles: ["hr", "ceo", "main_admin", "developer_admin"],
+        roles: ["hr", "ceo", "chief_of_staff", "main_admin", "developer_admin"],
         allowReportingManager: true,
       },
       {
         label: "Leave Tracking",
         to: "/leave/reports",
         icon: FileText,
-        roles: ["hr", "ceo", "main_admin", "developer_admin"],
+        roles: ["hr", "ceo", "chief_of_staff", "main_admin", "developer_admin"],
       },
       {
         label: "Leave Policies",
@@ -366,7 +366,7 @@ export function menuForRole(
           return roleAllowed && moduleAllowed;
         })
         .map((item) => {
-          if (role !== "ceo") return item;
+          if (role !== "ceo" && role !== "chief_of_staff") return item;
           const executiveLabels: Record<string, string> = {
             "/employees": "Workforce",
             "/attendance/locations": "Daily Logs",
@@ -626,6 +626,7 @@ function itemOrderForRole(role: Role): string[] {
         "/performance",
         "/offboarding",
         "/lms",
+        "/attendance/mine",
         "/attendance/locations",
         "/leave/approvals",
         "/leave/reports",

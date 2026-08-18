@@ -139,6 +139,13 @@ const pages = {
     field: "ఫీల్డ్",
     executiveSummary: "ఎగ్జిక్యూటివ్ సారాంశం",
     executiveHelp: "వర్క్‌ఫోర్స్ ఆరోగ్యం మరియు నేడు శ్రద్ధ అవసరమైన నిర్ణయాలు.",
+    operationsSummary: "ఆపరేషన్స్ సారాంశం",
+    operationsHelp: "నేడు శ్రద్ధ కావాల్సిన people, attendance, leave మరియు work.",
+    descriptionCeo:
+      "Chief Executive Officer · {{date}}. కంపెనీ-వ్యాప్త people, attendance, leave మరియు work.",
+    descriptionCos:
+      "Chief of Staff · {{date}}. సంస్థ operating picture — people, attendance, leave మరియు work.",
+    pendingLeaveHelp: "organization head కోసం waiting requests. approve లేదా reject చేయడానికి తెరవండి.",
     attendanceAccounted: "{{pct}}% హాజరు లెక్కించబడింది",
     totalWorkforce: "మొత్తం వర్క్‌ఫోర్స్",
     pendingLeaveDecisions: "పెండింగ్ సెలవు నిర్ణయాలు",
@@ -218,6 +225,7 @@ const pages = {
     title: "ఉద్యోగులు",
     subtitleHr: "ఉద్యోగి ప్రొఫైల్‌లు, reporting lines మరియు ఉపాధి వివరాలను సృష్టించండి మరియు నిర్వహించండి.",
     subtitleCeo: "సంస్థ మొత్తం వర్క్‌ఫోర్స్ డైరెక్టరీని బ్రౌజ్ చేయండి.",
+    subtitleCos: "పూర్తి workforce directory. Chief of Staff కింది టీమ్‌లు ఈ viewలో ఉంటాయి.",
     subtitleManager: "మీ reporting line మరియు సంస్థా యూనిట్‌లలోని వ్యక్తులు.",
     subtitleAdmin: "సిస్టమ్ అడ్మినిస్ట్రేషన్ కోసం పూర్తి ఉద్యోగి డైరెక్టరీ.",
     subtitleDeveloperAdmin: "Developer Admin పూర్తి ఉద్యోగి ప్రొఫైల్‌లు మరియు అత్యవసర సంప్రదింపులను సవరించవచ్చు.",
@@ -972,7 +980,10 @@ const pages = {
   },
   leaveTracking: {
     title: "సెలవు ట్రాకింగ్",
+    titleExecutive: "Leave Overview",
     subtitle: "సంస్థ వ్యాప్తంగా leave requests. సంస్థ heads leave approve చేస్తారు; HR sick-leave medical reports ఇక్కడ verify చేస్తారు.",
+    subtitleExecutive:
+      "కంపెనీ-వ్యాప్త leave status. Leave Approvals నుండి approve చేయండి. HR sick-leave medical reports ఇక్కడ verify చేస్తారు.",
     matching: "సరిపోలే అభ్యర్థనలు",
     verifiedByHr: "HR verify చేశారు",
     verified: "Verified",

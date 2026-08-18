@@ -140,6 +140,13 @@ const pages = {
     field: "Field",
     executiveSummary: "Executive summary",
     executiveHelp: "Workforce health and decisions requiring attention today.",
+    operationsSummary: "Operations summary",
+    operationsHelp: "People, attendance, leave, and work that need attention today.",
+    descriptionCeo:
+      "Chief Executive Officer · {{date}}. Company-wide people, attendance, leave, and work.",
+    descriptionCos:
+      "Chief of Staff · {{date}}. Operating picture for the organization — people, attendance, leave, and work.",
+    pendingLeaveHelp: "Requests waiting on an organization head. Open to approve or reject.",
     attendanceAccounted: "{{pct}}% attendance accounted for",
     totalWorkforce: "Total workforce",
     pendingLeaveDecisions: "Pending leave decisions",
@@ -219,6 +226,7 @@ const pages = {
     title: "Employees",
     subtitleHr: "Create and maintain employee profiles, reporting lines, and employment details.",
     subtitleCeo: "Browse the full workforce directory across the organization.",
+    subtitleCos: "Browse the full workforce directory. Teams under Chief of Staff sit in this view.",
     subtitleManager: "People in your reporting line and organization units.",
     subtitleAdmin: "Full employee directory for system administration.",
     subtitleDeveloperAdmin: "Developer Admin can edit full employee profiles and emergency contacts.",
@@ -974,7 +982,10 @@ const pages = {
   },
   leaveTracking: {
     title: "Leave Tracking",
+    titleExecutive: "Leave Overview",
     subtitle: "Organization-wide leave requests. Organization heads approve leave; HR verifies sick-leave medical reports here.",
+    subtitleExecutive:
+      "Company-wide leave status. Approve from Leave Approvals. HR verifies sick-leave medical reports here.",
     matching: "Matching requests",
     verifiedByHr: "Verified by HR",
     verified: "Verified",

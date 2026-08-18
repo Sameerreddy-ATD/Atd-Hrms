@@ -212,17 +212,13 @@ export function shortcutsForRole(
           description: "Leave status company-wide",
           icon: FileText,
         },
-        ...(options?.isReportingManager
-          ? [
-              {
-                label: "Leave approvals",
-                to: "/leave/approvals",
-                description: "Approve unit leave",
-                icon: BadgeCheck,
-              } satisfies RoleShortcut,
-            ]
-          : []),
         tasks,
+        {
+          label: "Leave approvals",
+          to: "/leave/approvals",
+          description: "Approve unit leave",
+          icon: BadgeCheck,
+        },
         announcements,
         notifications,
       ];
@@ -246,16 +242,12 @@ export function shortcutsForRole(
           description: "Leave status company-wide",
           icon: FileText,
         },
-        ...(options?.isReportingManager
-          ? [
-              {
-                label: "Leave approvals",
-                to: "/leave/approvals",
-                description: "Approve unit leave",
-                icon: BadgeCheck,
-              } satisfies RoleShortcut,
-            ]
-          : []),
+        {
+          label: "Leave approvals",
+          to: "/leave/approvals",
+          description: "Approve unit leave",
+          icon: BadgeCheck,
+        },
         tasks,
         announcements,
         notifications,

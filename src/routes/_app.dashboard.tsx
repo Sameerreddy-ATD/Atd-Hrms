@@ -221,7 +221,9 @@ function DashboardPage() {
 
     Promise.all([
       leaveApi.list().catch(() => []),
-      user.role === "ceo" ? tasksApi.list("team", { limit: 1000, offset: 0 }).catch(() => []) : [],
+      user.role === "ceo" || user.role === "chief_of_staff"
+        ? tasksApi.list("team", { limit: 1000, offset: 0 }).catch(() => [])
+        : [],
       user.role === "ceo" ? assetsApi.investmentSummary().catch(() => []) : [],
     ])
       .then(([leaveRows, taskRows, investmentRows]) => {
@@ -271,17 +273,24 @@ function DashboardPage() {
   const fieldPresent = countFieldPresent(todayAttendance);
   const missed = countStatusIncludes(todayAttendance, "Missed");
   const pendingLeaves = leaves.filter((l) => l.status === "Pending").length;
+  const pendingLeaveRows = leaves.filter((leave) => leave.status === "Pending").slice(0, 8);
   const branchPresentCounts = branches.map((branch) => ({
     branch,
     present: countBranchPresent(todayAttendance, branch.id),
   }));
+  const isExecutive = user.role === "ceo" || user.role === "chief_of_staff";
+  const headerDescription = isExecutive
+    ? t(user.role === "ceo" ? "pages.dashboard.descriptionCeo" : "pages.dashboard.descriptionCos", {
+        date: formatDisplayDate(new Date()),
+      })
+    : `${ROLE_LABELS[user.role]} · ${formatDisplayDate(new Date())}`;
 
   return (
     <div className="aw-enter w-full min-w-0 max-w-full space-y-1 overflow-x-hidden">
       <PageHeader
         eyebrow={t("pages.dashboard.eyebrow")}
         title={t("pages.dashboard.welcome", { name: user.name?.split(" ")[0] ?? "there" })}
-        description={`${ROLE_LABELS[user.role]} · ${formatDisplayDate(new Date())}`}
+        description={headerDescription}
       />
 
       <BirthdayMarquee />
@@ -323,9 +332,7 @@ function DashboardPage() {
           onAttendanceChanged={refreshDashboard}
           attendanceReady={!summaryLoading}
         />
-      ) : user.role === "hr" ||
-        user.role === "developer_admin" ||
-        user.role === "chief_of_staff" ? (
+      ) : user.role === "hr" || user.role === "developer_admin" ? (
         <HRDashboard
           user={user}
           data={{
@@ -336,7 +343,7 @@ function DashboardPage() {
             fieldPresent,
             pendingLeaves,
           }}
-          pendingLeaveRows={leaves.filter((leave) => leave.status === "Pending").slice(0, 8)}
+          pendingLeaveRows={pendingLeaveRows}
           branchPresentCounts={branchPresentCounts}
           timeline={timeline}
           branches={branches}
@@ -344,8 +351,10 @@ function DashboardPage() {
           onAttendanceChanged={refreshDashboard}
           attendanceReady={!summaryLoading}
         />
-      ) : user.role === "ceo" ? (
-        <CEODashboard
+      ) : isExecutive ? (
+        <ExecutiveDashboard
+          user={user}
+          variant={user.role === "ceo" ? "ceo" : "cos"}
           data={{
             total,
             attendanceRequiredTotal,
@@ -362,6 +371,10 @@ function DashboardPage() {
           birthdays={birthdays}
           tasks={executiveTasks}
           investments={employeeInvestments}
+          pendingLeaveRows={pendingLeaveRows}
+          timeline={timeline}
+          onAttendanceChanged={refreshDashboard}
+          attendanceReady={!summaryLoading}
         />
       ) : (
         <AdminDashboard
@@ -1112,14 +1125,22 @@ function HRDashboard({
   );
 }
 
-function CEODashboard({
+function ExecutiveDashboard({
+  user,
+  variant,
   data,
   attendance,
   branches,
   birthdays,
   tasks,
   investments,
+  pendingLeaveRows,
+  timeline,
+  onAttendanceChanged,
+  attendanceReady,
 }: {
+  user: User;
+  variant: "ceo" | "cos";
   data: {
     total: number;
     attendanceRequiredTotal: number;
@@ -1136,6 +1157,10 @@ function CEODashboard({
   birthdays: BirthdayItem[];
   tasks: WorkTask[];
   investments: EmployeeAssetInvestment[];
+  pendingLeaveRows: LeaveRequest[];
+  timeline: AttendanceTimelineEvent[];
+  onAttendanceChanged: () => void;
+  attendanceReady: boolean;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -1165,6 +1190,8 @@ function CEODashboard({
     }),
     { monthly: 0, firstYear: 0 },
   );
+  const showInvestment = variant === "ceo";
+  const canPunch = Boolean(user.employeeId && user.attendanceRequired !== false);
   const executiveLinks = [
     {
       label: t("pages.dashboard.navWorkforce"),
@@ -1190,24 +1217,46 @@ function CEODashboard({
       to: "/leave/reports",
       icon: CalendarClock,
     },
-    {
-      label: t("pages.dashboard.navInvestment"),
-      detail: t("pages.dashboard.navInvestmentHelp"),
-      to: "/assets",
-      icon: Package,
-    },
+    ...(showInvestment
+      ? [
+          {
+            label: t("pages.dashboard.navInvestment"),
+            detail: t("pages.dashboard.navInvestmentHelp"),
+            to: "/assets",
+            icon: Package,
+          },
+        ]
+      : []),
   ] as const;
 
   return (
     <div className="space-y-5">
+      {canPunch && (
+        <MarkAttendanceCard
+          user={user}
+          timeline={timeline}
+          branches={branches}
+          onAttendanceChanged={onAttendanceChanged}
+          attendanceReady={attendanceReady}
+          className="min-w-0"
+        />
+      )}
       <section aria-labelledby="executive-summary-title">
         <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
             <h2 id="executive-summary-title" className="text-base font-semibold tracking-tight">
-              {t("pages.dashboard.executiveSummary")}
+              {t(
+                variant === "ceo"
+                  ? "pages.dashboard.executiveSummary"
+                  : "pages.dashboard.operationsSummary",
+              )}
             </h2>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              {t("pages.dashboard.executiveHelp")}
+              {t(
+                variant === "ceo"
+                  ? "pages.dashboard.executiveHelp"
+                  : "pages.dashboard.operationsHelp",
+              )}
             </p>
           </div>
           <p className="shrink-0 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
@@ -1251,7 +1300,12 @@ function CEODashboard({
       </section>
 
       <section aria-label="Executive navigation">
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <div
+          className={cn(
+            "grid gap-2 sm:grid-cols-2",
+            showInvestment ? "lg:grid-cols-5" : "lg:grid-cols-4",
+          )}
+        >
           {executiveLinks.map(({ label, detail, to, icon: Icon }) => (
             <button
               key={to}
@@ -1272,7 +1326,7 @@ function CEODashboard({
         </div>
       </section>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className={cn("grid gap-4", showInvestment ? "xl:grid-cols-2" : "xl:grid-cols-1")}>
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-sm">
@@ -1300,6 +1354,7 @@ function CEODashboard({
             />
           </CardContent>
         </Card>
+        {showInvestment && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-sm">
@@ -1322,7 +1377,50 @@ function CEODashboard({
             />
           </CardContent>
         </Card>
+        )}
       </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+          <div>
+            <CardTitle className="text-sm">{t("pages.dashboard.pendingLeaveDecisions")}</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t("pages.dashboard.pendingLeaveHelp")}
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void navigate({ to: "/leave/approvals" })}
+          >
+            {t("pages.dashboard.viewAll")}
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {pendingLeaveRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("pages.dashboard.noPendingLeave")}</p>
+          ) : (
+            pendingLeaveRows.map((leave) => (
+              <button
+                key={leave.id}
+                type="button"
+                className="flex w-full flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-left text-sm transition-colors hover:bg-muted/40"
+                onClick={() => void navigate({ to: "/leave/approvals" })}
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{leave.employeeName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {leave.type} · {formatDisplayDateRange(leave.from, leave.to)} · {leave.days}{" "}
+                    day
+                    {leave.days === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <StatusBadge status={leave.status} />
+              </button>
+            ))
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1337,7 +1435,9 @@ function CEODashboard({
             variant="outline"
             className="w-full sm:w-auto"
             onClick={() =>
-              downloadCsv("ceo-attendance-summary.csv", [
+              downloadCsv(
+                variant === "ceo" ? "ceo-attendance-summary.csv" : "cos-attendance-summary.csv",
+                [
                 {
                   totalEmployees: data.total,
                   attendanceRequired: data.attendanceRequiredTotal,

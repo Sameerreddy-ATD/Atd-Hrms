@@ -94,8 +94,16 @@ function LeaveReportsPage() {
   return (
     <div>
       <PageHeader
-        title={t("pages.leaveTracking.title")}
-        description={t("pages.leaveTracking.subtitle")}
+        title={
+          user?.role === "ceo" || user?.role === "chief_of_staff"
+            ? t("pages.leaveTracking.titleExecutive")
+            : t("pages.leaveTracking.title")
+        }
+        description={
+          user?.role === "ceo" || user?.role === "chief_of_staff"
+            ? t("pages.leaveTracking.subtitleExecutive")
+            : t("pages.leaveTracking.subtitle")
+        }
         actions={
           <Button
             size="sm"

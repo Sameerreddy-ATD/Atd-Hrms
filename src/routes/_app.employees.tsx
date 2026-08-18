@@ -115,7 +115,8 @@ function EmployeesPage() {
   const canHrManage = currentUser?.role === "hr";
   const canOpenEmployeeActions = canEdit || canHrManage;
   const canSeeCompanyDirectory = Boolean(
-    currentUser && ["developer_admin", "main_admin", "ceo", "hr"].includes(currentUser.role),
+    currentUser &&
+      ["developer_admin", "main_admin", "ceo", "chief_of_staff", "hr"].includes(currentUser.role),
   );
 
   useEffect(() => {
@@ -289,9 +290,13 @@ function EmployeesPage() {
             ? t("pages.employees.subtitleDeveloperAdmin")
             : canHrManage
               ? t("pages.employees.subtitleHrManage")
-              : canSeeCompanyDirectory
-                ? t("pages.employees.subtitleDirectory")
-                : t("pages.employees.subtitleScoped")
+              : currentUser?.role === "ceo"
+                ? t("pages.employees.subtitleCeo")
+                : currentUser?.role === "chief_of_staff"
+                  ? t("pages.employees.subtitleCos")
+                  : canSeeCompanyDirectory
+                    ? t("pages.employees.subtitleDirectory")
+                    : t("pages.employees.subtitleScoped")
         }
       />
       {loading && <LoadingState label={t("pages.loading.employees")} />}

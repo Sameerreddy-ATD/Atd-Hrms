@@ -2778,7 +2778,13 @@ export function createApp() {
     "/employees",
     requireAuth,
     asyncHandler(async (req, res) => {
-      const directoryRoles: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.CEO, Role.HR];
+      const directoryRoles: Role[] = [
+        Role.DEVELOPER_ADMIN,
+        Role.MAIN_ADMIN,
+        Role.CEO,
+        Role.CHIEF_OF_STAFF,
+        Role.HR,
+      ];
       let where: Prisma.EmployeeWhereInput = { employeeId: "__none__" };
       if (directoryRoles.includes(req.user!.role)) {
         where = {};
@@ -4772,7 +4778,14 @@ export function createApp() {
   app.get(
     "/reports/leave",
     requireAuth,
-    requireRoles(Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN, Role.CEO, Role.MANAGER),
+    requireRoles(
+      Role.HR,
+      Role.MAIN_ADMIN,
+      Role.DEVELOPER_ADMIN,
+      Role.CEO,
+      Role.CHIEF_OF_STAFF,
+      Role.MANAGER,
+    ),
     asyncHandler(async (req, res) => {
       const where: Prisma.LeaveRequestWhereInput = {};
       const from = dateFromQuery(req.query.from ?? req.query.dateFrom);
@@ -5677,7 +5690,13 @@ export function createApp() {
     "/leave/requests",
     requireAuth,
     asyncHandler(async (req, res) => {
-      const operationalRoles: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR, Role.CEO];
+      const operationalRoles: Role[] = [
+        Role.DEVELOPER_ADMIN,
+        Role.MAIN_ADMIN,
+        Role.HR,
+        Role.CEO,
+        Role.CHIEF_OF_STAFF,
+      ];
       const ownOnly = req.query.mine === "true";
       const assignedApprovals = req.query.assignedApprovals === "true";
       const where: Prisma.LeaveRequestWhereInput = ownOnly
@@ -7895,7 +7914,13 @@ export function createApp() {
     "/notifications",
     requireAuth,
     asyncHandler(async (req, res) => {
-      const operationalRoles: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR, Role.CEO];
+      const operationalRoles: Role[] = [
+        Role.DEVELOPER_ADMIN,
+        Role.MAIN_ADMIN,
+        Role.HR,
+        Role.CEO,
+        Role.CHIEF_OF_STAFF,
+      ];
       const canSeeOperational = operationalRoles.includes(req.user!.role);
       const teamEmployeeIds = req.user!.employeeId
         ? await getOrganizationTeamEmployeeIds(req.user!.employeeId)

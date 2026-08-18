@@ -139,6 +139,13 @@ const pages = {
     field: "फ़ील्ड",
     executiveSummary: "कार्यकारी सारांश",
     executiveHelp: "वर्कफ़ोर्स स्वास्थ्य और आज ध्यान देने योग्य निर्णय।",
+    operationsSummary: "ऑपरेशन्स सारांश",
+    operationsHelp: "आज ध्यान देने वाले people, attendance, leave और work.",
+    descriptionCeo:
+      "Chief Executive Officer · {{date}}. कंपनी-व्यापी people, attendance, leave और work.",
+    descriptionCos:
+      "Chief of Staff · {{date}}. संगठन की operating picture — people, attendance, leave और work.",
+    pendingLeaveHelp: "organization head के लिए प्रतीक्षित requests. approve या reject करने के लिए खोलें।",
     attendanceAccounted: "{{pct}}% हाज़िरी दर्ज",
     totalWorkforce: "कुल वर्कफ़ोर्स",
     pendingLeaveDecisions: "लंबित छुट्टी निर्णय",
@@ -218,6 +225,7 @@ const pages = {
     title: "कर्मचारी",
     subtitleHr: "कर्मचारी प्रोफ़ाइल, reporting lines और रोज़गार विवरण बनाएँ और बनाए रखें।",
     subtitleCeo: "संगठन भर workforce निर्देशिका देखें।",
+    subtitleCos: "पूरी workforce directory. Chief of Staff के अंतर्गत टीमें इसी view में हैं।",
     subtitleManager: "आपकी reporting line और संगठन इकाइयों के लोग।",
     subtitleAdmin: "सिस्टम प्रशासन के लिए पूर्ण कर्मचारी निर्देशिका।",
     subtitleDeveloperAdmin: "Developer Admin पूर्ण कर्मचारी प्रोफ़ाइल और आपातकालीन संपर्क संपादित कर सकते हैं।",
@@ -972,7 +980,10 @@ const pages = {
   },
   leaveTracking: {
     title: "छुट्टी ट्रैकिंग",
+    titleExecutive: "Leave Overview",
     subtitle: "संगठन-व्यापी leave requests। संगठन heads leave approve करते हैं; HR sick-leave medical reports यहाँ verify करता है।",
+    subtitleExecutive:
+      "कंपनी-व्यापी leave status. Leave Approvals से approve करें. HR sick-leave medical reports यहाँ verify करता है।",
     matching: "matching requests",
     verifiedByHr: "HR verify",
     empty: "कोई leave request नहीं",

@@ -127,7 +127,8 @@ function LeaveApprovalsPage() {
       user.role === "hr" ||
       user.role === "developer_admin" ||
       user.role === "main_admin" ||
-      user.role === "ceo";
+      user.role === "ceo" ||
+      user.role === "chief_of_staff";
     employeesApi
       .isReportingManager()
       .then((result) => {
