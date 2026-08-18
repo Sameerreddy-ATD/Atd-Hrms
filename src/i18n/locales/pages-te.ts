@@ -272,7 +272,7 @@ const pages = {
   users: {
     title: "యూజర్ లాగిన్లు",
     subtitle: "ఉద్యోగి ఖాతాలను సృష్టించండి, suspend చేయండి, offboard చేయండి, reactivate చేయండి మరియు reset చేయండి. స్థితి Created → Password change → Active.",
-    search: "పేరు, ఇమెయిల్, ఉద్యోగి ID, కంపెనీ లేదా పదవి వెతకండి",
+    search: "పేరు, ఇమెయిల్, ఉద్యోగి ID లేదా పదవి వెతకండి",
     company: "కంపెనీ",
     unit: "సంస్థా యూనిట్",
     joined: "చేరిన తేదీ",

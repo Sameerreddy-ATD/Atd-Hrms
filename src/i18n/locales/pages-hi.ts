@@ -272,7 +272,7 @@ const pages = {
   users: {
     title: "यूज़र लॉगिन",
     subtitle: "कर्मचारी खाते बनाएँ, suspend करें, offboard करें, reactivate करें और reset करें। स्थिति Created → Password change → Active।",
-    search: "नाम, ईमेल, कर्मचारी ID, कंपनी या पद खोजें",
+    search: "नाम, ईमेल, कर्मचारी ID या पद खोजें",
     company: "कंपनी",
     unit: "संगठन इकाई",
     joined: "जॉइनिंग",

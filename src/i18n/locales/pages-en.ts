@@ -273,7 +273,7 @@ const pages = {
   users: {
     title: "User Logins",
     subtitle: "Create, suspend, offboard, reactivate, and reset employee accounts. Status moves from Created → Password change → Active.",
-    search: "Search name, email, employee ID, company, or designation",
+    search: "Search name, email, employee ID, or designation",
     company: "Company",
     unit: "Organization unit",
     joined: "Joined",

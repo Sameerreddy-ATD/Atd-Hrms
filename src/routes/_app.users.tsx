@@ -29,7 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { COMPANY_LABELS, ROLE_LABELS, type Branch, type Department, type Role, type User } from "@/types/domain";
+import { ROLE_LABELS, type Branch, type Department, type Role, type User } from "@/types/domain";
 import { branchesApi, usersApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
 import { formatDisplayDate, formatDisplayDateTime, indiaDateKeyShift } from "@/lib/india-date";
@@ -55,16 +55,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatDepartmentPath, formatDepartmentPathById } from "@/lib/department-label";
 import {
-  buildUnitSubtree,
   hasUnassignedDesignation,
-  hasUnassignedUnit,
   matchesDirectoryPerson,
-  occupiedCompanyOptions,
   occupiedDesignations,
   occupiedRoles,
-  occupiedUnitOptions,
   type DirectoryFilters,
 } from "@/lib/directory-filters";
 
@@ -102,8 +97,6 @@ function UsersPage() {
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [company, setCompany] = useState("all");
-  const [unit, setUnit] = useState("all");
   const [designation, setDesignation] = useState("all");
 
   const applyDeviceCount = useCallback((userId: string, count: number) => {
@@ -261,23 +254,21 @@ function UsersPage() {
 
   const directoryFilters: DirectoryFilters = useMemo(
     () => ({
-      company,
+      company: "all",
       branch: "all",
-      unit,
+      unit: "all",
       designation,
       employmentType: "all",
     }),
-    [company, unit, designation],
+    [designation],
   );
-  const unitSubtree = useMemo(() => buildUnitSubtree(departments, unit), [departments, unit]);
   const roleOrder = useMemo(() => Object.keys(ROLE_LABELS) as Role[], []);
 
   const facetedUsers = useCallback(
-    (skip?: "company" | "unit" | "designation" | "role" | "status") => {
-      const directorySkip =
-        skip === "company" || skip === "unit" || skip === "designation" ? skip : undefined;
+    (skip?: "designation" | "role" | "status") => {
+      const directorySkip = skip === "designation" ? skip : undefined;
       return users.filter((user) => {
-        if (!matchesDirectoryPerson(user, directoryFilters, unitSubtree, directorySkip)) {
+        if (!matchesDirectoryPerson(user, directoryFilters, null, directorySkip)) {
           return false;
         }
         if (skip !== "role" && roleFilter !== "all" && user.role !== roleFilter) return false;
@@ -287,17 +278,9 @@ function UsersPage() {
         return true;
       });
     },
-    [users, directoryFilters, unitSubtree, roleFilter, statusFilter],
+    [users, directoryFilters, roleFilter, statusFilter],
   );
 
-  const companyOptions = useMemo(
-    () => occupiedCompanyOptions(facetedUsers("company")),
-    [facetedUsers],
-  );
-  const unitOptions = useMemo(
-    () => occupiedUnitOptions(facetedUsers("unit"), departments),
-    [facetedUsers, departments],
-  );
   const designationOptions = useMemo(
     () => occupiedDesignations(facetedUsers("designation")),
     [facetedUsers],
@@ -310,10 +293,6 @@ function UsersPage() {
     const present = new Set(facetedUsers("status").map(loginStatusBucket));
     return LOGIN_STATUS_FILTERS.filter((value) => present.has(value));
   }, [facetedUsers]);
-  const showUnassignedUnit = useMemo(
-    () => hasUnassignedUnit(facetedUsers("unit")),
-    [facetedUsers],
-  );
   const showUnassignedDesignation = useMemo(
     () => hasUnassignedDesignation(facetedUsers("designation")),
     [facetedUsers],
@@ -323,40 +302,17 @@ function UsersPage() {
     const search = query.trim().toLowerCase();
     return facetedUsers().filter((user) => {
       if (!search) return true;
-      const unitLabel = formatDepartmentPathById(
-        departments,
-        user.departmentId || user.department,
-        "",
-      );
-      const companyLabel = user.companyEntity ? COMPANY_LABELS[user.companyEntity] : "";
       const searchable =
-        `${user.name} ${user.email} ${user.employeeCode ?? ""} ${user.employeeId ?? ""} ${user.phone ?? ""} ${user.companyPhone ?? ""} ${user.designation ?? ""} ${companyLabel} ${unitLabel}`.toLowerCase();
+        `${user.name} ${user.email} ${user.employeeCode ?? ""} ${user.employeeId ?? ""} ${user.phone ?? ""} ${user.companyPhone ?? ""} ${user.designation ?? ""}`.toLowerCase();
       return searchable.includes(search);
     });
-  }, [facetedUsers, query, departments]);
+  }, [facetedUsers, query]);
 
   const filtersActive =
     Boolean(query.trim()) ||
-    company !== "all" ||
-    unit !== "all" ||
     designation !== "all" ||
     roleFilter !== "all" ||
     statusFilter !== "all";
-
-  useEffect(() => {
-    if (company !== "all" && !companyOptions.includes(company as (typeof companyOptions)[number])) {
-      setCompany("all");
-    }
-  }, [company, companyOptions]);
-
-  useEffect(() => {
-    if (unit === "all") return;
-    if (unit === "none") {
-      if (!showUnassignedUnit) setUnit("all");
-      return;
-    }
-    if (!unitOptions.some((row) => row.id === unit)) setUnit("all");
-  }, [unit, unitOptions, showUnassignedUnit]);
 
   useEffect(() => {
     if (designation === "all") return;
@@ -381,8 +337,6 @@ function UsersPage() {
 
   function clearLoginFilters() {
     setQuery("");
-    setCompany("all");
-    setUnit("all");
     setDesignation("all");
     setRoleFilter("all");
     setStatusFilter("all");
@@ -447,35 +401,6 @@ function UsersPage() {
             placeholder={t("pages.users.search")}
           />
         </div>
-        <Select value={company} onValueChange={setCompany}>
-          <SelectTrigger className="sm:w-52" aria-label={t("pages.users.filterCompany")}>
-            <SelectValue placeholder={t("pages.users.filterCompany")} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t("pages.users.allCompanies")}</SelectItem>
-            {companyOptions.map((value) => (
-              <SelectItem key={value} value={value}>
-                {COMPANY_LABELS[value]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={unit} onValueChange={setUnit}>
-          <SelectTrigger className="sm:w-64" aria-label={t("pages.users.filterUnit")}>
-            <SelectValue placeholder={t("pages.users.filterUnit")} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t("pages.users.allUnits")}</SelectItem>
-            {showUnassignedUnit && (
-              <SelectItem value="none">{t("pages.employees.noDepartmentCeo")}</SelectItem>
-            )}
-            {unitOptions.map((row) => (
-              <SelectItem key={row.id} value={row.id}>
-                {formatDepartmentPath(row, departments)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
         <Select value={designation} onValueChange={setDesignation}>
           <SelectTrigger className="sm:w-52" aria-label={t("pages.users.filterDesignation")}>
             <SelectValue placeholder={t("pages.users.filterDesignation")} />
@@ -564,22 +489,6 @@ function UsersPage() {
                   <p className="text-muted-foreground">Devices</p>
                   <p className="mt-0.5">{describeDeviceCount(user.activeDeviceCount)}</p>
                 </div>
-                <div>
-                  <p className="text-muted-foreground">{t("pages.users.company")}</p>
-                  <p className="mt-0.5 break-words">
-                    {user.companyEntity ? COMPANY_LABELS[user.companyEntity] : "-"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">{t("pages.users.unit")}</p>
-                  <p className="mt-0.5 break-words">
-                    {formatDepartmentPathById(
-                      departments,
-                      user.departmentId || user.department,
-                      user.role === "ceo" ? t("pages.employees.noDepartmentCeo") : "-",
-                    )}
-                  </p>
-                </div>
                 {user.designation && (
                   <div>
                     <p className="text-muted-foreground">{t("pages.employees.designation")}</p>
@@ -651,15 +560,13 @@ function UsersPage() {
           ))}
         </div>
         <div className="hidden overflow-x-auto md:block">
-          <Table className="min-w-[1180px]">
+          <Table className="min-w-[1020px]">
             <TableHeader>
               <TableRow>
                 <TableHead>{t("common.name")}</TableHead>
                 <TableHead>{t("common.email")}</TableHead>
                 <TableHead>{t("common.role")}</TableHead>
                 <TableHead>{t("common.employeeId")}</TableHead>
-                <TableHead>{t("pages.users.company")}</TableHead>
-                <TableHead>{t("pages.users.unit")}</TableHead>
                 <TableHead>{t("pages.users.joined")}</TableHead>
                 <TableHead>{t("common.status")}</TableHead>
                 <TableHead>{t("pages.users.attendanceLeave")}</TableHead>
@@ -681,16 +588,6 @@ function UsersPage() {
                   <TableCell>{ROLE_LABELS[u.role]}</TableCell>
                   <TableCell className="font-mono text-xs">
                     {u.employeeCode || u.employeeId || "-"}
-                  </TableCell>
-                  <TableCell className="max-w-[160px] text-xs">
-                    {u.companyEntity ? COMPANY_LABELS[u.companyEntity] : "-"}
-                  </TableCell>
-                  <TableCell className="max-w-[200px] text-sm">
-                    {formatDepartmentPathById(
-                      departments,
-                      u.departmentId || u.department,
-                      u.role === "ceo" ? t("pages.employees.noDepartmentCeo") : "-",
-                    )}
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-sm">
                     {u.joiningDate ? formatDisplayDate(u.joiningDate) : "-"}
