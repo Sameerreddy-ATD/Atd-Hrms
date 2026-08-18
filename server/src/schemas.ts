@@ -732,7 +732,7 @@ export const mobileEventSchema = z.object({
       descriptor: z.array(z.number().finite().min(-10).max(10)).min(128).max(2048),
       descriptorSamples: z
         .array(z.array(z.number().finite().min(-10).max(10)).min(128).max(2048))
-        .min(3)
+        .min(2)
         .max(9)
         .optional(),
       // The frame is analysed server-side to derive the descriptor and the

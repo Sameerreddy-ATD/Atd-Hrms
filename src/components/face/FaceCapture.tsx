@@ -18,7 +18,7 @@ function loadHuman() {
         cacheModels: true,
         cacheSensitivity: 0,
         skipAllowed: false,
-        warmup: "full",
+        warmup: "none",
         filter: {
           enabled: true,
           equalization: false,
@@ -33,7 +33,7 @@ function loadHuman() {
             mask: false,
             maxDetected: 2,
             minConfidence: 0.5,
-            minSize: 160,
+            minSize: 80,
             skipFrames: 0,
             skipTime: 0,
           },
@@ -52,10 +52,9 @@ function loadHuman() {
         body: { enabled: false },
         hand: { enabled: false },
         object: { enabled: false },
-        gesture: { enabled: true },
+        gesture: { enabled: false },
       });
       await human.load();
-      await human.warmup();
       return human;
     });
     // A transient WebGL / model-fetch failure must not poison the cached promise,
@@ -73,9 +72,11 @@ export async function preloadFaceRecognition() {
   await loadHuman();
 }
 
-/** Consecutive live frames after the face is in view — no countdown or blink. */
-const SCAN_SAMPLES = 3;
-const SAMPLE_INTERVAL_MS = 80;
+/** Two live frames is enough to submit — extra samples only delay save. */
+const SCAN_SAMPLES = 2;
+const SAMPLE_INTERVAL_MS = 40;
+/** Arm's-length selfie; a high floor forces people into the camera (looks zoomed). */
+const MIN_FACE_SIZE = 110;
 
 function snapshotFromVideo(video: HTMLVideoElement) {
   const vw = video.videoWidth;
@@ -90,7 +91,7 @@ function snapshotFromVideo(video: HTMLVideoElement) {
 
   const srcW = rotateForPortrait ? vh : vw;
   const srcH = rotateForPortrait ? vw : vh;
-  const scale = Math.min(1, 720 / srcW);
+  const scale = Math.min(1, 640 / srcW);
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(srcW * scale));
   canvas.height = Math.max(1, Math.round(srcH * scale));
@@ -110,7 +111,22 @@ function snapshotFromVideo(video: HTMLVideoElement) {
   } else {
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
   }
-  return canvas.toDataURL("image/jpeg", 0.86);
+  return canvas.toDataURL("image/jpeg", 0.72);
+}
+
+function applyWidestCameraView(stream: MediaStream) {
+  const track = stream.getVideoTracks()[0];
+  if (!track?.getCapabilities || !track.applyConstraints) return;
+  const capabilities = track.getCapabilities() as MediaTrackCapabilities & {
+    zoom?: { min: number };
+  };
+  const minZoom = capabilities.zoom?.min;
+  if (typeof minZoom !== "number") return;
+  void track
+    .applyConstraints({
+      advanced: [{ zoom: minZoom } as MediaTrackConstraintSet],
+    })
+    .catch(() => undefined);
 }
 
 function averageDescriptor(samples: number[][]) {
@@ -184,12 +200,7 @@ export function FaceCapture({
         try {
           stream = await navigator.mediaDevices.getUserMedia({
             audio: false,
-            video: {
-              facingMode: { ideal: "user" },
-              width: { ideal: 720 },
-              height: { ideal: 1280 },
-              aspectRatio: { ideal: 0.5625 },
-            },
+            video: { facingMode: { ideal: "user" } },
           });
         } catch (firstError) {
           const denied =
@@ -225,6 +236,7 @@ export function FaceCapture({
           return;
         }
         streamRef.current = stream;
+        applyWidestCameraView(stream);
         const video = videoRef.current;
         if (!video) throw new Error("Camera preview could not be opened.");
         video.srcObject = stream;
@@ -257,7 +269,7 @@ export function FaceCapture({
             const faceScore = Math.min(face.faceScore ?? face.score, face.boxScore ?? face.score);
             const live = face.live ?? 0;
             const real = face.real ?? 0;
-            const largeEnough = Math.min(...face.size) >= 180;
+            const largeEnough = Math.min(...face.size) >= MIN_FACE_SIZE;
             const hasDescriptor = Boolean(face.embedding && face.embedding.length >= 128);
             const qualityOk =
               largeEnough &&
@@ -357,17 +369,17 @@ export function FaceCapture({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="relative mx-auto aspect-[4/5] w-full max-w-md overflow-hidden rounded-xl bg-foreground shadow-inner sm:aspect-square">
+      <div className="relative mx-auto aspect-[3/4] w-full max-w-md overflow-hidden rounded-xl bg-foreground shadow-inner">
         <video
           ref={videoRef}
           muted
           playsInline
           aria-label="Live camera preview for face scan"
-          className="h-full w-full scale-x-[-1] object-cover"
+          className="h-full w-full origin-center scale-x-[-1] object-contain object-center"
         />
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_36%_46%_at_50%_44%,transparent_96%,rgb(0_0_0_/_0.72)_100%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_42%_40%_at_50%_42%,transparent_96%,rgb(0_0_0_/_0.55)_100%)]" />
         <div
-          className={`pointer-events-none absolute left-1/2 top-[44%] h-[58%] w-[55%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] border-2 transition-colors ${
+          className={`pointer-events-none absolute left-1/2 top-[42%] h-[46%] w-[42%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] border-2 transition-colors ${
             scanReady ? "border-primary" : "border-background/75"
           }`}
         />
