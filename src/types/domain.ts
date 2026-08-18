@@ -183,7 +183,7 @@ export type FaceEnrollmentStatus =
 
 export type FaceVerificationPurpose = "ENROLLMENT" | "ATTENDANCE_CHECK_IN" | "ATTENDANCE_CHECK_OUT";
 
-export type FaceChallenge = "BLINK" | "TURN_LEFT" | "TURN_RIGHT";
+export type FaceChallenge = "FACE" | "BLINK" | "TURN_LEFT" | "TURN_RIGHT";
 
 export interface FaceCapturePayload {
   sessionId: string;
@@ -193,7 +193,7 @@ export interface FaceCapturePayload {
   /** Required for enrollment; omitted on attendance verify (photo is not stored). */
   imageData?: string;
   enrollmentViews?: Array<{
-    direction: "EYES_OPEN" | "EYES_CLOSED";
+    direction: "FRONT" | "EYES_OPEN" | "EYES_CLOSED";
     imageData: string;
     descriptor: number[];
   }>;

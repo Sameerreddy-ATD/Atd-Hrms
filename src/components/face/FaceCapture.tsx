@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, CheckCircle2, LoaderCircle, ScanFace, ShieldCheck, X } from "lucide-react";
+import { CheckCircle2, LoaderCircle, ScanFace, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { lockPortraitOrientation } from "@/lib/screen-orientation";
 import { blockedPermissionHint, requestNativeCameraPermission } from "@/lib/device-permissions";
-import type { FaceCapturePayload, FaceChallenge, FaceVerificationSession } from "@/types/domain";
+import type { FaceCapturePayload, FaceVerificationSession } from "@/types/domain";
 
 type HumanInstance = InstanceType<typeof import("@vladmandic/human").default>;
 let humanPromise: Promise<HumanInstance> | null = null;
@@ -73,48 +73,9 @@ export async function preloadFaceRecognition() {
   await loadHuman();
 }
 
-const challengeCopy: Record<FaceChallenge, { title: string; hint: string }> = {
-  BLINK: {
-    title: "Blink your eyes",
-    hint: "Look straight at the camera and blink once. You do not need to turn your head.",
-  },
-  TURN_LEFT: {
-    title: "Turn your head left",
-    hint: "Turn slowly to your left, then return to the centre.",
-  },
-  TURN_RIGHT: {
-    title: "Turn your head right",
-    hint: "Turn slowly to your right, then return to the centre.",
-  },
-};
-
-type EnrollmentDirection = "EYES_OPEN" | "EYES_CLOSED";
-
-const enrollmentStepCopy: Record<
-  EnrollmentDirection,
-  { title: string; hint: string; eyesClosed: boolean; stepLabel: string }
-> = {
-  EYES_OPEN: {
-    title: "Step 1 — Eyes open",
-    hint: "Look straight at the camera with both eyes open. Capture is quick.",
-    eyesClosed: false,
-    stepLabel: "Eyes open",
-  },
-  EYES_CLOSED: {
-    title: "Step 2 — Eyes closed",
-    hint: "Keep facing the camera and close both eyes. Capture happens as soon as eyes are closed.",
-    eyesClosed: true,
-    stepLabel: "Eyes closed",
-  },
-};
-
-/** Fast capture — 1 second countdown after pose is ready. */
-const COUNTDOWN_SECONDS = 1;
-const READY_HOLD_MS = 160;
-
-function eyesSeemClosed(gestures: string[]) {
-  return gestures.some((gesture) => gesture.startsWith("blink "));
-}
+/** Consecutive live frames after the face is in view — no countdown or blink. */
+const SCAN_SAMPLES = 3;
+const SAMPLE_INTERVAL_MS = 80;
 
 function snapshotFromVideo(video: HTMLVideoElement) {
   const vw = video.videoWidth;
@@ -152,6 +113,12 @@ function snapshotFromVideo(video: HTMLVideoElement) {
   return canvas.toDataURL("image/jpeg", 0.86);
 }
 
+function averageDescriptor(samples: number[][]) {
+  return samples[0].map(
+    (_, index) => samples.reduce((sum, embedding) => sum + embedding[index], 0) / samples.length,
+  );
+}
+
 export function FaceCapture({
   session,
   onComplete,
@@ -169,12 +136,10 @@ export function FaceCapture({
     "loading",
   );
   const [message, setMessage] = useState(
-    isEnrollment ? "Loading face registration…" : "Loading secure face verification…",
+    isEnrollment ? "Loading face registration…" : "Loading face scan…",
   );
   const [quality, setQuality] = useState(0);
-  const [challengeDone, setChallengeDone] = useState(false);
-  const [enrollmentStep, setEnrollmentStep] = useState<EnrollmentDirection>("EYES_OPEN");
-  const [countdown, setCountdown] = useState<number | null>(null);
+  const [scanReady, setScanReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -185,40 +150,21 @@ export function FaceCapture({
     let active = true;
     let detecting = false;
     let animationFrame = 0;
-    let challengeObserved = false;
-    let centreObserved = false;
-    let stableFrames = 0;
     let stableEmbeddings: number[][] = [];
     let lastSampleAt = 0;
-    let enrollmentIndex = 0;
-    const enrollmentOrder: EnrollmentDirection[] = ["EYES_OPEN", "EYES_CLOSED"];
-    const enrollmentViews: Array<{
-      direction: EnrollmentDirection;
-      imageData: string;
-      descriptor: number[];
-    }> = [];
-
-    let readySince = 0;
-    let countdownValue: number | null = null;
-    let countdownStartedAt = 0;
-    let capturingStep = false;
-    let betweenStepsPauseUntil = 0;
+    let completing = false;
 
     const stop = () => {
       active = false;
       cancelAnimationFrame(animationFrame);
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
-      // Do not unlock screen orientation — phone portrait is owned app-wide.
     };
 
-    const resetCountdown = () => {
-      readySince = 0;
-      countdownValue = null;
-      countdownStartedAt = 0;
+    const resetScan = () => {
       stableEmbeddings = [];
       lastSampleAt = 0;
-      setCountdown(null);
+      setScanReady(false);
     };
 
     async function start() {
@@ -251,7 +197,6 @@ export function FaceCapture({
             (firstError.name === "NotAllowedError" || firstError.name === "PermissionDeniedError");
           if (denied) throw new Error(blockedPermissionHint("camera"));
           try {
-            // Some Android WebViews reject ideal constraints — fall back to a basic user camera.
             stream = await navigator.mediaDevices.getUserMedia({
               audio: false,
               video: { facingMode: "user" },
@@ -261,7 +206,6 @@ export function FaceCapture({
             if (name === "NotAllowedError" || name === "PermissionDeniedError") {
               throw new Error(blockedPermissionHint("camera"));
             }
-            // Last resort: any video device (facingMode unsupported on some OEMs).
             try {
               stream = await navigator.mediaDevices.getUserMedia({
                 audio: false,
@@ -286,15 +230,11 @@ export function FaceCapture({
         video.srcObject = stream;
         await video.play();
         setPhase("camera");
-        setMessage(
-          isEnrollment
-            ? enrollmentStepCopy.EYES_OPEN.hint
-            : "Look straight at the camera, then blink once.",
-        );
+        setMessage("Look at the camera.");
 
         const detect = async () => {
           if (!active) return;
-          if (detecting || video.readyState < 2) {
+          if (detecting || completing || video.readyState < 2) {
             animationFrame = requestAnimationFrame(detect);
             return;
           }
@@ -303,9 +243,7 @@ export function FaceCapture({
             const result = await human.detect(video);
             if (!active) return;
             if (result.face.length !== 1) {
-              stableFrames = 0;
-              stableEmbeddings = [];
-              resetCountdown();
+              resetScan();
               setQuality(0);
               setMessage(
                 result.face.length > 1
@@ -316,258 +254,77 @@ export function FaceCapture({
             }
 
             const face = result.face[0];
-            const gestures = result.gesture
-              .filter((gesture) => "face" in gesture && gesture.face === 0)
-              .map((gesture) => gesture.gesture);
-            const facingCentre = gestures.includes("facing center");
-            if (facingCentre) centreObserved = true;
-
             const faceScore = Math.min(face.faceScore ?? face.score, face.boxScore ?? face.score);
             const live = face.live ?? 0;
             const real = face.real ?? 0;
             const largeEnough = Math.min(...face.size) >= 180;
             const hasDescriptor = Boolean(face.embedding && face.embedding.length >= 128);
-            const now = performance.now();
+            const qualityOk =
+              largeEnough &&
+              faceScore >= session.settings.minFaceConfidence &&
+              real >= session.settings.minAntiSpoofScore &&
+              live >= session.settings.minLivenessScore &&
+              hasDescriptor;
 
-            if (isEnrollment) {
-              if (capturingStep || now < betweenStepsPauseUntil) {
-                return;
-              }
-
-              const step = enrollmentOrder[enrollmentIndex] ?? "EYES_OPEN";
-              setEnrollmentStep(step);
-              const stepMeta = enrollmentStepCopy[step];
-              const blinking = eyesSeemClosed(gestures);
-              const poseOk = facingCentre;
-              const eyeStateOk = stepMeta.eyesClosed ? blinking : !blinking;
-              const qualityOk =
-                largeEnough &&
-                faceScore >= session.settings.minFaceConfidence &&
-                real >= session.settings.minAntiSpoofScore &&
-                live >= session.settings.minLivenessScore &&
-                poseOk &&
-                eyeStateOk &&
-                hasDescriptor;
-
-              const scoreProgress = Math.round(
-                Math.min(1, faceScore) * 25 +
+            setQuality(
+              Math.round(
+                Math.min(1, faceScore) * 30 +
                   Math.min(1, live) * 25 +
                   Math.min(1, real) * 25 +
-                  (largeEnough ? 15 : 0) +
-                  (poseOk && eyeStateOk ? 10 : 0),
-              );
-              setQuality(scoreProgress);
-
-              if (!largeEnough) {
-                resetCountdown();
-                setMessage("Move a little closer to the camera.");
-              } else if (faceScore < session.settings.minFaceConfidence) {
-                resetCountdown();
-                setMessage("Use brighter, even lighting on your face.");
-              } else if (real < session.settings.minAntiSpoofScore) {
-                resetCountdown();
-                setMessage("A real face is required—photos and screens are not accepted.");
-              } else if (live < session.settings.minLivenessScore) {
-                resetCountdown();
-                setMessage("Keep your face visible and follow the step prompt.");
-              } else if (!poseOk) {
-                resetCountdown();
-                setMessage("Look straight at the camera.");
-              } else if (!eyeStateOk) {
-                resetCountdown();
-                setMessage(stepMeta.hint);
-              } else if (!hasDescriptor) {
-                resetCountdown();
-                setMessage("Hold still — capturing…");
-              } else if (!qualityOk) {
-                resetCountdown();
-                setMessage(stepMeta.hint);
-              } else {
-                if (!readySince) readySince = now;
-                if (face.embedding && now - lastSampleAt >= 80) {
-                  lastSampleAt = now;
-                  stableEmbeddings.push([...(face.embedding ?? [])]);
-                  stableEmbeddings = stableEmbeddings.slice(-2);
-                }
-                // Eyes-closed: capture immediately once closed. Eyes-open: 1s countdown.
-                const holdMs = stepMeta.eyesClosed ? 80 : READY_HOLD_MS;
-                const seconds = stepMeta.eyesClosed ? 0 : COUNTDOWN_SECONDS;
-                if (countdownValue === null) {
-                  if (now - readySince >= holdMs) {
-                    if (seconds <= 0) {
-                      countdownValue = 0;
-                      countdownStartedAt = now;
-                      setCountdown(0);
-                    } else {
-                      countdownValue = seconds;
-                      countdownStartedAt = now;
-                      setCountdown(seconds);
-                      setMessage(`${stepMeta.title}: capturing in ${seconds}…`);
-                    }
-                  } else {
-                    setMessage(
-                      stepMeta.eyesClosed
-                        ? `${stepMeta.title}: hold eyes closed…`
-                        : `${stepMeta.title}: hold still…`,
-                    );
-                  }
-                }
-                if (countdownValue !== null) {
-                  const elapsed = Math.floor((now - countdownStartedAt) / 1000);
-                  const nextValue = Math.max(0, seconds - elapsed);
-                  if (nextValue !== countdownValue) {
-                    countdownValue = nextValue;
-                    setCountdown(nextValue > 0 ? nextValue : null);
-                  }
-                  if (nextValue > 0) {
-                    setMessage(`${stepMeta.title}: capturing in ${nextValue}…`);
-                  } else {
-                    capturingStep = true;
-                    setCountdown(null);
-                    setMessage(`Capturing ${stepMeta.stepLabel.toLowerCase()}…`);
-                    const samples =
-                      stableEmbeddings.length > 0
-                        ? stableEmbeddings
-                        : [[...(face.embedding ?? [])]];
-                    const averaged = samples[0].map(
-                      (_, index) =>
-                        samples.reduce((sum, embedding) => sum + embedding[index], 0) /
-                        samples.length,
-                    );
-                    enrollmentViews.push({
-                      direction: step,
-                      imageData: snapshotFromVideo(video),
-                      descriptor: averaged,
-                    });
-                    resetCountdown();
-                    stableEmbeddings = [];
-                    lastSampleAt = 0;
-                    enrollmentIndex += 1;
-                    setChallengeDone(enrollmentIndex >= enrollmentOrder.length);
-                    capturingStep = false;
-
-                    if (enrollmentIndex < enrollmentOrder.length) {
-                      const next = enrollmentOrder[enrollmentIndex];
-                      setEnrollmentStep(next);
-                      betweenStepsPauseUntil = now + 350;
-                      setMessage(`Got it! Next: ${enrollmentStepCopy[next].title}`);
-                    } else {
-                      setPhase("verifying");
-                      setMessage("Saving your registration photos securely…");
-                      const openEyes = enrollmentViews.find(
-                        (view) => view.direction === "EYES_OPEN",
-                      );
-                      if (!openEyes) throw new Error("Eyes-open enrollment photo is required.");
-                      stop();
-                      await completeRef.current({
-                        sessionId: session.sessionId,
-                        nonce: session.nonce,
-                        descriptor: openEyes.descriptor,
-                        descriptorSamples: enrollmentViews.map((view) => view.descriptor),
-                        imageData: openEyes.imageData,
-                        enrollmentViews,
-                        faceConfidence: faceScore,
-                        livenessScore: live,
-                        antiSpoofScore: real,
-                        challengeCompleted: true,
-                      });
-                      setPhase("done");
-                      setMessage("Face registration complete.");
-                    }
-                  }
-                }
-              }
-              return;
-            }
-
-            // Attendance verify: blink only — no head turns; no photo stored.
-            const attendanceChallenge = session.challenge === "BLINK" ? "BLINK" : session.challenge;
-            if (
-              (attendanceChallenge === "BLINK" &&
-                gestures.some((gesture) => gesture.startsWith("blink "))) ||
-              (attendanceChallenge === "TURN_LEFT" && gestures.includes("facing left")) ||
-              (attendanceChallenge === "TURN_RIGHT" && gestures.includes("facing right"))
-            ) {
-              if (centreObserved || attendanceChallenge === "BLINK") {
-                challengeObserved = true;
-                setChallengeDone(true);
-              }
-            }
-
-            const scoreProgress = Math.round(
-              Math.min(1, faceScore) * 25 +
-                Math.min(1, live) * 25 +
-                Math.min(1, real) * 25 +
-                (largeEnough ? 15 : 0) +
-                (challengeObserved ? 10 : 0),
+                  (largeEnough ? 20 : 0),
+              ),
             );
-            setQuality(scoreProgress);
 
             if (!largeEnough) {
-              stableFrames = 0;
-              stableEmbeddings = [];
+              resetScan();
               setMessage("Move a little closer to the camera.");
             } else if (faceScore < session.settings.minFaceConfidence) {
-              stableFrames = 0;
-              stableEmbeddings = [];
+              resetScan();
               setMessage("Use brighter, even lighting on your face.");
             } else if (real < session.settings.minAntiSpoofScore) {
-              stableFrames = 0;
-              stableEmbeddings = [];
+              resetScan();
               setMessage("A real face is required—photos and screens are not accepted.");
             } else if (live < session.settings.minLivenessScore) {
-              stableFrames = 0;
-              stableEmbeddings = [];
-              setMessage("Keep your face visible and blink when ready.");
-            } else if (!challengeObserved) {
-              stableFrames = 0;
-              stableEmbeddings = [];
-              setMessage(challengeCopy[attendanceChallenge].hint);
-            } else if (!facingCentre) {
-              stableFrames = 0;
-              stableEmbeddings = [];
-              setMessage("Blink detected. Now look straight at the camera.");
-            } else if (!hasDescriptor) {
-              stableFrames = 0;
-              stableEmbeddings = [];
-              setMessage("Hold still while your face is verified…");
+              resetScan();
+              setMessage("Keep your face visible and look at the camera.");
+            } else if (!hasDescriptor || !qualityOk) {
+              resetScan();
+              setMessage("Look at the camera.");
             } else {
-              const sampleTime = performance.now();
-              if (sampleTime - lastSampleAt >= 120) {
-                lastSampleAt = sampleTime;
+              const now = performance.now();
+              setScanReady(true);
+              if (now - lastSampleAt >= SAMPLE_INTERVAL_MS) {
+                lastSampleAt = now;
                 stableEmbeddings.push([...(face.embedding ?? [])]);
-                stableEmbeddings = stableEmbeddings.slice(-5);
-                stableFrames = stableEmbeddings.length;
+                stableEmbeddings = stableEmbeddings.slice(-SCAN_SAMPLES);
               }
-              setMessage(`Verifying live match ${Math.min(stableFrames, 5)}/5…`);
-            }
-
-            if (stableFrames >= 5 && stableEmbeddings.length === 5 && face.embedding) {
-              setPhase("verifying");
-              setMessage("Matching your face securely…");
-              const averagedDescriptor = stableEmbeddings[0].map(
-                (_, index) =>
-                  stableEmbeddings.reduce((sum, embedding) => sum + embedding[index], 0) /
-                  stableEmbeddings.length,
+              setMessage(
+                stableEmbeddings.length >= SCAN_SAMPLES
+                  ? "Scanning…"
+                  : "Hold still…",
               );
-              // The server re-derives the descriptor and the liveness and
-              // anti-spoof scores from this frame; the values below are only a
-              // hint for diagnostics.
-              const verifiedFrame = snapshotFromVideo(video);
-              stop();
-              await completeRef.current({
-                sessionId: session.sessionId,
-                nonce: session.nonce,
-                imageData: verifiedFrame,
-                descriptor: averagedDescriptor,
-                descriptorSamples: stableEmbeddings,
-                faceConfidence: faceScore,
-                livenessScore: live,
-                antiSpoofScore: real,
-                challengeCompleted: true,
-              });
-              setPhase("done");
-              setMessage("Face verification complete.");
+
+              if (stableEmbeddings.length >= SCAN_SAMPLES && face.embedding) {
+                completing = true;
+                setPhase("verifying");
+                setMessage(isEnrollment ? "Saving your face…" : "Matching your face…");
+                const averaged = averageDescriptor(stableEmbeddings);
+                const frame = snapshotFromVideo(video);
+                stop();
+                await completeRef.current({
+                  sessionId: session.sessionId,
+                  nonce: session.nonce,
+                  descriptor: averaged,
+                  descriptorSamples: stableEmbeddings,
+                  imageData: frame,
+                  faceConfidence: faceScore,
+                  livenessScore: live,
+                  antiSpoofScore: real,
+                  challengeCompleted: true,
+                });
+                setPhase("done");
+                setMessage(isEnrollment ? "Face registration complete." : "Face scan complete.");
+              }
             }
           } catch (caught) {
             if (!active) return;
@@ -605,25 +362,15 @@ export function FaceCapture({
           ref={videoRef}
           muted
           playsInline
-          aria-label="Live camera preview for face verification"
+          aria-label="Live camera preview for face scan"
           className="h-full w-full scale-x-[-1] object-cover"
         />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_36%_46%_at_50%_44%,transparent_96%,rgb(0_0_0_/_0.72)_100%)]" />
         <div
           className={`pointer-events-none absolute left-1/2 top-[44%] h-[58%] w-[55%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] border-2 transition-colors ${
-            challengeDone ? "border-primary" : "border-background/75"
+            scanReady ? "border-primary" : "border-background/75"
           }`}
         />
-        {countdown !== null && countdown > 0 && (
-          <div
-            className="pointer-events-none absolute inset-0 grid place-items-center"
-            aria-live="polite"
-          >
-            <div className="flex size-28 items-center justify-center rounded-full bg-foreground/70 text-6xl font-bold tabular-nums text-background shadow-lg backdrop-blur-sm">
-              {countdown}
-            </div>
-          </div>
-        )}
         {onCancel && (
           <Button
             type="button"
@@ -631,7 +378,7 @@ export function FaceCapture({
             variant="secondary"
             className="absolute right-3 top-3 rounded-full bg-background/90"
             onClick={onCancel}
-            aria-label="Close face verification"
+            aria-label="Close face scan"
           >
             <X className="size-4" />
           </Button>
@@ -651,38 +398,9 @@ export function FaceCapture({
         </div>
       </div>
 
-      <div className="mx-auto mt-4 grid w-full max-w-md gap-2 sm:grid-cols-2">
-        <div
-          className={`rounded-xl border p-3 ${
-            challengeDone
-              ? "border-primary/30 bg-primary/10 text-foreground"
-              : "border-border/80 bg-muted/50 text-foreground"
-          }`}
-        >
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <Camera className="size-4 text-primary" />
-            {isEnrollment
-              ? enrollmentStepCopy[enrollmentStep].title
-              : challengeCopy[session.challenge === "BLINK" ? "BLINK" : session.challenge].title}
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {isEnrollment
-              ? enrollmentStepCopy[enrollmentStep].hint
-              : challengeCopy[session.challenge === "BLINK" ? "BLINK" : session.challenge].hint}
-          </p>
-        </div>
-        <div className="rounded-xl border border-border/80 bg-muted/40 p-3 text-foreground">
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <ShieldCheck className="size-4 text-primary" />
-            {isEnrollment ? "2 front photos" : "Blink only — no photo stored"}
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {isEnrollment
-              ? "Eyes open, then eyes closed — both front-facing, captured quickly."
-              : "Check-in only needs an eye blink. No head turn and no new photo is saved."}
-          </p>
-        </div>
-      </div>
+      <p className="mx-auto mt-3 max-w-md text-center text-sm text-muted-foreground">
+        Look at the camera. Capture happens automatically.
+      </p>
 
       {phase === "error" && (
         <div className="mx-auto mt-4 w-full max-w-md rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">

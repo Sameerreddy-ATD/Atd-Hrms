@@ -61,19 +61,15 @@ describe("face attendance security primitives", () => {
     expect(result.success).toBe(true);
   });
 
-  it("requires eyes-open and eyes-closed front photos for enrollment", () => {
+  it("accepts a single front photo for enrollment", () => {
     const value = descriptor();
     const image = jpegDataUrl();
     const ok = faceCaptureSchema.safeParse({
       sessionId: "session-with-enough-characters",
       nonce: "n".repeat(40),
       descriptor: value,
-      descriptorSamples: [value, value],
+      descriptorSamples: [value, value, value],
       imageData: image,
-      enrollmentViews: [
-        { direction: "EYES_OPEN", imageData: image, descriptor: value },
-        { direction: "EYES_CLOSED", imageData: image, descriptor: value },
-      ],
       faceConfidence: 1,
       livenessScore: 1,
       antiSpoofScore: 1,
@@ -83,18 +79,17 @@ describe("face attendance security primitives", () => {
     });
     expect(ok.success).toBe(true);
 
-    const missingClosed = faceCaptureSchema.safeParse({
+    const missingPhoto = faceCaptureSchema.safeParse({
       sessionId: "session-with-enough-characters",
       nonce: "n".repeat(40),
       descriptor: value,
-      imageData: image,
-      enrollmentViews: [{ direction: "EYES_OPEN", imageData: image, descriptor: value }],
+      enrollmentViews: [{ direction: "FRONT", imageData: image, descriptor: value }],
       faceConfidence: 1,
       livenessScore: 1,
       antiSpoofScore: 1,
       challengeCompleted: true,
     });
-    expect(missingClosed.success).toBe(false);
+    expect(missingPhoto.success).toBe(false);
   });
 
   it("rejects camera submissions without a complete descriptor and JPEG capture", () => {

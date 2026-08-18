@@ -16,8 +16,8 @@ import { prisma } from "./prisma.js";
 
 const FACE_SETTING_KEY = "face_attendance_settings";
 const FACE_CONSENT_VERSION = "2026-07";
-/** Daily check-in: blink only — no head-turn challenges. */
-const CHALLENGES = ["BLINK"] as const;
+/** One automatic face scan — no blink or pose challenges. */
+const CHALLENGES = ["FACE"] as const;
 const MAX_RETAINED_IMAGES_PER_USER = 2;
 
 export const faceSettingsSchema = z.object({
@@ -54,7 +54,7 @@ export const faceCaptureObjectSchema = z.object({
   enrollmentViews: z
     .array(
       z.object({
-        direction: z.enum(["EYES_OPEN", "EYES_CLOSED"]),
+        direction: z.enum(["FRONT", "EYES_OPEN", "EYES_CLOSED"]),
         imageData: z
           .string()
           .max(950_000)
@@ -62,7 +62,7 @@ export const faceCaptureObjectSchema = z.object({
         descriptor: faceDescriptorSchema,
       }),
     )
-    .min(2)
+    .min(1)
     .max(2)
     .optional(),
   faceConfidence: z.number().min(0).max(1),
@@ -77,26 +77,13 @@ export const faceCaptureObjectSchema = z.object({
 });
 
 export const faceCaptureSchema = faceCaptureObjectSchema.superRefine((value, ctx) => {
-  // Enrollment keeps two front photos (eyes open + eyes closed). Attendance verify stores none.
-  const isEnrollment = Boolean(value.enrollmentViews?.length);
-  if (isEnrollment) {
-    if (!value.imageData) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["imageData"],
-        message: "Enrollment requires an eyes-open front face photo",
-      });
-    }
-    const directions = new Set(value.enrollmentViews?.map((view) => view.direction) ?? []);
-    for (const required of ["EYES_OPEN", "EYES_CLOSED"] as const) {
-      if (!directions.has(required)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["enrollmentViews"],
-          message: `Enrollment requires an ${required === "EYES_OPEN" ? "eyes-open" : "eyes-closed"} front photo`,
-        });
-      }
-    }
+  // Enrollment stores one front photo. Attendance verify analyses a frame and discards it.
+  if (value.enrollmentViews?.length && !value.imageData) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["imageData"],
+      message: "Enrollment requires a front face photo",
+    });
   }
 });
 
@@ -483,10 +470,10 @@ export async function verifyFaceCapture(input: {
     }
   }
 
-  // Registration keeps front photos. Daily verify stores none.
+  // Registration keeps one front photo. Daily verify stores none.
   if (!failureReason && isEnrollment) {
     if (!capture.imageData) {
-      failureReason = "Enrollment requires an eyes-open front face photo.";
+      failureReason = "Enrollment requires a front face photo.";
     } else {
       try {
         imageKey = await saveEncryptedEvidence(capture.imageData, evidenceId, capturedAt);
@@ -507,9 +494,7 @@ export async function verifyFaceCapture(input: {
     failureReason = "A real face could not be confirmed. Photos and screens are not accepted.";
   }
   if (!failureReason && !capture.challengeCompleted) {
-    failureReason = isAttendance
-      ? "Blink was not detected. Look at the camera and blink once, then hold still."
-      : "The requested face movement was not completed.";
+    failureReason = "Face scan was not completed. Look at the camera and try again.";
   }
   // Only meaningful for client-supplied sample sets; a server descriptor is a
   // single vector derived from a frame we decoded ourselves.
@@ -540,8 +525,6 @@ export async function verifyFaceCapture(input: {
   if (!failureReason && isEnrollment) {
     if (!capture.consentAccepted || capture.consentVersion !== FACE_CONSENT_VERSION) {
       failureReason = "Biometric consent is required before face registration.";
-    } else if (!capture.enrollmentViews || capture.enrollmentViews.length < 2) {
-      failureReason = "Enrollment requires two front photos: eyes open and eyes closed.";
     } else {
       const duplicateSimilarity = await duplicateEnrollmentSimilarity(
         input.userId,
@@ -872,5 +855,5 @@ export function startFaceEvidenceCleanupScheduler() {
 
 export const FACE_CONSENT = {
   version: FACE_CONSENT_VERSION,
-  text: "I consent to the encrypted storage of my face template and registration photos (eyes open and eyes closed). Attendance check-in only verifies my live face against that template and does not store new photos.",
+  text: "I consent to the encrypted storage of my face template and one registration photo. Attendance check-in only verifies my live face against that template and does not store new photos.",
 };

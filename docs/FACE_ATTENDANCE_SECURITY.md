@@ -22,13 +22,13 @@ That flag exists as an operational escape hatch. Do not run production with it o
 
 Face registration is an account-activation step for every normal application account while the
 Developer Admin verification switch is enabled. Developer Admin is explicitly exempt. When enabled,
-mobile check-in requires a blink challenge, an approved encrypted multi-sample template match, and
+mobile check-in requires a live face scan, an approved encrypted multi-sample template match, and
 precise location. When paused, enrollment gating and check-in camera verification are disabled at
 both frontend and backend, but precise GPS remains required. Check-out is currently camera-free and
 location-verified only, so half of each attendance pair is unverified — the verification plumbing
 supports check-out and is simply not enabled.
 
-**Storage rule:** encrypted registration photos (eyes open, eyes closed) are saved **once** per
+**Storage rule:** one encrypted registration photo is saved **once** per
 person. Daily check-in uploads a frame so the server can analyse it, and **discards** it after
 inference — no check-in photo is written to disk. The metadata row (scores, GPS, outcome) is kept
 until the retention sweep clears it.
@@ -80,15 +80,14 @@ before enabling face verification for a full workforce on a 2 vCPU box.
 5. The user accepts the versioned biometric-consent statement (registration photos only; check-in
    does not store photos).
 6. The server creates a two-minute, single-use enrollment session with a cryptographically random
-   nonce. Attendance sessions use a `BLINK` challenge only (no head turns).
-7. Enrollment captures two front views: **eyes open** and **eyes closed**. Each must show exactly
-   one face, pass size/lighting/anti-spoof/liveness checks, and hold stable descriptors.
-8. The browser submits the eyes-open image as the primary evidence image and the eyes-closed image
-   as additional enrollment evidence.
-9. The backend consumes the session once, runs its own inference over each submitted photo, builds
-   the template from the descriptors **it** derived (so the approved template is bound to the images
+   nonce. Attendance sessions use an automatic face scan (no blink or head turns).
+7. Enrollment captures one front photo. It must show exactly
+   one face, pass size/lighting/anti-spoof/liveness checks, and hold a stable descriptor.
+8. The browser submits that image as the registration evidence.
+9. The backend consumes the session once, runs its own inference over the submitted photo, builds
+   the template from the descriptor **it** derived (so the approved template is bound to the image
    the admin reviews), enforces thresholds, rejects a face already registered to another account in
-   any state, encrypts the template, encrypts the JPEGs, and creates evidence rows linked to the
+   any state, encrypts the template, encrypts the JPEG, and creates an evidence row linked to the
    same session.
 10. Normal accounts enter `PENDING`; the application remains blocked.
 11. Developer Admin reviews the images and scores under **Face Security**, then approves or rejects.
@@ -117,7 +116,7 @@ accounts that do not already have an approved registration.
 ## Attendance Flow
 
 1. For **Check In**, the browser requests the front-facing camera and fresh, high-accuracy GPS.
-2. The browser guides capture with a blink challenge, then uploads one verified frame. The server
+2. The browser auto-scans the face when it is in frame, then uploads one verified frame. The server
    decodes it, runs detection itself, and compares the descriptor **it** derived against the
    approved template. The uploaded JPEG is analysed in memory and **never written to disk** for
    attendance verify.
@@ -183,7 +182,7 @@ One row per submitted registration or attendance verification:
   are never served from the public frontend directory. Attendance verify may create scores-only
   rows with `image_key` null (no daily photo storage);
 - passed check-in evidence has a unique one-to-one relationship with `attendance_events` when linked;
-- registration may store multiple evidence rows per session (eyes open / eyes closed);
+- registration stores one evidence row per session;
 - no more than the newest **two** encrypted registration pictures are retained per user
   (`MAX_RETAINED_IMAGES_PER_USER` in `server/src/faceAttendance.ts`; not admin-configurable).
 
@@ -378,8 +377,7 @@ These are understood and accepted rather than overlooked. Revisit them if the th
 - **Geofencing is computed but not enforced.** A punch outside every branch radius is recorded as an
   unattributed "Mobile" punch rather than rejected. GPS accuracy is enforced; position is not.
 - **GPS is client-supplied** and spoofable on a rooted device or through devtools.
-- **The blink challenge has one value.** `CHALLENGES` holds only `BLINK`, so it is predictable. It
-  is a UX prompt for the capture loop, not an unpredictability defence.
+- **The face scan has no blink or pose challenge.** Capture is automatic once a live face is in frame.
 - **No check-in image is retained**, so a disputed punch has scores and GPS to examine but no photo.
   This is a deliberate privacy trade-off disclosed in the consent text.
 

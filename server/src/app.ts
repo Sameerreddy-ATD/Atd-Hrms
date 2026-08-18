@@ -1460,7 +1460,7 @@ export function createApp() {
       for (const alert of mismatchEvidence) {
         if (!latestAlertByUser.has(alert.userId)) latestAlertByUser.set(alert.userId, alert);
       }
-      const enrollmentLabels = ["Eyes open", "Eyes closed"] as const;
+      const enrollmentLabels = ["Registration photo", "Photo 2"] as const;
       res.json(
         users.map((user) => {
           const latestAlert = latestAlertByUser.get(user.id);
