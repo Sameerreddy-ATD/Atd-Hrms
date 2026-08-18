@@ -99,7 +99,14 @@ function LeaveBalancePage() {
                 <TableBody>
                   {balances.map((row) => (
                     <TableRow key={row.code ?? row.type}>
-                      <TableCell className="font-medium">{row.type}</TableCell>
+                      <TableCell className="font-medium">
+                        <div>{row.type}</div>
+                        {row.code === "CASUAL" && (
+                          <p className="text-xs font-normal text-muted-foreground">
+                            {t("pages.leaveApply.carryForwardHint")}
+                          </p>
+                        )}
+                      </TableCell>
                       <TableCell className="tabular-nums">{row.entitled}</TableCell>
                       <TableCell className="tabular-nums">{row.used}</TableCell>
                       <TableCell className="tabular-nums font-semibold">{row.balance}</TableCell>

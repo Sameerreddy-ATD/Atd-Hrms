@@ -609,6 +609,7 @@ export interface LeaveRequest {
   from: string;
   to: string;
   days: number;
+  session?: "FULL" | "FIRST_HALF" | "SECOND_HALF";
   reason: string;
   status: LeaveStatus;
   workflowStatus?: string;

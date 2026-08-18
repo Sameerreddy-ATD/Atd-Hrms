@@ -206,7 +206,12 @@ export async function createAttendanceEvent(input: {
     },
   });
   if (input.eventSource === EventSource.THUMB_SCANNER) {
-    await cancelApprovedLeaveForDay(input.employeeId, eventDate);
+    const leave = await findApprovedLeaveForDay(input.employeeId, eventDate, true).then(
+      (paidLeave) => paidLeave ?? findApprovedLeaveForDay(input.employeeId, eventDate, false),
+    );
+    if (leave?.session === "FULL") {
+      await cancelApprovedLeaveForDay(input.employeeId, eventDate);
+    }
   }
   await recalculateDailySummary(input.employeeId, eventDate);
   publishAttendanceChange(input.employeeId, eventDate);

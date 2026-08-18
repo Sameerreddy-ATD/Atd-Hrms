@@ -1,4 +1,4 @@
-import { LeaveLedgerEntryType, LeaveStatus, Prisma } from "@prisma/client";
+import { LeaveLedgerEntryType, LeaveSession, LeaveStatus, Prisma } from "@prisma/client";
 import { HttpError } from "./errors.js";
 import { prisma } from "./prisma.js";
 import {
@@ -16,6 +16,17 @@ export const LEAVE_CODES = {
   LOP: "LOP",
   COMP_OFF: "COMP_OFF",
 } as const;
+
+export type LeaveSessionValue = LeaveSession;
+
+export function expectedLeaveDays(dateCount: number, session: LeaveSessionValue) {
+  if (session === LeaveSession.FULL) return dateCount;
+  return 0.5;
+}
+
+export function leaveSessionsOverlap(existing: LeaveSessionValue, incoming: LeaveSessionValue) {
+  return existing === LeaveSession.FULL || incoming === LeaveSession.FULL || existing === incoming;
+}
 
 const countedStatuses: LeaveStatus[] = ["PENDING", "APPROVED", "MANAGER_APPROVED", "HR_VERIFIED"];
 const usedStatuses: LeaveStatus[] = ["APPROVED", "MANAGER_APPROVED", "HR_VERIFIED"];
@@ -180,7 +191,9 @@ export async function syncEmployeeLeaveBalances(employeeId: string, now = new Da
   return Promise.all(
     types.map(async (type) => {
       const existing = existingByType.get(type.leaveTypeId);
-      const resetsAnnually = type.code === LEAVE_CODES.SICK || type.code === LEAVE_CODES.COMP_OFF;
+      const carryForward = type.code === LEAVE_CODES.CASUAL || type.carryForward;
+      const resetsAnnually =
+        type.code === LEAVE_CODES.SICK || type.code === LEAVE_CODES.COMP_OFF || !carryForward;
       const relevant = requests.filter(
         (request) =>
           request.leaveTypeId === type.leaveTypeId &&
@@ -234,9 +247,17 @@ function cancelledDateSet(cancelledDates: unknown) {
 }
 
 function requestOverlapsDates(
-  request: { fromDate: Date; toDate: Date; cancelledDates: unknown; days: Prisma.Decimal },
+  request: {
+    fromDate: Date;
+    toDate: Date;
+    cancelledDates: unknown;
+    days: Prisma.Decimal;
+    session: LeaveSession;
+  },
   dates: Date[],
+  incomingSession: LeaveSession,
 ) {
+  if (!leaveSessionsOverlap(request.session, incomingSession)) return false;
   const cancelled = cancelledDateSet(request.cancelledDates);
   return dates.some((date) => {
     const key = dateKey(date);
@@ -251,20 +272,27 @@ export async function validateLeaveApplication(input: {
   fromDate: Date;
   toDate: Date;
   days: number;
-  session?: "FULL";
+  session?: LeaveSessionValue;
 }) {
   const type = await prisma.leaveType.findFirst({
     where: { leaveTypeId: input.leaveTypeId, active: true },
   });
   if (!type) throw new HttpError(400, "Select a valid leave type");
-  const session = input.session ?? "FULL";
-  if (session !== "FULL") {
-    throw new HttpError(400, "Half-day leave is not available. Apply for full day(s) only.");
-  }
+  const session = input.session ?? LeaveSession.FULL;
   const dates = eachDateInRange(input.fromDate, input.toDate);
   if (!dates.length) throw new HttpError(400, "Select a valid date range");
 
-  if (dates.length !== input.days) {
+  if (session !== LeaveSession.FULL) {
+    if (type.code === LEAVE_CODES.COMP_OFF) {
+      throw new HttpError(400, "Comp Off can only be taken as a full day");
+    }
+    if (dates.length !== 1) {
+      throw new HttpError(400, "Half-day leave must be for a single date");
+    }
+    if (input.days !== 0.5) {
+      throw new HttpError(400, "Half-day leave counts as 0.5 day");
+    }
+  } else if (dates.length !== input.days) {
     throw new HttpError(400, "Leave days do not match the selected date range");
   }
 
@@ -288,9 +316,9 @@ export async function validateLeaveApplication(input: {
       fromDate: { lte: startOfDayUtc(input.toDate) },
       toDate: { gte: startOfDayUtc(input.fromDate) },
     },
-    select: { fromDate: true, toDate: true, cancelledDates: true, days: true },
+    select: { fromDate: true, toDate: true, cancelledDates: true, days: true, session: true },
   });
-  if (overlappingCandidates.some((request) => requestOverlapsDates(request, dates))) {
+  if (overlappingCandidates.some((request) => requestOverlapsDates(request, dates, session))) {
     throw new HttpError(400, "Another active leave request overlaps these dates");
   }
 
@@ -400,9 +428,9 @@ export function medicalDocumentDueAt(toDate: Date) {
 
 export function leavePolicyDescription(code: string) {
   if (code === LEAVE_CODES.CASUAL)
-    return "1 day is credited at month-end. Joining on or before the 5th earns credit for the joining month; joining after the 5th starts the following month. Up to 12 days accrue yearly and unused credits carry forward with no cap.";
+    return "1 day is credited at month-end. Joining on or before the 5th earns credit for the joining month; joining after the 5th starts the following month. Up to 12 days accrue yearly. Unused Casual Leave is forwarded to the next year with no cap. Half day (pre-lunch or post-lunch) counts as 0.5 day.";
   if (code === LEAVE_CODES.SICK)
-    return "6 days are available each calendar year (including mid-year joiners), with a maximum of 2 days per month. Upload a medical certificate to the secure vault within 48 hours after returning; reminders are sent at 24 hours and 2 hours before the deadline.";
+    return "6 days are available each calendar year (including mid-year joiners), with a maximum of 2 days per month. Half day (pre-lunch or post-lunch) counts as 0.5. Upload a medical certificate to the secure vault within 48 hours after returning; reminders are sent at 24 hours and 2 hours before the deadline.";
   if (code === LEAVE_CODES.LOP)
     return "Unpaid Leave / LOP is recorded separately from paid leave credits.";
   return "Earned after a completed holiday work session of at least nine hours. One credit per holiday. Usage requires Reporting Head approval and expires on December 31 of the year earned.";

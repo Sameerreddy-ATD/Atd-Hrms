@@ -761,7 +761,7 @@ export const leaveRequestSchema = z.object({
   fromDate: z.coerce.date(),
   toDate: z.coerce.date(),
   days: z.number().positive().max(365),
-  session: z.enum(["FULL"]).optional(),
+  session: z.enum(["FULL", "FIRST_HALF", "SECOND_HALF"]).optional(),
   reason: z.string().trim().min(3).max(1000),
   medicalDocumentUrl: z
     .string()

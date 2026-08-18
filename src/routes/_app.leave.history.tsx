@@ -162,7 +162,19 @@ function LeaveHistoryPage() {
                     trailing={<StatusBadge status={leave.status} />}
                   />
                   <MobileListFields>
-                    <MobileListField label={t("pages.leaveHistory.days")} value={leave.days} />
+                    <MobileListField
+                      label={t("pages.leaveHistory.days")}
+                      value={
+                        leave.session === "FIRST_HALF" || leave.session === "SECOND_HALF"
+                          ? t("pages.leaveApply.halfDayCount", {
+                              slot:
+                                leave.session === "FIRST_HALF"
+                                  ? t("pages.leaveApply.preLunch")
+                                  : t("pages.leaveApply.postLunch"),
+                            })
+                          : leave.days
+                      }
+                    />
                     <MobileListField
                       label={t("pages.leaveHistory.applied")}
                       value={formatDisplayDate(leave.appliedOn)}
@@ -232,7 +244,16 @@ function LeaveHistoryPage() {
                           </div>
                         )}
                       </TableCell>
-                      <TableCell>{leave.days}</TableCell>
+                      <TableCell>
+                        {leave.session === "FIRST_HALF" || leave.session === "SECOND_HALF"
+                          ? t("pages.leaveApply.halfDayCount", {
+                              slot:
+                                leave.session === "FIRST_HALF"
+                                  ? t("pages.leaveApply.preLunch")
+                                  : t("pages.leaveApply.postLunch"),
+                            })
+                          : leave.days}
+                      </TableCell>
                       <TableCell>{leave.approverName ?? "-"}</TableCell>
                       <TableCell className="text-sm">{decisionLabel(leave)}</TableCell>
                       <TableCell>

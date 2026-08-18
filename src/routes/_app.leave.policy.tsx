@@ -191,6 +191,9 @@ function PolicyPage() {
               <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
                 <CalendarCheck className="h-3 w-3 text-primary" />
                 {type.paid ? t("pages.leavePolicy.creditBased") : t("pages.leavePolicy.recordedSeparately")}
+                {(type.carryForward || type.code === "CASUAL") && type.paid
+                  ? ` · ${t("pages.leavePolicy.carryForward")}`
+                  : ""}
                 {!type.active ? ` · ${t("pages.leavePolicy.inactive")}` : ""}
               </p>
               <Button

@@ -50,6 +50,8 @@ function ApplyLeavePage() {
   const [typesLoading, setTypesLoading] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [requestKind, setRequestKind] = useState<"leave" | "weekly-off">("leave");
+  const [duration, setDuration] = useState<"FULL" | "HALF">("FULL");
+  const [halfSlot, setHalfSlot] = useState<"FIRST_HALF" | "SECOND_HALF">("FIRST_HALF");
   const [weeklyOffPolicy, setWeeklyOffPolicy] = useState<WeeklyOffPolicy>("SELECTABLE");
   const todayString = indiaDateKey();
 
@@ -81,17 +83,22 @@ function ApplyLeavePage() {
   }, [user?.employeeId, user?.weeklyOffPolicy]);
   const selectedType = types.find((type) => type.id === typeId);
   const isCompOff = selectedType?.code === "COMP_OFF";
+  const allowsHalfDay = !isCompOff;
+  const session = duration === "HALF" && allowsHalfDay ? halfSlot : "FULL";
   const requiresApprover = selectedType?.approvalRequired !== false;
   const selectedBalance = balances.find((item) => item.code === selectedType?.code)?.balance ?? 0;
   const requestedDays =
-    from && to && from <= to
-      ? Math.max(1, Math.round((+new Date(to) - +new Date(from)) / 86400000) + 1)
+    from && (duration === "HALF" || (to && from <= to))
+      ? duration === "HALF"
+        ? 0.5
+        : Math.max(1, Math.round((+new Date(to) - +new Date(from)) / 86400000) + 1)
       : 0;
 
   useEffect(() => {
     if (!isCompOff || !from) return;
     if (to !== from) setTo(from);
-  }, [isCompOff, from, to]);
+    if (duration !== "FULL") setDuration("FULL");
+  }, [isCompOff, from, to, duration]);
 
   useEffect(() => {
     if (!user?.employeeId) {
@@ -116,12 +123,14 @@ function ApplyLeavePage() {
     } else if (from < todayString) {
       errs.from = t("pages.leaveApply.errFromPast");
     }
-    if (!to) {
-      errs.to = t("pages.leaveApply.errToRequired");
-    } else if (to < todayString) {
-      errs.to = t("pages.leaveApply.errToPast");
+    if (duration !== "HALF") {
+      if (!to) {
+        errs.to = t("pages.leaveApply.errToRequired");
+      } else if (to < todayString) {
+        errs.to = t("pages.leaveApply.errToPast");
+      }
+      if (from && to && from > to) errs.to = t("pages.leaveApply.errToAfterStart");
     }
-    if (from && to && from > to) errs.to = t("pages.leaveApply.errToAfterStart");
     if (isCompOff && from && to && from !== to) {
       errs.to = t("pages.leaveApply.errCompOffSingleDay");
     }
@@ -130,7 +139,11 @@ function ApplyLeavePage() {
     setErrors(errs);
     if (Object.keys(errs).length) return;
 
-    const calendarDays = Math.max(1, Math.round((+new Date(to) - +new Date(from)) / 86400000) + 1);
+    const leaveDate = duration === "HALF" ? from : to;
+    const calendarDays =
+      duration === "HALF"
+        ? 0.5
+        : Math.max(1, Math.round((+new Date(leaveDate) - +new Date(from)) / 86400000) + 1);
     const days = isCompOff ? 1 : calendarDays;
     setLoading(true);
     try {
@@ -149,9 +162,9 @@ function ApplyLeavePage() {
       await leaveApi.apply({
         leaveTypeId: typeId,
         fromDate: from,
-        toDate: isCompOff ? from : to,
+        toDate: isCompOff || duration === "HALF" ? from : to,
         days,
-        session: "FULL",
+        session,
         reason: reason.trim(),
         medicalDocumentUrl: medicalUrl,
       });
@@ -263,6 +276,11 @@ function ApplyLeavePage() {
                       <p className="text-xs text-muted-foreground">
                         {t("pages.leaveApply.availableCredit").toLowerCase()}
                       </p>
+                      {type.carryForward || type.code === "CASUAL" ? (
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          {t("pages.leaveApply.carryForwardHint")}
+                        </p>
+                      ) : null}
                     </div>
                     <InfoButton title={type.name} className="-mr-1 -mt-1">
                       {type.description || t("pages.leaveApply.defaultTypeDescription")}
@@ -331,21 +349,79 @@ function ApplyLeavePage() {
                       </p>
                     </div>
                   )}
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label>{t("pages.leaveApply.duration")}</Label>
+                    <div className="grid grid-cols-2 gap-1 rounded-lg border bg-muted/30 p-1">
+                      <Button
+                        type="button"
+                        variant={duration === "FULL" ? "default" : "ghost"}
+                        onClick={() => setDuration("FULL")}
+                      >
+                        {t("pages.leaveApply.fullDay")}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={duration === "HALF" ? "default" : "ghost"}
+                        disabled={!allowsHalfDay}
+                        onClick={() => {
+                          setDuration("HALF");
+                          if (from) setTo(from);
+                        }}
+                      >
+                        {t("pages.leaveApply.halfDay")}
+                      </Button>
+                    </div>
+                    {isCompOff ? (
+                      <p className="text-xs text-muted-foreground">
+                        {t("pages.leaveApply.compOffOneDay")}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        {t("pages.leaveApply.halfDayHelp")}
+                      </p>
+                    )}
+                  </div>
+                  {duration === "HALF" && allowsHalfDay && (
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label>{t("pages.leaveApply.halfDaySlot")}</Label>
+                      <div className="grid grid-cols-2 gap-1 rounded-lg border bg-muted/30 p-1">
+                        <Button
+                          type="button"
+                          variant={halfSlot === "FIRST_HALF" ? "default" : "ghost"}
+                          onClick={() => setHalfSlot("FIRST_HALF")}
+                        >
+                          {t("pages.leaveApply.preLunch")}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={halfSlot === "SECOND_HALF" ? "default" : "ghost"}
+                          onClick={() => setHalfSlot("SECOND_HALF")}
+                        >
+                          {t("pages.leaveApply.postLunch")}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                   <div className="space-y-1.5">
-                    <Label htmlFor="from">{t("pages.leaveApply.from")}</Label>
+                    <Label htmlFor="from">
+                      {duration === "HALF" || isCompOff
+                        ? t("pages.leaveApply.date")
+                        : t("pages.leaveApply.from")}
+                    </Label>
                     <DateField
                       id="from"
                       value={from}
                       min={todayString}
-                      max={to || undefined}
+                      max={duration === "HALF" ? undefined : to || undefined}
                       onChange={(nextFrom) => {
                         setFrom(nextFrom);
-                        if (isCompOff) setTo(nextFrom);
+                        if (isCompOff || duration === "HALF") setTo(nextFrom);
                         else if (to && nextFrom && to < nextFrom) setTo(nextFrom);
                       }}
                     />
                     {errors.from && <p className="text-xs text-destructive">{errors.from}</p>}
                   </div>
+                  {duration !== "HALF" && (
                   <div className="space-y-1.5">
                     <Label htmlFor="to">
                       {isCompOff ? t("pages.leaveApply.date") : t("pages.leaveApply.to")}
@@ -364,6 +440,7 @@ function ApplyLeavePage() {
                       </p>
                     )}
                   </div>
+                  )}
                   <div className="space-y-1.5 sm:col-span-2">
                     <Label htmlFor="reason">{t("pages.corrections.reason")}</Label>
                     <Textarea
@@ -419,7 +496,14 @@ function ApplyLeavePage() {
                   label={t("pages.leaveApply.requested")}
                   value={
                     requestedDays
-                      ? t("pages.leaveApply.dayCount", { count: requestedDays })
+                      ? requestedDays === 0.5
+                        ? t("pages.leaveApply.halfDayCount", {
+                            slot:
+                              halfSlot === "FIRST_HALF"
+                                ? t("pages.leaveApply.preLunch")
+                                : t("pages.leaveApply.postLunch"),
+                          })
+                        : t("pages.leaveApply.dayCount", { count: requestedDays })
                       : t("pages.leaveApply.selectDates")
                   }
                 />

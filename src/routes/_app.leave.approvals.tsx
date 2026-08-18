@@ -286,7 +286,14 @@ function LeaveApprovalsPage() {
                           <p className="text-lg font-semibold">{leave.employeeName}</p>
                           <p className="text-sm text-muted-foreground">
                             {leave.type} · {formatDisplayDateRange(leave.from, leave.to)} ·{" "}
-                            {t("pages.leaveApply.dayCount", { count: leave.days })}
+                            {leave.session === "FIRST_HALF" || leave.session === "SECOND_HALF"
+                              ? t("pages.leaveApply.halfDayCount", {
+                                  slot:
+                                    leave.session === "FIRST_HALF"
+                                      ? t("pages.leaveApply.preLunch")
+                                      : t("pages.leaveApply.postLunch"),
+                                })
+                              : t("pages.leaveApply.dayCount", { count: leave.days })}
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
                             {t("pages.leaveHistory.applied")} {formatDisplayDate(leave.appliedOn)}

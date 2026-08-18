@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { AttendanceResult } from "@prisma/client";
+import { AttendanceResult, LeaveSession } from "@prisma/client";
 import {
   attendanceResultFromHours,
   medicalDocumentDueAt48h,
   shiftWindowBounds,
 } from "../server/src/attendancePolicy.js";
-import { calendarYearRange, casualLeaveCreditsEarned } from "../server/src/leavePolicy.js";
+import {
+  calendarYearRange,
+  casualLeaveCreditsEarned,
+  expectedLeaveDays,
+  leaveSessionsOverlap,
+} from "../server/src/leavePolicy.js";
 
 describe("attendance duration results", () => {
   it("maps hours to Full Day or Present (not Half Day or Absent) when time was worked", () => {
@@ -52,11 +57,31 @@ describe("casual leave joining rules", () => {
     expect(casualLeaveCreditsEarned(joiningDate, new Date("2026-08-31T18:30:00.000Z"))).toBe(1);
   });
 
+  it("keeps prior-year casual credits in the lifetime total so unused days carry forward", () => {
+    const joiningDate = new Date("2025-01-05T00:00:00.000Z");
+    expect(casualLeaveCreditsEarned(joiningDate, new Date("2025-12-31T18:30:00.000Z"))).toBe(12);
+    expect(casualLeaveCreditsEarned(joiningDate, new Date("2026-01-31T18:30:00.000Z"))).toBe(13);
+  });
+
   it("scopes calendar years through December 31", () => {
     const range = calendarYearRange(new Date("2026-07-17T00:00:00.000Z"));
     expect(range.year).toBe(2026);
     expect(range.start.toISOString()).toBe("2026-01-01T00:00:00.000Z");
     expect(range.end.toISOString()).toBe("2026-12-31T23:59:59.999Z");
+  });
+});
+
+describe("half-day leave sessions", () => {
+  it("counts a half-day slot as 0.5 and a full range as calendar days", () => {
+    expect(expectedLeaveDays(1, LeaveSession.FIRST_HALF)).toBe(0.5);
+    expect(expectedLeaveDays(1, LeaveSession.SECOND_HALF)).toBe(0.5);
+    expect(expectedLeaveDays(3, LeaveSession.FULL)).toBe(3);
+  });
+
+  it("lets complementary halves share a date and blocks the same slot or a full day", () => {
+    expect(leaveSessionsOverlap(LeaveSession.FIRST_HALF, LeaveSession.SECOND_HALF)).toBe(false);
+    expect(leaveSessionsOverlap(LeaveSession.FIRST_HALF, LeaveSession.FIRST_HALF)).toBe(true);
+    expect(leaveSessionsOverlap(LeaveSession.FULL, LeaveSession.SECOND_HALF)).toBe(true);
   });
 });
 

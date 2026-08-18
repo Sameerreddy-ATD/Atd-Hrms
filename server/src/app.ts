@@ -662,6 +662,7 @@ export function createApp() {
       fromDate: Date;
       toDate: Date;
       days: Prisma.Decimal | number;
+      session?: string;
       reason: string;
       status: string;
       createdAt: Date;
@@ -710,6 +711,7 @@ export function createApp() {
       from: row.fromDate.toISOString().slice(0, 10),
       to: row.toDate.toISOString().slice(0, 10),
       days: Number(row.days),
+      session: row.session ?? "FULL",
       reason: row.reason,
       status: employeeStatusMap[row.status] ?? row.status,
       workflowStatus:
@@ -4306,7 +4308,7 @@ export function createApp() {
       approvedLeave = await findApprovedLeaveForDay(employeeId, eventDate, true).then(
         (paidLeave) => paidLeave ?? findApprovedLeaveForDay(employeeId, eventDate, false),
       );
-      if (approvedLeave && !body.confirmLeaveCancellation) {
+      if (approvedLeave?.session === "FULL" && !body.confirmLeaveCancellation) {
         throw new HttpError(
           409,
           "You are on approved leave today. Confirm check-in to cancel leave for this date.",
@@ -4405,7 +4407,7 @@ export function createApp() {
       }
       throw error;
     }
-    if (approvedLeave) await cancelApprovedLeaveForDay(employeeId, eventDate);
+    if (approvedLeave?.session === "FULL") await cancelApprovedLeaveForDay(employeeId, eventDate);
     res.status(201).json(event);
   }
 
@@ -7768,7 +7770,7 @@ export function createApp() {
     "/announcements",
     requireAuth,
     asyncHandler(async (req, res) => {
-      const announcementManagerRoles: Role[] = [Role.HR, Role.DEVELOPER_ADMIN];
+      const announcementManagerRoles: Role[] = [Role.HR, Role.DEVELOPER_ADMIN, Role.CEO];
       const canManage = announcementManagerRoles.includes(req.user!.role);
       const includeInactive = canManage && req.query.includeInactive === "true";
       const now = new Date();
@@ -7798,7 +7800,7 @@ export function createApp() {
   app.post(
     "/announcements",
     requireAuth,
-    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN, Role.CEO),
     asyncHandler(async (req, res) => {
       const body = announcementSchema.parse(req.body);
       if (body.expiresAt && body.expiresAt <= new Date()) {
@@ -7839,7 +7841,7 @@ export function createApp() {
   app.patch(
     "/announcements/:id",
     requireAuth,
-    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN, Role.CEO),
     asyncHandler(async (req, res) => {
       const body = announcementUpdateSchema.parse(req.body);
       const existing = await prisma.announcement.findUniqueOrThrow({
@@ -7870,7 +7872,7 @@ export function createApp() {
   app.delete(
     "/announcements/:id",
     requireAuth,
-    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN, Role.CEO),
     asyncHandler(async (req, res) => {
       const announcement = await prisma.announcement.update({
         where: { announcementId: String(req.params.id) },
@@ -7891,7 +7893,7 @@ export function createApp() {
   app.delete(
     "/announcements/:id/permanent",
     requireAuth,
-    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN, Role.CEO),
     asyncHandler(async (req, res) => {
       if (req.body?.confirmation !== "DELETE") {
         throw new HttpError(400, "Type DELETE to confirm permanent announcement deletion");

@@ -44,7 +44,8 @@ const MESSAGE_LIMIT = 1000;
 function AnnouncementsPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const canManage = user?.role === "hr" || user?.role === "developer_admin";
+  const canManage =
+    user?.role === "hr" || user?.role === "developer_admin" || user?.role === "ceo";
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [filter, setFilter] = useState("active");
   const [loading, setLoading] = useState(true);
