@@ -139,10 +139,12 @@ export function FaceCapture({
   session,
   onComplete,
   onCancel,
+  onRetry,
 }: {
   session: FaceVerificationSession;
   onComplete: (capture: FaceCapturePayload) => Promise<void> | void;
   onCancel?: () => void;
+  onRetry?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -157,6 +159,7 @@ export function FaceCapture({
   const [quality, setQuality] = useState(0);
   const [scanReady, setScanReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [runId, setRunId] = useState(0);
 
   useEffect(() => {
     completeRef.current = onComplete;
@@ -170,11 +173,15 @@ export function FaceCapture({
     let lastSampleAt = 0;
     let completing = false;
 
+    const stopCamera = () => {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    };
+
     const stop = () => {
       active = false;
       cancelAnimationFrame(animationFrame);
-      streamRef.current?.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
+      stopCamera();
     };
 
     const resetScan = () => {
@@ -322,24 +329,41 @@ export function FaceCapture({
                 setMessage(isEnrollment ? "Saving your face…" : "Matching your face…");
                 const averaged = averageDescriptor(stableEmbeddings);
                 const frame = snapshotFromVideo(video);
-                stop();
-                await completeRef.current({
-                  sessionId: session.sessionId,
-                  nonce: session.nonce,
-                  descriptor: averaged,
-                  descriptorSamples: stableEmbeddings,
-                  imageData: frame,
-                  faceConfidence: faceScore,
-                  livenessScore: live,
-                  antiSpoofScore: real,
-                  challengeCompleted: true,
-                });
-                setPhase("done");
-                setMessage(isEnrollment ? "Face registration complete." : "Face scan complete.");
+                cancelAnimationFrame(animationFrame);
+                stopCamera();
+                try {
+                  await completeRef.current({
+                    sessionId: session.sessionId,
+                    nonce: session.nonce,
+                    descriptor: averaged,
+                    descriptorSamples: stableEmbeddings,
+                    imageData: frame,
+                    faceConfidence: faceScore,
+                    livenessScore: live,
+                    antiSpoofScore: real,
+                    challengeCompleted: true,
+                  });
+                  if (!active) return;
+                  setPhase("done");
+                  setMessage(isEnrollment ? "Face registration complete." : "Face scan complete.");
+                } catch (submitError) {
+                  if (!active) return;
+                  setError(
+                    submitError instanceof Error
+                      ? submitError.message
+                      : isEnrollment
+                        ? "Face registration could not be saved."
+                        : "Face scan could not be completed.",
+                  );
+                  setPhase("error");
+                } finally {
+                  active = false;
+                }
+                return;
               }
             }
           } catch (caught) {
-            if (!active) return;
+            if (completing || !active) return;
             const text = caught instanceof Error ? caught.message : "Face detection failed.";
             setError(text);
             setPhase("error");
@@ -365,7 +389,7 @@ export function FaceCapture({
 
     void start();
     return stop;
-  }, [session, isEnrollment]);
+  }, [session, isEnrollment, runId]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -415,8 +439,26 @@ export function FaceCapture({
       </p>
 
       {phase === "error" && (
-        <div className="mx-auto mt-4 w-full max-w-md rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-          {error}
+        <div className="mx-auto mt-4 w-full max-w-md space-y-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+          <p>{error}</p>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={() => {
+              if (onRetry) {
+                onRetry();
+                return;
+              }
+              setError(null);
+              setQuality(0);
+              setScanReady(false);
+              setPhase("loading");
+              setRunId((value) => value + 1);
+            }}
+          >
+            Try again
+          </Button>
         </div>
       )}
     </div>

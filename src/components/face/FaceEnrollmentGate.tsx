@@ -200,6 +200,7 @@ export function FaceEnrollmentGate({ onUnlocked }: { onUnlocked?: () => void }) 
                   session={session}
                   onComplete={finishEnrollment}
                   onCancel={() => setSession(null)}
+                  onRetry={() => void startEnrollment()}
                 />
               </>
             ) : pending ? (

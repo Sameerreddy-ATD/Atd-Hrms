@@ -1465,12 +1465,14 @@ export function createApp() {
         users.map((user) => {
           const latestAlert = latestAlertByUser.get(user.id);
           const withImages = user.faceEvidence.filter((row) => row.imageKey && !row.deletedAt);
+          const passedImages = withImages.filter((row) => row.outcome === "PASSED");
+          const photoSource = passedImages.length > 0 ? passedImages : withImages;
           const latestSessionId =
-            withImages[0]?.sessionId ?? user.faceEvidence[0]?.sessionId ?? null;
+            photoSource[0]?.sessionId ?? user.faceEvidence[0]?.sessionId ?? null;
           const sessionPhotos = (
             latestSessionId
-              ? withImages.filter((row) => row.sessionId === latestSessionId)
-              : withImages
+              ? photoSource.filter((row) => row.sessionId === latestSessionId)
+              : photoSource
           )
             .slice()
             .sort(

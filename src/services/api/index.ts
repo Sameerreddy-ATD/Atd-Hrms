@@ -519,6 +519,7 @@ export const faceApi = {
   ) =>
     request<{ status: User["faceEnrollmentStatus"]; autoApproved: boolean }>("/face/enrollment", {
       method: "POST",
+      timeoutMs: 60_000,
       body: JSON.stringify(capture),
     }),
   admin: {
@@ -713,7 +714,7 @@ export const attendanceApi = {
   }) =>
     request<{ eventId: string }>("/attendance/mobile/check-in", {
       method: "POST",
-      timeoutMs: 5000,
+      timeoutMs: payload.faceVerification ? 60_000 : 15_000,
       body: JSON.stringify({
         ...payload,
         mobileDeviceId: payload.mobileDeviceId ?? navigator.userAgent.slice(0, 120),
@@ -731,7 +732,7 @@ export const attendanceApi = {
   }) =>
     request<{ eventId: string }>("/attendance/mobile/check-out", {
       method: "POST",
-      timeoutMs: 5000,
+      timeoutMs: payload.faceVerification ? 60_000 : 15_000,
       body: JSON.stringify({
         ...payload,
         mobileDeviceId: navigator.userAgent.slice(0, 120),

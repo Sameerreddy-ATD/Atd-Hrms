@@ -229,6 +229,30 @@ export function descriptorsHaveTemporalVariance(descriptors: number[][]) {
   return maxDistance > 0.001;
 }
 
+/** Enrollment stores a readable selfie. Attendance verify still uses full live/anti-spoof gates. */
+export function scoreFailureReason(
+  scores: { faceConfidence: number; livenessScore: number; antiSpoofScore: number },
+  settings: FaceSettings,
+  isEnrollment: boolean,
+) {
+  if (isEnrollment) {
+    if (scores.faceConfidence < Math.min(settings.minFaceConfidence, 0.45)) {
+      return "Face confidence is too low. Use better lighting and try again.";
+    }
+    return null;
+  }
+  if (scores.faceConfidence < settings.minFaceConfidence) {
+    return "Face confidence is too low. Use better lighting and try again.";
+  }
+  if (scores.livenessScore < settings.minLivenessScore) {
+    return "Liveness verification failed. Please look directly at the camera.";
+  }
+  if (scores.antiSpoofScore < settings.minAntiSpoofScore) {
+    return "A real face could not be confirmed. Photos and screens are not accepted.";
+  }
+  return null;
+}
+
 export async function readFaceSettings(): Promise<FaceSettings> {
   const row = await prisma.systemSetting.findUnique({ where: { key: FACE_SETTING_KEY } });
   if (!row) return defaultSettings;
@@ -484,14 +508,8 @@ export async function verifyFaceCapture(input: {
     }
   }
 
-  if (!failureReason && scores.faceConfidence < settings.minFaceConfidence) {
-    failureReason = "Face confidence is too low. Use better lighting and try again.";
-  }
-  if (!failureReason && scores.livenessScore < settings.minLivenessScore) {
-    failureReason = "Liveness verification failed. Please look directly at the camera.";
-  }
-  if (!failureReason && scores.antiSpoofScore < settings.minAntiSpoofScore) {
-    failureReason = "A real face could not be confirmed. Photos and screens are not accepted.";
+  if (!failureReason) {
+    failureReason = scoreFailureReason(scores, settings, isEnrollment);
   }
   if (!failureReason && !capture.challengeCompleted) {
     failureReason = "Face scan was not completed. Look at the camera and try again.";

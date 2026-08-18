@@ -6,6 +6,7 @@ import {
   FACE_ENROLLMENT_PUNCH_GRACE_MS,
   faceCaptureSchema,
   faceSettingsSchema,
+  scoreFailureReason,
 } from "../server/src/faceAttendance.js";
 import { mobileEventSchema } from "../server/src/schemas.js";
 
@@ -145,6 +146,24 @@ describe("attendanceFaceDecision", () => {
     expect(attendanceFaceDecision({ status: "REJECTED", approvedAt: null }, false)).toBe(
       "register",
     );
+  });
+
+  it("accepts a readable enrollment selfie without live/anti-spoof gates", () => {
+    const settings = faceSettingsSchema.parse({});
+    expect(
+      scoreFailureReason(
+        { faceConfidence: 0.5, livenessScore: 0.2, antiSpoofScore: 0.2 },
+        settings,
+        true,
+      ),
+    ).toBeNull();
+    expect(
+      scoreFailureReason(
+        { faceConfidence: 0.8, livenessScore: 0.2, antiSpoofScore: 0.2 },
+        settings,
+        false,
+      ),
+    ).toMatch(/Liveness/i);
   });
 
   it("lets a pending registration punch on location only", () => {

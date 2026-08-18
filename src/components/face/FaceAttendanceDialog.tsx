@@ -221,11 +221,37 @@ export function FaceAttendanceDialog({
         consentAccepted: true,
         consentVersion,
       });
-      await onVerified(locationPayload());
+      try {
+        await onVerified(locationPayload());
+      } catch {
+        // Face is already stored. Punch failure is toasted by the dashboard.
+      }
       onClose();
     },
     [consentVersion, locationPayload, onClose, onVerified],
   );
+
+  const restartFaceSession = async () => {
+    if (!action || (mode !== "enroll" && mode !== "verify")) return;
+    setSession(null);
+    setError(null);
+    try {
+      setSession(
+        await faceApi.createSession(
+          mode === "enroll"
+            ? "ENROLLMENT"
+            : action === "check-out"
+              ? "ATTENDANCE_CHECK_OUT"
+              : "ATTENDANCE_CHECK_IN",
+          navigator.userAgent.slice(0, 120),
+        ),
+      );
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : t("pages.faceEnrollment.startError"),
+      );
+    }
+  };
 
   const actionLabel =
     action === "check-in"
@@ -321,10 +347,20 @@ export function FaceAttendanceDialog({
         )}
 
         {session && position && mode === "verify" && (
-          <FaceCapture session={session} onComplete={finishVerify} onCancel={onClose} />
+          <FaceCapture
+            session={session}
+            onComplete={finishVerify}
+            onCancel={onClose}
+            onRetry={() => void restartFaceSession()}
+          />
         )}
         {session && position && mode === "enroll" && (
-          <FaceCapture session={session} onComplete={finishEnroll} onCancel={onClose} />
+          <FaceCapture
+            session={session}
+            onComplete={finishEnroll}
+            onCancel={onClose}
+            onRetry={() => void restartFaceSession()}
+          />
         )}
       </DialogContent>
     </Dialog>
