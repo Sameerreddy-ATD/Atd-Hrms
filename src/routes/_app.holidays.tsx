@@ -45,8 +45,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Holiday } from "@/types/domain";
+import { useAuth } from "@/lib/auth";
 import { reportsApi } from "@/services/api";
 import { CalendarDays, Pencil, Plus, Trash2 } from "lucide-react";
+
+const HOLIDAY_MANAGERS = new Set(["hr", "main_admin", "developer_admin"]);
 
 export const Route = createFileRoute("/_app/holidays")({
   component: HolidaysPage,
@@ -54,6 +57,8 @@ export const Route = createFileRoute("/_app/holidays")({
 
 function HolidaysPage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const canManage = !!user && HOLIDAY_MANAGERS.has(user.role);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Holiday | null>(null);
@@ -147,9 +152,11 @@ function HolidaysPage() {
         title={t("pages.holidays.title")}
         description={t("pages.holidays.subtitle")}
         actions={
-          <Button size="sm" onClick={openCreateDialog}>
-            <Plus className="mr-2 h-4 w-4" /> {t("pages.holidays.addHoliday")}
-          </Button>
+          canManage ? (
+            <Button size="sm" onClick={openCreateDialog}>
+              <Plus className="mr-2 h-4 w-4" /> {t("pages.holidays.addHoliday")}
+            </Button>
+          ) : undefined
         }
       />
       {loading && <LoadingState label={t("pages.loading.holidays")} />}
@@ -170,17 +177,19 @@ function HolidaysPage() {
                 </div>
                 <Badge variant="outline">{holidayTypeLabel(holiday.type)}</Badge>
               </div>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <Button variant="outline" onClick={() => openEditDialog(holiday)}>
-                  <Pencil className="mr-2 h-4 w-4" /> {t("common.edit")}
-                </Button>
-                <Button
-                  className="bg-red-600 text-white hover:bg-red-700"
-                  onClick={() => setDeleteHolidayTarget(holiday)}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" /> {t("common.delete")}
-                </Button>
-              </div>
+              {canManage && (
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Button variant="outline" onClick={() => openEditDialog(holiday)}>
+                    <Pencil className="mr-2 h-4 w-4" /> {t("common.edit")}
+                  </Button>
+                  <Button
+                    className="bg-red-600 text-white hover:bg-red-700"
+                    onClick={() => setDeleteHolidayTarget(holiday)}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" /> {t("common.delete")}
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         ))}
@@ -199,7 +208,7 @@ function HolidaysPage() {
                 <TableHead>Holiday</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Description</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                {canManage && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -213,20 +222,22 @@ function HolidaysPage() {
                   <TableCell className="max-w-xs truncate text-muted-foreground">
                     {h.description || "—"}
                   </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button size="sm" variant="outline" onClick={() => openEditDialog(h)}>
-                        <Pencil className="mr-2 h-4 w-4" /> {t("common.edit")}
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="bg-red-600 text-white hover:bg-red-700"
-                        onClick={() => setDeleteHolidayTarget(h)}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" /> {t("common.delete")}
-                      </Button>
-                    </div>
-                  </TableCell>
+                  {canManage && (
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button size="sm" variant="outline" onClick={() => openEditDialog(h)}>
+                          <Pencil className="mr-2 h-4 w-4" /> {t("common.edit")}
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="bg-red-600 text-white hover:bg-red-700"
+                          onClick={() => setDeleteHolidayTarget(h)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> {t("common.delete")}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>

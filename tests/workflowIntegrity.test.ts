@@ -147,7 +147,8 @@ describe("asset and HR-document persistence integrity", () => {
   it("maps secondary workflow endpoints to Developer Admin module controls", () => {
     expect(moduleForApiPath("/weekly-offs")).toBe("LEAVE");
     expect(moduleForApiPath("/biometric/devices")).toBe("ATTENDANCE");
-    expect(moduleForApiPath("/holidays")).toBe("COMPANY");
+    expect(moduleForApiPath("/holidays")).toBe("LEAVE");
+    expect(moduleForApiPath("/holidays", "POST")).toBe("COMPANY");
     expect(moduleForApiPath("/assets")).toBe("COMPANY");
     expect(moduleForApiPath("/assets/mine")).toBe("PROFILE");
     expect(moduleForApiPath("/branches", "PATCH")).toBe("COMPANY");

@@ -8,3 +8,12 @@ describe("driver menu", () => {
     expect(paths).toEqual(["/attendance/mine", "/dashboard", "/preferences", "/profile"]);
   });
 });
+
+describe("employee menu", () => {
+  it("includes the company holiday calendar", () => {
+    const paths = menuForRole("employee", { hasEmployeeId: true, attendanceRequired: true }).flatMap(
+      (g) => g.items.map((i) => i.to),
+    );
+    expect(paths).toContain("/holidays");
+  });
+});

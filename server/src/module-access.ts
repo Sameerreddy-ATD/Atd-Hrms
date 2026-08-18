@@ -256,7 +256,9 @@ export function moduleForApiPath(path: string, method = "GET"): ModuleKey | null
   // Employee "My Assets" is a profile self-service surface; admin asset APIs stay COMPANY.
   if (normalized === "/assets/mine") return "PROFILE";
   if (normalized.startsWith("/assets")) return "COMPANY";
-  if (normalized.startsWith("/holidays")) return "COMPANY";
+  // Holiday calendar is leave self-service; create / update / deactivate stay COMPANY.
+  if (normalized.startsWith("/holidays") && verb !== "GET") return "COMPANY";
+  if (normalized.startsWith("/holidays")) return "LEAVE";
   if (normalized.startsWith("/profile/") || normalized.startsWith("/id-card/")) return "PROFILE";
   if (
     normalized.startsWith("/announcements") ||

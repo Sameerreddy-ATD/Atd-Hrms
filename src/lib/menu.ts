@@ -245,6 +245,12 @@ export const menuGroups: MenuGroup[] = [
         icon: Settings,
         roles: ["hr", "developer_admin", "main_admin"],
       },
+      {
+        label: "Holidays",
+        to: "/holidays",
+        icon: CalendarCheck,
+        roles: ALL.filter((r) => r !== "driver"),
+      },
     ],
   },
   {
@@ -261,12 +267,6 @@ export const menuGroups: MenuGroup[] = [
         to: "/devices",
         icon: Fingerprint,
         roles: ["developer_admin", "main_admin", "hr"],
-      },
-      {
-        label: "Holidays",
-        to: "/holidays",
-        icon: CalendarCheck,
-        roles: ["hr", "main_admin", "developer_admin"],
       },
       {
         label: "Asset Management",
@@ -521,6 +521,7 @@ function itemOrderForRole(role: Role): string[] {
         "/leave/history",
         "/leave/balance",
         "/leave/approvals",
+        "/holidays",
         "/tasks",
         "/employee-services",
         "/onboarding",
@@ -543,6 +544,7 @@ function itemOrderForRole(role: Role): string[] {
         "/leave/history",
         "/leave/balance",
         "/leave/approvals",
+        "/holidays",
         "/tasks",
         "/employee-services",
         "/talent",
@@ -575,6 +577,7 @@ function itemOrderForRole(role: Role): string[] {
         "/leave/approvals",
         "/leave/reports",
         "/leave/policy",
+        "/holidays",
         "/attendance/mine",
         "/attendance/locations",
         "/attendance/corrections",
@@ -582,7 +585,6 @@ function itemOrderForRole(role: Role): string[] {
         "/employee-services",
         "/branches",
         "/devices",
-        "/holidays",
         "/assets",
         "/announcements",
         "/notifications",
@@ -604,6 +606,7 @@ function itemOrderForRole(role: Role): string[] {
         "/attendance/locations",
         "/leave/approvals",
         "/leave/reports",
+        "/holidays",
         "/tasks",
         "/employee-services",
         "/assets",
@@ -626,6 +629,7 @@ function itemOrderForRole(role: Role): string[] {
         "/attendance/locations",
         "/leave/approvals",
         "/leave/reports",
+        "/holidays",
         "/tasks",
         "/employee-services",
         "/assets",
@@ -654,9 +658,9 @@ function itemOrderForRole(role: Role): string[] {
         "/leave/approvals",
         "/leave/reports",
         "/leave/policy",
+        "/holidays",
         "/branches",
         "/devices",
-        "/holidays",
         "/settings",
         "/audit",
         "/tasks",
@@ -687,13 +691,13 @@ function itemOrderForRole(role: Role): string[] {
         "/leave/approvals",
         "/leave/reports",
         "/leave/policy",
+        "/holidays",
         "/checklists",
         "/face-security",
         "/settings",
         "/audit",
         "/branches",
         "/devices",
-        "/holidays",
         "/assets",
         "/tasks",
         "/employee-services",
@@ -730,8 +734,8 @@ export function moduleForRoute(path: string): ModuleKey {
     return "ATTENDANCE";
   if (path === "/tasks" || path.startsWith("/tasks/")) return "TASKS";
   if (path === "/employee-services") return "EMPLOYEE_REQUESTS";
-  if (path.startsWith("/leave")) return "LEAVE";
-  if (["/branches", "/holidays", "/assets"].includes(path)) return "COMPANY";
+  if (path.startsWith("/leave") || path === "/holidays") return "LEAVE";
+  if (["/branches", "/assets"].includes(path)) return "COMPANY";
   if (["/profile", "/id-card", "/my-assets", "/preferences"].includes(path)) return "PROFILE";
   if (["/notifications", "/announcements"].includes(path)) return "COMMUNICATIONS";
   return "SYSTEM";
