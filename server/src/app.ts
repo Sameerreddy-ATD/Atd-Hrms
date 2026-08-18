@@ -100,6 +100,7 @@ import {
   submitFaceEnrollment,
   userHasApprovedFace,
   verifyFaceCapture,
+  verifyOrAllowAttendanceFace,
 } from "./faceAttendance.js";
 import { registerAssetRoutes } from "./assetRoutes.js";
 import { registerClientLogRoutes } from "./clientLogs.js";
@@ -1350,7 +1351,8 @@ export function createApp() {
         throw new HttpError(409, "Face verification is currently disabled by Developer Admin");
       }
       if (
-        body.purpose === FaceVerificationPurpose.ATTENDANCE_CHECK_IN &&
+        (body.purpose === FaceVerificationPurpose.ATTENDANCE_CHECK_IN ||
+          body.purpose === FaceVerificationPurpose.ATTENDANCE_CHECK_OUT) &&
         !(await isFaceVerificationRequiredForUser(req.user!.id))
       ) {
         throw new HttpError(409, "Face verification is not required for your department");
@@ -4316,20 +4318,22 @@ export function createApp() {
       }
     }
     let verifiedFace: Awaited<ReturnType<typeof verifyFaceCapture>> | null = null;
-    if (!isCheckOut && (await isFaceVerificationRequiredForUser(req.user!.id))) {
-      if (!body.faceVerification) {
-        throw new HttpError(400, "Live face verification is required for check-in");
-      }
-      verifiedFace = await verifyFaceCapture({
+    if (await isFaceVerificationRequiredForUser(req.user!.id)) {
+      verifiedFace = await verifyOrAllowAttendanceFace({
         userId: req.user!.id,
         employeeId,
-        expectedPurpose: FaceVerificationPurpose.ATTENDANCE_CHECK_IN,
-        capture: faceCaptureSchema.parse({
-          ...body.faceVerification,
-          latitude: body.latitude,
-          longitude: body.longitude,
-          locationAccuracy: body.locationAccuracy,
-        }),
+        isCheckOut,
+        capture: body.faceVerification
+          ? faceCaptureSchema.parse({
+              ...body.faceVerification,
+              latitude: body.latitude,
+              longitude: body.longitude,
+              locationAccuracy: body.locationAccuracy,
+            })
+          : undefined,
+        latitude: body.latitude,
+        longitude: body.longitude,
+        locationAccuracy: body.locationAccuracy,
       });
     }
     const matchingCheckOut = (checkInType: EventType): EventType => {

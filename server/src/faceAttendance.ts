@@ -735,6 +735,79 @@ export async function userHasApprovedFace(userId: string) {
   return approved;
 }
 
+/** After auto-approval, the same punch may finish on GPS without a second camera pass. */
+export const FACE_ENROLLMENT_PUNCH_GRACE_MS = 5 * 60 * 1000;
+
+export function attendanceFaceDecision(
+  profile: { status: FaceEnrollmentStatus; approvedAt: Date | null } | null,
+  hasCapture: boolean,
+  now = Date.now(),
+): "register" | "allow-location" | "verify" {
+  if (
+    !profile ||
+    profile.status === FaceEnrollmentStatus.REJECTED ||
+    profile.status === FaceEnrollmentStatus.DISABLED
+  ) {
+    return "register";
+  }
+  if (profile.status === FaceEnrollmentStatus.PENDING) return "allow-location";
+  if (profile.status !== FaceEnrollmentStatus.APPROVED) return "register";
+  if (hasCapture) return "verify";
+  if (
+    profile.approvedAt &&
+    now - profile.approvedAt.getTime() < FACE_ENROLLMENT_PUNCH_GRACE_MS
+  ) {
+    return "allow-location";
+  }
+  return "verify";
+}
+
+export async function verifyOrAllowAttendanceFace(input: {
+  userId: string;
+  employeeId: string;
+  isCheckOut: boolean;
+  capture?: FaceCaptureInput;
+  latitude: number;
+  longitude: number;
+  locationAccuracy: number;
+}) {
+  if (!(await isFaceVerificationRequiredForUser(input.userId))) return null;
+
+  const profile = await prisma.faceProfile.findUnique({
+    where: { userId: input.userId },
+    select: { status: true, approvedAt: true },
+  });
+  const decision = attendanceFaceDecision(profile, Boolean(input.capture));
+  if (decision === "register") {
+    throw new HttpError(
+      400,
+      "Register your face before punching. Look at the camera to save it first.",
+    );
+  }
+  if (decision === "allow-location") return null;
+  if (!input.capture) {
+    throw new HttpError(
+      400,
+      input.isCheckOut
+        ? "Live face verification is required for check-out"
+        : "Live face verification is required for check-in",
+    );
+  }
+  return verifyFaceCapture({
+    userId: input.userId,
+    employeeId: input.employeeId,
+    expectedPurpose: input.isCheckOut
+      ? FaceVerificationPurpose.ATTENDANCE_CHECK_OUT
+      : FaceVerificationPurpose.ATTENDANCE_CHECK_IN,
+    capture: faceCaptureSchema.parse({
+      ...input.capture,
+      latitude: input.latitude,
+      longitude: input.longitude,
+      locationAccuracy: input.locationAccuracy,
+    }),
+  });
+}
+
 export async function cleanupExpiredFaceEvidence() {
   const settings = await readFaceSettings();
   const cutoff = new Date(Date.now() - settings.retentionDays * 86_400_000);

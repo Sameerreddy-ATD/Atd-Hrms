@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  attendanceFaceDecision,
   descriptorSimilarity,
   descriptorSetSimilarity,
+  FACE_ENROLLMENT_PUNCH_GRACE_MS,
   faceCaptureSchema,
   faceSettingsSchema,
 } from "../server/src/faceAttendance.js";
@@ -139,5 +141,35 @@ describe("face attendance security primitives", () => {
       },
     });
     expect(result.success).toBe(true);
+  });
+});
+
+describe("attendanceFaceDecision", () => {
+  it("asks unregistered and rejected people to register", () => {
+    expect(attendanceFaceDecision(null, false)).toBe("register");
+    expect(attendanceFaceDecision({ status: "REJECTED", approvedAt: null }, false)).toBe(
+      "register",
+    );
+  });
+
+  it("lets a pending registration punch on location only", () => {
+    expect(attendanceFaceDecision({ status: "PENDING", approvedAt: null }, false)).toBe(
+      "allow-location",
+    );
+  });
+
+  it("verifies an approved face, except right after enrollment", () => {
+    const approvedAt = new Date();
+    expect(attendanceFaceDecision({ status: "APPROVED", approvedAt }, true)).toBe("verify");
+    expect(attendanceFaceDecision({ status: "APPROVED", approvedAt }, false)).toBe(
+      "allow-location",
+    );
+    expect(
+      attendanceFaceDecision(
+        { status: "APPROVED", approvedAt },
+        false,
+        approvedAt.getTime() + FACE_ENROLLMENT_PUNCH_GRACE_MS + 1,
+      ),
+    ).toBe("verify");
   });
 });

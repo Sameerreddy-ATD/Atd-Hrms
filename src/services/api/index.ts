@@ -727,6 +727,7 @@ export const attendanceApi = {
     punchTicket?: string;
     captureNonce?: string;
     deferred?: boolean;
+    faceVerification?: FaceCapturePayload;
   }) =>
     request<{ eventId: string }>("/attendance/mobile/check-out", {
       method: "POST",

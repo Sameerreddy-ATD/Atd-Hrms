@@ -16,7 +16,11 @@ import {
   preciseLocationRequiredHint,
 } from "@/lib/device-permissions";
 import { getDeviceLocation } from "@/lib/geolocation";
-import type { FaceCapturePayload, FaceVerificationSession } from "@/types/domain";
+import type {
+  FaceCapturePayload,
+  FaceEnrollmentStatus,
+  FaceVerificationSession,
+} from "@/types/domain";
 
 export interface LocationAttendanceCapture {
   latitude: number;
@@ -32,6 +36,15 @@ export interface VerifiedCheckInCapture extends LocationAttendanceCapture {
 
 export type AttendanceCapture = VerifiedCheckInCapture | LocationAttendanceCapture;
 
+function needsFaceRegistration(status: FaceEnrollmentStatus | undefined) {
+  return (
+    !status ||
+    status === "NOT_REGISTERED" ||
+    status === "REJECTED" ||
+    status === "DISABLED"
+  );
+}
+
 export function FaceAttendanceDialog({
   action,
   onClose,
@@ -43,9 +56,14 @@ export function FaceAttendanceDialog({
 }) {
   const { t } = useTranslation();
   const [session, setSession] = useState<FaceVerificationSession | null>(null);
+  const [mode, setMode] = useState<"gps" | "enroll" | "verify" | "pending">("gps");
   const [position, setPosition] = useState<GeolocationPosition | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [consent, setConsent] = useState(false);
+  const [consentText, setConsentText] = useState(t("pages.faceEnrollment.consentDefault"));
+  const [consentVersion, setConsentVersion] = useState("2026-07");
+  const [startingEnroll, setStartingEnroll] = useState(false);
   const onVerifiedRef = useRef(onVerified);
   const onCloseRef = useRef(onClose);
 
@@ -59,21 +77,22 @@ export function FaceAttendanceDialog({
       setSession(null);
       setPosition(null);
       setError(null);
+      setConsent(false);
+      setMode("gps");
       return;
     }
     let active = true;
     setSession(null);
     setPosition(null);
     setError(null);
+    setConsent(false);
     const prepare = async () => {
       try {
-        // Load face models only when the user starts check-in (not on every dashboard visit).
         const statusPromise = faceApi.status();
         const locationPromise = getDeviceLocation({ allowRecent: false });
         const status = await statusPromise;
-        if (action === "check-in" && status.verificationEnabled) {
-          void preloadFaceRecognition().catch(() => undefined);
-        }
+        setConsentVersion(status.consent.version);
+        setConsentText(status.consent.text);
         const nextPosition = await locationPromise;
         if (!active) return;
         if (nextPosition.coords.accuracy > status.maxGpsAccuracyMeters) {
@@ -82,16 +101,51 @@ export function FaceAttendanceDialog({
           );
         }
         setPosition(nextPosition);
-        if (action === "check-in" && status.verificationEnabled) {
-          await preloadFaceRecognition().catch(() => undefined);
+
+        if (!status.verificationEnabled) {
+          setMode("gps");
+          await onVerifiedRef.current({
+            latitude: nextPosition.coords.latitude,
+            longitude: nextPosition.coords.longitude,
+            locationAccuracy: nextPosition.coords.accuracy,
+            eventTime: new Date().toISOString(),
+          });
+          if (active) onCloseRef.current();
+          return;
+        }
+
+        await preloadFaceRecognition().catch(() => undefined);
+        if (!active) return;
+
+        if (status.status === "APPROVED") {
+          setMode("verify");
           const nextSession = await faceApi.createSession(
-            "ATTENDANCE_CHECK_IN",
+            action === "check-out" ? "ATTENDANCE_CHECK_OUT" : "ATTENDANCE_CHECK_IN",
             navigator.userAgent.slice(0, 120),
           );
           if (!active) return;
           setSession(nextSession);
           return;
         }
+
+        if (status.status === "PENDING") {
+          setMode("pending");
+          await onVerifiedRef.current({
+            latitude: nextPosition.coords.latitude,
+            longitude: nextPosition.coords.longitude,
+            locationAccuracy: nextPosition.coords.accuracy,
+            eventTime: new Date().toISOString(),
+          });
+          if (active) onCloseRef.current();
+          return;
+        }
+
+        if (needsFaceRegistration(status.status)) {
+          setMode("enroll");
+          return;
+        }
+
+        setMode("gps");
         await onVerifiedRef.current({
           latitude: nextPosition.coords.latitude,
           longitude: nextPosition.coords.longitude,
@@ -118,22 +172,77 @@ export function FaceAttendanceDialog({
     return () => {
       active = false;
     };
-  }, [action, attempt]);
+  }, [action, attempt, t]);
 
-  const finish = useCallback(
+  const locationPayload = useCallback((): LocationAttendanceCapture => {
+    if (!position) throw new Error(t("pages.faceEnrollment.liveLocationUnavailable"));
+    return {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+      locationAccuracy: position.coords.accuracy,
+      eventTime: new Date().toISOString(),
+    };
+  }, [position, t]);
+
+  const startEnrollment = async () => {
+    if (!consent) {
+      setError(t("pages.faceEnrollment.consentRequired"));
+      return;
+    }
+    setStartingEnroll(true);
+    setError(null);
+    try {
+      await preloadFaceRecognition().catch(() => undefined);
+      setSession(await faceApi.createSession("ENROLLMENT", navigator.userAgent.slice(0, 120)));
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : t("pages.faceEnrollment.startError"),
+      );
+    } finally {
+      setStartingEnroll(false);
+    }
+  };
+
+  const finishVerify = useCallback(
     async (capture: FaceCapturePayload) => {
-      if (!position) throw new Error(t("pages.faceEnrollment.liveLocationUnavailable"));
       await onVerified({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        locationAccuracy: position.coords.accuracy,
-        eventTime: new Date().toISOString(),
+        ...locationPayload(),
         faceVerification: capture,
       });
       onClose();
     },
-    [onClose, onVerified, position],
+    [locationPayload, onClose, onVerified],
   );
+
+  const finishEnroll = useCallback(
+    async (capture: FaceCapturePayload) => {
+      await faceApi.enroll({
+        ...capture,
+        consentAccepted: true,
+        consentVersion,
+      });
+      await onVerified(locationPayload());
+      onClose();
+    },
+    [consentVersion, locationPayload, onClose, onVerified],
+  );
+
+  const actionLabel =
+    action === "check-in"
+      ? t("pages.faceEnrollment.checkInAction")
+      : t("pages.faceEnrollment.checkOutAction");
+  const title =
+    mode === "enroll"
+      ? t("pages.faceEnrollment.registerToAction", { action: actionLabel })
+      : t("pages.faceEnrollment.verifyToAction", { action: actionLabel });
+  const description =
+    mode === "enroll"
+      ? t("pages.faceEnrollment.punchEnrollDesc")
+      : mode === "verify"
+        ? t("pages.faceEnrollment.punchVerifyDesc")
+        : action === "check-in"
+          ? t("pages.faceEnrollment.checkInDialogDesc")
+          : t("pages.faceEnrollment.checkOutDialogDesc");
 
   return (
     <Dialog open={Boolean(action)} onOpenChange={(open) => !open && onClose()}>
@@ -143,21 +252,12 @@ export function FaceAttendanceDialog({
             <span className="grid size-8 place-items-center rounded-md bg-primary text-primary-foreground">
               <ShieldCheck className="size-4" />
             </span>
-            {t("pages.faceEnrollment.verifyToAction", {
-              action:
-                action === "check-in"
-                  ? t("pages.faceEnrollment.checkInAction")
-                  : t("pages.faceEnrollment.checkOutAction"),
-            })}
+            {title}
           </DialogTitle>
-          <DialogDescription>
-            {action === "check-in"
-              ? t("pages.faceEnrollment.checkInDialogDesc")
-              : t("pages.faceEnrollment.checkOutDialogDesc")}
-          </DialogDescription>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
-        {!session && !error && (
+        {!session && !error && mode !== "enroll" && (
           <div className="flex min-h-80 flex-col items-center justify-center gap-4 text-center">
             <div className="relative flex size-16 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <LocateFixed className="size-8" />
@@ -176,6 +276,35 @@ export function FaceAttendanceDialog({
           </div>
         )}
 
+        {!session && !error && mode === "enroll" && (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-border/80 bg-muted/40 p-4">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={consent}
+                  onChange={(event) => {
+                    setConsent(event.target.checked);
+                    setError(null);
+                  }}
+                  className="mt-1 size-4 rounded border-border accent-primary"
+                />
+                <span className="text-sm leading-6 text-foreground/90">{consentText}</span>
+              </label>
+            </div>
+            <Button
+              size="lg"
+              className="h-12 w-full"
+              disabled={startingEnroll}
+              onClick={() => void startEnrollment()}
+            >
+              {startingEnroll
+                ? t("pages.faceEnrollment.preparingCamera")
+                : t("pages.faceEnrollment.startRegistration")}
+            </Button>
+          </div>
+        )}
+
         {error && (
           <div className="my-auto rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
             <div className="font-semibold">{t("pages.faceEnrollment.notSaved")}</div>
@@ -191,8 +320,11 @@ export function FaceAttendanceDialog({
           </div>
         )}
 
-        {action === "check-in" && session && position && (
-          <FaceCapture session={session} onComplete={finish} onCancel={onClose} />
+        {session && position && mode === "verify" && (
+          <FaceCapture session={session} onComplete={finishVerify} onCancel={onClose} />
+        )}
+        {session && position && mode === "enroll" && (
+          <FaceCapture session={session} onComplete={finishEnroll} onCancel={onClose} />
         )}
       </DialogContent>
     </Dialog>

@@ -8,9 +8,7 @@ import { AppHeader } from "@/components/layout/AppHeader";
 import { PermissionSetup } from "@/components/layout/PermissionSetup";
 import { LoadingState } from "@/components/common/LoadingState";
 import { useAuth } from "@/lib/auth";
-import { FaceEnrollmentGate } from "@/components/face/FaceEnrollmentGate";
 import { PwaInstallBanner } from "@/components/layout/PwaInstallBanner";
-import { faceApi } from "@/services/api";
 import { moduleAccessApi } from "@/services/api";
 import { menuForRole, moduleForRoute } from "@/lib/menu";
 import type { ModuleKey } from "@/types/domain";
@@ -29,13 +27,10 @@ function AppLayout() {
   const { t } = useTranslation();
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-  const [faceRequired, setFaceRequired] = useState<boolean | null>(null);
-  const [facePolicyError, setFacePolicyError] = useState("");
   const [allowedModules, setAllowedModules] = useState<ModuleKey[] | null | undefined>(null);
   const [pageEnter, setPageEnter] = useState(false);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const userId = user?.id;
-  const userRole = user?.role;
 
   useEffect(() => {
     setPageEnter(false);
@@ -55,44 +50,6 @@ function AppLayout() {
       navigate({ to: "/first-login", replace: true });
     }
   }, [loading, user, navigate]);
-
-  useEffect(() => {
-    if (!userId || userRole === "developer_admin") {
-      setFaceRequired(false);
-      setFacePolicyError("");
-      return;
-    }
-    let active = true;
-    const refreshFacePolicy = async () => {
-      if (document.visibilityState !== "visible") return;
-      try {
-        const status = await faceApi.status();
-        if (active) {
-          setFaceRequired(status.required);
-          setFacePolicyError("");
-        }
-      } catch (err) {
-        if (active) {
-          setFaceRequired(null);
-          setFacePolicyError((err as Error).message || "Unable to check face security policy");
-        }
-      }
-    };
-    void refreshFacePolicy();
-    // Policy rarely changes — avoid 10s polling on mobile data.
-    const timer = window.setInterval(() => void refreshFacePolicy(), 120_000);
-    const onVisible = () => {
-      if (document.visibilityState === "visible") void refreshFacePolicy();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", onVisible);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", onVisible);
-    };
-  }, [userId, userRole]);
 
   useEffect(() => {
     if (!userId) {
@@ -124,48 +81,6 @@ function AppLayout() {
         />
       </div>
     );
-  }
-
-  if (faceRequired === null) {
-    return (
-      <div className="aw-scroll-page flex flex-col items-center justify-center gap-4 px-4 py-[env(safe-area-inset-top)]">
-        <LoadingState
-          label={
-            facePolicyError ? t("pages.loading.securityUnavailable") : t("pages.loading.security")
-          }
-          showBrandStory
-          className="min-h-0 flex-1"
-        />
-        {facePolicyError && (
-          <div className="max-w-md space-y-3 pb-8 text-center">
-            <p className="text-sm text-destructive">{facePolicyError}</p>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setFacePolicyError("");
-                void faceApi
-                  .status()
-                  .then((status) => {
-                    setFaceRequired(status.required);
-                    setFacePolicyError("");
-                  })
-                  .catch((err) => {
-                    setFacePolicyError(
-                      (err as Error).message || "Unable to check face security policy",
-                    );
-                  });
-              }}
-            >
-              {t("pages.shell.retrySecurity")}
-            </Button>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  if (faceRequired) {
-    return <FaceEnrollmentGate onUnlocked={() => setFaceRequired(false)} />;
   }
 
   if (allowedModules === null) {
