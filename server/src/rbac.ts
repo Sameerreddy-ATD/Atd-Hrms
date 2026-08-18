@@ -5,7 +5,6 @@ import { prisma } from "./prisma.js";
 import { clearCookies, verifyAccessToken } from "./security.js";
 import { config } from "./config.js";
 import { moduleForApiPath, roleHasModuleAccess } from "./module-access.js";
-import { userHasApprovedFace } from "./faceAttendance.js";
 import { findActiveSession, touchSession } from "./sessions.js";
 
 declare global {
@@ -192,33 +191,6 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     req.path !== "/health/db"
   ) {
     return next(new HttpError(403, "Password change required on first login"));
-  }
-  const faceEnrollmentPath =
-    req.path === "/face/status" ||
-    req.path === "/face/session" ||
-    req.path === "/face/enrollment" ||
-    req.path === "/auth/change-password" ||
-    req.path === "/auth/logout" ||
-    req.path === "/auth/me" ||
-    req.path === "/module-access/me" ||
-    req.path === "/health" ||
-    req.path === "/health/db";
-  try {
-    if (
-      user.role !== Role.DEVELOPER_ADMIN &&
-      !user.mustChangePassword &&
-      !faceEnrollmentPath &&
-      !(await userHasApprovedFace(user.id))
-    ) {
-      return next(
-        new HttpError(
-          403,
-          "Face registration and Developer Admin approval are required before using the application",
-        ),
-      );
-    }
-  } catch (error) {
-    return next(error);
   }
   const module = moduleForApiPath(req.path, req.method);
   try {

@@ -253,7 +253,7 @@ function DashboardPage() {
     return () => {
       active = false;
     };
-  }, [ownAttendanceRoles, reloadKey, selfPunchRoles, user]);
+  }, [ownAttendanceRoles, reloadKey, selfPunchRoles, user?.id]);
 
   if (!user) return null;
 

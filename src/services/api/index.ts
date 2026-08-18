@@ -219,11 +219,7 @@ async function warmPath<T>(path: string) {
 }
 
 export async function warmAuthenticatedWorkspace(user: User) {
-  if (
-    user.mustChangePassword ||
-    (user.role !== "developer_admin" && user.faceEnrollmentStatus !== "APPROVED")
-  )
-    return;
+  if (user.mustChangePassword) return;
   const ownAttendance = ["employee", "sales", "driver", "field_staff"].includes(user.role);
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata",

@@ -223,8 +223,8 @@ languages, and duplicate keys inside a locale file. `npm run build` runs it auto
 - Employees can view only their own expense and HR document requests. HR and Developer Admin can review organization-wide requests.
 - External applications use `/api/v1` with scoped, revocable service credentials; browser cookies are not an integration authentication mechanism.
 - Bank account numbers, PAN, Aadhaar, and UAN are encrypted at rest and omitted from Employee API v1.
-- Face registration is enforced by both the frontend gate and backend middleware; existing accounts
-  must register after this release.
+- Face registration is required at check-in and check-out when verification is enabled; existing
+  accounts register from the punch button if no face is saved.
 - Face templates and short-lived evidence are AES-256-GCM encrypted and intentionally excluded from
   Employee API v1.
 - Asset returns are completed through a recorded HR checklist before an assignment is released.

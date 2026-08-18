@@ -20,13 +20,10 @@ That flag exists as an operational escape hatch. Do not run production with it o
 
 ## Purpose
 
-Face registration is an account-activation step for every normal application account while the
-Developer Admin verification switch is enabled. Developer Admin is explicitly exempt. When enabled,
-mobile check-in requires a live face scan, an approved encrypted multi-sample template match, and
-precise location. When paused, enrollment gating and check-in camera verification are disabled at
-both frontend and backend, but precise GPS remains required. Check-out is currently camera-free and
-location-verified only, so half of each attendance pair is unverified — the verification plumbing
-supports check-out and is simply not enabled.
+Face registration happens at punch time while the Developer Admin verification switch is enabled.
+Developer Admin is explicitly exempt. When enabled, check-in and check-out require a live face scan
+(or a first-time registration scan if none is saved) plus precise location. When paused, camera
+verification is disabled at both frontend and backend, but precise GPS remains required.
 
 **Storage rule:** one encrypted registration photo is saved **once** per
 person. Daily check-in uploads a frame so the server can analyse it, and **discards** it after
@@ -74,11 +71,11 @@ before enabling face verification for a full workforce on a 2 vCPU box.
 
 1. A normal user signs in with the login created by Developer Admin.
 2. A first-time user changes the temporary password.
-3. The frontend displays a full-screen, non-dismissible face-registration gate.
-4. The backend blocks every protected API except password, logout, session status, and face
-   enrollment endpoints until the profile is approved.
-5. The user accepts the versioned biometric-consent statement (registration photos only; check-in
-   does not store photos).
+3. The workspace opens immediately. Face registration is **not** an app-wide lock.
+4. When Developer Admin has face verification on, the first **Check In** or **Check Out** opens
+   registration if no face is saved (`NOT_REGISTERED`, `REJECTED`, or `DISABLED`).
+5. The user accepts the versioned biometric-consent statement (registration photos only; later
+   punches do not store photos).
 6. The server creates a two-minute, single-use enrollment session with a cryptographically random
    nonce. Attendance sessions use an automatic face scan (no blink or head turns).
 7. Enrollment captures one front photo. It must show exactly
@@ -89,29 +86,29 @@ before enabling face verification for a full workforce on a 2 vCPU box.
    the admin reviews), enforces thresholds, rejects a face already registered to another account in
    any state, encrypts the template, encrypts the JPEG, and creates an evidence row linked to the
    same session.
-10. Normal accounts enter `PENDING`; the application remains blocked.
-11. Developer Admin reviews the images and scores under **Face Security**, then approves or rejects.
-12. Approval changes the profile to `APPROVED`; the waiting screen refreshes automatically and opens
-    the workspace.
+10. If auto-approval is on, the same punch finishes on GPS (short grace window) without a second
+    camera pass. Later in/out verify the live face and do not store a new photo.
+11. If the profile stays `PENDING`, punches are GPS-only until Developer Admin approves.
+12. Developer Admin reviews images and scores under **Face Security**, then approves or rejects.
 
-Developer Admin accounts bypass the face-registration gate at both frontend and backend layers.
-They do not enroll a face and are omitted from the registration review list. This preserves a
-password-protected recovery authority while normal employee attendance remains face verified.
+Developer Admin accounts do not enroll a face and are omitted from the registration review list.
+This preserves a password-protected recovery authority while normal employee attendance remains
+face verified.
 
 Developer Admin can pause the policy from **Face Security**. The API immediately stops creating
-face sessions, treats employee enrollment as non-blocking, and permits GPS-only check-in. Existing
-encrypted templates and retained evidence are not deleted. Re-enabling restores the gate only for
+face sessions and permits GPS-only check-in and check-out. Existing encrypted templates and retained
+evidence are not deleted. Re-enabling requires registration or live verify at punch time for
 accounts that do not already have an approved registration.
 
 ## Enrollment States
 
-| State            | Meaning                                                    | User access                                |
-| ---------------- | ---------------------------------------------------------- | ------------------------------------------ |
-| `NOT_REGISTERED` | No face template exists                                    | Enrollment, password, session, and logout  |
-| `PENDING`        | A valid capture is awaiting Developer Admin review         | Waiting screen, session status, and logout |
-| `APPROVED`       | The encrypted template can be used for attendance matching | Normal role/module access                  |
-| `REJECTED`       | Developer Admin supplied a correction reason               | Registration can be repeated               |
-| `DISABLED`       | Face authentication is exempt for Developer Admin          | Normal Developer Admin access              |
+| State            | Meaning                                                    | User access                                                         |
+| ---------------- | ---------------------------------------------------------- | ------------------------------------------------------------------- |
+| `NOT_REGISTERED` | No face template exists                                    | Full app; punch opens registration when face verification is on     |
+| `PENDING`        | A valid capture is awaiting Developer Admin review         | Full app; GPS-only punches until approval                           |
+| `APPROVED`       | The encrypted template can be used for attendance matching | Full app; live face verify on check-in and check-out                |
+| `REJECTED`       | Developer Admin supplied a correction reason               | Full app; punch opens registration again                            |
+| `DISABLED`       | Face authentication is exempt for Developer Admin          | Normal Developer Admin access                                       |
 
 ## Attendance Flow
 
@@ -127,9 +124,8 @@ accounts that do not already have an approved registration.
    row (scores only).
 5. A mismatch displays **Another face detected**, stores a short-lived blocked security event for
    Developer Admin, and never creates attendance.
-6. For **Check Out**, the browser does not request or open the camera. It obtains fresh precise GPS,
-   and the backend validates the authenticated employee, active check-in, and configured GPS
-   accuracy before saving check-out.
+6. **Check Out** uses the same camera path as check-in: register if no face is saved, otherwise
+   live-verify. GPS accuracy is still required.
 7. GPS accuracy must be within the Developer Admin policy. The default maximum error is 200 metres.
 8. If the employee has approved leave, the leave-confirmation response is returned before the
    one-time face session is consumed. Confirmation can safely reuse the same capture while it is

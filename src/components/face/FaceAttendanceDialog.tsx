@@ -10,7 +10,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { faceApi } from "@/services/api";
+import { authApi, faceApi } from "@/services/api";
+import { useAuth } from "@/lib/auth";
 import {
   formatImpreciseLocationError,
   preciseLocationRequiredHint,
@@ -55,6 +56,7 @@ export function FaceAttendanceDialog({
   onVerified: (payload: AttendanceCapture) => Promise<void>;
 }) {
   const { t } = useTranslation();
+  const { updateCurrentUser } = useAuth();
   const [session, setSession] = useState<FaceVerificationSession | null>(null);
   const [mode, setMode] = useState<"gps" | "enroll" | "verify" | "pending">("gps");
   const [position, setPosition] = useState<GeolocationPosition | null>(null);
@@ -66,6 +68,7 @@ export function FaceAttendanceDialog({
   const [startingEnroll, setStartingEnroll] = useState(false);
   const onVerifiedRef = useRef(onVerified);
   const onCloseRef = useRef(onClose);
+  const enrollStartLock = useRef(false);
 
   useEffect(() => {
     onVerifiedRef.current = onVerified;
@@ -79,6 +82,7 @@ export function FaceAttendanceDialog({
       setError(null);
       setConsent(false);
       setMode("gps");
+      enrollStartLock.current = false;
       return;
     }
     let active = true;
@@ -86,6 +90,8 @@ export function FaceAttendanceDialog({
     setPosition(null);
     setError(null);
     setConsent(false);
+    setMode("gps");
+    enrollStartLock.current = false;
     const prepare = async () => {
       try {
         const statusPromise = faceApi.status();
@@ -184,24 +190,28 @@ export function FaceAttendanceDialog({
     };
   }, [position, t]);
 
-  const startEnrollment = async () => {
-    if (!consent) {
-      setError(t("pages.faceEnrollment.consentRequired"));
-      return;
-    }
+  const startEnrollment = useCallback(async () => {
+    if (!consent || enrollStartLock.current) return;
+    enrollStartLock.current = true;
     setStartingEnroll(true);
     setError(null);
     try {
       await preloadFaceRecognition().catch(() => undefined);
       setSession(await faceApi.createSession("ENROLLMENT", navigator.userAgent.slice(0, 120)));
     } catch (caught) {
+      enrollStartLock.current = false;
       setError(
         caught instanceof Error ? caught.message : t("pages.faceEnrollment.startError"),
       );
     } finally {
       setStartingEnroll(false);
     }
-  };
+  }, [consent, t]);
+
+  useEffect(() => {
+    if (mode !== "enroll" || !consent || session || startingEnroll || error) return;
+    void startEnrollment();
+  }, [consent, error, mode, session, startEnrollment, startingEnroll]);
 
   const finishVerify = useCallback(
     async (capture: FaceCapturePayload) => {
@@ -222,13 +232,19 @@ export function FaceAttendanceDialog({
         consentVersion,
       });
       try {
+        const refreshed = await authApi.me();
+        updateCurrentUser(refreshed.user);
+      } catch {
+        // Punch can still complete; the next /auth/me will pick up APPROVED.
+      }
+      try {
         await onVerified(locationPayload());
       } catch {
-        // Face is already stored. Punch failure is toasted by the dashboard.
+        // Face is stored. Punch failure is toasted by the dashboard; buttons stay usable.
       }
       onClose();
     },
-    [consentVersion, locationPayload, onClose, onVerified],
+    [consentVersion, locationPayload, onClose, onVerified, updateCurrentUser],
   );
 
   const restartFaceSession = async () => {
@@ -321,7 +337,7 @@ export function FaceAttendanceDialog({
             <Button
               size="lg"
               className="h-12 w-full"
-              disabled={startingEnroll}
+              disabled={startingEnroll || !consent}
               onClick={() => void startEnrollment()}
             >
               {startingEnroll

@@ -67,21 +67,19 @@ optional cleanup, not a gate on punching today.
 
 ### Registration (once per person)
 
-1. After first password change, a full-screen gate requires face registration (Developer Admin
-   exempt).
-2. The employee accepts versioned biometric consent.
-3. The camera captures **three encrypted registration photos**: **centre**, **left**, and **right**.
-4. Descriptors from those angles become the encrypted template (multi-sample).
+1. The workspace is usable after login. Face is required at punch time, not as a full-app gate
+   (Developer Admin exempt).
+2. If face verification is on and no face is saved, Check In or Check Out opens registration.
+3. The employee accepts versioned biometric consent.
+4. The camera captures **one** encrypted front photo.
 5. Developer Admin approves or rejects under **Face Security** (or automatic approval if configured).
 
-### Daily check-in (verify only)
+### Daily check-in and check-out (verify only)
 
-1. Check-in runs a live face match (liveness + anti-spoof + head-turn challenge) against the approved
-   template, plus precise GPS.
-2. **No new photo is stored** on check-in — only the live match result / audit scores. This avoids
-   wasting storage on daily punches.
+1. After a face is saved, check-in and check-out run a live face match (liveness + anti-spoof)
+   against the approved template, plus precise GPS.
+2. **No new photo is stored** on punch — only the live match result / audit scores.
 3. Mismatch → **Another face detected**; attendance is not created.
-4. Check-out is **camera-free** and location-verified.
 
 Developer Admin can pause face verification; GPS-only check-in then applies. Existing templates and
 registration photos are retained.
