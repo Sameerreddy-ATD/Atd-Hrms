@@ -5,7 +5,7 @@ import { ScrollPage } from "@/components/layout/ScrollPage";
 
 export const Route = createFileRoute("/terms")({
   head: () => ({
-    meta: [{ title: "Terms of Use · Anytime Workforce" }],
+    meta: [{ title: "Terms of Use · AnyTime Diesel Workforce" }],
   }),
   component: TermsPage,
 });
@@ -26,7 +26,7 @@ function TermsPage() {
 
         <section className="space-y-3 text-sm leading-relaxed text-foreground/90">
           <p>
-            Anytime Workforce is provided for authorized Anytime Diesel employees and contractors.
+            AnyTime Diesel Workforce is provided for authorized Anytime Diesel employees and contractors.
             Access requires a company-issued login. There is no public self-registration.
           </p>
           <h2 className="text-base font-semibold">{t("pages.legal.termsAcceptableUse")}</h2>

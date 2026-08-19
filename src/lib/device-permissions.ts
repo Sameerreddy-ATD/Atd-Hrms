@@ -109,10 +109,10 @@ export async function requestCameraAccess() {
 /** How to turn on Precise location (Android Approximate / iOS Precise off). */
 export function preciseLocationRequiredHint() {
   if (isNativeApp() && Capacitor.getPlatform() === "android") {
-    return "Precise location is required for attendance. Open Settings → Apps → Anytime Workforce → Permissions → Location and turn on Precise (not Approximate only).";
+    return "Precise location is required for attendance. Open Settings → Apps → AnyTime Diesel Workforce → Permissions → Location and turn on Precise (not Approximate only).";
   }
   if (isNativeApp() && Capacitor.getPlatform() === "ios") {
-    return "Precise Location is required for attendance. Open Settings → Anytime Workforce → Location and turn on Precise Location.";
+    return "Precise Location is required for attendance. Open Settings → AnyTime Diesel Workforce → Location and turn on Precise Location.";
   }
   return "Precise location is required for attendance. Allow precise/exact location for this site (not approximate), then try again.";
 }
@@ -134,7 +134,7 @@ export function formatImpreciseLocationError(accuracyMeters: number, maxMeters: 
 export function blockedPermissionHint(kind: "location" | "camera") {
   if (kind === "location") return preciseLocationRequiredHint();
   if (isNativeApp() && Capacitor.getPlatform() === "android") {
-    return "Camera is blocked. Open Settings → Apps → Anytime Workforce → Permissions and allow Camera.";
+    return "Camera is blocked. Open Settings → Apps → AnyTime Diesel Workforce → Permissions and allow Camera.";
   }
   return "Camera is blocked. Enable it in this site’s settings, then return here.";
 }

@@ -54,7 +54,7 @@ const pages = {
     openAccount: "Open account menu",
     refreshing: "Refreshing app…",
     refreshingHelp: "Clearing cache and loading the latest version.",
-    updateTitle: "Update Anytime Workforce",
+    updateTitle: "Update AnyTime Diesel Workforce",
     updateHelp: "A newer version is available on the Play Store.",
     updatePlay: "Update on Play Store",
     notNow: "Not now",
@@ -69,7 +69,7 @@ const pages = {
       "A newer app is on Google Play. Update now so attendance, notifications, and the latest fixes work on this phone.",
     installedVersion: "Installed {{installed}} → {{latest}}",
     portraitRotate:
-      "Anytime Workforce is designed for portrait. Rotate your device back to continue.",
+      "AnyTime Diesel Workforce is designed for portrait. Rotate your device back to continue.",
     installBlurb:
       "Install or create a home-screen shortcut for faster attendance — no login required to install.",
     installAria: "Install or create shortcut",
@@ -95,7 +95,7 @@ const pages = {
     notificationsNotAllowed: "Notifications were not allowed.",
   },
   dashboard: {
-    eyebrow: "Anytime Workforce",
+    eyebrow: "AnyTime Diesel Workforce",
     welcome: "Welcome, {{name}}",
     loadingWorkspace: "Loading today's workspace",
     updating: "Updating operational details...",
@@ -1550,7 +1550,7 @@ const pages = {
   },
   audit: {
     title: "Audit Logs",
-    subtitle: "Protected history of sign-ins, people changes, and admin actions across Anytime Workforce.",
+    subtitle: "Protected history of sign-ins, people changes, and admin actions across AnyTime Diesel Workforce.",
     signIn: "Sign-in",
     people: "People",
     leave: "Leave",
@@ -1614,11 +1614,11 @@ const pages = {
     descriptionNative:
       "Alerts for your role — leave, attendance, and company updates. Turn on app notifications for banners on this phone.",
     descriptionPwa:
-      "You added Anytime Workforce to your Home Screen. Enable alerts if you want banners when the app is in the background.",
+      "You added AnyTime Diesel Workforce to your Home Screen. Enable alerts if you want banners when the app is in the background.",
     descriptionBrowser:
       "Alerts for your role appear here. Enable browser alerts only if you also want banners when the tab is in the background.",
     alertsHelpNative:
-      "You'll get the alerts that apply to your role. Allow Anytime Workforce in phone Settings if banners do not appear.",
+      "You'll get the alerts that apply to your role. Allow AnyTime Diesel Workforce in phone Settings if banners do not appear.",
     alertsHelpPwa: "Uses this Home Screen app's browser permission.",
     alertsHelpBrowser: "Optional. In-app alerts still appear here if you leave this off.",
     alertsBlocked:
@@ -1626,7 +1626,7 @@ const pages = {
     pwaOnHomeScreenHelp:
       "You're using the browser shortcut. Enable alerts above if you want banners in the background.",
     addToHomeScreenHelp:
-      "Optional. Add Anytime Workforce from your browser menu for a full-screen icon.",
+      "Optional. Add AnyTime Diesel Workforce from your browser menu for a full-screen icon.",
     refreshApp: "Refresh app",
     notificationsCleared: "Notifications cleared",
     appNotificationsOn: "App notifications on",
@@ -1676,7 +1676,7 @@ const pages = {
     privacyTitle: "Privacy Policy",
     termsTitle: "Terms of Use",
     deletionTitle: "Request account deletion",
-    lastUpdated: "Anytime Workforce · Anytime Diesel · Last updated 12 Aug 2026",
+    lastUpdated: "AnyTime Diesel Workforce · Anytime Diesel · Last updated 12 Aug 2026",
     backToSignIn: "Back to sign in",
     privacy: "Privacy policy",
     terms: "Terms of use",

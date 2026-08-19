@@ -138,6 +138,9 @@ export function startPortraitOrientationLock() {
 export function isPhoneLandscapeViewport() {
   if (!shouldLockPortraitOrientation()) return false;
   if (typeof window === "undefined") return false;
-  if (window.matchMedia("(orientation: landscape)").matches) return true;
-  return window.innerWidth > window.innerHeight;
+  const orientationType = window.screen?.orientation?.type;
+  if (typeof orientationType === "string") {
+    return orientationType.startsWith("landscape");
+  }
+  return window.matchMedia("(orientation: landscape)").matches;
 }

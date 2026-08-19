@@ -54,7 +54,7 @@ const pages = {
     openAccount: "ఖాతా మెనూ తెరవండి",
     refreshing: "అప్లికేషన్ రిఫ్రెష్ అవుతోంది…",
     refreshingHelp: "కాష్ క్లియర్ చేసి తాజా వెర్షన్ లోడ్ చేయబడుతోంది.",
-    updateTitle: "Anytime Workforce నవీకరించండి",
+    updateTitle: "AnyTime Diesel Workforce నవీకరించండి",
     updateHelp: "Play Storeలో కొత్త వెర్షన్ అందుబాటులో ఉంది.",
     updatePlay: "Play Storeలో నవీకరించండి",
     notNow: "ఇప్పుడు కాదు",
@@ -69,7 +69,7 @@ const pages = {
       "Google Playలో కొత్త app ఉంది. attendance, notifications మరియు latest fixes కోసం ఇప్పుడు update చేయండి.",
     installedVersion: "Installed {{installed}} → {{latest}}",
     portraitRotate:
-      "Anytime Workforce portrait కోసం రూపకల్పన చేయబడింది. కొనసాగడానికి device upright చేయండి.",
+      "AnyTime Diesel Workforce portrait కోసం రూపకల్పన చేయబడింది. కొనసాగడానికి device upright చేయండి.",
     installBlurb:
       "త్వరిత attendance కోసం home-screen shortcut install/create చేయండి — install కోసం login అవసరం లేదు.",
     installAria: "Install or create shortcut",
@@ -94,7 +94,7 @@ const pages = {
     notificationsNotAllowed: "Notifications allow కాలేదు.",
   },
   dashboard: {
-    eyebrow: "Anytime Workforce",
+    eyebrow: "AnyTime Diesel Workforce",
     welcome: "స్వాగతం, {{name}}",
     loadingWorkspace: "నేటి workspace లోడ్ అవుతోంది",
     updating: "ఆపరేషనల్ వివరాలు నవీకరించబడుతున్నాయి...",
@@ -1548,7 +1548,7 @@ const pages = {
   },
   audit: {
     title: "ఆడిట్ లాగ్‌లు",
-    subtitle: "Anytime Workforce అంతటా sign-ins, people changes మరియు admin actions protected history.",
+    subtitle: "AnyTime Diesel Workforce అంతటా sign-ins, people changes మరియు admin actions protected history.",
     signIn: "Sign-in",
     people: "People",
     leave: "Leave",
@@ -1616,7 +1616,7 @@ const pages = {
     alertsHelpBrowser: "Optional. in-app alerts still appear here.",
     alertsBlocked: "Notification access browserలో blocked. site settings allow, return here.",
     pwaOnHomeScreenHelp: "browser shortcut use. background banners కోసం alerts enable.",
-    addToHomeScreenHelp: "Optional. browser menu నుండి Anytime Workforce add.",
+    addToHomeScreenHelp: "Optional. browser menu నుండి AnyTime Diesel Workforce add.",
     refreshApp: "Refresh app",
     notificationsCleared: "Notifications cleared",
     appNotificationsOn: "App notifications on",
@@ -1666,7 +1666,7 @@ const pages = {
     privacyTitle: "Privacy Policy",
     termsTitle: "Terms of Use",
     deletionTitle: "account deletion request",
-    lastUpdated: "Anytime Workforce · Anytime Diesel · Last updated 12 Aug 2026",
+    lastUpdated: "AnyTime Diesel Workforce · Anytime Diesel · Last updated 12 Aug 2026",
     backToSignIn: "sign inకు తిరిగి",
     privacy: "privacy policy",
     terms: "terms of use",

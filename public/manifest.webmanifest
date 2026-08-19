@@ -1,6 +1,6 @@
 {
-  "name": "Anytime Workforce",
-  "short_name": "Workforce",
+  "name": "AnyTime Diesel Workforce",
+  "short_name": "ATD Workforce",
   "description": "Workforce and operations platform for employee records, attendance, leave, tasks, assets, branches, and company operations.",
   "id": "/",
   "lang": "en-IN",
@@ -48,7 +48,7 @@
     {
       "name": "Dashboard",
       "short_name": "Home",
-      "description": "Open your Anytime Workforce dashboard",
+      "description": "Open your AnyTime Diesel Workforce dashboard",
       "url": "/dashboard",
       "icons": [{ "src": "/pwa-192.png", "sizes": "192x192" }]
     },

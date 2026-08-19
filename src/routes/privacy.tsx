@@ -5,7 +5,7 @@ import { ScrollPage } from "@/components/layout/ScrollPage";
 
 export const Route = createFileRoute("/privacy")({
   head: () => ({
-    meta: [{ title: "Privacy Policy · Anytime Workforce" }],
+    meta: [{ title: "Privacy Policy · AnyTime Diesel Workforce" }],
   }),
   component: PrivacyPage,
 });
@@ -26,7 +26,7 @@ function PrivacyPage() {
 
         <section className="space-y-3 text-sm leading-relaxed text-foreground/90">
           <p>
-            Anytime Workforce is an internal workforce and operations platform operated by Anytime
+            AnyTime Diesel Workforce is an internal workforce and operations platform operated by Anytime
             Diesel for employees, managers, HR, and company leadership. This policy explains what
             the application collects and why.
           </p>
@@ -89,7 +89,7 @@ function PrivacyPage() {
           </ul>
           <h2 className="text-base font-semibold">{t("pages.legal.privacyContact")}</h2>
           <p className="text-muted-foreground">
-            Questions about this policy: your HR team or the Developer Admin for Anytime Workforce.
+            Questions about this policy: your HR team or the Developer Admin for AnyTime Diesel Workforce.
             Production site:{" "}
             <a
               className="font-medium text-primary hover:underline"

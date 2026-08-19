@@ -9,7 +9,7 @@ const HR_MAIL =
 
 export const Route = createFileRoute("/account-deletion")({
   head: () => ({
-    meta: [{ title: "Account deletion · Anytime Workforce" }],
+    meta: [{ title: "Account deletion · AnyTime Diesel Workforce" }],
   }),
   component: AccountDeletionPage,
 });
@@ -30,7 +30,7 @@ function AccountDeletionPage() {
 
         <section className="space-y-3 text-sm leading-relaxed text-foreground/90">
           <p>
-            Anytime Workforce accounts are created by your employer (HR or Developer Admin). There
+            AnyTime Diesel Workforce accounts are created by your employer (HR or Developer Admin). There
             is no public self-registration. To delete your login and associated personal data held
             in the app, submit a deletion request using the steps below.
           </p>
@@ -38,14 +38,14 @@ function AccountDeletionPage() {
           <ol className="list-decimal space-y-2 pl-5 text-muted-foreground">
             <li>
               Prefer contacting your company HR team in writing (email or ticket) and ask them to{" "}
-              <strong className="text-foreground">offboard</strong> your Anytime Workforce login.
+              <strong className="text-foreground">offboard</strong> your AnyTime Diesel Workforce login.
             </li>
             <li>
               Or email{" "}
               <a className="font-medium text-primary hover:underline" href={HR_MAIL}>
                 hr@anytimediesel.com
               </a>{" "}
-              from your work email with subject “Anytime Workforce account deletion request”, your
+              from your work email with subject “AnyTime Diesel Workforce account deletion request”, your
               full name, and employee code.
             </li>
             <li>

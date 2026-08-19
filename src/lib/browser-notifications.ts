@@ -336,7 +336,7 @@ export async function enableDesktopAlerts() {
 
         if (permission.receive && permission.receive !== "granted") {
           throw new Error(
-            "Notification permission was not granted. Open Settings → Apps → Anytime Workforce → Notifications and allow them.",
+            "Notification permission was not granted. Open Settings → Apps → AnyTime Diesel Workforce → Notifications and allow them.",
           );
         }
       }
@@ -344,7 +344,7 @@ export async function enableDesktopAlerts() {
       try {
         await PushNotifications.createChannel({
           id: "anytime_workforce",
-          name: "Anytime Workforce",
+          name: "AnyTime Diesel Workforce",
           description: "Leave, attendance, and company alerts for your role.",
           importance: 4,
           visibility: 1,
@@ -402,7 +402,7 @@ export async function enableDesktopAlerts() {
       setDesktopAlertsEnabled(true);
       if (!registered) {
         throw new Error(
-          "Alerts were turned on in the app, but this device could not register for system push. You will still see notifications inside Anytime Workforce.",
+          "Alerts were turned on in the app, but this device could not register for system push. You will still see notifications inside AnyTime Diesel Workforce.",
         );
       }
       return;
@@ -413,7 +413,7 @@ export async function enableDesktopAlerts() {
       }
       setDesktopAlertsEnabled(true);
       throw new Error(
-        "Alerts were turned on in the app, but system push setup failed on this device. You will still see notifications inside Anytime Workforce.",
+        "Alerts were turned on in the app, but system push setup failed on this device. You will still see notifications inside AnyTime Diesel Workforce.",
       );
     }
   }
@@ -447,7 +447,7 @@ export async function enableDesktopAlerts() {
   }
   await showDesktopNotification({
     id: "alerts-enabled",
-    title: "Anytime Workforce alerts enabled",
+    title: "AnyTime Diesel Workforce alerts enabled",
     desc: "You will get alerts from this browser or home-screen app.",
     time: new Date().toISOString(),
     type: "system",

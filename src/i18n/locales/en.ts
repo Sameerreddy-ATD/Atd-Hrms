@@ -2,7 +2,7 @@ import pages from "./pages-en";
 
 const en = {
   "app": {
-    "name": "Anytime Workforce",
+    "name": "AnyTime Diesel Workforce",
     "company": "Anytime Diesel"
   },
   "common": {
@@ -109,7 +109,7 @@ const en = {
   },
   "preferences": {
     "title": "Preferences",
-    "subtitle": "Choose how Anytime Workforce looks and which language you use.",
+    "subtitle": "Choose how AnyTime Diesel Workforce looks and which language you use.",
     "languageTitle": "Language",
     "languageHelp": "Choose English, Hindi, or Telugu anytime — your choice is saved on this device.",
     "themeTitle": "Theme",

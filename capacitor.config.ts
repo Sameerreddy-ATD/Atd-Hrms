@@ -9,7 +9,7 @@ const PROD_ORIGIN = "https://hrms.anytime-diesel.com";
  */
 const config: CapacitorConfig = {
   appId: "com.anytimediesel.workforce",
-  appName: "Anytime Workforce",
+  appName: "AnyTime Diesel Workforce",
   webDir: "mobile/www",
   server: {
     url: PROD_ORIGIN,

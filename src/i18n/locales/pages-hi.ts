@@ -54,7 +54,7 @@ const pages = {
     openAccount: "खाता मेनू खोलें",
     refreshing: "ऐप रिफ़्रेश हो रहा है…",
     refreshingHelp: "कैश साफ़ कर नया संस्करण लोड हो रहा है।",
-    updateTitle: "Anytime Workforce अपडेट करें",
+    updateTitle: "AnyTime Diesel Workforce अपडेट करें",
     updateHelp: "Play Store पर नया संस्करण उपलब्ध है।",
     updatePlay: "Play Store पर अपडेट करें",
     notNow: "अभी नहीं",
@@ -69,7 +69,7 @@ const pages = {
       "Google Play पर नया app है। attendance, notifications और latest fixes के लिए अभी update करें।",
     installedVersion: "Installed {{installed}} → {{latest}}",
     portraitRotate:
-      "Anytime Workforce portrait के लिए बनाया गया है। जारी रखने के लिए device सीधा करें।",
+      "AnyTime Diesel Workforce portrait के लिए बनाया गया है। जारी रखने के लिए device सीधा करें।",
     installBlurb:
       "तेज़ attendance के लिए home-screen shortcut install/create करें — install के लिए login ज़रूरी नहीं।",
     installAria: "Install or create shortcut",
@@ -94,7 +94,7 @@ const pages = {
     notificationsNotAllowed: "Notifications allow नहीं हुए।",
   },
   dashboard: {
-    eyebrow: "Anytime Workforce",
+    eyebrow: "AnyTime Diesel Workforce",
     welcome: "स्वागत है, {{name}}",
     loadingWorkspace: "आज का workspace लोड हो रहा है",
     updating: "ऑपरेशनल विवरण अपडेट हो रहे हैं...",
@@ -1549,7 +1549,7 @@ const pages = {
   },
   audit: {
     title: "ऑडिट लॉग",
-    subtitle: "Anytime Workforce भर sign-ins, people changes और admin actions की protected history।",
+    subtitle: "AnyTime Diesel Workforce भर sign-ins, people changes और admin actions की protected history।",
     signIn: "Sign-in",
     people: "People",
     leave: "Leave",
@@ -1617,7 +1617,7 @@ const pages = {
     alertsHelpBrowser: "Optional. in-app alerts still यहाँ दिखेंगे।",
     alertsBlocked: "Notification access browser में blocked. site settings allow, return here.",
     pwaOnHomeScreenHelp: "browser shortcut use. background banners के लिए alerts enable.",
-    addToHomeScreenHelp: "Optional. browser menu से Anytime Workforce add करें।",
+    addToHomeScreenHelp: "Optional. browser menu से AnyTime Diesel Workforce add करें।",
     refreshApp: "Refresh app",
     notificationsCleared: "Notifications cleared",
     appNotificationsOn: "App notifications on",
@@ -1667,7 +1667,7 @@ const pages = {
     privacyTitle: "Privacy Policy",
     termsTitle: "Terms of Use",
     deletionTitle: "account deletion request",
-    lastUpdated: "Anytime Workforce · Anytime Diesel · Last updated 12 Aug 2026",
+    lastUpdated: "AnyTime Diesel Workforce · Anytime Diesel · Last updated 12 Aug 2026",
     backToSignIn: "sign in पर वापस",
     privacy: "privacy policy",
     terms: "terms of use",

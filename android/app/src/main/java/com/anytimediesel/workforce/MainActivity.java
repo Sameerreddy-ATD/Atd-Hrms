@@ -260,7 +260,7 @@ public class MainActivity extends BridgeActivity {
         try {
             NotificationChannel channel = new NotificationChannel(
                 "anytime_workforce",
-                "Anytime Workforce",
+                "AnyTime Diesel Workforce",
                 NotificationManager.IMPORTANCE_HIGH
             );
             channel.setDescription("Leave, attendance, and company alerts for your role.");

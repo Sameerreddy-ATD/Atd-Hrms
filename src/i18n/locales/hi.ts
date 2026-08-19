@@ -2,7 +2,7 @@ import pages from "./pages-hi";
 
 const hi = {
   "app": {
-    "name": "एनीटाइम वर्कफोर्स",
+    "name": "AnyTime Diesel Workforce",
     "company": "एनीटाइम डीज़ल"
   },
   "common": {

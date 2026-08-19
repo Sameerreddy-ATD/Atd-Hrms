@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Anytime Workforce</string>
-    <string name="title_activity_main">Anytime Workforce</string>
+    <string name="app_name">AnyTime Diesel Workforce</string>
+    <string name="title_activity_main">AnyTime Diesel Workforce</string>
     <string name="package_name">com.anytimediesel.workforce</string>
     <string name="custom_url_scheme">com.anytimediesel.workforce</string>
 </resources>

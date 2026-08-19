@@ -2,7 +2,7 @@ import pages from "./pages-te";
 
 const te = {
   "app": {
-    "name": "ఎనీటైమ్ వర్క్‌ఫోర్స్",
+    "name": "AnyTime Diesel Workforce",
     "company": "ఎనీటైమ్ డీజిల్"
   },
   "common": {

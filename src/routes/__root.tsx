@@ -27,9 +27,9 @@ import { AppOpenSplash } from "@/components/layout/AppOpenSplash";
 import { PortraitOrientationGuard } from "@/components/layout/PortraitOrientationGuard";
 import { StoreUpdateGate } from "@/components/layout/StoreUpdateGate";
 
-const SITE_TITLE = "Anytime Workforce";
+const SITE_TITLE = "AnyTime Diesel Workforce";
 const SITE_DESCRIPTION =
-  "Anytime Workforce — workforce and operations platform for employee records, attendance, leave, tasks, assets, branches, and company operations.";
+  "AnyTime Diesel Workforce — workforce and operations platform for employee records, attendance, leave, tasks, assets, branches, and company operations.";
 const SITE_IMAGE = "/atd-logo.png";
 
 function NotFoundComponent() {
@@ -117,7 +117,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "keywords",
         content:
-          "Anytime Workforce, Anytime Diesel, workforce operations, attendance management, leave management, biometric attendance, GPS attendance, tasks, assets",
+          "AnyTime Diesel Workforce, Anytime Diesel, workforce operations, attendance management, leave management, biometric attendance, GPS attendance, tasks, assets",
       },
       { name: "application-name", content: SITE_TITLE },
       { name: "apple-mobile-web-app-title", content: SITE_TITLE },
@@ -133,7 +133,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:description", content: SITE_DESCRIPTION },
       { property: "og:type", content: "website" },
       { property: "og:image", content: SITE_IMAGE },
-      { property: "og:image:alt", content: "Anytime Workforce logo" },
+      { property: "og:image:alt", content: "AnyTime Diesel Workforce logo" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: SITE_TITLE },
       { name: "twitter:description", content: SITE_DESCRIPTION },

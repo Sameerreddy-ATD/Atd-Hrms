@@ -88,7 +88,7 @@ export function installInstructionCopy(platform: PwaPlatform) {
   switch (platform) {
     case "ios":
       return {
-        title: "Add Anytime Workforce to your Home Screen",
+        title: "Add AnyTime Diesel Workforce to your Home Screen",
         steps: [
           "Tap the Share button in Safari",
           "Scroll and choose Add to Home Screen",
@@ -120,13 +120,13 @@ export function installInstructionCopy(platform: PwaPlatform) {
         steps: [
           "Tap Create shortcut / Install app below if shown",
           "Or open the browser menu (⋮) → Install app / Add to Home screen / Create shortcut",
-          "Open Anytime Workforce from your home screen or app drawer",
+          "Open AnyTime Diesel Workforce from your home screen or app drawer",
           "Enable Alerts so company updates arrive even when the browser is closed",
         ],
       };
     default:
       return {
-        title: "Install Anytime Workforce",
+        title: "Install AnyTime Diesel Workforce",
         steps: [
           "Use your browser’s Install or Add to Home Screen option",
           "Open the installed app for the full-screen workplace experience",
