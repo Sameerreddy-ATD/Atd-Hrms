@@ -1945,7 +1945,7 @@ function UpcomingBirthdaysCard({
   };
 
   return (
-    <Card className="h-full min-w-0 max-w-full overflow-hidden">
+    <Card className="min-w-0 max-w-full overflow-hidden">
       <CardHeader className="flex min-w-0 flex-col items-start gap-1 pb-2 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle className="flex min-w-0 items-center gap-2 text-sm font-semibold">
           <Cake className="h-4 w-4 shrink-0 text-primary" />{" "}

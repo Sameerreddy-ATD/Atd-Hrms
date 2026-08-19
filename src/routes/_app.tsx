@@ -129,7 +129,7 @@ function AppLayout() {
         >
           <div
             className={cn(
-              "box-border min-h-full min-w-0 w-full max-w-full overflow-x-hidden bg-background/95 p-3 pb-6 text-card-foreground sm:rounded-xl sm:border sm:border-border/80 sm:bg-background sm:p-5 sm:pb-5 sm:shadow-sm lg:p-6",
+              "box-border min-h-full min-w-0 w-full max-w-full overflow-x-hidden bg-background/95 p-3 pb-6 text-card-foreground sm:rounded-xl sm:border sm:border-border/80 sm:bg-background sm:p-5 sm:pb-6 sm:shadow-sm lg:p-6 lg:pb-8",
               pageEnter && "aw-page-enter",
             )}
           >
