@@ -164,8 +164,9 @@ function countStatusIncludes(rows: AttendanceRecord[], fragment: string) {
 
 function DashboardPage() {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, updateCurrentUser } = useAuth();
   const [reloadKey, setReloadKey] = useState(0);
+  const [showProfileVerification, setShowProfileVerification] = useState(false);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [timeline, setTimeline] = useState<AttendanceTimelineEvent[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -192,6 +193,12 @@ function DashboardPage() {
     setReloadKey((value) => value + 1);
   }, []);
 
+  const requestProfileVerification = useCallback(() => {
+    if (!user?.profileVerified) {
+      setShowProfileVerification(true);
+    }
+  }, [user?.profileVerified]);
+
   useEffect(() => {
     if (!user?.employeeId) return;
     let refreshTimer: number | undefined;
@@ -202,12 +209,23 @@ function DashboardPage() {
   }, [refreshDashboard, user?.employeeId]);
 
   useEffect(() => {
+    if (!user?.employeeId || user.profileVerified || summaryLoading || !selfPunchRoles) return;
+    if (!workedTime(timeline).isCheckedIn) return;
+    setShowProfileVerification(true);
+  }, [user?.employeeId, user?.profileVerified, summaryLoading, selfPunchRoles, timeline]);
+
+  useEffect(() => {
     if (!user) return;
     let active = true;
     const adminPeopleRoles = ["developer_admin"];
+    const isRefresh = reloadKey > 0;
 
-    setSummaryLoading(true);
-    setSecondaryLoading(true);
+    if (isRefresh) {
+      setSecondaryLoading(true);
+    } else {
+      setSummaryLoading(true);
+      setSecondaryLoading(true);
+    }
     setError("");
 
     Promise.all([
@@ -331,6 +349,7 @@ function DashboardPage() {
           branches={branches}
           birthdays={birthdays}
           onAttendanceChanged={refreshDashboard}
+          onCheckInSuccess={requestProfileVerification}
           attendanceReady={!summaryLoading}
         />
       ) : user.role === "manager" ? (
@@ -347,6 +366,7 @@ function DashboardPage() {
           branches={branches}
           birthdays={birthdays}
           onAttendanceChanged={refreshDashboard}
+          onCheckInSuccess={requestProfileVerification}
           attendanceReady={!summaryLoading}
         />
       ) : user.role === "hr" || user.role === "developer_admin" ? (
@@ -367,6 +387,7 @@ function DashboardPage() {
           branches={branches}
           birthdays={birthdays}
           onAttendanceChanged={refreshDashboard}
+          onCheckInSuccess={requestProfileVerification}
           attendanceReady={!summaryLoading}
         />
       ) : isExecutive ? (
@@ -392,6 +413,7 @@ function DashboardPage() {
           pendingLeaveRows={pendingLeaveRows}
           timeline={timeline}
           onAttendanceChanged={refreshDashboard}
+          onCheckInSuccess={requestProfileVerification}
           attendanceReady={!summaryLoading}
         />
       ) : (
@@ -410,9 +432,18 @@ function DashboardPage() {
           branches={branches}
           birthdays={birthdays}
           onAttendanceChanged={refreshDashboard}
+          onCheckInSuccess={requestProfileVerification}
           attendanceReady={!summaryLoading}
         />
       )}
+
+      <ProfileVerificationModal
+        open={showProfileVerification}
+        onComplete={() => {
+          setShowProfileVerification(false);
+          if (user) updateCurrentUser({ ...user, profileVerified: true });
+        }}
+      />
     </div>
   );
 }
@@ -505,6 +536,7 @@ function EmployeeDashboard({
   branches,
   birthdays,
   onAttendanceChanged,
+  onCheckInSuccess,
   attendanceReady,
 }: {
   user: User;
@@ -512,6 +544,7 @@ function EmployeeDashboard({
   branches: Branch[];
   birthdays: BirthdayItem[];
   onAttendanceChanged: () => void;
+  onCheckInSuccess: () => void;
   attendanceReady: boolean;
 }) {
   return (
@@ -523,6 +556,7 @@ function EmployeeDashboard({
             timeline={timeline}
             branches={branches}
             onAttendanceChanged={onAttendanceChanged}
+            onCheckInSuccess={onCheckInSuccess}
             attendanceReady={attendanceReady}
             className="min-w-0 lg:col-span-2"
           />
@@ -540,6 +574,7 @@ function MarkAttendanceCard({
   timeline,
   branches,
   onAttendanceChanged,
+  onCheckInSuccess,
   className,
   attendanceReady,
 }: {
@@ -547,6 +582,7 @@ function MarkAttendanceCard({
   timeline: AttendanceTimelineEvent[];
   branches: Branch[];
   onAttendanceChanged: () => void;
+  onCheckInSuccess: () => void;
   className?: string;
   attendanceReady: boolean;
 }) {
@@ -558,8 +594,6 @@ function MarkAttendanceCard({
     startedAt?: number;
   } | null>(null);
   const [leaveCheckIn, setLeaveCheckIn] = useState<AttendanceCapture | null>(null);
-  const [showProfileVerification, setShowProfileVerification] = useState(false);
-  const { updateCurrentUser } = useAuth();
   // Nothing here depends on the passing second any more; only the open stretch
   // does, and LiveWorkedTime tracks that on its own.
   const workSession = useMemo(() => workedTime(timeline), [timeline]);
@@ -694,10 +728,8 @@ function MarkAttendanceCard({
       setOptimisticSession({ state: "CHECKED_IN", startedAt: Date.now() });
       setLeaveCheckIn(null);
       toast.success(t("pages.dashboard.toastCheckedIn"));
+      onCheckInSuccess();
       onAttendanceChanged();
-      if (!user.profileVerified) {
-        setShowProfileVerification(true);
-      }
     } catch (err) {
       const message = (err as Error).message;
       if (message.includes("Confirm check-in to cancel leave")) {
@@ -924,13 +956,6 @@ function MarkAttendanceCard({
         onClose={() => setFaceAction(null)}
         onVerified={handleVerifiedAttendance}
       />
-      <ProfileVerificationModal
-        open={showProfileVerification}
-        onComplete={() => {
-          setShowProfileVerification(false);
-          updateCurrentUser({ ...user, profileVerified: true });
-        }}
-      />
     </Card>
   );
 }
@@ -943,6 +968,7 @@ function ManagerDashboard({
   branches,
   birthdays,
   onAttendanceChanged,
+  onCheckInSuccess,
   attendanceReady,
 }: {
   user: User;
@@ -957,6 +983,7 @@ function ManagerDashboard({
   branches: Branch[];
   birthdays: BirthdayItem[];
   onAttendanceChanged: () => void;
+  onCheckInSuccess: () => void;
   attendanceReady: boolean;
 }) {
   const { t } = useTranslation();
@@ -996,6 +1023,7 @@ function ManagerDashboard({
             timeline={timeline}
             branches={branches}
             onAttendanceChanged={onAttendanceChanged}
+            onCheckInSuccess={onCheckInSuccess}
             attendanceReady={attendanceReady}
             className="min-w-0 lg:col-span-2"
           />
@@ -1025,6 +1053,7 @@ function HRDashboard({
   branches,
   birthdays,
   onAttendanceChanged,
+  onCheckInSuccess,
   attendanceReady,
 }: {
   user: User;
@@ -1043,6 +1072,7 @@ function HRDashboard({
   branches: Branch[];
   birthdays: BirthdayItem[];
   onAttendanceChanged: () => void;
+  onCheckInSuccess: () => void;
   attendanceReady: boolean;
 }) {
   const { t } = useTranslation();
@@ -1109,6 +1139,7 @@ function HRDashboard({
             timeline={timeline}
             branches={branches}
             onAttendanceChanged={onAttendanceChanged}
+            onCheckInSuccess={onCheckInSuccess}
             attendanceReady={attendanceReady}
             className="min-w-0 lg:col-span-2"
           />
@@ -1171,6 +1202,7 @@ function ExecutiveDashboard({
   pendingLeaveRows,
   timeline,
   onAttendanceChanged,
+  onCheckInSuccess,
   attendanceReady,
 }: {
   user: User;
@@ -1194,6 +1226,7 @@ function ExecutiveDashboard({
   pendingLeaveRows: LeaveRequest[];
   timeline: AttendanceTimelineEvent[];
   onAttendanceChanged: () => void;
+  onCheckInSuccess: () => void;
   attendanceReady: boolean;
 }) {
   const { t } = useTranslation();
@@ -1271,6 +1304,7 @@ function ExecutiveDashboard({
           timeline={timeline}
           branches={branches}
           onAttendanceChanged={onAttendanceChanged}
+          onCheckInSuccess={onCheckInSuccess}
           attendanceReady={attendanceReady}
           className="min-w-0"
         />
@@ -1603,6 +1637,7 @@ function AdminDashboard({
   branches,
   birthdays,
   onAttendanceChanged,
+  onCheckInSuccess,
   attendanceReady,
 }: {
   user: User;
@@ -1619,6 +1654,7 @@ function AdminDashboard({
   branches: Branch[];
   birthdays: BirthdayItem[];
   onAttendanceChanged: () => void;
+  onCheckInSuccess: () => void;
   attendanceReady: boolean;
 }) {
   const { t } = useTranslation();
@@ -1642,6 +1678,7 @@ function AdminDashboard({
             timeline={timeline}
             branches={branches}
             onAttendanceChanged={onAttendanceChanged}
+            onCheckInSuccess={onCheckInSuccess}
             attendanceReady={attendanceReady}
             className="min-w-0 lg:col-span-2"
           />
