@@ -6,6 +6,7 @@ import {
   EmploymentType,
   EventType,
   Gender,
+  MaritalStatus,
   Role,
   ShiftType,
   TaskPriority,
@@ -92,6 +93,29 @@ export const forgotPasswordSchema = z.object({
   email: z.string().trim().email().max(255),
 });
 
+const optionalNullableString = (max: number) =>
+  z.preprocess(emptyToNull, z.string().trim().max(max).nullable().optional());
+
+const employeeIdentityFields = {
+  personalEmail: z.preprocess(emptyToNull, z.string().email().max(255).nullable().optional()),
+  maritalStatus: z.nativeEnum(MaritalStatus).nullable().optional(),
+  fatherName: optionalNullableString(120),
+  husbandName: optionalNullableString(120),
+  presentDoorNo: optionalNullableString(80),
+  presentFlatName: optionalNullableString(120),
+  presentStreetName: optionalNullableString(200),
+  presentCity: optionalNullableString(80),
+  presentState: optionalNullableString(80),
+  presentPincode: optionalNullableString(12),
+  permanentSameAsPresent: z.boolean().optional(),
+  permanentDoorNo: optionalNullableString(80),
+  permanentFlatName: optionalNullableString(120),
+  permanentStreetName: optionalNullableString(200),
+  permanentCity: optionalNullableString(80),
+  permanentState: optionalNullableString(80),
+  permanentPincode: optionalNullableString(12),
+};
+
 export const createUserSchema = z
   .object({
     name: z.string().min(2).max(120),
@@ -132,6 +156,7 @@ export const createUserSchema = z
     shiftType: z.nativeEnum(ShiftType).optional(),
     shiftStartMinutes: z.number().int().min(0).max(1439).optional(),
     shiftEndMinutes: z.number().int().min(0).max(1439).optional(),
+    ...employeeIdentityFields,
   })
   .superRefine((value, context) => {
     validateEmploymentDates(value, context);
@@ -225,6 +250,7 @@ export const updateEmployeeSchema = z
     shiftType: z.nativeEnum(ShiftType).optional(),
     shiftStartMinutes: z.number().int().min(0).max(1439).optional(),
     shiftEndMinutes: z.number().int().min(0).max(1439).optional(),
+    ...employeeIdentityFields,
   })
   .superRefine(validateEmploymentDates)
   .refine((value) => Object.keys(value).length > 0, "At least one field is required");
@@ -921,13 +947,14 @@ export const profileVerificationSchema = z.object({
     .array(
       z.object({
         field: z.string().min(1).max(60),
-        section: z.enum(["identity", "employment", "banking", "statutory"]),
+        section: z.enum(["identity", "employment", "banking", "statutory", "emergency"]),
         status: z.enum(["CORRECT", "WRONG"]),
         currentValue: z.string().max(2000).optional(),
         suggestedValue: z.string().max(2000).optional(),
       }),
     )
     .min(1),
+  emergencyContact: emergencyContactSchema.optional(),
 });
 
 export const profileCorrectionReviewSchema = z.object({

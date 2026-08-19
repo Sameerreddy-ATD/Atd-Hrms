@@ -2,6 +2,7 @@ import { ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
+import { shouldShowProfileVerification } from "@/lib/profile-verification";
 import { cn } from "@/lib/utils";
 
 export function ProfileVerificationBanner({
@@ -14,7 +15,7 @@ export function ProfileVerificationBanner({
   const { t } = useTranslation();
   const { user } = useAuth();
 
-  if (!user?.employeeId || user.profileVerified) return null;
+  if (!user || !shouldShowProfileVerification(user)) return null;
 
   return (
     <div

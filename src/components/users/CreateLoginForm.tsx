@@ -163,6 +163,12 @@ export function CreateLoginForm({
     "PREFER_NOT_TO_SAY",
   );
   const [bloodGroup, setBloodGroup] = useState("");
+  const [personalEmail, setPersonalEmail] = useState("");
+  const [maritalStatus, setMaritalStatus] = useState<"" | "SINGLE" | "MARRIED">("");
+  const [fatherName, setFatherName] = useState("");
+  const [presentStreetName, setPresentStreetName] = useState("");
+  const [presentCity, setPresentCity] = useState("");
+  const [presentPincode, setPresentPincode] = useState("");
   const [employmentType, setEmploymentType] = useState<"FULL_TIME" | "PART_TIME" | "INTERN">(
     "FULL_TIME",
   );
@@ -340,6 +346,12 @@ export function CreateLoginForm({
         payload.joiningDate = joiningDate || undefined;
         payload.gender = gender;
         payload.bloodGroup = bloodGroup || undefined;
+        payload.personalEmail = personalEmail.trim() || undefined;
+        payload.maritalStatus = maritalStatus || undefined;
+        payload.fatherName = fatherName.trim() || undefined;
+        payload.presentStreetName = presentStreetName.trim() || undefined;
+        payload.presentCity = presentCity.trim() || undefined;
+        payload.presentPincode = presentPincode.trim() || undefined;
         payload.employmentType = employmentType;
         payload.bankAccountHolderName = bankAccountHolderName.trim() || undefined;
         payload.bankAccountType = bankAccountType || undefined;
@@ -792,6 +804,59 @@ export function CreateLoginForm({
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Personal email</Label>
+                <Input
+                  type="email"
+                  value={personalEmail}
+                  onChange={(event) => setPersonalEmail(event.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Marital status</Label>
+                <Select
+                  value={maritalStatus || "not_provided"}
+                  onValueChange={(value) =>
+                    setMaritalStatus(
+                      value === "not_provided" ? "" : (value as "SINGLE" | "MARRIED"),
+                    )
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="not_provided">Not provided</SelectItem>
+                    <SelectItem value="SINGLE">Single</SelectItem>
+                    <SelectItem value="MARRIED">Married</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Father&apos;s name</Label>
+                <Input value={fatherName} onChange={(event) => setFatherName(event.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Present street</Label>
+                <Input
+                  value={presentStreetName}
+                  onChange={(event) => setPresentStreetName(event.target.value)}
+                />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>Present city</Label>
+                  <Input value={presentCity} onChange={(event) => setPresentCity(event.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Present pincode</Label>
+                  <Input
+                    value={presentPincode}
+                    onChange={(event) => setPresentPincode(event.target.value)}
+                  />
+                </div>
               </div>
             </FormSection>
 

@@ -10,6 +10,7 @@ import { BirthdayMarquee } from "@/components/layout/BirthdayMarquee";
 import { DashboardAnnouncements } from "@/components/layout/DashboardAnnouncements";
 import { StatCard } from "@/components/common/StatCard";
 import { ProfileVerificationBanner } from "@/components/profile/ProfileVerificationBanner";
+import { shouldShowProfileVerification } from "@/lib/profile-verification";
 import { ProfileVerificationModal } from "@/components/profile/ProfileVerificationModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/common/StatusBadge";
@@ -195,10 +196,10 @@ function DashboardPage() {
   }, []);
 
   const requestProfileVerification = useCallback(() => {
-    if (!user?.profileVerified) {
+    if (user && shouldShowProfileVerification(user)) {
       setShowProfileVerification(true);
     }
-  }, [user?.profileVerified]);
+  }, [user]);
 
   useEffect(() => {
     if (!user?.employeeId) return;
@@ -323,7 +324,7 @@ function DashboardPage() {
         description={headerDescription}
       />
 
-      {user.employeeId && !user.profileVerified && (
+      {user && shouldShowProfileVerification(user) && (
         <ProfileVerificationBanner onVerify={requestProfileVerification} />
       )}
       <BirthdayMarquee />

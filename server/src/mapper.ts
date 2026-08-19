@@ -118,6 +118,15 @@ export function userDto(
       | "uanNumberLast4"
     > & {
       department?: { name: string } | null;
+      emergencyContact?: {
+        contactName: string;
+        relationship: string;
+        phone: string;
+        alternatePhone: string | null;
+        address: string | null;
+        bloodGroup: string | null;
+        medicalNotes: string | null;
+      } | null;
     } | null;
     faceProfile?: {
       status: "PENDING" | "APPROVED" | "REJECTED" | "DISABLED";
@@ -222,6 +231,17 @@ export function userDto(
       ? decryptEmployeeField(user.employee.uanNumberEncrypted)
       : undefined,
     uanNumberLast4: user.employee?.uanNumberLast4 ?? undefined,
+    emergencyContact: user.employee?.emergencyContact
+      ? {
+          contactName: user.employee.emergencyContact.contactName,
+          relationship: user.employee.emergencyContact.relationship,
+          phone: user.employee.emergencyContact.phone,
+          alternatePhone: user.employee.emergencyContact.alternatePhone ?? undefined,
+          address: user.employee.emergencyContact.address ?? undefined,
+          bloodGroup: user.employee.emergencyContact.bloodGroup ?? undefined,
+          medicalNotes: user.employee.emergencyContact.medicalNotes ?? undefined,
+        }
+      : undefined,
   };
 }
 
@@ -362,14 +382,32 @@ export function employeeDto(
     uanNumber: showPrivateDetails ? decryptEmployeeField(employee.uanNumberEncrypted) : undefined,
     uanNumberLast4: showPrivateDetails ? (employee.uanNumberLast4 ?? undefined) : undefined,
     fatherName: showPrivateDetails ? (employee.fatherName ?? undefined) : undefined,
+    husbandName: showPrivateDetails ? (employee.husbandName ?? undefined) : undefined,
+    maritalStatus: showPrivateDetails ? (employee.maritalStatus ?? undefined) : undefined,
+    personalEmail: showPrivateDetails ? (employee.personalEmail ?? undefined) : undefined,
+    companyEmail: showPrivateDetails ? (employee.email ?? undefined) : undefined,
+    presentDoorNo: showPrivateDetails ? (employee.presentDoorNo ?? undefined) : undefined,
+    presentFlatName: showPrivateDetails ? (employee.presentFlatName ?? undefined) : undefined,
+    presentStreetName: showPrivateDetails
+      ? (employee.presentStreetName ?? employee.presentAddress ?? undefined)
+      : undefined,
     presentAddress: showPrivateDetails ? (employee.presentAddress ?? undefined) : undefined,
     presentCity: showPrivateDetails ? (employee.presentCity ?? undefined) : undefined,
     presentState: showPrivateDetails ? (employee.presentState ?? undefined) : undefined,
     presentPincode: showPrivateDetails ? (employee.presentPincode ?? undefined) : undefined,
+    permanentSameAsPresent: showPrivateDetails
+      ? (employee.permanentSameAsPresent ?? undefined)
+      : undefined,
+    permanentDoorNo: showPrivateDetails ? (employee.permanentDoorNo ?? undefined) : undefined,
+    permanentFlatName: showPrivateDetails ? (employee.permanentFlatName ?? undefined) : undefined,
+    permanentStreetName: showPrivateDetails
+      ? (employee.permanentStreetName ?? employee.permanentAddress ?? undefined)
+      : undefined,
     permanentAddress: showPrivateDetails ? (employee.permanentAddress ?? undefined) : undefined,
     permanentCity: showPrivateDetails ? (employee.permanentCity ?? undefined) : undefined,
     permanentState: showPrivateDetails ? (employee.permanentState ?? undefined) : undefined,
     permanentPincode: showPrivateDetails ? (employee.permanentPincode ?? undefined) : undefined,
+    profileVerified: employee.profileVerified ?? false,
     lifecycleStage: employee.lifecycleStage,
     shiftType: employee.shiftType,
     shiftStartMinutes: employee.shiftStartMinutes,

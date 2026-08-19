@@ -2465,7 +2465,12 @@ export function createApp() {
       const user = await prisma.user.findUniqueOrThrow({
         where: { id: req.user!.id },
         include: {
-          employee: { include: { department: { select: { name: true } } } },
+          employee: {
+            include: {
+              department: { select: { name: true } },
+              emergencyContact: true,
+            },
+          },
           faceProfile: true,
         },
       });
@@ -2808,6 +2813,26 @@ export function createApp() {
                 shiftType: body.shiftType ?? "DAY",
                 shiftStartMinutes: body.shiftStartMinutes ?? 540,
                 shiftEndMinutes: body.shiftEndMinutes ?? 1080,
+                personalEmail: body.personalEmail ?? undefined,
+                maritalStatus: body.maritalStatus ?? undefined,
+                fatherName: body.fatherName ?? undefined,
+                husbandName: body.husbandName ?? undefined,
+                presentDoorNo: body.presentDoorNo ?? undefined,
+                presentFlatName: body.presentFlatName ?? undefined,
+                presentStreetName: body.presentStreetName ?? undefined,
+                presentCity: body.presentCity ?? undefined,
+                presentState: body.presentState ?? undefined,
+                presentPincode: body.presentPincode ?? undefined,
+                permanentSameAsPresent: body.permanentSameAsPresent ?? false,
+                permanentDoorNo: body.permanentDoorNo ?? undefined,
+                permanentFlatName: body.permanentFlatName ?? undefined,
+                permanentStreetName: body.permanentStreetName ?? undefined,
+                permanentCity: body.permanentCity ?? undefined,
+                permanentState: body.permanentState ?? undefined,
+                permanentPincode: body.permanentPincode ?? undefined,
+                profileVerified: ([Role.CEO, Role.CHIEF_OF_STAFF, Role.DRIVER] as Role[]).includes(
+                  targetRole,
+                ),
               },
             })
           : linkedEmployee;
@@ -9204,6 +9229,11 @@ export function createApp() {
     requireAuth,
     asyncHandler(async (req, res) => {
       if (!req.user!.employeeId) throw new HttpError(400, "No employee profile");
+      const exemptRoles = [Role.CEO, Role.CHIEF_OF_STAFF, Role.DRIVER] as Role[];
+      if (exemptRoles.includes(req.user!.role)) {
+        res.json({ ok: true, corrections: 0 });
+        return;
+      }
       const body = profileVerificationSchema.parse(req.body);
       const corrections = body.fields.filter((f) => f.status === "WRONG" && f.suggestedValue);
       await prisma.$transaction(async (tx) => {
@@ -9217,6 +9247,16 @@ export function createApp() {
               suggestedValue: c.suggestedValue!,
               status: "PENDING",
             })),
+          });
+        }
+        if (body.emergencyContact) {
+          await tx.emergencyContact.upsert({
+            where: { employeeId: req.user!.employeeId! },
+            create: {
+              employeeId: req.user!.employeeId!,
+              ...body.emergencyContact,
+            },
+            update: body.emergencyContact,
           });
         }
         await tx.employee.update({

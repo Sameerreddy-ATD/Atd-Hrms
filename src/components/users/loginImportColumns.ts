@@ -63,6 +63,22 @@ export type LoginImportFieldKey =
   | "gender"
   | "employmentType"
   | "bloodGroup"
+  | "personalEmail"
+  | "maritalStatus"
+  | "fatherName"
+  | "husbandName"
+  | "presentDoorNo"
+  | "presentFlatName"
+  | "presentStreetName"
+  | "presentCity"
+  | "presentState"
+  | "presentPincode"
+  | "permanentDoorNo"
+  | "permanentFlatName"
+  | "permanentStreetName"
+  | "permanentCity"
+  | "permanentState"
+  | "permanentPincode"
   | "bankAccountHolderName"
   | "bankAccountType"
   | "bankAccountNumber"
@@ -189,6 +205,41 @@ export const LOGIN_IMPORT_COLUMNS: LoginImportColumn[] = [
     width: 110,
     enumOptions: BLOOD_GROUPS,
   },
+  { key: "personalEmail", label: "Personal Email", required: false, type: "email", width: 200 },
+  {
+    key: "maritalStatus",
+    label: "Marital Status",
+    required: false,
+    type: "enum",
+    width: 120,
+    enumOptions: ["Single", "Married"],
+  },
+  { key: "fatherName", label: "Father's Name", required: false, type: "text", width: 160 },
+  { key: "husbandName", label: "Husband's Name", required: false, type: "text", width: 160 },
+  { key: "presentDoorNo", label: "Present Door/Plot", required: false, type: "text", width: 130 },
+  { key: "presentFlatName", label: "Present Flat/House", required: false, type: "text", width: 140 },
+  { key: "presentStreetName", label: "Present Street", required: false, type: "text", width: 160 },
+  { key: "presentCity", label: "Present City", required: false, type: "text", width: 120 },
+  { key: "presentState", label: "Present State", required: false, type: "text", width: 120 },
+  { key: "presentPincode", label: "Present Pincode", required: false, type: "text", width: 120 },
+  { key: "permanentDoorNo", label: "Permanent Door/Plot", required: false, type: "text", width: 140 },
+  {
+    key: "permanentFlatName",
+    label: "Permanent Flat/House",
+    required: false,
+    type: "text",
+    width: 150,
+  },
+  {
+    key: "permanentStreetName",
+    label: "Permanent Street",
+    required: false,
+    type: "text",
+    width: 160,
+  },
+  { key: "permanentCity", label: "Permanent City", required: false, type: "text", width: 120 },
+  { key: "permanentState", label: "Permanent State", required: false, type: "text", width: 120 },
+  { key: "permanentPincode", label: "Permanent Pincode", required: false, type: "text", width: 130 },
   {
     key: "bankAccountHolderName",
     label: "Account Holder Name",
@@ -543,6 +594,22 @@ export interface LoginCreatePayload {
   joiningDate?: string;
   dateOfBirth?: string;
   bloodGroup?: (typeof BLOOD_GROUPS)[number];
+  personalEmail?: string;
+  maritalStatus?: "SINGLE" | "MARRIED";
+  fatherName?: string;
+  husbandName?: string;
+  presentDoorNo?: string;
+  presentFlatName?: string;
+  presentStreetName?: string;
+  presentCity?: string;
+  presentState?: string;
+  presentPincode?: string;
+  permanentDoorNo?: string;
+  permanentFlatName?: string;
+  permanentStreetName?: string;
+  permanentCity?: string;
+  permanentState?: string;
+  permanentPincode?: string;
   bankAccountHolderName?: string;
   bankAccountType?: BankAccountType;
   bankAccountNumber?: string;
@@ -584,6 +651,7 @@ export function rowToCreatePayload(
     .trim()
     .toUpperCase() as LoginCreatePayload["employmentType"];
   const bloodGroup = row.bloodGroup.trim().toUpperCase();
+  const maritalStatusRaw = row.maritalStatus.trim().toUpperCase();
   const bankAccountType = row.bankAccountType.trim().toUpperCase();
   const shiftType = (row.shiftType.trim().toUpperCase() || "DAY") as "DAY" | "NIGHT";
 
@@ -615,6 +683,25 @@ export function rowToCreatePayload(
     bloodGroup: BLOOD_GROUPS.includes(bloodGroup as never)
       ? (bloodGroup as (typeof BLOOD_GROUPS)[number])
       : undefined,
+    personalEmail: row.personalEmail.trim().toLowerCase() || undefined,
+    maritalStatus:
+      maritalStatusRaw === "MARRIED" || maritalStatusRaw === "SINGLE"
+        ? (maritalStatusRaw as "SINGLE" | "MARRIED")
+        : undefined,
+    fatherName: row.fatherName.trim() || undefined,
+    husbandName: row.husbandName.trim() || undefined,
+    presentDoorNo: row.presentDoorNo.trim() || undefined,
+    presentFlatName: row.presentFlatName.trim() || undefined,
+    presentStreetName: row.presentStreetName.trim() || undefined,
+    presentCity: row.presentCity.trim() || undefined,
+    presentState: row.presentState.trim() || undefined,
+    presentPincode: row.presentPincode.trim() || undefined,
+    permanentDoorNo: row.permanentDoorNo.trim() || undefined,
+    permanentFlatName: row.permanentFlatName.trim() || undefined,
+    permanentStreetName: row.permanentStreetName.trim() || undefined,
+    permanentCity: row.permanentCity.trim() || undefined,
+    permanentState: row.permanentState.trim() || undefined,
+    permanentPincode: row.permanentPincode.trim() || undefined,
     bankAccountHolderName: row.bankAccountHolderName.trim() || undefined,
     bankAccountType: BANK_ACCOUNT_TYPES.includes(bankAccountType as never)
       ? (bankAccountType as BankAccountType)
@@ -750,6 +837,27 @@ export function employeeToEditRow(
     gender: employee.gender || "PREFER_NOT_TO_SAY",
     employmentType: employee.employmentType || "FULL_TIME",
     bloodGroup: employee.bloodGroup || "",
+    personalEmail: employee.personalEmail || "",
+    maritalStatus:
+      employee.maritalStatus === "MARRIED"
+        ? "Married"
+        : employee.maritalStatus === "SINGLE"
+          ? "Single"
+          : "",
+    fatherName: employee.fatherName || "",
+    husbandName: employee.husbandName || "",
+    presentDoorNo: employee.presentDoorNo || "",
+    presentFlatName: employee.presentFlatName || "",
+    presentStreetName: employee.presentStreetName || employee.presentAddress || "",
+    presentCity: employee.presentCity || "",
+    presentState: employee.presentState || "",
+    presentPincode: employee.presentPincode || "",
+    permanentDoorNo: employee.permanentDoorNo || "",
+    permanentFlatName: employee.permanentFlatName || "",
+    permanentStreetName: employee.permanentStreetName || employee.permanentAddress || "",
+    permanentCity: employee.permanentCity || "",
+    permanentState: employee.permanentState || "",
+    permanentPincode: employee.permanentPincode || "",
     bankAccountHolderName: employee.bankAccountHolderName || "",
     bankAccountType: employee.bankAccountType || "",
     bankAccountNumber: employee.bankAccountNumber || "",
@@ -899,6 +1007,22 @@ export function rowToUpdatePayloads(
     joiningDate: create.joiningDate ?? null,
     dateOfBirth: create.dateOfBirth ?? null,
     bloodGroup: create.bloodGroup ?? null,
+    personalEmail: create.personalEmail ?? null,
+    maritalStatus: create.maritalStatus ?? null,
+    fatherName: create.fatherName ?? null,
+    husbandName: create.husbandName ?? null,
+    presentDoorNo: create.presentDoorNo ?? null,
+    presentFlatName: create.presentFlatName ?? null,
+    presentStreetName: create.presentStreetName ?? null,
+    presentCity: create.presentCity ?? null,
+    presentState: create.presentState ?? null,
+    presentPincode: create.presentPincode ?? null,
+    permanentDoorNo: create.permanentDoorNo ?? null,
+    permanentFlatName: create.permanentFlatName ?? null,
+    permanentStreetName: create.permanentStreetName ?? null,
+    permanentCity: create.permanentCity ?? null,
+    permanentState: create.permanentState ?? null,
+    permanentPincode: create.permanentPincode ?? null,
   };
 
   // Sensitive fields: only send when the operator typed a value (blank = keep existing).

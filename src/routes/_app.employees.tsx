@@ -103,6 +103,9 @@ function EmployeesPage() {
   const [designation, setDesignation] = useState("all");
   const [employmentType, setEmploymentType] = useState("all");
   const [workforceTypeFilter, setWorkforceTypeFilter] = useState<WorkforceTypeFilter>("all");
+  const [profileVerificationFilter, setProfileVerificationFilter] = useState<
+    "all" | "verified" | "unverified"
+  >("all");
 
   const [editingEmployee, setEditingEmployee] = useState<User | null>(null);
   const [hrManagingEmployee, setHrManagingEmployee] = useState<User | null>(null);
@@ -134,6 +137,23 @@ function EmployeesPage() {
     shiftType: "DAY" as "DAY" | "NIGHT",
     shiftStartMinutes: 540,
     shiftEndMinutes: 1080,
+    personalEmail: "",
+    maritalStatus: "" as "" | "SINGLE" | "MARRIED",
+    fatherName: "",
+    husbandName: "",
+    presentDoorNo: "",
+    presentFlatName: "",
+    presentStreetName: "",
+    presentCity: "",
+    presentState: "",
+    presentPincode: "",
+    permanentSameAsPresent: false,
+    permanentDoorNo: "",
+    permanentFlatName: "",
+    permanentStreetName: "",
+    permanentCity: "",
+    permanentState: "",
+    permanentPincode: "",
   });
 
   const canEdit = currentUser?.role === "developer_admin";
@@ -231,6 +251,23 @@ function EmployeesPage() {
       shiftType: fullEmployee.shiftType || "DAY",
       shiftStartMinutes: fullEmployee.shiftStartMinutes ?? 540,
       shiftEndMinutes: fullEmployee.shiftEndMinutes ?? 1080,
+      personalEmail: fullEmployee.personalEmail || "",
+      maritalStatus: fullEmployee.maritalStatus || "",
+      fatherName: fullEmployee.fatherName || "",
+      husbandName: fullEmployee.husbandName || "",
+      presentDoorNo: fullEmployee.presentDoorNo || "",
+      presentFlatName: fullEmployee.presentFlatName || "",
+      presentStreetName: fullEmployee.presentStreetName || fullEmployee.presentAddress || "",
+      presentCity: fullEmployee.presentCity || "",
+      presentState: fullEmployee.presentState || "",
+      presentPincode: fullEmployee.presentPincode || "",
+      permanentSameAsPresent: fullEmployee.permanentSameAsPresent ?? false,
+      permanentDoorNo: fullEmployee.permanentDoorNo || "",
+      permanentFlatName: fullEmployee.permanentFlatName || "",
+      permanentStreetName: fullEmployee.permanentStreetName || fullEmployee.permanentAddress || "",
+      permanentCity: fullEmployee.permanentCity || "",
+      permanentState: fullEmployee.permanentState || "",
+      permanentPincode: fullEmployee.permanentPincode || "",
     });
   }
 
@@ -266,6 +303,23 @@ function EmployeesPage() {
         shiftType: editForm.shiftType,
         shiftStartMinutes: editForm.shiftStartMinutes,
         shiftEndMinutes: editForm.shiftEndMinutes,
+        personalEmail: editForm.personalEmail || undefined,
+        maritalStatus: editForm.maritalStatus || undefined,
+        fatherName: editForm.fatherName || undefined,
+        husbandName: editForm.husbandName || undefined,
+        presentDoorNo: editForm.presentDoorNo || undefined,
+        presentFlatName: editForm.presentFlatName || undefined,
+        presentStreetName: editForm.presentStreetName || undefined,
+        presentCity: editForm.presentCity || undefined,
+        presentState: editForm.presentState || undefined,
+        presentPincode: editForm.presentPincode || undefined,
+        permanentSameAsPresent: editForm.permanentSameAsPresent,
+        permanentDoorNo: editForm.permanentDoorNo || undefined,
+        permanentFlatName: editForm.permanentFlatName || undefined,
+        permanentStreetName: editForm.permanentStreetName || undefined,
+        permanentCity: editForm.permanentCity || undefined,
+        permanentState: editForm.permanentState || undefined,
+        permanentPincode: editForm.permanentPincode || undefined,
       };
       const updated = await employeesApi.update(
         editingEmployee.employeeId ?? editingEmployee.id,
@@ -365,6 +419,8 @@ function EmployeesPage() {
   const rows = useMemo(() => {
     const search = q.trim().toLowerCase();
     return facetedPeople().filter((person) => {
+      if (profileVerificationFilter === "verified" && !person.profileVerified) return false;
+      if (profileVerificationFilter === "unverified" && person.profileVerified) return false;
       if (!search) return true;
       const companyLabel = person.companyEntity ? COMPANY_LABELS[person.companyEntity] : "";
       const unitLabel = formatDepartmentPathById(
@@ -376,7 +432,7 @@ function EmployeesPage() {
         .toLowerCase()
         .includes(search);
     });
-  }, [facetedPeople, q, departments]);
+  }, [facetedPeople, profileVerificationFilter, q, departments]);
 
   const filtersActive =
     Boolean(q.trim()) ||
@@ -385,7 +441,8 @@ function EmployeesPage() {
     dept !== "all" ||
     designation !== "all" ||
     employmentType !== "all" ||
-    workforceTypeFilter !== "all";
+    workforceTypeFilter !== "all" ||
+    profileVerificationFilter !== "all";
 
   useEffect(() => {
     if (company !== "all" && !companyOptions.includes(company as (typeof companyOptions)[number])) {
@@ -446,6 +503,7 @@ function EmployeesPage() {
     setDesignation("all");
     setEmploymentType("all");
     setWorkforceTypeFilter("all");
+    setProfileVerificationFilter("all");
   }
 
   return (
@@ -555,6 +613,23 @@ function EmployeesPage() {
             ))}
           </SelectContent>
         </Select>
+        {canEdit && (
+          <Select
+            value={profileVerificationFilter}
+            onValueChange={(value) =>
+              setProfileVerificationFilter(value as "all" | "verified" | "unverified")
+            }
+          >
+            <SelectTrigger className="sm:w-52" aria-label={t("pages.employees.filterProfileVerification")}>
+              <SelectValue placeholder={t("pages.employees.filterProfileVerification")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("pages.employees.allProfileVerification")}</SelectItem>
+              <SelectItem value="verified">{t("pages.employees.filterVerified")}</SelectItem>
+              <SelectItem value="unverified">{t("pages.employees.filterUnverified")}</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
         <Select value={employmentType} onValueChange={setEmploymentType}>
           <SelectTrigger className="sm:w-44" aria-label={t("pages.employees.filterEmploymentType")}>
             <SelectValue placeholder={t("pages.employees.filterEmploymentType")} />
@@ -690,6 +765,9 @@ function EmployeesPage() {
                 <TableHead>{t("common.branch")}</TableHead>
                 <TableHead>{t("pages.employees.phones")}</TableHead>
                 <TableHead>{t("pages.employees.joined")}</TableHead>
+                {canEdit && (
+                  <TableHead>{t("pages.employees.filterProfileVerification")}</TableHead>
+                )}
                 <TableHead>{t("common.status")}</TableHead>
                 {canOpenEmployeeActions && (
                   <TableHead className="w-[80px]">{t("common.actions")}</TableHead>
@@ -738,6 +816,19 @@ function EmployeesPage() {
                   <TableCell className="whitespace-nowrap text-sm">
                     {u.joiningDate ? formatDisplayDate(u.joiningDate) : "-"}
                   </TableCell>
+                  {canEdit && (
+                    <TableCell className="text-xs">
+                      {u.profileVerified ? (
+                        <span className="font-medium text-emerald-700 dark:text-emerald-400">
+                          {t("pages.employees.filterVerified")}
+                        </span>
+                      ) : (
+                        <span className="text-amber-700 dark:text-amber-400">
+                          {t("pages.employees.filterUnverified")}
+                        </span>
+                      )}
+                    </TableCell>
+                  )}
                   <TableCell>
                     <EmployeeAccountStatus employee={u} />
                   </TableCell>
@@ -1033,6 +1124,86 @@ function EmployeesPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                <EditSectionHeading
+                  title="Identity details"
+                  description="Personal email, family, and address fields from profile verification."
+                />
+                <div className="space-y-1.5">
+                  <Label>Personal email</Label>
+                  <Input
+                    type="email"
+                    value={editForm.personalEmail}
+                    onChange={(event) =>
+                      setEditForm((current) => ({ ...current, personalEmail: event.target.value }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Marital status</Label>
+                  <Select
+                    value={editForm.maritalStatus || "not_provided"}
+                    onValueChange={(value) =>
+                      setEditForm((current) => ({
+                        ...current,
+                        maritalStatus:
+                          value === "not_provided" ? "" : (value as "SINGLE" | "MARRIED"),
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="not_provided">Not provided</SelectItem>
+                      <SelectItem value="SINGLE">Single</SelectItem>
+                      <SelectItem value="MARRIED">Married</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Father&apos;s name</Label>
+                  <Input
+                    value={editForm.fatherName}
+                    onChange={(event) =>
+                      setEditForm((current) => ({ ...current, fatherName: event.target.value }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Husband&apos;s name</Label>
+                  <Input
+                    value={editForm.husbandName}
+                    onChange={(event) =>
+                      setEditForm((current) => ({ ...current, husbandName: event.target.value }))
+                    }
+                  />
+                </div>
+                {(
+                  [
+                    ["presentDoorNo", "Present door / plot no."],
+                    ["presentFlatName", "Present flat / house name"],
+                    ["presentStreetName", "Present street name"],
+                    ["presentCity", "Present city"],
+                    ["presentState", "Present state"],
+                    ["presentPincode", "Present pincode"],
+                    ["permanentDoorNo", "Permanent door / plot no."],
+                    ["permanentFlatName", "Permanent flat / house name"],
+                    ["permanentStreetName", "Permanent street name"],
+                    ["permanentCity", "Permanent city"],
+                    ["permanentState", "Permanent state"],
+                    ["permanentPincode", "Permanent pincode"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <div key={key} className="space-y-1.5">
+                    <Label>{label}</Label>
+                    <Input
+                      value={editForm[key]}
+                      onChange={(event) =>
+                        setEditForm((current) => ({ ...current, [key]: event.target.value }))
+                      }
+                    />
+                  </div>
+                ))}
                 <EditSectionHeading
                   title="Banking"
                   description="Account numbers are encrypted before they are stored."

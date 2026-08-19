@@ -1625,16 +1625,27 @@ export interface ProfileCorrectionRow {
 }
 
 export const profileApi = {
-  submitVerification: (fields: Array<{
-    field: string;
-    section: string;
-    status: "CORRECT" | "WRONG";
-    currentValue?: string;
-    suggestedValue?: string;
-  }>) =>
+  submitVerification: (
+    fields: Array<{
+      field: string;
+      section: string;
+      status: "CORRECT" | "WRONG";
+      currentValue?: string;
+      suggestedValue?: string;
+    }>,
+    emergencyContact?: {
+      contactName: string;
+      relationship: string;
+      phone: string;
+      alternatePhone?: string | null;
+      address?: string | null;
+      bloodGroup?: string | null;
+      medicalNotes?: string | null;
+    },
+  ) =>
     request<{ ok: boolean; corrections: number }>("/employees/me/profile-verification", {
       method: "POST",
-      body: JSON.stringify({ fields }),
+      body: JSON.stringify({ fields, emergencyContact }),
     }),
   listCorrections: (status?: string) =>
     request<ProfileCorrectionRow[]>(`/profile-corrections${status ? `?status=${status}` : ""}`),

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { profileApi } from "@/services/api";
+import { profileApi, employeesApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { Check, X, ChevronRight, ChevronLeft, ShieldCheck } from "lucide-react";
@@ -34,7 +34,6 @@ interface FieldDef {
   key: string;
   labelKey: string;
   value: string | undefined | null;
-  masked?: boolean;
   readonly?: boolean;
   required?: boolean;
   optional?: boolean;
@@ -70,7 +69,7 @@ function formatBankAccountType(value: string | undefined) {
   return found?.label ?? value.replace(/_/g, " ");
 }
 
-const SECTIONS = ["identity", "employment", "banking", "statutory"] as const;
+const SECTIONS = ["identity", "employment", "banking", "statutory", "emergency"] as const;
 type Section = (typeof SECTIONS)[number];
 
 const SECTION_LABEL_KEYS: Record<Section, string> = {
@@ -78,6 +77,7 @@ const SECTION_LABEL_KEYS: Record<Section, string> = {
   employment: "pages.profileVerification.sectionEmployment",
   banking: "pages.profileVerification.sectionBanking",
   statutory: "pages.profileVerification.sectionStatutory",
+  emergency: "pages.profileVerification.sectionEmergency",
 };
 
 const PRESENT_KEYS = [
@@ -125,12 +125,14 @@ function buildFields(user: Record<string, unknown>): Record<Section, FieldDef[]>
     if (val === null || val === undefined || val === "") return undefined;
     return String(val);
   };
-  const masked = (key: string, last4Key: string) => {
-    const l4 = v(last4Key);
-    return l4 ? `••••${l4}` : v(key);
-  };
 
   const companyEmail = v("companyEmail") ?? v("email");
+  const emergency = user.emergencyContact as Record<string, unknown> | undefined;
+  const ev = (key: string) => {
+    const val = emergency?.[key];
+    if (val === null || val === undefined || val === "") return undefined;
+    return String(val);
+  };
 
   return {
     identity: [
@@ -219,41 +221,75 @@ function buildFields(user: Record<string, unknown>): Record<Section, FieldDef[]>
     employment: [
       { key: "employeeCode", labelKey: "fieldEmployeeCode", value: v("employeeCode"), readonly: true },
       { key: "designation", labelKey: "fieldDesignation", value: v("designation"), readonly: true },
-      {
-        key: "department",
-        labelKey: "fieldDepartment",
-        value: v("departmentName") ?? v("department"),
-        readonly: true,
-      },
       { key: "joiningDate", labelKey: "fieldJoiningDate", value: v("joiningDate"), readonly: true },
       { key: "employmentType", labelKey: "fieldEmploymentType", value: v("employmentType"), readonly: true },
-      { key: "companyEntity", labelKey: "fieldCompanyEntity", value: v("companyEntity"), readonly: true },
     ],
     banking: [
-      { key: "bankAccountHolderName", labelKey: "fieldBankAccountHolderName", value: v("bankAccountHolderName") },
+      {
+        key: "bankAccountHolderName",
+        labelKey: "fieldBankAccountHolderName",
+        value: v("bankAccountHolderName"),
+        required: true,
+      },
       {
         key: "bankAccountType",
         labelKey: "fieldBankAccountType",
         value: formatBankAccountType(v("bankAccountType")),
+        required: true,
         selectOptions: [...BANK_ACCOUNT_OPTIONS],
       },
-      { key: "bankIfscCode", labelKey: "fieldBankIfscCode", value: v("bankIfscCode") },
+      { key: "bankIfscCode", labelKey: "fieldBankIfscCode", value: v("bankIfscCode"), required: true },
       {
         key: "bankAccountNumber",
         labelKey: "fieldBankAccountNumber",
-        value: masked("bankAccountNumber", "bankAccountNumberLast4"),
-        masked: true,
+        value: v("bankAccountNumber"),
+        required: true,
       },
     ],
     statutory: [
-      { key: "panNumber", labelKey: "fieldPanNumber", value: masked("panNumber", "panNumberLast4"), masked: true },
+      { key: "panNumber", labelKey: "fieldPanNumber", value: v("panNumber"), required: true },
       {
         key: "aadhaarNumber",
         labelKey: "fieldAadhaarNumber",
-        value: masked("aadhaarNumber", "aadhaarNumberLast4"),
-        masked: true,
+        value: v("aadhaarNumber"),
+        required: true,
       },
-      { key: "uanNumber", labelKey: "fieldUanNumber", value: masked("uanNumber", "uanNumberLast4"), masked: true },
+      { key: "uanNumber", labelKey: "fieldUanNumber", value: v("uanNumber"), optional: true },
+    ],
+    emergency: [
+      {
+        key: "emergencyContactName",
+        labelKey: "fieldEmergencyContactName",
+        value: ev("contactName"),
+        required: true,
+      },
+      {
+        key: "emergencyRelationship",
+        labelKey: "fieldEmergencyRelationship",
+        value: ev("relationship"),
+        required: true,
+      },
+      { key: "emergencyPhone", labelKey: "fieldEmergencyPhone", value: ev("phone"), required: true },
+      {
+        key: "emergencyAlternatePhone",
+        labelKey: "fieldEmergencyAlternatePhone",
+        value: ev("alternatePhone"),
+        optional: true,
+      },
+      { key: "emergencyAddress", labelKey: "fieldEmergencyAddress", value: ev("address"), optional: true },
+      {
+        key: "emergencyBloodGroup",
+        labelKey: "fieldEmergencyBloodGroup",
+        value: ev("bloodGroup"),
+        optional: true,
+        selectOptions: BLOOD_GROUPS.map((g) => ({ value: g, label: g })),
+      },
+      {
+        key: "emergencyMedicalNotes",
+        labelKey: "fieldEmergencyMedicalNotes",
+        value: ev("medicalNotes"),
+        optional: true,
+      },
     ],
   };
 }
@@ -294,6 +330,88 @@ export function ProfileVerificationModal({
   const [submitting, setSubmitting] = useState(false);
   const [permanentSameAsPresent, setPermanentSameAsPresent] = useState(false);
   const [correctionEditorOpen, setCorrectionEditorOpen] = useState<Record<string, boolean>>({});
+  const [missingFieldKeys, setMissingFieldKeys] = useState<string[]>([]);
+  const [enrichedUser, setEnrichedUser] = useState<Record<string, unknown> | null>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  const scrollFieldIntoView = useCallback((fieldKey: string) => {
+    requestAnimationFrame(() => {
+      const container = scrollAreaRef.current;
+      const el = container?.querySelector<HTMLElement>(`[data-field-key="${fieldKey}"]`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }, []);
+
+  const profileSource = enrichedUser ?? (user as unknown as Record<string, unknown> | null);
+
+  const allFields = useMemo(
+    () => (profileSource ? buildFields(profileSource) : null),
+    [profileSource],
+  );
+
+  useEffect(() => {
+    if (!open || !user?.employeeId) {
+      setEnrichedUser(null);
+      return;
+    }
+    let active = true;
+    void employeesApi
+      .get(user.employeeId)
+      .then((employee) => {
+        if (!active) return;
+        setEnrichedUser({ ...(user as unknown as Record<string, unknown>), ...employee });
+      })
+      .catch(() => {
+        if (active) setEnrichedUser(user as unknown as Record<string, unknown>);
+      });
+    return () => {
+      active = false;
+    };
+  }, [open, user]);
+
+  const getActiveSectionFields = useCallback(
+    (section: Section) => {
+      if (!allFields || !profileSource) return [];
+      const fields = allFields[section];
+      if (section !== "identity") return fields;
+      const parentKey = parentFieldKey(profileSource);
+      return fields.filter((field) => {
+        if (field.key === "fatherName" || field.key === "husbandName") {
+          return field.key === parentKey;
+        }
+        if (field.group === "permanent" && permanentSameAsPresent) return false;
+        return true;
+      });
+    },
+    [allFields, permanentSameAsPresent, profileSource],
+  );
+
+  const isFieldComplete = useCallback(
+    (field: FieldDef) => {
+      if (field.readonly) return true;
+      if (field.group === "permanent" && permanentSameAsPresent) return true;
+      if (field.optional && !field.value) return true;
+      if (!field.required && !field.value) return true;
+      const state = fieldStates[field.key];
+      if (!state?.status) return false;
+      if (state.status === "WRONG" && !state.correction.trim()) return false;
+      return true;
+    },
+    [fieldStates, permanentSameAsPresent],
+  );
+
+  const getMissingRequiredFields = useCallback(
+    (section: Section) => {
+      return getActiveSectionFields(section).filter((field) => {
+        if (field.readonly) return false;
+        if (field.group === "permanent" && permanentSameAsPresent) return false;
+        if (field.optional && !field.value) return false;
+        if (!field.required && !field.value) return false;
+        return !isFieldComplete(field);
+      });
+    },
+    [fieldStates, getActiveSectionFields, isFieldComplete, permanentSameAsPresent],
+  );
 
   useEffect(() => {
     if (!open) {
@@ -302,6 +420,7 @@ export function ProfileVerificationModal({
       setConsent(false);
       setPermanentSameAsPresent(false);
       setCorrectionEditorOpen({});
+      setMissingFieldKeys([]);
       return;
     }
     if (user?.permanentSameAsPresent) {
@@ -309,25 +428,50 @@ export function ProfileVerificationModal({
     }
   }, [open, user?.permanentSameAsPresent]);
 
-  const allFields = useMemo(
-    () => (user ? buildFields(user as unknown as Record<string, unknown>) : null),
-    [user],
-  );
+  useEffect(() => {
+    if (!open || !allFields) return;
+    const section = SECTIONS[step];
+    const toOpen: Record<string, boolean> = {};
+    const pendingStates: Record<string, FieldState> = {};
+    for (const field of getActiveSectionFields(section)) {
+      if (!field.value && field.required && !field.readonly) {
+        toOpen[field.key] = true;
+        pendingStates[field.key] = { status: "WRONG", correction: "" };
+      }
+    }
+    if (Object.keys(pendingStates).length > 0) {
+      setFieldStates((prev) => {
+        const next = { ...prev };
+        for (const [key, state] of Object.entries(pendingStates)) {
+          if (!next[key]?.status) next[key] = state;
+        }
+        return next;
+      });
+    }
+    setCorrectionEditorOpen((prev) => ({ ...prev, ...toOpen }));
+  }, [allFields, getActiveSectionFields, open, step]);
+
+  useEffect(() => {
+    if (!open) return;
+    for (const [key, isOpen] of Object.entries(correctionEditorOpen)) {
+      if (isOpen) scrollFieldIntoView(key);
+    }
+  }, [correctionEditorOpen, open, scrollFieldIntoView]);
 
   const currentSection = SECTIONS[step];
-  const sectionFields = useMemo(() => {
-    if (!allFields || !user) return [];
-    const fields = allFields[currentSection];
-    if (currentSection !== "identity") return fields;
-    const parentKey = parentFieldKey(user as unknown as Record<string, unknown>);
-    return fields.filter((field) => {
-      if (field.key === "fatherName" || field.key === "husbandName") {
-        return field.key === parentKey;
-      }
-      if (field.group === "permanent" && permanentSameAsPresent) return false;
-      return true;
-    });
-  }, [allFields, currentSection, permanentSameAsPresent, user]);
+  const sectionFields = useMemo(
+    () => getActiveSectionFields(currentSection),
+    [currentSection, getActiveSectionFields],
+  );
+
+  const markOptionalEmpty = useCallback((key: string) => {
+    setFieldStates((prev) => ({
+      ...prev,
+      [key]: { status: "CORRECT", correction: "" },
+    }));
+    setCorrectionEditorOpen((prev) => ({ ...prev, [key]: false }));
+    setMissingFieldKeys((prev) => prev.filter((k) => k !== key));
+  }, []);
 
   const markFieldCorrect = useCallback((key: string) => {
     setFieldStates((prev) => ({
@@ -375,47 +519,62 @@ export function ProfileVerificationModal({
     setCorrectionEditorOpen((prev) => ({ ...prev, [key]: false }));
   }, []);
 
-  const fieldNeedsMarking = useCallback(
-    (field: FieldDef) => {
-      if (field.optional && !field.value) return false;
-      if (field.group === "permanent" && permanentSameAsPresent) return false;
-      return true;
-    },
-    [permanentSameAsPresent],
-  );
-
-  const sectionComplete = useCallback(
-    (section: Section) => {
-      if (!allFields) return false;
-      if (section === "identity" && permanentSameAsPresent) {
-        const presentDone = allFields.identity
-          .filter((f) => f.group === "present")
-          .every((f) => {
-            const state = fieldStates[f.key];
-            if (!state?.status) return false;
-            if (state.status === "WRONG" && !state.correction.trim()) return false;
-            return true;
-          });
-        if (!presentDone) return false;
-      }
-      const fields = allFields[section].filter((f) => {
-        if (section !== "identity") return fieldNeedsMarking(f);
-        if (f.key === "fatherName" || f.key === "husbandName") {
-          return user ? f.key === parentFieldKey(user as unknown as Record<string, unknown>) : false;
+  const showMissingFieldErrors = useCallback(
+    (missing: FieldDef[]) => {
+      const keys = missing.map((f) => f.key);
+      setMissingFieldKeys(keys);
+      setCorrectionEditorOpen((prev) => ({
+        ...prev,
+        ...Object.fromEntries(keys.map((key) => [key, true])),
+      }));
+      setFieldStates((prev) => {
+        const next = { ...prev };
+        for (const field of missing) {
+          if (!next[field.key]?.status) {
+            next[field.key] = { status: "WRONG", correction: next[field.key]?.correction ?? "" };
+          }
         }
-        return fieldNeedsMarking(f);
+        return next;
       });
-      return fields.every((f) => {
-        const state = fieldStates[f.key];
-        if (!state?.status) return false;
-        if (state.status === "WRONG" && !state.correction.trim()) return false;
-        return true;
+      toast.error(t("pages.profileVerification.requiredFieldsMissing"), {
+        description: missing
+          .map((f) => t(`pages.profileVerification.${f.labelKey}`))
+          .join(", "),
       });
     },
-    [allFields, fieldNeedsMarking, fieldStates, permanentSameAsPresent, user],
+    [t],
   );
 
-  const allComplete = SECTIONS.every((s) => sectionComplete(s));
+  function handleNextStep() {
+    const missing = getMissingRequiredFields(currentSection);
+    if (missing.length > 0) {
+      showMissingFieldErrors(missing);
+      return;
+    }
+    setMissingFieldKeys([]);
+    setStep((value) => value + 1);
+  }
+
+  function handleSubmitClick() {
+    for (const section of SECTIONS) {
+      const missing = getMissingRequiredFields(section);
+      if (missing.length > 0) {
+        const sectionIndex = SECTIONS.indexOf(section);
+        if (step !== sectionIndex) {
+          setStep(sectionIndex);
+        }
+        showMissingFieldErrors(missing);
+        return;
+      }
+    }
+    if (!consent) {
+      toast.error(t("pages.profileVerification.consentRequired"));
+      return;
+    }
+    void handleSubmit();
+  }
+
+  const allComplete = SECTIONS.every((section) => getMissingRequiredFields(section).length === 0);
 
   const wrongCount = useMemo(
     () => Object.values(fieldStates).filter((s) => s.status === "WRONG").length,
@@ -423,7 +582,7 @@ export function ProfileVerificationModal({
   );
 
   async function handleSubmit() {
-    if (!allComplete || !consent || !allFields || !user) return;
+    if (!consent || !allFields || !user) return;
     setSubmitting(true);
     try {
       const userRecord = user as unknown as Record<string, unknown>;
@@ -467,7 +626,25 @@ export function ProfileVerificationModal({
         return rows;
       });
 
-      await profileApi.submitVerification(payloadFields);
+      const emergencyFields = allFields.emergency;
+      const resolvedEmergencyValue = (fieldKey: string) => {
+        const field = emergencyFields.find((item) => item.key === fieldKey);
+        if (!field) return "";
+        const state = fieldStates[field.key];
+        if (state?.status === "WRONG" && state.correction.trim()) return state.correction.trim();
+        return field.value ?? "";
+      };
+      const emergencyContact = {
+        contactName: resolvedEmergencyValue("emergencyContactName"),
+        relationship: resolvedEmergencyValue("emergencyRelationship"),
+        phone: resolvedEmergencyValue("emergencyPhone"),
+        alternatePhone: resolvedEmergencyValue("emergencyAlternatePhone") || null,
+        address: resolvedEmergencyValue("emergencyAddress") || null,
+        bloodGroup: resolvedEmergencyValue("emergencyBloodGroup") || null,
+        medicalNotes: resolvedEmergencyValue("emergencyMedicalNotes") || null,
+      };
+
+      await profileApi.submitVerification(payloadFields, emergencyContact);
       toast.success(t("pages.profileVerification.toastSuccess"));
       onComplete();
     } catch (err) {
@@ -482,7 +659,11 @@ export function ProfileVerificationModal({
     const isEmpty = !field.value;
     const isCorrect = state?.status === "CORRECT";
     const isWrong = state?.status === "WRONG";
-    const editorOpen = Boolean(isWrong && correctionEditorOpen[field.key]);
+    const isMissing = missingFieldKeys.includes(field.key);
+    const needsDirectEntry = isEmpty && field.required && !field.readonly;
+    const editorOpen = Boolean(
+      (needsDirectEntry || (isWrong && correctionEditorOpen[field.key])) && !isCorrect,
+    );
     const canMarkCorrect = !isEmpty || field.readonly;
     const correctionLabel =
       field.selectOptions?.find((o) => o.value === state?.correction)?.label ?? state?.correction;
@@ -490,12 +671,13 @@ export function ProfileVerificationModal({
     return (
       <div
         key={field.key}
+        data-field-key={field.key}
         className={cn(
           "rounded-xl border p-3 transition-colors sm:col-span-1",
           field.group === "present" || field.group === "permanent" ? "sm:col-span-2 lg:col-span-1" : "",
           isCorrect
             ? "border-emerald-300 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20"
-            : isWrong
+            : isWrong || isMissing
               ? "border-red-300 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20"
               : "border-border bg-card",
         )}
@@ -506,50 +688,91 @@ export function ProfileVerificationModal({
             {field.required ? " *" : field.optional ? ` (${t("pages.profileVerification.optional")})` : ""}
           </p>
           {isCorrect && <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" />}
-          {isWrong && <X className="h-3.5 w-3.5 shrink-0 text-red-600" />}
+          {isWrong && !isCorrect && <X className="h-3.5 w-3.5 shrink-0 text-red-600" />}
         </div>
 
-        <p className={cn("mb-2 text-sm font-medium break-words", isEmpty && "italic text-muted-foreground")}>
-          {isEmpty ? t("pages.profileVerification.notProvided") : field.value}
-        </p>
+        {needsDirectEntry ? (
+          <p className="mb-2 text-xs font-medium text-amber-700 dark:text-amber-400">
+            {t("pages.profileVerification.enterRequiredValue")}
+          </p>
+        ) : (
+          <p className={cn("mb-2 text-sm font-medium break-all", isEmpty && "italic text-muted-foreground")}>
+            {isEmpty ? t("pages.profileVerification.notProvided") : field.value}
+          </p>
+        )}
 
-        {isWrong && !editorOpen && state.correction.trim() ? (
+        {isWrong && !editorOpen && state?.correction.trim() ? (
           <p className="mb-2 text-xs font-medium text-red-700 dark:text-red-400">
             {t("pages.profileVerification.correctionValue", { value: correctionLabel })}
           </p>
         ) : null}
 
-        <div className="flex flex-wrap gap-1.5">
-          {canMarkCorrect && (
+        {field.optional && isEmpty && !isCorrect && !isWrong ? (
+          <div className="flex flex-wrap gap-1.5">
             <Button
               type="button"
               size="sm"
-              variant={isCorrect ? "default" : "outline"}
-              className={cn("h-7 gap-1 text-xs", isCorrect && "bg-emerald-600 hover:bg-emerald-700")}
-              onClick={() => markFieldCorrect(field.key)}
+              variant="outline"
+              className="h-7 gap-1 text-xs"
+              onClick={() => markOptionalEmpty(field.key)}
             >
               <Check className="h-3 w-3" />
-              {t("pages.profileVerification.correct")}
+              {t("pages.profileVerification.leaveEmpty")}
             </Button>
-          )}
-          <Button
-            type="button"
-            size="sm"
-            variant={isWrong ? "default" : "outline"}
-            className={cn("h-7 gap-1 text-xs", isWrong && "bg-red-600 hover:bg-red-700")}
-            onClick={() => handleWrongClick(field.key)}
-          >
-            <X className="h-3 w-3" />
-            {isEmpty ? t("pages.profileVerification.provideValue") : t("pages.profileVerification.wrong")}
-          </Button>
-        </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1 text-xs"
+              onClick={() => openWrongEditor(field.key)}
+            >
+              {t("pages.profileVerification.provideValue")}
+            </Button>
+          </div>
+        ) : null}
+
+        {!needsDirectEntry && (canMarkCorrect || !isEmpty) && !(field.optional && isEmpty && !isCorrect && !isWrong) ? (
+          <div className="flex flex-wrap gap-1.5">
+            {canMarkCorrect && (
+              <Button
+                type="button"
+                size="sm"
+                variant={isCorrect ? "default" : "outline"}
+                className={cn("h-7 gap-1 text-xs", isCorrect && "bg-emerald-600 hover:bg-emerald-700")}
+                onClick={() => markFieldCorrect(field.key)}
+              >
+                <Check className="h-3 w-3" />
+                {t("pages.profileVerification.correct")}
+              </Button>
+            )}
+            {!field.readonly && (
+              <Button
+                type="button"
+                size="sm"
+                variant={isWrong ? "default" : "outline"}
+                className={cn("h-7 gap-1 text-xs", isWrong && "bg-red-600 hover:bg-red-700")}
+                onClick={() => handleWrongClick(field.key)}
+              >
+                <X className="h-3 w-3" />
+                {isEmpty ? t("pages.profileVerification.provideValue") : t("pages.profileVerification.wrong")}
+              </Button>
+            )}
+          </div>
+        ) : null}
 
         {editorOpen && (
           <div className="mt-2">
             {field.selectOptions ? (
               <Select
                 value={state?.correction || undefined}
-                onValueChange={(value) => setCorrection(field.key, value, true)}
+                onOpenChange={(open) => {
+                  if (open) scrollFieldIntoView(field.key);
+                }}
+                onValueChange={(value) => {
+                  setCorrection(field.key, value, true);
+                  setMissingFieldKeys((prev) => prev.filter((k) => k !== field.key));
+                  scrollFieldIntoView(field.key);
+                }}
               >
                 <SelectTrigger className="h-9 text-sm">
                   <SelectValue placeholder={t("pages.profileVerification.selectValue")} />
@@ -566,14 +789,23 @@ export function ProfileVerificationModal({
               <Input
                 placeholder={t("pages.profileVerification.enterCorrectValue")}
                 value={state?.correction ?? ""}
-                onChange={(e) => setCorrection(field.key, e.target.value)}
+                onFocus={() => scrollFieldIntoView(field.key)}
+                onChange={(e) => {
+                  setCorrection(field.key, e.target.value);
+                  scrollFieldIntoView(field.key);
+                  if (e.target.value.trim()) {
+                    setMissingFieldKeys((prev) => prev.filter((k) => k !== field.key));
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && state?.correction?.trim()) {
                     e.preventDefault();
                     closeCorrectionEditor(field.key);
+                    setMissingFieldKeys((prev) => prev.filter((k) => k !== field.key));
                   }
                 }}
                 className="h-8 text-sm"
+                autoFocus={needsDirectEntry}
               />
             )}
           </div>
@@ -626,7 +858,21 @@ export function ProfileVerificationModal({
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
+        <div ref={scrollAreaRef} className="flex-1 overflow-y-auto overscroll-contain px-4 py-3 sm:px-6 sm:py-4">
+          {missingFieldKeys.length > 0 && (
+            <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/5 p-3">
+              <p className="text-sm font-semibold text-destructive">
+                {t("pages.profileVerification.requiredFieldsMissing")}
+              </p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-destructive/90">
+                {getActiveSectionFields(currentSection)
+                  .filter((field) => missingFieldKeys.includes(field.key))
+                  .map((field) => (
+                    <li key={field.key}>{t(`pages.profileVerification.${field.labelKey}`)}</li>
+                  ))}
+              </ul>
+            </div>
+          )}
           <div className="grid gap-2.5 sm:grid-cols-2">
             {showAddressLayout ? (
               <>
@@ -699,12 +945,7 @@ export function ProfileVerificationModal({
                 </Button>
               )}
               {step < SECTIONS.length - 1 ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={!sectionComplete(currentSection)}
-                  onClick={() => setStep(step + 1)}
-                >
+                <Button type="button" size="sm" onClick={handleNextStep}>
                   {t("pages.profileVerification.next")}
                   <ChevronRight className="h-3.5 w-3.5" />
                 </Button>
@@ -712,8 +953,8 @@ export function ProfileVerificationModal({
                 <Button
                   type="button"
                   size="sm"
-                  disabled={!allComplete || !consent || submitting}
-                  onClick={handleSubmit}
+                  disabled={!consent || submitting}
+                  onClick={handleSubmitClick}
                   className="gap-1"
                 >
                   <ShieldCheck className="h-3.5 w-3.5" />

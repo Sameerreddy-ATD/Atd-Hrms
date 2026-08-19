@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { isProfileVerificationExempt } from "@/lib/profile-verification";
 import {
   BriefcaseBusiness,
   CreditCard,
@@ -46,6 +47,7 @@ import {
   Landmark,
   Loader2,
   ShieldAlert,
+  ShieldCheck,
   UserRound,
 } from "lucide-react";
 import { PasswordInput } from "@/components/common/PasswordInput";
@@ -145,7 +147,7 @@ function ProfilePage() {
     (selfEditEnabled && [...allowedSelfFields].some((field) => field !== "emergencyContact"));
   const canEditEmergencyContact =
     canSaveDirectly || user.role === "hr" || canEditField("emergencyContact");
-  const profile = employee ?? user;
+  const profile = employee ? { ...user, ...employee } : user;
   const initials = user.name
     .split(" ")
     .map((s) => s[0])
@@ -249,6 +251,10 @@ function ProfilePage() {
         onChange={setName}
         editable={canEditField("name")}
       />
+      <Field
+        label={t("pages.profilePage.personalEmail")}
+        value={profile.personalEmail ?? profile.email ?? "—"}
+      />
       <Field label={t("pages.profilePage.employeeCode")} value={profile.employeeCode ?? "—"} />
       <Field
         label={t("pages.profilePage.email")}
@@ -276,6 +282,56 @@ function ProfilePage() {
         type="date"
       />
       <Field label={t("pages.profilePage.gender")} value={formatGender(profile.gender, t)} />
+      <Field
+        label={t("pages.profileVerification.fieldMaritalStatus")}
+        value={
+          profile.maritalStatus === "MARRIED"
+            ? t("pages.profileVerification.maritalMarried")
+            : profile.maritalStatus === "SINGLE"
+              ? t("pages.profileVerification.maritalSingle")
+              : "—"
+        }
+      />
+      <Field
+        label={
+          profile.gender === "FEMALE" && profile.maritalStatus === "MARRIED"
+            ? t("pages.profileVerification.fieldHusbandName")
+            : t("pages.profileVerification.fieldFatherName")
+        }
+        value={profile.husbandName ?? profile.fatherName ?? "—"}
+      />
+      <Field
+        label={t("pages.profileVerification.fieldPresentStreetName")}
+        value={
+          [
+            profile.presentDoorNo,
+            profile.presentFlatName,
+            profile.presentStreetName ?? profile.presentAddress,
+            profile.presentCity,
+            profile.presentState,
+            profile.presentPincode,
+          ]
+            .filter(Boolean)
+            .join(", ") || "—"
+        }
+      />
+      <Field
+        label={t("pages.profileVerification.fieldPermanentStreetName")}
+        value={
+          profile.permanentSameAsPresent
+            ? t("pages.profileVerification.sameAsPresent")
+            : [
+                profile.permanentDoorNo,
+                profile.permanentFlatName,
+                profile.permanentStreetName ?? profile.permanentAddress,
+                profile.permanentCity,
+                profile.permanentState,
+                profile.permanentPincode,
+              ]
+                .filter(Boolean)
+                .join(", ") || "—"
+        }
+      />
       {canEditField("bloodGroup") ? (
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">
@@ -503,7 +559,24 @@ function ProfilePage() {
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1 text-center sm:text-left">
-            <p className="truncate text-lg font-semibold tracking-tight sm:text-xl">{user.name}</p>
+            <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-center">
+              <p className="truncate text-lg font-semibold tracking-tight sm:text-xl">{user.name}</p>
+              {!isProfileVerificationExempt(user.role) && (
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium",
+                    profile.profileVerified
+                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                      : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+                  )}
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  {profile.profileVerified
+                    ? t("pages.profileVerification.profileVerifiedBadge")
+                    : t("pages.profileVerification.profileNotVerifiedBadge")}
+                </span>
+              )}
+            </div>
             <p className="mt-1 text-sm text-muted-foreground">
               {ROLE_LABELS[user.role]}
               {profile.designation ? ` · ${profile.designation}` : ""}
