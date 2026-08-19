@@ -78,10 +78,6 @@ import {
   IndianRupee,
   ListTodo,
   Package,
-  PartyPopper,
-  Gift,
-  Sparkles,
-  CalendarDays,
 } from "lucide-react";
 
 interface BirthdayItem {
@@ -1931,83 +1927,53 @@ function UpcomingBirthdaysCard({
     const monthIndex = parseInt(parts[1], 10) - 1;
     const day = parseInt(parts[2], 10);
     const months = [
-      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
     ];
     if (Number.isNaN(monthIndex) || Number.isNaN(day) || !months[monthIndex]) return dobStr;
     return `${String(day).padStart(2, "0")} ${months[monthIndex]}`;
   };
 
-  const initials = (name: string) => {
-    const words = name.trim().split(/\s+/);
-    if (words.length >= 2) return (words[0][0] + words[words.length - 1][0]).toUpperCase();
-    return name.slice(0, 2).toUpperCase();
-  };
-
-  const avatarColors = [
-    "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300",
-    "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
-    "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",
-    "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
-    "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-300",
-  ];
-  const colorFor = (id: string) => {
-    let h = 0;
-    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
-    return avatarColors[Math.abs(h) % avatarColors.length];
-  };
-
   return (
     <Card className="min-w-0 max-w-full overflow-hidden">
-      <CardHeader className="flex min-w-0 flex-row items-center justify-between gap-2 pb-3">
+      <CardHeader className="flex min-w-0 flex-col items-start gap-1 pb-2 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle className="flex min-w-0 items-center gap-2 text-sm font-semibold">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-            <Cake className="h-3.5 w-3.5 text-primary" />
-          </div>
+          <Cake className="h-4 w-4 shrink-0 text-primary" />{" "}
           <span className="min-w-0 truncate">{t("pages.dashboard.upcomingBirthdays")}</span>
         </CardTitle>
-        <span className="shrink-0 rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+        <span className="shrink-0 text-xs text-muted-foreground">
           {t("pages.dashboard.nextNDays", { count: BIRTHDAY_LOOKAHEAD_DAYS })}
         </span>
       </CardHeader>
-
-      <CardContent className="min-w-0 space-y-3 overflow-hidden px-3 pb-4 sm:px-5 sm:pb-5">
-        {/* Today's birthdays — celebratory hero cards */}
+      <CardContent className="min-w-0 space-y-4 overflow-hidden">
         {birthdaysToday.length > 0 && (
-          <div className="min-w-0 space-y-2.5">
+          <div className="min-w-0 space-y-2">
             {birthdaysToday.map((birthday) => {
               const isSelf = birthday.employeeId === user?.employeeId;
               return (
                 <div
                   key={birthday.employeeId}
-                  className="relative min-w-0 overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.06] via-primary/[0.03] to-transparent p-3.5 sm:p-4"
+                  className="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-primary/25 bg-primary/[0.05] p-3 text-sm sm:gap-3"
                 >
-                  {/* Subtle confetti dots */}
-                  <div className="pointer-events-none absolute -right-1 -top-1 text-primary/15">
-                    <Sparkles className="h-16 w-16 sm:h-20 sm:w-20" />
-                  </div>
-
-                  <div className="relative flex min-w-0 items-center gap-3">
-                    {/* Avatar */}
-                    <div className="relative shrink-0">
-                      <div className={cn(
-                        "flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold sm:h-11 sm:w-11 sm:text-sm",
-                        colorFor(birthday.employeeId),
-                      )}>
-                        {initials(birthday.name)}
-                      </div>
-                      <div className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white shadow-sm">
-                        <PartyPopper className="h-2.5 w-2.5" />
-                      </div>
+                  <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+                    <div className="shrink-0 rounded-xl bg-primary/10 p-2 text-primary">
+                      <Cake className="h-4 w-4" />
                     </div>
-
-                    {/* Info */}
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-foreground sm:text-base">
+                    <div className="min-w-0 overflow-hidden">
+                      <p className="truncate font-semibold text-foreground">
                         {isSelf ? t("pages.dashboard.yourBirthday") : birthday.name}
                       </p>
-                      <p className="mt-0.5 truncate text-xs text-muted-foreground sm:text-sm">
+                      <p className="truncate text-xs text-muted-foreground">
                         {isSelf
                           ? t("pages.dashboard.birthdayWish")
                           : [birthday.designation, birthday.department]
@@ -2015,17 +1981,14 @@ function UpcomingBirthdaysCard({
                               .join(" · ") || t("pages.dashboard.teamMember")}
                       </p>
                     </div>
-
-                    {/* Date badge */}
-                    <div className="shrink-0 text-right">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-primary-foreground shadow-sm sm:text-xs">
-                        <Gift className="h-3 w-3" />
-                        {t("pages.dashboard.today")}
-                      </span>
-                      <p className="mt-1 text-[11px] font-medium text-muted-foreground sm:text-xs">
-                        {formatDob(birthday.dateOfBirth)}
-                      </p>
-                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="font-semibold text-foreground">
+                      {formatDob(birthday.dateOfBirth)}
+                    </p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">
+                      {t("pages.dashboard.today")}
+                    </p>
                   </div>
                 </div>
               );
@@ -2033,74 +1996,48 @@ function UpcomingBirthdaysCard({
           </div>
         )}
 
-        {/* Upcoming birthdays list */}
         {upcoming.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-6 text-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-              <Cake className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <p className="text-xs text-muted-foreground sm:text-sm">
-              {birthdaysToday.length > 0
-                ? t("pages.dashboard.noOtherBirthdays", { count: BIRTHDAY_LOOKAHEAD_DAYS })
-                : t("pages.dashboard.noBirthdays")}
-            </p>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            {birthdaysToday.length > 0
+              ? t("pages.dashboard.noOtherBirthdays", { count: BIRTHDAY_LOOKAHEAD_DAYS })
+              : t("pages.dashboard.noBirthdays")}
+          </p>
         ) : (
-          <div className="max-h-[320px] min-w-0 space-y-1.5 overflow-x-hidden overflow-y-auto rounded-xl">
-            {upcoming.map((b, idx) => {
+          <div className="max-h-[300px] min-w-0 space-y-2.5 overflow-x-hidden overflow-y-auto">
+            {upcoming.map((b) => {
               const isSelf = b.employeeId === user?.employeeId;
-              const isNextWeek = b.daysUntil <= 7;
 
               return (
                 <div
                   key={b.employeeId}
-                  className={cn(
-                    "group flex min-w-0 items-center gap-3 rounded-xl p-2.5 text-sm transition-colors sm:p-3",
-                    isNextWeek
-                      ? "bg-amber-50/60 hover:bg-amber-50 dark:bg-amber-950/20 dark:hover:bg-amber-950/30"
-                      : "hover:bg-muted/50",
-                  )}
+                  className="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-border/80 bg-card p-3 text-sm transition-colors hover:bg-muted/40 sm:gap-3"
                 >
-                  {/* Avatar */}
-                  <div className={cn(
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold sm:h-10 sm:w-10 sm:text-xs",
-                    colorFor(b.employeeId),
-                  )}>
-                    {initials(b.name)}
-                  </div>
-
-                  {/* Name & role */}
-                  <div className="min-w-0 flex-1">
-                    <p className="flex min-w-0 items-center gap-1.5">
-                      <span className="min-w-0 truncate text-[13px] font-medium text-foreground sm:text-sm">
-                        {isSelf ? t("pages.dashboard.yourBirthday") : b.name}
-                      </span>
-                      {isSelf && (
-                        <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-primary">
-                          {t("pages.dashboard.you")}
+                  <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+                    <div className="shrink-0 rounded-xl bg-muted p-2 text-muted-foreground">
+                      <Cake className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 overflow-hidden">
+                      <p className="flex min-w-0 items-center gap-1.5 font-medium">
+                        <span className="min-w-0 truncate">
+                          {isSelf ? t("pages.dashboard.yourBirthday") : b.name}
                         </span>
-                      )}
-                    </p>
-                    <p className="truncate text-[11px] text-muted-foreground sm:text-xs">
-                      {isSelf
-                        ? t("pages.dashboard.comingSoon")
-                        : [b.designation, b.department].filter(Boolean).join(" · ") ||
-                          t("pages.dashboard.teamMember")}
-                    </p>
+                        {isSelf && (
+                          <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
+                            {t("pages.dashboard.you")}
+                          </span>
+                        )}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {isSelf
+                          ? t("pages.dashboard.comingSoon")
+                          : [b.designation, b.department].filter(Boolean).join(" · ") ||
+                            t("pages.dashboard.teamMember")}
+                      </p>
+                    </div>
                   </div>
-
-                  {/* Date & countdown */}
-                  <div className="shrink-0 text-right">
-                    <p className="text-xs font-semibold text-foreground sm:text-sm">
-                      {formatDob(b.dateOfBirth)}
-                    </p>
-                    <p className={cn(
-                      "mt-0.5 text-[10px] sm:text-[11px]",
-                      isNextWeek
-                        ? "font-medium text-amber-600 dark:text-amber-400"
-                        : "text-muted-foreground",
-                    )}>
-                      <CalendarDays className="mr-0.5 inline h-2.5 w-2.5" />
+                  <div className="max-w-[40%] shrink-0 text-right">
+                    <p className="truncate font-semibold text-foreground">{formatDob(b.dateOfBirth)}</p>
+                    <p className="truncate text-[10px] text-muted-foreground">
                       {isSelf
                         ? t("pages.dashboard.inNDays", { count: b.daysUntil })
                         : t("pages.dashboard.daysLeft", { count: b.daysUntil })}
