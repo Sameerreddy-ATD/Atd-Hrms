@@ -1,5 +1,6 @@
 import { API_BASE } from "@/services/api";
 import { isNativeApp } from "@/lib/native-app";
+import { openCredentialedEventSource } from "@/lib/sse-reconnect";
 
 /**
  * Live notification updates via SSE.
@@ -9,27 +10,27 @@ export function subscribeToNotificationChanges(onChange: () => void) {
   if (typeof window === "undefined") return () => undefined;
 
   let closed = false;
-  let stream: EventSource | null = null;
+  let stopStream: (() => void) | undefined;
   let startTimer: number | undefined;
 
   const startStream = () => {
-    if (closed || !("EventSource" in window)) return;
-    stream = new EventSource(`${API_BASE}/notifications/stream`, { withCredentials: true });
-    stream.addEventListener("notification", onChange);
+    if (closed) return;
+    stopStream = openCredentialedEventSource(
+      `${API_BASE}/notifications/stream`,
+      "notification",
+      onChange,
+    );
   };
 
   if (isNativeApp()) {
     startTimer = window.setTimeout(startStream, 20_000);
-  } else if ("EventSource" in window) {
+  } else {
     startStream();
   }
 
   return () => {
     closed = true;
     if (startTimer) window.clearTimeout(startTimer);
-    if (stream) {
-      stream.removeEventListener("notification", onChange);
-      stream.close();
-    }
+    stopStream?.();
   };
 }

@@ -1,10 +1,10 @@
-/** Array.prototype.at is missing on older Android WebViews (e.g. Android 11). */
-export function installArrayAtPolyfill() {
-  if (typeof Array === "undefined" || typeof Array.prototype.at === "function") return;
-  Object.defineProperty(Array.prototype, "at", {
+/** Array.prototype.at / String.prototype.at — missing on older Android WebViews. */
+function defineAt<T>(proto: { length: number; [index: number]: T }) {
+  if (typeof (proto as { at?: unknown }).at === "function") return;
+  Object.defineProperty(proto, "at", {
     configurable: true,
     writable: true,
-    value(this: unknown[], index: number) {
+    value(this: ArrayLike<T>, index: number) {
       const len = this.length;
       const i = Math.trunc(index);
       const k = i >= 0 ? i : len + i;
@@ -12,6 +12,11 @@ export function installArrayAtPolyfill() {
       return this[k];
     },
   });
+}
+
+export function installArrayAtPolyfill() {
+  if (typeof Array !== "undefined") defineAt(Array.prototype);
+  if (typeof String !== "undefined") defineAt(String.prototype as unknown as { length: number });
 }
 
 installArrayAtPolyfill();

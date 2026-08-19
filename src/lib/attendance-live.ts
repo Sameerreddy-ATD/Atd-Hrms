@@ -1,5 +1,6 @@
 import { API_BASE } from "@/services/api";
 import { isNativeApp } from "@/lib/native-app";
+import { openCredentialedEventSource } from "@/lib/sse-reconnect";
 
 /**
  * Live attendance updates via SSE.
@@ -11,13 +12,14 @@ export function subscribeToAttendanceChanges(onChange: (date: string) => void) {
   if (typeof window === "undefined") return () => undefined;
 
   let closed = false;
-  let stream: EventSource | null = null;
+  let stopStream: (() => void) | undefined;
   let pollTimer: number | undefined;
   let startTimer: number | undefined;
 
-  const handleChange = (event: MessageEvent<string>) => {
+  const handleChange = (event: Event) => {
+    const message = event as MessageEvent<string>;
     try {
-      const payload = JSON.parse(event.data) as { date?: string };
+      const payload = JSON.parse(message.data) as { date?: string };
       onChange(payload.date ?? "");
     } catch {
       onChange("");
@@ -25,18 +27,20 @@ export function subscribeToAttendanceChanges(onChange: (date: string) => void) {
   };
 
   const startStream = () => {
-    if (closed || !("EventSource" in window)) return;
-    stream = new EventSource(`${API_BASE}/attendance/stream`, { withCredentials: true });
-    stream.addEventListener("attendance", handleChange as EventListener);
+    if (closed) return;
+    stopStream = openCredentialedEventSource(
+      `${API_BASE}/attendance/stream`,
+      "attendance",
+      handleChange,
+    );
   };
 
   if (isNativeApp()) {
-    // Keep UI fresh without SSE during the fragile post-login window.
     pollTimer = window.setInterval(() => {
       if (document.visibilityState === "visible") onChange("");
     }, 60_000);
     startTimer = window.setTimeout(startStream, 20_000);
-  } else if ("EventSource" in window) {
+  } else {
     startStream();
   }
 
@@ -44,9 +48,6 @@ export function subscribeToAttendanceChanges(onChange: (date: string) => void) {
     closed = true;
     if (pollTimer) window.clearInterval(pollTimer);
     if (startTimer) window.clearTimeout(startTimer);
-    if (stream) {
-      stream.removeEventListener("attendance", handleChange as EventListener);
-      stream.close();
-    }
+    stopStream?.();
   };
 }

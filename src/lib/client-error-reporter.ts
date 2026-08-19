@@ -26,6 +26,19 @@ const KIND_BY_SOURCE: Record<ReportSource, BackendKind> = {
   manual: "manual",
 };
 
+function isNoiseError(error: unknown): boolean {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "";
+  if (!message || message === "{}") return true;
+  if (/ResizeObserver loop/i.test(message)) return true;
+  if (/^Script error\.?$/i.test(message)) return true;
+  return false;
+}
+
 function shouldSend(signature: string): boolean {
   const now = Date.now();
   if (now - windowStartedAt > DEDUPE_WINDOW_MS) {
@@ -65,6 +78,7 @@ export function reportClientError(
   path?: string,
 ): void {
   if (typeof window === "undefined" || reporting) return;
+  if (isNoiseError(error)) return;
   const { message, stack } = normalizeError(error);
   const signature = `${source}:${message}:${(stack ?? "").slice(0, 120)}`;
   if (!shouldSend(signature)) return;
@@ -105,20 +119,27 @@ export function installClientErrorReporter(): () => void {
 
   const onError = (event: ErrorEvent) => {
     const error = event.error ?? event.message;
+    if (isNoiseError(error) || isNoiseError(event.message)) {
+      event.preventDefault();
+      return;
+    }
     reportClientError(error, "window.onerror");
-    // Stale-deploy chunk failure — heal by reloading fresh (esp. native WebView).
     recoverFromChunkError(error);
   };
   const onRejection = (event: PromiseRejectionEvent) => {
+    if (isNoiseError(event.reason)) {
+      event.preventDefault();
+      return;
+    }
     reportClientError(event.reason, "unhandledrejection");
     recoverFromChunkError(event.reason);
   };
 
-  window.addEventListener("error", onError);
+  window.addEventListener("error", onError, true);
   window.addEventListener("unhandledrejection", onRejection);
 
   return () => {
-    window.removeEventListener("error", onError);
+    window.removeEventListener("error", onError, true);
     window.removeEventListener("unhandledrejection", onRejection);
     installed = false;
   };
