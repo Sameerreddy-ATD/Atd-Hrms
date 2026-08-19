@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -29,6 +29,9 @@ interface FieldDef {
   value: string | undefined | null;
   masked?: boolean;
   readonly?: boolean;
+  required?: boolean;
+  optional?: boolean;
+  group?: "present" | "permanent";
 }
 
 const SECTIONS = ["identity", "employment", "banking", "statutory"] as const;
@@ -41,6 +44,51 @@ const SECTION_LABEL_KEYS: Record<Section, string> = {
   statutory: "pages.profileVerification.sectionStatutory",
 };
 
+const PRESENT_KEYS = [
+  "presentDoorNo",
+  "presentFlatName",
+  "presentStreetName",
+  "presentCity",
+  "presentState",
+  "presentPincode",
+] as const;
+
+const PERMANENT_KEYS = [
+  "permanentDoorNo",
+  "permanentFlatName",
+  "permanentStreetName",
+  "permanentCity",
+  "permanentState",
+  "permanentPincode",
+] as const;
+
+function formatMarital(value: string | undefined) {
+  if (value === "MARRIED") return "Married";
+  if (value === "SINGLE") return "Single";
+  return value;
+}
+
+function formatGender(value: string | undefined) {
+  if (value === "FEMALE") return "Female";
+  if (value === "MALE") return "Male";
+  if (value === "PREFER_NOT_TO_SAY") return "Prefer not to say";
+  return value;
+}
+
+function showHusbandName(user: Record<string, unknown>) {
+  return user.gender === "FEMALE" && user.maritalStatus === "MARRIED";
+}
+
+function parentFieldKey(user: Record<string, unknown>) {
+  return showHusbandName(user) ? "husbandName" : "fatherName";
+}
+
+function parentLabelKey(user: Record<string, unknown>) {
+  return showHusbandName(user)
+    ? "pages.profileVerification.fieldHusbandName"
+    : "pages.profileVerification.fieldFatherName";
+}
+
 function buildFields(user: Record<string, unknown>): Record<Section, FieldDef[]> {
   const v = (key: string) => {
     const val = user[key];
@@ -52,29 +100,89 @@ function buildFields(user: Record<string, unknown>): Record<Section, FieldDef[]>
     return l4 ? `••••${l4}` : v(key);
   };
 
+  const companyEmail = v("companyEmail") ?? v("email");
+
   return {
     identity: [
-      { key: "name", labelKey: "fieldName", value: v("name") },
-      { key: "email", labelKey: "fieldEmail", value: v("email") },
-      { key: "phone", labelKey: "fieldPhone", value: v("phone") },
-      { key: "companyPhone", labelKey: "fieldCompanyPhone", value: v("companyPhone") },
-      { key: "dateOfBirth", labelKey: "fieldDateOfBirth", value: v("dateOfBirth") },
-      { key: "gender", labelKey: "fieldGender", value: v("gender") },
-      { key: "bloodGroup", labelKey: "fieldBloodGroup", value: v("bloodGroup") },
-      { key: "fatherName", labelKey: "fieldFatherName", value: v("fatherName") },
-      { key: "presentAddress", labelKey: "fieldPresentAddress", value: v("presentAddress") },
-      { key: "presentCity", labelKey: "fieldPresentCity", value: v("presentCity") },
-      { key: "presentState", labelKey: "fieldPresentState", value: v("presentState") },
-      { key: "presentPincode", labelKey: "fieldPresentPincode", value: v("presentPincode") },
-      { key: "permanentAddress", labelKey: "fieldPermanentAddress", value: v("permanentAddress") },
-      { key: "permanentCity", labelKey: "fieldPermanentCity", value: v("permanentCity") },
-      { key: "permanentState", labelKey: "fieldPermanentState", value: v("permanentState") },
-      { key: "permanentPincode", labelKey: "fieldPermanentPincode", value: v("permanentPincode") },
+      { key: "name", labelKey: "fieldFullName", value: v("name"), required: true },
+      { key: "companyEmail", labelKey: "fieldCompanyEmail", value: companyEmail, readonly: true },
+      { key: "personalEmail", labelKey: "fieldPersonalEmail", value: v("personalEmail"), required: true },
+      { key: "phone", labelKey: "fieldPersonalNumber", value: v("phone"), required: true },
+      { key: "companyPhone", labelKey: "fieldCompanyNumber", value: v("companyPhone"), optional: true },
+      { key: "dateOfBirth", labelKey: "fieldDateOfBirth", value: v("dateOfBirth"), required: true },
+      { key: "gender", labelKey: "fieldGender", value: formatGender(v("gender")), required: true },
+      { key: "bloodGroup", labelKey: "fieldBloodGroup", value: v("bloodGroup"), optional: true },
+      { key: "maritalStatus", labelKey: "fieldMaritalStatus", value: formatMarital(v("maritalStatus")), required: true },
+      {
+        key: parentFieldKey(user),
+        labelKey: showHusbandName(user) ? "fieldHusbandName" : "fieldFatherName",
+        value: v(parentFieldKey(user)),
+        required: true,
+      },
+      { key: "presentDoorNo", labelKey: "fieldPresentDoorNo", value: v("presentDoorNo"), group: "present", required: true },
+      { key: "presentFlatName", labelKey: "fieldPresentFlatName", value: v("presentFlatName"), group: "present", required: true },
+      {
+        key: "presentStreetName",
+        labelKey: "fieldPresentStreetName",
+        value: v("presentStreetName") ?? v("presentAddress"),
+        group: "present",
+        required: true,
+      },
+      { key: "presentCity", labelKey: "fieldPresentCity", value: v("presentCity"), group: "present", required: true },
+      { key: "presentState", labelKey: "fieldPresentState", value: v("presentState"), group: "present", required: true },
+      { key: "presentPincode", labelKey: "fieldPresentPincode", value: v("presentPincode"), group: "present", required: true },
+      {
+        key: "permanentDoorNo",
+        labelKey: "fieldPermanentDoorNo",
+        value: v("permanentDoorNo"),
+        group: "permanent",
+        required: true,
+      },
+      {
+        key: "permanentFlatName",
+        labelKey: "fieldPermanentFlatName",
+        value: v("permanentFlatName"),
+        group: "permanent",
+        required: true,
+      },
+      {
+        key: "permanentStreetName",
+        labelKey: "fieldPermanentStreetName",
+        value: v("permanentStreetName") ?? v("permanentAddress"),
+        group: "permanent",
+        required: true,
+      },
+      {
+        key: "permanentCity",
+        labelKey: "fieldPermanentCity",
+        value: v("permanentCity"),
+        group: "permanent",
+        required: true,
+      },
+      {
+        key: "permanentState",
+        labelKey: "fieldPermanentState",
+        value: v("permanentState"),
+        group: "permanent",
+        required: true,
+      },
+      {
+        key: "permanentPincode",
+        labelKey: "fieldPermanentPincode",
+        value: v("permanentPincode"),
+        group: "permanent",
+        required: true,
+      },
     ],
     employment: [
       { key: "employeeCode", labelKey: "fieldEmployeeCode", value: v("employeeCode"), readonly: true },
       { key: "designation", labelKey: "fieldDesignation", value: v("designation"), readonly: true },
-      { key: "department", labelKey: "fieldDepartment", value: v("department"), readonly: true },
+      {
+        key: "department",
+        labelKey: "fieldDepartment",
+        value: v("departmentName") ?? v("department"),
+        readonly: true,
+      },
       { key: "joiningDate", labelKey: "fieldJoiningDate", value: v("joiningDate"), readonly: true },
       { key: "employmentType", labelKey: "fieldEmploymentType", value: v("employmentType"), readonly: true },
       { key: "companyEntity", labelKey: "fieldCompanyEntity", value: v("companyEntity"), readonly: true },
@@ -83,14 +191,43 @@ function buildFields(user: Record<string, unknown>): Record<Section, FieldDef[]>
       { key: "bankAccountHolderName", labelKey: "fieldBankAccountHolderName", value: v("bankAccountHolderName") },
       { key: "bankAccountType", labelKey: "fieldBankAccountType", value: v("bankAccountType") },
       { key: "bankIfscCode", labelKey: "fieldBankIfscCode", value: v("bankIfscCode") },
-      { key: "bankAccountNumber", labelKey: "fieldBankAccountNumber", value: masked("bankAccountNumber", "bankAccountNumberLast4"), masked: true },
+      {
+        key: "bankAccountNumber",
+        labelKey: "fieldBankAccountNumber",
+        value: masked("bankAccountNumber", "bankAccountNumberLast4"),
+        masked: true,
+      },
     ],
     statutory: [
       { key: "panNumber", labelKey: "fieldPanNumber", value: masked("panNumber", "panNumberLast4"), masked: true },
-      { key: "aadhaarNumber", labelKey: "fieldAadhaarNumber", value: masked("aadhaarNumber", "aadhaarNumberLast4"), masked: true },
+      {
+        key: "aadhaarNumber",
+        labelKey: "fieldAadhaarNumber",
+        value: masked("aadhaarNumber", "aadhaarNumberLast4"),
+        masked: true,
+      },
       { key: "uanNumber", labelKey: "fieldUanNumber", value: masked("uanNumber", "uanNumberLast4"), masked: true },
     ],
   };
+}
+
+function presentValueForKey(
+  key: (typeof PERMANENT_KEYS)[number],
+  user: Record<string, unknown>,
+  fieldStates: Record<string, FieldState>,
+) {
+  const presentKey = key.replace("permanent", "present") as (typeof PRESENT_KEYS)[number];
+  const state = fieldStates[presentKey];
+  if (state?.status === "WRONG" && state.correction.trim()) return state.correction.trim();
+  const raw = user[presentKey];
+  if (raw === null || raw === undefined || raw === "") {
+    if (presentKey === "presentStreetName") {
+      const legacy = user.presentAddress;
+      return legacy ? String(legacy) : undefined;
+    }
+    return undefined;
+  }
+  return String(raw);
 }
 
 export function ProfileVerificationModal({
@@ -108,6 +245,20 @@ export function ProfileVerificationModal({
   const [fieldStates, setFieldStates] = useState<Record<string, FieldState>>({});
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [permanentSameAsPresent, setPermanentSameAsPresent] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setStep(0);
+      setFieldStates({});
+      setConsent(false);
+      setPermanentSameAsPresent(false);
+      return;
+    }
+    if (user?.permanentSameAsPresent) {
+      setPermanentSameAsPresent(true);
+    }
+  }, [open, user?.permanentSameAsPresent]);
 
   const allFields = useMemo(
     () => (user ? buildFields(user as unknown as Record<string, unknown>) : null),
@@ -115,7 +266,19 @@ export function ProfileVerificationModal({
   );
 
   const currentSection = SECTIONS[step];
-  const sectionFields = allFields?.[currentSection] ?? [];
+  const sectionFields = useMemo(() => {
+    if (!allFields || !user) return [];
+    const fields = allFields[currentSection];
+    if (currentSection !== "identity") return fields;
+    const parentKey = parentFieldKey(user as unknown as Record<string, unknown>);
+    return fields.filter((field) => {
+      if (field.key === "fatherName" || field.key === "husbandName") {
+        return field.key === parentKey;
+      }
+      if (field.group === "permanent" && permanentSameAsPresent) return false;
+      return true;
+    });
+  }, [allFields, currentSection, permanentSameAsPresent, user]);
 
   const markField = useCallback((key: string, status: FieldStatus) => {
     setFieldStates((prev) => ({
@@ -131,18 +294,44 @@ export function ProfileVerificationModal({
     }));
   }, []);
 
+  const fieldNeedsMarking = useCallback(
+    (field: FieldDef) => {
+      if (field.optional && !field.value) return false;
+      if (field.group === "permanent" && permanentSameAsPresent) return false;
+      return true;
+    },
+    [permanentSameAsPresent],
+  );
+
   const sectionComplete = useCallback(
     (section: Section) => {
-      const fields = allFields?.[section] ?? [];
+      if (!allFields) return false;
+      if (section === "identity" && permanentSameAsPresent) {
+        const presentDone = allFields.identity
+          .filter((f) => f.group === "present")
+          .every((f) => {
+            const state = fieldStates[f.key];
+            if (!state?.status) return false;
+            if (state.status === "WRONG" && !state.correction.trim()) return false;
+            return true;
+          });
+        if (!presentDone) return false;
+      }
+      const fields = allFields[section].filter((f) => {
+        if (section !== "identity") return fieldNeedsMarking(f);
+        if (f.key === "fatherName" || f.key === "husbandName") {
+          return user ? f.key === parentFieldKey(user as unknown as Record<string, unknown>) : false;
+        }
+        return fieldNeedsMarking(f);
+      });
       return fields.every((f) => {
         const state = fieldStates[f.key];
         if (!state?.status) return false;
-        if (state.status === "WRONG" && !f.value && !state.correction.trim()) return false;
         if (state.status === "WRONG" && !state.correction.trim()) return false;
         return true;
       });
     },
-    [allFields, fieldStates],
+    [allFields, fieldNeedsMarking, fieldStates, permanentSameAsPresent, user],
   );
 
   const allComplete = SECTIONS.every((s) => sectionComplete(s));
@@ -153,11 +342,20 @@ export function ProfileVerificationModal({
   );
 
   async function handleSubmit() {
-    if (!allComplete || !consent || !allFields) return;
+    if (!allComplete || !consent || !allFields || !user) return;
     setSubmitting(true);
     try {
-      const fields = SECTIONS.flatMap((section) =>
-        allFields[section].map((f) => {
+      const userRecord = user as unknown as Record<string, unknown>;
+      const payloadFields = SECTIONS.flatMap((section) => {
+        const sectionList = allFields[section].filter((f) => {
+          if (section !== "identity") return true;
+          if (f.key === "fatherName" || f.key === "husbandName") {
+            return f.key === parentFieldKey(userRecord);
+          }
+          if (f.group === "permanent" && permanentSameAsPresent) return false;
+          return true;
+        });
+        const rows = sectionList.map((f) => {
           const state = fieldStates[f.key];
           return {
             field: f.key,
@@ -166,9 +364,29 @@ export function ProfileVerificationModal({
             currentValue: f.value ?? undefined,
             suggestedValue: state?.status === "WRONG" ? state.correction : undefined,
           };
-        }),
-      );
-      await profileApi.submitVerification(fields);
+        });
+        if (section === "identity" && permanentSameAsPresent) {
+          rows.push({
+            field: "permanentSameAsPresent",
+            section: "identity" as const,
+            status: "CORRECT" as const,
+            currentValue: user.permanentSameAsPresent ? "true" : "false",
+            suggestedValue: undefined,
+          });
+          for (const key of PERMANENT_KEYS) {
+            rows.push({
+              field: key,
+              section: "identity" as const,
+              status: "CORRECT" as const,
+              currentValue: presentValueForKey(key, userRecord, fieldStates),
+              suggestedValue: undefined,
+            });
+          }
+        }
+        return rows;
+      });
+
+      await profileApi.submitVerification(payloadFields);
       toast.success(t("pages.profileVerification.toastSuccess"));
       onComplete();
     } catch (err) {
@@ -178,7 +396,84 @@ export function ProfileVerificationModal({
     }
   }
 
+  function renderFieldCard(field: FieldDef) {
+    const state = fieldStates[field.key];
+    const isEmpty = !field.value;
+    const isCorrect = state?.status === "CORRECT";
+    const isWrong = state?.status === "WRONG";
+    const canMarkCorrect = !isEmpty || field.readonly;
+
+    return (
+      <div
+        key={field.key}
+        className={cn(
+          "rounded-xl border p-3 transition-colors sm:col-span-1",
+          field.group === "present" || field.group === "permanent" ? "sm:col-span-2 lg:col-span-1" : "",
+          isCorrect
+            ? "border-emerald-300 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20"
+            : isWrong
+              ? "border-red-300 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20"
+              : "border-border bg-card",
+        )}
+      >
+        <div className="mb-1.5 flex items-center justify-between gap-2">
+          <p className="text-xs font-medium text-muted-foreground">
+            {t(`pages.profileVerification.${field.labelKey}`)}
+            {field.required ? " *" : field.optional ? ` (${t("pages.profileVerification.optional")})` : ""}
+          </p>
+          {isCorrect && <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" />}
+          {isWrong && <X className="h-3.5 w-3.5 shrink-0 text-red-600" />}
+        </div>
+
+        <p className={cn("mb-2 text-sm font-medium break-words", isEmpty && "italic text-muted-foreground")}>
+          {isEmpty ? t("pages.profileVerification.notProvided") : field.value}
+        </p>
+
+        <div className="flex flex-wrap gap-1.5">
+          {canMarkCorrect && (
+            <Button
+              type="button"
+              size="sm"
+              variant={isCorrect ? "default" : "outline"}
+              className={cn("h-7 gap-1 text-xs", isCorrect && "bg-emerald-600 hover:bg-emerald-700")}
+              onClick={() => markField(field.key, "CORRECT")}
+            >
+              <Check className="h-3 w-3" />
+              {t("pages.profileVerification.correct")}
+            </Button>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            variant={isWrong ? "default" : "outline"}
+            className={cn("h-7 gap-1 text-xs", isWrong && "bg-red-600 hover:bg-red-700")}
+            onClick={() => markField(field.key, "WRONG")}
+          >
+            <X className="h-3 w-3" />
+            {isEmpty ? t("pages.profileVerification.provideValue") : t("pages.profileVerification.wrong")}
+          </Button>
+        </div>
+
+        {isWrong && (
+          <div className="mt-2">
+            <Input
+              placeholder={t("pages.profileVerification.enterCorrectValue")}
+              value={state.correction}
+              onChange={(e) => setCorrection(field.key, e.target.value)}
+              className="h-8 text-sm"
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (!user || !allFields) return null;
+
+  const identityFields = sectionFields;
+  const presentFields = identityFields.filter((f) => f.group === "present");
+  const beforeAddressFields = identityFields.filter((f) => !f.group);
+  const showAddressLayout = currentSection === "identity";
 
   return (
     <Dialog
@@ -195,18 +490,13 @@ export function ProfileVerificationModal({
           <DialogDescription className="text-xs text-muted-foreground sm:text-sm">
             {t("pages.profileVerification.subtitle")}
           </DialogDescription>
-          {/* Progress */}
           <div className="mt-3 flex items-center gap-1">
             {SECTIONS.map((s, i) => (
               <div key={s} className="flex min-w-0 flex-1 flex-col items-center gap-1">
                 <div
                   className={cn(
                     "h-1.5 w-full rounded-full transition-colors",
-                    i < step
-                      ? "bg-primary"
-                      : i === step
-                        ? "bg-primary/60"
-                        : "bg-muted",
+                    i < step ? "bg-primary" : i === step ? "bg-primary/60" : "bg-muted",
                   )}
                 />
                 <span
@@ -222,84 +512,46 @@ export function ProfileVerificationModal({
           </div>
         </DialogHeader>
 
-        {/* Scrollable field list */}
         <div className="flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
           <div className="grid gap-2.5 sm:grid-cols-2">
-            {sectionFields.map((field) => {
-              const state = fieldStates[field.key];
-              const isEmpty = !field.value;
-              const isCorrect = state?.status === "CORRECT";
-              const isWrong = state?.status === "WRONG";
-
-              return (
-                <div
-                  key={field.key}
-                  className={cn(
-                    "rounded-xl border p-3 transition-colors",
-                    isCorrect
-                      ? "border-emerald-300 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20"
-                      : isWrong
-                        ? "border-red-300 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20"
-                        : "border-border bg-card",
-                  )}
-                >
-                  <div className="mb-1.5 flex items-center justify-between gap-2">
-                    <p className="text-xs font-medium text-muted-foreground">
-                      {t(`pages.profileVerification.${field.labelKey}`)}
-                    </p>
-                    {isCorrect && <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" />}
-                    {isWrong && <X className="h-3.5 w-3.5 shrink-0 text-red-600" />}
-                  </div>
-
-                  <p className={cn("mb-2 text-sm font-medium break-words", isEmpty && "italic text-muted-foreground")}>
-                    {isEmpty ? t("pages.profileVerification.notProvided") : field.value}
+            {showAddressLayout ? (
+              <>
+                {beforeAddressFields.map(renderFieldCard)}
+                <div className="sm:col-span-2">
+                  <p className="mb-2 text-sm font-semibold text-foreground">
+                    {t("pages.profileVerification.presentAddressHeading")}
                   </p>
-
-                  {/* Correct / Wrong buttons */}
-                  <div className="flex gap-1.5">
-                    {(!isEmpty || field.readonly) && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={isCorrect ? "default" : "outline"}
-                        className={cn("h-7 gap-1 text-xs", isCorrect && "bg-emerald-600 hover:bg-emerald-700")}
-                        onClick={() => markField(field.key, "CORRECT")}
-                      >
-                        <Check className="h-3 w-3" />
-                        {t("pages.profileVerification.correct")}
-                      </Button>
-                    )}
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={isWrong ? "default" : "outline"}
-                      className={cn("h-7 gap-1 text-xs", isWrong && "bg-red-600 hover:bg-red-700")}
-                      onClick={() => markField(field.key, "WRONG")}
-                    >
-                      <X className="h-3 w-3" />
-                      {isEmpty
-                        ? t("pages.profileVerification.provideValue")
-                        : t("pages.profileVerification.wrong")}
-                    </Button>
+                </div>
+                {presentFields.map(renderFieldCard)}
+                <div className="sm:col-span-2 space-y-3">
+                  <p className="text-sm font-semibold text-foreground">
+                    {t("pages.profileVerification.permanentAddressHeading")}
+                  </p>
+                  <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/30 p-3">
+                    <Checkbox
+                      id="same-as-present"
+                      checked={permanentSameAsPresent}
+                      onCheckedChange={(checked) => setPermanentSameAsPresent(checked === true)}
+                      className="mt-0.5"
+                    />
+                    <label htmlFor="same-as-present" className="text-sm leading-5 text-foreground">
+                      {t("pages.profileVerification.sameAsPresent")}
+                    </label>
                   </div>
-
-                  {/* Correction input */}
-                  {isWrong && (
-                    <div className="mt-2">
-                      <Input
-                        placeholder={t("pages.profileVerification.enterCorrectValue")}
-                        value={state.correction}
-                        onChange={(e) => setCorrection(field.key, e.target.value)}
-                        className="h-8 text-sm"
-                      />
-                    </div>
+                  {permanentSameAsPresent && (
+                    <p className="text-xs text-muted-foreground">
+                      {t("pages.profileVerification.sameAsPresentHelp")}
+                    </p>
                   )}
                 </div>
-              );
-            })}
+                {!permanentSameAsPresent &&
+                  identityFields.filter((f) => f.group === "permanent").map(renderFieldCard)}
+              </>
+            ) : (
+              sectionFields.map(renderFieldCard)
+            )}
           </div>
 
-          {/* Consent checkbox on final step */}
           {step === SECTIONS.length - 1 && allComplete && (
             <div className="mt-4 flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/[0.03] p-3">
               <Checkbox
@@ -315,7 +567,6 @@ export function ProfileVerificationModal({
           )}
         </div>
 
-        {/* Footer */}
         <div className="shrink-0 border-t px-4 py-3 sm:px-6">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs text-muted-foreground">

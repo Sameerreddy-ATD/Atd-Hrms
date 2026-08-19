@@ -85,7 +85,40 @@ export function userDto(
       | "shiftEndMinutes"
       | "status"
       | "profileVerified"
-    > | null;
+      | "email"
+      | "personalEmail"
+      | "maritalStatus"
+      | "fatherName"
+      | "husbandName"
+      | "presentDoorNo"
+      | "presentFlatName"
+      | "presentStreetName"
+      | "presentAddress"
+      | "presentCity"
+      | "presentState"
+      | "presentPincode"
+      | "permanentDoorNo"
+      | "permanentFlatName"
+      | "permanentStreetName"
+      | "permanentSameAsPresent"
+      | "permanentAddress"
+      | "permanentCity"
+      | "permanentState"
+      | "permanentPincode"
+      | "bankAccountType"
+      | "bankAccountHolderName"
+      | "bankIfscCode"
+      | "bankAccountNumberEncrypted"
+      | "bankAccountNumberLast4"
+      | "panNumberEncrypted"
+      | "panNumberLast4"
+      | "aadhaarNumberEncrypted"
+      | "aadhaarNumberLast4"
+      | "uanNumberEncrypted"
+      | "uanNumberLast4"
+    > & {
+      department?: { name: string } | null;
+    } | null;
     faceProfile?: {
       status: "PENDING" | "APPROVED" | "REJECTED" | "DISABLED";
       rejectionReason: string | null;
@@ -147,6 +180,48 @@ export function userDto(
     shiftType: user.employee?.shiftType ?? undefined,
     shiftStartMinutes: user.employee?.shiftStartMinutes ?? undefined,
     shiftEndMinutes: user.employee?.shiftEndMinutes ?? undefined,
+    companyEmail:
+      user.employee?.email ??
+      (isPhonePlaceholderEmail(user.email) ? undefined : user.email),
+    personalEmail: user.employee?.personalEmail ?? undefined,
+    maritalStatus: user.employee?.maritalStatus ?? undefined,
+    fatherName: user.employee?.fatherName ?? undefined,
+    husbandName: user.employee?.husbandName ?? undefined,
+    presentDoorNo: user.employee?.presentDoorNo ?? undefined,
+    presentFlatName: user.employee?.presentFlatName ?? undefined,
+    presentStreetName:
+      user.employee?.presentStreetName ?? user.employee?.presentAddress ?? undefined,
+    presentCity: user.employee?.presentCity ?? undefined,
+    presentState: user.employee?.presentState ?? undefined,
+    presentPincode: user.employee?.presentPincode ?? undefined,
+    permanentSameAsPresent: user.employee?.permanentSameAsPresent ?? false,
+    permanentDoorNo: user.employee?.permanentDoorNo ?? undefined,
+    permanentFlatName: user.employee?.permanentFlatName ?? undefined,
+    permanentStreetName:
+      user.employee?.permanentStreetName ?? user.employee?.permanentAddress ?? undefined,
+    permanentCity: user.employee?.permanentCity ?? undefined,
+    permanentState: user.employee?.permanentState ?? undefined,
+    permanentPincode: user.employee?.permanentPincode ?? undefined,
+    departmentName: user.employee?.department?.name ?? undefined,
+    bankAccountType: user.employee?.bankAccountType ?? undefined,
+    bankAccountHolderName: user.employee?.bankAccountHolderName ?? undefined,
+    bankIfscCode: user.employee?.bankIfscCode ?? undefined,
+    bankAccountNumber: user.employee?.bankAccountNumberEncrypted
+      ? decryptEmployeeField(user.employee.bankAccountNumberEncrypted)
+      : undefined,
+    bankAccountNumberLast4: user.employee?.bankAccountNumberLast4 ?? undefined,
+    panNumber: user.employee?.panNumberEncrypted
+      ? decryptEmployeeField(user.employee.panNumberEncrypted)
+      : undefined,
+    panNumberLast4: user.employee?.panNumberLast4 ?? undefined,
+    aadhaarNumber: user.employee?.aadhaarNumberEncrypted
+      ? decryptEmployeeField(user.employee.aadhaarNumberEncrypted)
+      : undefined,
+    aadhaarNumberLast4: user.employee?.aadhaarNumberLast4 ?? undefined,
+    uanNumber: user.employee?.uanNumberEncrypted
+      ? decryptEmployeeField(user.employee.uanNumberEncrypted)
+      : undefined,
+    uanNumberLast4: user.employee?.uanNumberLast4 ?? undefined,
   };
 }
 

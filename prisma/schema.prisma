@@ -44,6 +44,11 @@ enum Gender {
   PREFER_NOT_TO_SAY
 }
 
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+}
+
 enum EmploymentType {
   FULL_TIME
   PART_TIME
@@ -392,6 +397,7 @@ model Employee {
   externalReference          String?                       @unique @map("external_reference")
   name                       String
   email                      String?                       @unique
+  personalEmail              String?                       @map("personal_email")
   phone                      String?
   companyPhone               String?                       @map("company_phone")
   companyEntity              CompanyEntity                 @default(ANYTIME_DIESEL) @map("company_entity")
@@ -421,10 +427,19 @@ model Employee {
   uanNumberEncrypted         String?                       @map("uan_number_encrypted") @db.Text
   uanNumberLast4             String?                       @map("uan_number_last4") @db.VarChar(4)
   fatherName                 String?                       @map("father_name")
+  husbandName                String?                       @map("husband_name")
+  maritalStatus              MaritalStatus?                @map("marital_status")
+  presentDoorNo              String?                       @map("present_door_no")
+  presentFlatName            String?                       @map("present_flat_name")
+  presentStreetName          String?                       @map("present_street_name")
   presentAddress             String?                       @map("present_address") @db.Text
   presentCity                String?                       @map("present_city")
   presentState               String?                       @map("present_state")
   presentPincode             String?                       @map("present_pincode") @db.VarChar(12)
+  permanentDoorNo            String?                       @map("permanent_door_no")
+  permanentFlatName          String?                       @map("permanent_flat_name")
+  permanentStreetName        String?                       @map("permanent_street_name")
+  permanentSameAsPresent     Boolean                       @default(false) @map("permanent_same_as_present")
   permanentAddress           String?                       @map("permanent_address") @db.Text
   permanentCity              String?                       @map("permanent_city")
   permanentState             String?                       @map("permanent_state")

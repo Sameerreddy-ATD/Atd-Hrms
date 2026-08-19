@@ -2464,7 +2464,10 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       const user = await prisma.user.findUniqueOrThrow({
         where: { id: req.user!.id },
-        include: { employee: true, faceProfile: true },
+        include: {
+          employee: { include: { department: { select: { name: true } } } },
+          faceProfile: true,
+        },
       });
       if (
         user.suspensionStartsAt &&
@@ -9157,19 +9160,42 @@ export function createApp() {
   // ─── Profile Verification ───
 
   const PROFILE_FIELD_TO_COLUMN: Record<string, string> = {
-    name: "name", email: "email", phone: "phone", companyPhone: "companyPhone",
-    dateOfBirth: "dateOfBirth", gender: "gender", bloodGroup: "bloodGroup",
+    name: "name",
+    companyEmail: "email",
+    personalEmail: "personalEmail",
+    phone: "phone",
+    companyPhone: "companyPhone",
+    dateOfBirth: "dateOfBirth",
+    gender: "gender",
+    bloodGroup: "bloodGroup",
+    maritalStatus: "maritalStatus",
     fatherName: "fatherName",
-    presentAddress: "presentAddress", presentCity: "presentCity",
-    presentState: "presentState", presentPincode: "presentPincode",
-    permanentAddress: "permanentAddress", permanentCity: "permanentCity",
-    permanentState: "permanentState", permanentPincode: "permanentPincode",
-    employeeCode: "employeeCode", designation: "designation",
-    departmentId: "departmentId", joiningDate: "joiningDate",
-    employmentType: "employmentType", companyEntity: "companyEntity",
-    bankAccountHolderName: "bankAccountHolderName", bankAccountType: "bankAccountType",
-    bankIfscCode: "bankIfscCode", bankAccountNumber: "bankAccountNumberEncrypted",
-    panNumber: "panNumberEncrypted", aadhaarNumber: "aadhaarNumberEncrypted",
+    husbandName: "husbandName",
+    presentDoorNo: "presentDoorNo",
+    presentFlatName: "presentFlatName",
+    presentStreetName: "presentStreetName",
+    presentCity: "presentCity",
+    presentState: "presentState",
+    presentPincode: "presentPincode",
+    permanentSameAsPresent: "permanentSameAsPresent",
+    permanentDoorNo: "permanentDoorNo",
+    permanentFlatName: "permanentFlatName",
+    permanentStreetName: "permanentStreetName",
+    permanentCity: "permanentCity",
+    permanentState: "permanentState",
+    permanentPincode: "permanentPincode",
+    employeeCode: "employeeCode",
+    designation: "designation",
+    departmentId: "departmentId",
+    joiningDate: "joiningDate",
+    employmentType: "employmentType",
+    companyEntity: "companyEntity",
+    bankAccountHolderName: "bankAccountHolderName",
+    bankAccountType: "bankAccountType",
+    bankIfscCode: "bankIfscCode",
+    bankAccountNumber: "bankAccountNumberEncrypted",
+    panNumber: "panNumberEncrypted",
+    aadhaarNumber: "aadhaarNumberEncrypted",
     uanNumber: "uanNumberEncrypted",
   };
 
@@ -9263,6 +9289,10 @@ export function createApp() {
           const updateData: Record<string, unknown> = {};
           if (column === "dateOfBirth" || column === "joiningDate") {
             updateData[column] = new Date(correction.suggestedValue);
+          } else if (column === "permanentSameAsPresent") {
+            updateData[column] = correction.suggestedValue === "true";
+          } else if (column === "gender" || column === "maritalStatus") {
+            updateData[column] = correction.suggestedValue.toUpperCase().replace(/\s+/g, "_");
           } else {
             updateData[column] = correction.suggestedValue;
           }
