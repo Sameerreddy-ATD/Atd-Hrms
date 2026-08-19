@@ -1722,6 +1722,8 @@ const pages = {
     notProvided: "అందించబడలేదు",
     provideValue: "విలువ నమోదు చేయండి",
     enterCorrectValue: "సరైన విలువ నమోదు చేయండి",
+    selectValue: "సరైన విలువ ఎంచుకోండి",
+    correctionValue: "మీ సవరణ: {{value}}",
     next: "తదుపరి",
     back: "వెనుకకు",
     submit: "ధృవీకరణ సమర్పించండి",

@@ -1723,6 +1723,8 @@ const pages = {
     notProvided: "उपलब्ध नहीं",
     provideValue: "मान दर्ज करें",
     enterCorrectValue: "सही मान दर्ज करें",
+    selectValue: "सही मान चुनें",
+    correctionValue: "आपका सुधार: {{value}}",
     next: "आगे",
     back: "वापस",
     submit: "सत्यापन जमा करें",

@@ -1733,6 +1733,8 @@ const pages = {
     notProvided: "Not provided",
     provideValue: "Enter the value",
     enterCorrectValue: "Enter the correct value",
+    selectValue: "Select the correct value",
+    correctionValue: "Your correction: {{value}}",
     next: "Next",
     back: "Back",
     submit: "Submit Verification",

@@ -9291,8 +9291,10 @@ export function createApp() {
             updateData[column] = new Date(correction.suggestedValue);
           } else if (column === "permanentSameAsPresent") {
             updateData[column] = correction.suggestedValue === "true";
-          } else if (column === "gender" || column === "maritalStatus") {
+          } else if (column === "gender" || column === "maritalStatus" || column === "bankAccountType") {
             updateData[column] = correction.suggestedValue.toUpperCase().replace(/\s+/g, "_");
+          } else if (column === "bloodGroup") {
+            updateData[column] = correction.suggestedValue;
           } else {
             updateData[column] = correction.suggestedValue;
           }

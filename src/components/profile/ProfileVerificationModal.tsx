@@ -11,6 +11,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { profileApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -32,6 +39,35 @@ interface FieldDef {
   required?: boolean;
   optional?: boolean;
   group?: "present" | "permanent";
+  selectOptions?: Array<{ value: string; label: string }>;
+}
+
+const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
+
+const MARITAL_OPTIONS = [
+  { value: "SINGLE", label: "Single" },
+  { value: "MARRIED", label: "Married" },
+] as const;
+
+const GENDER_OPTIONS = [
+  { value: "MALE", label: "Male" },
+  { value: "FEMALE", label: "Female" },
+  { value: "PREFER_NOT_TO_SAY", label: "Prefer not to say" },
+] as const;
+
+const BANK_ACCOUNT_OPTIONS = [
+  { value: "SAVINGS", label: "Savings" },
+  { value: "CURRENT", label: "Current" },
+  { value: "SALARY", label: "Salary" },
+  { value: "NRE", label: "NRE" },
+  { value: "NRO", label: "NRO" },
+  { value: "OTHER", label: "Other" },
+] as const;
+
+function formatBankAccountType(value: string | undefined) {
+  if (!value) return value;
+  const found = BANK_ACCOUNT_OPTIONS.find((o) => o.value === value);
+  return found?.label ?? value.replace(/_/g, " ");
 }
 
 const SECTIONS = ["identity", "employment", "banking", "statutory"] as const;
@@ -83,12 +119,6 @@ function parentFieldKey(user: Record<string, unknown>) {
   return showHusbandName(user) ? "husbandName" : "fatherName";
 }
 
-function parentLabelKey(user: Record<string, unknown>) {
-  return showHusbandName(user)
-    ? "pages.profileVerification.fieldHusbandName"
-    : "pages.profileVerification.fieldFatherName";
-}
-
 function buildFields(user: Record<string, unknown>): Record<Section, FieldDef[]> {
   const v = (key: string) => {
     const val = user[key];
@@ -110,9 +140,21 @@ function buildFields(user: Record<string, unknown>): Record<Section, FieldDef[]>
       { key: "phone", labelKey: "fieldPersonalNumber", value: v("phone"), required: true },
       { key: "companyPhone", labelKey: "fieldCompanyNumber", value: v("companyPhone"), optional: true },
       { key: "dateOfBirth", labelKey: "fieldDateOfBirth", value: v("dateOfBirth"), required: true },
-      { key: "gender", labelKey: "fieldGender", value: formatGender(v("gender")), required: true },
-      { key: "bloodGroup", labelKey: "fieldBloodGroup", value: v("bloodGroup"), optional: true },
-      { key: "maritalStatus", labelKey: "fieldMaritalStatus", value: formatMarital(v("maritalStatus")), required: true },
+      { key: "gender", labelKey: "fieldGender", value: formatGender(v("gender")), required: true, selectOptions: [...GENDER_OPTIONS] },
+      {
+        key: "bloodGroup",
+        labelKey: "fieldBloodGroup",
+        value: v("bloodGroup"),
+        required: true,
+        selectOptions: BLOOD_GROUPS.map((g) => ({ value: g, label: g })),
+      },
+      {
+        key: "maritalStatus",
+        labelKey: "fieldMaritalStatus",
+        value: formatMarital(v("maritalStatus")),
+        required: true,
+        selectOptions: [...MARITAL_OPTIONS],
+      },
       {
         key: parentFieldKey(user),
         labelKey: showHusbandName(user) ? "fieldHusbandName" : "fieldFatherName",
@@ -189,7 +231,12 @@ function buildFields(user: Record<string, unknown>): Record<Section, FieldDef[]>
     ],
     banking: [
       { key: "bankAccountHolderName", labelKey: "fieldBankAccountHolderName", value: v("bankAccountHolderName") },
-      { key: "bankAccountType", labelKey: "fieldBankAccountType", value: v("bankAccountType") },
+      {
+        key: "bankAccountType",
+        labelKey: "fieldBankAccountType",
+        value: formatBankAccountType(v("bankAccountType")),
+        selectOptions: [...BANK_ACCOUNT_OPTIONS],
+      },
       { key: "bankIfscCode", labelKey: "fieldBankIfscCode", value: v("bankIfscCode") },
       {
         key: "bankAccountNumber",
@@ -246,6 +293,7 @@ export function ProfileVerificationModal({
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [permanentSameAsPresent, setPermanentSameAsPresent] = useState(false);
+  const [correctionEditorOpen, setCorrectionEditorOpen] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!open) {
@@ -253,6 +301,7 @@ export function ProfileVerificationModal({
       setFieldStates({});
       setConsent(false);
       setPermanentSameAsPresent(false);
+      setCorrectionEditorOpen({});
       return;
     }
     if (user?.permanentSameAsPresent) {
@@ -280,18 +329,50 @@ export function ProfileVerificationModal({
     });
   }, [allFields, currentSection, permanentSameAsPresent, user]);
 
-  const markField = useCallback((key: string, status: FieldStatus) => {
+  const markFieldCorrect = useCallback((key: string) => {
     setFieldStates((prev) => ({
       ...prev,
-      [key]: { status, correction: prev[key]?.correction ?? "" },
+      [key]: { status: "CORRECT", correction: "" },
     }));
+    setCorrectionEditorOpen((prev) => ({ ...prev, [key]: false }));
   }, []);
 
-  const setCorrection = useCallback((key: string, value: string) => {
+  const openWrongEditor = useCallback((key: string) => {
     setFieldStates((prev) => ({
       ...prev,
-      [key]: { ...prev[key], status: prev[key]?.status ?? "WRONG", correction: value },
+      [key]: { status: "WRONG", correction: prev[key]?.correction ?? "" },
     }));
+    setCorrectionEditorOpen((prev) => ({ ...prev, [key]: true }));
+  }, []);
+
+  const handleWrongClick = useCallback(
+    (key: string) => {
+      const state = fieldStates[key];
+      if (state?.status === "WRONG" && correctionEditorOpen[key]) {
+        setCorrectionEditorOpen((prev) => ({ ...prev, [key]: false }));
+        return;
+      }
+      if (state?.status === "WRONG" && !correctionEditorOpen[key]) {
+        setCorrectionEditorOpen((prev) => ({ ...prev, [key]: true }));
+        return;
+      }
+      openWrongEditor(key);
+    },
+    [correctionEditorOpen, fieldStates, openWrongEditor],
+  );
+
+  const setCorrection = useCallback((key: string, value: string, closeEditor = false) => {
+    setFieldStates((prev) => ({
+      ...prev,
+      [key]: { status: "WRONG", correction: value },
+    }));
+    if (closeEditor && value.trim()) {
+      setCorrectionEditorOpen((prev) => ({ ...prev, [key]: false }));
+    }
+  }, []);
+
+  const closeCorrectionEditor = useCallback((key: string) => {
+    setCorrectionEditorOpen((prev) => ({ ...prev, [key]: false }));
   }, []);
 
   const fieldNeedsMarking = useCallback(
@@ -401,7 +482,10 @@ export function ProfileVerificationModal({
     const isEmpty = !field.value;
     const isCorrect = state?.status === "CORRECT";
     const isWrong = state?.status === "WRONG";
+    const editorOpen = Boolean(isWrong && correctionEditorOpen[field.key]);
     const canMarkCorrect = !isEmpty || field.readonly;
+    const correctionLabel =
+      field.selectOptions?.find((o) => o.value === state?.correction)?.label ?? state?.correction;
 
     return (
       <div
@@ -429,6 +513,12 @@ export function ProfileVerificationModal({
           {isEmpty ? t("pages.profileVerification.notProvided") : field.value}
         </p>
 
+        {isWrong && !editorOpen && state.correction.trim() ? (
+          <p className="mb-2 text-xs font-medium text-red-700 dark:text-red-400">
+            {t("pages.profileVerification.correctionValue", { value: correctionLabel })}
+          </p>
+        ) : null}
+
         <div className="flex flex-wrap gap-1.5">
           {canMarkCorrect && (
             <Button
@@ -436,7 +526,7 @@ export function ProfileVerificationModal({
               size="sm"
               variant={isCorrect ? "default" : "outline"}
               className={cn("h-7 gap-1 text-xs", isCorrect && "bg-emerald-600 hover:bg-emerald-700")}
-              onClick={() => markField(field.key, "CORRECT")}
+              onClick={() => markFieldCorrect(field.key)}
             >
               <Check className="h-3 w-3" />
               {t("pages.profileVerification.correct")}
@@ -447,21 +537,45 @@ export function ProfileVerificationModal({
             size="sm"
             variant={isWrong ? "default" : "outline"}
             className={cn("h-7 gap-1 text-xs", isWrong && "bg-red-600 hover:bg-red-700")}
-            onClick={() => markField(field.key, "WRONG")}
+            onClick={() => handleWrongClick(field.key)}
           >
             <X className="h-3 w-3" />
             {isEmpty ? t("pages.profileVerification.provideValue") : t("pages.profileVerification.wrong")}
           </Button>
         </div>
 
-        {isWrong && (
+        {editorOpen && (
           <div className="mt-2">
-            <Input
-              placeholder={t("pages.profileVerification.enterCorrectValue")}
-              value={state.correction}
-              onChange={(e) => setCorrection(field.key, e.target.value)}
-              className="h-8 text-sm"
-            />
+            {field.selectOptions ? (
+              <Select
+                value={state?.correction || undefined}
+                onValueChange={(value) => setCorrection(field.key, value, true)}
+              >
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder={t("pages.profileVerification.selectValue")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {field.selectOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                placeholder={t("pages.profileVerification.enterCorrectValue")}
+                value={state?.correction ?? ""}
+                onChange={(e) => setCorrection(field.key, e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && state?.correction?.trim()) {
+                    e.preventDefault();
+                    closeCorrectionEditor(field.key);
+                  }
+                }}
+                className="h-8 text-sm"
+              />
+            )}
           </div>
         )}
       </div>
