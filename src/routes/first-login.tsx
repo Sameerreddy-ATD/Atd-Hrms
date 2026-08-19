@@ -9,6 +9,7 @@ import { PasswordInput } from "@/components/common/PasswordInput";
 import { LoginCrewMascot, type LoginCrewMode } from "@/components/auth/LoginCrewMascot";
 import { ScrollPage } from "@/components/layout/ScrollPage";
 import { useAuth } from "@/lib/auth";
+import { passwordPolicyChecks } from "@/lib/password-policy";
 import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/first-login")({
@@ -26,9 +27,11 @@ function FirstLoginPage() {
   const [passwordVisible, setPasswordVisible] = useState(false);
 
   const rules = [
-    { label: t("pages.authExtra.atLeast8"), ok: next.length >= 8 },
-    { label: t("pages.authExtra.containsNumber"), ok: /\d/.test(next) },
-    { label: t("pages.authExtra.containsUpper"), ok: /[A-Z]/.test(next) },
+    ...passwordPolicyChecks(next, {
+      minLength: t("pages.authExtra.atLeast10"),
+      uppercase: t("pages.authExtra.containsUpper"),
+      number: t("pages.authExtra.containsNumber"),
+    }),
     { label: t("pages.authExtra.matchesConfirm"), ok: next.length > 0 && next === confirm },
   ];
 

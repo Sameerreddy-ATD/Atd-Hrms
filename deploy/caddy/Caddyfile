@@ -1,0 +1,18 @@
+# Reference Caddyfile for production (hrms.anytime-diesel.com).
+# Live copy: /etc/caddy/Caddyfile on the Lightsail host.
+
+hrms.anytime-diesel.com {
+	encode gzip zstd
+
+	@api path /api /api/*
+	@integration path /api/v1 /api/v1/*
+	handle @integration {
+		reverse_proxy 127.0.0.1:4000
+	}
+	handle @api {
+		reverse_proxy 127.0.0.1:4000
+	}
+	handle {
+		reverse_proxy 127.0.0.1:8081
+	}
+}

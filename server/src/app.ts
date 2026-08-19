@@ -166,6 +166,10 @@ import {
 } from "./push.js";
 import { openNotificationStream, publishNotificationChange } from "./notificationLive.js";
 import {
+  canAccessPeopleDirectory,
+  canAccessLeaveReports,
+  teamScopedEmployeeIds,
+  hasTeamManagementScope,
   assertCanViewTeamAttendance,
   assertEmployeeAccess,
   canCreateRole,
@@ -2859,9 +2863,10 @@ export function createApp() {
         where = {};
       } else if (req.user!.employeeId) {
         const teamIds = await getOrganizationTeamEmployeeIds(req.user!.employeeId);
+        const scopedIds = [...new Set([req.user!.employeeId, ...teamIds])];
         where =
           teamIds.length > 0
-            ? { employeeId: { in: teamIds } }
+            ? { employeeId: { in: scopedIds } }
             : { employeeId: req.user!.employeeId };
       }
       const employees = await prisma.employee.findMany({
@@ -3760,8 +3765,10 @@ export function createApp() {
   app.get(
     "/departments",
     requireAuth,
-    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.CEO, Role.HR, Role.MANAGER),
-    asyncHandler(async (_req, res) => {
+    asyncHandler(async (req, res) => {
+      if (!(await canAccessPeopleDirectory(req.user))) {
+        throw new HttpError(403, "Insufficient permissions");
+      }
       res.json(await listDepartmentDtos());
     }),
   );
@@ -4860,15 +4867,10 @@ export function createApp() {
   app.get(
     "/reports/leave",
     requireAuth,
-    requireRoles(
-      Role.HR,
-      Role.MAIN_ADMIN,
-      Role.DEVELOPER_ADMIN,
-      Role.CEO,
-      Role.CHIEF_OF_STAFF,
-      Role.MANAGER,
-    ),
     asyncHandler(async (req, res) => {
+      if (!(await canAccessLeaveReports(req.user))) {
+        throw new HttpError(403, "Insufficient permissions");
+      }
       const where: Prisma.LeaveRequestWhereInput = {};
       const from = dateFromQuery(req.query.from ?? req.query.dateFrom);
       const to = dateFromQuery(req.query.to ?? req.query.dateTo);
@@ -4878,9 +4880,16 @@ export function createApp() {
       }
       if (typeof req.query.employeeId === "string") where.employeeId = req.query.employeeId;
       if (typeof req.query.status === "string") where.status = req.query.status as never;
-      if (req.user!.role === Role.MANAGER && req.user!.employeeId) {
+      const orgWideLeaveRoles: Role[] = [
+        Role.HR,
+        Role.MAIN_ADMIN,
+        Role.DEVELOPER_ADMIN,
+        Role.CEO,
+        Role.CHIEF_OF_STAFF,
+      ];
+      if (req.user!.employeeId && !orgWideLeaveRoles.includes(req.user!.role)) {
         where.employee = {
-          employeeId: { in: await getOrganizationTeamEmployeeIds(req.user!.employeeId) },
+          employeeId: { in: await teamScopedEmployeeIds(req.user) },
         };
       }
       const rows = await prisma.leaveRequest.findMany({
@@ -5921,21 +5930,35 @@ export function createApp() {
         include: { employee: true },
       });
       await assertOrganizationApproverForLeave(req.user!, existing);
-      if (existing.status !== "PENDING") {
-        throw new HttpError(400, "Only pending leave requests can be approved.");
+      const hrRoles: Role[] = [Role.HR, Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN];
+      const isHrApprover = hrRoles.includes(req.user!.role);
+      const approvableStatuses = (
+        isHrApprover ? ["PENDING", "MANAGER_APPROVED"] : ["PENDING"]
+      ) as import("@prisma/client").LeaveStatus[];
+      if (!approvableStatuses.includes(existing.status)) {
+        throw new HttpError(
+          400,
+          isHrApprover
+            ? "Only pending or manager-approved leave requests can be finalized."
+            : "Only pending leave requests can be approved.",
+        );
       }
+      const nextStatus = isHrApprover ? "APPROVED" : "MANAGER_APPROVED";
       const leaveType = await prisma.leaveType.findUniqueOrThrow({
         where: { leaveTypeId: existing.leaveTypeId },
       });
       await prisma.$transaction(async (tx) => {
         const changed = await tx.leaveRequest.updateMany({
-          where: { leaveRequestId: String(req.params.id), status: "PENDING" },
-          data: { status: "APPROVED", reviewedByUserId: req.user!.id },
+          where: {
+            leaveRequestId: String(req.params.id),
+            status: { in: [...approvableStatuses] },
+          },
+          data: { status: nextStatus, reviewedByUserId: req.user!.id },
         });
         if (changed.count !== 1) {
           throw new HttpError(409, "This leave request was already reviewed");
         }
-        if (leaveType.code === LEAVE_CODES.COMP_OFF) {
+        if (nextStatus === "APPROVED" && leaveType.code === LEAVE_CODES.COMP_OFF) {
           await consumeCompOffCredits(
             existing.employeeId,
             existing.leaveRequestId,
@@ -5949,15 +5972,17 @@ export function createApp() {
         where: { leaveRequestId: String(req.params.id) },
         include: { leaveType: true, employee: { include: { manager: true } } },
       });
-      await syncEmployeeLeaveBalances(leave.employeeId);
-      await recalculateLeaveDateRange(
-        leave.employeeId,
-        leave.fromDate,
-        leave.toDate,
-        recalculateDailySummary,
-      );
+      if (nextStatus === "APPROVED") {
+        await syncEmployeeLeaveBalances(leave.employeeId);
+        await recalculateLeaveDateRange(
+          leave.employeeId,
+          leave.fromDate,
+          leave.toDate,
+          recalculateDailySummary,
+        );
+      }
       await audit({
-        action: "leave approved",
+        action: nextStatus === "APPROVED" ? "leave approved" : "leave manager approved",
         performedByUserId: req.user!.id,
         newValue: {
           leaveRequestId: leave.leaveRequestId,
@@ -5978,11 +6003,14 @@ export function createApp() {
         include: { employee: true },
       });
       await assertOrganizationApproverForLeave(req.user!, existing);
-      if (existing.status !== "PENDING") {
-        throw new HttpError(400, "Only pending leave requests can be rejected.");
+      if (!["PENDING", "MANAGER_APPROVED"].includes(existing.status)) {
+        throw new HttpError(400, "Only pending or manager-approved leave requests can be rejected.");
       }
       const changed = await prisma.leaveRequest.updateMany({
-        where: { leaveRequestId: String(req.params.id), status: "PENDING" },
+        where: {
+          leaveRequestId: String(req.params.id),
+          status: { in: ["PENDING", "MANAGER_APPROVED"] },
+        },
         data: { status: "REJECTED", reviewedByUserId: req.user!.id },
       });
       if (changed.count !== 1) {
@@ -6125,11 +6153,13 @@ export function createApp() {
     "/profile/edit-requests",
     requireAuth,
     asyncHandler(async (_req, res) => {
-      // Profile-edit approval workflow is intentionally not shipped; employees update via policy.
-      throw new HttpError(
-        501,
-        "Profile edit requests are not available. Developer Admin can enable direct employee profile editing in System Settings.",
-      );
+      const policy = await readProfileSelfEditPolicy();
+      res.status(409).json({
+        error:
+          "Profile edit requests are not enabled. Update your profile directly when self-edit is turned on in System Settings, or contact HR.",
+        selfEditEnabled: policy.enabled,
+        allowedFields: policy.allowedFields,
+      });
     }),
   );
 

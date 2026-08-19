@@ -32,6 +32,7 @@ export const NAV_I18N_BY_PATH: Record<string, string> = {
   "/notifications": "nav.notifications",
   "/my-assets": "nav.myAssets",
   "/profile": "nav.myProfile",
+  "/face-enrollment": "nav.faceEnrollment",
   "/id-card": "nav.idCard",
   "/face-security": "nav.faceSecurity",
   "/settings": "nav.systemSettings",

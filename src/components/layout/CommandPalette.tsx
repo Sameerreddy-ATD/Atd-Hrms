@@ -52,7 +52,7 @@ export function CommandPalette({
     moduleAccessApi
       .mine()
       .then((result) => setAllowedModules(result.modules))
-      .catch(() => setAllowedModules([]));
+      .catch(() => setAllowedModules(undefined));
   }, [user]);
 
   useEffect(() => {

@@ -352,6 +352,55 @@ export async function assertEmployeeAccess(viewer: Express.Request["user"], empl
   throw new HttpError(403, "You can only access permitted employee data");
 }
 
+const PEOPLE_DIRECTORY_ROLES: Role[] = [
+  Role.DEVELOPER_ADMIN,
+  Role.MAIN_ADMIN,
+  Role.CEO,
+  Role.HR,
+  Role.MANAGER,
+];
+
+const LEAVE_REPORT_ROLES: Role[] = [
+  Role.HR,
+  Role.MAIN_ADMIN,
+  Role.DEVELOPER_ADMIN,
+  Role.CEO,
+  Role.CHIEF_OF_STAFF,
+  Role.MANAGER,
+];
+
+/** Org-wide HR/admin roles plus legacy managers and active org heads. */
+export async function canAccessPeopleDirectory(user: Express.Request["user"]) {
+  if (!user) return false;
+  if (PEOPLE_DIRECTORY_ROLES.includes(user.role)) return true;
+  if (!user.employeeId) return false;
+  return isAssignedOrganizationHead(user.employeeId);
+}
+
+/** Team-scoped leave/attendance reports for managers and org heads. */
+export async function canAccessLeaveReports(user: Express.Request["user"]) {
+  if (!user) return false;
+  if (LEAVE_REPORT_ROLES.includes(user.role)) return true;
+  if (!user.employeeId) return false;
+  const teamIds = await getOrganizationTeamEmployeeIds(user.employeeId);
+  return teamIds.length > 0;
+}
+
+/** Employee IDs visible to a team-scoped viewer (includes self). */
+export async function teamScopedEmployeeIds(user: Express.Request["user"]) {
+  if (!user?.employeeId) return [] as string[];
+  const teamIds = await getOrganizationTeamEmployeeIds(user.employeeId);
+  return [...new Set([user.employeeId, ...teamIds])];
+}
+
+/** True when the user manages a team (legacy manager role or org head / viewer). */
+export async function hasTeamManagementScope(user: Express.Request["user"]) {
+  if (!user?.employeeId) return user?.role === Role.MANAGER;
+  if (user.role === Role.MANAGER) return true;
+  const teamIds = await getOrganizationTeamEmployeeIds(user.employeeId);
+  return teamIds.length > 0;
+}
+
 export function roleToUi(role: Role) {
   return role.toLowerCase();
 }

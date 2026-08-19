@@ -72,6 +72,19 @@ async function teamIdsFor(user: NonNullable<Request["user"]>) {
   return getOrganizationTeamEmployeeIds(user.employeeId);
 }
 
+async function teamVisibleEmployeeIds(user: NonNullable<Request["user"]>) {
+  if (!user.employeeId) return [] as string[];
+  const team = await teamIdsFor(user);
+  return [...new Set([user.employeeId, ...team])];
+}
+
+async function canViewTeamRecords(user: NonNullable<Request["user"]>) {
+  if (isPeopleOps(user.role)) return true;
+  if (user.role === Role.MANAGER) return true;
+  const team = await teamIdsFor(user);
+  return team.length > 0;
+}
+
 async function assertCanSeeEmployee(user: NonNullable<Request["user"]>, employeeId: string) {
   if (isPeopleOps(user.role)) return;
   if (user.employeeId === employeeId) return;
@@ -771,14 +784,14 @@ export function registerLifecycleRoutes(app: Express) {
     "/lifecycle/onboarding",
     requireAuth,
     asyncHandler(async (req, res) => {
-      const ownOnly = !isPeopleOps(req.user!.role) && req.user!.role !== Role.MANAGER;
-      const team = req.user!.role === Role.MANAGER ? await teamIdsFor(req.user!) : [];
+      const teamView = await canViewTeamRecords(req.user!);
+      const team = teamView ? await teamVisibleEmployeeIds(req.user!) : [];
       const rows = await prisma.onboardingCase.findMany({
-        where: ownOnly
-          ? { employeeId: req.user!.employeeId ?? "__none__" }
-          : req.user!.role === Role.MANAGER
-            ? { employeeId: { in: [...team, req.user!.employeeId].filter(Boolean) as string[] } }
-            : {},
+        where: isPeopleOps(req.user!.role)
+          ? {}
+          : teamView
+            ? { employeeId: { in: team } }
+            : { employeeId: req.user!.employeeId ?? "__none__" },
         orderBy: { updatedAt: "desc" },
         include: {
           employee: {
@@ -953,14 +966,14 @@ export function registerLifecycleRoutes(app: Express) {
     "/lifecycle/nho",
     requireAuth,
     asyncHandler(async (req, res) => {
-      const ownOnly = !isPeopleOps(req.user!.role) && req.user!.role !== Role.MANAGER;
-      const team = req.user!.role === Role.MANAGER ? await teamIdsFor(req.user!) : [];
+      const teamView = await canViewTeamRecords(req.user!);
+      const team = teamView ? await teamVisibleEmployeeIds(req.user!) : [];
       const rows = await prisma.newHireProfile.findMany({
-        where: ownOnly
-          ? { employeeId: req.user!.employeeId ?? "__none__" }
-          : req.user!.role === Role.MANAGER
-            ? { employeeId: { in: [...team, req.user!.employeeId].filter(Boolean) as string[] } }
-            : {},
+        where: isPeopleOps(req.user!.role)
+          ? {}
+          : teamView
+            ? { employeeId: { in: team } }
+            : { employeeId: req.user!.employeeId ?? "__none__" },
         include: { employee: { select: { name: true, employeeCode: true, lifecycleStage: true } } },
         orderBy: { updatedAt: "desc" },
       });
@@ -1121,14 +1134,14 @@ export function registerLifecycleRoutes(app: Express) {
     requireAuth,
     changeGate,
     asyncHandler(async (req, res) => {
-      const ownOnly = !isPeopleOps(req.user!.role) && req.user!.role !== Role.MANAGER;
-      const team = req.user!.role === Role.MANAGER ? await teamIdsFor(req.user!) : [];
+      const teamView = await canViewTeamRecords(req.user!);
+      const team = teamView ? await teamVisibleEmployeeIds(req.user!) : [];
       const rows = await prisma.employeeChangeRequest.findMany({
-        where: ownOnly
-          ? { employeeId: req.user!.employeeId ?? "__none__" }
-          : req.user!.role === Role.MANAGER
-            ? { employeeId: { in: [...team, req.user!.employeeId].filter(Boolean) as string[] } }
-            : {},
+        where: isPeopleOps(req.user!.role)
+          ? {}
+          : teamView
+            ? { employeeId: { in: team } }
+            : { employeeId: req.user!.employeeId ?? "__none__" },
         include: { employee: { select: { name: true, employeeCode: true, designation: true } } },
         orderBy: { createdAt: "desc" },
         take: 200,

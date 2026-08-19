@@ -484,7 +484,7 @@ function ApplyLeavePage() {
               </CardContent>
             </Card>
             <aside className="rounded-lg border bg-muted/20 p-4 lg:sticky lg:top-4 lg:self-start">
-              <h2 className="text-sm font-semibold">{t("pages.missedPunch.requestSummary")}</h2>
+              <h2 className="text-sm font-semibold">{t("pages.leaveApply.requestSummary")}</h2>
               <div className="mt-4 space-y-4">
                 <LeaveSummary
                   icon={ShieldCheck}
@@ -660,7 +660,7 @@ function ApplyLeavePage() {
             </CardContent>
           </Card>
           <aside className="rounded-lg border bg-muted/20 p-4 lg:sticky lg:top-4 lg:self-start">
-            <h2 className="text-sm font-semibold">{t("pages.missedPunch.requestSummary")}</h2>
+            <h2 className="text-sm font-semibold">{t("pages.leaveApply.requestSummary")}</h2>
             <div className="mt-4 space-y-4">
               <LeaveSummary
                 icon={CalendarClock}

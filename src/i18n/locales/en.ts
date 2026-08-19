@@ -100,6 +100,7 @@ const en = {
     "notifications": "Notifications",
     "myAssets": "My Assets",
     "myProfile": "My Profile",
+    "faceEnrollment": "Face Enrollment",
     "idCard": "ID Card",
     "faceSecurity": "Face Security",
     "systemSettings": "System Settings",

@@ -100,6 +100,7 @@ const te = {
     "notifications": "నోటిఫికేషన్లు",
     "myAssets": "నా ఆస్తులు",
     "myProfile": "నా ప్రొఫైల్",
+    "faceEnrollment": "Face Enrollment",
     "idCard": "ఐడి కార్డ్",
     "faceSecurity": "ఫేస్ సెక్యూరిటీ",
     "systemSettings": "సిస్టమ్ సెట్టింగ్‌లు",

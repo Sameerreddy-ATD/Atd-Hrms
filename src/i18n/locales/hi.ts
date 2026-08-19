@@ -100,6 +100,7 @@ const hi = {
     "notifications": "सूचनाएँ",
     "myAssets": "मेरे एसेट",
     "myProfile": "मेरी प्रोफ़ाइल",
+    "faceEnrollment": "Face Enrollment",
     "idCard": "आईडी कार्ड",
     "faceSecurity": "फ़ेस सिक्योरिटी",
     "systemSettings": "सिस्टम सेटिंग्स",

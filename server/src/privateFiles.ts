@@ -143,8 +143,7 @@ export async function assertCanAccessPrivateFile(options: {
     if (privileged || record.uploadedByUserId === options.userId) return record;
     if (
       options.kind === "medical" &&
-      options.allowManagerMedical &&
-      options.role === Role.MANAGER
+      options.allowManagerMedical
     ) {
       return record;
     }

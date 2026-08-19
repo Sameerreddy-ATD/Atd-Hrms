@@ -17,6 +17,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { useAuth } from "@/lib/auth";
+import { passwordPolicyChecks } from "@/lib/password-policy";
 import { formatDisplayDate } from "@/lib/india-date";
 import { cn } from "@/lib/utils";
 import {
@@ -153,9 +154,11 @@ function ProfilePage() {
     .toUpperCase();
 
   const rules = [
-    { label: t("pages.authExtra.atLeast8"), ok: newPw.length >= 8 },
-    { label: t("pages.authExtra.containsNumber"), ok: /\d/.test(newPw) },
-    { label: t("pages.authExtra.containsUpper"), ok: /[A-Z]/.test(newPw) },
+    ...passwordPolicyChecks(newPw, {
+      minLength: t("pages.authExtra.atLeast10"),
+      uppercase: t("pages.authExtra.containsUpper"),
+      number: t("pages.authExtra.containsNumber"),
+    }),
     {
       label: t("pages.authExtra.matchesConfirm"),
       ok: newPw.length > 0 && newPw === confirmPw,

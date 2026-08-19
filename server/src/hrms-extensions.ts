@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
 import type { Express } from "express";
@@ -9,7 +9,7 @@ import { asyncHandler, HttpError } from "./errors.js";
 import { requireAuth, requireRoles, getOrganizationTeamEmployeeIds } from "./rbac.js";
 import { ensureChecklistInstance } from "./checklistService.js";
 import { assertCanAccessTask, boardAccessWhere } from "./taskBoardAccess.js";
-import { readPrivateFile, storePrivateFile, assertCanAccessPrivateFile } from "./privateFiles.js";
+import { readPrivateFile, storePrivateFile, assertCanAccessPrivateFile, detectAllowedUploadMime, assertClientMimeMatches, decodeBase64Payload } from "./privateFiles.js";
 import { audit } from "./audit.js";
 import { config } from "./config.js";
 import rateLimit from "express-rate-limit";
@@ -460,11 +460,10 @@ export function registerHrmsExtensions(app: Express) {
         })
         .parse(req.body);
       const task = await assertCanAccessTask(req.user!, String(req.params.id));
-      const raw = body.contentBase64.includes(",")
-        ? body.contentBase64.split(",").pop()!
-        : body.contentBase64;
-      const buffer = Buffer.from(raw, "base64");
+      const buffer = decodeBase64Payload(body.contentBase64);
       if (buffer.length > 1_500_000) throw new HttpError(400, "Attachment must be under 1.5 MB");
+      const mimeType = detectAllowedUploadMime(buffer);
+      assertClientMimeMatches(mimeType, body.mimeType);
       await ensureDir(attachmentsDir);
       const storageKey = `${task.taskId}-${randomBytes(8).toString("hex")}-${body.fileName.replace(/[^\w.-]+/g, "_")}`;
       await writeFile(path.join(attachmentsDir, storageKey), buffer, { mode: 0o600 });
@@ -472,7 +471,7 @@ export function registerHrmsExtensions(app: Express) {
         data: {
           taskId: task.taskId,
           fileName: body.fileName,
-          mimeType: body.mimeType,
+          mimeType,
           sizeBytes: buffer.length,
           storageKey,
           uploadedById: req.user!.id,
@@ -506,6 +505,29 @@ export function registerHrmsExtensions(app: Express) {
           createdAt: row.createdAt.toISOString(),
         })),
       );
+    }),
+  );
+
+  app.get(
+    "/tasks/:id/attachments/:attachmentId/download",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      await assertCanAccessTask(req.user!, String(req.params.id));
+      const attachment = await prisma.taskAttachment.findFirst({
+        where: {
+          taskId: String(req.params.id),
+          attachmentId: String(req.params.attachmentId),
+        },
+      });
+      if (!attachment) throw new HttpError(404, "Attachment not found");
+      const buffer = await readFile(path.join(attachmentsDir, attachment.storageKey));
+      res.setHeader("Content-Type", attachment.mimeType);
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${attachment.fileName.replace(/"/g, "")}"`,
+      );
+      res.send(buffer);
     }),
   );
 
@@ -672,7 +694,7 @@ export function registerHrmsExtensions(app: Express) {
     asyncHandler(async (req, res) => {
       const key = String(req.params.key);
       let allowManagerMedical = false;
-      if (req.user!.role === Role.MANAGER && req.user!.employeeId) {
+      if (req.user!.employeeId) {
         const linked = await prisma.leaveRequest.findFirst({
           where: {
             medicalDocumentUrl: `/leave/medical-files/${key}`,

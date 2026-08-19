@@ -284,6 +284,12 @@ export const menuGroups: MenuGroup[] = [
       { label: "My Assets", to: "/my-assets", icon: Package, roles: ALL.filter((r) => r !== "driver") },
       { label: "My Profile", to: "/profile", icon: UserCog, roles: ALL },
       {
+        label: "Face Enrollment",
+        to: "/face-enrollment",
+        icon: ScanFace,
+        roles: ["employee", "manager", "sales", "field_staff", "driver", "hr"],
+      },
+      {
         label: "Preferences",
         to: "/preferences",
         icon: Languages,

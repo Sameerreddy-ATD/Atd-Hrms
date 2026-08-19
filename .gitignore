@@ -1,5 +1,6 @@
-# Logs
-logs
+# Local exports (may contain PII)
+exports/
+
 *.log
 npm-debug.log*
 yarn-debug.log*

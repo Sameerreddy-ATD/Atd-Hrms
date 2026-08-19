@@ -68,6 +68,7 @@ import {
   WORKFORCE_TYPE_LABELS,
   type WorkforceTypeFilter,
 } from "@/lib/workforce-type";
+import { passwordMeetsPolicy, passwordPolicyError } from "@/lib/password-policy";
 import { WorkforceTypeBadge } from "@/components/common/WorkforceTypeBadge";
 
 export const Route = createFileRoute("/_app/users")({
@@ -230,13 +231,13 @@ function UsersPage() {
   }
 
   const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword;
-  const canResetPassword = newPassword.length >= 8 && passwordsMatch;
+  const canResetPassword = passwordMeetsPolicy(newPassword) && passwordsMatch;
 
   async function performResetPassword(e: React.FormEvent) {
     e.preventDefault();
     if (!resetUser) return;
-    if (newPassword.length < 8) {
-      toast.error(t("pages.users.toastPasswordTooShort"));
+    if (!passwordMeetsPolicy(newPassword)) {
+      toast.error(passwordPolicyError());
       return;
     }
     if (newPassword !== confirmPassword) {
