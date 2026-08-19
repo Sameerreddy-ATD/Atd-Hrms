@@ -1608,3 +1608,44 @@ export const lifecycleApi = {
     URL.revokeObjectURL(url);
   },
 };
+
+export interface ProfileCorrectionRow {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  employeeCode: string;
+  field: string;
+  section: string;
+  currentValue: string | null;
+  suggestedValue: string;
+  status: string;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+}
+
+export const profileApi = {
+  submitVerification: (fields: Array<{
+    field: string;
+    section: string;
+    status: "CORRECT" | "WRONG";
+    currentValue?: string;
+    suggestedValue?: string;
+  }>) =>
+    request<{ ok: boolean; corrections: number }>("/employees/me/profile-verification", {
+      method: "POST",
+      body: JSON.stringify({ fields }),
+    }),
+  listCorrections: (status?: string) =>
+    request<ProfileCorrectionRow[]>(`/profile-corrections${status ? `?status=${status}` : ""}`),
+  reviewCorrection: (id: string, action: "APPROVE" | "REJECT") =>
+    request<{ id: string; status: string }>(`/profile-corrections/${id}/review`, {
+      method: "POST",
+      body: JSON.stringify({ action }),
+    }),
+  resetVerification: () =>
+    request<{ ok: boolean; count: number }>("/admin/reset-profile-verification", {
+      method: "POST",
+      body: "{}",
+    }),
+};

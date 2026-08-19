@@ -440,6 +440,7 @@ model Employee {
   weeklyOffPolicy            WeeklyOffPolicy               @default(SELECTABLE) @map("weekly_off_policy")
   status                     EmployeeStatus                @default(ACTIVE)
   version                    Int                           @default(1)
+  profileVerified            Boolean                       @default(false) @map("profile_verified")
   terminatedAt               DateTime?                     @map("terminated_at")
   createdAt                  DateTime                      @default(now()) @map("created_at")
   updatedAt                  DateTime                      @updatedAt @map("updated_at")
@@ -487,6 +488,7 @@ model Employee {
   changeRequests             EmployeeChangeRequest[]
   offboardingCases           OffboardingCase[]
   offerLetters               OfferLetter[]
+  profileCorrectionRequests  ProfileCorrectionRequest[]
 
   @@index([lifecycleStage, status])
   @@map("employees")
@@ -1997,4 +1999,21 @@ model DeferredPunchReceipt {
 
   @@index([employeeId, capturedAt])
   @@map("deferred_punch_receipts")
+}
+
+model ProfileCorrectionRequest {
+  id             String    @id @default(cuid())
+  employeeId     String    @map("employee_id")
+  employee       Employee  @relation(fields: [employeeId], references: [employeeId])
+  field          String    @db.VarChar(60)
+  section        String    @db.VarChar(20)
+  currentValue   String?   @map("current_value") @db.Text
+  suggestedValue String    @map("suggested_value") @db.Text
+  status         String    @default("PENDING") @db.VarChar(20)
+  reviewedBy     String?   @map("reviewed_by")
+  reviewedAt     DateTime? @map("reviewed_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  @@index([employeeId, status])
+  @@map("profile_correction_requests")
 }

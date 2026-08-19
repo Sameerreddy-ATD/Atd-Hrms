@@ -16,6 +16,7 @@ import {
   integrationClientsApi,
   usersApi,
   profileSelfEditApi,
+  profileApi,
   type SystemHealth,
 } from "@/services/api";
 import { Button } from "@/components/ui/button";
@@ -1164,6 +1165,41 @@ function SettingsPage() {
           <SettingRow label="Attendance source" value="Thumb scanner and mobile GPS" />
         </CardContent>
       </Card>
+
+      {isDeveloperAdmin && (
+        <Card>
+          <CardHeader className="gap-1 border-b px-4 py-3.5 sm:px-5">
+            <div className="flex items-start gap-3">
+              <div className="rounded-md bg-primary/10 p-2 text-primary">
+                <RefreshCw className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-base">{t("pages.profileCorrections.resetVerification")}</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t("pages.profileCorrections.resetConfirm")}
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="px-4 py-4 sm:px-5">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                if (!window.confirm(t("pages.profileCorrections.resetConfirm"))) return;
+                try {
+                  const res = await profileApi.resetVerification();
+                  toast.success(t("pages.profileCorrections.resetSuccess", { count: res.count }));
+                } catch (err) {
+                  toast.error((err as Error).message);
+                }
+              }}
+            >
+              <RefreshCw className="h-4 w-4" />
+              {t("pages.profileCorrections.resetVerification")}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {isDeveloperAdmin && (
         <Card className="border-destructive/40">

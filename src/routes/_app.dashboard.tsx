@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { BirthdayMarquee } from "@/components/layout/BirthdayMarquee";
 import { DashboardAnnouncements } from "@/components/layout/DashboardAnnouncements";
 import { StatCard } from "@/components/common/StatCard";
+import { ProfileVerificationModal } from "@/components/profile/ProfileVerificationModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -557,6 +558,8 @@ function MarkAttendanceCard({
     startedAt?: number;
   } | null>(null);
   const [leaveCheckIn, setLeaveCheckIn] = useState<AttendanceCapture | null>(null);
+  const [showProfileVerification, setShowProfileVerification] = useState(false);
+  const { updateCurrentUser } = useAuth();
   // Nothing here depends on the passing second any more; only the open stretch
   // does, and LiveWorkedTime tracks that on its own.
   const workSession = useMemo(() => workedTime(timeline), [timeline]);
@@ -692,6 +695,9 @@ function MarkAttendanceCard({
       setLeaveCheckIn(null);
       toast.success(t("pages.dashboard.toastCheckedIn"));
       onAttendanceChanged();
+      if (!user.profileVerified) {
+        setShowProfileVerification(true);
+      }
     } catch (err) {
       const message = (err as Error).message;
       if (message.includes("Confirm check-in to cancel leave")) {
@@ -917,6 +923,13 @@ function MarkAttendanceCard({
         action={faceAction}
         onClose={() => setFaceAction(null)}
         onVerified={handleVerifiedAttendance}
+      />
+      <ProfileVerificationModal
+        open={showProfileVerification}
+        onComplete={() => {
+          setShowProfileVerification(false);
+          updateCurrentUser({ ...user, profileVerified: true });
+        }}
       />
     </Card>
   );

@@ -915,3 +915,21 @@ export const pushUnsubscribeSchema = z.union([
   z.object({ endpoint: z.string().url().max(5000) }),
   z.object({ channel: z.enum(["fcm", "apns"]), token: z.string().min(8).max(4096) }),
 ]);
+
+export const profileVerificationSchema = z.object({
+  fields: z
+    .array(
+      z.object({
+        field: z.string().min(1).max(60),
+        section: z.enum(["identity", "employment", "banking", "statutory"]),
+        status: z.enum(["CORRECT", "WRONG"]),
+        currentValue: z.string().max(2000).optional(),
+        suggestedValue: z.string().max(2000).optional(),
+      }),
+    )
+    .min(1),
+});
+
+export const profileCorrectionReviewSchema = z.object({
+  action: z.enum(["APPROVE", "REJECT"]),
+});

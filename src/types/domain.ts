@@ -136,6 +136,7 @@ export interface User {
   attendanceRequired?: boolean;
   isFieldEmployee?: boolean;
   weeklyOffPolicy?: WeeklyOffPolicy;
+  profileVerified?: boolean;
   joiningDate?: string;
   dateOfBirth?: string;
   gender?: "FEMALE" | "MALE" | "PREFER_NOT_TO_SAY";

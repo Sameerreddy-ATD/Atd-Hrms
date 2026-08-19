@@ -238,6 +238,8 @@ import {
   emergencyContactSchema,
   updateUserSchema,
   weeklyOffRequestSchema,
+  profileVerificationSchema,
+  profileCorrectionReviewSchema,
 } from "./schemas.js";
 import { registerHrmsExtensions } from "./hrms-extensions.js";
 import { registerLifecycleRoutes } from "./lifecycle.js";
@@ -9149,6 +9151,175 @@ export function createApp() {
         ipAddress: req.ip,
       });
       res.json(holidayDto(holiday));
+    }),
+  );
+
+  // ─── Profile Verification ───
+
+  const PROFILE_FIELD_TO_COLUMN: Record<string, string> = {
+    name: "name", email: "email", phone: "phone", companyPhone: "companyPhone",
+    dateOfBirth: "dateOfBirth", gender: "gender", bloodGroup: "bloodGroup",
+    fatherName: "fatherName",
+    presentAddress: "presentAddress", presentCity: "presentCity",
+    presentState: "presentState", presentPincode: "presentPincode",
+    permanentAddress: "permanentAddress", permanentCity: "permanentCity",
+    permanentState: "permanentState", permanentPincode: "permanentPincode",
+    employeeCode: "employeeCode", designation: "designation",
+    departmentId: "departmentId", joiningDate: "joiningDate",
+    employmentType: "employmentType", companyEntity: "companyEntity",
+    bankAccountHolderName: "bankAccountHolderName", bankAccountType: "bankAccountType",
+    bankIfscCode: "bankIfscCode", bankAccountNumber: "bankAccountNumberEncrypted",
+    panNumber: "panNumberEncrypted", aadhaarNumber: "aadhaarNumberEncrypted",
+    uanNumber: "uanNumberEncrypted",
+  };
+
+  app.post(
+    "/employees/me/profile-verification",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      if (!req.user!.employeeId) throw new HttpError(400, "No employee profile");
+      const body = profileVerificationSchema.parse(req.body);
+      const corrections = body.fields.filter((f) => f.status === "WRONG" && f.suggestedValue);
+      await prisma.$transaction(async (tx) => {
+        if (corrections.length > 0) {
+          await tx.profileCorrectionRequest.createMany({
+            data: corrections.map((c) => ({
+              employeeId: req.user!.employeeId!,
+              field: c.field,
+              section: c.section,
+              currentValue: c.currentValue ?? null,
+              suggestedValue: c.suggestedValue!,
+              status: "PENDING",
+            })),
+          });
+        }
+        await tx.employee.update({
+          where: { employeeId: req.user!.employeeId! },
+          data: { profileVerified: true },
+        });
+      });
+      await audit({
+        action: "profile verification submitted",
+        performedByUserId: req.user!.id,
+        newValue: {
+          totalFields: body.fields.length,
+          correctCount: body.fields.filter((f) => f.status === "CORRECT").length,
+          wrongCount: corrections.length,
+        },
+        ipAddress: req.ip,
+      });
+      res.json({ ok: true, corrections: corrections.length });
+    }),
+  );
+
+  app.get(
+    "/profile-corrections",
+    requireAuth,
+    requireRoles(Role.MANAGER, Role.HR, Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const status = typeof req.query.status === "string" ? req.query.status : undefined;
+      const where: Record<string, unknown> = {};
+      if (status) where.status = status;
+      const rows = await prisma.profileCorrectionRequest.findMany({
+        where,
+        include: { employee: { select: { name: true, employeeCode: true } } },
+        orderBy: { createdAt: "desc" },
+        take: 500,
+      });
+      res.json(
+        rows.map((r) => ({
+          id: r.id,
+          employeeId: r.employeeId,
+          employeeName: r.employee.name,
+          employeeCode: r.employee.employeeCode,
+          field: r.field,
+          section: r.section,
+          currentValue: r.currentValue,
+          suggestedValue: r.suggestedValue,
+          status: r.status,
+          reviewedBy: r.reviewedBy,
+          reviewedAt: r.reviewedAt?.toISOString(),
+          createdAt: r.createdAt.toISOString(),
+        })),
+      );
+    }),
+  );
+
+  app.post(
+    "/profile-corrections/:id/review",
+    requireAuth,
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const body = profileCorrectionReviewSchema.parse(req.body);
+      const correction = await prisma.profileCorrectionRequest.findUniqueOrThrow({
+        where: { id: String(req.params.id) },
+      });
+      if (correction.status !== "PENDING") {
+        throw new HttpError(400, "This correction has already been reviewed");
+      }
+      if (body.action === "APPROVE") {
+        const column = PROFILE_FIELD_TO_COLUMN[correction.field];
+        if (column) {
+          const updateData: Record<string, unknown> = {};
+          if (column === "dateOfBirth" || column === "joiningDate") {
+            updateData[column] = new Date(correction.suggestedValue);
+          } else {
+            updateData[column] = correction.suggestedValue;
+          }
+          // For sensitive fields, also update last4
+          if (column === "bankAccountNumberEncrypted") {
+            updateData.bankAccountNumberLast4 = correction.suggestedValue.slice(-4);
+          } else if (column === "panNumberEncrypted") {
+            updateData.panNumberLast4 = correction.suggestedValue.slice(-4);
+          } else if (column === "aadhaarNumberEncrypted") {
+            updateData.aadhaarNumberLast4 = correction.suggestedValue.slice(-4);
+          } else if (column === "uanNumberEncrypted") {
+            updateData.uanNumberLast4 = correction.suggestedValue.slice(-4);
+          }
+          await prisma.employee.update({
+            where: { employeeId: correction.employeeId },
+            data: updateData,
+          });
+        }
+      }
+      const updated = await prisma.profileCorrectionRequest.update({
+        where: { id: correction.id },
+        data: {
+          status: body.action === "APPROVE" ? "APPROVED" : "REJECTED",
+          reviewedBy: req.user!.id,
+          reviewedAt: new Date(),
+        },
+      });
+      await audit({
+        action: `profile correction ${body.action.toLowerCase()}d`,
+        performedByUserId: req.user!.id,
+        newValue: {
+          correctionId: correction.id,
+          field: correction.field,
+          suggestedValue: correction.suggestedValue,
+        },
+        ipAddress: req.ip,
+      });
+      res.json({ id: updated.id, status: updated.status });
+    }),
+  );
+
+  app.post(
+    "/admin/reset-profile-verification",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const result = await prisma.employee.updateMany({
+        where: { status: "ACTIVE", profileVerified: true },
+        data: { profileVerified: false },
+      });
+      await audit({
+        action: "reset profile verification for all employees",
+        performedByUserId: req.user!.id,
+        newValue: { count: result.count },
+        ipAddress: req.ip,
+      });
+      res.json({ ok: true, count: result.count });
     }),
   );
 

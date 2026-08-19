@@ -84,6 +84,7 @@ export function userDto(
       | "shiftStartMinutes"
       | "shiftEndMinutes"
       | "status"
+      | "profileVerified"
     > | null;
     faceProfile?: {
       status: "PENDING" | "APPROVED" | "REJECTED" | "DISABLED";
@@ -135,6 +136,7 @@ export function userDto(
     attendanceRequired: user.employee?.attendanceRequired ?? undefined,
     isFieldEmployee: user.employee?.isFieldEmployee ?? undefined,
     weeklyOffPolicy: user.employee?.weeklyOffPolicy ?? undefined,
+    profileVerified: user.employee?.profileVerified ?? false,
     employeeCode: user.employee?.employeeCode ?? undefined,
     dateOfBirth: user.employee?.dateOfBirth?.toISOString().slice(0, 10),
     gender: user.employee?.gender ?? undefined,
