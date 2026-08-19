@@ -6025,7 +6025,10 @@ export function createApp() {
       }
 
       const approver = await findLeaveApprover(req.user!.employeeId);
-      const created: Array<Awaited<ReturnType<typeof prisma.leaveRequest.create>>> = [];
+      type SplitLeaveRequest = Prisma.LeaveRequestGetPayload<{
+        include: { leaveType: true; employee: { include: { manager: true } } };
+      }>;
+      const created: SplitLeaveRequest[] = [];
 
       await prisma.$transaction(async (tx) => {
         for (const alloc of policy.results) {
