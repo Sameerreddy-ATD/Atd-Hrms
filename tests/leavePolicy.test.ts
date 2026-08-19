@@ -106,6 +106,22 @@ describe("leave auto-allocate and week-off skip", () => {
       }),
     ).toEqual(["2026-08-22"]);
   });
+
+  it("caps sick leave at two days minus what was already used this month", async () => {
+    const { sickDaysUsedInMonth, sickLeaveMonthCap } = await import("../src/lib/leave-allocation.ts");
+    const used = sickDaysUsedInMonth(
+      [
+        { type: "Sick Leave", from: "2026-08-04", status: "Approved", days: 1, cancelledDays: 0 },
+        { type: "Sick Leave", from: "2026-07-20", status: "Approved", days: 2 },
+        { type: "Casual Leave", from: "2026-08-10", status: "Pending", days: 1 },
+      ],
+      "Sick Leave",
+      "2026-08",
+    );
+    expect(used).toBe(1);
+    expect(sickLeaveMonthCap(6, 2, used)).toBe(1);
+    expect(sickLeaveMonthCap(6, 2, 2)).toBe(0);
+  });
 });
 
 describe("half-day leave sessions", () => {

@@ -832,7 +832,9 @@ export function createApp() {
           availableBalance,
           requestedDays,
           projectedBalance:
-            row.status === "PENDING" ? availableBalance - requestedDays : availableBalance,
+            row.status === "PENDING" || row.status === "MANAGER_APPROVED"
+              ? availableBalance
+              : availableBalance,
           leaveBalances: balances.map((item) => ({
             type: item.leaveType.name,
             code: item.leaveType.code,
@@ -886,6 +888,26 @@ export function createApp() {
       select: { id: true },
     });
     return users.map((u) => u.id);
+  }
+
+  async function userIdsForRoles(roles: Role[]): Promise<string[]> {
+    const users = await prisma.user.findMany({
+      where: { role: { in: roles }, status: "ACTIVE" },
+      select: { id: true },
+    });
+    return users.map((u) => u.id);
+  }
+
+  async function notifyLeaveReviewers(
+    approverEmployeeId: string | null | undefined,
+    payload: { title: string; body: string; href: string; tag: string },
+  ) {
+    const [headIds, hrIds] = await Promise.all([
+      approverEmployeeId ? userIdsForEmployeeIds([approverEmployeeId]) : Promise.resolve([]),
+      userIdsForRoles([Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN]),
+    ]);
+    const ids = [...new Set([...headIds, ...hrIds])];
+    if (ids.length) void sendPushToUsers(ids, payload);
   }
 
   /** Immediate unit heads first (all co-heads), then parent heads up the organization chart. */
@@ -950,9 +972,16 @@ export function createApp() {
   }
 
   async function assertOrganizationApproverForLeave(
-    user: { employeeId?: string | null },
+    user: { employeeId?: string | null; role: Role },
     leave: { managerId?: string | null; employeeId: string },
   ) {
+    if (
+      (
+        [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR, Role.CEO, Role.CHIEF_OF_STAFF] as Role[]
+      ).includes(user.role)
+    ) {
+      return;
+    }
     if (!user.employeeId) {
       throw new HttpError(
         403,
@@ -5336,9 +5365,9 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       const assigned = req.query.assignedApprovals === "true";
       const all = req.query.all === "true";
-      const canViewAll = ([Role.HR, Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN] as Role[]).includes(
-        req.user!.role,
-      );
+      const canViewAll = (
+        [Role.HR, Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.CEO, Role.CHIEF_OF_STAFF] as Role[]
+      ).includes(req.user!.role);
       if (all && !canViewAll) throw new HttpError(403, "HR or admin access is required");
       if (!all && !req.user!.employeeId) return res.json([]);
       const employeeId = req.user!.employeeId!;
@@ -5488,11 +5517,16 @@ export function createApp() {
       const existing = await prisma.weeklyOffRequest.findUniqueOrThrow({
         where: { weeklyOffRequestId: String(req.params.id) },
       });
-      const allowed = await canActAsOrganizationHeadFor(
-        req.user!.employeeId,
-        existing.employeeId,
-        existing.approverId,
-      );
+      const isPeopleOps = (
+        [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR, Role.CEO, Role.CHIEF_OF_STAFF] as Role[]
+      ).includes(req.user!.role);
+      const allowed =
+        isPeopleOps ||
+        (await canActAsOrganizationHeadFor(
+          req.user!.employeeId,
+          existing.employeeId,
+          existing.approverId,
+        ));
       if (!allowed) {
         throw new HttpError(
           403,
@@ -5537,11 +5571,16 @@ export function createApp() {
       const existing = await prisma.weeklyOffRequest.findUniqueOrThrow({
         where: { weeklyOffRequestId: String(req.params.id) },
       });
-      const allowed = await canActAsOrganizationHeadFor(
-        req.user!.employeeId,
-        existing.employeeId,
-        existing.approverId,
-      );
+      const isPeopleOps = (
+        [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR, Role.CEO, Role.CHIEF_OF_STAFF] as Role[]
+      ).includes(req.user!.role);
+      const allowed =
+        isPeopleOps ||
+        (await canActAsOrganizationHeadFor(
+          req.user!.employeeId,
+          existing.employeeId,
+          existing.approverId,
+        ));
       if (!allowed) {
         throw new HttpError(
           403,
@@ -5864,7 +5903,9 @@ export function createApp() {
       const where: Prisma.LeaveRequestWhereInput = ownOnly
         ? { employeeId: req.user!.employeeId ?? "__none__" }
         : assignedApprovals
-          ? await assignedLeaveApprovalWhere(req.user!.employeeId)
+          ? operationalRoles.includes(req.user!.role)
+            ? {}
+            : await assignedLeaveApprovalWhere(req.user!.employeeId)
           : operationalRoles.includes(req.user!.role)
             ? {}
             : req.user!.employeeId
@@ -5926,7 +5967,7 @@ export function createApp() {
         days: body.days,
         session: body.session,
       });
-      // Comp Off always requires Reporting Head approval and must not consume on submit.
+      // Comp Off always requires Reporting Head approval. Credits are reserved on submit.
       const requiresApproval =
         policy.type.approvalRequired || policy.type.code === LEAVE_CODES.COMP_OFF;
       const approver = requiresApproval ? await findLeaveApprover(req.user!.employeeId) : null;
@@ -5950,22 +5991,34 @@ export function createApp() {
           userId: req.user!.id,
         });
       }
-      const request = await prisma.leaveRequest.create({
-        data: {
-          leaveTypeId: body.leaveTypeId,
-          fromDate: body.fromDate,
-          toDate: body.toDate,
-          days: body.days,
-          session: policy.session,
-          reason: body.reason,
-          medicalDocumentUrl: body.medicalDocumentUrl,
-          employeeId: req.user!.employeeId!,
-          managerId: approver?.employeeId,
-          status: requiresApproval ? "PENDING" : "APPROVED",
-          medicalDocumentDueAt:
-            policy.type.code === LEAVE_CODES.SICK ? medicalDocumentDueAt(body.toDate) : undefined,
-        },
-        include: { leaveType: true, employee: { include: { manager: true } } },
+      const request = await prisma.$transaction(async (tx) => {
+        const created = await tx.leaveRequest.create({
+          data: {
+            leaveTypeId: body.leaveTypeId,
+            fromDate: body.fromDate,
+            toDate: body.toDate,
+            days: body.days,
+            session: policy.session,
+            reason: body.reason,
+            medicalDocumentUrl: body.medicalDocumentUrl,
+            employeeId: req.user!.employeeId!,
+            managerId: approver?.employeeId,
+            status: requiresApproval ? "PENDING" : "APPROVED",
+            medicalDocumentDueAt:
+              policy.type.code === LEAVE_CODES.SICK ? medicalDocumentDueAt(body.toDate) : undefined,
+          },
+          include: { leaveType: true, employee: { include: { manager: true } } },
+        });
+        if (policy.type.code === LEAVE_CODES.COMP_OFF) {
+          await consumeCompOffCredits(
+            req.user!.employeeId!,
+            created.leaveRequestId,
+            body.days,
+            body.fromDate,
+            tx,
+          );
+        }
+        return created;
       });
       await syncEmployeeLeaveBalances(req.user!.employeeId);
       await audit({
@@ -5975,15 +6028,13 @@ export function createApp() {
         ipAddress: req.ip,
       });
       res.status(201).json(leaveRequestDto(request, approver?.name ?? "No approval required"));
-      if (requiresApproval && approver?.employeeId) {
-        void userIdsForEmployeeIds([approver.employeeId]).then((ids) =>
-          sendPushToUsers(ids, {
-            title: "New leave request to review",
-            body: `${request.employee.name} — ${request.leaveType.name} from ${request.fromDate.toISOString().slice(0, 10)} to ${request.toDate.toISOString().slice(0, 10)}`,
-            href: "/leave/approvals",
-            tag: `leave-${request.leaveRequestId}`,
-          }),
-        );
+      if (requiresApproval) {
+        notifyLeaveReviewers(approver?.employeeId, {
+          title: "New leave request to review",
+          body: `${request.employee.name} — ${request.leaveType.name} from ${request.fromDate.toISOString().slice(0, 10)} to ${request.toDate.toISOString().slice(0, 10)}`,
+          href: "/leave/approvals",
+          tag: `leave-${request.leaveRequestId}`,
+        });
       }
     }),
   );
@@ -6060,6 +6111,15 @@ export function createApp() {
             },
             include: { leaveType: true, employee: { include: { manager: true } } },
           });
+          if (alloc.type.code === LEAVE_CODES.COMP_OFF) {
+            await consumeCompOffCredits(
+              req.user!.employeeId!,
+              request.leaveRequestId,
+              alloc.days,
+              body.fromDate,
+              tx,
+            );
+          }
           created.push(request);
         }
       });
@@ -6077,16 +6137,14 @@ export function createApp() {
       );
       res.status(201).json(dtos);
 
-      if (approver?.employeeId) {
+      if (approver?.employeeId || created.length) {
         const typeNames = created.map((r) => r.leaveType.name).join(" + ");
-        void userIdsForEmployeeIds([approver.employeeId]).then((ids) =>
-          sendPushToUsers(ids, {
-            title: "New leave request to review",
-            body: `${created[0].employee.name} — ${typeNames} from ${body.fromDate.toISOString().slice(0, 10)} to ${body.toDate.toISOString().slice(0, 10)}`,
-            href: "/leave/approvals",
-            tag: `leave-split-${created.map((r) => r.leaveRequestId).join("-")}`,
-          }),
-        );
+        notifyLeaveReviewers(approver?.employeeId, {
+          title: "New leave request to review",
+          body: `${created[0].employee.name} — ${typeNames} from ${body.fromDate.toISOString().slice(0, 10)} to ${body.toDate.toISOString().slice(0, 10)}`,
+          href: "/leave/approvals",
+          tag: `leave-split-${created.map((r) => r.leaveRequestId).join("-")}`,
+        });
       }
     }),
   );
@@ -6198,6 +6256,10 @@ export function createApp() {
         where: { leaveRequestId: String(req.params.id) },
         include: { leaveType: true, employee: { include: { manager: true } } },
       });
+      if (leave.leaveType.code === LEAVE_CODES.COMP_OFF) {
+        await releaseCompOffCredits(leave.leaveRequestId);
+      }
+      await syncEmployeeLeaveBalances(leave.employeeId);
       await audit({
         action: "leave rejected",
         performedByUserId: req.user!.id,

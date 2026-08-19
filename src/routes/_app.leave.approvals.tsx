@@ -52,18 +52,22 @@ function LeaveBalancePanel({ leave }: { leave: LeaveRequest }) {
   const { t } = useTranslation();
   const balances = leave.leaveBalances ?? [];
   const requested = leave.requestedDays ?? leave.days;
-  const available = leave.availableBalance ?? 0;
-  const after = leave.projectedBalance ?? available - requested;
+  const remaining = leave.availableBalance ?? 0;
+  const restored = remaining + requested;
   const otherPending = leave.otherPendingCount ?? 0;
+  const pending = leave.status === "Pending";
 
   return (
     <div className="space-y-3">
+      <p className="text-xs leading-5 text-muted-foreground">
+        {t("pages.leaveApprovals.reservedHelp")}
+      </p>
       <div className="grid grid-cols-3 gap-2 rounded-md border bg-muted/30 p-3 text-sm">
         <div>
           <p className="text-xs text-muted-foreground">
-            {t("pages.leaveApprovals.availableFor", { type: leave.type })}
+            {t("pages.leaveApprovals.remainingFor", { type: leave.type })}
           </p>
-          <p className="text-lg font-semibold tabular-nums">{available}</p>
+          <p className="text-lg font-semibold tabular-nums">{remaining}</p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">{t("pages.leaveApprovals.applyingFor")}</p>
@@ -71,13 +75,11 @@ function LeaveBalancePanel({ leave }: { leave: LeaveRequest }) {
         </div>
         <div>
           <p className="text-xs text-muted-foreground">
-            {t("pages.leaveApprovals.afterApproval")}
+            {pending
+              ? t("pages.leaveApprovals.ifRejected")
+              : t("pages.leaveApprovals.afterDecision")}
           </p>
-          <p
-            className={`text-lg font-semibold tabular-nums ${after < 0 ? "text-destructive" : ""}`}
-          >
-            {after}
-          </p>
+          <p className="text-lg font-semibold tabular-nums">{pending ? restored : remaining}</p>
         </div>
       </div>
       {balances.length > 0 && (
@@ -155,11 +157,17 @@ function LeaveApprovalsPage() {
   }, [navigate, user]);
 
   useEffect(() => {
-    if (!canViewTeam) return;
+    if (!canViewTeam || !user) return;
+    const companyWide =
+      user.role === "hr" ||
+      user.role === "developer_admin" ||
+      user.role === "main_admin" ||
+      user.role === "ceo" ||
+      user.role === "chief_of_staff";
     Promise.all([
       leaveApi.assignedApprovals("PENDING"),
       leaveApi.assignedApprovals(),
-      leaveApi.weeklyOffs(true, false),
+      leaveApi.weeklyOffs(true, companyWide),
     ])
       .then(([pending, all, weeklyRows]) => {
         setRows(pending);
@@ -168,7 +176,7 @@ function LeaveApprovalsPage() {
       })
       .catch((err) => setError((err as Error).message))
       .finally(() => setLoading(false));
-  }, [canViewTeam]);
+  }, [canViewTeam, user]);
 
   const pendingWeekly = useMemo(
     () => weeklyOffs.filter((request) => request.status === "PENDING"),
@@ -294,7 +302,10 @@ function LeaveApprovalsPage() {
                         <div>
                           <p className="text-lg font-semibold">{leave.employeeName}</p>
                           <p className="text-sm text-muted-foreground">
-                            {leave.type} · {formatDisplayDateRange(leave.from, leave.to)} ·{" "}
+                            {[leave.employeeCode, leave.type]
+                              .filter(Boolean)
+                              .join(" · ")}{" "}
+                            · {formatDisplayDateRange(leave.from, leave.to)} ·{" "}
                             {leave.session === "FIRST_HALF" || leave.session === "SECOND_HALF"
                               ? t("pages.leaveApply.halfDayCount", {
                                   slot:
@@ -315,7 +326,7 @@ function LeaveApprovalsPage() {
                       </div>
                       <LeaveBalancePanel leave={leave} />
                       <div>
-                        <p className="text-xs text-muted-foreground">Reason</p>
+                        <p className="text-xs text-muted-foreground">{t("pages.corrections.reason")}</p>
                         <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6">
                           {leave.reason || "-"}
                         </p>
@@ -338,10 +349,10 @@ function LeaveApprovalsPage() {
                             variant="outline"
                             onClick={() => setConfirm({ id: leave.id, action: "Rejected" })}
                           >
-                            Reject
+                            {t("common.reject")}
                           </Button>
                           <Button onClick={() => setConfirm({ id: leave.id, action: "Approved" })}>
-                            Approve
+                            {t("common.approve")}
                           </Button>
                         </div>
                       )}
@@ -381,10 +392,10 @@ function LeaveApprovalsPage() {
                               variant="outline"
                               onClick={() => void reviewWeeklyOff(request.id, false)}
                             >
-                              Reject
+                              {t("common.reject")}
                             </Button>
                             <Button onClick={() => void reviewWeeklyOff(request.id, true)}>
-                              Approve
+                              {t("common.approve")}
                             </Button>
                           </div>
                         )}

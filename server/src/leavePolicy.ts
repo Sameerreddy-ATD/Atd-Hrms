@@ -30,7 +30,8 @@ export function leaveSessionsOverlap(existing: LeaveSessionValue, incoming: Leav
 }
 
 const countedStatuses: LeaveStatus[] = ["PENDING", "APPROVED", "MANAGER_APPROVED", "HR_VERIFIED"];
-const usedStatuses: LeaveStatus[] = ["APPROVED", "MANAGER_APPROVED", "HR_VERIFIED"];
+/** Pending requests reserve credits so they cannot be spent twice; reject/cancel restores them. */
+const usedStatuses: LeaveStatus[] = ["PENDING", "APPROVED", "MANAGER_APPROVED", "HR_VERIFIED"];
 
 function dateKey(date: Date) {
   return startOfDayUtc(date).toISOString().slice(0, 10);
@@ -404,19 +405,7 @@ export async function validateLeaveApplication(input: {
   }
 
   if (type.code !== LEAVE_CODES.LOP) {
-    const pendingSameType = await prisma.leaveRequest.findMany({
-      where: {
-        employeeId: input.employeeId,
-        leaveTypeId: type.leaveTypeId,
-        status: "PENDING",
-      },
-      select: { days: true, cancelledDates: true },
-    });
-    const pendingDays = pendingSameType.reduce(
-      (total, request) => total + effectiveDays(request),
-      0,
-    );
-    if (input.days > Number(balance?.balance ?? 0) - pendingDays) {
+    if (input.days > Number(balance?.balance ?? 0)) {
       throw new HttpError(400, "This request would exceed the available paid leave balance");
     }
   }
@@ -506,6 +495,13 @@ export async function consumeCompOffCredits(
   leaveDate: Date,
   client: Prisma.TransactionClient = prisma,
 ) {
+  const need = Math.round(Number(days));
+  if (need < 1) throw new HttpError(400, "Comp Off can only be taken as full days");
+  const already = await client.compOffCredit.count({
+    where: { consumedByLeaveRequestId: leaveRequestId },
+  });
+  const remaining = need - already;
+  if (remaining <= 0) return;
   const { start, end } = calendarYearRange(leaveDate);
   const credits = await client.compOffCredit.findMany({
     where: {
@@ -516,9 +512,9 @@ export async function consumeCompOffCredits(
       earnedDate: { gte: start, lte: end },
     },
     orderBy: { earnedDate: "asc" },
-    take: days,
+    take: remaining,
   });
-  if (credits.length !== days)
+  if (credits.length !== remaining)
     throw new HttpError(400, "Not enough Comp Off credits are available");
   const claimed = await client.compOffCredit.updateMany({
     where: {
@@ -528,7 +524,7 @@ export async function consumeCompOffCredits(
     },
     data: { consumedByLeaveRequestId: leaveRequestId },
   });
-  if (claimed.count !== days) {
+  if (claimed.count !== remaining) {
     throw new HttpError(409, "Comp Off credit was used by another request. Refresh and try again");
   }
 }
@@ -546,12 +542,12 @@ export function medicalDocumentDueAt(toDate: Date) {
 
 export function leavePolicyDescription(code: string) {
   if (code === LEAVE_CODES.CASUAL)
-    return "1 day is credited at month-end. Joining on or before the 5th earns credit for the joining month; joining after the 5th starts the following month. Up to 12 days accrue yearly. Unused Casual Leave is forwarded to the next year with no cap. Half day (pre-lunch or post-lunch) counts as 0.5 day.";
+    return "1 day is credited at month-end. Joining on or before the 5th earns credit for the joining month; joining after the 5th starts the following month. Up to 12 days accrue yearly. Unused Casual Leave is forwarded to the next year with no cap. Half day (pre-lunch or post-lunch) counts as 0.5 day. Submitting a request reserves the days immediately; they return if the request is rejected or cancelled.";
   if (code === LEAVE_CODES.SICK)
-    return "6 days are available each calendar year (including mid-year joiners), with a maximum of 2 days per month. Half day (pre-lunch or post-lunch) counts as 0.5. Upload a medical certificate to the secure vault within 48 hours after returning; reminders are sent at 24 hours and 2 hours before the deadline.";
+    return "6 days are available each calendar year (including mid-year joiners), with a maximum of 2 days per month. Half day (pre-lunch or post-lunch) counts as 0.5. Upload a medical certificate to the secure vault within 48 hours after returning; reminders are sent at 24 hours and 2 hours before the deadline. Submitting a request reserves the days immediately; they return if the request is rejected or cancelled.";
   if (code === LEAVE_CODES.LOP)
     return "Unpaid Leave / LOP is recorded separately from paid leave credits.";
-  return "Earned after a completed holiday work session of at least nine hours. One credit per holiday. Usage requires Reporting Head approval and expires on December 31 of the year earned.";
+  return "Earned after a completed holiday work session of at least nine hours. One credit per holiday. You can only use as many Comp Off days as you have earned. Submitting a request reserves those credits; they are kept if approved and returned if rejected or cancelled.";
 }
 
 export async function runMonthEndCasualLeaveAccrual(now = new Date()) {

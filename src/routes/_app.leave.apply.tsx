@@ -17,11 +17,14 @@ import { formatDisplayDate, indiaDateKey, indiaDateKeyShift } from "@/lib/india-
 import {
   autoAllocateLeaveTypes,
   eachDateKeys,
+  sickDaysUsedInMonth,
+  sickLeaveMonthCap,
   sortLeaveTypesForApply,
   weekOffSkipKeys,
 } from "@/lib/leave-allocation";
 import type {
   LeaveBalance,
+  LeaveRequest,
   LeaveTypeOption,
   WeeklyOffPolicy,
   WeeklyOffRequest,
@@ -58,6 +61,7 @@ function ApplyLeavePage() {
   const [medicalFile, setMedicalFile] = useState<File | null>(null);
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
   const [weeklyOffs, setWeeklyOffs] = useState<WeeklyOffRequest[]>([]);
+  const [myLeaves, setMyLeaves] = useState<LeaveRequest[]>([]);
   const [weeklyOffDate, setWeeklyOffDate] = useState("");
   const [weeklyOffReason, setWeeklyOffReason] = useState("");
   const [weeklyOffSaving, setWeeklyOffSaving] = useState(false);
@@ -118,6 +122,24 @@ function ApplyLeavePage() {
     return Math.max(0, rangeKeys.length - skippedWeekOffKeys.length);
   }, [from, to, duration, rangeKeys, skippedWeekOffKeys]);
 
+  const sickType = useMemo(() => types.find((row) => row.code === "SICK"), [types]);
+  const sickMonthMax = sickType?.maxPerMonth ?? 2;
+  const sickMonthKey = from.slice(0, 7);
+  const sickUsedThisMonth = useMemo(
+    () =>
+      sickType && sickMonthKey
+        ? sickDaysUsedInMonth(myLeaves, sickType.name, sickMonthKey)
+        : 0,
+    [myLeaves, sickType, sickMonthKey],
+  );
+  const sickMonthRemaining = useMemo(() => {
+    const balance = balances.find((row) => row.code === "SICK")?.balance ?? 0;
+    return sickLeaveMonthCap(balance, sickMonthMax, sickUsedThisMonth);
+  }, [balances, sickMonthMax, sickUsedThisMonth]);
+  const sickSpansMonths = Boolean(
+    duration !== "HALF" && from && to && from.slice(0, 7) !== to.slice(0, 7),
+  );
+
   const allocatedTypes = useMemo(
     () =>
       types.filter((t) => (allocation[t.id] ?? 0) > 0),
@@ -145,11 +167,12 @@ function ApplyLeavePage() {
   }, [types, allocation]);
 
   useEffect(() => {
-    Promise.all([leaveApi.types(), leaveApi.myBalance(), leaveApi.weeklyOffs()])
-      .then(([rows, balanceRows, weeklyRows]) => {
+    Promise.all([leaveApi.types(), leaveApi.myBalance(), leaveApi.weeklyOffs(), leaveApi.mine()])
+      .then(([rows, balanceRows, weeklyRows, leaveRows]) => {
         setTypes(rows);
         setBalances(balanceRows);
         setWeeklyOffs(weeklyRows);
+        setMyLeaves(leaveRows);
       })
       .catch((err) => toast.error((err as Error).message))
       .finally(() => setTypesLoading(false));
@@ -209,21 +232,32 @@ function ApplyLeavePage() {
         if (days <= 0) {
           delete next[typeId];
         } else {
-          next[typeId] = Math.round(days * 100) / 100;
+          const type = types.find((row) => row.id === typeId);
+          let nextDays = Math.round(days * 100) / 100;
+          if (type?.code === "SICK") {
+            nextDays = Math.min(nextDays, sickSpansMonths ? 0 : sickMonthRemaining);
+          }
+          if (type?.code === "COMP_OFF") {
+            const cap = balances.find((row) => row.code === "COMP_OFF")?.balance ?? 0;
+            nextDays = Math.min(Math.floor(nextDays), Math.floor(cap));
+          }
+          if (nextDays <= 0) delete next[typeId];
+          else next[typeId] = nextDays;
         }
         return next;
       });
     },
-    [],
+    [types, balances, sickMonthRemaining, sickSpansMonths],
   );
 
   const stepAlloc = useCallback(
     (typeId: string, delta: number) => {
-      const step = duration === "HALF" ? 0.5 : 0.5;
+      const type = types.find((row) => row.id === typeId);
+      const step = type?.code === "COMP_OFF" ? 1 : 0.5;
       const current = allocation[typeId] ?? 0;
       updateAlloc(typeId, Math.max(0, current + delta * step));
     },
-    [allocation, duration, updateAlloc],
+    [allocation, types, updateAlloc],
   );
 
   async function submit(e: React.FormEvent) {
@@ -260,6 +294,16 @@ function ApplyLeavePage() {
       const bal = balances.find((b) => b.code === type.code)?.balance ?? 0;
       if ((allocation[type.id] ?? 0) > bal) {
         errs[`alloc_${type.id}`] = t("pages.leaveApply.allocExceedsBalance", { balance: bal });
+      }
+      if (type.code === "SICK") {
+        if (sickSpansMonths) {
+          errs[`alloc_${type.id}`] = t("pages.leaveApply.errSickCrossMonth");
+        } else if ((allocation[type.id] ?? 0) > sickMonthRemaining) {
+          errs[`alloc_${type.id}`] = t("pages.leaveApply.errSickMonthlyCap", {
+            max: sickMonthMax,
+            remaining: sickMonthRemaining,
+          });
+        }
       }
     }
     setErrors(errs);
@@ -576,9 +620,21 @@ function ApplyLeavePage() {
                       {sortedTypes.map((type) => {
                         const bal = balances.find((b) => b.code === type.code)?.balance ?? 0;
                         const isLop = type.code === "LOP";
+                        const isSick = type.code === "SICK";
+                        const isComp = type.code === "COMP_OFF";
                         const days = allocation[type.id] ?? 0;
-                        const exceedsBal = !isLop && days > bal;
+                        const typeCap = isSick
+                          ? sickSpansMonths
+                            ? 0
+                            : sickMonthRemaining
+                          : isLop
+                            ? 365
+                            : isComp
+                              ? Math.floor(bal)
+                              : bal;
+                        const exceedsBal = !isLop && days > typeCap;
                         const errKey = `alloc_${type.id}`;
+                        const plusDisabled = days >= typeCap;
 
                         return (
                           <div
@@ -593,8 +649,13 @@ function ApplyLeavePage() {
                             )}
                           >
                             <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <p className="truncate text-sm font-medium">{type.name}</p>
+                                {isSick && (
+                                  <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                                    {t("pages.leaveApply.sickMonthlyBadge", { max: sickMonthMax })}
+                                  </span>
+                                )}
                                 {!type.paid && (
                                   <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
                                     {t("pages.leaveApply.unpaidDays").split("(")[0].trim()}
@@ -604,9 +665,16 @@ function ApplyLeavePage() {
                               <p className="mt-0.5 text-xs text-muted-foreground">
                                 {isLop
                                   ? t("pages.leaveApply.unlimited")
-                                  : type.code === "SICK"
-                                    ? t("pages.leaveApply.sickNotAutoAllocated", { balance: bal })
-                                    : t("pages.leaveApply.balanceAvailable", { count: bal })}
+                                  : isSick
+                                    ? t("pages.leaveApply.sickMonthlyCapDetail", {
+                                        max: sickMonthMax,
+                                        used: sickUsedThisMonth,
+                                        remaining: sickMonthRemaining,
+                                        balance: bal,
+                                      })
+                                    : type.code === "COMP_OFF"
+                                      ? t("pages.leaveApply.compOffEarnedHelp", { count: bal })
+                                      : t("pages.leaveApply.balanceAvailable", { count: bal })}
                               </p>
                               {errors[errKey] && (
                                 <p className="mt-1 text-xs text-destructive">{errors[errKey]}</p>
@@ -628,7 +696,7 @@ function ApplyLeavePage() {
                               <Input
                                 type="number"
                                 min={0}
-                                max={isLop ? 365 : bal}
+                                max={typeCap}
                                 step={0.5}
                                 value={days || ""}
                                 placeholder="0"
@@ -643,6 +711,7 @@ function ApplyLeavePage() {
                                 variant="outline"
                                 size="icon"
                                 className="h-8 w-8"
+                                disabled={plusDisabled}
                                 onClick={() => stepAlloc(type.id, 1)}
                               >
                                 <Plus className="h-3.5 w-3.5" />

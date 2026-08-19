@@ -78,3 +78,27 @@ export function autoAllocateLeaveTypes(
 
   return alloc;
 }
+
+export function sickDaysUsedInMonth(
+  requests: Array<{
+    type: string;
+    from: string;
+    status: string;
+    days: number;
+    cancelledDays?: number;
+  }>,
+  sickTypeName: string,
+  monthKey: string,
+) {
+  const counted = new Set(["Pending", "Approved"]);
+  return requests.reduce((total, row) => {
+    if (row.type !== sickTypeName) return total;
+    if (!counted.has(row.status)) return total;
+    if (row.from.slice(0, 7) !== monthKey) return total;
+    return total + Math.max(0, row.days - (row.cancelledDays ?? 0));
+  }, 0);
+}
+
+export function sickLeaveMonthCap(balance: number, maxPerMonth: number, usedThisMonth: number) {
+  return Math.max(0, Math.round(Math.min(balance, maxPerMonth - usedThisMonth) * 100) / 100);
+}
