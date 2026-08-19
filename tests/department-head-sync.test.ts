@@ -51,3 +51,17 @@ describe("department head profile sync rules", () => {
     ).toEqual(["a"]);
   });
 });
+
+function nextViewerIdsExcludingHeads(viewerIds: string[], headIds: string[]) {
+  return [...new Set(viewerIds.filter(Boolean))].filter((id) => !headIds.includes(id));
+}
+
+describe("department view access", () => {
+  it("keeps a person as head only when they are also listed as a viewer", () => {
+    expect(nextViewerIdsExcludingHeads(["a", "b", "c"], ["b"])).toEqual(["a", "c"]);
+  });
+
+  it("allows the same person to view a unit they do not head", () => {
+    expect(nextViewerIdsExcludingHeads(["d"], ["a", "b"])).toEqual(["d"]);
+  });
+});

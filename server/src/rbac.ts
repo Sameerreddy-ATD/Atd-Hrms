@@ -249,8 +249,19 @@ export async function isAssignedOrganizationHead(employeeId: string) {
 }
 
 /** Returns active employees in the units below an organizational head. */
+export async function getHeadedOrganizationTeamEmployeeIds(employeeId: string) {
+  return teamEmployeeIdsForOwnedUnits(employeeId, "head");
+}
+
+/** Headed units plus units this person was given view access to (and their children). */
 export async function getOrganizationTeamEmployeeIds(employeeId: string) {
-  const [employee, units, assignments] = await Promise.all([
+  return teamEmployeeIdsForOwnedUnits(employeeId, "view");
+}
+
+type UnitAccessMode = "head" | "view";
+
+async function teamEmployeeIdsForOwnedUnits(employeeId: string, mode: UnitAccessMode) {
+  const [employee, units, assignments, viewerAssignments] = await Promise.all([
     prisma.employee.findUnique({
       where: { employeeId },
       select: { departmentId: true, organizationLevel: true },
@@ -262,19 +273,31 @@ export async function getOrganizationTeamEmployeeIds(employeeId: string) {
       where: { employeeId },
       select: { departmentId: true },
     }),
+    mode === "view"
+      ? prisma.departmentViewerAssignment.findMany({
+          where: { employeeId },
+          select: { departmentId: true },
+        })
+      : Promise.resolve([] as Array<{ departmentId: string }>),
   ]);
   if (!employee) return [];
 
-  // One person may head multiple units — and a unit may have multiple heads.
+  // One person may head or view multiple units — and a unit may have multiple heads.
   const ownedUnitIds = [
     ...new Set([
       ...assignments.map((row) => row.departmentId),
+      ...viewerAssignments.map((row) => row.departmentId),
       ...units
         .filter((unit) => unit.headEmployeeId === employeeId)
         .map((unit) => unit.departmentId),
     ]),
   ];
-  if (ownedUnitIds.length === 0 && employee.organizationLevel === "HEAD" && employee.departmentId) {
+  if (
+    mode === "head" &&
+    ownedUnitIds.length === 0 &&
+    employee.organizationLevel === "HEAD" &&
+    employee.departmentId
+  ) {
     ownedUnitIds.push(employee.departmentId);
   }
   if (ownedUnitIds.length === 0) return [];

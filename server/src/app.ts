@@ -169,6 +169,7 @@ import {
   assertCanViewTeamAttendance,
   assertEmployeeAccess,
   canCreateRole,
+  getHeadedOrganizationTeamEmployeeIds,
   getOrganizationTeamEmployeeIds,
   isAssignedOrganizationHead,
   requireAuth,
@@ -179,6 +180,7 @@ import {
 import {
   headedDepartmentsForEmployee,
   replaceDepartmentHeads,
+  replaceDepartmentViewers,
   syncEmployeeHeadshipFromProfile,
 } from "./departmentHeads.js";
 import { boardAccessWhere as resolveBoardAccessWhere } from "./taskBoardAccess.js";
@@ -532,6 +534,11 @@ export function createApp() {
     return null;
   }
 
+  function normalizeDepartmentViewerIds(body: { viewerEmployeeIds?: string[] | null }) {
+    if (!Array.isArray(body.viewerEmployeeIds)) return null;
+    return [...new Set(body.viewerEmployeeIds.filter((id): id is string => Boolean(id)))];
+  }
+
   /**
    * Same display name is allowed under different parents (e.g. "Sales" under
    * each of three sub-heads). It is not allowed among siblings of one parent.
@@ -565,6 +572,10 @@ export function createApp() {
   const departmentInclude = {
     headEmployee: true,
     headAssignments: {
+      include: { employee: { select: { name: true } } },
+      orderBy: { sortOrder: "asc" as const },
+    },
+    viewerAssignments: {
       include: { employee: { select: { name: true } } },
       orderBy: { sortOrder: "asc" as const },
     },
@@ -616,6 +627,11 @@ export function createApp() {
       sortOrder: number;
       employee?: { name: string } | null;
     }>;
+    viewerAssignments?: Array<{
+      employeeId: string;
+      sortOrder: number;
+      employee?: { name: string } | null;
+    }>;
   },
     memberCount = 0,
   ) {
@@ -636,6 +652,13 @@ export function createApp() {
         : department.headEmployee?.name
           ? [department.headEmployee.name]
           : [];
+    const assignmentViewers = [...(department.viewerAssignments ?? [])].sort(
+      (a, b) => a.sortOrder - b.sortOrder || a.employeeId.localeCompare(b.employeeId),
+    );
+    const viewerEmployeeIds = assignmentViewers.map((row) => row.employeeId);
+    const viewers = assignmentViewers
+      .map((row) => row.employee?.name)
+      .filter((name): name is string => Boolean(name));
     return {
       id: department.departmentId,
       name: department.name,
@@ -643,6 +666,8 @@ export function createApp() {
       head: heads[0],
       headEmployeeIds,
       heads,
+      viewerEmployeeIds,
+      viewers,
       parentDepartmentId: department.parentDepartmentId ?? undefined,
       unitType: department.unitType,
       sortOrder: department.sortOrder,
@@ -912,7 +937,7 @@ export function createApp() {
       );
     }
     if (leave.managerId === user.employeeId) return;
-    const teamIds = await getOrganizationTeamEmployeeIds(user.employeeId);
+    const teamIds = await getHeadedOrganizationTeamEmployeeIds(user.employeeId);
     if (teamIds.includes(leave.employeeId)) return;
     const chain = await listOrganizationHeadApprovers(leave.employeeId);
     if (chain.some((head) => head.employeeId === user.employeeId)) return;
@@ -948,7 +973,7 @@ export function createApp() {
       );
     }
     if (request.approverId === user.employeeId) return user.employeeId;
-    const teamIds = await getOrganizationTeamEmployeeIds(user.employeeId);
+    const teamIds = await getHeadedOrganizationTeamEmployeeIds(user.employeeId);
     if (teamIds.includes(request.employeeId)) return user.employeeId;
     const chain = await listOrganizationHeadApprovers(request.employeeId);
     if (chain.some((head) => head.employeeId === user.employeeId)) return user.employeeId;
@@ -965,10 +990,38 @@ export function createApp() {
   ) {
     if (!actorEmployeeId) return false;
     if (assignedId === actorEmployeeId) return true;
-    const teamIds = await getOrganizationTeamEmployeeIds(actorEmployeeId);
+    const teamIds = await getHeadedOrganizationTeamEmployeeIds(actorEmployeeId);
     if (teamIds.includes(subjectEmployeeId)) return true;
     const chain = await listOrganizationHeadApprovers(subjectEmployeeId);
     return chain.some((head) => head.employeeId === actorEmployeeId);
+  }
+
+  const PEOPLE_OPS_REVIEW_ROLES: Role[] = [
+    Role.DEVELOPER_ADMIN,
+    Role.MAIN_ADMIN,
+    Role.HR,
+    Role.CEO,
+    Role.CHIEF_OF_STAFF,
+  ];
+
+  async function teamReviewAccess(user: { employeeId?: string | null; role: Role }) {
+    if (PEOPLE_OPS_REVIEW_ROLES.includes(user.role)) {
+      return { all: true as const, headedIds: new Set<string>(), actorEmployeeId: user.employeeId ?? null };
+    }
+    const headedIds = user.employeeId
+      ? new Set(await getHeadedOrganizationTeamEmployeeIds(user.employeeId))
+      : new Set<string>();
+    return { all: false as const, headedIds, actorEmployeeId: user.employeeId ?? null };
+  }
+
+  function canReviewSubject(
+    access: { all: boolean; headedIds: Set<string>; actorEmployeeId: string | null },
+    subjectEmployeeId: string,
+    assignedId?: string | null,
+  ) {
+    if (access.all) return true;
+    if (!access.actorEmployeeId) return false;
+    return assignedId === access.actorEmployeeId || access.headedIds.has(subjectEmployeeId);
   }
 
   function weeklyOffWeekStart(date: Date) {
@@ -1132,6 +1185,7 @@ export function createApp() {
             leaveTypes: await tx.leaveType.count(),
           };
 
+          await tx.departmentViewerAssignment.deleteMany();
           await tx.departmentHeadAssignment.deleteMany();
           await tx.department.updateMany({ data: { headEmployeeId: null } });
           await tx.employee.updateMany({ data: { managerId: null } });
@@ -2765,17 +2819,19 @@ export function createApp() {
     requireAuth,
     asyncHandler(async (req, res) => {
       if (!req.user!.employeeId) {
-        res.json({ isReportingManager: false, teamCount: 0 });
+        res.json({ isReportingManager: false, canApproveTeam: false, teamCount: 0 });
         return;
       }
       const employeeId = req.user!.employeeId;
-      const [teamIds, isHead] = await Promise.all([
+      const [viewTeamIds, headedTeamIds, isHead] = await Promise.all([
         getOrganizationTeamEmployeeIds(employeeId),
+        getHeadedOrganizationTeamEmployeeIds(employeeId),
         isAssignedOrganizationHead(employeeId),
       ]);
       res.json({
-        isReportingManager: isHead || teamIds.length > 0,
-        teamCount: teamIds.length,
+        isReportingManager: isHead || viewTeamIds.length > 0,
+        canApproveTeam: isHead || headedTeamIds.length > 0,
+        teamCount: viewTeamIds.length,
       });
     }),
   );
@@ -3710,7 +3766,9 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       const body = departmentSchema.parse(req.body);
       const headEmployeeIds = normalizeDepartmentHeadIds(body) ?? [];
+      const viewerEmployeeIds = normalizeDepartmentViewerIds(body) ?? [];
       await assertValidDepartmentHeads(headEmployeeIds);
+      await assertValidDepartmentHeads(viewerEmployeeIds);
       if (body.parentDepartmentId) {
         await prisma.department.findUniqueOrThrow({
           where: { departmentId: body.parentDepartmentId },
@@ -3738,6 +3796,7 @@ export function createApp() {
           },
         });
         await replaceDepartmentHeads(tx, created.departmentId, headEmployeeIds);
+        await replaceDepartmentViewers(tx, created.departmentId, viewerEmployeeIds);
         return tx.department.findUniqueOrThrow({
           where: { departmentId: created.departmentId },
           include: departmentInclude,
@@ -3750,6 +3809,7 @@ export function createApp() {
           departmentId: department.departmentId,
           name: department.name,
           headEmployeeIds,
+          viewerEmployeeIds,
         },
         ipAddress: req.ip,
       });
@@ -3812,10 +3872,12 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       const body = departmentUpdateSchema.parse(req.body);
       const nextHeadIds = normalizeDepartmentHeadIds(body);
+      const nextViewerIds = normalizeDepartmentViewerIds(body);
       if (nextHeadIds) await assertValidDepartmentHeads(nextHeadIds);
+      if (nextViewerIds) await assertValidDepartmentHeads(nextViewerIds);
       const existing = await prisma.department.findUniqueOrThrow({
         where: { departmentId: String(req.params.id) },
-        include: { headAssignments: true },
+        include: { headAssignments: true, viewerAssignments: true },
       });
       if (body.parentDepartmentId === existing.departmentId) {
         throw new HttpError(400, "An organizational unit cannot be its own parent");
@@ -3862,6 +3924,9 @@ export function createApp() {
         if (nextHeadIds) {
           await replaceDepartmentHeads(tx, existing.departmentId, nextHeadIds);
         }
+        if (nextViewerIds) {
+          await replaceDepartmentViewers(tx, existing.departmentId, nextViewerIds);
+        }
         return tx.department.findUniqueOrThrow({
           where: { departmentId: existing.departmentId },
           include: departmentInclude,
@@ -3876,12 +3941,14 @@ export function createApp() {
         oldValue: {
           name: existing.name,
           headEmployeeIds: existing.headAssignments.map((row) => row.employeeId),
+          viewerEmployeeIds: existing.viewerAssignments.map((row) => row.employeeId),
           faceVerificationEnabled: existing.faceVerificationEnabled,
         },
         newValue: {
           departmentId: department.departmentId,
           name: department.name,
           headEmployeeIds: department.headAssignments.map((row) => row.employeeId),
+          viewerEmployeeIds: department.viewerAssignments.map((row) => row.employeeId),
           faceVerificationEnabled: department.faceVerificationEnabled,
         },
         ipAddress: req.ip,
@@ -3925,7 +3992,7 @@ export function createApp() {
         },
         ipAddress: req.ip,
       });
-      res.json(departmentDto({ ...department, headEmployee: null, headAssignments: [] }, 0));
+      res.json(departmentDto({ ...department, headEmployee: null, headAssignments: [], viewerAssignments: [] }, 0));
     }),
   );
 
@@ -4995,13 +5062,16 @@ export function createApp() {
       const isHrOrAdmin = (
         [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR, Role.CEO] as Role[]
       ).includes(req.user!.role);
+      const teamEmployeeIds =
+        !isHrOrAdmin && req.user!.employeeId
+          ? await getOrganizationTeamEmployeeIds(req.user!.employeeId)
+          : [];
       const where: Prisma.AttendanceCorrectionRequestWhereInput = {};
       if (!isHrOrAdmin && req.user!.employeeId) {
-        const teamEmployeeIds = await getOrganizationTeamEmployeeIds(req.user!.employeeId);
         where.OR = [
           { employeeId: req.user!.employeeId },
           { approverId: req.user!.employeeId },
-          { approverId: null, employeeId: { in: teamEmployeeIds } },
+          { employeeId: { in: teamEmployeeIds } },
         ];
       } else if (!isHrOrAdmin) {
         where.employeeId = req.user!.employeeId ?? "__none__";
@@ -5038,7 +5108,8 @@ export function createApp() {
         if (
           !isHrOrAdmin &&
           request.employeeId !== req.user!.employeeId &&
-          resolvedApproverId !== req.user!.employeeId
+          resolvedApproverId !== req.user!.employeeId &&
+          !teamEmployeeIds.includes(request.employeeId)
         ) {
           continue;
         }
@@ -5227,7 +5298,18 @@ export function createApp() {
         orderBy: { date: "desc" },
         take: 100,
       });
-      res.json(await weeklyOffRequestDtos(rows));
+      const dtos = await weeklyOffRequestDtos(rows);
+      if (!assigned && !all) {
+        res.json(dtos);
+        return;
+      }
+      const access = await teamReviewAccess(req.user!);
+      res.json(
+        dtos.map((dto, index) => ({
+          ...dto,
+          canReview: canReviewSubject(access, rows[index].employeeId, rows[index].approverId),
+        })),
+      );
     }),
   );
 
@@ -5737,7 +5819,18 @@ export function createApp() {
         orderBy: { createdAt: "desc" },
         take: listLimit(req, 500, 1000),
       });
-      res.json(await leaveRequestDtos(rows));
+      const dtos = await leaveRequestDtos(rows);
+      if (!assignedApprovals) {
+        res.json(dtos);
+        return;
+      }
+      const access = await teamReviewAccess(req.user!);
+      res.json(
+        dtos.map((dto, index) => ({
+          ...dto,
+          canReview: canReviewSubject(access, rows[index].employeeId, rows[index].managerId),
+        })),
+      );
     }),
   );
   app.post(

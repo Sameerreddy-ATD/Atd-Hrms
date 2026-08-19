@@ -341,7 +341,7 @@ const pages = {
   departments: {
     title: "विभाग",
     subtitleDenied: "विभाग प्रबंधन केवल Developer Admin के लिए।",
-    subtitle: "Leadership से CEO के लिए कई heads निर्दिष्ट करें, और प्रत्येक संगठन इकाई के लिए एक या अधिक heads। एक व्यक्ति कई इकाइयों का head हो सकता है — छुट्टी स्वीकृतियाँ प्रत्येक इकाई के heads के अनुसार।",
+    subtitle: "Leadership से CEO के लिए कई heads निर्दिष्ट करें, और प्रत्येक संगठन इकाई के लिए एक या अधिक heads। View access जोड़ें ताकि अन्य लोग approve किए बिना उस इकाई की हाज़िरी और छुट्टी देख सकें। एक व्यक्ति कई इकाइयों का head हो सकता है — छुट्टी स्वीकृतियाँ प्रत्येक इकाई के heads के अनुसार।",
     executive: "कार्यकारी नेतृत्व",
     headNotAssigned: "Head निर्दिष्ट नहीं",
     noHeads: "कोई head निर्दिष्ट नहीं",
@@ -411,6 +411,20 @@ const pages = {
     memberCountOne: "1 सदस्य",
     memberCount: "{{count}} सदस्य",
     headsUnderCeo: "CEO के अधीन heads",
+    viewAccess: "View access",
+    viewAccessHint:
+      "ये लोग इस इकाई के सदस्यों, हाज़िरी, छुट्टी requests और punch requests को देख सकते हैं। वे approve नहीं कर सकते — केवल heads कर सकते हैं।",
+    viewAccessShort: "View: {{names}}",
+    tableViewAccess: "View access",
+    addAnotherViewer: "एक और viewer जोड़ें",
+    selectViewer: "Viewer चुनें",
+    selectAnotherViewer: "एक और viewer चुनें",
+    noViewerAssigned: "View access नहीं",
+    viewersNone: "कोई चयन नहीं",
+    viewersSelected: "{{count}} चयनित",
+    alsoViews: "ये भी देखते हैं {{units}}",
+    removeViewer: "इस viewer को हटाएँ",
+    alreadyChosenViewers: "इस इकाई के लिए चुने हुए लोग अगले dropdown में नहीं दिखेंगे।",
   },
   talent: {
     title: "टैलेंट acquisition",
@@ -1017,6 +1031,8 @@ const pages = {
     toastRequestRejected: "Request reject हो गया",
     toastWeeklyOffApproved: "Weekly off approve हो गया",
     toastWeeklyOffRejected: "Weekly off reject हो गया",
+    viewOnlyHelp:
+      "आपके पास इस इकाई के लिए view access है। आप leave और weekly-off requests देख सकते हैं। केवल organization heads approve या reject कर सकते हैं।",
   },
   leaveTracking: {
     title: "छुट्टी ट्रैकिंग",

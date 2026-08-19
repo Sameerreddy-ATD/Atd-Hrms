@@ -58,6 +58,7 @@ import {
   Users,
   UserRound,
   UserRoundPlus,
+  Eye,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -101,10 +102,38 @@ function headsLabel(department: Department, headNotAssignedLabel: string) {
   return `${names[0]} · +${names.length - 1} more`;
 }
 
+function viewersLabel(department: Department) {
+  const names = department.viewers?.filter(Boolean) ?? [];
+  if (names.length === 0) return null;
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return names.join(" · ");
+  return `${names[0]} · +${names.length - 1} more`;
+}
+
+function UnitViewersRow({
+  department,
+  className,
+}: {
+  department: Department;
+  className?: string;
+}) {
+  const { t } = useTranslation();
+  const names = viewersLabel(department);
+  if (!names) return null;
+  return (
+    <p className={className ?? "mt-1 flex items-center gap-1.5 text-xs text-muted-foreground"}>
+      <Eye className="h-3.5 w-3.5 shrink-0" />
+      <span className="truncate">{t("pages.departments.viewAccessShort", { names })}</span>
+    </p>
+  );
+}
+
 function isActiveEmployee(employee: User) {
   return (
     employee.status !== "TERMINATED" &&
     employee.status !== "INACTIVE" &&
+    employee.employeeStatus !== "TERMINATED" &&
+    employee.employeeStatus !== "INACTIVE" &&
     !employee.terminatedAt &&
     employee.active !== false
   );
@@ -118,6 +147,7 @@ function DeptPage() {
   const [name, setName] = useState("");
   /** Head pickers: one dropdown first; "Add another head" appends more. Use "none" for empty. */
   const [headSlots, setHeadSlots] = useState<string[]>(["none"]);
+  const [viewerSlots, setViewerSlots] = useState<string[]>(["none"]);
   const [parentDepartmentId, setParentDepartmentId] = useState("none");
   const [unitType, setUnitType] = useState<"TEAM" | "SUBTEAM" | "FUNCTION">("TEAM");
   const [faceVerificationEnabled, setFaceVerificationEnabled] = useState(true);
@@ -159,6 +189,9 @@ function DeptPage() {
       next[index] = employeeId;
       return next;
     });
+    if (employeeId !== "none") {
+      setViewerSlots((current) => current.map((id) => (id === employeeId ? "none" : id)));
+    }
   }
 
   function addHeadSlot() {
@@ -167,6 +200,31 @@ function DeptPage() {
 
   function removeHeadSlot(index: number) {
     setHeadSlots((current) => {
+      if (current.length <= 1) return ["none"];
+      return current.filter((_, slotIndex) => slotIndex !== index);
+    });
+  }
+
+  function viewersFromDepartment(department?: Department | null) {
+    if (!department) return ["none"];
+    if (department.viewerEmployeeIds?.length) return [...department.viewerEmployeeIds];
+    return ["none"];
+  }
+
+  function setViewerSlot(index: number, employeeId: string) {
+    setViewerSlots((current) => {
+      const next = [...current];
+      next[index] = employeeId;
+      return next;
+    });
+  }
+
+  function addViewerSlot() {
+    setViewerSlots((current) => [...current, "none"]);
+  }
+
+  function removeViewerSlot(index: number) {
+    setViewerSlots((current) => {
       if (current.length <= 1) return ["none"];
       return current.filter((_, slotIndex) => slotIndex !== index);
     });
@@ -187,14 +245,29 @@ function DeptPage() {
     [employees],
   );
   const headEmployeeIds = useMemo(() => headSlots.filter((id) => id !== "none"), [headSlots]);
+  const viewerEmployeeIds = useMemo(
+    () => viewerSlots.filter((id) => id !== "none"),
+    [viewerSlots],
+  );
   const canAddAnotherHead = headOptions.some(
     (employee) => !headEmployeeIds.includes(employee.employeeId!),
   );
+  const canAddAnotherViewer = headOptions.some(
+    (employee) =>
+      !headEmployeeIds.includes(employee.employeeId!) &&
+      !viewerEmployeeIds.includes(employee.employeeId!),
+  );
+
+  function optionsForViewerSlot(index: number) {
+    const taken = new Set([
+      ...headEmployeeIds,
+      ...viewerSlots.filter((id, slotIndex) => slotIndex !== index && id !== "none"),
+    ]);
+    return headOptions.filter((employee) => !taken.has(employee.employeeId!));
+  }
 
   function optionsForHeadSlot(index: number) {
-    const taken = new Set(
-      headSlots.filter((id, slotIndex) => slotIndex !== index && id !== "none"),
-    );
+    const taken = new Set(headSlots.filter((id, slotIndex) => slotIndex !== index && id !== "none"));
     return headOptions.filter((employee) => !taken.has(employee.employeeId!));
   }
 
@@ -342,6 +415,7 @@ function DeptPage() {
     setCeoHeadsUnitId("");
     setName("");
     setHeadSlots(["none"]);
+    setViewerSlots(["none"]);
     setParentDepartmentId("none");
     setUnitType("TEAM");
     setFaceVerificationEnabled(true);
@@ -354,6 +428,7 @@ function DeptPage() {
     setCeoHeadsUnitId("");
     setName("");
     setHeadSlots(["none"]);
+    setViewerSlots(["none"]);
     // New teams hang under permanent Chief of Staff (CEO → CoS → teams).
     setParentDepartmentId(chiefOfStaff?.id ?? "none");
     setUnitType("TEAM");
@@ -379,6 +454,7 @@ function DeptPage() {
       setCeoHeadsUnitId(unit.id);
       setName(unit.name);
       setHeadSlots(headsFromDepartment(unit));
+      setViewerSlots(viewersFromDepartment(unit));
       setParentDepartmentId("none");
       setUnitType("TEAM");
       setShowForm(true);
@@ -395,6 +471,7 @@ function DeptPage() {
     setCeoHeadsUnitId("");
     setName("");
     setHeadSlots(["none"]);
+    setViewerSlots(["none"]);
     setParentDepartmentId(parent.id);
     setUnitType(parent.parentDepartmentId ? "FUNCTION" : "SUBTEAM");
     setFaceVerificationEnabled(true);
@@ -411,6 +488,7 @@ function DeptPage() {
     setCeoHeadsUnitId("");
     setName(department.name);
     setHeadSlots(headsFromDepartment(department));
+    setViewerSlots(viewersFromDepartment(department));
     setParentDepartmentId(department.parentDepartmentId ?? "none");
     setUnitType(department.unitType ?? "TEAM");
     setFaceVerificationEnabled(department.faceVerificationEnabled ?? true);
@@ -440,7 +518,10 @@ function DeptPage() {
     setSaving(true);
     try {
       if (assignCeoHeads) {
-        const saved = await branchesApi.updateDepartment(ceoHeadsUnitId, { headEmployeeIds });
+        const saved = await branchesApi.updateDepartment(ceoHeadsUnitId, {
+          headEmployeeIds,
+          viewerEmployeeIds,
+        });
         setDepartments((prev) =>
           prev.map((row) => (row.id === saved.id ? saved : row)).sort(byDepartmentOrder),
         );
@@ -453,6 +534,7 @@ function DeptPage() {
         name: name.trim(),
         // Creating a unit is separate from assigning heads.
         headEmployeeIds: isCreateTopLevel ? [] : headEmployeeIds,
+        viewerEmployeeIds: isCreateTopLevel ? [] : viewerEmployeeIds,
         parentDepartmentId: parentDepartmentId === "none" ? null : parentDepartmentId,
         unitType,
         faceVerificationEnabled,
@@ -461,6 +543,7 @@ function DeptPage() {
         ? await branchesApi.updateDepartment(editing.id, {
             ...payload,
             headEmployeeIds,
+            viewerEmployeeIds,
           })
         : await branchesApi.createDepartment(payload);
       setDepartments((prev) =>
@@ -575,6 +658,7 @@ function DeptPage() {
                     {headsLabel(department, t("pages.departments.headNotAssigned"))}
                   </span>
                 </p>
+                <UnitViewersRow department={department} />
                 <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Users className="h-3.5 w-3.5 shrink-0" />
                   <span>{membersLabel(membersUnder(department.id))}</span>
@@ -755,6 +839,7 @@ function DeptPage() {
                       {headsLabel(executiveLeadership, t("pages.departments.noHeads"))}
                     </p>
                   ) : null}
+                  {executiveLeadership ? <UnitViewersRow department={executiveLeadership} /> : null}
                 </div>
                 <div className="flex shrink-0 gap-1">
                   <Button
@@ -793,6 +878,7 @@ function DeptPage() {
                         : t("pages.departments.headNotAssigned")}
                     </span>
                   </p>
+                  {chiefOfStaff ? <UnitViewersRow department={chiefOfStaff} /> : null}
                   {chiefOfStaff ? (
                     <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                       <Users className="h-3.5 w-3.5 shrink-0" />
@@ -915,6 +1001,7 @@ function DeptPage() {
                                   {headsLabel(department, t("pages.departments.headNotAssigned"))}
                                 </span>
                               </p>
+                              <UnitViewersRow department={department} />
                               <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                                 <Users className="h-3.5 w-3.5 shrink-0" />
                                 <span>{membersLabel(membersUnder(department.id))}</span>
@@ -1036,6 +1123,7 @@ function DeptPage() {
                                     )}
                                   </span>
                                 </p>
+                                <UnitViewersRow department={department} />
                               </div>
                               <div className="flex shrink-0 gap-1">
                                 <Button
@@ -1077,6 +1165,7 @@ function DeptPage() {
                 <TableHead>{t("pages.departments.reportsUnder")}</TableHead>
                 <TableHead>{t("pages.departments.tableMembers")}</TableHead>
                 <TableHead>{t("pages.departments.tableHead")}</TableHead>
+                <TableHead>{t("pages.departments.tableViewAccess")}</TableHead>
                 <TableHead className="text-right">{t("common.actions")}</TableHead>
               </TableRow>
             </TableHeader>
@@ -1099,6 +1188,9 @@ function DeptPage() {
                   </TableCell>
                   <TableCell>{membersLabel(membersUnder(d.id))}</TableCell>
                   <TableCell>{headsLabel(d, t("pages.departments.headNotAssigned"))}</TableCell>
+                  <TableCell>
+                    {viewersLabel(d) ?? t("pages.departments.noViewerAssigned")}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button size="sm" variant="outline" onClick={() => openEditDialog(d)}>
@@ -1130,7 +1222,7 @@ function DeptPage() {
       </div>
 
       <Dialog open={showForm} onOpenChange={(open) => !open && resetForm()}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-h-[calc(100dvh-1rem)] max-w-lg overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editing
@@ -1267,7 +1359,8 @@ function DeptPage() {
             )}
 
             {!isCreateTopLevel && (
-              <div className="space-y-3">
+              <div className="space-y-4">
+                <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <Label>Heads</Label>
                   <span className="text-xs text-muted-foreground">
@@ -1365,6 +1458,116 @@ function DeptPage() {
                 <p className="text-xs text-muted-foreground">
                   Already chosen people are hidden from the next dropdown for this unit.
                 </p>
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <Label>{t("pages.departments.viewAccess")}</Label>
+                  <span className="text-xs text-muted-foreground">
+                    {viewerEmployeeIds.length === 0
+                      ? t("pages.departments.viewersNone")
+                      : t("pages.departments.viewersSelected", {
+                          count: viewerEmployeeIds.length,
+                        })}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {t("pages.departments.viewAccessHint")}
+                </p>
+                <div className="space-y-2.5">
+                  {viewerSlots.map((selectedId, index) => {
+                    const slotOptions = optionsForViewerSlot(index);
+                    const selectedEmployee = headOptions.find(
+                      (employee) => employee.employeeId === selectedId,
+                    );
+                    const otherViewed =
+                      selectedId !== "none"
+                        ? departments
+                            .filter(
+                              (dept) =>
+                                dept.id !== editing?.id &&
+                                dept.id !== (assignCeoHeads ? ceoHeadsUnitId : "") &&
+                                Boolean(dept.viewerEmployeeIds?.includes(selectedId)),
+                            )
+                            .map((dept) => dept.name)
+                        : [];
+                    return (
+                      <div key={`viewer-slot-${index}`} className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Select
+                            value={selectedId}
+                            onValueChange={(value) => setViewerSlot(index, value)}
+                          >
+                            <SelectTrigger className="flex-1">
+                              <SelectValue
+                                placeholder={
+                                  index === 0
+                                    ? t("pages.departments.selectViewer")
+                                    : t("pages.departments.selectAnotherViewer")
+                                }
+                              />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">
+                                {index === 0
+                                  ? t("pages.departments.noViewerAssigned")
+                                  : t("pages.departments.selectViewer")}
+                              </SelectItem>
+                              {selectedEmployee &&
+                                !slotOptions.some(
+                                  (employee) => employee.employeeId === selectedId,
+                                ) && (
+                                  <SelectItem value={selectedId}>
+                                    {selectedEmployee.name}
+                                    {selectedEmployee.employeeCode
+                                      ? ` (${selectedEmployee.employeeCode})`
+                                      : ""}
+                                  </SelectItem>
+                                )}
+                              {slotOptions.map((employee) => (
+                                <SelectItem key={employee.employeeId} value={employee.employeeId!}>
+                                  {employee.name}
+                                  {employee.employeeCode ? ` (${employee.employeeCode})` : ""}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {viewerSlots.length > 1 && (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="shrink-0 text-muted-foreground hover:text-destructive"
+                              title={t("pages.departments.removeViewer")}
+                              aria-label={t("pages.departments.removeViewer")}
+                              onClick={() => removeViewerSlot(index)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                        {otherViewed.length > 0 ? (
+                          <p className="px-0.5 text-xs text-muted-foreground">
+                            {t("pages.departments.alsoViews", { units: otherViewed.join(", ") })}
+                          </p>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={!canAddAnotherViewer}
+                  onClick={addViewerSlot}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t("pages.departments.addAnotherViewer")}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  {t("pages.departments.alreadyChosenViewers")}
+                </p>
+              </div>
               </div>
             )}
             <DialogFooter>

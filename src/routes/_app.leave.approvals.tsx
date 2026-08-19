@@ -120,6 +120,7 @@ function LeaveApprovalsPage() {
   const [error, setError] = useState("");
   const [accessChecked, setAccessChecked] = useState(false);
   const [canApprove, setCanApprove] = useState(false);
+  const [canViewTeam, setCanViewTeam] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -133,7 +134,8 @@ function LeaveApprovalsPage() {
       .isReportingManager()
       .then((result) => {
         const allowed = result.isReportingManager || peopleOps;
-        setCanApprove(allowed);
+        setCanViewTeam(allowed);
+        setCanApprove(peopleOps || result.canApproveTeam === true);
         setAccessChecked(true);
         if (!allowed) {
           void navigate({ to: "/leave/history", replace: true });
@@ -142,16 +144,18 @@ function LeaveApprovalsPage() {
       .catch(() => {
         setAccessChecked(true);
         if (peopleOps) {
+          setCanViewTeam(true);
           setCanApprove(true);
           return;
         }
+        setCanViewTeam(false);
         setCanApprove(false);
         void navigate({ to: "/dashboard", replace: true });
       });
   }, [navigate, user]);
 
   useEffect(() => {
-    if (!canApprove) return;
+    if (!canViewTeam) return;
     Promise.all([
       leaveApi.assignedApprovals("PENDING"),
       leaveApi.assignedApprovals(),
@@ -164,7 +168,7 @@ function LeaveApprovalsPage() {
       })
       .catch((err) => setError((err as Error).message))
       .finally(() => setLoading(false));
-  }, [canApprove]);
+  }, [canViewTeam]);
 
   const pendingWeekly = useMemo(
     () => weeklyOffs.filter((request) => request.status === "PENDING"),
@@ -212,7 +216,7 @@ function LeaveApprovalsPage() {
 
   const confirmLeave = confirm ? rows.find((leave) => leave.id === confirm.id) : undefined;
 
-  if (!accessChecked || !canApprove) {
+  if (!accessChecked || !canViewTeam) {
     return (
       <div className="space-y-4">
         <PageHeader
@@ -233,6 +237,11 @@ function LeaveApprovalsPage() {
   return (
     <div>
       <PageHeader title={t("pages.leaveApprovals.title")} description={t("pages.leaveApprovals.subtitle")} />
+      {canViewTeam && !canApprove && (
+        <p className="mb-4 rounded-md border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+          {t("pages.leaveApprovals.viewOnlyHelp")}
+        </p>
+      )}
       {loading && <LoadingState label={t("pages.loading.leaveApprovals")} />}
       {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
       {!loading && (
@@ -323,7 +332,7 @@ function LeaveApprovalsPage() {
                           )}
                         </div>
                       )}
-                      {canApprove && leave.status === "Pending" && (
+                      {(leave.canReview ?? canApprove) && leave.status === "Pending" && (
                         <div className="flex flex-wrap gap-2">
                           <Button
                             variant="outline"
@@ -366,7 +375,7 @@ function LeaveApprovalsPage() {
                           <StatusBadge status={request.status} />
                         </div>
                         {request.reason && <p className="text-sm">{request.reason}</p>}
-                        {canApprove && (
+                        {(request.canReview ?? canApprove) && (
                           <div className="grid grid-cols-2 gap-2">
                             <Button
                               variant="outline"

@@ -342,7 +342,7 @@ const pages = {
   departments: {
     title: "Departments",
     subtitleDenied: "Department management is available only to Developer Admin.",
-    subtitle: "Assign multiple heads for the CEO from Leadership, and one or more heads per organization unit. The same person can head multiple units — leave approvals follow each unit's heads.",
+    subtitle: "Assign multiple heads for the CEO from Leadership, and one or more heads per organization unit. Add view access so others can see that unit's attendance and leave without approving. The same person can head or view multiple units — leave approvals follow each unit's heads.",
     executive: "Executive Leadership",
     headNotAssigned: "Head not assigned",
     noHeads: "No heads assigned",
@@ -412,6 +412,20 @@ const pages = {
     memberCountOne: "1 member",
     memberCount: "{{count}} members",
     headsUnderCeo: "Heads under CEO",
+    viewAccess: "View access",
+    viewAccessHint:
+      "These people can see this unit's members, attendance, leave requests, and punch requests. They cannot approve leave or punches — only heads can.",
+    viewAccessShort: "View: {{names}}",
+    tableViewAccess: "View access",
+    addAnotherViewer: "Add another viewer",
+    selectViewer: "Select viewer",
+    selectAnotherViewer: "Select another viewer",
+    noViewerAssigned: "No view access",
+    viewersNone: "None selected",
+    viewersSelected: "{{count}} selected",
+    alsoViews: "Also views {{units}}",
+    removeViewer: "Remove this viewer",
+    alreadyChosenViewers: "Already chosen people are hidden from the next dropdown for this unit.",
   },
   talent: {
     title: "Talent acquisition",
@@ -1019,6 +1033,8 @@ const pages = {
     toastRequestRejected: "Request rejected",
     toastWeeklyOffApproved: "Weekly off approved",
     toastWeeklyOffRejected: "Weekly off rejected",
+    viewOnlyHelp:
+      "You have view access for this unit. You can see leave and weekly-off requests. Only organization heads can approve or reject.",
   },
   leaveTracking: {
     title: "Leave Tracking",

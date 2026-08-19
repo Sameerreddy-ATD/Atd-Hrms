@@ -331,6 +331,11 @@ export function departmentDto(department: {
     sortOrder: number;
     employee?: Pick<Employee, "name"> | null;
   }>;
+  viewerAssignments?: Array<{
+    employeeId: string;
+    sortOrder: number;
+    employee?: Pick<Employee, "name"> | null;
+  }>;
 }) {
   const assignmentHeads = [...(department.headAssignments ?? [])].sort(
     (a, b) => a.sortOrder - b.sortOrder || a.employeeId.localeCompare(b.employeeId),
@@ -349,6 +354,9 @@ export function departmentDto(department: {
       : department.headEmployee?.name
         ? [department.headEmployee.name]
         : [];
+  const assignmentViewers = [...(department.viewerAssignments ?? [])].sort(
+    (a, b) => a.sortOrder - b.sortOrder || a.employeeId.localeCompare(b.employeeId),
+  );
   return {
     id: department.departmentId,
     name: department.name,
@@ -356,6 +364,10 @@ export function departmentDto(department: {
     head: heads[0],
     headEmployeeIds,
     heads,
+    viewerEmployeeIds: assignmentViewers.map((row) => row.employeeId),
+    viewers: assignmentViewers
+      .map((row) => row.employee?.name)
+      .filter((name): name is string => Boolean(name)),
     parentDepartmentId: department.parentDepartmentId ?? undefined,
     unitType: department.unitType,
     sortOrder: department.sortOrder,

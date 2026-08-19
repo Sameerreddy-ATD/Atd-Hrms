@@ -360,7 +360,7 @@ export const employeesApi = {
   list: (filters: Record<string, string | number | undefined> = {}) =>
     request<EmployeeProfile[]>(`/employees${toQuery(filters)}`),
   isReportingManager: () =>
-    request<{ isReportingManager: boolean; teamCount: number }>(
+    request<{ isReportingManager: boolean; canApproveTeam?: boolean; teamCount: number }>(
       "/employees/me/is-reporting-manager",
     ),
   get: (id: string) => request<EmployeeProfile | null>(`/employees/${id}`),
@@ -805,10 +805,11 @@ export const branchesApi = {
   createDepartment: (
     department: Omit<
       Department,
-      "id" | "headEmployeeId" | "head" | "headEmployeeIds" | "heads" | "parentDepartmentId"
+      "id" | "headEmployeeId" | "head" | "headEmployeeIds" | "heads" | "viewerEmployeeIds" | "viewers" | "parentDepartmentId"
     > & {
       headEmployeeId?: string | null;
       headEmployeeIds?: string[];
+      viewerEmployeeIds?: string[];
       parentDepartmentId?: string | null;
     },
   ) => request<Department>("/departments", { method: "POST", body: JSON.stringify(department) }),
@@ -817,6 +818,7 @@ export const branchesApi = {
     patch: Omit<Partial<Department>, "headEmployeeId" | "parentDepartmentId"> & {
       headEmployeeId?: string | null;
       headEmployeeIds?: string[];
+      viewerEmployeeIds?: string[];
       parentDepartmentId?: string | null;
     },
   ) => request<Department>(`/departments/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),

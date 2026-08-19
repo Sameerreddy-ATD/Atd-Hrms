@@ -341,7 +341,7 @@ const pages = {
   departments: {
     title: "విభాగాలు",
     subtitleDenied: "విభాగ నిర్వహణ Developer Adminకు మాత్రమే అందుబాటులో ఉంది.",
-    subtitle: "Leadership నుండి CEOకు బహుళ heads కేటాయించండి, మరియు ప్రతి సంస్థా యూనిట్‌కు ఒకటి లేదా అంతకంటే ఎక్కువ heads. ఒకే వ్యక్తి బహుళ యూనిట్‌లకు head అవ్వవచ్చు — సెలవు ఆమోదాలు ప్రతి యూనిట్ headsను అనుసరిస్తాయి.",
+    subtitle: "Leadership నుండి CEOకు బహుళ heads కేటాయించండి, మరియు ప్రతి సంస్థా యూనిట్‌కు ఒకటి లేదా అంతకంటే ఎక్కువ heads. View access జోడిస్తే ఇతరులు approve చేయకుండా ఆ యూనిట్ హాజరు మరియు సెలవు చూడవచ్చు. ఒకే వ్యక్తి బహుళ యూనిట్‌లకు head అవ్వవచ్చు — సెలవు ఆమోదాలు ప్రతి యూనిట్ headsను అనుసరిస్తాయి.",
     executive: "ఎగ్జిక్యూటివ్ లీడర్‌షిప్",
     headNotAssigned: "Head కేటాయించలేదు",
     noHeads: "Heads కేటాయించలేదు",
@@ -411,6 +411,20 @@ const pages = {
     memberCountOne: "1 సభ్యుడు",
     memberCount: "{{count}} సభ్యులు",
     headsUnderCeo: "CEO కింది heads",
+    viewAccess: "View access",
+    viewAccessHint:
+      "ఈ వ్యక్తులు ఈ యూనిట్ సభ్యులు, హాజరు, సెలవు requests మరియు punch requests చూడవచ్చు. వారు approve చేయలేరు — heads మాత్రమే చేయగలరు.",
+    viewAccessShort: "View: {{names}}",
+    tableViewAccess: "View access",
+    addAnotherViewer: "మరో viewer జోడించండి",
+    selectViewer: "Viewer ఎంచుకోండి",
+    selectAnotherViewer: "మరో viewer ఎంచుకోండి",
+    noViewerAssigned: "View access లేదు",
+    viewersNone: "ఎవరూ ఎంచుకోలేదు",
+    viewersSelected: "{{count}} ఎంచుకున్నారు",
+    alsoViews: "వీరు కూడా చూస్తారు {{units}}",
+    removeViewer: "ఈ viewerను తీసివేయండి",
+    alreadyChosenViewers: "ఈ యూనిట్ కోసం ఎంచుకున్న వ్యక్తులు తర్వాతి dropdownలో కనిపించరు.",
   },
   talent: {
     title: "టాలెంట్ acquisition",
@@ -1017,6 +1031,8 @@ const pages = {
     toastRequestRejected: "Request reject చేయబడింది",
     toastWeeklyOffApproved: "Weekly off approve చేయబడింది",
     toastWeeklyOffRejected: "Weekly off reject చేయబడింది",
+    viewOnlyHelp:
+      "మీకు ఈ యూనిట్‌కు view access ఉంది. మీరు leave మరియు weekly-off requests చూడవచ్చు. organization heads మాత్రమే approve లేదా reject చేయగలరు.",
   },
   leaveTracking: {
     title: "సెలవు ట్రాకింగ్",

@@ -314,6 +314,9 @@ export interface Department {
   /** All organization heads for this unit. */
   headEmployeeIds?: string[];
   heads?: string[];
+  /** People with view-only access to this unit's attendance, leave, and team records. */
+  viewerEmployeeIds?: string[];
+  viewers?: string[];
   parentDepartmentId?: string;
   unitType?: "TEAM" | "SUBTEAM" | "FUNCTION";
   sortOrder?: number;
@@ -635,6 +638,8 @@ export interface LeaveRequest {
   otherPendingCount?: number;
   otherPendingDays?: number;
   sameTypeOtherPendingDays?: number;
+  /** Organization heads can decide; view-access people see the request only. */
+  canReview?: boolean;
 }
 
 export interface LeaveBalance {
@@ -659,6 +664,8 @@ export interface WeeklyOffRequest {
   assignedApproverName?: string;
   reviewedByName?: string;
   createdAt: string;
+  /** Organization heads can decide; view-access people see the request only. */
+  canReview?: boolean;
 }
 
 export interface Holiday {

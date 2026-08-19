@@ -93,6 +93,14 @@ export async function replaceDepartmentHeads(
       await syncClearedOrganizationHead(tx, removedId);
     }
   }
+
+  if (nextIds.length > 0) {
+    const viewers = await currentViewerIdsForDepartment(tx, departmentId);
+    const remainingViewers = viewers.filter((id) => !nextIds.includes(id));
+    if (remainingViewers.length !== viewers.length) {
+      await replaceDepartmentViewers(tx, departmentId, remainingViewers);
+    }
+  }
 }
 
 /** Ensure this employee is listed as a head of the given unit. */
@@ -213,4 +221,35 @@ export async function headedDepartmentsForEmployee(tx: Tx, employeeId: string) {
     }
   }
   return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+async function currentViewerIdsForDepartment(tx: Tx, departmentId: string) {
+  const assignments = await tx.departmentViewerAssignment.findMany({
+    where: { departmentId },
+    orderBy: { sortOrder: "asc" },
+    select: { employeeId: true },
+  });
+  return assignments.map((row) => row.employeeId);
+}
+
+export async function replaceDepartmentViewers(
+  tx: Tx,
+  departmentId: string,
+  viewerEmployeeIds: string[],
+) {
+  const headIds = await currentHeadIdsForDepartment(tx, departmentId);
+  const nextIds = [...new Set(viewerEmployeeIds.filter(Boolean))].filter(
+    (employeeId) => !headIds.includes(employeeId),
+  );
+
+  await tx.departmentViewerAssignment.deleteMany({ where: { departmentId } });
+  if (nextIds.length > 0) {
+    await tx.departmentViewerAssignment.createMany({
+      data: nextIds.map((employeeId, index) => ({
+        departmentId,
+        employeeId,
+        sortOrder: index,
+      })),
+    });
+  }
 }
