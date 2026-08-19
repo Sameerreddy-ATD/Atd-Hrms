@@ -1714,6 +1714,10 @@ const pages = {
   },
   profileVerification: {
     title: "Verify Your Profile",
+    bannerTitle: "Verify Your Profile",
+    bannerSubtitle:
+      "Please confirm your employee details are correct. This reminder stays until you complete verification.",
+    bannerAction: "Verify now",
     subtitle: "Please review each detail and mark it as Correct or Wrong. If wrong, enter the correct value.",
     sectionIdentity: "Identity & Contact",
     sectionEmployment: "Employment",

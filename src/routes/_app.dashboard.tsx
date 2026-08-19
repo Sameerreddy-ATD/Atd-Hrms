@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { BirthdayMarquee } from "@/components/layout/BirthdayMarquee";
 import { DashboardAnnouncements } from "@/components/layout/DashboardAnnouncements";
 import { StatCard } from "@/components/common/StatCard";
+import { ProfileVerificationBanner } from "@/components/profile/ProfileVerificationBanner";
 import { ProfileVerificationModal } from "@/components/profile/ProfileVerificationModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/common/StatusBadge";
@@ -209,12 +210,6 @@ function DashboardPage() {
   }, [refreshDashboard, user?.employeeId]);
 
   useEffect(() => {
-    if (!user?.employeeId || user.profileVerified || summaryLoading || !selfPunchRoles) return;
-    if (!workedTime(timeline).isCheckedIn) return;
-    setShowProfileVerification(true);
-  }, [user?.employeeId, user?.profileVerified, summaryLoading, selfPunchRoles, timeline]);
-
-  useEffect(() => {
     if (!user) return;
     let active = true;
     const adminPeopleRoles = ["developer_admin"];
@@ -328,6 +323,9 @@ function DashboardPage() {
         description={headerDescription}
       />
 
+      {user.employeeId && !user.profileVerified && (
+        <ProfileVerificationBanner onVerify={requestProfileVerification} />
+      )}
       <BirthdayMarquee />
       {user.role !== "driver" && <DashboardAnnouncements />}
 
@@ -439,6 +437,7 @@ function DashboardPage() {
 
       <ProfileVerificationModal
         open={showProfileVerification}
+        onClose={() => setShowProfileVerification(false)}
         onComplete={() => {
           setShowProfileVerification(false);
           if (user) updateCurrentUser({ ...user, profileVerified: true });

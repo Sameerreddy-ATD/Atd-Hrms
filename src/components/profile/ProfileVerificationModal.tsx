@@ -95,9 +95,11 @@ function buildFields(user: Record<string, unknown>): Record<Section, FieldDef[]>
 
 export function ProfileVerificationModal({
   open,
+  onClose,
   onComplete,
 }: {
   open: boolean;
+  onClose: () => void;
   onComplete: () => void;
 }) {
   const { t } = useTranslation();
@@ -179,12 +181,13 @@ export function ProfileVerificationModal({
   if (!user || !allFields) return null;
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent
-        className="flex max-h-[95dvh] w-full max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[90dvh]"
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
-      >
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
+    >
+      <DialogContent className="flex max-h-[95dvh] w-full max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[90dvh]">
         <DialogHeader className="shrink-0 border-b px-4 py-3 sm:px-6 sm:py-4">
           <DialogTitle className="text-base font-semibold sm:text-lg">
             {t("pages.profileVerification.title")}
