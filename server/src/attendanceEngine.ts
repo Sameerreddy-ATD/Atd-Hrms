@@ -20,6 +20,7 @@ import {
   attendanceResultFromHours,
   workedAttendanceStatusLabel,
   attendancePunchOutDeadline,
+  isOvernightCheckIn,
   classifyMobileSource,
   correctionDeadlineFor,
   decimalHours,
@@ -71,7 +72,22 @@ export function attendanceDateForShift(
 }
 
 export async function attendanceDateForEmployee(employeeId: string, eventTime: Date) {
-  const shift = await resolveEmployeeShift(employeeId, indiaCalendarDate(eventTime));
+  const calendarDate = indiaCalendarDate(eventTime);
+  const latest = await prisma.attendanceEvent.findFirst({
+    where: { employeeId, eventType: { in: attendancePunchEventTypes } },
+    orderBy: { eventTime: "desc" },
+    select: { eventType: true, eventDate: true, eventTime: true },
+  });
+  if (latest && inTypes.has(latest.eventType)) {
+    const openShift = await resolveEmployeeShift(employeeId, latest.eventDate);
+    if (isOvernightCheckIn(latest.eventTime, openShift)) {
+      const deadline = attendancePunchOutDeadline(latest.eventDate, openShift, latest.eventTime);
+      if (eventTime.getTime() < deadline.getTime()) {
+        return startOfDayUtc(latest.eventDate);
+      }
+    }
+  }
+  const shift = await resolveEmployeeShift(employeeId, calendarDate);
   return attendanceDateForShift(eventTime, shift);
 }
 
@@ -261,7 +277,11 @@ export async function recalculateDailySummary(employeeId: string, date: string |
   const { hasOpenPunch } = openPunchState(events);
   // Open session: keep punch-out empty until a real out (never invent a time).
   const lastOut = hasOpenPunch ? null : lastRealOut;
-  const punchOutDeadline = attendancePunchOutDeadline(eventDate, shift);
+  const lastOpenCheckIn = hasOpenPunch
+    ? (realCheckIns.at(-1)?.eventTime ??
+      events.filter((event) => inTypes.has(event.eventType)).at(-1)?.eventTime)
+    : undefined;
+  const punchOutDeadline = attendancePunchOutDeadline(eventDate, shift, lastOpenCheckIn);
   const pastPunchOutDeadline = Date.now() >= punchOutDeadline.getTime();
   // After the day (or night-shift) deadline with no out → Missed Checkout for correction.
   const isMissedCheckout = Boolean(hasOpenPunch && pastPunchOutDeadline);

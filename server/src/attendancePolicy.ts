@@ -5,6 +5,10 @@ import { prisma } from "./prisma.js";
 export const GRACE_MINUTES = 30;
 export const FULL_DAY_HOURS = 9;
 export const CORRECTION_WINDOW_DAYS = 2;
+/** Check-in at or after this IST minute (20:00) is an overnight session, not a day that ends at midnight. */
+export const OVERNIGHT_CHECK_IN_FROM_MINUTES = 20 * 60;
+/** Overnight sessions stay open until 10:00 IST the next calendar morning (same hour daily settlement uses). */
+export const OVERNIGHT_SESSION_END_MINUTES = 10 * 60;
 
 export type ShiftWindow = {
   shiftType: "DAY" | "NIGHT";
@@ -127,14 +131,36 @@ export function shiftWindowBounds(attendanceDate: Date, shift: ShiftWindow) {
   };
 }
 
+/** True when this punch should keep running past IST midnight. */
+export function isOvernightCheckIn(eventTime: Date, shift: ShiftWindow) {
+  if (shift.shiftType === "NIGHT") return true;
+  const india = new Date(eventTime.getTime() + 5.5 * 60 * 60 * 1000);
+  const minutes = india.getUTCHours() * 60 + india.getUTCMinutes();
+  return minutes >= OVERNIGHT_CHECK_IN_FROM_MINUTES;
+}
+
+export function overnightSessionEnd(attendanceDate: Date) {
+  return shiftInstantOnDate(attendanceDate, OVERNIGHT_SESSION_END_MINUTES, 1);
+}
+
 /**
  * Latest moment to check out without Missed Checkout: end of the IST calendar day,
  * or shift end when that is later (night shifts that cross midnight).
+ * A check-in from 8:00 PM IST onward stays open until 10:00 AM the next morning
+ * so a late punch is not closed at 12:00 AM.
  */
-export function attendancePunchOutDeadline(attendanceDate: Date, shift: ShiftWindow) {
+export function attendancePunchOutDeadline(
+  attendanceDate: Date,
+  shift: ShiftWindow,
+  lastOpenCheckIn?: Date | null,
+) {
   const calendarEnd = endOfAttendanceDayIst(attendanceDate);
   const { end: shiftEnd } = shiftWindowBounds(attendanceDate, shift);
-  return new Date(Math.max(calendarEnd.getTime(), shiftEnd.getTime()));
+  let latest = Math.max(calendarEnd.getTime(), shiftEnd.getTime());
+  if (lastOpenCheckIn && isOvernightCheckIn(lastOpenCheckIn, shift)) {
+    latest = Math.max(latest, overnightSessionEnd(attendanceDate).getTime());
+  }
+  return new Date(latest);
 }
 
 export function correctionDeadlineFor(attendanceDate: Date, punchOutDeadline: Date) {

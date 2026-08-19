@@ -238,7 +238,7 @@ export async function processMissedCheckouts(now = new Date()) {
     if (!latest || !openTypes.has(latest.eventType)) continue;
 
     const shift = await resolveEmployeeShift(employeeId, latest.eventDate);
-    const deadline = attendancePunchOutDeadline(latest.eventDate, shift);
+    const deadline = attendancePunchOutDeadline(latest.eventDate, shift, latest.eventTime);
     if (now.getTime() < deadline.getTime()) continue;
 
     await recalculateDailySummary(employeeId, latest.eventDate);
@@ -266,7 +266,7 @@ export async function processMissedCheckouts(now = new Date()) {
     if (userId) {
       await sendPushToUsers([userId], {
         title: "Punch-out required",
-        body: "The day ended and you did not check out. Punch-out is empty — submit a missed punch with your actual time within two days for your head to approve. Tomorrow’s check-in is not affected.",
+        body: "You did not check out before the session closed. Punch-out is empty — submit a missed punch with your actual time within two days for your head to approve. Tomorrow’s check-in is not affected.",
         href: "/attendance/missed-punch",
         tag,
       });

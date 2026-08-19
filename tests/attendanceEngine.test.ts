@@ -88,4 +88,30 @@ describe("attendance movement summary rules", () => {
     const dayEnd = endOfAttendanceDayIst(date);
     expect(deadline.getTime()).toBeGreaterThan(dayEnd.getTime());
   });
+
+  it("does not close an 11pm day-shift check-in at midnight", () => {
+    const date = new Date("2026-08-05T00:00:00.000Z");
+    const checkInAt = new Date("2026-08-05T17:30:00.000Z"); // 23:00 IST 5 Aug
+    const midnight = endOfAttendanceDayIst(date);
+    const deadline = attendancePunchOutDeadline(
+      date,
+      { shiftType: "DAY", shiftStartMinutes: 540, shiftEndMinutes: 1080 },
+      checkInAt,
+    );
+    expect(deadline.getTime()).toBeGreaterThan(midnight.getTime());
+    // 10:00 IST on 6 Aug
+    expect(deadline.toISOString()).toBe("2026-08-06T04:30:00.000Z");
+  });
+
+  it("still closes a normal daytime punch at IST midnight", () => {
+    const date = new Date("2026-08-05T00:00:00.000Z");
+    const checkInAt = new Date("2026-08-05T03:30:00.000Z"); // 09:00 IST
+    const midnight = endOfAttendanceDayIst(date);
+    const deadline = attendancePunchOutDeadline(
+      date,
+      { shiftType: "DAY", shiftStartMinutes: 540, shiftEndMinutes: 1080 },
+      checkInAt,
+    );
+    expect(deadline.getTime()).toBe(midnight.getTime());
+  });
 });
