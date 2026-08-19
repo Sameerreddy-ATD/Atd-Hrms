@@ -14,6 +14,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { leaveApi, employeesApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
 import { formatDisplayDate, indiaDateKey, indiaDateKeyShift } from "@/lib/india-date";
+import {
+  autoAllocateLeaveTypes,
+  eachDateKeys,
+  sortLeaveTypesForApply,
+  weekOffSkipKeys,
+} from "@/lib/leave-allocation";
 import type {
   LeaveBalance,
   LeaveTypeOption,
@@ -39,33 +45,6 @@ export const Route = createFileRoute("/_app/leave/apply")({
 });
 
 type Allocation = Record<string, number>;
-
-function autoAllocate(
-  totalDays: number,
-  types: LeaveTypeOption[],
-  balances: LeaveBalance[],
-): Allocation {
-  const alloc: Allocation = {};
-  let remaining = totalDays;
-
-  const paidTypes = types.filter((t) => t.paid && t.code !== "LOP" && t.code !== "COMP_OFF");
-  const lopType = types.find((t) => t.code === "LOP");
-
-  for (const type of paidTypes) {
-    if (remaining <= 0) break;
-    const bal = balances.find((b) => b.code === type.code)?.balance ?? 0;
-    if (bal <= 0) continue;
-    const use = Math.min(remaining, bal);
-    alloc[type.id] = use;
-    remaining = Math.round((remaining - use) * 100) / 100;
-  }
-
-  if (remaining > 0 && lopType) {
-    alloc[lopType.id] = remaining;
-  }
-
-  return alloc;
-}
 
 function ApplyLeavePage() {
   const { t } = useTranslation();
@@ -96,13 +75,48 @@ function ApplyLeavePage() {
   const todayString = indiaDateKey();
 
   const session = duration === "HALF" ? halfSlot : "FULL";
+  const sortedTypes = useMemo(() => sortLeaveTypesForApply(types), [types]);
+
+  const rangeEnd = duration === "HALF" ? from : to;
+  const rangeKeys = useMemo(
+    () => (from && rangeEnd ? eachDateKeys(from, rangeEnd) : []),
+    [from, rangeEnd],
+  );
+  const approvedWeekOffKeys = useMemo(
+    () =>
+      weeklyOffs
+        .filter((row) => row.status === "APPROVED")
+        .map((row) => row.date.slice(0, 10)),
+    [weeklyOffs],
+  );
+  const pendingWeekOffInRange = useMemo(
+    () =>
+      weeklyOffs.filter(
+        (row) =>
+          row.status === "PENDING" &&
+          rangeKeys.includes(row.date.slice(0, 10)),
+      ),
+    [weeklyOffs, rangeKeys],
+  );
+  const skippedWeekOffKeys = useMemo(
+    () =>
+      weekOffSkipKeys({
+        policy: weeklyOffPolicy,
+        dateKeys: rangeKeys,
+        approvedWeeklyOffKeys: approvedWeekOffKeys,
+      }),
+    [weeklyOffPolicy, rangeKeys, approvedWeekOffKeys],
+  );
 
   const requestedDays = useMemo(() => {
     if (!from) return 0;
-    if (duration === "HALF") return 0.5;
+    if (duration === "HALF") {
+      if (skippedWeekOffKeys.includes(from)) return 0;
+      return 0.5;
+    }
     if (!to || from > to) return 0;
-    return Math.max(1, Math.round((+new Date(to) - +new Date(from)) / 86400000) + 1);
-  }, [from, to, duration]);
+    return Math.max(0, rangeKeys.length - skippedWeekOffKeys.length);
+  }, [from, to, duration, rangeKeys, skippedWeekOffKeys]);
 
   const allocatedTypes = useMemo(
     () =>
@@ -177,13 +191,13 @@ function ApplyLeavePage() {
       return;
     }
     if (!manuallyEdited) {
-      setAllocation(autoAllocate(requestedDays, types, balances));
+      setAllocation(autoAllocateLeaveTypes(requestedDays, types, balances));
     }
   }, [requestedDays, types, balances, manuallyEdited]);
 
   const handleAutoAllocate = useCallback(() => {
     if (requestedDays <= 0) return;
-    setAllocation(autoAllocate(requestedDays, types, balances));
+    setAllocation(autoAllocateLeaveTypes(requestedDays, types, balances));
     setManuallyEdited(false);
   }, [requestedDays, types, balances]);
 
@@ -220,6 +234,9 @@ function ApplyLeavePage() {
     } else if (from < todayString) {
       errs.from = t("pages.leaveApply.errFromPast");
     }
+    if (duration === "HALF" && from && skippedWeekOffKeys.includes(from)) {
+      errs.from = t("pages.leaveApply.errWeekOffCannotBeLeave");
+    }
     if (duration !== "HALF") {
       if (!to) {
         errs.to = t("pages.leaveApply.errToRequired");
@@ -227,6 +244,9 @@ function ApplyLeavePage() {
         errs.to = t("pages.leaveApply.errToPast");
       }
       if (from && to && from > to) errs.to = t("pages.leaveApply.errToAfterStart");
+      if (from && to && from <= to && requestedDays <= 0) {
+        errs.to = t("pages.leaveApply.errAllDaysAreWeekOff");
+      }
     }
     if (reason.trim().length < 3) errs.reason = t("pages.leaveApply.errReasonMin");
     if (reason.length > 1000) errs.reason = t("pages.leaveApply.errReasonMax");
@@ -381,6 +401,14 @@ function ApplyLeavePage() {
               )}
 
               <form onSubmit={submit} className="space-y-5" noValidate>
+                <div className="rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-sm leading-6 text-muted-foreground">
+                  <p>{t("pages.leaveApply.autoAllocateOrderHelp")}</p>
+                  <p className="mt-1">
+                    {weeklyOffPolicy === "SUNDAY_FIXED"
+                      ? t("pages.leaveApply.sundaySkippedHelp")
+                      : t("pages.leaveApply.selectableWeekOffFirstHelp")}
+                  </p>
+                </div>
                 {/* Duration */}
                 <div className="space-y-1.5">
                   <Label>{t("pages.leaveApply.duration")}</Label>
@@ -474,21 +502,55 @@ function ApplyLeavePage() {
                   )}
                 </div>
 
-                {/* Total days indicator */}
                 {requestedDays > 0 && (
-                  <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/[0.03] px-3 py-2">
-                    <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
-                    <span className="text-sm font-medium">
-                      {requestedDays === 0.5
-                        ? t("pages.leaveApply.halfDayCount", {
-                            slot:
-                              halfSlot === "FIRST_HALF"
-                                ? t("pages.leaveApply.preLunch")
-                                : t("pages.leaveApply.postLunch"),
-                          })
-                        : t("pages.leaveApply.dayCount", { count: requestedDays })}
-                    </span>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/[0.03] px-3 py-2">
+                      <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
+                      <span className="text-sm font-medium">
+                        {requestedDays === 0.5
+                          ? t("pages.leaveApply.halfDayCount", {
+                              slot:
+                                halfSlot === "FIRST_HALF"
+                                  ? t("pages.leaveApply.preLunch")
+                                  : t("pages.leaveApply.postLunch"),
+                            })
+                          : t("pages.leaveApply.dayCount", { count: requestedDays })}
+                      </span>
+                    </div>
+                    {skippedWeekOffKeys.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {t("pages.leaveApply.skippedWeekOffDays", {
+                          dates: skippedWeekOffKeys.map((key) => formatDisplayDate(key)).join(", "),
+                        })}
+                      </p>
+                    )}
+                    {pendingWeekOffInRange.length > 0 && (
+                      <p className="text-xs text-amber-700 dark:text-amber-300">
+                        {t("pages.leaveApply.pendingWeekOffCountsAsLeave", {
+                          dates: pendingWeekOffInRange
+                            .map((row) => formatDisplayDate(row.date))
+                            .join(", "),
+                        })}{" "}
+                        <button
+                          type="button"
+                          className="font-medium text-primary underline-offset-2 hover:underline"
+                          onClick={() => setRequestKind("weekly-off")}
+                        >
+                          {t("pages.leaveApply.weeklyOffTab")}
+                        </button>
+                      </p>
+                    )}
                   </div>
+                )}
+                {duration === "HALF" && from && skippedWeekOffKeys.includes(from) && (
+                  <p className="text-xs text-destructive">
+                    {t("pages.leaveApply.errWeekOffCannotBeLeave")}
+                  </p>
+                )}
+                {duration !== "HALF" && from && to && from <= to && requestedDays <= 0 && (
+                  <p className="text-xs text-destructive">
+                    {t("pages.leaveApply.errAllDaysAreWeekOff")}
+                  </p>
                 )}
 
                 {/* ─── Leave Type Allocation ─── */}
@@ -511,7 +573,7 @@ function ApplyLeavePage() {
                     </div>
 
                     <div className="space-y-2">
-                      {types.map((type) => {
+                      {sortedTypes.map((type) => {
                         const bal = balances.find((b) => b.code === type.code)?.balance ?? 0;
                         const isLop = type.code === "LOP";
                         const days = allocation[type.id] ?? 0;
@@ -542,7 +604,9 @@ function ApplyLeavePage() {
                               <p className="mt-0.5 text-xs text-muted-foreground">
                                 {isLop
                                   ? t("pages.leaveApply.unlimited")
-                                  : t("pages.leaveApply.balanceAvailable", { count: bal })}
+                                  : type.code === "SICK"
+                                    ? t("pages.leaveApply.sickNotAutoAllocated", { balance: bal })
+                                    : t("pages.leaveApply.balanceAvailable", { count: bal })}
                               </p>
                               {errors[errKey] && (
                                 <p className="mt-1 text-xs text-destructive">{errors[errKey]}</p>
@@ -764,6 +828,11 @@ function ApplyLeavePage() {
                       ? t("pages.leaveApply.sundayFixedHelp")
                       : t("pages.leaveApply.selectableWeeklyOffHelp")}
                   </p>
+                  {weeklyOffPolicy === "SELECTABLE" && (
+                    <p className="mt-2 text-sm leading-6 text-foreground">
+                      {t("pages.leaveApply.selectableWeekOffFirstHelp")}
+                    </p>
+                  )}
                 </div>
               </div>
               {weeklyOffPolicy === "SUNDAY_FIXED" ? (

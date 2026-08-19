@@ -71,6 +71,43 @@ describe("casual leave joining rules", () => {
   });
 });
 
+describe("leave auto-allocate and week-off skip", () => {
+  const types = [
+    { id: "sick", name: "Sick", paid: true, code: "SICK", active: true, carryForward: false, requiresMedicalDocument: true, approvalRequired: true, description: "" },
+    { id: "casual", name: "Casual", paid: true, code: "CASUAL", active: true, carryForward: true, requiresMedicalDocument: false, approvalRequired: true, description: "" },
+    { id: "comp", name: "Comp Off", paid: true, code: "COMP_OFF", active: true, carryForward: false, requiresMedicalDocument: false, approvalRequired: true, description: "" },
+    { id: "lop", name: "Unpaid", paid: false, code: "LOP", active: true, carryForward: false, requiresMedicalDocument: false, approvalRequired: true, description: "" },
+  ];
+
+  it("fills casual, then comp off, then unpaid, and never sick", async () => {
+    const { autoAllocateLeaveTypes } = await import("../src/lib/leave-allocation.ts");
+    const alloc = autoAllocateLeaveTypes(5, types, [
+      { type: "Casual Leave", code: "CASUAL", entitled: 12, used: 10, balance: 2 },
+      { type: "Sick Leave", code: "SICK", entitled: 6, used: 0, balance: 6 },
+      { type: "Comp Off", code: "COMP_OFF", entitled: 2, used: 0, balance: 1 },
+      { type: "Unpaid", code: "LOP", entitled: 0, used: 0, balance: 0 },
+    ]);
+    expect(alloc).toEqual({ casual: 2, comp: 1, lop: 2 });
+    expect(alloc.sick).toBeUndefined();
+  });
+
+  it("skips Sundays for fixed week off and approved week offs for selectable staff", async () => {
+    const { eachDateKeys, weekOffSkipKeys } = await import("../src/lib/leave-allocation.ts");
+    const keys = eachDateKeys("2026-08-21", "2026-08-24");
+    expect(keys).toEqual(["2026-08-21", "2026-08-22", "2026-08-23", "2026-08-24"]);
+    expect(weekOffSkipKeys({ policy: "SUNDAY_FIXED", dateKeys: keys, approvedWeeklyOffKeys: [] })).toEqual([
+      "2026-08-23",
+    ]);
+    expect(
+      weekOffSkipKeys({
+        policy: "SELECTABLE",
+        dateKeys: keys,
+        approvedWeeklyOffKeys: ["2026-08-22"],
+      }),
+    ).toEqual(["2026-08-22"]);
+  });
+});
+
 describe("half-day leave sessions", () => {
   it("counts a half-day slot as 0.5 and a full range as calendar days", () => {
     expect(expectedLeaveDays(1, LeaveSession.FIRST_HALF)).toBe(0.5);

@@ -3,6 +3,7 @@ import { HttpError } from "./errors.js";
 import { prisma } from "./prisma.js";
 import {
   eachDateInRange,
+  isSunday,
   istDateParts,
   startOfDayUtc,
   todayIstDate,
@@ -33,6 +34,35 @@ const usedStatuses: LeaveStatus[] = ["APPROVED", "MANAGER_APPROVED", "HR_VERIFIE
 
 function dateKey(date: Date) {
   return startOfDayUtc(date).toISOString().slice(0, 10);
+}
+
+/** Sundays (fixed policy) and approved weekly-off dates are not leave days. */
+export async function skippedWeekOffDateKeys(
+  employeeId: string,
+  fromDate: Date,
+  toDate: Date,
+) {
+  const dates = eachDateInRange(fromDate, toDate);
+  const employee = await prisma.employee.findUnique({
+    where: { employeeId },
+    select: { weeklyOffPolicy: true },
+  });
+  const approved = await prisma.weeklyOffRequest.findMany({
+    where: {
+      employeeId,
+      status: "APPROVED",
+      date: { gte: startOfDayUtc(fromDate), lte: startOfDayUtc(toDate) },
+    },
+    select: { date: true },
+  });
+  const approvedKeys = new Set(approved.map((row) => dateKey(row.date)));
+  const skipped = new Set<string>();
+  for (const date of dates) {
+    const key = dateKey(date);
+    if (employee?.weeklyOffPolicy === "SUNDAY_FIXED" && isSunday(date)) skipped.add(key);
+    if (approvedKeys.has(key)) skipped.add(key);
+  }
+  return skipped;
 }
 
 function effectiveDays(request: { days: Prisma.Decimal; cancelledDates: unknown }) {
@@ -283,6 +313,8 @@ export async function validateLeaveApplication(input: {
   const session = input.session ?? LeaveSession.FULL;
   const dates = eachDateInRange(input.fromDate, input.toDate);
   if (!dates.length) throw new HttpError(400, "Select a valid date range");
+  const skipped = await skippedWeekOffDateKeys(input.employeeId, input.fromDate, input.toDate);
+  const billableDates = dates.filter((date) => !skipped.has(dateKey(date)));
 
   if (session !== LeaveSession.FULL) {
     if (type.code === LEAVE_CODES.COMP_OFF) {
@@ -291,11 +323,19 @@ export async function validateLeaveApplication(input: {
     if (dates.length !== 1) {
       throw new HttpError(400, "Half-day leave must be for a single date");
     }
+    if (skipped.has(dateKey(dates[0]!))) {
+      throw new HttpError(400, "This date is a week off and cannot be taken as leave");
+    }
     if (input.days !== 0.5) {
       throw new HttpError(400, "Half-day leave counts as 0.5 day");
     }
-  } else if (!input._splitMode && dates.length !== input.days) {
-    throw new HttpError(400, "Leave days do not match the selected date range");
+  } else if (!billableDates.length) {
+    throw new HttpError(400, "Every date in this range is a week off. Choose working days.");
+  } else if (!input._splitMode && billableDates.length !== input.days) {
+    throw new HttpError(
+      400,
+      "Leave days do not match the selected date range (week-off days are not counted)",
+    );
   }
 
   const today = todayIstDate();
@@ -321,7 +361,9 @@ export async function validateLeaveApplication(input: {
       },
       select: { fromDate: true, toDate: true, cancelledDates: true, days: true, session: true },
     });
-    if (overlappingCandidates.some((request) => requestOverlapsDates(request, dates, session))) {
+    if (
+      overlappingCandidates.some((request) => requestOverlapsDates(request, billableDates, session))
+    ) {
       throw new HttpError(400, "Another active leave request overlaps these dates");
     }
   }
@@ -379,10 +421,12 @@ export async function validateLeaveApplication(input: {
     }
   }
 
-  if (type.code === LEAVE_CODES.COMP_OFF && input.days !== 1) {
-    throw new HttpError(400, "Use one Comp Off credit per request");
+  if (type.code === LEAVE_CODES.COMP_OFF) {
+    if (session !== LeaveSession.FULL || input.days < 1 || input.days % 1 !== 0) {
+      throw new HttpError(400, "Comp Off can only be taken as full days");
+    }
   }
-  return { type, balances, dates, session };
+  return { type, balances, dates: billableDates, session };
 }
 
 export async function validateSplitLeaveApplication(input: {
@@ -395,8 +439,13 @@ export async function validateSplitLeaveApplication(input: {
   const session = input.session ?? LeaveSession.FULL;
   const dates = eachDateInRange(input.fromDate, input.toDate);
   if (!dates.length) throw new HttpError(400, "Select a valid date range");
+  const skipped = await skippedWeekOffDateKeys(input.employeeId, input.fromDate, input.toDate);
+  const billableDates = dates.filter((date) => !skipped.has(dateKey(date)));
+  if (session === LeaveSession.FULL && !billableDates.length) {
+    throw new HttpError(400, "Every date in this range is a week off. Choose working days.");
+  }
 
-  const totalDays = session !== LeaveSession.FULL ? 0.5 : dates.length;
+  const totalDays = session !== LeaveSession.FULL ? 0.5 : billableDates.length;
   const allocSum = input.allocations.reduce((s, a) => s + a.days, 0);
   if (Math.abs(allocSum - totalDays) > 0.01) {
     throw new HttpError(400, `Total allocated days (${allocSum}) must equal ${totalDays}`);
@@ -441,11 +490,13 @@ export async function validateSplitLeaveApplication(input: {
     },
     select: { fromDate: true, toDate: true, cancelledDates: true, days: true, session: true },
   });
-  if (overlappingCandidates.some((request) => requestOverlapsDates(request, dates, session))) {
+  if (
+    overlappingCandidates.some((request) => requestOverlapsDates(request, billableDates, session))
+  ) {
     throw new HttpError(400, "Another active leave request overlaps these dates");
   }
 
-  return { results, dates, session };
+  return { results, dates: billableDates, session };
 }
 
 export async function consumeCompOffCredits(
