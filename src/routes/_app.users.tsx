@@ -62,6 +62,13 @@ import {
   occupiedRoles,
   type DirectoryFilters,
 } from "@/lib/directory-filters";
+import {
+  matchesWorkforceTypeFilter,
+  occupiedWorkforceTypes,
+  WORKFORCE_TYPE_LABELS,
+  type WorkforceTypeFilter,
+} from "@/lib/workforce-type";
+import { WorkforceTypeBadge } from "@/components/common/WorkforceTypeBadge";
 
 export const Route = createFileRoute("/_app/users")({
   component: UsersPage,
@@ -96,6 +103,7 @@ function UsersPage() {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [workforceTypeFilter, setWorkforceTypeFilter] = useState<WorkforceTypeFilter>("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [designation, setDesignation] = useState("all");
 
@@ -265,10 +273,13 @@ function UsersPage() {
   const roleOrder = useMemo(() => Object.keys(ROLE_LABELS) as Role[], []);
 
   const facetedUsers = useCallback(
-    (skip?: "designation" | "role" | "status") => {
+    (skip?: "designation" | "role" | "status" | "workforceType") => {
       const directorySkip = skip === "designation" ? skip : undefined;
       return users.filter((user) => {
         if (!matchesDirectoryPerson(user, directoryFilters, null, directorySkip)) {
+          return false;
+        }
+        if (skip !== "workforceType" && !matchesWorkforceTypeFilter(user, workforceTypeFilter)) {
           return false;
         }
         if (skip !== "role" && roleFilter !== "all" && user.role !== roleFilter) return false;
@@ -278,7 +289,7 @@ function UsersPage() {
         return true;
       });
     },
-    [users, directoryFilters, roleFilter, statusFilter],
+    [users, directoryFilters, roleFilter, workforceTypeFilter, statusFilter],
   );
 
   const designationOptions = useMemo(
@@ -288,6 +299,10 @@ function UsersPage() {
   const roleOptions = useMemo(
     () => occupiedRoles(facetedUsers("role"), roleOrder),
     [facetedUsers, roleOrder],
+  );
+  const workforceTypeOptions = useMemo(
+    () => occupiedWorkforceTypes(facetedUsers("workforceType")),
+    [facetedUsers],
   );
   const statusOptions = useMemo(() => {
     const present = new Set(facetedUsers("status").map(loginStatusBucket));
@@ -312,6 +327,7 @@ function UsersPage() {
     Boolean(query.trim()) ||
     designation !== "all" ||
     roleFilter !== "all" ||
+    workforceTypeFilter !== "all" ||
     statusFilter !== "all";
 
   useEffect(() => {
@@ -330,6 +346,15 @@ function UsersPage() {
   }, [roleFilter, roleOptions]);
 
   useEffect(() => {
+    if (
+      workforceTypeFilter !== "all" &&
+      !workforceTypeOptions.includes(workforceTypeFilter)
+    ) {
+      setWorkforceTypeFilter("all");
+    }
+  }, [workforceTypeFilter, workforceTypeOptions]);
+
+  useEffect(() => {
     if (statusFilter !== "all" && !statusOptions.includes(statusFilter as (typeof LOGIN_STATUS_FILTERS)[number])) {
       setStatusFilter("all");
     }
@@ -339,6 +364,7 @@ function UsersPage() {
     setQuery("");
     setDesignation("all");
     setRoleFilter("all");
+    setWorkforceTypeFilter("all");
     setStatusFilter("all");
   }
 
@@ -417,6 +443,22 @@ function UsersPage() {
             ))}
           </SelectContent>
         </Select>
+        <Select
+          value={workforceTypeFilter}
+          onValueChange={(value) => setWorkforceTypeFilter(value as WorkforceTypeFilter)}
+        >
+          <SelectTrigger className="sm:w-44" aria-label={t("pages.users.filterWorkforceType")}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("pages.users.allWorkforceTypes")}</SelectItem>
+            {workforceTypeOptions.map((value) => (
+              <SelectItem key={value} value={value}>
+                {WORKFORCE_TYPE_LABELS[value]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={roleFilter} onValueChange={setRoleFilter}>
           <SelectTrigger className="sm:w-44" aria-label={t("pages.users.filterRole")}>
             <SelectValue />
@@ -478,7 +520,13 @@ function UsersPage() {
                   <p className="mt-0.5 font-mono">{user.employeeCode || user.employeeId || "-"}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Role</p>
+                  <p className="text-muted-foreground">{t("pages.users.workforceType")}</p>
+                  <div className="mt-0.5">
+                    <WorkforceTypeBadge role={user.role} />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">{t("common.role")}</p>
                   <p className="mt-0.5">{ROLE_LABELS[user.role]}</p>
                 </div>
                 <div>
@@ -565,6 +613,7 @@ function UsersPage() {
               <TableRow>
                 <TableHead>{t("common.name")}</TableHead>
                 <TableHead>{t("common.email")}</TableHead>
+                <TableHead>{t("pages.users.workforceType")}</TableHead>
                 <TableHead>{t("common.role")}</TableHead>
                 <TableHead>{t("common.employeeId")}</TableHead>
                 <TableHead>{t("pages.users.joined")}</TableHead>
@@ -585,6 +634,9 @@ function UsersPage() {
                     ) : null}
                   </TableCell>
                   <TableCell>{u.email}</TableCell>
+                  <TableCell>
+                    <WorkforceTypeBadge role={u.role} />
+                  </TableCell>
                   <TableCell>{ROLE_LABELS[u.role]}</TableCell>
                   <TableCell className="font-mono text-xs">
                     {u.employeeCode || u.employeeId || "-"}

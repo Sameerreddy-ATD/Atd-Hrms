@@ -425,6 +425,8 @@ export function createApp() {
     const branchId = typeof req.query.branchId === "string" ? req.query.branchId : undefined;
     const departmentId =
       typeof req.query.departmentId === "string" ? req.query.departmentId : undefined;
+    const workforceType =
+      typeof req.query.workforceType === "string" ? req.query.workforceType : undefined;
     const source = typeof req.query.source === "string" ? req.query.source : undefined;
     const status = typeof req.query.status === "string" ? req.query.status : undefined;
     const where: Prisma.AttendanceDailySummaryWhereInput = {};
@@ -439,6 +441,11 @@ export function createApp() {
       ];
     }
     if (departmentId) employeeFilter.departmentId = departmentId;
+    if (workforceType === "bowser_pilot") {
+      employeeFilter.user = { role: Role.DRIVER };
+    } else if (workforceType === "team_member") {
+      employeeFilter.OR = [{ user: null }, { user: { role: { not: Role.DRIVER } } }];
+    }
     where.employee = employeeAttendanceVisibilityFilter(employeeFilter);
     if (source) where.attendanceSourceSummary = source;
     if (status) where.status = { contains: status };

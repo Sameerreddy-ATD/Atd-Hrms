@@ -62,6 +62,13 @@ import {
   occupiedUnitOptions,
   type DirectoryFilters,
 } from "@/lib/directory-filters";
+import {
+  matchesWorkforceTypeFilter,
+  occupiedWorkforceTypes,
+  WORKFORCE_TYPE_LABELS,
+  type WorkforceTypeFilter,
+} from "@/lib/workforce-type";
+import { WorkforceTypeBadge } from "@/components/common/WorkforceTypeBadge";
 
 export const Route = createFileRoute("/_app/employees")({
   component: EmployeesPage,
@@ -95,6 +102,7 @@ function EmployeesPage() {
   const [company, setCompany] = useState("all");
   const [designation, setDesignation] = useState("all");
   const [employmentType, setEmploymentType] = useState("all");
+  const [workforceTypeFilter, setWorkforceTypeFilter] = useState<WorkforceTypeFilter>("all");
 
   const [editingEmployee, setEditingEmployee] = useState<User | null>(null);
   const [hrManagingEmployee, setHrManagingEmployee] = useState<User | null>(null);
@@ -302,11 +310,19 @@ function EmployeesPage() {
   }, [canSeeCompanyDirectory, departments, employees]);
 
   const facetedPeople = useCallback(
-    (skip?: keyof DirectoryFilters) =>
-      directoryPeople.filter((person) =>
-        matchesDirectoryPerson(person, directoryFilters, unitSubtree, skip),
-      ),
-    [directoryPeople, directoryFilters, unitSubtree],
+    (skip?: keyof DirectoryFilters | "workforceType") => {
+      const directorySkip = skip === "workforceType" ? undefined : skip;
+      return directoryPeople.filter((person) => {
+        if (!matchesDirectoryPerson(person, directoryFilters, unitSubtree, directorySkip)) {
+          return false;
+        }
+        if (skip !== "workforceType" && !matchesWorkforceTypeFilter(person, workforceTypeFilter)) {
+          return false;
+        }
+        return true;
+      });
+    },
+    [directoryPeople, directoryFilters, unitSubtree, workforceTypeFilter],
   );
 
   const companyOptions = useMemo(
@@ -327,6 +343,10 @@ function EmployeesPage() {
   );
   const employmentTypeOptions = useMemo(
     () => occupiedEmploymentTypes(facetedPeople("employmentType")),
+    [facetedPeople],
+  );
+  const workforceTypeOptions = useMemo(
+    () => occupiedWorkforceTypes(facetedPeople("workforceType")),
     [facetedPeople],
   );
   const showUnassignedLocation = useMemo(
@@ -364,7 +384,8 @@ function EmployeesPage() {
     branch !== "all" ||
     dept !== "all" ||
     designation !== "all" ||
-    employmentType !== "all";
+    employmentType !== "all" ||
+    workforceTypeFilter !== "all";
 
   useEffect(() => {
     if (company !== "all" && !companyOptions.includes(company as (typeof companyOptions)[number])) {
@@ -408,6 +429,15 @@ function EmployeesPage() {
     }
   }, [employmentType, employmentTypeOptions]);
 
+  useEffect(() => {
+    if (
+      workforceTypeFilter !== "all" &&
+      !workforceTypeOptions.includes(workforceTypeFilter)
+    ) {
+      setWorkforceTypeFilter("all");
+    }
+  }, [workforceTypeFilter, workforceTypeOptions]);
+
   function clearDirectoryFilters() {
     setQ("");
     setCompany("all");
@@ -415,6 +445,7 @@ function EmployeesPage() {
     setDept("all");
     setDesignation("all");
     setEmploymentType("all");
+    setWorkforceTypeFilter("all");
   }
 
   return (
@@ -508,6 +539,22 @@ function EmployeesPage() {
             ))}
           </SelectContent>
         </Select>
+        <Select
+          value={workforceTypeFilter}
+          onValueChange={(value) => setWorkforceTypeFilter(value as WorkforceTypeFilter)}
+        >
+          <SelectTrigger className="sm:w-44" aria-label={t("pages.employees.filterWorkforceType")}>
+            <SelectValue placeholder={t("pages.employees.filterWorkforceType")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("pages.employees.allWorkforceTypes")}</SelectItem>
+            {workforceTypeOptions.map((value) => (
+              <SelectItem key={value} value={value}>
+                {WORKFORCE_TYPE_LABELS[value]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={employmentType} onValueChange={setEmploymentType}>
           <SelectTrigger className="sm:w-44" aria-label={t("pages.employees.filterEmploymentType")}>
             <SelectValue placeholder={t("pages.employees.filterEmploymentType")} />
@@ -548,6 +595,9 @@ function EmployeesPage() {
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{employee.name}</p>
                   <p className="truncate text-xs text-muted-foreground">{employee.email}</p>
+                  <div className="mt-1">
+                    <WorkforceTypeBadge role={employee.role} />
+                  </div>
                   {employee.employmentType && employee.employmentType !== "FULL_TIME" && (
                     <p className="mt-0.5 text-[11px] text-muted-foreground">
                       {employmentTypeLabel(employee.employmentType)}
@@ -638,6 +688,7 @@ function EmployeesPage() {
                 <TableHead>{t("common.employee")}</TableHead>
                 <TableHead>{t("common.employeeId")}</TableHead>
                 <TableHead>{t("pages.employees.company")}</TableHead>
+                <TableHead>{t("pages.employees.workforceType")}</TableHead>
                 <TableHead>{t("pages.employees.designation")}</TableHead>
                 <TableHead>{t("common.department")}</TableHead>
                 <TableHead>{t("common.branch")}</TableHead>
@@ -669,6 +720,9 @@ function EmployeesPage() {
                   </TableCell>
                   <TableCell className="max-w-[160px] text-xs">
                     {u.companyEntity ? COMPANY_LABELS[u.companyEntity] : "-"}
+                  </TableCell>
+                  <TableCell>
+                    <WorkforceTypeBadge role={u.role} />
                   </TableCell>
                   <TableCell className="max-w-[160px] text-sm">{u.designation || "-"}</TableCell>
                   <TableCell className="max-w-[200px] text-sm">

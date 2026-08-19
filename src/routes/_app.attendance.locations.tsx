@@ -30,6 +30,13 @@ import {
   indiaDateKey,
 } from "@/lib/india-date";
 import {
+  matchesWorkforceTypeFilter,
+  occupiedWorkforceTypes,
+  WORKFORCE_TYPE_LABELS,
+  type WorkforceTypeFilter,
+} from "@/lib/workforce-type";
+import { WorkforceTypeBadge } from "@/components/common/WorkforceTypeBadge";
+import {
   attendanceCycleFileSlug,
   attendanceCycleForDate,
   attendanceCycleLabel,
@@ -82,6 +89,7 @@ function DayLogsPage() {
   const [from, setFrom] = useState(() => initialSelection?.from || defaultCycle.from);
   const [to, setTo] = useState(() => initialSelection?.to || defaultCycle.to);
   const [branchId, setBranchId] = useState("all");
+  const [workforceTypeFilter, setWorkforceTypeFilter] = useState<WorkforceTypeFilter>("all");
   const [employeeRows, setEmployeeRows] = useState<AttendanceRecord[]>([]);
   const [loadingEmployeeRows, setLoadingEmployeeRows] = useState(true);
   const [employeeError, setEmployeeError] = useState("");
@@ -120,6 +128,7 @@ function DayLogsPage() {
         from: from || undefined,
         to: to || undefined,
         branchId: selectedEmployeeId === "all" && branchId !== "all" ? branchId : undefined,
+        workforceType: workforceTypeFilter !== "all" ? workforceTypeFilter : undefined,
         limit: "none",
       })
       .then((rows) => {
@@ -128,7 +137,12 @@ function DayLogsPage() {
             ? rows
             : rows.filter((row) => {
                 const emp = employees.find((e) => (e.employeeId || e.id) === row.employeeId);
-                return emp && emp.role !== "developer_admin" && emp.role !== "main_admin";
+                return (
+                  emp &&
+                  emp.role !== "developer_admin" &&
+                  emp.role !== "main_admin" &&
+                  matchesWorkforceTypeFilter(emp, workforceTypeFilter)
+                );
               });
         setEmployeeRows(
           [...filtered].sort(
@@ -138,7 +152,7 @@ function DayLogsPage() {
       })
       .catch((err) => setEmployeeError((err as Error).message))
       .finally(() => setLoadingEmployeeRows(false));
-  }, [selectedEmployeeId, from, to, branchId, employees]);
+  }, [selectedEmployeeId, from, to, branchId, employees, workforceTypeFilter]);
 
   const employeeName = useMemo(
     () =>
@@ -156,8 +170,38 @@ function DayLogsPage() {
     [employees, selectedEmployeeId],
   );
   const filteredEmployeesForDropdown = useMemo(() => {
-    return employees.filter((emp) => emp.role !== "developer_admin" && emp.role !== "main_admin");
-  }, [employees]);
+    return employees.filter(
+      (emp) =>
+        emp.role !== "developer_admin" &&
+        emp.role !== "main_admin" &&
+        matchesWorkforceTypeFilter(emp, workforceTypeFilter),
+    );
+  }, [employees, workforceTypeFilter]);
+
+  const workforceTypeOptions = useMemo(
+    () =>
+      occupiedWorkforceTypes(
+        employees.filter((emp) => emp.role !== "developer_admin" && emp.role !== "main_admin"),
+      ),
+    [employees],
+  );
+
+  useEffect(() => {
+    if (
+      workforceTypeFilter !== "all" &&
+      !workforceTypeOptions.includes(workforceTypeFilter)
+    ) {
+      setWorkforceTypeFilter("all");
+    }
+  }, [workforceTypeFilter, workforceTypeOptions]);
+
+  useEffect(() => {
+    if (selectedEmployeeId === "all") return;
+    const stillVisible = filteredEmployeesForDropdown.some(
+      (employee) => (employee.employeeId || employee.id) === selectedEmployeeId,
+    );
+    if (!stillVisible) setSelectedEmployeeId("all");
+  }, [filteredEmployeesForDropdown, selectedEmployeeId]);
 
   function changeEmployee(employeeId: string) {
     setSelectedEmployeeId(employeeId);
@@ -217,9 +261,30 @@ function DayLogsPage() {
         <CardContent className="space-y-4 px-4 pb-4 sm:px-6 sm:pb-5">
           <div
             className={`grid gap-2.5 sm:gap-3 md:grid-cols-2 ${
-              selectedEmployeeId === "all" ? "lg:grid-cols-5" : "lg:grid-cols-4"
+              selectedEmployeeId === "all" ? "lg:grid-cols-6" : "lg:grid-cols-5"
             }`}
           >
+            <div
+              className={`min-w-0 space-y-1 ${selectedEmployeeId === "all" ? "" : "md:col-span-2 lg:col-span-1"}`}
+            >
+              <Label className="text-xs sm:text-sm">{t("pages.dayLogs.workforceType")}</Label>
+              <Select
+                value={workforceTypeFilter}
+                onValueChange={(value) => setWorkforceTypeFilter(value as WorkforceTypeFilter)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t("pages.dayLogs.allWorkforceTypes")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t("pages.dayLogs.allWorkforceTypes")}</SelectItem>
+                  {workforceTypeOptions.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {WORKFORCE_TYPE_LABELS[value]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div
               className={`min-w-0 space-y-1 ${selectedEmployeeId === "all" ? "" : "md:col-span-2 lg:col-span-1"}`}
             >
@@ -235,8 +300,12 @@ function DayLogsPage() {
                       key={employee.employeeId || employee.id}
                       value={employee.employeeId || employee.id}
                     >
-                      {employee.name}
-                      {employee.employeeCode ? ` (${employee.employeeCode})` : ""}
+                      <span className="flex items-center gap-2">
+                        <span>
+                          {employee.name}
+                          {employee.employeeCode ? ` (${employee.employeeCode})` : ""}
+                        </span>
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -307,7 +376,11 @@ function DayLogsPage() {
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {selectedEmployeeId === "all" ? (
-                t("pages.dayLogs.scopeAll")
+                workforceTypeFilter === "all"
+                  ? t("pages.dayLogs.scopeAll")
+                  : t("pages.dayLogs.scopeWorkforceType", {
+                      type: WORKFORCE_TYPE_LABELS[workforceTypeFilter],
+                    })
               ) : (
                 <>
                   {t("pages.dayLogs.employeeIdLabel")}{" "}
@@ -318,6 +391,12 @@ function DayLogsPage() {
                   {selectedEmployee?.department
                     ? ` · ${t("pages.dayLogs.departmentLabel", { department: selectedEmployee.department })}`
                     : ""}
+                  {selectedEmployee ? (
+                    <>
+                      {" · "}
+                      <WorkforceTypeBadge role={selectedEmployee.role} className="align-middle" />
+                    </>
+                  ) : null}
                 </>
               )}
             </p>
