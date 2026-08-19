@@ -526,7 +526,9 @@ function EmployeeDashboard({
             className="min-w-0 lg:col-span-2"
           />
         )}
-        <UpcomingBirthdaysCard birthdays={birthdays} />
+        <div className="min-w-0 lg:col-span-2">
+          <UpcomingBirthdaysCard birthdays={birthdays} />
+        </div>
       </div>
     </div>
   );
