@@ -2005,7 +2005,7 @@ function UpcomingBirthdaysCard({
               : t("pages.dashboard.noBirthdays")}
           </p>
         ) : (
-          <div className="max-h-[300px] min-w-0 space-y-2.5 overflow-x-hidden overflow-y-auto">
+          <div className="min-w-0 space-y-2.5 overflow-x-hidden">
             {upcoming.map((b) => {
               const isSelf = b.employeeId === user?.employeeId;
 
