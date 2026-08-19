@@ -273,6 +273,8 @@ export async function validateLeaveApplication(input: {
   toDate: Date;
   days: number;
   session?: LeaveSessionValue;
+  _skipOverlapCheck?: boolean;
+  _splitMode?: boolean;
 }) {
   const type = await prisma.leaveType.findFirst({
     where: { leaveTypeId: input.leaveTypeId, active: true },
@@ -292,7 +294,7 @@ export async function validateLeaveApplication(input: {
     if (input.days !== 0.5) {
       throw new HttpError(400, "Half-day leave counts as 0.5 day");
     }
-  } else if (dates.length !== input.days) {
+  } else if (!input._splitMode && dates.length !== input.days) {
     throw new HttpError(400, "Leave days do not match the selected date range");
   }
 
@@ -309,17 +311,19 @@ export async function validateLeaveApplication(input: {
     }
   }
 
-  const overlappingCandidates = await prisma.leaveRequest.findMany({
-    where: {
-      employeeId: input.employeeId,
-      status: { in: countedStatuses },
-      fromDate: { lte: startOfDayUtc(input.toDate) },
-      toDate: { gte: startOfDayUtc(input.fromDate) },
-    },
-    select: { fromDate: true, toDate: true, cancelledDates: true, days: true, session: true },
-  });
-  if (overlappingCandidates.some((request) => requestOverlapsDates(request, dates, session))) {
-    throw new HttpError(400, "Another active leave request overlaps these dates");
+  if (!input._skipOverlapCheck) {
+    const overlappingCandidates = await prisma.leaveRequest.findMany({
+      where: {
+        employeeId: input.employeeId,
+        status: { in: countedStatuses },
+        fromDate: { lte: startOfDayUtc(input.toDate) },
+        toDate: { gte: startOfDayUtc(input.fromDate) },
+      },
+      select: { fromDate: true, toDate: true, cancelledDates: true, days: true, session: true },
+    });
+    if (overlappingCandidates.some((request) => requestOverlapsDates(request, dates, session))) {
+      throw new HttpError(400, "Another active leave request overlaps these dates");
+    }
   }
 
   if (
@@ -379,6 +383,69 @@ export async function validateLeaveApplication(input: {
     throw new HttpError(400, "Use one Comp Off credit per request");
   }
   return { type, balances, dates, session };
+}
+
+export async function validateSplitLeaveApplication(input: {
+  employeeId: string;
+  fromDate: Date;
+  toDate: Date;
+  session?: LeaveSessionValue;
+  allocations: Array<{ leaveTypeId: string; days: number }>;
+}) {
+  const session = input.session ?? LeaveSession.FULL;
+  const dates = eachDateInRange(input.fromDate, input.toDate);
+  if (!dates.length) throw new HttpError(400, "Select a valid date range");
+
+  const totalDays = session !== LeaveSession.FULL ? 0.5 : dates.length;
+  const allocSum = input.allocations.reduce((s, a) => s + a.days, 0);
+  if (Math.abs(allocSum - totalDays) > 0.01) {
+    throw new HttpError(400, `Total allocated days (${allocSum}) must equal ${totalDays}`);
+  }
+
+  const nonZero = input.allocations.filter((a) => a.days > 0);
+  if (!nonZero.length) throw new HttpError(400, "Allocate at least one leave type");
+
+  const results: Array<{
+    leaveTypeId: string;
+    days: number;
+    type: Awaited<ReturnType<typeof validateLeaveApplication>>["type"];
+    balances: Awaited<ReturnType<typeof validateLeaveApplication>>["balances"];
+  }> = [];
+
+  for (const alloc of nonZero) {
+    const result = await validateLeaveApplication({
+      employeeId: input.employeeId,
+      leaveTypeId: alloc.leaveTypeId,
+      fromDate: input.fromDate,
+      toDate: input.toDate,
+      days: alloc.days,
+      session: input.session,
+      _skipOverlapCheck: true,
+      _splitMode: true,
+    });
+    results.push({
+      leaveTypeId: alloc.leaveTypeId,
+      days: alloc.days,
+      type: result.type,
+      balances: result.balances,
+    });
+  }
+
+  // Run overlap check once for the entire date range (not per-type)
+  const overlappingCandidates = await prisma.leaveRequest.findMany({
+    where: {
+      employeeId: input.employeeId,
+      status: { in: countedStatuses },
+      fromDate: { lte: startOfDayUtc(input.toDate) },
+      toDate: { gte: startOfDayUtc(input.fromDate) },
+    },
+    select: { fromDate: true, toDate: true, cancelledDates: true, days: true, session: true },
+  });
+  if (overlappingCandidates.some((request) => requestOverlapsDates(request, dates, session))) {
+    throw new HttpError(400, "Another active leave request overlaps these dates");
+  }
+
+  return { results, dates, session };
 }
 
 export async function consumeCompOffCredits(

@@ -636,6 +636,18 @@ export const leaveApi = {
     reason: string;
     medicalDocumentUrl?: string;
   }) => request<LeaveRequest>("/leave/requests", { method: "POST", body: JSON.stringify(req) }),
+  applySplit: (req: {
+    fromDate: string;
+    toDate: string;
+    session?: "FULL" | "FIRST_HALF" | "SECOND_HALF";
+    reason: string;
+    medicalDocumentUrl?: string;
+    allocations: Array<{ leaveTypeId: string; days: number }>;
+  }) =>
+    request<LeaveRequest[]>("/leave/requests/split", {
+      method: "POST",
+      body: JSON.stringify(req),
+    }),
   approve: (id: string) =>
     request<LeaveRequest>(`/leave/requests/${id}/approve`, { method: "POST" }),
   reject: (id: string) => request<LeaveRequest>(`/leave/requests/${id}/reject`, { method: "POST" }),

@@ -775,6 +775,31 @@ export const leaveRequestSchema = z.object({
     ),
 });
 
+export const splitLeaveRequestSchema = z.object({
+  fromDate: z.coerce.date(),
+  toDate: z.coerce.date(),
+  session: z.enum(["FULL", "FIRST_HALF", "SECOND_HALF"]).optional(),
+  reason: z.string().trim().min(3).max(1000),
+  medicalDocumentUrl: z
+    .string()
+    .trim()
+    .max(2000)
+    .optional()
+    .refine(
+      (value) => !value || value.startsWith("/leave/medical-files/"),
+      "Medical documents must be uploaded through the secure private vault",
+    ),
+  allocations: z
+    .array(
+      z.object({
+        leaveTypeId: z.string(),
+        days: z.number().min(0).max(365),
+      }),
+    )
+    .min(1)
+    .max(10),
+});
+
 export const medicalDocumentSchema = z.object({
   url: z
     .string()

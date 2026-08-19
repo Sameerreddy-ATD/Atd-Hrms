@@ -214,6 +214,7 @@ import {
   shiftDefinitionSchema,
   employeeShiftAssignmentSchema,
   leaveRequestSchema,
+  splitLeaveRequestSchema,
   leaveBalanceAdjustmentSchema,
   leaveTypeSchema,
   leaveTypeUpdateSchema,
@@ -248,6 +249,7 @@ import {
   releaseCompOffCredits,
   syncEmployeeLeaveBalances,
   validateLeaveApplication,
+  validateSplitLeaveApplication,
 } from "./leavePolicy.js";
 
 function announcementDto(
@@ -5985,6 +5987,107 @@ export function createApp() {
       }
     }),
   );
+
+  app.post(
+    "/leave/requests/split",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      if (!req.user!.employeeId) throw new HttpError(400, "No employee profile");
+      const leaveEmployee = await prisma.employee.findUnique({
+        where: { employeeId: req.user!.employeeId },
+        select: { attendanceRequired: true },
+      });
+      if (leaveEmployee && !leaveEmployee.attendanceRequired) {
+        throw new HttpError(403, "Leave is turned off for this account");
+      }
+      const body = splitLeaveRequestSchema.parse(req.body);
+      const nonZero = body.allocations.filter((a) => a.days > 0);
+      if (!nonZero.length) throw new HttpError(400, "Allocate at least one leave type");
+
+      const policy = await validateSplitLeaveApplication({
+        employeeId: req.user!.employeeId,
+        fromDate: body.fromDate,
+        toDate: body.toDate,
+        session: body.session,
+        allocations: nonZero,
+      });
+
+      if (body.medicalDocumentUrl && !body.medicalDocumentUrl.startsWith("/leave/medical-files/")) {
+        throw new HttpError(400, "Medical documents must be uploaded through the secure private vault");
+      }
+      if (body.medicalDocumentUrl) {
+        await assertOwnsPrivateFileUrl({
+          url: body.medicalDocumentUrl,
+          urlPrefix: "/leave/medical-files/",
+          kind: "medical",
+          userId: req.user!.id,
+        });
+      }
+
+      const approver = await findLeaveApprover(req.user!.employeeId);
+      const created: Array<Awaited<ReturnType<typeof prisma.leaveRequest.create>>> = [];
+
+      await prisma.$transaction(async (tx) => {
+        for (const alloc of policy.results) {
+          const requiresApproval =
+            alloc.type.approvalRequired || alloc.type.code === LEAVE_CODES.COMP_OFF;
+          if (requiresApproval && !approver) {
+            throw new HttpError(
+              400,
+              "No organization head is available for this leave request. Contact HR to complete the organization chart.",
+            );
+          }
+          const request = await tx.leaveRequest.create({
+            data: {
+              leaveTypeId: alloc.leaveTypeId,
+              fromDate: body.fromDate,
+              toDate: body.toDate,
+              days: alloc.days,
+              session: policy.session,
+              reason: body.reason,
+              medicalDocumentUrl:
+                alloc.type.requiresMedicalDocument ? body.medicalDocumentUrl : undefined,
+              employeeId: req.user!.employeeId!,
+              managerId: requiresApproval ? approver?.employeeId : undefined,
+              status: requiresApproval ? "PENDING" : "APPROVED",
+              medicalDocumentDueAt:
+                alloc.type.code === LEAVE_CODES.SICK
+                  ? medicalDocumentDueAt(body.toDate)
+                  : undefined,
+            },
+            include: { leaveType: true, employee: { include: { manager: true } } },
+          });
+          created.push(request);
+        }
+      });
+
+      await syncEmployeeLeaveBalances(req.user!.employeeId);
+      await audit({
+        action: "leave requested (split)",
+        performedByUserId: req.user!.id,
+        newValue: { leaveRequestIds: created.map((r) => r.leaveRequestId) },
+        ipAddress: req.ip,
+      });
+
+      const dtos = created.map((r) =>
+        leaveRequestDto(r, approver?.name ?? "No approval required"),
+      );
+      res.status(201).json(dtos);
+
+      if (approver?.employeeId) {
+        const typeNames = created.map((r) => r.leaveType.name).join(" + ");
+        void userIdsForEmployeeIds([approver.employeeId]).then((ids) =>
+          sendPushToUsers(ids, {
+            title: "New leave request to review",
+            body: `${created[0].employee.name} — ${typeNames} from ${body.fromDate.toISOString().slice(0, 10)} to ${body.toDate.toISOString().slice(0, 10)}`,
+            href: "/leave/approvals",
+            tag: `leave-split-${created.map((r) => r.leaveRequestId).join("-")}`,
+          }),
+        );
+      }
+    }),
+  );
+
   app.post(
     "/leave/requests/:id/approve",
     requireAuth,

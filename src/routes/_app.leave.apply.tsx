@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -21,19 +21,57 @@ import type {
   WeeklyOffRequest,
 } from "@/types/domain";
 import { StatusBadge } from "@/components/common/StatusBadge";
-import { CalendarClock, CalendarDays, CheckCircle2, ShieldCheck, UserRound } from "lucide-react";
+import {
+  CalendarClock,
+  CalendarDays,
+  CheckCircle2,
+  Minus,
+  Plus,
+  ShieldCheck,
+  Sparkles,
+  UserRound,
+  Wallet,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/leave/apply")({
   component: ApplyLeavePage,
 });
 
+type Allocation = Record<string, number>;
+
+function autoAllocate(
+  totalDays: number,
+  types: LeaveTypeOption[],
+  balances: LeaveBalance[],
+): Allocation {
+  const alloc: Allocation = {};
+  let remaining = totalDays;
+
+  const paidTypes = types.filter((t) => t.paid && t.code !== "LOP" && t.code !== "COMP_OFF");
+  const lopType = types.find((t) => t.code === "LOP");
+
+  for (const type of paidTypes) {
+    if (remaining <= 0) break;
+    const bal = balances.find((b) => b.code === type.code)?.balance ?? 0;
+    if (bal <= 0) continue;
+    const use = Math.min(remaining, bal);
+    alloc[type.id] = use;
+    remaining = Math.round((remaining - use) * 100) / 100;
+  }
+
+  if (remaining > 0 && lopType) {
+    alloc[lopType.id] = remaining;
+  }
+
+  return alloc;
+}
+
 function ApplyLeavePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [types, setTypes] = useState<LeaveTypeOption[]>([]);
-  const [typeId, setTypeId] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [reason, setReason] = useState("");
@@ -53,13 +91,49 @@ function ApplyLeavePage() {
   const [duration, setDuration] = useState<"FULL" | "HALF">("FULL");
   const [halfSlot, setHalfSlot] = useState<"FIRST_HALF" | "SECOND_HALF">("FIRST_HALF");
   const [weeklyOffPolicy, setWeeklyOffPolicy] = useState<WeeklyOffPolicy>("SELECTABLE");
+  const [allocation, setAllocation] = useState<Allocation>({});
+  const [manuallyEdited, setManuallyEdited] = useState(false);
   const todayString = indiaDateKey();
+
+  const session = duration === "HALF" ? halfSlot : "FULL";
+
+  const requestedDays = useMemo(() => {
+    if (!from) return 0;
+    if (duration === "HALF") return 0.5;
+    if (!to || from > to) return 0;
+    return Math.max(1, Math.round((+new Date(to) - +new Date(from)) / 86400000) + 1);
+  }, [from, to, duration]);
+
+  const allocatedTypes = useMemo(
+    () =>
+      types.filter((t) => (allocation[t.id] ?? 0) > 0),
+    [types, allocation],
+  );
+
+  const requiresMedical = allocatedTypes.some((t) => t.requiresMedicalDocument);
+  const requiresApprover = allocatedTypes.some((t) => t.approvalRequired);
+
+  const totalAllocated = useMemo(
+    () =>
+      Object.values(allocation).reduce((s, v) => s + v, 0),
+    [allocation],
+  );
+
+  const paidDays = useMemo(() => {
+    return allocatedTypes
+      .filter((t) => t.paid && t.code !== "LOP")
+      .reduce((s, t) => s + (allocation[t.id] ?? 0), 0);
+  }, [allocatedTypes, allocation]);
+
+  const unpaidDays = useMemo(() => {
+    const lop = types.find((t) => t.code === "LOP");
+    return lop ? allocation[lop.id] ?? 0 : 0;
+  }, [types, allocation]);
 
   useEffect(() => {
     Promise.all([leaveApi.types(), leaveApi.myBalance(), leaveApi.weeklyOffs()])
       .then(([rows, balanceRows, weeklyRows]) => {
         setTypes(rows);
-        setTypeId(rows[0]?.id ?? "");
         setBalances(balanceRows);
         setWeeklyOffs(weeklyRows);
       })
@@ -81,24 +155,6 @@ function ApplyLeavePage() {
       .then((profile) => setWeeklyOffPolicy(profile?.weeklyOffPolicy || "SELECTABLE"))
       .catch(() => setWeeklyOffPolicy("SELECTABLE"));
   }, [user?.employeeId, user?.weeklyOffPolicy]);
-  const selectedType = types.find((type) => type.id === typeId);
-  const isCompOff = selectedType?.code === "COMP_OFF";
-  const allowsHalfDay = !isCompOff;
-  const session = duration === "HALF" && allowsHalfDay ? halfSlot : "FULL";
-  const requiresApprover = selectedType?.approvalRequired !== false;
-  const selectedBalance = balances.find((item) => item.code === selectedType?.code)?.balance ?? 0;
-  const requestedDays =
-    from && (duration === "HALF" || (to && from <= to))
-      ? duration === "HALF"
-        ? 0.5
-        : Math.max(1, Math.round((+new Date(to) - +new Date(from)) / 86400000) + 1)
-      : 0;
-
-  useEffect(() => {
-    if (!isCompOff || !from) return;
-    if (to !== from) setTo(from);
-    if (duration !== "FULL") setDuration("FULL");
-  }, [isCompOff, from, to, duration]);
 
   useEffect(() => {
     if (!user?.employeeId) {
@@ -114,10 +170,51 @@ function ApplyLeavePage() {
       .finally(() => setApproverLoading(false));
   }, [user?.employeeId]);
 
+  // Auto-allocate when dates/duration change (unless user manually edited)
+  useEffect(() => {
+    if (requestedDays <= 0 || types.length === 0) {
+      if (!manuallyEdited) setAllocation({});
+      return;
+    }
+    if (!manuallyEdited) {
+      setAllocation(autoAllocate(requestedDays, types, balances));
+    }
+  }, [requestedDays, types, balances, manuallyEdited]);
+
+  const handleAutoAllocate = useCallback(() => {
+    if (requestedDays <= 0) return;
+    setAllocation(autoAllocate(requestedDays, types, balances));
+    setManuallyEdited(false);
+  }, [requestedDays, types, balances]);
+
+  const updateAlloc = useCallback(
+    (typeId: string, days: number) => {
+      setManuallyEdited(true);
+      setAllocation((prev) => {
+        const next = { ...prev };
+        if (days <= 0) {
+          delete next[typeId];
+        } else {
+          next[typeId] = Math.round(days * 100) / 100;
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  const stepAlloc = useCallback(
+    (typeId: string, delta: number) => {
+      const step = duration === "HALF" ? 0.5 : 0.5;
+      const current = allocation[typeId] ?? 0;
+      updateAlloc(typeId, Math.max(0, current + delta * step));
+    },
+    [allocation, duration, updateAlloc],
+  );
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const errs: Record<string, string> = {};
-    if (!typeId) errs.type = t("pages.leaveApply.errTypeRequired");
     if (!from) {
       errs.from = t("pages.leaveApply.errFromRequired");
     } else if (from < todayString) {
@@ -131,24 +228,27 @@ function ApplyLeavePage() {
       }
       if (from && to && from > to) errs.to = t("pages.leaveApply.errToAfterStart");
     }
-    if (isCompOff && from && to && from !== to) {
-      errs.to = t("pages.leaveApply.errCompOffSingleDay");
-    }
     if (reason.trim().length < 3) errs.reason = t("pages.leaveApply.errReasonMin");
     if (reason.length > 1000) errs.reason = t("pages.leaveApply.errReasonMax");
+    if (totalAllocated <= 0) errs.allocation = t("pages.leaveApply.errTypeRequired");
+    if (requestedDays > 0 && Math.abs(totalAllocated - requestedDays) > 0.01) {
+      errs.allocation = t("pages.leaveApply.allocTotalMismatch", { total: requestedDays });
+    }
+    // Check per-type balance
+    for (const type of allocatedTypes) {
+      if (type.code === "LOP") continue;
+      const bal = balances.find((b) => b.code === type.code)?.balance ?? 0;
+      if ((allocation[type.id] ?? 0) > bal) {
+        errs[`alloc_${type.id}`] = t("pages.leaveApply.allocExceedsBalance", { balance: bal });
+      }
+    }
     setErrors(errs);
     if (Object.keys(errs).length) return;
 
-    const leaveDate = duration === "HALF" ? from : to;
-    const calendarDays =
-      duration === "HALF"
-        ? 0.5
-        : Math.max(1, Math.round((+new Date(leaveDate) - +new Date(from)) / 86400000) + 1);
-    const days = isCompOff ? 1 : calendarDays;
     setLoading(true);
     try {
       let medicalUrl = medicalDocumentUrl.trim() || undefined;
-      if (selectedType?.requiresMedicalDocument && medicalFile) {
+      if (requiresMedical && medicalFile) {
         if (medicalFile.size > 1_500_000) {
           toast.error(t("pages.leaveApply.toastMedicalTooLarge"));
           setLoading(false);
@@ -159,20 +259,33 @@ function ApplyLeavePage() {
         const stored = await leaveApi.uploadMedicalFile(upload);
         medicalUrl = stored.url;
       }
-      await leaveApi.apply({
-        leaveTypeId: typeId,
-        fromDate: from,
-        toDate: isCompOff || duration === "HALF" ? from : to,
-        days,
-        session,
-        reason: reason.trim(),
-        medicalDocumentUrl: medicalUrl,
-      });
-      toast.success(
-        selectedType?.code === "COMP_OFF"
-          ? t("pages.leaveApply.toastCompOffSubmitted")
-          : t("pages.leaveApply.toastLeaveSubmitted"),
-      );
+
+      const nonZero = Object.entries(allocation)
+        .filter(([, days]) => days > 0)
+        .map(([leaveTypeId, days]) => ({ leaveTypeId, days }));
+
+      if (nonZero.length === 1) {
+        // Single type — use the original endpoint for backwards compatibility
+        await leaveApi.apply({
+          leaveTypeId: nonZero[0].leaveTypeId,
+          fromDate: from,
+          toDate: duration === "HALF" ? from : to,
+          days: nonZero[0].days,
+          session,
+          reason: reason.trim(),
+          medicalDocumentUrl: medicalUrl,
+        });
+      } else {
+        await leaveApi.applySplit({
+          fromDate: from,
+          toDate: duration === "HALF" ? from : to,
+          session,
+          reason: reason.trim(),
+          medicalDocumentUrl: medicalUrl,
+          allocations: nonZero,
+        });
+      }
+      toast.success(t("pages.leaveApply.splitSubmitted"));
       navigate({ to: "/leave/history" });
     } catch (err) {
       toast.error((err as Error).message);
@@ -248,163 +361,85 @@ function ApplyLeavePage() {
         </Button>
       </div>
       {typesLoading && <LoadingState label={t("pages.loading.leaveOptions")} />}
+
+      {/* ─── Leave Request ─── */}
       {!typesLoading && requestKind === "leave" && (
-        <>
-          <section
-            className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
-            aria-label={t("pages.leaveApply.leavePoliciesAria")}
-          >
-            {types.map((type) => {
-              const balance = balances.find((item) => item.code === type.code)?.balance ?? 0;
-              const selected = type.id === typeId;
-              return (
-                <button
-                  key={type.id}
-                  type="button"
-                  onClick={() => setTypeId(type.id)}
-                  className={cn(
-                    "rounded-lg border bg-card p-4 text-left transition-colors",
-                    selected
-                      ? "border-primary/50 bg-primary/[0.03] ring-1 ring-primary/30"
-                      : "border-border/80 hover:border-primary/30 hover:bg-muted/30",
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold">{type.name}</p>
-                      <p className="mt-1 text-2xl font-semibold tabular-nums">{balance}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {t("pages.leaveApply.availableCredit").toLowerCase()}
-                      </p>
-                      {type.carryForward || type.code === "CASUAL" ? (
-                        <p className="mt-1 text-[11px] text-muted-foreground">
-                          {t("pages.leaveApply.carryForwardHint")}
-                        </p>
-                      ) : null}
-                    </div>
-                    <InfoButton title={type.name} className="-mr-1 -mt-1">
-                      {type.description || t("pages.leaveApply.defaultTypeDescription")}
-                    </InfoButton>
+        <div className="mx-auto grid w-full max-w-5xl gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <Card>
+            <CardContent className="space-y-5 p-4 sm:p-6">
+              {!approverLoading && requiresApprover && !approverName && (
+                <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                  {t("pages.leaveApply.noHeadAvailable")}
+                </p>
+              )}
+              {!approverLoading && requiresApprover && approverName && (
+                <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                  {t("pages.leaveApply.sentToHeadPrefix")}{" "}
+                  <span className="font-medium text-foreground">{approverName}</span>
+                  {t("pages.leaveApply.sentToHeadSuffix")}
+                </p>
+              )}
+
+              <form onSubmit={submit} className="space-y-5" noValidate>
+                {/* Duration */}
+                <div className="space-y-1.5">
+                  <Label>{t("pages.leaveApply.duration")}</Label>
+                  <div className="grid grid-cols-2 gap-1 rounded-lg border bg-muted/30 p-1">
+                    <Button
+                      type="button"
+                      variant={duration === "FULL" ? "default" : "ghost"}
+                      onClick={() => {
+                        setDuration("FULL");
+                        setManuallyEdited(false);
+                      }}
+                    >
+                      {t("pages.leaveApply.fullDay")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={duration === "HALF" ? "default" : "ghost"}
+                      onClick={() => {
+                        setDuration("HALF");
+                        if (from) setTo(from);
+                        setManuallyEdited(false);
+                      }}
+                    >
+                      {t("pages.leaveApply.halfDay")}
+                    </Button>
                   </div>
-                  <p className="mt-3 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                    {selected ? (
-                      <>
-                        <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-                        {t("pages.leaveApply.selected")}
-                      </>
-                    ) : (
-                      t("pages.leaveApply.tapToSelect")
-                    )}
+                  <p className="text-xs text-muted-foreground">
+                    {t("pages.leaveApply.halfDayHelp")}
                   </p>
-                </button>
-              );
-            })}
-          </section>
-          <div className="mx-auto grid w-full max-w-5xl gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-            <Card>
-              <CardContent className="p-4 sm:p-6">
-                {!approverLoading && requiresApprover && !approverName && (
-                  <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                    {t("pages.leaveApply.noHeadAvailable")}
-                  </p>
-                )}
-                {!approverLoading && requiresApprover && approverName && (
-                  <p className="mb-4 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                    {t("pages.leaveApply.sentToHeadPrefix")}{" "}
-                    <span className="font-medium text-foreground">{approverName}</span>
-                    {t("pages.leaveApply.sentToHeadSuffix")}
-                  </p>
-                )}
-                {selectedType?.code === "COMP_OFF" && (
-                  <p className="mb-4 flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                    <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-                    {t("pages.leaveApply.compOffApprovalNote")}
-                  </p>
-                )}
-                <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2" noValidate>
-                  {!typeId && (
-                    <p className="sm:col-span-2 text-sm text-muted-foreground">
-                      {t("pages.leaveApply.selectTypeToContinue")}
-                    </p>
-                  )}
-                  {errors.type && (
-                    <p className="sm:col-span-2 text-xs text-destructive">{errors.type}</p>
-                  )}
-                  {selectedType?.requiresMedicalDocument && (
-                    <div className="space-y-1.5 sm:col-span-2">
-                      <Label htmlFor="medical-document-file">
-                        {t("pages.leaveApply.medicalCertLabel")}
-                      </Label>
-                      <Input
-                        id="medical-document-file"
-                        type="file"
-                        accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
-                        onChange={(event) => {
-                          setMedicalFile(event.target.files?.[0] ?? null);
-                          setMedicalDocumentUrl("");
-                        }}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        {t("pages.leaveApply.medicalCertHelp")}
-                      </p>
-                    </div>
-                  )}
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <Label>{t("pages.leaveApply.duration")}</Label>
+                </div>
+
+                {/* Half-day slot */}
+                {duration === "HALF" && (
+                  <div className="space-y-1.5">
+                    <Label>{t("pages.leaveApply.halfDaySlot")}</Label>
                     <div className="grid grid-cols-2 gap-1 rounded-lg border bg-muted/30 p-1">
                       <Button
                         type="button"
-                        variant={duration === "FULL" ? "default" : "ghost"}
-                        onClick={() => setDuration("FULL")}
+                        variant={halfSlot === "FIRST_HALF" ? "default" : "ghost"}
+                        onClick={() => setHalfSlot("FIRST_HALF")}
                       >
-                        {t("pages.leaveApply.fullDay")}
+                        {t("pages.leaveApply.preLunch")}
                       </Button>
                       <Button
                         type="button"
-                        variant={duration === "HALF" ? "default" : "ghost"}
-                        disabled={!allowsHalfDay}
-                        onClick={() => {
-                          setDuration("HALF");
-                          if (from) setTo(from);
-                        }}
+                        variant={halfSlot === "SECOND_HALF" ? "default" : "ghost"}
+                        onClick={() => setHalfSlot("SECOND_HALF")}
                       >
-                        {t("pages.leaveApply.halfDay")}
+                        {t("pages.leaveApply.postLunch")}
                       </Button>
                     </div>
-                    {isCompOff ? (
-                      <p className="text-xs text-muted-foreground">
-                        {t("pages.leaveApply.compOffOneDay")}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        {t("pages.leaveApply.halfDayHelp")}
-                      </p>
-                    )}
                   </div>
-                  {duration === "HALF" && allowsHalfDay && (
-                    <div className="space-y-1.5 sm:col-span-2">
-                      <Label>{t("pages.leaveApply.halfDaySlot")}</Label>
-                      <div className="grid grid-cols-2 gap-1 rounded-lg border bg-muted/30 p-1">
-                        <Button
-                          type="button"
-                          variant={halfSlot === "FIRST_HALF" ? "default" : "ghost"}
-                          onClick={() => setHalfSlot("FIRST_HALF")}
-                        >
-                          {t("pages.leaveApply.preLunch")}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant={halfSlot === "SECOND_HALF" ? "default" : "ghost"}
-                          onClick={() => setHalfSlot("SECOND_HALF")}
-                        >
-                          {t("pages.leaveApply.postLunch")}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
+                )}
+
+                {/* Dates */}
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="from">
-                      {duration === "HALF" || isCompOff
+                      {duration === "HALF"
                         ? t("pages.leaveApply.date")
                         : t("pages.leaveApply.from")}
                     </Label>
@@ -415,126 +450,303 @@ function ApplyLeavePage() {
                       max={duration === "HALF" ? undefined : to || undefined}
                       onChange={(nextFrom) => {
                         setFrom(nextFrom);
-                        if (isCompOff || duration === "HALF") setTo(nextFrom);
+                        setManuallyEdited(false);
+                        if (duration === "HALF") setTo(nextFrom);
                         else if (to && nextFrom && to < nextFrom) setTo(nextFrom);
                       }}
                     />
                     {errors.from && <p className="text-xs text-destructive">{errors.from}</p>}
                   </div>
                   {duration !== "HALF" && (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="to">
-                      {isCompOff ? t("pages.leaveApply.date") : t("pages.leaveApply.to")}
-                    </Label>
-                    <DateField
-                      id="to"
-                      value={to}
-                      min={from || todayString}
-                      disabled={isCompOff}
-                      onChange={setTo}
-                    />
-                    {errors.to && <p className="text-xs text-destructive">{errors.to}</p>}
-                    {isCompOff && (
-                      <p className="text-xs text-muted-foreground">
-                        {t("pages.leaveApply.compOffOneDay")}
-                      </p>
-                    )}
-                  </div>
-                  )}
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <Label htmlFor="reason">{t("pages.corrections.reason")}</Label>
-                    <Textarea
-                      id="reason"
-                      rows={4}
-                      value={reason}
-                      maxLength={1000}
-                      onChange={(e) => setReason(e.target.value.slice(0, 1000))}
-                    />
-                    <div className="flex items-center justify-between gap-3">
-                      {errors.reason ? (
-                        <p className="text-xs text-destructive">{errors.reason}</p>
-                      ) : (
-                        <span />
-                      )}
-                      <p className="text-xs tabular-nums text-muted-foreground">
-                        {t("pages.leaveApply.charsLeft", { count: 1000 - reason.length })}
-                      </p>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="to">{t("pages.leaveApply.to")}</Label>
+                      <DateField
+                        id="to"
+                        value={to}
+                        min={from || todayString}
+                        onChange={(v) => {
+                          setTo(v);
+                          setManuallyEdited(false);
+                        }}
+                      />
+                      {errors.to && <p className="text-xs text-destructive">{errors.to}</p>}
                     </div>
-                  </div>
-                  <div className="sm:col-span-2 flex justify-end gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => navigate({ to: "/leave/history" })}
-                    >
-                      {t("common.cancel")}
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={
-                        loading ||
-                        typesLoading ||
-                        (requiresApprover && (approverLoading || !approverName))
-                      }
-                    >
-                      {t("pages.leaveApply.submit")}
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-            <aside className="rounded-lg border bg-muted/20 p-4 lg:sticky lg:top-4 lg:self-start">
-              <h2 className="text-sm font-semibold">{t("pages.leaveApply.requestSummary")}</h2>
-              <div className="mt-4 space-y-4">
-                <LeaveSummary
-                  icon={ShieldCheck}
-                  label={t("pages.leaveApply.leaveType")}
-                  value={selectedType?.name ?? t("pages.leaveApply.notSelected")}
-                />
-                <LeaveSummary
-                  icon={CalendarDays}
-                  label={t("pages.leaveApply.requested")}
-                  value={
-                    requestedDays
-                      ? requestedDays === 0.5
+                  )}
+                </div>
+
+                {/* Total days indicator */}
+                {requestedDays > 0 && (
+                  <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/[0.03] px-3 py-2">
+                    <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
+                    <span className="text-sm font-medium">
+                      {requestedDays === 0.5
                         ? t("pages.leaveApply.halfDayCount", {
                             slot:
                               halfSlot === "FIRST_HALF"
                                 ? t("pages.leaveApply.preLunch")
                                 : t("pages.leaveApply.postLunch"),
                           })
-                        : t("pages.leaveApply.dayCount", { count: requestedDays })
-                      : t("pages.leaveApply.selectDates")
-                  }
-                />
-                <LeaveSummary
-                  icon={CheckCircle2}
-                  label={t("pages.leaveApply.availableCredit")}
-                  value={String(selectedBalance)}
-                />
-                <LeaveSummary
-                  icon={UserRound}
-                  label={t("pages.leaveApply.approver")}
-                  value={
-                    requiresApprover
-                      ? approverLoading
-                        ? t("pages.leaveApply.checking")
-                        : (approverName ?? t("pages.leaveApply.notAssigned"))
-                      : t("pages.leaveApply.noApproval")
-                  }
-                />
+                        : t("pages.leaveApply.dayCount", { count: requestedDays })}
+                    </span>
+                  </div>
+                )}
+
+                {/* ─── Leave Type Allocation ─── */}
+                {requestedDays > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label className="text-sm font-semibold">
+                        {t("pages.leaveApply.allocateLeaveTypes")}
+                      </Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 gap-1 text-xs"
+                        onClick={handleAutoAllocate}
+                      >
+                        <Sparkles className="h-3 w-3" />
+                        {t("pages.leaveApply.autoAllocate")}
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {types.map((type) => {
+                        const bal = balances.find((b) => b.code === type.code)?.balance ?? 0;
+                        const isLop = type.code === "LOP";
+                        const days = allocation[type.id] ?? 0;
+                        const exceedsBal = !isLop && days > bal;
+                        const errKey = `alloc_${type.id}`;
+
+                        return (
+                          <div
+                            key={type.id}
+                            className={cn(
+                              "flex flex-wrap items-center gap-3 rounded-xl border p-3 transition-colors sm:flex-nowrap",
+                              days > 0
+                                ? exceedsBal
+                                  ? "border-destructive/30 bg-destructive/[0.03]"
+                                  : "border-primary/25 bg-primary/[0.03]"
+                                : "border-border/80 bg-card",
+                            )}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <p className="truncate text-sm font-medium">{type.name}</p>
+                                {!type.paid && (
+                                  <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                                    {t("pages.leaveApply.unpaidDays").split("(")[0].trim()}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                {isLop
+                                  ? t("pages.leaveApply.unlimited")
+                                  : t("pages.leaveApply.balanceAvailable", { count: bal })}
+                              </p>
+                              {errors[errKey] && (
+                                <p className="mt-1 text-xs text-destructive">{errors[errKey]}</p>
+                              )}
+                            </div>
+
+                            {/* Stepper */}
+                            <div className="flex shrink-0 items-center gap-1.5">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                disabled={days <= 0}
+                                onClick={() => stepAlloc(type.id, -1)}
+                              >
+                                <Minus className="h-3.5 w-3.5" />
+                              </Button>
+                              <Input
+                                type="number"
+                                min={0}
+                                max={isLop ? 365 : bal}
+                                step={0.5}
+                                value={days || ""}
+                                placeholder="0"
+                                className="h-8 w-16 text-center tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                onChange={(e) => {
+                                  const v = parseFloat(e.target.value);
+                                  updateAlloc(type.id, Number.isNaN(v) ? 0 : v);
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => stepAlloc(type.id, 1)}
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Allocation total bar */}
+                    <div
+                      className={cn(
+                        "flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium",
+                        Math.abs(totalAllocated - requestedDays) < 0.01
+                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
+                          : "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300",
+                      )}
+                    >
+                      <span>{t("pages.leaveApply.totalAllocated")}</span>
+                      <span className="tabular-nums">
+                        {totalAllocated} / {requestedDays}{" "}
+                        {t("pages.leaveApply.daysToUse").toLowerCase()}
+                      </span>
+                    </div>
+                    {errors.allocation && (
+                      <p className="text-xs text-destructive">{errors.allocation}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Medical document */}
+                {requiresMedical && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="medical-document-file">
+                      {t("pages.leaveApply.medicalCertLabel")}
+                    </Label>
+                    <Input
+                      id="medical-document-file"
+                      type="file"
+                      accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+                      onChange={(event) => {
+                        setMedicalFile(event.target.files?.[0] ?? null);
+                        setMedicalDocumentUrl("");
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {t("pages.leaveApply.medicalCertHelp")}
+                    </p>
+                  </div>
+                )}
+
+                {/* Reason */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="reason">{t("pages.corrections.reason")}</Label>
+                  <Textarea
+                    id="reason"
+                    rows={4}
+                    value={reason}
+                    maxLength={1000}
+                    onChange={(e) => setReason(e.target.value.slice(0, 1000))}
+                  />
+                  <div className="flex items-center justify-between gap-3">
+                    {errors.reason ? (
+                      <p className="text-xs text-destructive">{errors.reason}</p>
+                    ) : (
+                      <span />
+                    )}
+                    <p className="text-xs tabular-nums text-muted-foreground">
+                      {t("pages.leaveApply.charsLeft", { count: 1000 - reason.length })}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => navigate({ to: "/leave/history" })}
+                  >
+                    {t("common.cancel")}
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={
+                      loading ||
+                      typesLoading ||
+                      requestedDays <= 0 ||
+                      (requiresApprover && (approverLoading || !approverName))
+                    }
+                  >
+                    {t("pages.leaveApply.submit")}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+
+          {/* Sidebar summary */}
+          <aside className="rounded-lg border bg-muted/20 p-4 lg:sticky lg:top-4 lg:self-start">
+            <h2 className="text-sm font-semibold">{t("pages.leaveApply.requestSummary")}</h2>
+            <div className="mt-4 space-y-4">
+              <LeaveSummary
+                icon={CalendarDays}
+                label={t("pages.leaveApply.requested")}
+                value={
+                  requestedDays
+                    ? requestedDays === 0.5
+                      ? t("pages.leaveApply.halfDayCount", {
+                          slot:
+                            halfSlot === "FIRST_HALF"
+                              ? t("pages.leaveApply.preLunch")
+                              : t("pages.leaveApply.postLunch"),
+                        })
+                      : t("pages.leaveApply.dayCount", { count: requestedDays })
+                    : t("pages.leaveApply.selectDates")
+                }
+              />
+              <LeaveSummary
+                icon={UserRound}
+                label={t("pages.leaveApply.approver")}
+                value={
+                  requiresApprover
+                    ? approverLoading
+                      ? t("pages.leaveApply.checking")
+                      : (approverName ?? t("pages.leaveApply.notAssigned"))
+                    : t("pages.leaveApply.noApproval")
+                }
+              />
+            </div>
+
+            {/* Allocation breakdown in sidebar */}
+            {allocatedTypes.length > 0 && (
+              <div className="mt-5 space-y-2 border-t pt-4">
+                <h3 className="text-xs font-semibold text-muted-foreground">
+                  {t("pages.leaveApply.allocationBreakdown")}
+                </h3>
+                {allocatedTypes.map((type) => (
+                  <div
+                    key={type.id}
+                    className="flex items-center justify-between gap-2 text-sm"
+                  >
+                    <span className="min-w-0 truncate">{type.name}</span>
+                    <span className="shrink-0 tabular-nums font-medium">
+                      {allocation[type.id]}d
+                    </span>
+                  </div>
+                ))}
+                {paidDays > 0 && (
+                  <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+                    <Wallet className="h-3 w-3" />
+                    {t("pages.leaveApply.paidDays")}: {paidDays}
+                  </div>
+                )}
+                {unpaidDays > 0 && (
+                  <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                    <Wallet className="h-3 w-3" />
+                    {t("pages.leaveApply.unpaidDays")}: {unpaidDays}
+                  </div>
+                )}
               </div>
-              {requestedDays > selectedBalance && selectedType?.paid && (
-                <p className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
-                  {t("pages.leaveApply.exceedsCredit", {
-                    count: requestedDays - selectedBalance,
-                  })}
-                </p>
-              )}
-            </aside>
-          </div>
-        </>
+            )}
+          </aside>
+        </div>
       )}
+
+      {/* ─── Weekly Off Request ─── */}
       {!typesLoading && requestKind === "weekly-off" && (
         <div className="mx-auto grid w-full max-w-5xl gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
           <Card>
