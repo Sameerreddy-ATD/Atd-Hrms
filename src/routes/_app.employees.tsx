@@ -595,9 +595,6 @@ function EmployeesPage() {
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{employee.name}</p>
                   <p className="truncate text-xs text-muted-foreground">{employee.email}</p>
-                  <div className="mt-1">
-                    <WorkforceTypeBadge role={employee.role} />
-                  </div>
                   {employee.employmentType && employee.employmentType !== "FULL_TIME" && (
                     <p className="mt-0.5 text-[11px] text-muted-foreground">
                       {employmentTypeLabel(employee.employmentType)}
@@ -688,7 +685,6 @@ function EmployeesPage() {
                 <TableHead>{t("common.employee")}</TableHead>
                 <TableHead>{t("common.employeeId")}</TableHead>
                 <TableHead>{t("pages.employees.company")}</TableHead>
-                <TableHead>{t("pages.employees.workforceType")}</TableHead>
                 <TableHead>{t("pages.employees.designation")}</TableHead>
                 <TableHead>{t("common.department")}</TableHead>
                 <TableHead>{t("common.branch")}</TableHead>
@@ -720,9 +716,6 @@ function EmployeesPage() {
                   </TableCell>
                   <TableCell className="max-w-[160px] text-xs">
                     {u.companyEntity ? COMPANY_LABELS[u.companyEntity] : "-"}
-                  </TableCell>
-                  <TableCell>
-                    <WorkforceTypeBadge role={u.role} />
                   </TableCell>
                   <TableCell className="max-w-[160px] text-sm">{u.designation || "-"}</TableCell>
                   <TableCell className="max-w-[200px] text-sm">

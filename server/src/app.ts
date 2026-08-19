@@ -163,6 +163,7 @@ import {
   isWebPushConfigured,
   nativeTokenEndpoint,
   sendPushToAll,
+  sendPushToUsers,
 } from "./push.js";
 import { openNotificationStream, publishNotificationChange } from "./notificationLive.js";
 import {
@@ -874,6 +875,15 @@ export function createApp() {
   async function findLeaveApprover(employeeId: string) {
     const heads = await listOrganizationHeadApprovers(employeeId);
     return heads[0] ?? null;
+  }
+
+  async function userIdsForEmployeeIds(employeeIds: string[]): Promise<string[]> {
+    if (employeeIds.length === 0) return [];
+    const users = await prisma.user.findMany({
+      where: { employeeId: { in: employeeIds }, status: "ACTIVE" },
+      select: { id: true },
+    });
+    return users.map((u) => u.id);
   }
 
   /** Immediate unit heads first (all co-heads), then parent heads up the organization chart. */
@@ -5061,6 +5071,16 @@ export function createApp() {
         ipAddress: req.ip,
       });
       publishNotificationChange("attendance-correction-requested", request.requestId);
+      if (request.approverId) {
+        void userIdsForEmployeeIds([request.approverId]).then((ids) =>
+          sendPushToUsers(ids, {
+            title: "Punch request awaiting your approval",
+            body: `${req.user!.name} — ${body.eventType.replaceAll("_", " ").toLowerCase()} on ${body.date}`,
+            href: "/attendance/corrections",
+            tag: `correction-${request.requestId}`,
+          }),
+        );
+      }
 
       res.status(201).json({
         ok: true,
@@ -5226,6 +5246,14 @@ export function createApp() {
         ipAddress: req.ip,
       });
       publishNotificationChange("attendance-correction-approved", request.requestId);
+      void userIdsForEmployeeIds([request.employeeId]).then((ids) =>
+        sendPushToUsers(ids, {
+          title: "Punch request approved",
+          body: `Your ${request.eventType.replaceAll("_", " ").toLowerCase()} request on ${request.date.toISOString().slice(0, 10)} was approved`,
+          href: "/attendance/mine",
+          tag: `correction-${request.requestId}`,
+        }),
+      );
 
       res.json({ ok: true, status: "APPROVED" });
     }),
@@ -5260,6 +5288,15 @@ export function createApp() {
         ipAddress: req.ip,
       });
       publishNotificationChange("attendance-correction-rejected", request.requestId);
+      void userIdsForEmployeeIds([request.employeeId]).then((ids) =>
+        sendPushToUsers(ids, {
+          title: "Punch request rejected",
+          body: `Your ${request.eventType.replaceAll("_", " ").toLowerCase()} request on ${request.date.toISOString().slice(0, 10)} was rejected`,
+          href: "/attendance/corrections",
+          tag: `correction-${request.requestId}`,
+          priority: "IMPORTANT",
+        }),
+      );
 
       res.json({ ok: true, status: "REJECTED" });
     }),
@@ -5479,6 +5516,14 @@ export function createApp() {
       });
       await recalculateDailySummary(row.employeeId, row.date);
       publishNotificationChange("weekly-off-approved", row.weeklyOffRequestId);
+      void userIdsForEmployeeIds([row.employeeId]).then((ids) =>
+        sendPushToUsers(ids, {
+          title: "Weekly off approved",
+          body: `Your weekly off on ${row.date.toISOString().slice(0, 10)} was approved`,
+          href: "/leave/apply",
+          tag: `weekly-off-${row.weeklyOffRequestId}`,
+        }),
+      );
       res.json((await weeklyOffRequestDtos([row]))[0]);
     }),
   );
@@ -5514,6 +5559,15 @@ export function createApp() {
         include: { employee: { select: { name: true, employeeCode: true } } },
       });
       publishNotificationChange("weekly-off-rejected", row.weeklyOffRequestId);
+      void userIdsForEmployeeIds([row.employeeId]).then((ids) =>
+        sendPushToUsers(ids, {
+          title: "Weekly off rejected",
+          body: `Your weekly off on ${row.date.toISOString().slice(0, 10)} was rejected`,
+          href: "/leave/apply",
+          tag: `weekly-off-${row.weeklyOffRequestId}`,
+          priority: "IMPORTANT",
+        }),
+      );
       res.json((await weeklyOffRequestDtos([row]))[0]);
     }),
   );
@@ -5919,6 +5973,16 @@ export function createApp() {
         ipAddress: req.ip,
       });
       res.status(201).json(leaveRequestDto(request, approver?.name ?? "No approval required"));
+      if (requiresApproval && approver?.employeeId) {
+        void userIdsForEmployeeIds([approver.employeeId]).then((ids) =>
+          sendPushToUsers(ids, {
+            title: "New leave request to review",
+            body: `${request.employee.name} — ${request.leaveType.name} from ${request.fromDate.toISOString().slice(0, 10)} to ${request.toDate.toISOString().slice(0, 10)}`,
+            href: "/leave/approvals",
+            tag: `leave-${request.leaveRequestId}`,
+          }),
+        );
+      }
     }),
   );
   app.post(
@@ -5992,6 +6056,14 @@ export function createApp() {
         ipAddress: req.ip,
       });
       res.json((await leaveRequestDtos([leave]))[0]);
+      void userIdsForEmployeeIds([leave.employeeId]).then((ids) =>
+        sendPushToUsers(ids, {
+          title: nextStatus === "APPROVED" ? "Leave approved" : "Leave approved by organization head",
+          body: `${leave.leaveType.name} from ${leave.fromDate.toISOString().slice(0, 10)} to ${leave.toDate.toISOString().slice(0, 10)}`,
+          href: "/leave/history",
+          tag: `leave-${leave.leaveRequestId}`,
+        }),
+      );
     }),
   );
   app.post(
@@ -6031,6 +6103,15 @@ export function createApp() {
         ipAddress: req.ip,
       });
       res.json((await leaveRequestDtos([leave]))[0]);
+      void userIdsForEmployeeIds([leave.employeeId]).then((ids) =>
+        sendPushToUsers(ids, {
+          title: "Leave rejected",
+          body: `${leave.leaveType.name} from ${leave.fromDate.toISOString().slice(0, 10)} to ${leave.toDate.toISOString().slice(0, 10)} was rejected`,
+          href: "/leave/history",
+          tag: `leave-${leave.leaveRequestId}`,
+          priority: "IMPORTANT",
+        }),
+      );
     }),
   );
 
@@ -7815,6 +7896,14 @@ export function createApp() {
       });
       if (mentionedEmployees.length) {
         publishNotificationChange("task-mention", existing.taskId);
+        void userIdsForEmployeeIds(mentionedEmployees.map((e) => e.employeeId)).then((ids) =>
+          sendPushToUsers(ids, {
+            title: "You were mentioned on a task",
+            body: `${req.user!.name} mentioned you on "${existing.title}"`,
+            href: "/tasks",
+            tag: `task-mention-${existing.taskId}`,
+          }),
+        );
       }
       res.status(201).json(taskDto(task));
     }),

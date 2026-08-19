@@ -521,12 +521,6 @@ function UsersPage() {
                   <p className="mt-0.5 font-mono">{user.employeeCode || user.employeeId || "-"}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">{t("pages.users.workforceType")}</p>
-                  <div className="mt-0.5">
-                    <WorkforceTypeBadge role={user.role} />
-                  </div>
-                </div>
-                <div>
                   <p className="text-muted-foreground">{t("common.role")}</p>
                   <p className="mt-0.5">{ROLE_LABELS[user.role]}</p>
                 </div>
@@ -614,7 +608,6 @@ function UsersPage() {
               <TableRow>
                 <TableHead>{t("common.name")}</TableHead>
                 <TableHead>{t("common.email")}</TableHead>
-                <TableHead>{t("pages.users.workforceType")}</TableHead>
                 <TableHead>{t("common.role")}</TableHead>
                 <TableHead>{t("common.employeeId")}</TableHead>
                 <TableHead>{t("pages.users.joined")}</TableHead>
@@ -635,9 +628,6 @@ function UsersPage() {
                     ) : null}
                   </TableCell>
                   <TableCell>{u.email}</TableCell>
-                  <TableCell>
-                    <WorkforceTypeBadge role={u.role} />
-                  </TableCell>
                   <TableCell>{ROLE_LABELS[u.role]}</TableCell>
                   <TableCell className="font-mono text-xs">
                     {u.employeeCode || u.employeeId || "-"}
