@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Cake, ChevronLeft, ChevronRight, PartyPopper } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/lib/auth";
 import { todaysBirthdays } from "@/lib/birthdays";
 import { employeesApi } from "@/services/api";
@@ -11,7 +12,6 @@ import {
 } from "@/components/ui/carousel";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Logo } from "@/components/common/Logo";
 
 interface BirthdayInfo {
   employeeId: string;
@@ -25,17 +25,12 @@ interface BirthdayInfo {
 
 function BirthdayCard({
   birthday,
-  isSelf,
   className,
 }: {
   birthday: BirthdayInfo;
-  isSelf: boolean;
   className?: string;
 }) {
-  const firstName = birthday.name?.split(" ")[0] || "teammate";
-  const teamWish = isSelf
-    ? `Happy birthday, ${firstName}. The Anytime Diesel team wishes you a wonderful year ahead.`
-    : `Today we celebrate ${firstName}. Please join us in wishing them a happy birthday.`;
+  const { t } = useTranslation();
   const detail = [birthday.designation, birthday.department].filter(Boolean).join(" · ");
 
   return (
@@ -45,12 +40,6 @@ function BirthdayCard({
         className,
       )}
     >
-      <div className="flex min-w-0 items-center justify-between gap-2 border-b border-primary/15 bg-primary/[0.04] px-3 py-2.5 sm:gap-3 sm:px-5">
-        <Logo variant="mark" className="h-6 w-6 shrink-0" />
-        <span className="max-w-[70%] truncate rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary">
-          {isSelf ? "Your birthday" : "Birthday today"}
-        </span>
-      </div>
       <div className="flex min-w-0 items-start gap-3 p-3 sm:items-center sm:gap-4 sm:p-5">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground sm:h-14 sm:w-14">
           <Cake className="h-6 w-6 sm:h-7 sm:w-7" />
@@ -60,7 +49,9 @@ function BirthdayCard({
           <p className="truncate text-base font-semibold tracking-tight text-foreground sm:text-lg">
             {birthday.name}
           </p>
-          <p className="mt-1 break-words text-sm leading-5 text-foreground/90">{teamWish}</p>
+          <p className="mt-1 break-words text-sm leading-5 text-foreground/90">
+            {t("pages.dashboard.birthdayWish")}
+          </p>
           {detail && <p className="mt-1.5 truncate text-xs text-muted-foreground">{detail}</p>}
         </div>
 
@@ -127,10 +118,7 @@ export function BirthdayMarquee() {
   if (celebrants.length === 1) {
     return (
       <div className="mb-5 w-full min-w-0 max-w-full overflow-hidden">
-        <BirthdayCard
-          birthday={celebrants[0]}
-          isSelf={celebrants[0].employeeId === user?.employeeId}
-        />
+        <BirthdayCard birthday={celebrants[0]} />
       </div>
     );
   }
@@ -147,10 +135,7 @@ export function BirthdayMarquee() {
           <CarouselContent className="-ml-0">
             {celebrants.map((birthday) => (
               <CarouselItem key={birthday.employeeId} className="basis-full pl-0">
-                <BirthdayCard
-                  birthday={birthday}
-                  isSelf={birthday.employeeId === user?.employeeId}
-                />
+                <BirthdayCard birthday={birthday} />
               </CarouselItem>
             ))}
           </CarouselContent>

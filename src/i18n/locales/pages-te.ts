@@ -218,7 +218,7 @@ const pages = {
     toastQueuedSyncedOut: "క్యూ చేసిన check-out sync అయింది",
     missedPunchCount: "{{count}} మిస్డ్ పంచ్",
     awaitingAttendanceHint: "సెటిల్ కాని హాజరు స్థితి ఉన్న సక్రియ ఉద్యోగులు",
-    birthdayWish: "Anytime Diesel టీమ్ మీకు చాలా సంతోషకరమైన పుట్టినరోజు కోరుకుంటుంది.",
+    birthdayWish: "AnyTime Diesel టీమ్ మీకు పుట్టినరోజు శుభాకాంక్షలు తెలుపుతుంది.",
     noOtherBirthdays: "తదుపరి {{count}} రోజుల్లో ఇతర పుట్టినరోజులు లేవు.",
   },
   employees: {

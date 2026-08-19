@@ -219,7 +219,7 @@ const pages = {
     toastQueuedSyncedOut: "Queued check-out synced",
     missedPunchCount: "{{count}} missed punch",
     awaitingAttendanceHint: "Active employees without a settled attendance status",
-    birthdayWish: "The Anytime Diesel team wishes you a very happy birthday.",
+    birthdayWish: "AnyTime Diesel Team wishes you a happy birthday.",
     noOtherBirthdays: "No other birthdays in the next {{count}} days.",
   },
   employees: {
