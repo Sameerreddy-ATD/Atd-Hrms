@@ -1,10 +1,15 @@
 import { Capacitor } from "@capacitor/core";
 import { Geolocation } from "@capacitor/geolocation";
-import { preciseLocationRequiredHint } from "@/lib/device-permissions";
+import {
+  locationLockHint,
+  locationUnavailableHint,
+  preciseLocationRequiredHint,
+} from "@/lib/device-permissions";
 
 const CACHE_KEY = "atd.last-location";
 const CACHE_MAX_AGE_MS = 15_000;
-const NATIVE_GEO_TIMEOUT_MS = 10_000;
+const WATCH_BUDGET_MS = 18_000;
+const GOOD_ACCURACY_METERS = 80;
 
 type CachedLocation = {
   latitude: number;
@@ -12,6 +17,20 @@ type CachedLocation = {
   accuracy: number;
   timestamp: number;
 };
+
+export function locationErrorFromGeolocationFailure(error: unknown): Error & { code: number } {
+  const code =
+    error && typeof error === "object" && "code" in error
+      ? Number((error as { code: unknown }).code)
+      : 0;
+  if (code === 1) {
+    return Object.assign(new Error(preciseLocationRequiredHint()), { code: 1 });
+  }
+  if (code === 3) {
+    return Object.assign(new Error(locationLockHint()), { code: 3 });
+  }
+  return Object.assign(new Error(locationUnavailableHint()), { code: code || 2 });
+}
 
 function readCachedLocation() {
   if (typeof window === "undefined") return null;
@@ -23,22 +42,13 @@ function readCachedLocation() {
   }
 }
 
-function cacheAndResolve(
+function asGeolocationPosition(
   latitude: number,
   longitude: number,
   accuracy: number,
   timestamp: number,
-  resolve: (position: GeolocationPosition) => void,
-) {
-  try {
-    window.sessionStorage.setItem(
-      CACHE_KEY,
-      JSON.stringify({ latitude, longitude, accuracy, timestamp }),
-    );
-  } catch {
-    // sessionStorage may be blocked — still return the fix.
-  }
-  resolve({
+): GeolocationPosition {
+  return {
     coords: {
       latitude,
       longitude,
@@ -49,30 +59,93 @@ function cacheAndResolve(
       speed: null,
     },
     timestamp,
-  } as unknown as GeolocationPosition);
+  } as unknown as GeolocationPosition;
 }
 
-function getBrowserLocation(
-  resolve: (position: GeolocationPosition) => void,
-  reject: (reason?: unknown) => void,
-) {
-  if (!navigator.geolocation) {
-    reject(new Error("Location is not supported on this device."));
-    return;
+function cachePosition(position: GeolocationPosition) {
+  try {
+    window.sessionStorage.setItem(
+      CACHE_KEY,
+      JSON.stringify({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+        timestamp: position.timestamp || Date.now(),
+      }),
+    );
+  } catch {
+    // sessionStorage may be blocked — still return the fix.
   }
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      cacheAndResolve(
-        position.coords.latitude,
-        position.coords.longitude,
-        position.coords.accuracy,
-        position.timestamp || Date.now(),
-        resolve,
-      );
-    },
-    reject,
-    { enableHighAccuracy: true, timeout: 8_000, maximumAge: CACHE_MAX_AGE_MS },
+}
+
+function fromBrowserPosition(position: GeolocationPosition) {
+  const next = asGeolocationPosition(
+    position.coords.latitude,
+    position.coords.longitude,
+    position.coords.accuracy,
+    position.timestamp || Date.now(),
   );
+  cachePosition(next);
+  return next;
+}
+
+function getCurrentPositionOnce(options: PositionOptions): Promise<GeolocationPosition> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Location is not supported on this device."));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => resolve(fromBrowserPosition(position)),
+      reject,
+      options,
+    );
+  });
+}
+
+function watchForFix(budgetMs: number): Promise<GeolocationPosition> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Location is not supported on this device."));
+      return;
+    }
+    let best: GeolocationPosition | null = null;
+    let settled = false;
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const next = fromBrowserPosition(position);
+        if (!best || next.coords.accuracy < best.coords.accuracy) best = next;
+        if (next.coords.accuracy <= GOOD_ACCURACY_METERS) finish(next);
+      },
+      (error) => {
+        if (best) {
+          finish(best);
+          return;
+        }
+        fail(error);
+      },
+      { enableHighAccuracy: true, timeout: budgetMs, maximumAge: 0 },
+    );
+    const timer = window.setTimeout(() => {
+      if (best) finish(best);
+      else fail(Object.assign(new Error(locationLockHint()), { code: 3 }));
+    }, budgetMs);
+
+    function finish(position: GeolocationPosition) {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      navigator.geolocation.clearWatch(watchId);
+      resolve(position);
+    }
+    function fail(error: unknown) {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      navigator.geolocation.clearWatch(watchId);
+      reject(error);
+    }
+  });
 }
 
 /**
@@ -80,56 +153,36 @@ function getBrowserLocation(
  * Prefer the Chrome WebView geolocation API (still gated by the app manifest
  * ACCESS_FINE_LOCATION). Fall back to the plugin only if the browser path fails.
  */
-async function getNativeDeviceLocation(
-  resolve: (position: GeolocationPosition) => void,
-  reject: (reason?: unknown) => void,
-) {
-  // 1) WebView path — safest on Samsung / Android 15+.
-  const browserAttempt = await new Promise<"ok" | "fail">((done) => {
-    if (!navigator.geolocation) {
-      done("fail");
-      return;
-    }
-    let settled = false;
-    const timer = window.setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      done("fail");
-    }, NATIVE_GEO_TIMEOUT_MS);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(timer);
-        cacheAndResolve(
-          position.coords.latitude,
-          position.coords.longitude,
-          position.coords.accuracy,
-          position.timestamp || Date.now(),
-          resolve,
-        );
-        done("ok");
-      },
-      () => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(timer);
-        done("fail");
-      },
-      { enableHighAccuracy: true, timeout: 8_000, maximumAge: CACHE_MAX_AGE_MS },
-    );
-  });
-  if (browserAttempt === "ok") return;
-
-  // Samsung Galaxy S25 Ultra (Android 16): Capacitor Geolocation.checkPermissions
-  // NPEs inside Bridge.getPermissionStates and kills the process. Never call it.
-  if (Capacitor.getPlatform() === "android") {
-    reject(Object.assign(new Error(preciseLocationRequiredHint()), { code: 1 }));
-    return;
+async function getNativeDeviceLocation(): Promise<GeolocationPosition> {
+  let firstFix: GeolocationPosition | null = null;
+  try {
+    firstFix = await getCurrentPositionOnce({
+      enableHighAccuracy: true,
+      timeout: 12_000,
+      maximumAge: CACHE_MAX_AGE_MS,
+    });
+    if (firstFix.coords.accuracy <= GOOD_ACCURACY_METERS) return firstFix;
+  } catch (firstError) {
+    const code =
+      firstError && typeof firstError === "object" && "code" in firstError
+        ? Number((firstError as { code: unknown }).code)
+        : 0;
+    // Permission really denied — don't keep prompting as if GPS is only slow.
+    if (code === 1) throw locationErrorFromGeolocationFailure(firstError);
   }
 
-  // 2) Capacitor plugin fallback (iOS only) — isolated so a plugin failure
-  //    cannot become an unhandled rejection that tears down the WebView.
+  try {
+    const watched = await watchForFix(WATCH_BUDGET_MS);
+    if (!firstFix || watched.coords.accuracy <= firstFix.coords.accuracy) return watched;
+    return firstFix;
+  } catch (watchError) {
+    if (firstFix) return firstFix;
+    if (Capacitor.getPlatform() === "android") {
+      throw locationErrorFromGeolocationFailure(watchError);
+    }
+  }
+
+  // iOS only — Capacitor Geolocation.checkPermissions NPEs on Samsung Android.
   try {
     const permission = await Promise.race([
       Geolocation.checkPermissions(),
@@ -137,7 +190,6 @@ async function getNativeDeviceLocation(
         window.setTimeout(() => fail(new Error("Location permission check timed out.")), 4_000),
       ),
     ]);
-    // Fine/precise only — approximate (coarse) location cannot verify branch geofence.
     if (permission.location !== "granted") {
       const requested = await Promise.race([
         Geolocation.requestPermissions(),
@@ -149,8 +201,7 @@ async function getNativeDeviceLocation(
         ),
       ]);
       if (requested.location !== "granted") {
-        reject(Object.assign(new Error(preciseLocationRequiredHint()), { code: 1 }));
-        return;
+        throw Object.assign(new Error(preciseLocationRequiredHint()), { code: 1 });
       }
     }
     const position = await Geolocation.getCurrentPosition({
@@ -158,19 +209,16 @@ async function getNativeDeviceLocation(
       timeout: 8_000,
       maximumAge: CACHE_MAX_AGE_MS,
     });
-    cacheAndResolve(
+    const next = asGeolocationPosition(
       position.coords.latitude,
       position.coords.longitude,
       position.coords.accuracy ?? 0,
       position.timestamp || Date.now(),
-      resolve,
     );
+    cachePosition(next);
+    return next;
   } catch (error) {
-    reject(
-      error instanceof Error
-        ? error
-        : Object.assign(new Error(preciseLocationRequiredHint()), { code: 1 }),
-    );
+    throw locationErrorFromGeolocationFailure(error);
   }
 }
 
@@ -182,18 +230,38 @@ export function getDeviceLocation(options: { allowRecent?: boolean } = {}) {
     }
     const cached = options.allowRecent === false ? null : readCachedLocation();
     if (cached) {
-      resolve({
-        coords: { ...cached, altitude: null, altitudeAccuracy: null, heading: null, speed: null },
-        timestamp: cached.timestamp,
-      } as unknown as GeolocationPosition);
+      resolve(
+        asGeolocationPosition(
+          cached.latitude,
+          cached.longitude,
+          cached.accuracy,
+          cached.timestamp,
+        ),
+      );
       return;
     }
 
     if (Capacitor.isNativePlatform()) {
-      void getNativeDeviceLocation(resolve, reject);
+      void getNativeDeviceLocation().then(resolve, reject);
       return;
     }
 
-    getBrowserLocation(resolve, reject);
+    getCurrentPositionOnce({
+      enableHighAccuracy: true,
+      timeout: 12_000,
+      maximumAge: CACHE_MAX_AGE_MS,
+    }).then(resolve, (error) => {
+      const code =
+        error && typeof error === "object" && "code" in error
+          ? Number((error as { code: unknown }).code)
+          : 0;
+      if (code === 1) {
+        reject(locationErrorFromGeolocationFailure(error));
+        return;
+      }
+      void watchForFix(WATCH_BUDGET_MS).then(resolve, (watchError) =>
+        reject(locationErrorFromGeolocationFailure(watchError)),
+      );
+    });
   });
 }

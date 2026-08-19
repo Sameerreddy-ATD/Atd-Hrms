@@ -117,6 +117,15 @@ export function preciseLocationRequiredHint() {
   return "Precise location is required for attendance. Allow precise/exact location for this site (not approximate), then try again.";
 }
 
+/** Timeout / GPS still warming — not the same as Precise being off. */
+export function locationLockHint() {
+  return "GPS is still locking. Stay on this screen near a window or outdoors, then try again. If Precise location is off, turn it on in App info → Permissions → Location.";
+}
+
+export function locationUnavailableHint() {
+  return "Location could not be read. Turn on GPS, keep Precise location on, then try again.";
+}
+
 export function formatImpreciseLocationError(accuracyMeters: number, maxMeters: number) {
   const rounded = Math.round(accuracyMeters);
   return `Location accuracy is about ${rounded} m (need within ${maxMeters} m). ${preciseLocationRequiredHint()} Move outdoors or near a window if Precise is already on.`;

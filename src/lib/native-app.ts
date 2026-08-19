@@ -212,6 +212,11 @@ export async function bootstrapNativeApp() {
         void lockNativePortrait();
       }, 1_200);
     }
+    // Returning from App info rebinds GPS. Warm a fix so check-in does not
+    // treat a cold lock as "Precise location is off".
+    void import("@/lib/geolocation")
+      .then(({ getDeviceLocation }) => getDeviceLocation({ allowRecent: true }))
+      .catch(() => undefined);
   });
 
   // Track route changes so a Back event that lands immediately after login /

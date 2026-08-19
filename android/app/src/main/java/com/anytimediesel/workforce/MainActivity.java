@@ -37,6 +37,8 @@ import com.getcapacitor.BridgeActivity;
  */
 public class MainActivity extends BridgeActivity {
     private static final int NOTIFICATION_PERMISSION_REQUEST = 4711;
+    private static final int LOCATION_PERMISSION_REQUEST = 4712;
+    private boolean locationPermissionAsked = false;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -180,14 +182,21 @@ public class MainActivity extends BridgeActivity {
     /**
      * Android 13+ needs a runtime grant before any notification is shown. FCM
      * registration itself works without it, so a denial costs the banner, not
-     * the token.
+     * the token. Location is requested next — Capacitor Geolocation.requestPermissions
+     * NPEs on some Samsung builds, so we use ActivityCompat instead.
      */
     private void requestNotificationPermission() {
         try {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return;
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                requestLocationPermission();
+                return;
+            }
             boolean granted = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                 == PackageManager.PERMISSION_GRANTED;
-            if (granted) return;
+            if (granted) {
+                requestLocationPermission();
+                return;
+            }
             ActivityCompat.requestPermissions(
                 this,
                 new String[] { Manifest.permission.POST_NOTIFICATIONS },
@@ -195,6 +204,53 @@ public class MainActivity extends BridgeActivity {
             );
         } catch (Exception ignored) {
             // A refused or unavailable prompt must never block launch.
+            requestLocationPermission();
+        }
+    }
+
+    /**
+     * Precise (FINE) location for attendance. Ask once per process. If the user
+     * only granted Approximate, they can upgrade it in App info — we do not
+     * re-prompt on every resume.
+     */
+    private void requestLocationPermission() {
+        try {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                    == PackageManager.PERMISSION_GRANTED) {
+                return;
+            }
+            if (locationPermissionAsked) return;
+            locationPermissionAsked = true;
+            ActivityCompat.requestPermissions(
+                this,
+                new String[] {
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                },
+                LOCATION_PERMISSION_REQUEST
+            );
+        } catch (Exception ignored) {
+            // A refused or unavailable prompt must never block launch.
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == NOTIFICATION_PERMISSION_REQUEST) {
+            requestLocationPermission();
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // After App info → Permissions, FINE may now be granted. If it still is
+        // not, do not loop the system dialog — the punch screen explains Precise.
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED
+            && !locationPermissionAsked) {
+            requestLocationPermission();
         }
     }
 
