@@ -36,6 +36,7 @@ function IdCardPage() {
     bloodGroup?: string;
     verificationToken?: string;
   } | null>(null);
+  const [verificationUrl, setVerificationUrl] = useState("");
   useEffect(() => {
     if (!user?.employeeId) return;
     employeesApi
@@ -43,16 +44,21 @@ function IdCardPage() {
       .then(setEmployee)
       .catch(() => setEmployee(null));
   }, [user?.employeeId]);
+  useEffect(() => {
+    if (!employee?.verificationToken) {
+      setVerificationUrl("");
+      return;
+    }
+    setVerificationUrl(
+      `${window.location.origin}/verify-id/${encodeURIComponent(employee.verificationToken)}`,
+    );
+  }, [employee?.verificationToken]);
   if (!user) return null;
   const initials = user.name
     .split(" ")
     .map((s) => s[0])
     .slice(0, 2)
     .join("");
-  const verificationUrl =
-    typeof window !== "undefined" && employee?.verificationToken
-      ? `${window.location.origin}/verify-id/${encodeURIComponent(employee.verificationToken)}`
-      : "";
 
   return (
     <div>

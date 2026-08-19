@@ -55,10 +55,15 @@ export function PermissionSetup() {
   const [location, setLocation] = useState<DevicePermissionState>("prompt");
   const [notifications, setNotifications] = useState(getNotificationPermission);
   const [requesting, setRequesting] = useState<"location" | "notifications" | null>(null);
+  const [nativeShell, setNativeShell] = useState(false);
 
   const refresh = useCallback(async () => {
     setLocation(await readLocationPermission());
     setNotifications(getNotificationPermission());
+  }, []);
+
+  useEffect(() => {
+    setNativeShell(isNativeApp());
   }, []);
 
   useEffect(() => {
@@ -144,7 +149,7 @@ export function PermissionSetup() {
   );
 
   // Native shell: render nothing (permission sheet is PWA/mobile-web only for now).
-  if (isNativeApp()) return null;
+  if (nativeShell) return null;
 
   return (
     <Sheet open={open} onOpenChange={(next) => (next ? setOpen(true) : close())}>

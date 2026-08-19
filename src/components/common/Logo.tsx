@@ -68,14 +68,18 @@ export function BrandReveal({
 
     const measure = () => {
       // Italic + skew paint past the layout box; keep a little ink inside the clip.
-      setWordWidth(Math.ceil(el.scrollWidth) + 8);
+      const next = Math.ceil(el.scrollWidth) + 8;
+      setWordWidth((prev) => (prev === next ? prev : next));
     };
 
-    measure();
+    const raf = window.requestAnimationFrame(measure);
     const fonts = document.fonts?.ready;
     void fonts?.then(measure);
     window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.removeEventListener("resize", measure);
+    };
   }, []);
 
   return (

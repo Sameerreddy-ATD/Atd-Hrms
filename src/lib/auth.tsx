@@ -107,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       void keepSessionAlive();
     };
 
-    renew();
+    // Restore/login just minted cookies — do not immediately POST /auth/refresh.
     const timer = window.setInterval(renew, SESSION_KEEPALIVE_MS);
     const onVisible = () => {
       if (document.visibilityState === "visible") renew();

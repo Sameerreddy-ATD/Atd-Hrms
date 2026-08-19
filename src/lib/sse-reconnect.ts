@@ -30,8 +30,8 @@ export function openCredentialedEventSource(
       stream = null;
       if (closed) return;
       if (window.location.pathname.includes("/login")) return;
-      void keepSessionAlive().finally(() => {
-        if (closed) return;
+      void keepSessionAlive().then((ok) => {
+        if (closed || !ok) return;
         timer = window.setTimeout(connect, retryMs);
         retryMs = Math.min(retryMs * 2, 30_000);
       });

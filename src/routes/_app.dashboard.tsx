@@ -301,9 +301,9 @@ function DashboardPage() {
   const isExecutive = user.role === "ceo" || user.role === "chief_of_staff";
   const headerDescription = isExecutive
     ? t(user.role === "ceo" ? "pages.dashboard.descriptionCeo" : "pages.dashboard.descriptionCos", {
-        date: formatDisplayDate(new Date()),
+        date: formatDisplayDate(indiaDateKey()),
       })
-    : `${ROLE_LABELS[user.role]} · ${formatDisplayDate(new Date())}`;
+    : `${ROLE_LABELS[user.role]} · ${formatDisplayDate(indiaDateKey())}`;
 
   return (
     <div className="aw-enter w-full min-w-0 max-w-full space-y-1 overflow-x-hidden">

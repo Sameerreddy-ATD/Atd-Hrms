@@ -69,25 +69,14 @@ function readSavedSelection(): SavedDayLogSelection | null {
 function DayLogsPage() {
   const { t } = useTranslation();
   const todayKey = indiaDateKey();
-  const initialSelection = useMemo(() => readSavedSelection(), []);
-  const defaultCycle = useMemo(() => {
-    if (initialSelection?.from) {
-      return attendanceCycleForDate(initialSelection.from, {
-        clampToToday: true,
-        todayKey: todayKey,
-      });
-    }
-    return currentAttendanceCycle(todayKey);
-  }, [initialSelection, todayKey]);
+  const defaultCycle = useMemo(() => currentAttendanceCycle(todayKey), [todayKey]);
 
   const [employees, setEmployees] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState(
-    () => initialSelection?.employeeId || "all",
-  );
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState("all");
   const [periodKey, setPeriodKey] = useState(defaultCycle.periodKey);
-  const [from, setFrom] = useState(() => initialSelection?.from || defaultCycle.from);
-  const [to, setTo] = useState(() => initialSelection?.to || defaultCycle.to);
+  const [from, setFrom] = useState(defaultCycle.from);
+  const [to, setTo] = useState(defaultCycle.to);
   const [branchId, setBranchId] = useState("all");
   const [workforceTypeFilter, setWorkforceTypeFilter] = useState<WorkforceTypeFilter>("all");
   const [employeeRows, setEmployeeRows] = useState<AttendanceRecord[]>([]);
@@ -103,6 +92,21 @@ function DayLogsPage() {
     () => currentAttendanceCycle(todayKey).periodKey,
     [todayKey],
   );
+
+  useEffect(() => {
+    const saved = readSavedSelection();
+    if (!saved) return;
+    if (saved.employeeId) setSelectedEmployeeId(saved.employeeId);
+    if (saved.from) {
+      const cycle = attendanceCycleForDate(saved.from, {
+        clampToToday: true,
+        todayKey,
+      });
+      setPeriodKey(cycle.periodKey);
+      setFrom(saved.from);
+      setTo(saved.to || cycle.to);
+    }
+  }, [todayKey]);
 
   useEffect(() => {
     Promise.all([employeesApi.list(), branchesApi.list()])

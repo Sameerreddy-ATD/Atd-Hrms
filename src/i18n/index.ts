@@ -54,12 +54,23 @@ function persistLocale(locale: AppLocale) {
   }
 }
 
+/** Cookie only — this is what the server rendered, so hydration must use it. */
+export function readHydrationLocale(): AppLocale {
+  if (typeof document === "undefined") return "en";
+  return readLocaleCookie(document.cookie) ?? "en";
+}
+
+/** localStorage preference, ignoring the cookie. Used after hydrate to catch up. */
+export function readStoredLocalePreference(): AppLocale | null {
+  if (typeof localStorage === "undefined") return null;
+  const raw = localStorage.getItem(LOCALE_STORAGE_KEY);
+  return isAppLocale(raw) ? raw : null;
+}
+
 export function getStoredLocale(): AppLocale {
   const fromCookie = typeof document === "undefined" ? null : readLocaleCookie(document.cookie);
   if (fromCookie) return fromCookie;
-  if (typeof localStorage === "undefined") return "en";
-  const raw = localStorage.getItem(LOCALE_STORAGE_KEY);
-  return isAppLocale(raw) ? raw : "en";
+  return readStoredLocalePreference() ?? "en";
 }
 
 export function applyDocumentLocale(locale: AppLocale) {
@@ -112,7 +123,7 @@ export function loadLocale(locale: AppLocale): Promise<void> {
 
 void i18n.use(initReactI18next).init({
   resources: { en: { translation: en } },
-  lng: getStoredLocale(),
+  lng: readHydrationLocale(),
   fallbackLng: "en",
   interpolation: { escapeValue: false },
   returnNull: false,
@@ -121,7 +132,7 @@ void i18n.use(initReactI18next).init({
   react: { bindI18nStore: "added" },
 });
 
-applyDocumentLocale(getStoredLocale());
+applyDocumentLocale(readHydrationLocale());
 
 /**
  * Prepares the browser to hydrate in `locale`, and writes the cookie so the
@@ -131,6 +142,17 @@ applyDocumentLocale(getStoredLocale());
  */
 export async function prepareClientLocale(locale: AppLocale) {
   persistLocale(locale);
+  applyDocumentLocale(locale);
+  await loadLocale(locale);
+  if (i18n.language !== locale) await i18n.changeLanguage(locale);
+}
+
+/**
+ * Load translations for the language the HTML was already rendered in.
+ * Does not write localStorage — a stored Telugu/Hindi preference without a
+ * cookie would otherwise hydrate against English markup (React #418).
+ */
+export async function hydrateToServerLocale(locale: AppLocale) {
   applyDocumentLocale(locale);
   await loadLocale(locale);
   if (i18n.language !== locale) await i18n.changeLanguage(locale);

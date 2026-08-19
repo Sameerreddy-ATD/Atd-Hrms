@@ -1,19 +1,26 @@
+import "@/lib/array-at-polyfill";
+import { installResizeObserverLoopFix } from "@/lib/resize-observer-fix";
 import { StrictMode, startTransition } from "react";
 import { hydrateRoot } from "react-dom/client";
 import { StartClient } from "@tanstack/react-start/client";
 
-import { getStoredLocale, prepareClientLocale } from "./i18n";
+import {
+  hydrateToServerLocale,
+  readHydrationLocale,
+  readStoredLocalePreference,
+  setAppLocale,
+} from "./i18n";
+
+installResizeObserverLoopFix();
 
 /**
  * Replaces the framework default entry purely to settle the language first.
  *
- * Telugu and Hindi are fetched on demand, so without this await React would
- * hydrate in English against markup the server rendered in the reader's
- * language, throw the whole tree away and build it again. Waiting costs one
- * small chunk that is already downloading alongside the main bundle, and only
- * for readers who are not on English.
+ * Hydrate in the cookie language the server used. A localStorage-only
+ * preference is applied after hydrate so React #418 does not fire.
  */
-void prepareClientLocale(getStoredLocale()).then(() => {
+void hydrateToServerLocale(readHydrationLocale()).then(() => {
+  const hydrated = readHydrationLocale();
   startTransition(() => {
     hydrateRoot(
       document,
@@ -22,4 +29,10 @@ void prepareClientLocale(getStoredLocale()).then(() => {
       </StrictMode>,
     );
   });
+  const preferred = readStoredLocalePreference();
+  if (preferred && preferred !== hydrated) {
+    window.setTimeout(() => {
+      void setAppLocale(preferred);
+    }, 0);
+  }
 });
