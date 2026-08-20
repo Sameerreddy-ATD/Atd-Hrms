@@ -25,10 +25,16 @@ Source of truth (outside release directories when possible):
 
 | Path | Purpose |
 |------|---------|
-| `/opt/anytime-crew-hub/shared/maintenance.json` | Structured state |
-| `/opt/anytime-crew-hub/shared/maintenance.on` | Flag for Caddy `file.exists` |
+| `/opt/anytime-crew-hub/shared/maintenance.json` | Structured state (Express) |
+| `/opt/anytime-crew-hub/shared/maintenance.on` | Flag file (ops / tooling) |
+| `/opt/anytime-crew-hub/shared/caddy/50-maintenance.conf` | Caddy import snippet when ON |
 | Local / CI fallback | `<repo>/shared/maintenance.json` |
 | Override | `MAINTENANCE_FILE=/absolute/path.json` |
+
+Caddy 2.11 on the production host does not support `file.exists` in CEL expressions.
+`npm run maintenance:on|off` therefore writes/removes the Caddy snippet and reloads Caddy
+when `/etc/caddy/Caddyfile` is present. Express continues to read `maintenance.json` without
+a process restart.
 
 Conceptual JSON:
 
