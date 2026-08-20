@@ -458,9 +458,11 @@ export function departmentDto(department: {
     employee?: Pick<Employee, "name"> | null;
   }>;
 }) {
-  const assignmentHeads = [...(department.headAssignments ?? [])].sort(
-    (a, b) => a.sortOrder - b.sortOrder || a.employeeId.localeCompare(b.employeeId),
-  );
+  const assignmentHeads = [...(department.headAssignments ?? [])].sort((a, b) => {
+    const primaryDiff = Number(Boolean(b.isPrimary)) - Number(Boolean(a.isPrimary));
+    if (primaryDiff !== 0) return primaryDiff;
+    return a.sortOrder - b.sortOrder || a.employeeId.localeCompare(b.employeeId);
+  });
   const headEmployeeIds =
     assignmentHeads.length > 0
       ? assignmentHeads.map((row) => row.employeeId)
@@ -478,14 +480,16 @@ export function departmentDto(department: {
   const assignmentViewers = [...(department.viewerAssignments ?? [])].sort(
     (a, b) => a.sortOrder - b.sortOrder || a.employeeId.localeCompare(b.employeeId),
   );
+  const primaryHeadEmployeeId =
+    assignmentHeads.find((row) => row.isPrimary)?.employeeId ?? headEmployeeIds[0] ?? undefined;
   return {
     id: department.departmentId,
     name: department.name,
     unitCode: department.unitCode,
     description: department.description ?? undefined,
     active: department.active ?? true,
-    headEmployeeId: headEmployeeIds[0] ?? undefined,
-    primaryHeadEmployeeId: headEmployeeIds[0] ?? undefined,
+    headEmployeeId: primaryHeadEmployeeId,
+    primaryHeadEmployeeId,
     head: heads[0],
     headEmployeeIds,
     heads,

@@ -173,7 +173,7 @@ export async function addHeadAssignment(
         effectiveTo: null,
         isPrimary: true,
       },
-      data: { isPrimary: false },
+      data: { isPrimary: false, sortOrder: 1 },
     });
   }
 
@@ -193,6 +193,44 @@ export async function addHeadAssignment(
   return created;
 }
 
+/** Promote an active head assignment to primary; demote other active primaries. */
+export async function setPrimaryHeadAssignment(
+  tx: Tx,
+  assignmentId: string,
+  input?: { assignedByUserId?: string; reason?: string },
+) {
+  const row = await tx.departmentHeadAssignment.findUniqueOrThrow({
+    where: { id: assignmentId },
+    include: { employee: { select: employeeIdentitySelect() } },
+  });
+  if (row.effectiveTo) throw new HttpError(400, "Cannot set an ended head assignment as primary");
+  const asOf = startOfUtcDay(new Date());
+  if (!isAssignmentActive(row.effectiveFrom, row.effectiveTo, asOf)) {
+    throw new HttpError(400, "Only an active head assignment can be primary");
+  }
+  await tx.departmentHeadAssignment.updateMany({
+    where: {
+      departmentId: row.departmentId,
+      effectiveTo: null,
+      isPrimary: true,
+      NOT: { id: assignmentId },
+    },
+    data: { isPrimary: false, sortOrder: 1 },
+  });
+  const updated = await tx.departmentHeadAssignment.update({
+    where: { id: assignmentId },
+    data: {
+      isPrimary: true,
+      sortOrder: 0,
+      reason: input?.reason ?? row.reason,
+      assignedByUserId: input?.assignedByUserId ?? row.assignedByUserId,
+    },
+    include: { employee: { select: employeeIdentitySelect() } },
+  });
+  await syncPrimaryHeadCache(tx, row.departmentId, asOf);
+  return updated;
+}
+
 export async function endHeadAssignment(
   tx: Tx,
   assignmentId: string,
@@ -202,8 +240,9 @@ export async function endHeadAssignment(
   const row = await tx.departmentHeadAssignment.findUniqueOrThrow({ where: { id: assignmentId } });
   if (row.effectiveTo) throw new HttpError(400, "This head assignment is already ended");
   const end = startOfUtcDay(effectiveTo);
-  if (end.getTime() <= startOfUtcDay(row.effectiveFrom).getTime()) {
-    throw new HttpError(400, "End date must be after the assignment start date");
+  // Same-day end is allowed (assignment can start and end on the same calendar day).
+  if (end.getTime() < startOfUtcDay(row.effectiveFrom).getTime()) {
+    throw new HttpError(400, "End date must be on or after the assignment start date");
   }
   const updated = await tx.departmentHeadAssignment.update({
     where: { id: assignmentId },

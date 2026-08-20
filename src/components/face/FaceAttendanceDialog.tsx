@@ -12,11 +12,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { authApi, faceApi } from "@/services/api";
 import { useAuth } from "@/lib/auth";
+import { openLocationPermissionSetup } from "@/components/layout/PermissionSetup";
 import {
   formatImpreciseLocationError,
   preciseLocationRequiredHint,
+  readLocationPermission,
 } from "@/lib/device-permissions";
 import { getDeviceLocation } from "@/lib/geolocation";
+import { isNativeApp } from "@/lib/native-app";
 import type {
   FaceCapturePayload,
   FaceEnrollmentStatus,
@@ -94,6 +97,17 @@ export function FaceAttendanceDialog({
     enrollStartLock.current = false;
     const prepare = async () => {
       try {
+        const permission = await readLocationPermission();
+        // Web/PWA: show contextual explanation sheet instead of stacking under punch UI.
+        // Native Capacitor requests location inside getDeviceLocation (no global sheet).
+        if (
+          !isNativeApp() &&
+          (permission === "denied" || permission === "prompt")
+        ) {
+          onCloseRef.current();
+          openLocationPermissionSetup();
+          return;
+        }
         const statusPromise = faceApi.status();
         const locationPromise = getDeviceLocation({ allowRecent: false });
         const status = await statusPromise;
@@ -165,13 +179,20 @@ export function FaceAttendanceDialog({
           caught && typeof caught === "object" && "code" in caught
             ? Number((caught as { code: unknown }).code)
             : null;
+        if (geolocationCode === 1) {
+          if (!isNativeApp()) {
+            onCloseRef.current();
+            openLocationPermissionSetup();
+            return;
+          }
+          setError(preciseLocationRequiredHint());
+          return;
+        }
         const message =
-          geolocationCode === 1
-            ? preciseLocationRequiredHint()
-            : caught instanceof Error
-              ? caught.message
-              : t("pages.faceEnrollment.attendanceStartError");
-        setError(message);
+          caught instanceof Error
+            ? caught.message
+            : t("pages.faceEnrollment.attendanceStartError");
+        setError(message || preciseLocationRequiredHint());
       }
     };
     void prepare();

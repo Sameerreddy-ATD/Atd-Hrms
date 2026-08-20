@@ -24,6 +24,8 @@
     "typecheck": "tsc --noEmit && tsc -p server/tsconfig.json --noEmit",
     "test": "vitest run --config vitest.config.ts",
     "test:e2e": "playwright test",
+    "test:e2e:full": "bash scripts/e2e-run.sh",
+    "test:e2e:seed": "node scripts/e2e-seed.mjs",
     "test:employee-api": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-employee-api.ps1",
     "test:data-reset": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-reset-test-data.ps1",
     "test:tasks": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-tasks.ps1",

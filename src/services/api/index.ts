@@ -891,6 +891,11 @@ export const organizationApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  makePrimaryUnitHead: (unitId: string, assignmentId: string, body?: { reason?: string }) =>
+    request(`/organization/units/${unitId}/heads/${assignmentId}/primary`, {
+      method: "POST",
+      body: JSON.stringify(body ?? {}),
+    }),
   headHistory: (unitId: string) =>
     request<
       Array<{

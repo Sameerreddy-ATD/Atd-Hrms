@@ -155,6 +155,7 @@ function DeptPage() {
   const [parentDepartmentId, setParentDepartmentId] = useState("none");
   const [unitType, setUnitType] = useState<"TEAM" | "SUBTEAM" | "FUNCTION">("TEAM");
   const [faceVerificationEnabled, setFaceVerificationEnabled] = useState(true);
+  const [unitActive, setUnitActive] = useState(true);
   const [editing, setEditing] = useState<Department | null>(null);
   /** Leadership: assign multiple heads for the CEO (Executive Leadership unit). */
   const [assignCeoHeads, setAssignCeoHeads] = useState(false);
@@ -438,6 +439,7 @@ function DeptPage() {
     setParentDepartmentId("none");
     setUnitType("TEAM");
     setFaceVerificationEnabled(true);
+    setUnitActive(true);
     setShowForm(false);
   }
 
@@ -519,6 +521,7 @@ function DeptPage() {
     setParentDepartmentId(department.parentDepartmentId ?? "none");
     setUnitType(department.unitType ?? "TEAM");
     setFaceVerificationEnabled(department.faceVerificationEnabled ?? true);
+    setUnitActive(department.active !== false);
     setShowForm(true);
   }
 
@@ -573,6 +576,7 @@ function DeptPage() {
             ...payload,
             headEmployeeIds,
             viewerEmployeeIds,
+            active: unitActive,
           })
         : await branchesApi.createDepartment(payload);
       setDepartments((prev) =>
@@ -1107,6 +1111,18 @@ function DeptPage() {
                             <Button
                               size="icon"
                               variant="ghost"
+                              title={t("pages.departments.unitDetails")}
+                              aria-label={`${department.name} details`}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setDetailUnit(department);
+                              }}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
                               title={t("pages.departments.editUnitBtn")}
                               aria-label={`Edit ${department.name}`}
                               onClick={(event) => {
@@ -1327,8 +1343,9 @@ function DeptPage() {
 
             {needsUnitName && (
               <div className="space-y-1.5">
-                <Label>{t("pages.departments.orgUnitName")}</Label>
+                <Label htmlFor="org-unit-name">{t("pages.departments.orgUnitName")}</Label>
                 <Input
+                  id="org-unit-name"
                   value={name}
                   onChange={(e) => {
                     const next = e.target.value;
@@ -1351,8 +1368,9 @@ function DeptPage() {
             {!assignCeoHeads && (
               <>
                 <div className="space-y-1.5">
-                  <Label>{t("pages.departments.unitCodeLabel")}</Label>
+                  <Label htmlFor="org-unit-code">{t("pages.departments.unitCodeLabel")}</Label>
                   <Input
+                    id="org-unit-code"
                     value={unitCode}
                     onChange={(e) =>
                       setUnitCode(
@@ -1370,8 +1388,9 @@ function DeptPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>{t("pages.departments.descriptionLabel")}</Label>
+                  <Label htmlFor="org-unit-description">{t("pages.departments.descriptionLabel")}</Label>
                   <Textarea
+                    id="org-unit-description"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder={t("pages.departments.descriptionPlaceholder")}
@@ -1381,23 +1400,39 @@ function DeptPage() {
               </>
             )}
 
+            {!assignCeoHeads && (
+              <div className="space-y-1.5">
+                <Label htmlFor="org-unit-type">{t("pages.departments.unitTypeLabel")}</Label>
+                <Select
+                  value={unitType}
+                  onValueChange={(value) => setUnitType(value as typeof unitType)}
+                >
+                  <SelectTrigger id="org-unit-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TEAM">{t("pages.departments.unitTypeTeam")}</SelectItem>
+                    <SelectItem value="SUBTEAM">{t("pages.departments.unitTypeSubteam")}</SelectItem>
+                    <SelectItem value="FUNCTION">{t("pages.departments.unitTypeFunction")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {editing ? (
               <>
-                <div className="space-y-1.5">
-                  <Label>Unit type</Label>
-                  <Select
-                    value={unitType}
-                    onValueChange={(value) => setUnitType(value as typeof unitType)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="TEAM">{t("pages.departments.orgUnit")}</SelectItem>
-                      <SelectItem value="SUBTEAM">{t("pages.departments.team")}</SelectItem>
-                      <SelectItem value="FUNCTION">{t("pages.departments.subteam")}</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
+                  <Label htmlFor="org-unit-active">{t("pages.departments.statusLabel")}</Label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {unitActive ? t("pages.departments.active") : t("pages.departments.inactive")}
+                    </span>
+                    <Switch
+                      id="org-unit-active"
+                      checked={unitActive}
+                      onCheckedChange={setUnitActive}
+                    />
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <Label>{t("pages.departments.reportsUnder")}</Label>

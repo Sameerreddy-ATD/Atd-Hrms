@@ -17,6 +17,7 @@ import {
   getActiveHeadAssignmentsForUnit,
   getActiveViewerAssignmentsForUnit,
   loadOrganizationUnits,
+  setPrimaryHeadAssignment,
   transferEmployeeOrganization,
 } from "./organizationAssignments.js";
 import {
@@ -162,6 +163,29 @@ export function registerOrganizationRoutes(app: Express) {
       );
       await audit({
         action: "organization head ended",
+        performedByUserId: req.user!.id,
+        newValue: assignmentDto(updated),
+        ipAddress: req.ip,
+      });
+      res.json(assignmentDto(updated));
+    }),
+  );
+
+  app.post(
+    "/organization/units/:id/heads/:assignmentId/primary",
+    requireAuth,
+    structureGate,
+    asyncHandler(async (req, res) => {
+      const reason =
+        typeof req.body?.reason === "string" ? req.body.reason.trim().slice(0, 500) : undefined;
+      const updated = await prisma.$transaction((tx) =>
+        setPrimaryHeadAssignment(tx, String(req.params.assignmentId), {
+          assignedByUserId: req.user!.id,
+          reason,
+        }),
+      );
+      await audit({
+        action: "organization head primary changed",
         performedByUserId: req.user!.id,
         newValue: assignmentDto(updated),
         ipAddress: req.ip,

@@ -37,12 +37,14 @@ describe("organization integration (MySQL)", () => {
     if (!DATABASE_URL.includes("3308") && process.env.RUN_ORG_INTEGRATION !== "1") {
       throw new Error("Set DATABASE_URL to the disposable MySQL 8 test database before running this suite");
     }
+    await prisma.$executeRawUnsafe("SET FOREIGN_KEY_CHECKS=0");
     await prisma.employeeOrganizationAssignment.deleteMany();
     await prisma.departmentHeadAssignment.deleteMany();
     await prisma.departmentViewerAssignment.deleteMany();
     await prisma.user.deleteMany();
     await prisma.employee.deleteMany();
     await prisma.department.deleteMany();
+    await prisma.$executeRawUnsafe("SET FOREIGN_KEY_CHECKS=1");
 
     cosId = (
       await prisma.department.create({

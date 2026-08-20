@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouterState } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Bell, Check, CircleAlert, LoaderCircle, LocateFixed } from "lucide-react";
 import { toast } from "sonner";
@@ -14,7 +15,6 @@ import {
 import { enableDesktopAlerts, getNotificationPermission } from "@/lib/browser-notifications";
 import {
   blockedPermissionHint,
-  isMobileDeviceShell,
   readLocationPermission,
   type DevicePermissionState,
 } from "@/lib/device-permissions";
@@ -22,7 +22,22 @@ import { getDeviceLocation } from "@/lib/geolocation";
 import { isNativeApp } from "@/lib/native-app";
 import { cn } from "@/lib/utils";
 
-const DISMISSED_KEY = "adh_permission_setup_dismissed_v5";
+/** Attendance / location-dependent flows dispatch this to open the explanation sheet. */
+export const LOCATION_PERMISSION_EVENT = "atd:open-location-permission";
+
+/** Open the precise-location explanation sheet (attendance only — never auto on login). */
+export function openLocationPermissionSetup() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(LOCATION_PERMISSION_EVENT));
+}
+
+function isAttendanceRelatedPath(pathname: string) {
+  return (
+    pathname === "/dashboard" ||
+    pathname.startsWith("/attendance") ||
+    pathname.startsWith("/face")
+  );
+}
 
 function StatusPill({ state }: { state: DevicePermissionState }) {
   const { t } = useTranslation();
@@ -51,6 +66,7 @@ function StatusPill({ state }: { state: DevicePermissionState }) {
 
 export function PermissionSetup() {
   const { t } = useTranslation();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [open, setOpen] = useState(false);
   const [location, setLocation] = useState<DevicePermissionState>("prompt");
   const [notifications, setNotifications] = useState(getNotificationPermission);
@@ -66,34 +82,40 @@ export function PermissionSetup() {
     setNativeShell(isNativeApp());
   }, []);
 
+  // Contextual open only — never auto-prompt after login / on unrelated routes.
   useEffect(() => {
-    // Native: never auto-prompt location right after login. Samsung One UI WebView
-    // dies ~2–3s after Geolocation.checkPermissions + sheet open on the dashboard.
-    // Users can still enable location later from attendance check-in.
-    if (!isMobileDeviceShell() || isNativeApp()) return;
-    const dismissed = window.localStorage.getItem(DISMISSED_KEY) === "true";
-    let cancelled = false;
-    void (async () => {
-      const nextLocation = await readLocationPermission();
-      if (cancelled) return;
-      setLocation(nextLocation);
-      setNotifications(getNotificationPermission());
-      if (!dismissed && nextLocation !== "granted" && nextLocation !== "unsupported") {
+    if (nativeShell) return;
+    const onRequest = () => {
+      void (async () => {
+        await refresh();
         setOpen(true);
-      }
-    })();
+      })();
+    };
+    window.addEventListener(LOCATION_PERMISSION_EVENT, onRequest);
+    return () => window.removeEventListener(LOCATION_PERMISSION_EVENT, onRequest);
+  }, [nativeShell, refresh]);
+
+  // Drop the sheet when leaving attendance-related surfaces so it cannot
+  // stack under Organization / Create Login / etc.
+  useEffect(() => {
+    if (!open) return;
+    if (!isAttendanceRelatedPath(pathname)) {
+      setOpen(false);
+    }
+  }, [pathname, open]);
+
+  useEffect(() => {
+    if (nativeShell || !open) return;
     const onVisible = () => document.visibilityState === "visible" && void refresh();
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", onVisible);
     return () => {
-      cancelled = true;
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [refresh]);
+  }, [nativeShell, open, refresh]);
 
   const close = () => {
-    window.localStorage.setItem(DISMISSED_KEY, "true");
     setOpen(false);
   };
 
@@ -148,7 +170,7 @@ export function PermissionSetup() {
     [location, notifications, t],
   );
 
-  // Native shell: render nothing (permission sheet is PWA/mobile-web only for now).
+  // Native shell: Capacitor requests location at the attendance action itself.
   if (nativeShell) return null;
 
   return (

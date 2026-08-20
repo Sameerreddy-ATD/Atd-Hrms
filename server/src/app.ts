@@ -704,9 +704,11 @@ export function createApp() {
     memberCount = 0,
     totalDescendantEmployeeCount?: number,
   ) {
-    const assignmentHeads = [...(department.headAssignments ?? [])].sort(
-      (a, b) => a.sortOrder - b.sortOrder || a.employeeId.localeCompare(b.employeeId),
-    );
+    const assignmentHeads = [...(department.headAssignments ?? [])].sort((a, b) => {
+      const primaryDiff = Number(Boolean(b.isPrimary)) - Number(Boolean(a.isPrimary));
+      if (primaryDiff !== 0) return primaryDiff;
+      return a.sortOrder - b.sortOrder || a.employeeId.localeCompare(b.employeeId);
+    });
     const headEmployeeIds =
       assignmentHeads.length > 0
         ? assignmentHeads.map((row) => row.employeeId)
@@ -728,18 +730,21 @@ export function createApp() {
     const viewers = assignmentViewers
       .map((row) => row.employee?.name)
       .filter((name): name is string => Boolean(name));
+    const primaryHeadEmployeeId =
+      assignmentHeads.find((row) => row.isPrimary)?.employeeId ??
+      headEmployeeIds[0] ??
+      undefined;
     return {
       id: department.departmentId,
       name: department.name,
       unitCode: department.unitCode,
       description: department.description ?? undefined,
       active: department.active ?? true,
-      headEmployeeId: headEmployeeIds[0] ?? undefined,
+      headEmployeeId: primaryHeadEmployeeId,
       head: heads[0],
       headEmployeeIds,
       heads,
-      primaryHeadEmployeeId:
-        assignmentHeads.find((row) => row.isPrimary)?.employeeId ?? headEmployeeIds[0],
+      primaryHeadEmployeeId,
       viewerEmployeeIds,
       viewers,
       parentDepartmentId: department.parentDepartmentId ?? undefined,

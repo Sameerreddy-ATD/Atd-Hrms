@@ -1,0 +1,345 @@
+/**
+ * Deterministic E2E seed for disposable MySQL.
+ * Creates the 20-unit organization fixture and synthetic users with real bcrypt passwords.
+ *
+ * Password for every E2E account: E2eTestPass123!
+ * (test-only disposable database — never use on production)
+ */
+import { hash } from "@node-rs/bcrypt";
+import { PrismaClient, EmployeeStatus, Role } from "@prisma/client";
+
+const prisma = new PrismaClient();
+export const E2E_PASSWORD = "E2eTestPass123!";
+
+const UNIT_FIXTURE = [
+  ["CHIEF_OF_STAFF", "Chief of Staff", null],
+  ["CHIEF_OF_OPERATIONS", "Chief of Operations", "CHIEF_OF_STAFF"],
+  ["SALES_TEAM", "Sales Team", "CHIEF_OF_OPERATIONS"],
+  ["OPERATIONS", "Operations Department", "CHIEF_OF_OPERATIONS"],
+  ["MAINTENANCE", "Maintenance Manager", "OPERATIONS"],
+  ["PROCUREMENT", "Procurement", "MAINTENANCE"],
+  ["FLEET_DRIVER", "Fleet & Driver Team", "MAINTENANCE"],
+  ["ANALYTICS", "Analytics", "OPERATIONS"],
+  ["ROUTING_PLANNING", "Routing & Planning", "OPERATIONS"],
+  ["SPECIAL_PROJECTS", "Special Projects", "CHIEF_OF_OPERATIONS"],
+  ["PRINCIPAL_ADVISOR", "Principal Advisor", "CHIEF_OF_STAFF"],
+  ["HR", "Hr Department", "PRINCIPAL_ADVISOR"],
+  ["INTERNS", "Interns", "PRINCIPAL_ADVISOR"],
+  ["SOFTWARE", "Software", "CHIEF_OF_STAFF"],
+  ["INSIDE_SALES", "Inside Sales", "CHIEF_OF_STAFF"],
+  ["MARKETING", "Marketing", "CHIEF_OF_STAFF"],
+  ["ACCOUNTS", "Accounts Team", "CHIEF_OF_STAFF"],
+  ["ADVISOR_GROWTH_STRATEGY", "Advisor Growth & Strategy", "CHIEF_OF_STAFF"],
+  ["COMPLIANCE", "Compliance", "CHIEF_OF_STAFF"],
+  ["EXECUTIVE_LEADERSHIP", "Executive Leadership", null],
+];
+
+/** Maps E2E user keys to login email addresses. */
+export const E2E_USER_EMAILS = {
+  developer_admin: "e2e-developer_admin@test.local",
+  ceo: "e2e-ceo@test.local",
+  chief_of_staff: "e2e-chief_of_staff@test.local",
+  manager: "e2e-manager@test.local",
+  employee: "e2e-employee@test.local",
+  hr: "e2e-hr@test.local",
+  sales: "e2e-sales@test.local",
+  driver: "e2e-driver@test.local",
+  viewer: "e2e-viewer@test.local",
+};
+
+async function main() {
+  const passwordHash = await hash(E2E_PASSWORD, 12);
+
+  // Disposable DB only: reset org fixture quickly even after partial E2E mutations.
+  await prisma.$executeRawUnsafe("SET FOREIGN_KEY_CHECKS=0");
+  await prisma.checklistItemState.deleteMany().catch(() => undefined);
+  await prisma.checklistInstance.deleteMany().catch(() => undefined);
+  await prisma.notificationPreference.deleteMany().catch(() => undefined);
+  await prisma.employeeOrganizationAssignment.deleteMany();
+  await prisma.departmentHeadAssignment.deleteMany();
+  await prisma.departmentViewerAssignment.deleteMany();
+  await prisma.auditLog.deleteMany();
+  await prisma.employeeChangeEvent.deleteMany().catch(() => undefined);
+  await prisma.userSession.deleteMany().catch(() => undefined);
+  await prisma.user.deleteMany();
+  await prisma.employee.deleteMany();
+  await prisma.department.deleteMany();
+  await prisma.branch.deleteMany().catch(() => undefined);
+  await prisma.$executeRawUnsafe("SET FOREIGN_KEY_CHECKS=1");
+
+  // Create Login UI needs at least one attendance location option.
+  await prisma.branch.create({
+    data: {
+      branchName: "E2E HQ",
+      branchCode: "E2E_HQ",
+      address: "E2E Test Address",
+      city: "Hyderabad",
+      status: "ACTIVE",
+      latitude: 17.385,
+      longitude: 78.4867,
+      attendanceRadiusMeters: 250,
+      isHub: true,
+    },
+  });
+
+  const unitIdByCode = new Map();
+  for (const [code, name, parentCode] of UNIT_FIXTURE) {
+    const unit = await prisma.department.create({
+      data: {
+        unitCode: code,
+        name,
+        parentDepartmentId: parentCode ? unitIdByCode.get(parentCode) : null,
+        unitType: parentCode ? "SUBTEAM" : "TEAM",
+        sortOrder: unitIdByCode.size,
+        active: true,
+      },
+    });
+    unitIdByCode.set(code, unit.departmentId);
+  }
+
+  async function createUser({
+    key,
+    role,
+    name,
+    departmentId = null,
+    organizationLevel = "MEMBER",
+    employeeCode,
+  }) {
+    const employee = await prisma.employee.create({
+      data: {
+        employeeCode,
+        name,
+        email: `${employeeCode.toLowerCase()}@employee.test.local`,
+        status: EmployeeStatus.ACTIVE,
+        departmentId,
+        organizationLevel,
+        joiningDate: new Date("2024-01-01"),
+      },
+    });
+    if (departmentId) {
+      await prisma.employeeOrganizationAssignment.create({
+        data: {
+          employeeId: employee.employeeId,
+          departmentId,
+          organizationLevel,
+          isPrimary: true,
+          effectiveFrom: new Date("2024-01-01"),
+        },
+      });
+    }
+    await prisma.user.create({
+      data: {
+        employeeId: employee.employeeId,
+        name,
+        email: E2E_USER_EMAILS[key],
+        role,
+        passwordHash,
+        firstLoginPasswordChangeRequired: false,
+        status: "ACTIVE",
+      },
+    });
+    return employee;
+  }
+
+  await createUser({
+    key: "ceo",
+    role: Role.CEO,
+    name: "E2E CEO",
+    organizationLevel: "HEAD",
+    employeeCode: "E2E-CEO",
+  });
+
+  await createUser({
+    key: "developer_admin",
+    role: Role.DEVELOPER_ADMIN,
+    name: "E2E Developer Admin",
+    departmentId: unitIdByCode.get("SOFTWARE"),
+    organizationLevel: "MEMBER",
+    employeeCode: "E2E-DEV",
+  });
+
+  await createUser({
+    key: "chief_of_staff",
+    role: Role.CHIEF_OF_STAFF,
+    name: "E2E Chief of Staff",
+    departmentId: unitIdByCode.get("CHIEF_OF_STAFF"),
+    organizationLevel: "HEAD",
+    employeeCode: "E2E-COS",
+  });
+
+  const opsHead = await createUser({
+    key: "manager",
+    role: Role.MANAGER,
+    name: "E2E Operations Head",
+    departmentId: unitIdByCode.get("OPERATIONS"),
+    organizationLevel: "HEAD",
+    employeeCode: "E2E-OPS",
+  });
+
+  await createUser({
+    key: "employee",
+    role: Role.EMPLOYEE,
+    name: "E2E Analyst",
+    departmentId: unitIdByCode.get("ANALYTICS"),
+    organizationLevel: "MEMBER",
+    employeeCode: "E2E-ANALYST",
+  });
+
+  await createUser({
+    key: "hr",
+    role: Role.HR,
+    name: "E2E HR",
+    departmentId: unitIdByCode.get("HR"),
+    organizationLevel: "MEMBER",
+    employeeCode: "E2E-HR",
+  });
+
+  await createUser({
+    key: "sales",
+    role: Role.SALES,
+    name: "E2E Sales",
+    departmentId: unitIdByCode.get("INSIDE_SALES"),
+    organizationLevel: "MEMBER",
+    employeeCode: "E2E-SALES",
+  });
+
+  await createUser({
+    key: "driver",
+    role: Role.DRIVER,
+    name: "E2E Bowser Pilot",
+    departmentId: unitIdByCode.get("FLEET_DRIVER"),
+    organizationLevel: "MEMBER",
+    employeeCode: "E2E-DRIVER",
+  });
+
+  const viewerEmployee = await createUser({
+    key: "viewer",
+    role: Role.EMPLOYEE,
+    name: "E2E Viewer",
+    departmentId: unitIdByCode.get("ANALYTICS"),
+    organizationLevel: "MEMBER",
+    employeeCode: "E2E-VIEWER",
+  });
+
+  const salesHead1 = await prisma.employee.create({
+    data: {
+      employeeCode: "E2E-H1",
+      name: "Inside Sales Head 1",
+      email: "e2e-h1@employee.test.local",
+      status: EmployeeStatus.ACTIVE,
+      departmentId: unitIdByCode.get("INSIDE_SALES"),
+      organizationLevel: "HEAD",
+      joiningDate: new Date("2024-01-10"),
+    },
+  });
+  const salesHead2 = await prisma.employee.create({
+    data: {
+      employeeCode: "E2E-H2",
+      name: "Inside Sales Head 2",
+      email: "e2e-h2@employee.test.local",
+      status: EmployeeStatus.ACTIVE,
+      departmentId: unitIdByCode.get("INSIDE_SALES"),
+      organizationLevel: "HEAD",
+      joiningDate: new Date("2024-01-11"),
+    },
+  });
+
+  for (const [employeeId, code, isPrimary] of [
+    [opsHead.employeeId, "OPERATIONS", true],
+    [salesHead1.employeeId, "INSIDE_SALES", true],
+    [salesHead2.employeeId, "INSIDE_SALES", false],
+  ]) {
+    await prisma.departmentHeadAssignment.create({
+      data: {
+        departmentId: unitIdByCode.get(code),
+        employeeId,
+        isPrimary,
+        effectiveFrom: new Date("2024-02-01"),
+        sortOrder: isPrimary ? 0 : 1,
+      },
+    });
+  }
+
+  await prisma.departmentViewerAssignment.create({
+    data: {
+      departmentId: unitIdByCode.get("ANALYTICS"),
+      employeeId: viewerEmployee.employeeId,
+      effectiveFrom: new Date("2024-02-01"),
+    },
+  });
+
+  // Extra synthetic people for Head / Viewer browser flows (no privileged login required).
+  await prisma.employee.create({
+    data: {
+      employeeCode: "E2E-HEAD3",
+      name: "E2E Head Candidate",
+      email: "e2e-h3@employee.test.local",
+      status: EmployeeStatus.ACTIVE,
+      departmentId: unitIdByCode.get("MARKETING"),
+      organizationLevel: "MEMBER",
+      joiningDate: new Date("2024-03-01"),
+    },
+  });
+  const viewerCandidate = await prisma.employee.create({
+    data: {
+      employeeCode: "E2E-VIEW2",
+      name: "E2E Viewer Candidate",
+      email: "e2e-view2@employee.test.local",
+      status: EmployeeStatus.ACTIVE,
+      departmentId: unitIdByCode.get("SOFTWARE"),
+      organizationLevel: "MEMBER",
+      joiningDate: new Date("2024-03-02"),
+    },
+  });
+  await prisma.user.create({
+    data: {
+      employeeId: viewerCandidate.employeeId,
+      name: "E2E Viewer Candidate",
+      email: "e2e-viewer-candidate@test.local",
+      role: Role.EMPLOYEE,
+      passwordHash,
+      firstLoginPasswordChangeRequired: false,
+      status: "ACTIVE",
+    },
+  });
+  await prisma.employeeOrganizationAssignment.create({
+    data: {
+      employeeId: viewerCandidate.employeeId,
+      departmentId: unitIdByCode.get("SOFTWARE"),
+      organizationLevel: "MEMBER",
+      isPrimary: true,
+      effectiveFrom: new Date("2024-03-02"),
+    },
+  });
+
+  for (const code of ["OPERATIONS", "INSIDE_SALES"]) {
+    const heads = await prisma.departmentHeadAssignment.findMany({
+      where: { departmentId: unitIdByCode.get(code), effectiveTo: null },
+      orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
+    });
+    await prisma.department.update({
+      where: { departmentId: unitIdByCode.get(code) },
+      data: {
+        headEmployeeId:
+          heads.find((row) => row.isPrimary)?.employeeId ?? heads[0]?.employeeId ?? null,
+      },
+    });
+  }
+
+  const unitCount = await prisma.department.count();
+  console.log(
+    JSON.stringify({
+      ok: true,
+      unitCount,
+      users: Object.keys(E2E_USER_EMAILS).length,
+      password: E2E_PASSWORD,
+    }),
+  );
+  await prisma.$disconnect();
+}
+
+main().catch(async (error) => {
+  console.error(error);
+  await prisma.$disconnect();
+  process.exit(1);
+});

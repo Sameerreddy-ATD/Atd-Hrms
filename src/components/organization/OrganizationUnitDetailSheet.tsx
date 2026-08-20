@@ -76,7 +76,9 @@ export function OrganizationUnitDetailSheet({
     "MEMBER",
   );
   const [transferReason, setTransferReason] = useState("");
+  const [transferEffectiveDate, setTransferEffectiveDate] = useState(() => indiaDateKey(new Date()));
   const [selectedAssignmentHistory, setSelectedAssignmentHistory] = useState<AssignmentRow[]>([]);
+  const todayKey = indiaDateKey(new Date());
 
   const unitEmployees = useMemo(
     () =>
@@ -149,6 +151,18 @@ export function OrganizationUnitDetailSheet({
     }
   }
 
+  async function makePrimaryHead(assignmentId: string) {
+    if (!unit) return;
+    try {
+      await organizationApi.makePrimaryUnitHead(unit.id, assignmentId);
+      toast.success(t("pages.departments.toastHeadPrimaryChanged"));
+      await loadDetails();
+      await onRefresh();
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  }
+
   async function endHead(assignmentId: string) {
     if (!unit) return;
     try {
@@ -192,18 +206,25 @@ export function OrganizationUnitDetailSheet({
 
   async function transferEmployee() {
     if (!transferEmployeeId || !transferTargetId) return;
+    if (transferEffectiveDate > todayKey) {
+      toast.error(t("pages.departments.toastTransferFutureBlocked"));
+      return;
+    }
     try {
       await organizationApi.transferEmployee({
         employeeId: transferEmployeeId,
         newOrganizationUnitId: transferTargetId,
         newOrganizationLevel: transferLevel,
-        effectiveDate: indiaDateKey(new Date()),
+        effectiveDate: transferEffectiveDate,
         reason: transferReason.trim() || undefined,
       });
       toast.success(t("pages.departments.toastTransferComplete"));
       setTransferEmployeeId("");
       setTransferReason("");
+      setTransferEffectiveDate(todayKey);
+      setSelectedAssignmentHistory([]);
       await onRefresh();
+      await loadEmployeeHistory(transferEmployeeId);
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -306,9 +327,20 @@ export function OrganizationUnitDetailSheet({
                           {row.effectiveFrom}
                         </p>
                       </div>
-                      <Button size="sm" variant="outline" onClick={() => void endHead(row.id)}>
-                        {t("pages.departments.endAssignment")}
-                      </Button>
+                      <div className="flex shrink-0 gap-1">
+                        {!row.isPrimary ? (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => void makePrimaryHead(row.id)}
+                          >
+                            {t("pages.departments.makePrimary")}
+                          </Button>
+                        ) : null}
+                        <Button size="sm" variant="outline" onClick={() => void endHead(row.id)}>
+                          {t("pages.departments.endAssignment")}
+                        </Button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -369,7 +401,9 @@ export function OrganizationUnitDetailSheet({
                   className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2"
                 >
                   <div>
-                    <p className="font-medium">{row.employee?.name ?? row.employeeId}</p>
+                    <p className="font-medium">
+                      {row.employeeName ?? row.employee?.name ?? row.employeeId}
+                    </p>
                     <p className="text-xs text-muted-foreground">{row.effectiveFrom}</p>
                   </div>
                   <Button size="sm" variant="outline" onClick={() => void endViewer(row.id)}>
@@ -396,6 +430,21 @@ export function OrganizationUnitDetailSheet({
                 {t("pages.departments.addViewerBtn")}
               </Button>
             </div>
+            {viewerHistory.length > viewers.length && (
+              <div className="border-t border-border pt-3">
+                <p className="mb-2 text-xs font-medium uppercase text-muted-foreground">
+                  {t("pages.departments.history")}
+                </p>
+                <ul className="space-y-1 text-xs text-muted-foreground">
+                  {viewerHistory.map((row) => (
+                    <li key={row.id}>
+                      {row.employeeName ?? row.employee?.name ?? row.employeeId} · {row.effectiveFrom}
+                      {row.effectiveTo ? ` → ${row.effectiveTo}` : " → present"}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent
@@ -442,8 +491,37 @@ export function OrganizationUnitDetailSheet({
 
             <div className="space-y-2 border-t border-border pt-3">
               <p className="text-sm font-medium">{t("pages.departments.transferEmployee")}</p>
+              <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs">
+                <p>
+                  <span className="text-muted-foreground">{t("pages.departments.transferCurrentUnit")}: </span>
+                  <span className="font-medium">{unit.name}</span>
+                </p>
+                {transferTargetId ? (
+                  <p className="mt-1">
+                    <span className="text-muted-foreground">{t("pages.departments.transferNewUnit")}: </span>
+                    <span className="font-medium">
+                      {departments.find((row) => row.id === transferTargetId)?.name ?? ""}
+                    </span>
+                  </p>
+                ) : null}
+                <p className="mt-1">
+                  <span className="text-muted-foreground">{t("pages.departments.organizationLevel")}: </span>
+                  <span className="font-medium">{transferLevel}</span>
+                </p>
+                <p className="mt-1">
+                  <span className="text-muted-foreground">{t("pages.departments.effectiveDate")}: </span>
+                  <span className="font-medium">{transferEffectiveDate}</span>
+                </p>
+                {transferReason.trim() ? (
+                  <p className="mt-1">
+                    <span className="text-muted-foreground">{t("pages.departments.transferReasonLabel")}: </span>
+                    <span className="font-medium">{transferReason.trim()}</span>
+                  </p>
+                ) : null}
+              </div>
+              <Label htmlFor="org-transfer-employee">{t("pages.departments.selectEmployee")}</Label>
               <Select value={transferEmployeeId} onValueChange={setTransferEmployeeId}>
-                <SelectTrigger>
+                <SelectTrigger id="org-transfer-employee">
                   <SelectValue placeholder={t("pages.departments.selectEmployee")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -454,8 +532,9 @@ export function OrganizationUnitDetailSheet({
                   ))}
                 </SelectContent>
               </Select>
+              <Label htmlFor="org-transfer-target">{t("pages.departments.transferNewUnit")}</Label>
               <Select value={transferTargetId} onValueChange={setTransferTargetId}>
-                <SelectTrigger>
+                <SelectTrigger id="org-transfer-target">
                   <SelectValue placeholder={t("pages.departments.transferTarget")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -468,11 +547,12 @@ export function OrganizationUnitDetailSheet({
                     ))}
                 </SelectContent>
               </Select>
+              <Label htmlFor="org-transfer-level">{t("pages.departments.organizationLevel")}</Label>
               <Select
                 value={transferLevel}
                 onValueChange={(v) => setTransferLevel(v as typeof transferLevel)}
               >
-                <SelectTrigger>
+                <SelectTrigger id="org-transfer-level">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -483,7 +563,17 @@ export function OrganizationUnitDetailSheet({
                   ))}
                 </SelectContent>
               </Select>
+              <Label htmlFor="org-transfer-effective-date">{t("pages.departments.effectiveDate")}</Label>
               <Input
+                id="org-transfer-effective-date"
+                type="date"
+                max={todayKey}
+                value={transferEffectiveDate}
+                onChange={(e) => setTransferEffectiveDate(e.target.value)}
+              />
+              <Label htmlFor="org-transfer-reason">{t("pages.departments.transferReasonLabel")}</Label>
+              <Input
+                id="org-transfer-reason"
                 value={transferReason}
                 onChange={(e) => setTransferReason(e.target.value)}
                 placeholder={t("pages.departments.transferReason")}
@@ -498,7 +588,7 @@ export function OrganizationUnitDetailSheet({
               )}
               <Button
                 type="button"
-                disabled={!transferEmployeeId || !transferTargetId}
+                disabled={!transferEmployeeId || !transferTargetId || transferEffectiveDate > todayKey}
                 onClick={() => void transferEmployee()}
               >
                 {t("pages.departments.transferBtn")}
