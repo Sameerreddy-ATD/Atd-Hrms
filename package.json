@@ -48,7 +48,12 @@
     "mobile:copy": "npx cap copy",
     "mobile:android:bundle": "bash scripts/mobile-android-bundle.sh",
     "mobile:ios:open": "npx cap open ios",
-    "mobile:icons": "python3 scripts/generate-android-icons.py"
+    "mobile:icons": "python3 scripts/generate-android-icons.py",
+    "maintenance:on": "bash scripts/maintenance.sh on",
+    "maintenance:off": "bash scripts/maintenance.sh off",
+    "maintenance:status": "bash scripts/maintenance.sh status",
+    "release:stamp": "node scripts/stamp-app-version.mjs",
+    "release:build": "bash scripts/release-build.sh"
   },
   "dependencies": {
     "@capacitor/app": "^7.1.2",

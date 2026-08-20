@@ -45,6 +45,11 @@ import type {
   FaceEvidenceRecord,
 } from "@/types/domain";
 import { isNativeApp } from "@/lib/native-app";
+import {
+  enterMaintenance,
+  isMaintenancePayload,
+  MUTATION_MAINTENANCE_MESSAGE,
+} from "@/lib/maintenance";
 
 export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
 const REQUEST_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS ?? 20000);
@@ -52,6 +57,39 @@ let refreshRequest: Promise<boolean> | null = null;
 const responseCache = new Map<string, { expiresAt: number; value: unknown }>();
 const warmedResponses = new Map<string, { expiresAt: number; value: unknown }>();
 const pendingRequests = new Map<string, Promise<unknown>>();
+
+export class MaintenanceError extends Error {
+  readonly code = "APP_UPDATE_IN_PROGRESS";
+  readonly retryAfterSeconds: number;
+  readonly fromMutation: boolean;
+
+  constructor(message: string, retryAfterSeconds = 600, fromMutation = false) {
+    super(message);
+    this.name = "MaintenanceError";
+    this.retryAfterSeconds = retryAfterSeconds;
+    this.fromMutation = fromMutation;
+  }
+}
+
+function raiseMaintenance(body: Record<string, unknown>, method: string, path = ""): never {
+  const isSessionProbe =
+    path === "/auth/restore" || path === "/auth/refresh" || path === "/auth/login";
+  const fromMutation =
+    !isSessionProbe && !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase());
+  const message = fromMutation
+    ? MUTATION_MAINTENANCE_MESSAGE
+    : typeof body.message === "string" && body.message
+      ? body.message
+      : typeof body.error === "string" && body.error
+        ? body.error
+        : "The application is being updated by the developer. Please try again after 5–10 minutes.";
+  const retryAfterSeconds =
+    typeof body.retryAfterSeconds === "number" && body.retryAfterSeconds > 0
+      ? body.retryAfterSeconds
+      : 600;
+  enterMaintenance({ active: true, message, retryAfterSeconds, fromMutation });
+  throw new MaintenanceError(message, retryAfterSeconds, fromMutation);
+}
 
 function cacheDuration(path: string) {
   const pathname = path.split("?")[0];
@@ -71,7 +109,24 @@ async function refreshSession() {
       credentials: "include",
       headers: { "Content-Type": "application/json" },
     })
-      .then((response) => response.ok)
+      .then(async (response) => {
+        if (response.status === 503) {
+          const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+          if (isMaintenancePayload(body) || body.code === "APP_UPDATE_IN_PROGRESS") {
+            enterMaintenance({
+              active: true,
+              message:
+                typeof body.message === "string"
+                  ? body.message
+                  : "The application is being updated by the developer. Please try again after 5–10 minutes.",
+              retryAfterSeconds:
+                typeof body.retryAfterSeconds === "number" ? body.retryAfterSeconds : 600,
+            });
+            return false;
+          }
+        }
+        return response.ok;
+      })
       .catch(() => false)
       .finally(() => {
         refreshRequest = null;
@@ -136,8 +191,19 @@ async function requestNetwork<T>(path: string, options: ApiRequestOptions = {}):
     window.location.assign("/login");
   }
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: "Request failed" }));
-    const details = body.details?.fieldErrors as Record<string, string[]> | undefined;
+    const body = (await res.json().catch(() => ({ error: "Request failed" }))) as Record<
+      string,
+      unknown
+    >;
+    // 503 maintenance must never be treated as auth failure / logout.
+    if (
+      res.status === 503 &&
+      (isMaintenancePayload(body) || body.code === "APP_UPDATE_IN_PROGRESS")
+    ) {
+      raiseMaintenance(body, fetchInit.method ?? "GET", path);
+    }
+    const details = (body.details as { fieldErrors?: Record<string, string[]> } | undefined)
+      ?.fieldErrors;
     const fieldMessage = details
       ? Object.entries(details)
           .flatMap(([field, messages]) =>
@@ -145,7 +211,13 @@ async function requestNetwork<T>(path: string, options: ApiRequestOptions = {}):
           )
           .find(Boolean)
       : undefined;
-    throw new Error(fieldMessage || body.error || "Request failed");
+    const errorText =
+      typeof body.error === "string"
+        ? body.error
+        : typeof body.message === "string"
+          ? body.message
+          : "Request failed";
+    throw new Error(fieldMessage || errorText);
   }
   return res.json() as Promise<T>;
 }
@@ -172,7 +244,15 @@ export async function fetchAuthenticatedBlob(path: string): Promise<Blob> {
     ) {
       window.location.assign("/login");
     }
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      if (res.status === 503) {
+        const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+        if (isMaintenancePayload(body) || body.code === "APP_UPDATE_IN_PROGRESS") {
+          raiseMaintenance(body, "GET");
+        }
+      }
+      throw new Error(`HTTP ${res.status}`);
+    }
     return await res.blob();
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") {

@@ -14,6 +14,7 @@ self.ATD_SHELL_ASSETS = [
   "/pwa-192.png",
   "/pwa-512.png",
   "/apple-touch-icon.png",
+  "/maintenance.html",
 ];
 
 self.addEventListener("install", (event) => {
@@ -64,7 +65,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // Never cache API / health / streams / build version / SW — always hit the live server.
+  // Never cache API / health / streams / build version / SW / maintenance — always hit live.
   // NOTE: the API is a separate origin (cross-origin requests are already ignored above),
   // so do NOT list same-origin app routes like /attendance/* here or their navigations
   // would skip the network-first navigation handler and the offline fallback shell.
@@ -74,24 +75,42 @@ self.addEventListener("fetch", (event) => {
     url.pathname === "/health" ||
     url.pathname.startsWith("/health/") ||
     url.pathname === "/app-version.json" ||
+    url.pathname === "/maintenance.html" ||
     url.pathname === "/sw.js"
   ) {
     return;
   }
 
-  // App navigations: network-first so deploys show new UI, but each success is
-  // cached as the app shell so an offline launch renders the real app instead
-  // of the 503 card below.
+  // App navigations: network-first. Cache successful app HTML as shell, but never
+  // cache the branded maintenance document as the permanent app shell.
   if (request.mode === "navigate") {
     event.respondWith(
       Promise.race([
-        fetch(request).then((response) => {
+        fetch(request).then(async (response) => {
           if (response && response.ok) {
-            const copy = response.clone();
-            caches
-              .open(self.ATD_STATIC_CACHE)
-              .then((cache) => cache.put(ATD_SHELL_REQUEST, copy))
-              .catch(() => {});
+            const contentType = response.headers.get("content-type") || "";
+            if (contentType.includes("text/html")) {
+              const copy = response.clone();
+              const html = await copy.text();
+              const isMaintenanceDoc =
+                html.includes("Application Update in Progress") &&
+                html.includes("being updated by the developer");
+              if (!isMaintenanceDoc) {
+                await caches
+                  .open(self.ATD_STATIC_CACHE)
+                  .then((cache) =>
+                    cache.put(
+                      ATD_SHELL_REQUEST,
+                      new Response(html, {
+                        status: response.status,
+                        statusText: response.statusText,
+                        headers: response.headers,
+                      }),
+                    ),
+                  )
+                  .catch(() => {});
+              }
+            }
           }
           return response;
         }),
@@ -101,11 +120,22 @@ self.addEventListener("fetch", (event) => {
       ]).catch(async () => {
         const cached = (await caches.match(request)) || (await caches.match(ATD_SHELL_REQUEST));
         if (cached) return cached;
+        const maintenance = await caches.match("/maintenance.html");
+        if (maintenance) {
+          return new Response(await maintenance.clone().text(), {
+            status: 503,
+            headers: {
+              "Content-Type": "text/html; charset=utf-8",
+              "Cache-Control": "no-store",
+              "Retry-After": "600",
+            },
+          });
+        }
         return new Response(
           "<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Offline</title><style>body{font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100dvh;margin:0;background:#F6F8FC;color:#1f2937;padding:24px;text-align:center}main{max-width:24rem}h1{font-size:1.25rem;margin:0 0 .5rem}p{margin:0;color:#64748b;line-height:1.5}</style></head><body><main><h1>You're offline</h1><p>Anytime Diesel Employees could not reach the server. Reconnect and try again.</p></main></body></html>",
           {
             status: 503,
-            headers: { "Content-Type": "text/html; charset=utf-8" },
+            headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
           },
         );
       }),

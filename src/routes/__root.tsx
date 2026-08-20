@@ -26,6 +26,7 @@ import { recoverFromChunkError } from "@/lib/chunk-reload";
 import { AppOpenSplash } from "@/components/layout/AppOpenSplash";
 import { PortraitOrientationGuard } from "@/components/layout/PortraitOrientationGuard";
 import { StoreUpdateGate } from "@/components/layout/StoreUpdateGate";
+import { MaintenanceGate } from "@/components/layout/MaintenanceGate";
 
 const SITE_TITLE = "AnyTime Diesel Workforce";
 const SITE_DESCRIPTION =
@@ -277,6 +278,7 @@ function RootComponent() {
             <Outlet />
             <PortraitOrientationGuard />
             <StoreUpdateGate />
+            <MaintenanceGate />
             <SystemThemeSync />
             <NotificationBridge />
             <Toaster position="bottom-center" offset="calc(var(--atd-sab, 0px) + 16px)" />

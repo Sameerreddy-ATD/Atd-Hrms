@@ -1,0 +1,3 @@
+# Shared host state (outside release trees when possible).
+# Production: /opt/anytime-crew-hub/shared/
+# Local fallback for maintenance mode files.

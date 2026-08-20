@@ -1,17 +1,86 @@
 # Reference Caddyfile for production (hrms.anytime-diesel.com).
 # Live copy: /etc/caddy/Caddyfile on the Lightsail host.
+#
+# Maintenance mode:
+#   Flag file: /opt/anytime-crew-hub/shared/maintenance.on
+#   (written by `npm run maintenance:on`; removed by `maintenance:off`)
+#
+# When the flag exists:
+#   - HTML navigations → static /maintenance.html (works even if Vite preview is restarting)
+#   - /api/* → backend (structured 503 JSON when Express is up); static JSON if backend is down
+#   - /api/health*, /api/maintenance/status always proxied
+#
+# /api/v1 keeps its prefix (integration API). Other /api/* paths strip the /api prefix
+# so Express routes like /health and /auth/login match.
 
 hrms.anytime-diesel.com {
 	encode gzip zstd
 
-	@api path /api /api/*
+	@maint expression `file.exists('/opt/anytime-crew-hub/shared/maintenance.on')`
+
+	# --- Infrastructure always reachable ---
+	@infra path /api/health /api/health/* /api/maintenance/status /health /health/* /app-version.json
+	handle @infra {
+		@apiInfra path /api/*
+		handle @apiInfra {
+			uri strip_prefix /api
+			reverse_proxy 127.0.0.1:4000
+		}
+		handle {
+			reverse_proxy 127.0.0.1:4000
+		}
+	}
+
+	# --- Maintenance: branded HTML for browsers / PWA ---
+	handle @maint {
+		@maintApi path /api /api/*
+		handle @maintApi {
+			@integration path /api/v1 /api/v1/*
+			handle @integration {
+				reverse_proxy 127.0.0.1:4000 {
+					@bad status 502
+					handle_response @bad {
+						header Retry-After 600
+						header Cache-Control no-store
+						header Content-Type application/json
+						respond `{"maintenance":true,"code":"APP_UPDATE_IN_PROGRESS","message":"The application is being updated by the developer. Please try again after 5–10 minutes.","retryAfterSeconds":600}` 503
+					}
+				}
+			}
+			handle {
+				uri strip_prefix /api
+				reverse_proxy 127.0.0.1:4000 {
+					@bad status 502
+					handle_response @bad {
+						header Retry-After 600
+						header Cache-Control no-store
+						header Content-Type application/json
+						respond `{"maintenance":true,"code":"APP_UPDATE_IN_PROGRESS","message":"The application is being updated by the developer. Please try again after 5–10 minutes.","retryAfterSeconds":600}` 503
+					}
+				}
+			}
+		}
+
+		# Prefer serving maintenance.html from the release public/dist tree.
+		root * /opt/anytime-crew-hub
+		rewrite * /public/maintenance.html
+		header Cache-Control "no-store"
+		header Retry-After 600
+		file_server
+	}
+
+	# --- Normal traffic ---
 	@integration path /api/v1 /api/v1/*
 	handle @integration {
 		reverse_proxy 127.0.0.1:4000
 	}
+
+	@api path /api /api/*
 	handle @api {
+		uri strip_prefix /api
 		reverse_proxy 127.0.0.1:4000
 	}
+
 	handle {
 		reverse_proxy 127.0.0.1:8081
 	}

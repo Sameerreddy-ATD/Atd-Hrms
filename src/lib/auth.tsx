@@ -15,7 +15,13 @@ import {
   type ReactNode,
 } from "react";
 import type { Role, User } from "@/types/domain";
-import { authApi, keepSessionAlive, warmAuthenticatedWorkspace } from "@/services/api";
+import {
+  authApi,
+  keepSessionAlive,
+  MaintenanceError,
+  warmAuthenticatedWorkspace,
+} from "@/services/api";
+import { isMaintenanceActive } from "@/lib/maintenance";
 import { isNativeApp, markNativeLoginGrace } from "@/lib/native-app";
 
 const SESSION_USER_KEY = "atd.session.user";
@@ -83,8 +89,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         writeSessionUser(restored);
         void warmAuthenticatedWorkspace(restored);
       })
-      .catch(() => {
+      .catch((err) => {
         if (cancelled) return;
+        // Maintenance is not an auth failure — keep cached identity / cookies.
+        if (err instanceof MaintenanceError || isMaintenanceActive()) return;
         setUser(null);
         writeSessionUser(null);
       })
@@ -104,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const renew = () => {
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      if (isMaintenanceActive()) return;
       void keepSessionAlive();
     };
 

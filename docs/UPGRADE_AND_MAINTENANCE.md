@@ -1,5 +1,14 @@
 # Upgrade and Maintenance Guide
 
+## User-facing maintenance / update mode
+
+For production deploy windows, use file-backed **maintenance mode** so employees see a branded
+“Application Update in Progress” screen instead of 502s or half-migrated APIs.
+
+See **[Maintenance Mode](MAINTENANCE_MODE.md)** for activation (`npm run maintenance:on` / `off`),
+API `503` + `APP_UPDATE_IN_PROGRESS`, Caddy integration, session preservation, and
+`npm run release:build`.
+
 ## Source of Truth
 
 - Repository: `Sameerreddy-ATD/Atd-Hrms` (`https://github.com/Sameerreddy-ATD/Atd-Hrms.git`)

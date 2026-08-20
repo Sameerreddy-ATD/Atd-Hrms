@@ -37,6 +37,10 @@ backups/
 .mysql-data-clean-broken-*/
 scripts/.mysql-migration-batch.sql
 
+# Local / host maintenance flag (never commit live state)
+shared/maintenance.json
+shared/maintenance.on
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars

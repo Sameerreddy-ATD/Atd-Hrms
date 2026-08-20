@@ -79,6 +79,8 @@ import {
 import { encryptEmployeeField, lastFour } from "./employeePrivateData.js";
 import { buildProfileCorrectionUpdate } from "./profileCorrections.js";
 import { asyncHandler, errorHandler, HttpError } from "./errors.js";
+import { maintenanceApiPayload, readMaintenanceState } from "./maintenance.js";
+import { maintenanceMiddleware } from "./maintenanceMiddleware.js";
 import {
   allocateIssueKey,
   allocateUniqueBoardKeyPrefix,
@@ -325,8 +327,14 @@ export function createApp() {
       standardHeaders: true,
       legacyHeaders: false,
       message: { error: "Too many requests. Please try again shortly." },
+      skip: (req) =>
+        req.path.startsWith("/health") ||
+        req.path === "/maintenance/status" ||
+        req.path === "/api/maintenance/status",
     }),
   );
+  // Block app traffic before body parsing so mutations are never partially handled.
+  app.use(maintenanceMiddleware);
   app.use(express.json({ limit: "8mb" }));
   app.use(express.text({ type: "text/csv", limit: "5mb" }));
   app.use(cookieParser());
@@ -1272,6 +1280,15 @@ export function createApp() {
   }
 
   app.get("/health", (_req, res) => res.json({ ok: true }));
+
+  app.get("/maintenance/status", (_req, res) => {
+    const state = readMaintenanceState();
+    res.setHeader("Cache-Control", "no-store");
+    if (!state.enabled) {
+      return res.json({ maintenance: false });
+    }
+    return res.json(maintenanceApiPayload(state));
+  });
 
   app.post(
     "/system/reset-test-data",

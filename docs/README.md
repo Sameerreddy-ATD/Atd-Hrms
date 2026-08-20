@@ -60,6 +60,7 @@ in the same commit.
 | `AWS_DEPLOYMENT_PATTERNS.md`           | VPS→company AWS path, EC2/RDS/S3, ECS, CI/CD, secrets, go-live, and post-deploy maintenance       |
 | `LINUX_LOCAL_DEPLOYMENT.md`            | Fresh Linux/AWS installation, company RDS wiring, Nginx, TLS, PM2, and optional containers        |
 | `UPGRADE_AND_MAINTENANCE.md`           | Production updates, backups, verification, rollback, CI/CD gates, and maintenance cadence         |
+| `MAINTENANCE_MODE.md`                  | Deployment maintenance mode, Caddy flag, 503 API contract, release build hardening                |
 | `PRODUCTION_DEPLOYMENT_2026-08-15.md`  | The live Lightsail host as it actually is, and the archive-based release procedure used on it     |
 | `DEVICE_COMPATIBILITY.md`              | Supported browsers, PWA/store apps, permissions, low-network behavior, and QA matrix              |
 | `MOBILE_STORE_RELEASE.md`              | Capacitor Android/iOS builds, signing, push env, and Play/App Store checklist                     |
