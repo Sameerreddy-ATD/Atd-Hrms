@@ -2,7 +2,7 @@
 // public/app-version.json. Bumping it changes sw.js bytes -> a new SW installs,
 // activate purges the old cache, and cache-first shell/static assets (icons,
 // manifest, fonts, face-models) refresh on already-installed apps.
-self.ATD_BUILD_ID = "2026-08-19-hydration-live-updates";
+self.ATD_BUILD_ID = "2026-08-20-module1-org-202993c";
 self.ATD_STATIC_CACHE = `atd-static-${self.ATD_BUILD_ID}`;
 // Single cache slot for the app shell. Every successful navigation overwrites
 // it, so an offline launch serves the last real HTML instead of the 503 card.
