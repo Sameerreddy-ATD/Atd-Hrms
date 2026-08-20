@@ -71,7 +71,7 @@ const te = {
     "dashboard": "డాష్‌బోర్డ్",
     "users": "యూజర్ లాగిన్లు",
     "employees": "ఉద్యోగులు",
-    "departments": "విభాగాలు",
+    "departments": "సంస్థా నిర్మాణం",
     "talent": "టాలెంట్",
     "onboarding": "ఆన్‌బోర్డింగ్",
     "peopleChanges": "పీపుల్ చేంజెస్",

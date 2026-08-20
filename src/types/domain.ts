@@ -323,8 +323,12 @@ export interface Branch {
 export interface Department {
   id: string;
   name: string;
+  unitCode?: string;
+  description?: string;
+  active?: boolean;
   /** First / primary head (compat). */
   headEmployeeId?: string;
+  primaryHeadEmployeeId?: string;
   head?: string;
   /** All organization heads for this unit. */
   headEmployeeIds?: string[];
@@ -339,6 +343,8 @@ export interface Department {
   faceVerificationEnabled?: boolean;
   /** Active employees assigned directly to this unit (excludes left/terminated). */
   memberCount?: number;
+  directEmployeeCount?: number;
+  totalDescendantEmployeeCount?: number;
 }
 
 export interface BiometricDevice {

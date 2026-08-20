@@ -220,8 +220,8 @@ export function BulkEditLoginSheet({
               await employeesApi.update(payloads.employeeId, payloads.employeePatch as never);
             }
 
-            const role = resolveRoleForImportRow(row, departments);
-            const baselineRole = resolveRoleForImportRow(row.baseline, departments);
+            const role = resolveRoleForImportRow(row);
+            const baselineRole = resolveRoleForImportRow(row.baseline);
             if (role !== baselineRole) {
               await usersApi.update(payloads.userId, { role });
             } else if (!payloads.employeeId) {

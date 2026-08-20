@@ -188,8 +188,17 @@ import {
   requireAuth,
   requireRoles,
   formatOrgUnitPath,
-  resolveTargetLoginRole,
+  resolveLoginRoleForNewAccount,
 } from "./rbac.js";
+import { registerOrganizationRoutes } from "./organizationRoutes.js";
+import {
+  assertActiveParent,
+  assertNoHierarchyCycle,
+  normalizeUnitCode,
+  suggestUnitCode,
+} from "./organizationStructure.js";
+import { loadOrganizationUnits, transferEmployeeOrganization } from "./organizationAssignments.js";
+import { startOfUtcDay } from "./organizationStructure.js";
 import {
   headedDepartmentsForEmployee,
   replaceDepartmentHeads,
@@ -610,10 +619,12 @@ export function createApp() {
   const departmentInclude = {
     headEmployee: true,
     headAssignments: {
+      where: { effectiveTo: null },
       include: { employee: { select: { name: true } } },
-      orderBy: { sortOrder: "asc" as const },
+      orderBy: [{ isPrimary: "desc" as const }, { sortOrder: "asc" as const }],
     },
     viewerAssignments: {
+      where: { effectiveTo: null },
       include: { employee: { select: { name: true } } },
       orderBy: { sortOrder: "asc" as const },
     },
@@ -645,15 +656,33 @@ export function createApp() {
       }),
       activeMemberCountByDepartment(),
     ]);
-    return departments.map((department) =>
-      departmentDto(department, memberCounts.get(department.departmentId) ?? 0),
-    );
+    const unitRows = departments.map((row) => ({
+      departmentId: row.departmentId,
+      name: row.name,
+      unitCode: row.unitCode,
+      parentDepartmentId: row.parentDepartmentId,
+      active: row.active,
+    }));
+    const { descendantUnitIds } = await import("./organizationStructure.js");
+    return departments.map((department) => {
+      const descendants = descendantUnitIds(department.departmentId, unitRows);
+      let totalDescendant = 0;
+      for (const id of descendants) totalDescendant += memberCounts.get(id) ?? 0;
+      return departmentDto(
+        department,
+        memberCounts.get(department.departmentId) ?? 0,
+        totalDescendant,
+      );
+    });
   }
 
   function departmentDto(
     department: {
     departmentId: string;
     name: string;
+    unitCode?: string;
+    description?: string | null;
+    active?: boolean;
     headEmployeeId: string | null;
     parentDepartmentId: string | null;
     unitType: string;
@@ -663,6 +692,7 @@ export function createApp() {
     headAssignments?: Array<{
       employeeId: string;
       sortOrder: number;
+      isPrimary?: boolean;
       employee?: { name: string } | null;
     }>;
     viewerAssignments?: Array<{
@@ -672,6 +702,7 @@ export function createApp() {
     }>;
   },
     memberCount = 0,
+    totalDescendantEmployeeCount?: number,
   ) {
     const assignmentHeads = [...(department.headAssignments ?? [])].sort(
       (a, b) => a.sortOrder - b.sortOrder || a.employeeId.localeCompare(b.employeeId),
@@ -700,10 +731,15 @@ export function createApp() {
     return {
       id: department.departmentId,
       name: department.name,
+      unitCode: department.unitCode,
+      description: department.description ?? undefined,
+      active: department.active ?? true,
       headEmployeeId: headEmployeeIds[0] ?? undefined,
       head: heads[0],
       headEmployeeIds,
       heads,
+      primaryHeadEmployeeId:
+        assignmentHeads.find((row) => row.isPrimary)?.employeeId ?? headEmployeeIds[0],
       viewerEmployeeIds,
       viewers,
       parentDepartmentId: department.parentDepartmentId ?? undefined,
@@ -711,6 +747,8 @@ export function createApp() {
       sortOrder: department.sortOrder,
       faceVerificationEnabled: department.faceVerificationEnabled ?? true,
       memberCount,
+      directEmployeeCount: memberCount,
+      totalDescendantEmployeeCount,
     };
   }
 
@@ -2701,33 +2739,27 @@ export function createApp() {
       if (body.employeeId && !linkedEmployee) throw new HttpError(404, "Employee not found");
       if (linkedEmployee?.user) throw new HttpError(409, "Employee already has a login account");
       const organizationUnitId = body.departmentId ?? linkedEmployee?.departmentId;
-      const [organizationUnit, organizationUnits] = await Promise.all([
-        organizationUnitId
-          ? prisma.department.findUnique({ where: { departmentId: organizationUnitId } })
-          : Promise.resolve(null),
-        prisma.department.findMany({
-          select: { departmentId: true, name: true, parentDepartmentId: true },
-        }),
-      ]);
-      // Never trust a client-sent role — login role follows the org unit only.
-      const unitRefs = organizationUnits.map((row) => ({
-        id: row.departmentId,
-        name: row.name,
-        parentDepartmentId: row.parentDepartmentId,
-      }));
-      const selectedUnit = organizationUnit
-        ? {
-            id: organizationUnit.departmentId,
-            name: organizationUnit.name,
-            parentDepartmentId: organizationUnit.parentDepartmentId,
-          }
+      const organizationUnit = organizationUnitId
+        ? await prisma.department.findUnique({
+            where: { departmentId: organizationUnitId },
+            select: { departmentId: true, name: true, active: true },
+          })
         : null;
-      const targetRole = resolveTargetLoginRole({
-        unitName: selectedUnit?.name,
-        unitPath: formatOrgUnitPath(selectedUnit, unitRefs),
+      if (organizationUnitId && !organizationUnit) throw new HttpError(404, "Organization unit not found");
+      if (organizationUnit && !organizationUnit.active) {
+        throw new HttpError(400, "Cannot assign login to an inactive organization unit");
+      }
+      const targetRole = resolveLoginRoleForNewAccount({
+        explicitRole: body.role ?? null,
       });
-      if (targetRole !== Role.CEO && !organizationUnit) {
-        throw new HttpError(400, "Select an organization unit");
+      if (targetRole === Role.CEO && organizationUnitId) {
+        throw new HttpError(
+          400,
+          "CEO logins are company-wide and must not be tied to an organization unit",
+        );
+      }
+      if (targetRole !== Role.CEO && !organizationUnitId && !body.employeeId) {
+        throw new HttpError(400, "Select an organization unit for this login role");
       }
       if (!canCreateRole(req.user!.role, targetRole))
         throw new HttpError(403, "This role cannot create the requested login");
@@ -2871,6 +2903,19 @@ export function createApp() {
               },
             },
           });
+          if (employee.departmentId) {
+            await tx.employeeOrganizationAssignment.create({
+              data: {
+                employeeId: employee.employeeId,
+                departmentId: employee.departmentId,
+                organizationLevel: employee.organizationLevel,
+                isPrimary: true,
+                effectiveFrom: startOfUtcDay(employee.joiningDate ?? new Date()),
+                changedByUserId: req.user!.id,
+                reason: "Initial organization assignment on login create",
+              },
+            });
+          }
         }
         if (employee && organizationLevel === "HEAD") {
           const departmentId = body.departmentId ?? employee.departmentId;
@@ -3299,6 +3344,20 @@ export function createApp() {
                 : updatedEmployee.departmentId,
             previousOrganizationLevel: existing.organizationLevel,
             previousDepartmentId: existing.departmentId,
+          });
+        }
+        if (
+          body.departmentId !== undefined &&
+          body.departmentId !== existing.departmentId &&
+          body.departmentId
+        ) {
+          await transferEmployeeOrganization(tx, {
+            employeeId,
+            newOrganizationUnitId: body.departmentId,
+            newOrganizationLevel: body.organizationLevel ?? updatedEmployee.organizationLevel,
+            effectiveDate: startOfUtcDay(new Date()),
+            changedByUserId: req.user!.id,
+            reason: "Organization unit updated from employee profile",
           });
         }
         return tx.employee.findUniqueOrThrow({
@@ -3862,7 +3921,9 @@ export function createApp() {
       if (!(await canAccessPeopleDirectory(req.user))) {
         throw new HttpError(403, "Insufficient permissions");
       }
-      res.json(await listDepartmentDtos());
+      const activeOnly = String(req.query.activeOnly ?? "") === "true";
+      const rows = await listDepartmentDtos();
+      res.json(activeOnly ? rows.filter((row) => row.active !== false) : rows);
     }),
   );
 
@@ -3881,6 +3942,16 @@ export function createApp() {
           where: { departmentId: body.parentDepartmentId },
         });
       }
+      const units = await loadOrganizationUnits(prisma);
+      assertActiveParent(body.parentDepartmentId ?? null, units);
+      assertNoHierarchyCycle({
+        unitId: null,
+        parentDepartmentId: body.parentDepartmentId ?? null,
+        units,
+      });
+      const unitCode = normalizeUnitCode(body.unitCode ?? suggestUnitCode(body.name));
+      const codeClash = await prisma.department.findUnique({ where: { unitCode } });
+      if (codeClash) throw new HttpError(409, "That organization unit code is already in use");
       await assertUniqueDepartmentNameAmongSiblings({
         name: body.name,
         parentDepartmentId: body.parentDepartmentId ?? null,
@@ -3895,6 +3966,9 @@ export function createApp() {
         const created = await tx.department.create({
           data: {
             name: body.name,
+            unitCode,
+            description: body.description ?? undefined,
+            active: body.active ?? true,
             headEmployeeId: headEmployeeIds[0] ?? undefined,
             parentDepartmentId: body.parentDepartmentId ?? undefined,
             unitType: body.unitType ?? "TEAM",
@@ -3902,8 +3976,14 @@ export function createApp() {
             faceVerificationEnabled: body.faceVerificationEnabled ?? true,
           },
         });
-        await replaceDepartmentHeads(tx, created.departmentId, headEmployeeIds);
-        await replaceDepartmentViewers(tx, created.departmentId, viewerEmployeeIds);
+        await replaceDepartmentHeads(tx, created.departmentId, headEmployeeIds, {
+          assignedByUserId: req.user!.id,
+          reason: "Initial heads on unit create",
+        });
+        await replaceDepartmentViewers(tx, created.departmentId, viewerEmployeeIds, {
+          assignedByUserId: req.user!.id,
+          reason: "Initial viewers on unit create",
+        });
         return tx.department.findUniqueOrThrow({
           where: { departmentId: created.departmentId },
           include: departmentInclude,
@@ -3989,6 +4069,17 @@ export function createApp() {
       if (body.parentDepartmentId === existing.departmentId) {
         throw new HttpError(400, "An organizational unit cannot be its own parent");
       }
+      const units = await loadOrganizationUnits(prisma);
+      if (body.parentDepartmentId !== undefined) {
+        assertActiveParent(body.parentDepartmentId, units);
+        assertNoHierarchyCycle({
+          unitId: existing.departmentId,
+          parentDepartmentId: body.parentDepartmentId,
+          units,
+        });
+      } else if (body.parentDepartmentId === undefined && existing.parentDepartmentId) {
+        /* keep existing parent */
+      }
       if (body.parentDepartmentId) {
         let cursor: string | null = body.parentDepartmentId;
         while (cursor) {
@@ -4001,6 +4092,13 @@ export function createApp() {
             });
           cursor = parent?.parentDepartmentId ?? null;
         }
+      }
+      if (body.unitCode) {
+        const normalized = normalizeUnitCode(body.unitCode);
+        const clash = await prisma.department.findFirst({
+          where: { unitCode: normalized, departmentId: { not: existing.departmentId } },
+        });
+        if (clash) throw new HttpError(409, "That organization unit code is already in use");
       }
       const nextParentId =
         body.parentDepartmentId !== undefined
@@ -4022,6 +4120,9 @@ export function createApp() {
           where: { departmentId: String(req.params.id) },
           data: {
             name: body.name,
+            unitCode: body.unitCode ? normalizeUnitCode(body.unitCode) : undefined,
+            description: body.description,
+            active: body.active,
             parentDepartmentId: body.parentDepartmentId,
             unitType: body.unitType,
             sortOrder: body.sortOrder,
@@ -4029,10 +4130,14 @@ export function createApp() {
           },
         });
         if (nextHeadIds) {
-          await replaceDepartmentHeads(tx, existing.departmentId, nextHeadIds);
+          await replaceDepartmentHeads(tx, existing.departmentId, nextHeadIds, {
+            assignedByUserId: req.user!.id,
+          });
         }
         if (nextViewerIds) {
-          await replaceDepartmentViewers(tx, existing.departmentId, nextViewerIds);
+          await replaceDepartmentViewers(tx, existing.departmentId, nextViewerIds, {
+            assignedByUserId: req.user!.id,
+          });
         }
         return tx.department.findUniqueOrThrow({
           where: { departmentId: existing.departmentId },
@@ -4081,11 +4186,37 @@ export function createApp() {
           status: EmployeeStatus.ACTIVE,
         },
       });
-      if (employeeCount > 0) throw new HttpError(400, "Department has employees assigned");
+      if (employeeCount > 0) {
+        throw new HttpError(400, "Deactivate the unit or transfer employees before removal");
+      }
       const childCount = await prisma.department.count({
-        where: { parentDepartmentId: String(req.params.id) },
+        where: { parentDepartmentId: String(req.params.id), active: true },
       });
-      if (childCount > 0) throw new HttpError(400, "Move or delete child units first");
+      if (childCount > 0) throw new HttpError(400, "Move or deactivate child units first");
+      const historyExists =
+        (await prisma.departmentHeadAssignment.count({
+          where: { departmentId: String(req.params.id) },
+        })) > 0 ||
+        (await prisma.departmentViewerAssignment.count({
+          where: { departmentId: String(req.params.id) },
+        })) > 0 ||
+        (await prisma.employeeOrganizationAssignment.count({
+          where: { departmentId: String(req.params.id) },
+        })) > 0;
+      if (historyExists) {
+        const department = await prisma.department.update({
+          where: { departmentId: String(req.params.id) },
+          data: { active: false },
+          include: departmentInclude,
+        });
+        await audit({
+          action: "department deactivated",
+          performedByUserId: req.user!.id,
+          newValue: { departmentId: department.departmentId, name: department.name },
+          ipAddress: req.ip,
+        });
+        return res.json(departmentDto(department, 0));
+      }
       const department = await prisma.department.delete({
         where: { departmentId: String(req.params.id) },
       });
@@ -9427,6 +9558,7 @@ export function createApp() {
     }),
   );
 
+  registerOrganizationRoutes(app);
   registerLifecycleRoutes(app);
   registerHrmsExtensions(app);
   registerClientLogRoutes(app);

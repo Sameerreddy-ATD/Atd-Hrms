@@ -437,6 +437,9 @@ export function employeeDto(
 export function departmentDto(department: {
   departmentId: string;
   name: string;
+  unitCode?: string;
+  description?: string | null;
+  active?: boolean;
   headEmployeeId: string | null;
   parentDepartmentId: string | null;
   unitType: string;
@@ -446,6 +449,7 @@ export function departmentDto(department: {
   headAssignments?: Array<{
     employeeId: string;
     sortOrder: number;
+    isPrimary?: boolean;
     employee?: Pick<Employee, "name"> | null;
   }>;
   viewerAssignments?: Array<{
@@ -477,7 +481,11 @@ export function departmentDto(department: {
   return {
     id: department.departmentId,
     name: department.name,
+    unitCode: department.unitCode,
+    description: department.description ?? undefined,
+    active: department.active ?? true,
     headEmployeeId: headEmployeeIds[0] ?? undefined,
+    primaryHeadEmployeeId: headEmployeeIds[0] ?? undefined,
     head: heads[0],
     headEmployeeIds,
     heads,

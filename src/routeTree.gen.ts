@@ -23,13 +23,13 @@ import { Route as AppTasksRouteImport } from './routes/_app.tasks'
 import { Route as AppTalentRouteImport } from './routes/_app.talent'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppRolesRouteImport } from './routes/_app.roles'
+import { Route as AppProfileCorrectionsRouteImport } from './routes/_app.profile-corrections'
 import { Route as AppProfileRouteImport } from './routes/_app.profile'
 import { Route as AppPreferencesRouteImport } from './routes/_app.preferences'
 import { Route as AppPerformanceRouteImport } from './routes/_app.performance'
 import { Route as AppPeopleChangesRouteImport } from './routes/_app.people-changes'
 import { Route as AppOnboardingRouteImport } from './routes/_app.onboarding'
 import { Route as AppOffboardingRouteImport } from './routes/_app.offboarding'
-import { Route as AppProfileCorrectionsRouteImport } from './routes/_app.profile-corrections'
 import { Route as AppNotificationsRouteImport } from './routes/_app.notifications'
 import { Route as AppMyAssetsRouteImport } from './routes/_app.my-assets'
 import { Route as AppLmsRouteImport } from './routes/_app.lms'
@@ -136,6 +136,11 @@ const AppRolesRoute = AppRolesRouteImport.update({
   path: '/roles',
   getParentRoute: () => AppRoute,
 } as any)
+const AppProfileCorrectionsRoute = AppProfileCorrectionsRouteImport.update({
+  id: '/profile-corrections',
+  path: '/profile-corrections',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppProfileRoute = AppProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -164,11 +169,6 @@ const AppOnboardingRoute = AppOnboardingRouteImport.update({
 const AppOffboardingRoute = AppOffboardingRouteImport.update({
   id: '/offboarding',
   path: '/offboarding',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppProfileCorrectionsRoute = AppProfileCorrectionsRouteImport.update({
-  id: '/profile-corrections',
-  path: '/profile-corrections',
   getParentRoute: () => AppRoute,
 } as any)
 const AppNotificationsRoute = AppNotificationsRouteImport.update({
@@ -383,12 +383,12 @@ export interface FileRoutesByFullPath {
   '/my-assets': typeof AppMyAssetsRoute
   '/notifications': typeof AppNotificationsRoute
   '/offboarding': typeof AppOffboardingRoute
-  '/profile-corrections': typeof AppProfileCorrectionsRoute
   '/onboarding': typeof AppOnboardingRoute
   '/people-changes': typeof AppPeopleChangesRoute
   '/performance': typeof AppPerformanceRoute
   '/preferences': typeof AppPreferencesRoute
   '/profile': typeof AppProfileRoute
+  '/profile-corrections': typeof AppProfileCorrectionsRoute
   '/roles': typeof AppRolesRoute
   '/settings': typeof AppSettingsRouteWithChildren
   '/talent': typeof AppTalentRoute
@@ -440,12 +440,12 @@ export interface FileRoutesByTo {
   '/my-assets': typeof AppMyAssetsRoute
   '/notifications': typeof AppNotificationsRoute
   '/offboarding': typeof AppOffboardingRoute
-  '/profile-corrections': typeof AppProfileCorrectionsRoute
   '/onboarding': typeof AppOnboardingRoute
   '/people-changes': typeof AppPeopleChangesRoute
   '/performance': typeof AppPerformanceRoute
   '/preferences': typeof AppPreferencesRoute
   '/profile': typeof AppProfileRoute
+  '/profile-corrections': typeof AppProfileCorrectionsRoute
   '/roles': typeof AppRolesRoute
   '/settings': typeof AppSettingsRouteWithChildren
   '/talent': typeof AppTalentRoute
@@ -500,12 +500,12 @@ export interface FileRoutesById {
   '/_app/my-assets': typeof AppMyAssetsRoute
   '/_app/notifications': typeof AppNotificationsRoute
   '/_app/offboarding': typeof AppOffboardingRoute
-  '/_app/profile-corrections': typeof AppProfileCorrectionsRoute
   '/_app/onboarding': typeof AppOnboardingRoute
   '/_app/people-changes': typeof AppPeopleChangesRoute
   '/_app/performance': typeof AppPerformanceRoute
   '/_app/preferences': typeof AppPreferencesRoute
   '/_app/profile': typeof AppProfileRoute
+  '/_app/profile-corrections': typeof AppProfileCorrectionsRoute
   '/_app/roles': typeof AppRolesRoute
   '/_app/settings': typeof AppSettingsRouteWithChildren
   '/_app/talent': typeof AppTalentRoute
@@ -560,12 +560,12 @@ export interface FileRouteTypes {
     | '/my-assets'
     | '/notifications'
     | '/offboarding'
-    | '/profile-corrections'
     | '/onboarding'
     | '/people-changes'
     | '/performance'
     | '/preferences'
     | '/profile'
+    | '/profile-corrections'
     | '/roles'
     | '/settings'
     | '/talent'
@@ -617,12 +617,12 @@ export interface FileRouteTypes {
     | '/my-assets'
     | '/notifications'
     | '/offboarding'
-    | '/profile-corrections'
     | '/onboarding'
     | '/people-changes'
     | '/performance'
     | '/preferences'
     | '/profile'
+    | '/profile-corrections'
     | '/roles'
     | '/settings'
     | '/talent'
@@ -676,12 +676,12 @@ export interface FileRouteTypes {
     | '/_app/my-assets'
     | '/_app/notifications'
     | '/_app/offboarding'
-    | '/_app/profile-corrections'
     | '/_app/onboarding'
     | '/_app/people-changes'
     | '/_app/performance'
     | '/_app/preferences'
     | '/_app/profile'
+    | '/_app/profile-corrections'
     | '/_app/roles'
     | '/_app/settings'
     | '/_app/talent'
@@ -818,6 +818,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRolesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/profile-corrections': {
+      id: '/_app/profile-corrections'
+      path: '/profile-corrections'
+      fullPath: '/profile-corrections'
+      preLoaderRoute: typeof AppProfileCorrectionsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/profile': {
       id: '/_app/profile'
       path: '/profile'
@@ -858,13 +865,6 @@ declare module '@tanstack/react-router' {
       path: '/offboarding'
       fullPath: '/offboarding'
       preLoaderRoute: typeof AppOffboardingRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/profile-corrections': {
-      id: '/_app/profile-corrections'
-      path: '/profile-corrections'
-      fullPath: '/profile-corrections'
-      preLoaderRoute: typeof AppProfileCorrectionsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/notifications': {
@@ -1209,6 +1209,7 @@ interface AppRouteChildren {
   AppPerformanceRoute: typeof AppPerformanceRoute
   AppPreferencesRoute: typeof AppPreferencesRoute
   AppProfileRoute: typeof AppProfileRoute
+  AppProfileCorrectionsRoute: typeof AppProfileCorrectionsRoute
   AppRolesRoute: typeof AppRolesRoute
   AppSettingsRoute: typeof AppSettingsRouteWithChildren
   AppTalentRoute: typeof AppTalentRoute
@@ -1244,12 +1245,12 @@ const AppRouteChildren: AppRouteChildren = {
   AppMyAssetsRoute: AppMyAssetsRoute,
   AppNotificationsRoute: AppNotificationsRoute,
   AppOffboardingRoute: AppOffboardingRoute,
-  AppProfileCorrectionsRoute: AppProfileCorrectionsRoute,
   AppOnboardingRoute: AppOnboardingRoute,
   AppPeopleChangesRoute: AppPeopleChangesRoute,
   AppPerformanceRoute: AppPerformanceRoute,
   AppPreferencesRoute: AppPreferencesRoute,
   AppProfileRoute: AppProfileRoute,
+  AppProfileCorrectionsRoute: AppProfileCorrectionsRoute,
   AppRolesRoute: AppRolesRoute,
   AppSettingsRoute: AppSettingsRouteWithChildren,
   AppTalentRoute: AppTalentRoute,

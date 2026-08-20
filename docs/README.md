@@ -11,6 +11,7 @@ in the same commit.
 - HR and Developer Admin: [User Guide](USER_GUIDE.md) and [Operations and Workflows](OPERATIONS_AND_WORKFLOWS.md)
 - Main Admin / Developer Admin (audit history): [Audit Logs](AUDIT_LOGS.md)
 - Developers: [Technical Overview](TECHNICAL_OVERVIEW.md)
+- Organization structure: [Organization Structure](ORGANIZATION_STRUCTURE.md)
 - New contributors: [Repository Structure](REPOSITORY_STRUCTURE.md) and [Development and Testing](DEVELOPMENT_AND_TESTING.md)
 - Database owners and integration developers: [Database Integrity Audit](DATABASE_INTEGRITY_AUDIT.md), [Employee Data and Integration API](EMPLOYEE_DATA_AND_INTEGRATION_API.md), [Employee Profile and ID Card](EMPLOYEE_PROFILE_AND_ID_CARD.md), and [OpenAPI](openapi.employee-v1.yaml)
 - Product owners and UI writers: [Product Naming](PRODUCT_NAMING.md)
@@ -78,14 +79,46 @@ mandatory handling of credentials and employee data.
 - Repository: `https://github.com/Sameerreddy-ATD/Atd-Hrms.git`
 - Canonical release branch: `main`
 - Mirror / future UAT branch: `version-1`
-- Installation: `/opt/anytime-crew-hub`
-- PM2 processes: `atd-backend` and `atd-frontend`
-- Backend: `127.0.0.1:4000`
-- Frontend preview: `127.0.0.1:8081`
 - Public URL: `https://hrms.anytime-diesel.com`
-- Database provider: MySQL
+- Host: AWS Lightsail `13.204.5.57` (SSH user `ubuntu`)
+- Installation: `/opt/anytime-crew-hub` (not a git checkout on the server)
+- Deploy tracking: `DEPLOYED_COMMIT` in the app directory (Git SHA from the build machine)
+- PM2 processes: `atd-backend` (API `:4000`), `atd-frontend` (Vite preview `:8081`)
+- Edge: Caddy terminates TLS and routes `/api` to the backend, everything else to the frontend
+- Database provider: MySQL on `127.0.0.1:3306`
 - Current force-reload build id: `2026-08-15-profile-pw-save` (keep `APP_BUILD_ID` and
   `public/app-version.json` in sync on every production web deploy)
+
+### SSH access (from a maintainer laptop)
+
+PEM key (must be mode `400`):
+
+```text
+/home/sameer-reddy/Downloads/hrms/InsidesalesHRMS.pem
+```
+
+Some older notes use `~/Downloads/InsidesalesHRMS.pem`; the file lives under `Downloads/hrms/`.
+
+```bash
+ssh -i /home/sameer-reddy/Downloads/hrms/InsidesalesHRMS.pem ubuntu@13.204.5.57
+cd /opt/anytime-crew-hub
+pm2 status
+cat DEPLOYED_COMMIT
+```
+
+Optional `~/.ssh/config` alias:
+
+```sshconfig
+Host atd-hrms
+  HostName 13.204.5.57
+  User ubuntu
+  IdentityFile /home/sameer-reddy/Downloads/hrms/InsidesalesHRMS.pem
+```
+
+Then `ssh atd-hrms`. In Cursor, connect to remote host `atd-hrms` (or `ubuntu@13.204.5.57` with
+that key). This is Lightsail over SSH, not a Cursor Cloud / Vercel deploy.
+
+Full release procedure: [Production Deployment — 15 Aug 2026](PRODUCTION_DEPLOYMENT_2026-08-15.md).
 
 Secrets are intentionally absent from documentation. Production `.env`, database dumps, private deploy keys, and VAPID private keys stay on the server only.
 

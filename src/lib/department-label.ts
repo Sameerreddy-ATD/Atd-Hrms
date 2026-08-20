@@ -22,19 +22,14 @@ export function findDepartmentByName(
 }
 
 /**
- * Login role follows the org unit (heads / managers are assigned under Departments).
- * - No unit → CEO
- * - Chief of Staff (the CoS unit itself) → CoS
- * - Fleet & Driver Team (unit or ancestor path) → Bowser Pilot
- * - HR units → HR
- * - Sales units → Sales Team
- * - Everything else → Team Member
+ * Presentation-only login role suggestion for the create-login UI.
+ * The server never authorizes from unit name/path — explicit User.role is required.
  */
 export function inferLoginRoleFromDepartment(
   department: DepartmentRef | null | undefined,
   departments: DepartmentRef[],
 ): Role {
-  if (!department) return "ceo";
+  if (!department) return "employee";
   const path = formatDepartmentPath(department, departments).toLowerCase();
   const name = department.name.trim().toLowerCase();
 

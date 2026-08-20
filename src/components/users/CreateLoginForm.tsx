@@ -151,6 +151,8 @@ export function CreateLoginForm({
   const [companyEntity, setCompanyEntity] = useState<CompanyEntity>("ANYTIME_DIESEL");
   const [branch, setBranch] = useState("");
   const [dept, setDept] = useState("");
+  const [accessRole, setAccessRole] = useState<Role>("employee");
+  const [roleTouched, setRoleTouched] = useState(false);
   const [designation, setDesignation] = useState("");
   const [organizationLevel, setOrganizationLevel] = useState<
     "HEAD" | "SENIOR" | "JUNIOR" | "MEMBER"
@@ -196,13 +198,14 @@ export function CreateLoginForm({
     dept && dept !== CEO_NO_UNIT_VALUE
       ? departments.find((department) => department.id === dept)
       : undefined;
-  const role: Role = useMemo(
+  const suggestedRole: Role = useMemo(
     () =>
       dept === CEO_NO_UNIT_VALUE || !dept
-        ? "ceo"
+        ? "employee"
         : inferLoginRoleFromDepartment(selectedUnit, departments),
     [dept, selectedUnit, departments],
   );
+  const role = accessRole;
   const isCeo = role === "ceo";
   const isBowserPilot = role === "driver";
   const needsOrganizationUnit = !isCeo;
@@ -219,9 +222,17 @@ export function CreateLoginForm({
   }, [role, isCeo]);
 
   useEffect(() => {
+    if (!roleTouched) setAccessRole(suggestedRole);
+  }, [suggestedRole, roleTouched]);
+
+  useEffect(() => {
+    if (isCeo && dept !== CEO_NO_UNIT_VALUE) setDept(CEO_NO_UNIT_VALUE);
+  }, [isCeo, dept]);
+
+  useEffect(() => {
     Promise.all([
       branchesApi.list(),
-      branchesApi.departments(),
+      branchesApi.departments({ activeOnly: true }),
       employeesApi.list(),
       usersApi.list(),
     ])
@@ -326,6 +337,7 @@ export function CreateLoginForm({
         phone: phone.trim() || undefined,
         companyPhone: companyPhone.trim() || undefined,
         companyEntity,
+        role,
         active: true,
         mustChangePassword: true,
         password: temporaryPassword,
@@ -494,7 +506,7 @@ export function CreateLoginForm({
             <FormSection
               icon={UserRound}
               title="Organization"
-              description="Pick the org unit — login type follows the hierarchy. Department heads are assigned under Departments (not here)."
+              description="Pick the organization unit and explicitly confirm the application access role. Unit assignment does not grant login privileges by itself."
             >
               <div className="space-y-1.5">
                 <Label>Employer company</Label>
@@ -538,8 +550,38 @@ export function CreateLoginForm({
               </div>
 
               <div className="space-y-1.5 sm:col-span-2">
+                <Label>Application access role</Label>
+                <Select
+                  value={accessRole}
+                  onValueChange={(value) => {
+                    setRoleTouched(true);
+                    setAccessRole(value as Role);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allowed.map((item) => (
+                      <SelectItem key={item} value={item}>
+                        {ROLE_LABELS[item]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Suggested: {ROLE_LABELS[suggestedRole]}. Confirm the role before saving — it is
+                  not inferred from the unit name on the server.
+                </p>
+              </div>
+
+              <div className="space-y-1.5 sm:col-span-2">
                 <Label>Organization unit</Label>
-                <Select value={dept || CEO_NO_UNIT_VALUE} onValueChange={setDept}>
+                <Select
+                  value={isCeo ? CEO_NO_UNIT_VALUE : dept || CEO_NO_UNIT_VALUE}
+                  onValueChange={setDept}
+                  disabled={isCeo}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select organization unit" />
                   </SelectTrigger>

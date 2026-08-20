@@ -71,7 +71,7 @@ const hi = {
     "dashboard": "डैशबोर्ड",
     "users": "यूज़र लॉगिन",
     "employees": "कर्मचारी",
-    "departments": "विभाग",
+    "departments": "संगठन संरचना",
     "talent": "टैलेंट",
     "onboarding": "ऑनबोर्डिंग",
     "peopleChanges": "लोगों में बदलाव",

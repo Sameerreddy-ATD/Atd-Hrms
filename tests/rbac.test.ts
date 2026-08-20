@@ -2,8 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Role } from "@prisma/client";
 import {
   canCreateRole,
-  formatOrgUnitPath,
-  resolveTargetLoginRole,
+  resolveLoginRoleForNewAccount,
 } from "../server/src/rbac.js";
 
 describe("login creation rules", () => {
@@ -27,92 +26,46 @@ describe("login creation rules", () => {
   });
 });
 
-describe("resolveTargetLoginRole", () => {
-  it("maps no organization unit to CEO", () => {
-    expect(resolveTargetLoginRole({})).toBe(Role.CEO);
-    expect(resolveTargetLoginRole({ unitName: null, unitPath: null })).toBe(Role.CEO);
+describe("resolveLoginRoleForNewAccount", () => {
+  it("never defaults to CEO when role is omitted", () => {
+    expect(resolveLoginRoleForNewAccount({})).toBe(Role.EMPLOYEE);
   });
 
-  it("ignores a client-sent explicit role — unit wins", () => {
+  it("honours explicit role only", () => {
     expect(
-      resolveTargetLoginRole({
-        explicitRole: Role.MANAGER,
-        unitName: "Fleet & Driver Team",
-        unitPath: "Operations / Fleet & Driver Team",
-      }),
-    ).toBe(Role.DRIVER);
-    expect(
-      resolveTargetLoginRole({
+      resolveLoginRoleForNewAccount({
         explicitRole: Role.CEO,
-        unitName: "Operations",
-        unitPath: "Operations",
       }),
-    ).toBe(Role.EMPLOYEE);
-  });
-
-  it("does not promote HEAD organization level to manager", () => {
+    ).toBe(Role.CEO);
     expect(
-      resolveTargetLoginRole({
-        unitName: "Software",
-        unitPath: "Software",
-        organizationLevel: "HEAD",
-      }),
-    ).toBe(Role.EMPLOYEE);
-  });
-
-  it("maps Chief of Staff unit to CoS", () => {
-    expect(
-      resolveTargetLoginRole({
-        unitName: "Chief of Staff",
-        unitPath: "Chief of Staff",
-      }),
-    ).toBe(Role.CHIEF_OF_STAFF);
-  });
-
-  it("maps Fleet, HR, and Sales units from name or path", () => {
-    expect(
-      resolveTargetLoginRole({
-        unitName: "Fleet & Driver Team",
-        unitPath: "Ops / Fleet & Driver Team",
-      }),
-    ).toBe(Role.DRIVER);
-    expect(
-      resolveTargetLoginRole({
-        unitName: "Hr Department",
-        unitPath: "Chief of Staff / Hr Department",
+      resolveLoginRoleForNewAccount({
+        explicitRole: Role.HR,
       }),
     ).toBe(Role.HR);
     expect(
-      resolveTargetLoginRole({
-        unitName: "Inside Sales",
-        unitPath: "Sales Team / Inside Sales",
-      }),
-    ).toBe(Role.SALES);
-    expect(
-      resolveTargetLoginRole({
-        unitName: "Drivers",
+      resolveLoginRoleForNewAccount({
+        explicitRole: Role.DRIVER,
       }),
     ).toBe(Role.DRIVER);
   });
 
-  it("keeps legacy Executive Leadership as CEO", () => {
-    expect(
-      resolveTargetLoginRole({
-        unitName: "Executive Leadership",
-        organizationLevel: "HEAD",
-      }),
-    ).toBe(Role.CEO);
+  it("does not infer privileged roles from organization context (removed from API)", () => {
+    expect(resolveLoginRoleForNewAccount({ explicitRole: null })).toBe(Role.EMPLOYEE);
   });
 });
 
-describe("formatOrgUnitPath", () => {
-  const units = [
-    { id: "ops", name: "Operations", parentDepartmentId: null },
-    { id: "fleet", name: "Fleet & Driver Team", parentDepartmentId: "ops" },
-  ];
+describe("privileged role assignment authorization", () => {
+  it("allows developer admin to assign privileged roles", () => {
+    expect(canCreateRole(Role.DEVELOPER_ADMIN, Role.CEO)).toBe(true);
+    expect(canCreateRole(Role.DEVELOPER_ADMIN, Role.CHIEF_OF_STAFF)).toBe(true);
+    expect(canCreateRole(Role.DEVELOPER_ADMIN, Role.HR)).toBe(true);
+    expect(canCreateRole(Role.DEVELOPER_ADMIN, Role.DRIVER)).toBe(true);
+    expect(canCreateRole(Role.DEVELOPER_ADMIN, Role.SALES)).toBe(true);
+  });
 
-  it("joins ancestors", () => {
-    expect(formatOrgUnitPath(units[1], units)).toBe("Operations / Fleet & Driver Team");
-    expect(formatOrgUnitPath(units[0], units)).toBe("Operations");
+  it("blocks non-admin actors from assigning privileged roles", () => {
+    expect(canCreateRole(Role.HR, Role.CEO)).toBe(false);
+    expect(canCreateRole(Role.MANAGER, Role.HR)).toBe(false);
+    expect(canCreateRole(Role.EMPLOYEE, Role.DRIVER)).toBe(false);
   });
 });

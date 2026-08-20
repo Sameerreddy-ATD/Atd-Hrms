@@ -16,7 +16,7 @@ Canonical product docs remain in the rest of `docs/`. Credentials stay on the la
 - Backend FCM HTTP v1 sender (`FCM_SERVICE_ACCOUNT_JSON` / `FCM_PROJECT_ID`) with legacy key fallback
 - Digital Asset Links: `public/.well-known/assetlinks.json` (upload-key SHA-256)
 - Security hardening (12 Aug 2026): TTL support password, secret startup checks, Web Push SSRF allowlist, signed ID-card tokens, private-file ownership — see `docs/SECURITY_HARDENING_2026-08-12.md`
-- Deploy host: `ubuntu@13.204.5.57` via `InsidesalesHRMS.pem` → `/opt/anytime-crew-hub` (rsync; no `.git` on server), PM2 `atd-backend` / `atd-frontend`
+- Deploy host: `ubuntu@13.204.5.57` via `Downloads/hrms/InsidesalesHRMS.pem` → `/opt/anytime-crew-hub` (rsync; no `.git` on server), PM2 `atd-backend` / `atd-frontend`
 - **Hire & Career lifecycle** (15 Aug 2026): Talent → Hire → Onboarding/NHO → People Changes → Performance → Learning → Offboarding; build `2026-08-15-lifecycle-complete`
 - Session persistence on native reopen (refresh no longer races `sessionVersion` clear)
 
@@ -104,10 +104,10 @@ npm run mobile:android:bundle
 rsync -az --exclude node_modules --exclude .env --exclude .git \
   --exclude dist --exclude dist-server --exclude android/.gradle \
   --exclude android/app/build --exclude '*.jks' --exclude google-services.json \
-  -e "ssh -i ~/Downloads/InsidesalesHRMS.pem" \
+  -e "ssh -i /home/sameer-reddy/Downloads/hrms/InsidesalesHRMS.pem" \
   ./ ubuntu@13.204.5.57:/opt/anytime-crew-hub/
 
-ssh -i ~/Downloads/InsidesalesHRMS.pem ubuntu@13.204.5.57 '
+ssh -i /home/sameer-reddy/Downloads/hrms/InsidesalesHRMS.pem ubuntu@13.204.5.57 '
   cd /opt/anytime-crew-hub &&
   NODE_ENV=development npm ci &&
   npx prisma generate && npm run db:deploy &&

@@ -46,8 +46,8 @@ describe("findDepartmentByName", () => {
 });
 
 describe("inferLoginRoleFromDepartment", () => {
-  it("maps no unit to CEO", () => {
-    expect(inferLoginRoleFromDepartment(null, departments)).toBe("ceo");
+  it("maps no unit to Team Member for UI suggestions (not CEO)", () => {
+    expect(inferLoginRoleFromDepartment(null, departments)).toBe("employee");
   });
 
   it("maps Chief of Staff unit to CoS", () => {

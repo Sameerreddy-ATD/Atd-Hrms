@@ -71,7 +71,7 @@ const en = {
     "dashboard": "Dashboard",
     "users": "User Logins",
     "employees": "Employees",
-    "departments": "Departments",
+    "departments": "Organization Structure",
     "talent": "Talent",
     "onboarding": "Onboarding",
     "peopleChanges": "People Changes",

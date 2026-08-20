@@ -26,17 +26,24 @@ async function main() {
   const units = new Map<string, string>();
   for (const [name, parentName, unitType, sortOrder] of unitData) {
     const parentDepartmentId = parentName ? (units.get(parentName) ?? null) : null;
+    const unitCode = name
+      .trim()
+      .replace(/[^A-Za-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .toUpperCase()
+      .slice(0, 60);
     const existing = await prisma.department.findFirst({
       where: { name, parentDepartmentId },
     });
     const unit = existing
       ? await prisma.department.update({
           where: { departmentId: existing.departmentId },
-          data: { unitType, sortOrder, parentDepartmentId },
+          data: { unitType, sortOrder, parentDepartmentId, unitCode: existing.unitCode || unitCode },
         })
       : await prisma.department.create({
           data: {
             name,
+            unitCode,
             unitType,
             sortOrder,
             parentDepartmentId: parentDepartmentId ?? undefined,
@@ -433,13 +440,29 @@ async function main() {
       where: { departmentId },
       data: { headEmployeeId },
     });
-    await prisma.departmentHeadAssignment.upsert({
+    const existingHead = await prisma.departmentHeadAssignment.findFirst({
       where: {
-        departmentId_employeeId: { departmentId, employeeId: headEmployeeId },
+        departmentId,
+        employeeId: headEmployeeId,
+        effectiveTo: null,
       },
-      update: { sortOrder: 0 },
-      create: { departmentId, employeeId: headEmployeeId, sortOrder: 0 },
     });
+    if (existingHead) {
+      await prisma.departmentHeadAssignment.update({
+        where: { id: existingHead.id },
+        data: { sortOrder: 0 },
+      });
+    } else {
+      await prisma.departmentHeadAssignment.create({
+        data: {
+          departmentId,
+          employeeId: headEmployeeId,
+          sortOrder: 0,
+          isPrimary: true,
+          effectiveFrom: new Date(),
+        },
+      });
+    }
   }
 
   console.log(`Seed complete: ${people.length + 1} baseline accounts are available.`);

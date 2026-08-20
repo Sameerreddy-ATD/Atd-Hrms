@@ -814,7 +814,10 @@ export const branchesApi = {
   update: (id: string, patch: Partial<Branch>) =>
     request<Branch>(`/branches/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   delete: (id: string) => request<Branch>(`/branches/${id}`, { method: "DELETE" }),
-  departments: () => request<Department[]>("/departments"),
+  departments: (options?: { activeOnly?: boolean }) =>
+    request<Department[]>(
+      `/departments${options?.activeOnly ? "?activeOnly=true" : ""}`,
+    ),
   createDepartment: (
     department: Omit<
       Department,
@@ -844,6 +847,136 @@ export const branchesApi = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+};
+
+export const organizationApi = {
+  tree: () =>
+    request<
+      Array<{
+        id: string;
+        name: string;
+        unitCode: string;
+        unitType: string;
+        active: boolean;
+        parentDepartmentId?: string;
+        directEmployeeCount: number;
+        totalDescendantEmployeeCount: number;
+        heads: Array<{ employeeId: string; name: string; isPrimary: boolean }>;
+        viewerCount: number;
+        childCount: number;
+      }>
+    >("/organization/tree"),
+  unitHeads: (unitId: string) =>
+    request<
+      Array<{
+        id: string;
+        employeeId: string;
+        employeeName?: string;
+        isPrimary: boolean;
+        effectiveFrom: string;
+        effectiveTo?: string | null;
+        employee?: { employeeId: string; name: string; employeeCode: string; designation?: string };
+      }>
+    >(`/organization/units/${unitId}/heads`),
+  addUnitHead: (
+    unitId: string,
+    body: { employeeId: string; isPrimary?: boolean; effectiveFrom?: string; reason?: string },
+  ) =>
+    request(`/organization/units/${unitId}/heads`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  endUnitHead: (unitId: string, assignmentId: string, body: { effectiveTo: string; reason?: string }) =>
+    request(`/organization/units/${unitId}/heads/${assignmentId}/end`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  headHistory: (unitId: string) =>
+    request<
+      Array<{
+        id: string;
+        employeeId: string;
+        employeeName?: string;
+        isPrimary: boolean;
+        effectiveFrom: string;
+        effectiveTo?: string | null;
+        employee?: { employeeId: string; name: string; employeeCode: string; designation?: string };
+      }>
+    >(`/organization/units/${unitId}/heads/history`),
+  unitViewers: (unitId: string) =>
+    request<
+      Array<{
+        id: string;
+        employeeId: string;
+        employeeName?: string;
+        effectiveFrom: string;
+        effectiveTo?: string | null;
+        employee?: { employeeId: string; name: string; employeeCode: string; designation?: string };
+      }>
+    >(`/organization/units/${unitId}/viewers`),
+  addUnitViewer: (
+    unitId: string,
+    body: { employeeId: string; effectiveFrom?: string; reason?: string },
+  ) =>
+    request(`/organization/units/${unitId}/viewers`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  endUnitViewer: (unitId: string, assignmentId: string, body: { effectiveTo: string; reason?: string }) =>
+    request(`/organization/units/${unitId}/viewers/${assignmentId}/end`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  viewerHistory: (unitId: string) =>
+    request<
+      Array<{
+        id: string;
+        employeeId: string;
+        employeeName?: string;
+        effectiveFrom: string;
+        effectiveTo?: string | null;
+        employee?: { employeeId: string; name: string; employeeCode: string; designation?: string };
+      }>
+    >(`/organization/units/${unitId}/viewers/history`),
+  employeeAssignments: (employeeId: string) =>
+    request<
+      Array<{
+        id: string;
+        employeeId: string;
+        departmentId: string;
+        organizationLevel: string;
+        isPrimary: boolean;
+        effectiveFrom: string;
+        effectiveTo?: string | null;
+        department?: { departmentId: string; name: string; unitCode: string };
+      }>
+    >(`/organization/employees/${employeeId}/assignments`),
+  transferEmployee: (body: {
+    employeeId: string;
+    newOrganizationUnitId: string;
+    newOrganizationLevel?: string;
+    effectiveDate: string;
+    reason?: string;
+  }) =>
+    request("/organization/employees/transfer", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  approverPreview: (employeeId: string, date?: string) =>
+    request<
+      Array<{
+        employeeId: string;
+        name: string;
+        departmentId: string;
+        departmentName: string;
+        isPrimary: boolean;
+        ancestorDepth: number;
+      }>
+    >(
+      `/organization/approvers/preview?employeeId=${encodeURIComponent(employeeId)}${
+        date ? `&date=${encodeURIComponent(date)}` : ""
+      }`,
+    ),
 };
 
 type CompanyAssetPayload = Omit<

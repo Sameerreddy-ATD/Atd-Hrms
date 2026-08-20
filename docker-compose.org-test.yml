@@ -1,0 +1,16 @@
+services:
+  mysql-org-test:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: org_test_root
+      MYSQL_DATABASE: atd_org_test
+      MYSQL_USER: atd_test
+      MYSQL_PASSWORD: atd_test_pass
+    ports:
+      - "3308:3306"
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-porg_test_root"]
+      interval: 3s
+      timeout: 5s
+      retries: 20

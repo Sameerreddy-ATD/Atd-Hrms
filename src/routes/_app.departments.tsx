@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -45,6 +46,7 @@ import type { Department, User } from "@/types/domain";
 import { useAuth } from "@/lib/auth";
 import { formatDepartmentPath, formatDepartmentPathById, departmentMemberCountInTree } from "@/lib/department-label";
 import { branchesApi, employeesApi } from "@/services/api";
+import { OrganizationUnitDetailSheet } from "@/components/organization/OrganizationUnitDetailSheet";
 import {
   ChevronDown,
   Crown,
@@ -145,6 +147,8 @@ function DeptPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [employees, setEmployees] = useState<User[]>([]);
   const [name, setName] = useState("");
+  const [unitCode, setUnitCode] = useState("");
+  const [description, setDescription] = useState("");
   /** Head pickers: one dropdown first; "Add another head" appends more. Use "none" for empty. */
   const [headSlots, setHeadSlots] = useState<string[]>(["none"]);
   const [viewerSlots, setViewerSlots] = useState<string[]>(["none"]);
@@ -166,6 +170,7 @@ function DeptPage() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [reordering, setReordering] = useState(false);
+  const [detailUnit, setDetailUnit] = useState<Department | null>(null);
 
   function toggleUnit(unitId: string) {
     setExpandedUnits((current) => {
@@ -230,12 +235,17 @@ function DeptPage() {
     });
   }
 
+  async function refreshDepartments() {
+    const [departmentRows, employeeRows] = await Promise.all([
+      branchesApi.departments(),
+      employeesApi.list({ limit: 1000 }),
+    ]);
+    setDepartments(departmentRows);
+    setEmployees(employeeRows);
+  }
+
   useEffect(() => {
-    Promise.all([branchesApi.departments(), employeesApi.list({ limit: 1000 })])
-      .then(([departmentRows, employeeRows]) => {
-        setDepartments(departmentRows);
-        setEmployees(employeeRows);
-      })
+    refreshDepartments()
       .catch((err) => setError((err as Error).message))
       .finally(() => setLoading(false));
   }, []);
@@ -326,10 +336,17 @@ function DeptPage() {
   const membersUnder = (departmentId: string) =>
     departmentMemberCountInTree(departmentId, departments);
 
-  function membersLabel(count: number) {
-    return count === 1
-      ? t("pages.departments.memberCountOne")
-      : t("pages.departments.memberCount", { count });
+  function membersLabel(count: number, department?: Department) {
+    const direct = department?.directEmployeeCount ?? count;
+    const total = department?.totalDescendantEmployeeCount;
+    const directText =
+      direct === 1
+        ? t("pages.departments.memberCountOne")
+        : t("pages.departments.memberCount", { count: direct });
+    if (total != null && total !== direct) {
+      return `${directText} · ${t("pages.departments.includingSubUnits", { count: total })}`;
+    }
+    return directText;
   }
   const chartWidth = Math.max(
     1120,
@@ -414,6 +431,8 @@ function DeptPage() {
     setAssignCeoHeads(false);
     setCeoHeadsUnitId("");
     setName("");
+    setUnitCode("");
+    setDescription("");
     setHeadSlots(["none"]);
     setViewerSlots(["none"]);
     setParentDepartmentId("none");
@@ -427,6 +446,8 @@ function DeptPage() {
     setAssignCeoHeads(false);
     setCeoHeadsUnitId("");
     setName("");
+    setUnitCode("");
+    setDescription("");
     setHeadSlots(["none"]);
     setViewerSlots(["none"]);
     // New teams hang under permanent Chief of Staff (CEO → CoS → teams).
@@ -453,6 +474,8 @@ function DeptPage() {
       setAssignCeoHeads(true);
       setCeoHeadsUnitId(unit.id);
       setName(unit.name);
+      setUnitCode(unit.unitCode ?? "");
+      setDescription(unit.description ?? "");
       setHeadSlots(headsFromDepartment(unit));
       setViewerSlots(viewersFromDepartment(unit));
       setParentDepartmentId("none");
@@ -470,6 +493,8 @@ function DeptPage() {
     setAssignCeoHeads(false);
     setCeoHeadsUnitId("");
     setName("");
+    setUnitCode("");
+    setDescription("");
     setHeadSlots(["none"]);
     setViewerSlots(["none"]);
     setParentDepartmentId(parent.id);
@@ -487,6 +512,8 @@ function DeptPage() {
     setAssignCeoHeads(false);
     setCeoHeadsUnitId("");
     setName(department.name);
+    setUnitCode(department.unitCode ?? "");
+    setDescription(department.description ?? "");
     setHeadSlots(headsFromDepartment(department));
     setViewerSlots(viewersFromDepartment(department));
     setParentDepartmentId(department.parentDepartmentId ?? "none");
@@ -532,6 +559,8 @@ function DeptPage() {
 
       const payload = {
         name: name.trim(),
+        unitCode: unitCode.trim() || undefined,
+        description: description.trim() || undefined,
         // Creating a unit is separate from assigning heads.
         headEmployeeIds: isCreateTopLevel ? [] : headEmployeeIds,
         viewerEmployeeIds: isCreateTopLevel ? [] : viewerEmployeeIds,
@@ -651,6 +680,11 @@ function DeptPage() {
                 </p>
                 <p className="dept-org-unit-card__name mt-0.5 text-sm font-semibold leading-snug text-foreground">
                   {department.name}
+                  {department.active === false ? (
+                    <span className="ml-1.5 text-[10px] font-normal uppercase text-muted-foreground">
+                      ({t("pages.departments.inactive")})
+                    </span>
+                  ) : null}
                 </p>
                 <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
                   <UserRound className="h-3.5 w-3.5 shrink-0" />
@@ -661,7 +695,7 @@ function DeptPage() {
                 <UnitViewersRow department={department} />
                 <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Users className="h-3.5 w-3.5 shrink-0" />
-                  <span>{membersLabel(membersUnder(department.id))}</span>
+                  <span>{membersLabel(membersUnder(department.id), department)}</span>
                 </p>
                 <p className="mt-1 text-[11px] font-medium text-muted-foreground">
                   {department.faceVerificationEnabled === false
@@ -690,6 +724,18 @@ function DeptPage() {
                 }}
               >
                 <Plus className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                title={t("pages.departments.unitDetails")}
+                aria-label={`${department.name} details`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setDetailUnit(department);
+                }}
+              >
+                <Eye className="h-4 w-4" />
               </Button>
               <Button
                 size="icon"
@@ -800,7 +846,28 @@ function DeptPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto overscroll-x-contain px-3 py-4 sm:px-6 sm:py-6 md:px-6">
+          <div className="block border-b border-border px-3 py-4 md:hidden">
+            <p className="mb-3 text-sm font-medium">{t("pages.departments.mobileTreeTitle")}</p>
+            <div className="space-y-2">
+              {chiefOfStaff ? (
+                <div className="rounded-md border border-border p-3">
+                  <p className="font-semibold">{chiefOfStaff.name}</p>
+                  {chartUnitsUnderCos.map((unit) => (
+                    <button
+                      key={unit.id}
+                      type="button"
+                      className="mt-2 block w-full rounded-md border border-border/60 px-3 py-2 text-left text-sm"
+                      onClick={() => setDetailUnit(unit)}
+                    >
+                      {unit.name}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="hidden overflow-x-auto overscroll-x-contain px-3 py-4 sm:px-6 sm:py-6 md:block md:px-6">
             <div
               className="w-full transition-transform duration-200 ease-out motion-reduce:transition-none md:w-[var(--chart-width)]"
               style={
@@ -820,6 +887,9 @@ function DeptPage() {
                   </p>
                   <p className="font-semibold text-foreground">
                     {t("pages.departments.ceoTitle")}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {t("pages.departments.ceoCompanyWide")}
                   </p>
                   <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
                     <UserRound className="h-3.5 w-3.5 shrink-0" />
@@ -1257,13 +1327,58 @@ function DeptPage() {
 
             {needsUnitName && (
               <div className="space-y-1.5">
-                <Label>Organization unit name</Label>
+                <Label>{t("pages.departments.orgUnitName")}</Label>
                 <Input
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setName(next);
+                    if (!editing && !unitCode.trim()) {
+                      setUnitCode(
+                        next
+                          .trim()
+                          .replace(/[^A-Za-z0-9]+/g, "_")
+                          .replace(/^_+|_+$/g, "")
+                          .toUpperCase(),
+                      );
+                    }
+                  }}
                   placeholder="e.g. Sales, Operations, Accounts"
                 />
               </div>
+            )}
+
+            {!assignCeoHeads && (
+              <>
+                <div className="space-y-1.5">
+                  <Label>{t("pages.departments.unitCodeLabel")}</Label>
+                  <Input
+                    value={unitCode}
+                    onChange={(e) =>
+                      setUnitCode(
+                        e.target.value
+                          .toUpperCase()
+                          .replace(/[^A-Z0-9_]+/g, "_")
+                          .replace(/^_+|_+$/g, ""),
+                      )
+                    }
+                    placeholder="e.g. SALES_TEAM"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t("pages.departments.unitCodeHint")}
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>{t("pages.departments.descriptionLabel")}</Label>
+                  <Textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder={t("pages.departments.descriptionPlaceholder")}
+                    rows={3}
+                  />
+                </div>
+              </>
             )}
 
             {editing ? (
@@ -1611,6 +1726,15 @@ function DeptPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <OrganizationUnitDetailSheet
+        unit={detailUnit}
+        departments={departments}
+        employees={employees}
+        open={Boolean(detailUnit)}
+        onOpenChange={(open) => !open && setDetailUnit(null)}
+        onRefresh={refreshDepartments}
+      />
     </div>
   );
 }

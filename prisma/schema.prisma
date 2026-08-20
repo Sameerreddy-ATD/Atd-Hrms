@@ -392,118 +392,119 @@ model PushSubscription {
 }
 
 model Employee {
-  employeeId                 String                        @id @default(cuid()) @map("employee_id")
-  employeeCode               String                        @unique @map("employee_code")
-  externalReference          String?                       @unique @map("external_reference")
-  name                       String
-  email                      String?                       @unique
-  personalEmail              String?                       @map("personal_email")
-  phone                      String?
-  companyPhone               String?                       @map("company_phone")
-  companyEntity              CompanyEntity                 @default(ANYTIME_DIESEL) @map("company_entity")
-  departmentId               String?                       @map("department_id")
-  department                 Department?                   @relation(fields: [departmentId], references: [departmentId])
-  designation                String?
-  homeBranchId               String?                       @map("home_branch_id")
-  homeBranch                 Branch?                       @relation(fields: [homeBranchId], references: [branchId])
-  managerId                  String?                       @map("manager_id")
-  manager                    Employee?                     @relation("ManagerTeam", fields: [managerId], references: [employeeId])
-  teamMembers                Employee[]                    @relation("ManagerTeam")
-  joiningDate                DateTime?                     @map("joining_date") @db.Date
-  dateOfBirth                DateTime?                     @map("date_of_birth") @db.Date
-  gender                     Gender?
-  bloodGroup                 String?                       @map("blood_group")
-  employmentType             EmploymentType?               @map("employment_type")
-  organizationLevel          String                        @default("MEMBER") @map("organization_level") @db.VarChar(20)
-  bankAccountType            BankAccountType?              @map("bank_account_type")
-  bankAccountHolderName      String?                       @map("bank_account_holder_name")
-  bankIfscCode               String?                       @map("bank_ifsc_code")
-  bankAccountNumberEncrypted String?                       @map("bank_account_number_encrypted") @db.Text
-  bankAccountNumberLast4     String?                       @map("bank_account_number_last4") @db.VarChar(4)
-  panNumberEncrypted         String?                       @map("pan_number_encrypted") @db.Text
-  panNumberLast4             String?                       @map("pan_number_last4") @db.VarChar(4)
-  aadhaarNumberEncrypted     String?                       @map("aadhaar_number_encrypted") @db.Text
-  aadhaarNumberLast4         String?                       @map("aadhaar_number_last4") @db.VarChar(4)
-  uanNumberEncrypted         String?                       @map("uan_number_encrypted") @db.Text
-  uanNumberLast4             String?                       @map("uan_number_last4") @db.VarChar(4)
-  fatherName                 String?                       @map("father_name")
-  husbandName                String?                       @map("husband_name")
-  maritalStatus              MaritalStatus?                @map("marital_status")
-  presentDoorNo              String?                       @map("present_door_no")
-  presentFlatName            String?                       @map("present_flat_name")
-  presentStreetName          String?                       @map("present_street_name")
-  presentAddress             String?                       @map("present_address") @db.Text
-  presentCity                String?                       @map("present_city")
-  presentState               String?                       @map("present_state")
-  presentPincode             String?                       @map("present_pincode") @db.VarChar(12)
-  permanentDoorNo            String?                       @map("permanent_door_no")
-  permanentFlatName          String?                       @map("permanent_flat_name")
-  permanentStreetName        String?                       @map("permanent_street_name")
-  permanentSameAsPresent     Boolean                       @default(false) @map("permanent_same_as_present")
-  permanentAddress           String?                       @map("permanent_address") @db.Text
-  permanentCity              String?                       @map("permanent_city")
-  permanentState             String?                       @map("permanent_state")
-  permanentPincode           String?                       @map("permanent_pincode") @db.VarChar(12)
+  employeeId                  String                           @id @default(cuid()) @map("employee_id")
+  employeeCode                String                           @unique @map("employee_code")
+  externalReference           String?                          @unique @map("external_reference")
+  name                        String
+  email                       String?                          @unique
+  personalEmail               String?                          @map("personal_email")
+  phone                       String?
+  companyPhone                String?                          @map("company_phone")
+  companyEntity               CompanyEntity                    @default(ANYTIME_DIESEL) @map("company_entity")
+  departmentId                String?                          @map("department_id")
+  department                  Department?                      @relation(fields: [departmentId], references: [departmentId])
+  designation                 String?
+  homeBranchId                String?                          @map("home_branch_id")
+  homeBranch                  Branch?                          @relation(fields: [homeBranchId], references: [branchId])
+  managerId                   String?                          @map("manager_id")
+  manager                     Employee?                        @relation("ManagerTeam", fields: [managerId], references: [employeeId])
+  teamMembers                 Employee[]                       @relation("ManagerTeam")
+  joiningDate                 DateTime?                        @map("joining_date") @db.Date
+  dateOfBirth                 DateTime?                        @map("date_of_birth") @db.Date
+  gender                      Gender?
+  bloodGroup                  String?                          @map("blood_group")
+  employmentType              EmploymentType?                  @map("employment_type")
+  organizationLevel           String                           @default("MEMBER") @map("organization_level") @db.VarChar(20)
+  bankAccountType             BankAccountType?                 @map("bank_account_type")
+  bankAccountHolderName       String?                          @map("bank_account_holder_name")
+  bankIfscCode                String?                          @map("bank_ifsc_code")
+  bankAccountNumberEncrypted  String?                          @map("bank_account_number_encrypted") @db.Text
+  bankAccountNumberLast4      String?                          @map("bank_account_number_last4") @db.VarChar(4)
+  panNumberEncrypted          String?                          @map("pan_number_encrypted") @db.Text
+  panNumberLast4              String?                          @map("pan_number_last4") @db.VarChar(4)
+  aadhaarNumberEncrypted      String?                          @map("aadhaar_number_encrypted") @db.Text
+  aadhaarNumberLast4          String?                          @map("aadhaar_number_last4") @db.VarChar(4)
+  uanNumberEncrypted          String?                          @map("uan_number_encrypted") @db.Text
+  uanNumberLast4              String?                          @map("uan_number_last4") @db.VarChar(4)
+  fatherName                  String?                          @map("father_name")
+  husbandName                 String?                          @map("husband_name")
+  maritalStatus               MaritalStatus?                   @map("marital_status")
+  presentDoorNo               String?                          @map("present_door_no")
+  presentFlatName             String?                          @map("present_flat_name")
+  presentStreetName           String?                          @map("present_street_name")
+  presentAddress              String?                          @map("present_address") @db.Text
+  presentCity                 String?                          @map("present_city")
+  presentState                String?                          @map("present_state")
+  presentPincode              String?                          @map("present_pincode") @db.VarChar(12)
+  permanentDoorNo             String?                          @map("permanent_door_no")
+  permanentFlatName           String?                          @map("permanent_flat_name")
+  permanentStreetName         String?                          @map("permanent_street_name")
+  permanentSameAsPresent      Boolean                          @default(false) @map("permanent_same_as_present")
+  permanentAddress            String?                          @map("permanent_address") @db.Text
+  permanentCity               String?                          @map("permanent_city")
+  permanentState              String?                          @map("permanent_state")
+  permanentPincode            String?                          @map("permanent_pincode") @db.VarChar(12)
   /// APPLIED | INTERVIEW | OFFER | PRE_ONBOARDING | ONBOARDING | NHO | ACTIVE | NOTICE | OFFBOARDING | EXITED
-  lifecycleStage             String                        @default("ACTIVE") @map("lifecycle_stage") @db.VarChar(24)
-  attendanceMode             AttendanceMode                @default(BOTH) @map("attendance_mode")
-  attendanceRequired         Boolean                       @default(true) @map("attendance_required")
-  shiftType                  ShiftType                     @default(DAY) @map("shift_type")
-  shiftStartMinutes          Int                           @default(540) @map("shift_start_minutes")
-  shiftEndMinutes            Int                           @default(1080) @map("shift_end_minutes")
-  isFieldEmployee            Boolean                       @default(false) @map("is_field_employee")
-  weeklyOffPolicy            WeeklyOffPolicy               @default(SELECTABLE) @map("weekly_off_policy")
-  status                     EmployeeStatus                @default(ACTIVE)
-  version                    Int                           @default(1)
-  profileVerified            Boolean                       @default(false) @map("profile_verified")
-  terminatedAt               DateTime?                     @map("terminated_at")
-  createdAt                  DateTime                      @default(now()) @map("created_at")
-  updatedAt                  DateTime                      @updatedAt @map("updated_at")
-  user                       User?
-  schedules                  EmployeeBranchSchedule[]
-  attendanceEvents           AttendanceEvent[]
-  summaries                  AttendanceDailySummary[]
-  fieldAttendances           FieldAttendance[]
-  biometricMappings          BiometricEmployeeMapping[]
-  leaveRequests              LeaveRequest[]
-  leaveBalances              LeaveBalance[]
-  weeklyOffRequests          WeeklyOffRequest[]
-  compOffCredits             CompOffCredit[]
-  correctionRequests         AttendanceCorrectionRequest[]
-  emergencyContact           EmergencyContact?
-  headedDepartments          Department[]                  @relation("DepartmentHead")
-  departmentHeadAssignments  DepartmentHeadAssignment[]
+  lifecycleStage              String                           @default("ACTIVE") @map("lifecycle_stage") @db.VarChar(24)
+  attendanceMode              AttendanceMode                   @default(BOTH) @map("attendance_mode")
+  attendanceRequired          Boolean                          @default(true) @map("attendance_required")
+  shiftType                   ShiftType                        @default(DAY) @map("shift_type")
+  shiftStartMinutes           Int                              @default(540) @map("shift_start_minutes")
+  shiftEndMinutes             Int                              @default(1080) @map("shift_end_minutes")
+  isFieldEmployee             Boolean                          @default(false) @map("is_field_employee")
+  weeklyOffPolicy             WeeklyOffPolicy                  @default(SELECTABLE) @map("weekly_off_policy")
+  status                      EmployeeStatus                   @default(ACTIVE)
+  version                     Int                              @default(1)
+  profileVerified             Boolean                          @default(false) @map("profile_verified")
+  terminatedAt                DateTime?                        @map("terminated_at")
+  createdAt                   DateTime                         @default(now()) @map("created_at")
+  updatedAt                   DateTime                         @updatedAt @map("updated_at")
+  user                        User?
+  schedules                   EmployeeBranchSchedule[]
+  attendanceEvents            AttendanceEvent[]
+  summaries                   AttendanceDailySummary[]
+  fieldAttendances            FieldAttendance[]
+  biometricMappings           BiometricEmployeeMapping[]
+  leaveRequests               LeaveRequest[]
+  leaveBalances               LeaveBalance[]
+  weeklyOffRequests           WeeklyOffRequest[]
+  compOffCredits              CompOffCredit[]
+  correctionRequests          AttendanceCorrectionRequest[]
+  emergencyContact            EmergencyContact?
+  headedDepartments           Department[]                     @relation("DepartmentHead")
+  departmentHeadAssignments   DepartmentHeadAssignment[]
   departmentViewerAssignments DepartmentViewerAssignment[]
-  assignedAssets             CompanyAsset[]
-  assetAssignments           AssetAssignment[]
-  taskAssignments            TaskAssignment[]
-  taskBoardMemberships       TaskBoardMember[]
-  assetReturns               AssetReturn[]
-  expenseClaims              ExpenseClaim[]
-  certificateRequests        CertificateRequest[]
-  attendanceReminders        AttendanceReminder[]
-  changeEvents               EmployeeChangeEvent[]
-  faceEvidence               FaceEvidence[]
-  rosterAssignments          RosterAssignment[]
-  overtimeClaims             OvertimeClaim[]
-  checklistInstances         ChecklistInstance[]
-  documentAcks               DocumentAck[]
-  sopReads                   SopRead[]
-  appraisalReviews           AppraisalReview[]
-  candidatesHired            Candidate[]                   @relation("HiredEmployee")
-  shiftAssignments           EmployeeShiftAssignment[]
-  leaveLedgerEntries         LeaveLedgerEntry[]
-  onboardingCases            OnboardingCase[]
-  nhoProfile                 NewHireProfile?
-  compensationRecords        EmployeeCompensation[]
-  recurringAllowances        RecurringAllowance[]
-  oneTimePayments            OneTimePayment[]
-  shiftSwapsRequested        ShiftSwapRequest[]            @relation("SwapRequester")
-  shiftSwapsAsCounterpart    ShiftSwapRequest[]            @relation("SwapCounterpart")
-  changeRequests             EmployeeChangeRequest[]
-  offboardingCases           OffboardingCase[]
-  offerLetters               OfferLetter[]
-  profileCorrectionRequests  ProfileCorrectionRequest[]
+  organizationAssignments     EmployeeOrganizationAssignment[]
+  assignedAssets              CompanyAsset[]
+  assetAssignments            AssetAssignment[]
+  taskAssignments             TaskAssignment[]
+  taskBoardMemberships        TaskBoardMember[]
+  assetReturns                AssetReturn[]
+  expenseClaims               ExpenseClaim[]
+  certificateRequests         CertificateRequest[]
+  attendanceReminders         AttendanceReminder[]
+  changeEvents                EmployeeChangeEvent[]
+  faceEvidence                FaceEvidence[]
+  rosterAssignments           RosterAssignment[]
+  overtimeClaims              OvertimeClaim[]
+  checklistInstances          ChecklistInstance[]
+  documentAcks                DocumentAck[]
+  sopReads                    SopRead[]
+  appraisalReviews            AppraisalReview[]
+  candidatesHired             Candidate[]                      @relation("HiredEmployee")
+  shiftAssignments            EmployeeShiftAssignment[]
+  leaveLedgerEntries          LeaveLedgerEntry[]
+  onboardingCases             OnboardingCase[]
+  nhoProfile                  NewHireProfile?
+  compensationRecords         EmployeeCompensation[]
+  recurringAllowances         RecurringAllowance[]
+  oneTimePayments             OneTimePayment[]
+  shiftSwapsRequested         ShiftSwapRequest[]               @relation("SwapRequester")
+  shiftSwapsAsCounterpart     ShiftSwapRequest[]               @relation("SwapCounterpart")
+  changeRequests              EmployeeChangeRequest[]
+  offboardingCases            OffboardingCase[]
+  offerLetters                OfferLetter[]
+  profileCorrectionRequests   ProfileCorrectionRequest[]
 
   @@index([lifecycleStage, status])
   @@map("employees")
@@ -542,62 +543,106 @@ model EmployeeShiftAssignment {
 }
 
 model Department {
-  departmentId       String                     @id @default(cuid()) @map("department_id")
-  name               String
-  /// Primary / first head (kept in sync with department_head_assignments for legacy lookups).
-  headEmployeeId     String?                    @map("head_employee_id")
-  headEmployee       Employee?                  @relation("DepartmentHead", fields: [headEmployeeId], references: [employeeId])
-  headAssignments    DepartmentHeadAssignment[]
-  viewerAssignments  DepartmentViewerAssignment[]
-  parentDepartmentId String?                    @map("parent_department_id")
-  parentDepartment   Department?                @relation("DepartmentHierarchy", fields: [parentDepartmentId], references: [departmentId])
-  childDepartments   Department[]               @relation("DepartmentHierarchy")
-  unitType           String                     @default("TEAM") @map("unit_type") @db.VarChar(20)
-  sortOrder          Int                        @default(0) @map("sort_order")
+  departmentId            String                           @id @default(cuid()) @map("department_id")
+  name                    String
+  /// Stable identifier for authorization and integrations; display name may change.
+  unitCode                String                           @unique @map("unit_code") @db.VarChar(60)
+  description             String?                          @db.Text
+  active                  Boolean                          @default(true)
+  /// Primary / first head (kept in sync with active primary head assignment).
+  headEmployeeId          String?                          @map("head_employee_id")
+  headEmployee            Employee?                        @relation("DepartmentHead", fields: [headEmployeeId], references: [employeeId])
+  headAssignments         DepartmentHeadAssignment[]
+  viewerAssignments       DepartmentViewerAssignment[]
+  parentDepartmentId      String?                          @map("parent_department_id")
+  parentDepartment        Department?                      @relation("DepartmentHierarchy", fields: [parentDepartmentId], references: [departmentId])
+  childDepartments        Department[]                     @relation("DepartmentHierarchy")
+  unitType                String                           @default("TEAM") @map("unit_type") @db.VarChar(20)
+  sortOrder               Int                              @default(0) @map("sort_order")
   /// When false, people in this unit skip face enrollment and check-in camera.
   /// Global Face Security pause still wins for the whole org.
-  faceVerificationEnabled Boolean                @default(true) @map("face_verification_enabled")
-  employees          Employee[]
-  taskBoardAccess    TaskBoardDepartment[]
+  faceVerificationEnabled Boolean                          @default(true) @map("face_verification_enabled")
+  createdAt               DateTime                         @default(now()) @map("created_at")
+  updatedAt               DateTime                         @updatedAt @map("updated_at")
+  employees               Employee[]
+  employeeOrgAssignments  EmployeeOrganizationAssignment[]
+  taskBoardAccess         TaskBoardDepartment[]
 
   @@index([parentDepartmentId])
   @@index([name])
+  @@index([active])
   @@map("departments")
 }
 
 /**
- * Multiple organization heads per unit (same person may also head several units).
+ * Historical organization head assignments. Active rows have effectiveTo = null.
+ * effectiveFrom is inclusive; effectiveTo is exclusive (assignment ends at start of that date).
  */
 model DepartmentHeadAssignment {
-  id           String     @id @default(cuid())
-  departmentId String     @map("department_id")
-  department   Department @relation(fields: [departmentId], references: [departmentId], onDelete: Cascade)
-  employeeId   String     @map("employee_id")
-  employee     Employee   @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
-  sortOrder    Int        @default(0) @map("sort_order")
-  createdAt    DateTime   @default(now()) @map("created_at")
+  id               String     @id @default(cuid())
+  departmentId     String     @map("department_id")
+  department       Department @relation(fields: [departmentId], references: [departmentId], onDelete: Cascade)
+  employeeId       String     @map("employee_id")
+  employee         Employee   @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  isPrimary        Boolean    @default(false) @map("is_primary")
+  effectiveFrom    DateTime   @map("effective_from") @db.Date
+  effectiveTo      DateTime?  @map("effective_to") @db.Date
+  assignedByUserId String?    @map("assigned_by_user_id")
+  reason           String?    @db.Text
+  sortOrder        Int        @default(0) @map("sort_order")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
 
-  @@unique([departmentId, employeeId])
-  @@index([employeeId])
+  @@index([departmentId, effectiveFrom, effectiveTo], map: "dha_dept_effective_idx")
+  @@index([employeeId, effectiveFrom, effectiveTo], map: "dha_employee_effective_idx")
   @@map("department_head_assignments")
 }
 
 /**
- * View-only access to a unit (and its child units): attendance, leave, and
- * related team records. Does not grant leave/punch approval.
+ * Historical view-only access to a unit and its descendants.
+ * Does not grant leave/punch approval.
  */
 model DepartmentViewerAssignment {
-  id           String     @id @default(cuid())
-  departmentId String     @map("department_id")
-  department   Department @relation(fields: [departmentId], references: [departmentId], onDelete: Cascade)
-  employeeId   String     @map("employee_id")
-  employee     Employee   @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
-  sortOrder    Int        @default(0) @map("sort_order")
-  createdAt    DateTime   @default(now()) @map("created_at")
+  id               String     @id @default(cuid())
+  departmentId     String     @map("department_id")
+  department       Department @relation(fields: [departmentId], references: [departmentId], onDelete: Cascade)
+  employeeId       String     @map("employee_id")
+  employee         Employee   @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  effectiveFrom    DateTime   @map("effective_from") @db.Date
+  effectiveTo      DateTime?  @map("effective_to") @db.Date
+  assignedByUserId String?    @map("assigned_by_user_id")
+  reason           String?    @db.Text
+  sortOrder        Int        @default(0) @map("sort_order")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
 
-  @@unique([departmentId, employeeId])
-  @@index([employeeId])
+  @@index([departmentId, effectiveFrom, effectiveTo], map: "dva_dept_effective_idx")
+  @@index([employeeId, effectiveFrom, effectiveTo], map: "dva_employee_effective_idx")
   @@map("department_viewer_assignments")
+}
+
+/**
+ * Canonical history of which organization unit an employee belonged to.
+ * Employee.departmentId remains the current primary snapshot for compatibility.
+ */
+model EmployeeOrganizationAssignment {
+  id                String     @id @default(cuid())
+  employeeId        String     @map("employee_id")
+  employee          Employee   @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  departmentId      String     @map("department_id")
+  department        Department @relation(fields: [departmentId], references: [departmentId], onDelete: Restrict)
+  organizationLevel String     @default("MEMBER") @map("organization_level") @db.VarChar(20)
+  isPrimary         Boolean    @default(true) @map("is_primary")
+  effectiveFrom     DateTime   @map("effective_from") @db.Date
+  effectiveTo       DateTime?  @map("effective_to") @db.Date
+  changedByUserId   String?    @map("changed_by_user_id")
+  reason            String?    @db.Text
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+
+  @@index([employeeId, isPrimary, effectiveFrom, effectiveTo], map: "eoa_employee_primary_idx")
+  @@index([departmentId, effectiveFrom, effectiveTo], map: "eoa_dept_effective_idx")
+  @@map("employee_organization_assignments")
 }
 
 model Branch {
@@ -1301,23 +1346,23 @@ model TaskAttachment {
 }
 
 model TaskBoard {
-  boardId         String              @id @default(cuid()) @map("board_id")
-  name            String
-  keyPrefix       String              @unique @map("key_prefix") @db.VarChar(8)
-  nextIssueNumber Int                 @default(1) @map("next_issue_number")
-  description     String?             @db.Text
-  accessType      TaskBoardAccessType @default(OPEN) @map("access_type")
-  archived        Boolean             @default(false)
-  version         Int                 @default(1)
-  customFieldDefs Json?               @map("custom_field_defs")
-  createdByUserId String              @map("created_by_user_id")
-  createdBy       User                @relation("TaskBoardCreator", fields: [createdByUserId], references: [id])
+  boardId          String                @id @default(cuid()) @map("board_id")
+  name             String
+  keyPrefix        String                @unique @map("key_prefix") @db.VarChar(8)
+  nextIssueNumber  Int                   @default(1) @map("next_issue_number")
+  description      String?               @db.Text
+  accessType       TaskBoardAccessType   @default(OPEN) @map("access_type")
+  archived         Boolean               @default(false)
+  version          Int                   @default(1)
+  customFieldDefs  Json?                 @map("custom_field_defs")
+  createdByUserId  String                @map("created_by_user_id")
+  createdBy        User                  @relation("TaskBoardCreator", fields: [createdByUserId], references: [id])
   stages           TaskStage[]
-  departmentAccess  TaskBoardDepartment[]
+  departmentAccess TaskBoardDepartment[]
   members          TaskBoardMember[]
   tasks            WorkTask[]
-  createdAt        DateTime            @default(now()) @map("created_at")
-  updatedAt        DateTime            @updatedAt @map("updated_at")
+  createdAt        DateTime              @default(now()) @map("created_at")
+  updatedAt        DateTime              @updatedAt @map("updated_at")
 
   @@index([archived, updatedAt])
   @@map("task_boards")

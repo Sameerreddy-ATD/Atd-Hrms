@@ -1,18 +1,30 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
+import {
+  addHeadAssignment,
+  endHeadAssignment,
+  getActiveHeadAssignmentsForUnit,
+  syncPrimaryHeadCache,
+} from "./organizationAssignments.js";
+import { startOfUtcDay } from "./organizationStructure.js";
 
 type Tx = Prisma.TransactionClient | PrismaClient;
 
 async function isStillOrganizationHead(tx: Tx, employeeId: string) {
+  const today = startOfUtcDay(new Date());
   const [assignmentCount, legacyCount] = await Promise.all([
-    tx.departmentHeadAssignment.count({ where: { employeeId } }),
+    tx.departmentHeadAssignment.count({
+      where: {
+        employeeId,
+        effectiveTo: null,
+        effectiveFrom: { lte: today },
+      },
+    }),
     tx.department.count({ where: { headEmployeeId: employeeId } }),
   ]);
   return assignmentCount > 0 || legacyCount > 0;
 }
 
-/** Mark an employee as an org head; the same person may head multiple departments.
- * Login role stays tied to organization unit (Sales/HR/etc.) — headship is chart-only.
- */
+/** Mark an employee as an org head; login role is NOT changed here. */
 export async function syncAssignedOrganizationHead(tx: Tx, headEmployeeId: string | null | undefined) {
   if (!headEmployeeId) return;
   const head = await tx.employee.findUnique({
@@ -28,10 +40,6 @@ export async function syncAssignedOrganizationHead(tx: Tx, headEmployeeId: strin
   }
 }
 
-/**
- * If this person no longer heads any unit, clear organizationLevel HEAD
- * so profile stays aligned with the Departments chart.
- */
 export async function syncClearedOrganizationHead(tx: Tx, employeeId: string) {
   if (await isStillOrganizationHead(tx, employeeId)) return;
   const employee = await tx.employee.findUnique({
@@ -47,111 +55,109 @@ export async function syncClearedOrganizationHead(tx: Tx, employeeId: string) {
 }
 
 async function currentHeadIdsForDepartment(tx: Tx, departmentId: string) {
-  const [assignments, department] = await Promise.all([
-    tx.departmentHeadAssignment.findMany({
-      where: { departmentId },
-      orderBy: { sortOrder: "asc" },
-      select: { employeeId: true },
-    }),
-    tx.department.findUnique({
-      where: { departmentId },
-      select: { headEmployeeId: true },
-    }),
-  ]);
-  if (assignments.length > 0) return assignments.map((row) => row.employeeId);
+  const active = await getActiveHeadAssignmentsForUnit(tx, departmentId);
+  if (active.length > 0) return active.map((row) => row.employeeId);
+  const department = await tx.department.findUnique({
+    where: { departmentId },
+    select: { headEmployeeId: true },
+  });
   return department?.headEmployeeId ? [department.headEmployeeId] : [];
 }
 
+/**
+ * Replace active heads for a unit (compat API used by department create/update).
+ * Historical rows are ended; new active assignments are created.
+ */
 export async function replaceDepartmentHeads(
   tx: Tx,
   departmentId: string,
   headEmployeeIds: string[],
+  input?: { assignedByUserId?: string; reason?: string },
 ) {
   const previousIds = await currentHeadIdsForDepartment(tx, departmentId);
   const nextIds = [...new Set(headEmployeeIds.filter(Boolean))];
+  const today = startOfUtcDay(new Date());
 
-  await tx.departmentHeadAssignment.deleteMany({ where: { departmentId } });
-  if (nextIds.length > 0) {
-    await tx.departmentHeadAssignment.createMany({
-      data: nextIds.map((employeeId, index) => ({
-        departmentId,
-        employeeId,
-        sortOrder: index,
-      })),
+  const active = await getActiveHeadAssignmentsForUnit(tx, departmentId, today);
+  for (const row of active) {
+    if (!nextIds.includes(row.employeeId)) {
+      await endHeadAssignment(tx, row.id, today, {
+        assignedByUserId: input?.assignedByUserId,
+        reason: input?.reason ?? "Head assignment replaced",
+      });
+    }
+  }
+
+  for (let index = 0; index < nextIds.length; index += 1) {
+    const employeeId = nextIds[index]!;
+    const stillActive = active.find((row) => row.employeeId === employeeId);
+    if (stillActive) {
+      if (index === 0 && !stillActive.isPrimary) {
+        await tx.departmentHeadAssignment.update({
+          where: { id: stillActive.id },
+          data: { isPrimary: true, sortOrder: 0 },
+        });
+      }
+      await syncAssignedOrganizationHead(tx, employeeId);
+      continue;
+    }
+    await addHeadAssignment(tx, {
+      departmentId,
+      employeeId,
+      isPrimary: index === 0,
+      effectiveFrom: today,
+      assignedByUserId: input?.assignedByUserId,
+      reason: input?.reason ?? "Head assignment updated",
     });
   }
-  await tx.department.update({
-    where: { departmentId },
-    data: { headEmployeeId: nextIds[0] ?? null },
-  });
 
-  for (const headEmployeeId of nextIds) {
-    await syncAssignedOrganizationHead(tx, headEmployeeId);
-  }
+  await syncPrimaryHeadCache(tx, departmentId, today);
+
   for (const removedId of previousIds) {
     if (!nextIds.includes(removedId)) {
       await syncClearedOrganizationHead(tx, removedId);
     }
   }
-
-  if (nextIds.length > 0) {
-    const viewers = await currentViewerIdsForDepartment(tx, departmentId);
-    const remainingViewers = viewers.filter((id) => !nextIds.includes(id));
-    if (remainingViewers.length !== viewers.length) {
-      await replaceDepartmentViewers(tx, departmentId, remainingViewers);
-    }
-  }
 }
 
-/** Ensure this employee is listed as a head of the given unit. */
 export async function ensureEmployeeHeadsDepartment(
   tx: Tx,
   employeeId: string,
   departmentId: string,
+  input?: { assignedByUserId?: string },
 ) {
   const current = await currentHeadIdsForDepartment(tx, departmentId);
   if (current.includes(employeeId)) {
     await syncAssignedOrganizationHead(tx, employeeId);
     return;
   }
-  await replaceDepartmentHeads(tx, departmentId, [...current, employeeId]);
+  await replaceDepartmentHeads(tx, departmentId, [...current, employeeId], input);
 }
 
-/** Remove this employee from every unit they currently head. */
 export async function removeEmployeeFromAllHeadships(tx: Tx, employeeId: string) {
-  const [assignments, legacy] = await Promise.all([
-    tx.departmentHeadAssignment.findMany({
-      where: { employeeId },
-      select: { departmentId: true },
-    }),
-    tx.department.findMany({
-      where: { headEmployeeId: employeeId },
-      select: { departmentId: true },
-    }),
-  ]);
-  const departmentIds = [
-    ...new Set([
-      ...assignments.map((row) => row.departmentId),
-      ...legacy.map((row) => row.departmentId),
-    ]),
-  ];
-  for (const departmentId of departmentIds) {
-    const heads = await currentHeadIdsForDepartment(tx, departmentId);
+  const today = startOfUtcDay(new Date());
+  const active = await tx.departmentHeadAssignment.findMany({
+    where: { employeeId, effectiveTo: null },
+    select: { id: true, departmentId: true },
+  });
+  for (const row of active) {
+    await endHeadAssignment(tx, row.id, today, { reason: "Removed from all head assignments" });
+  }
+  const legacy = await tx.department.findMany({
+    where: { headEmployeeId: employeeId },
+    select: { departmentId: true },
+  });
+  for (const row of legacy) {
+    const heads = await currentHeadIdsForDepartment(tx, row.departmentId);
     await replaceDepartmentHeads(
       tx,
-      departmentId,
+      row.departmentId,
       heads.filter((id) => id !== employeeId),
     );
   }
   await syncClearedOrganizationHead(tx, employeeId);
 }
 
-/**
- * Keep Departments chart and employee profile organizationLevel in sync.
- * - HEAD + department → ensure they head that department (and set level HEAD)
- * - leaving HEAD → remove from all head assignments
- * - department change while HEAD → head the new unit; drop headship on the old home unit only
- */
 export async function syncEmployeeHeadshipFromProfile(
   tx: Tx,
   input: {
@@ -197,59 +203,88 @@ export async function syncEmployeeHeadshipFromProfile(
 }
 
 export async function headedDepartmentsForEmployee(tx: Tx, employeeId: string) {
+  const today = startOfUtcDay(new Date());
   const [assignments, legacy] = await Promise.all([
     tx.departmentHeadAssignment.findMany({
-      where: { employeeId },
-      include: { department: { select: { departmentId: true, name: true } } },
-      orderBy: { sortOrder: "asc" },
+      where: { employeeId, effectiveTo: null },
+      include: { department: { select: { departmentId: true, name: true, unitCode: true } } },
+      orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
     }),
     tx.department.findMany({
       where: { headEmployeeId: employeeId },
-      select: { departmentId: true, name: true },
+      select: { departmentId: true, name: true, unitCode: true },
     }),
   ]);
-  const byId = new Map<string, { id: string; name: string }>();
-  for (const row of assignments) {
+  const activeAssignments = assignments.filter((row) =>
+    row.effectiveFrom.getTime() <= today.getTime(),
+  );
+  const byId = new Map<string, { id: string; name: string; unitCode?: string }>();
+  for (const row of activeAssignments) {
     byId.set(row.department.departmentId, {
       id: row.department.departmentId,
       name: row.department.name,
+      unitCode: row.department.unitCode,
     });
   }
   for (const row of legacy) {
     if (!byId.has(row.departmentId)) {
-      byId.set(row.departmentId, { id: row.departmentId, name: row.name });
+      byId.set(row.departmentId, {
+        id: row.departmentId,
+        name: row.name,
+        unitCode: row.unitCode,
+      });
     }
   }
   return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 async function currentViewerIdsForDepartment(tx: Tx, departmentId: string) {
-  const assignments = await tx.departmentViewerAssignment.findMany({
-    where: { departmentId },
+  const active = await tx.departmentViewerAssignment.findMany({
+    where: { departmentId, effectiveTo: null },
     orderBy: { sortOrder: "asc" },
-    select: { employeeId: true },
+    select: { employeeId: true, effectiveFrom: true },
   });
-  return assignments.map((row) => row.employeeId);
+  const today = startOfUtcDay(new Date());
+  return active
+    .filter((row) => row.effectiveFrom.getTime() <= today.getTime())
+    .map((row) => row.employeeId);
 }
 
 export async function replaceDepartmentViewers(
   tx: Tx,
   departmentId: string,
   viewerEmployeeIds: string[],
+  input?: { assignedByUserId?: string; reason?: string },
 ) {
   const headIds = await currentHeadIdsForDepartment(tx, departmentId);
   const nextIds = [...new Set(viewerEmployeeIds.filter(Boolean))].filter(
     (employeeId) => !headIds.includes(employeeId),
   );
+  const today = startOfUtcDay(new Date());
 
-  await tx.departmentViewerAssignment.deleteMany({ where: { departmentId } });
-  if (nextIds.length > 0) {
-    await tx.departmentViewerAssignment.createMany({
-      data: nextIds.map((employeeId, index) => ({
+  const active = await tx.departmentViewerAssignment.findMany({
+    where: { departmentId, effectiveTo: null },
+  });
+  for (const row of active) {
+    if (!nextIds.includes(row.employeeId)) {
+      await tx.departmentViewerAssignment.update({
+        where: { id: row.id },
+        data: { effectiveTo: today, reason: input?.reason ?? "Viewer assignment replaced" },
+      });
+    }
+  }
+
+  for (const employeeId of nextIds) {
+    const exists = active.some((row) => row.employeeId === employeeId);
+    if (exists) continue;
+    await tx.departmentViewerAssignment.create({
+      data: {
         departmentId,
         employeeId,
-        sortOrder: index,
-      })),
+        effectiveFrom: today,
+        assignedByUserId: input?.assignedByUserId,
+        reason: input?.reason ?? "Viewer assignment updated",
+      },
     });
   }
 }

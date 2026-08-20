@@ -1,5 +1,6 @@
 import {
   COMPANY_LABELS,
+  ROLE_LABELS,
   WEEKLY_OFF_POLICY_LABELS,
   type BankAccountType,
   type Branch,
@@ -43,7 +44,7 @@ export type LoginImportFieldKey =
   | "name"
   | "email"
   | "password"
-  /** Kept on the row for typing only — never shown; role comes from org unit. */
+  /** Explicit application access role; defaults to Team Member when blank. */
   | "role"
   | "companyEntity"
   | "phone"
@@ -105,6 +106,15 @@ export const LOGIN_IMPORT_COLUMNS: LoginImportColumn[] = [
   { key: "name", label: "Full Name*", required: true, type: "text", width: 180 },
   { key: "email", label: "Email*", required: true, type: "email", width: 220 },
   { key: "password", label: "Temporary Password*", required: true, type: "password", width: 160 },
+  {
+    key: "role",
+    label: "Application Role*",
+    required: true,
+    type: "enum",
+    width: 160,
+    defaultValue: ROLE_LABELS.employee,
+    enumOptions: Object.values(ROLE_LABELS),
+  },
   {
     key: "companyEntity",
     label: "Employer Company*",
@@ -400,14 +410,17 @@ function resolveImportDepartment(
   return { department, isCeoUnit: ceoUnit, mainUnit, childUnit };
 }
 
-/** Login role is always derived from organization unit selection. */
-export function resolveRoleForImportRow(
-  row: LoginImportRowValues,
-  departments: Department[],
-): Role {
-  const { department, isCeoUnit } = resolveImportDepartment(row, departments);
-  if (isCeoUnit) return "ceo";
-  return inferLoginRoleFromDepartment(department, departments);
+/** Resolve explicit application role from import row; defaults to Team Member. */
+export function resolveRoleForImportRow(row: LoginImportRowValues): Role {
+  const raw = row.role.trim();
+  if (!raw) return "employee";
+  const byLabel = Object.entries(ROLE_LABELS).find(
+    ([, label]) => label.toLowerCase() === raw.toLowerCase(),
+  );
+  if (byLabel) return byLabel[0] as Role;
+  const normalized = raw.toLowerCase().replace(/\s+/g, "_") as Role;
+  if (normalized in ROLE_LABELS) return normalized;
+  return "employee";
 }
 
 export function childUnitChoices(departments: Department[]) {
@@ -430,7 +443,7 @@ export function validateLoginRow(
   if (isRowBlank(row)) return [];
 
   const errors: string[] = [];
-  const role = resolveRoleForImportRow(row, context.departments);
+  const role = resolveRoleForImportRow(row);
   const isCeo = role === "ceo";
   const isBowserPilot = role === "driver";
   const companyEntity = resolveCompany(row.companyEntity);
@@ -630,7 +643,7 @@ export function rowToCreatePayload(
     managerId?: string | null;
   },
 ): LoginCreatePayload {
-  const role = resolveRoleForImportRow(row, context.departments);
+  const role = resolveRoleForImportRow(row);
   const isCeo = role === "ceo";
   const companyEntity = resolveCompany(row.companyEntity) ?? "ANYTIME_DIESEL";
   const weeklyOffPolicy = resolveWeeklyOff(row.weeklyOffPolicy) ?? "SELECTABLE";

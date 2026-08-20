@@ -9,7 +9,7 @@ was actually used. Read this together with [Upgrade and Maintenance](UPGRADE_AND
 | --------------- | ------------------------------------------------------------------------ |
 | Host            | AWS Lightsail, `13.204.5.57`, `ip-172-26-9-51`                           |
 | DNS             | `hrms.anytime-diesel.com` (also `insidesales.anytime-diesel.com`)        |
-| SSH             | `ssh -i InsidesalesHRMS.pem ubuntu@13.204.5.57`                          |
+| SSH             | `ssh -i /path/to/Downloads/hrms/InsidesalesHRMS.pem ubuntu@13.204.5.57` |
 | OS / runtime    | Ubuntu 24.04.4 LTS, Node v22.23.2, npm 10.9.8                            |
 | Size            | 2 vCPU, 7.8 GB RAM, 154 GB disk (7.6 GB used), **no swap**               |
 | Application     | `/opt/anytime-crew-hub`, owned by `ubuntu`                               |

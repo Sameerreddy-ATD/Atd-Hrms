@@ -6,6 +6,10 @@ import { clearCookies, verifyAccessToken } from "./security.js";
 import { config } from "./config.js";
 import { moduleForApiPath, roleHasModuleAccess } from "./module-access.js";
 import { findActiveSession, touchSession } from "./sessions.js";
+import {
+  ownedUnitIdsForEmployee,
+  visibleEmployeeIdsForOrgScope,
+} from "./organizationAssignments.js";
 
 declare global {
   namespace Express {
@@ -56,63 +60,15 @@ export function formatOrgUnitPath(
 }
 
 /**
- * Login role is assigned from the organization unit only.
- * Heads / managers are set under Departments — not via a create-login role picker.
- * - No unit → CEO
- * - Fleet & Driver Team (or legacy "Drivers") → Bowser Pilot
- * - HR / Human Resources → HR
- * - Sales path → Sales
- * - Everything else → Team Member
+ * Resolve application login role for NEW account creation only.
+ * Organization unit and application role are independent — never infer privileged
+ * roles from unit assignment, unit code, or missing unit.
+ * Existing users keep their stored User.role — this must never rewrite them.
  */
-export function resolveTargetLoginRole(input: {
-  unitName?: string | null;
-  unitPath?: string | null;
-  /** Ignored on create — kept optional so old clients do not break validation. */
+export function resolveLoginRoleForNewAccount(input: {
   explicitRole?: Role | null;
-  organizationLevel?: string | null;
 }): Role {
-  const name = (input.unitName ?? "").trim().toLowerCase();
-  const path = (input.unitPath ?? name).trim().toLowerCase();
-  if (!name && !path) return Role.CEO;
-
-  // Legacy top-level CEO bucket (pre "no unit" create path).
-  if (name === "executive leadership") return Role.CEO;
-
-  // Only the CoS unit itself — not teams under Chief of Staff.
-  if (name === "chief of staff" || name === "cos") {
-    return Role.CHIEF_OF_STAFF;
-  }
-
-  if (
-    name.includes("fleet & driver") ||
-    path.includes("fleet & driver") ||
-    name === "drivers" ||
-    path === "drivers"
-  ) {
-    return Role.DRIVER;
-  }
-
-  if (
-    name === "hr" ||
-    name.includes("hr department") ||
-    name.includes("human resources") ||
-    path.includes("human resources") ||
-    /(^|\/)\s*hr(\s|\/|$)/.test(path)
-  ) {
-    return Role.HR;
-  }
-
-  if (
-    name.includes("sales") ||
-    path.includes("sales team") ||
-    path.includes("inside sales") ||
-    path.includes("field sales") ||
-    path.includes("tele sales")
-  ) {
-    return Role.SALES;
-  }
-
-  return Role.EMPLOYEE;
+  return input.explicitRole ?? Role.EMPLOYEE;
 }
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
@@ -241,96 +197,18 @@ export async function assertCanViewTeamAttendance(user: Express.Request["user"])
 
 /** True when this employee is head of one or more organization units (multi-unit / multi-head). */
 export async function isAssignedOrganizationHead(employeeId: string) {
-  const [assignmentCount, legacyCount] = await Promise.all([
-    prisma.departmentHeadAssignment.count({ where: { employeeId } }),
-    prisma.department.count({ where: { headEmployeeId: employeeId } }),
-  ]);
-  return assignmentCount > 0 || legacyCount > 0;
+  const owned = await ownedUnitIdsForEmployee(prisma, employeeId, "head");
+  return owned.length > 0;
 }
 
 /** Returns active employees in the units below an organizational head. */
 export async function getHeadedOrganizationTeamEmployeeIds(employeeId: string) {
-  return teamEmployeeIdsForOwnedUnits(employeeId, "head");
+  return visibleEmployeeIdsForOrgScope(prisma, employeeId, "head");
 }
 
 /** Headed units plus units this person was given view access to (and their children). */
 export async function getOrganizationTeamEmployeeIds(employeeId: string) {
-  return teamEmployeeIdsForOwnedUnits(employeeId, "view");
-}
-
-type UnitAccessMode = "head" | "view";
-
-async function teamEmployeeIdsForOwnedUnits(employeeId: string, mode: UnitAccessMode) {
-  const [employee, units, assignments, viewerAssignments] = await Promise.all([
-    prisma.employee.findUnique({
-      where: { employeeId },
-      select: { departmentId: true, organizationLevel: true },
-    }),
-    prisma.department.findMany({
-      select: { departmentId: true, parentDepartmentId: true, headEmployeeId: true },
-    }),
-    prisma.departmentHeadAssignment.findMany({
-      where: { employeeId },
-      select: { departmentId: true },
-    }),
-    mode === "view"
-      ? prisma.departmentViewerAssignment.findMany({
-          where: { employeeId },
-          select: { departmentId: true },
-        })
-      : Promise.resolve([] as Array<{ departmentId: string }>),
-  ]);
-  if (!employee) return [];
-
-  // One person may head or view multiple units — and a unit may have multiple heads.
-  const ownedUnitIds = [
-    ...new Set([
-      ...assignments.map((row) => row.departmentId),
-      ...viewerAssignments.map((row) => row.departmentId),
-      ...units
-        .filter((unit) => unit.headEmployeeId === employeeId)
-        .map((unit) => unit.departmentId),
-    ]),
-  ];
-  if (
-    mode === "head" &&
-    ownedUnitIds.length === 0 &&
-    employee.organizationLevel === "HEAD" &&
-    employee.departmentId
-  ) {
-    ownedUnitIds.push(employee.departmentId);
-  }
-  if (ownedUnitIds.length === 0) return [];
-
-  const children = new Map<string, string[]>();
-  for (const unit of units) {
-    if (!unit.parentDepartmentId) continue;
-    children.set(unit.parentDepartmentId, [
-      ...(children.get(unit.parentDepartmentId) ?? []),
-      unit.departmentId,
-    ]);
-  }
-  const visibleUnitIds = new Set(ownedUnitIds);
-  const queue = [...ownedUnitIds];
-  while (queue.length) {
-    const current = queue.shift()!;
-    for (const childId of children.get(current) ?? []) {
-      if (!visibleUnitIds.has(childId)) {
-        visibleUnitIds.add(childId);
-        queue.push(childId);
-      }
-    }
-  }
-
-  const team = await prisma.employee.findMany({
-    where: {
-      departmentId: { in: [...visibleUnitIds] },
-      status: "ACTIVE",
-      employeeId: { not: employeeId },
-    },
-    select: { employeeId: true },
-  });
-  return team.map((member) => member.employeeId);
+  return visibleEmployeeIdsForOrgScope(prisma, employeeId, "view");
 }
 
 export async function assertEmployeeAccess(viewer: Express.Request["user"], employeeId: string) {

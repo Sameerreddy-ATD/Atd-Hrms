@@ -129,7 +129,7 @@ export const createUserSchema = z
       .max(200)
       .regex(/[A-Z]/, "Password must contain an uppercase letter")
       .regex(/[0-9]/, "Password must contain a number"),
-    role: z.nativeEnum(Role).optional(), // ignored — role is inferred from organization unit
+    role: z.nativeEnum(Role).optional(),
     employeeId: z.string().optional(),
     employeeCode: z.string().trim().min(1).max(40).optional(),
     departmentId: z.string().nullable().optional(),
@@ -281,6 +281,15 @@ export const branchUpdateSchema = branchSchema.partial();
 
 export const departmentSchema = z.object({
   name: z.string().min(2).max(160),
+  unitCode: z
+    .string()
+    .trim()
+    .min(2)
+    .max(60)
+    .regex(/^[A-Z0-9_]+$/, "unitCode must be uppercase letters, numbers, and underscores")
+    .optional(),
+  description: z.string().trim().max(2000).nullable().optional(),
+  active: z.boolean().optional(),
   /** @deprecated Prefer headEmployeeIds — kept for older clients. */
   headEmployeeId: z.string().nullable().optional(),
   headEmployeeIds: z.array(z.string().min(1)).max(40).optional(),
@@ -289,6 +298,32 @@ export const departmentSchema = z.object({
   unitType: z.enum(["TEAM", "SUBTEAM", "FUNCTION"]).optional(),
   sortOrder: z.coerce.number().int().min(0).max(10000).optional(),
   faceVerificationEnabled: z.boolean().optional(),
+});
+
+export const organizationTransferSchema = z.object({
+  employeeId: z.string().min(1),
+  newOrganizationUnitId: z.string().min(1),
+  newOrganizationLevel: z.enum(["HEAD", "SENIOR", "JUNIOR", "MEMBER"]).optional(),
+  effectiveDate: z.coerce.date(),
+  reason: z.string().trim().max(500).optional(),
+});
+
+export const organizationHeadAssignSchema = z.object({
+  employeeId: z.string().min(1),
+  isPrimary: z.boolean().optional(),
+  effectiveFrom: z.coerce.date().optional(),
+  reason: z.string().trim().max(500).optional(),
+});
+
+export const organizationEndAssignmentSchema = z.object({
+  effectiveTo: z.coerce.date(),
+  reason: z.string().trim().max(500).optional(),
+});
+
+export const organizationViewerAssignSchema = z.object({
+  employeeId: z.string().min(1),
+  effectiveFrom: z.coerce.date().optional(),
+  reason: z.string().trim().max(500).optional(),
 });
 
 export const departmentUpdateSchema = departmentSchema.partial();
