@@ -72,6 +72,31 @@ Rules:
 
 Default stored field selection (while off): personal phone and emergency contact.
 
+## Post-punch profile verification
+
+Employees confirm their profile after check-in until `employees.profile_verified` is true.
+
+1. The dashboard modal walks identity, employment, banking, statutory, and emergency contact.
+2. Each field is marked Correct or Wrong; Wrong requires a replacement value and a consent checkbox.
+3. Emergency contact upserts immediately. Other WRONG fields become `profile_correction_requests`.
+4. HR / Main Admin / Developer Admin approve or decline. Approval:
+   - encrypts bank, PAN, Aadhaar, and UAN (`encryptEmployeeField` + last-four);
+   - mirrors name, email, and phone onto the linked `users` row;
+   - rejects duplicate email or employee code and invalid dates/enums.
+5. Developer Admin **Re-trigger Profile Verification** in System Settings clears
+   `profile_verified` for active employees.
+
+CEO, Chief of Staff, and Bowser Pilot (`driver`) accounts are exempt.
+
+Endpoints:
+
+- `POST /employees/me/profile-verification`
+- `GET /profile-corrections` (Manager, HR, Main Admin, Developer Admin)
+- `POST /profile-corrections/:id/review` (HR, Main Admin, Developer Admin)
+- `POST /admin/reset-profile-verification` (Developer Admin)
+
+The older `POST /profile/edit-requests` stub is unused; verification is the correction path.
+
 ### My Profile layout and password fields
 
 - Phones: expandable section cards (identity, employment, banking, statutory, emergency,

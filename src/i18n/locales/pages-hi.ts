@@ -1783,6 +1783,19 @@ const pages = {
     fieldEmergencyMedicalNotes: "चिकित्सा नोट्स",
     profileVerifiedBadge: "प्रोफ़ाइल सत्यापित",
     profileNotVerifiedBadge: "प्रोफ़ाइल सत्यापित नहीं",
+    policyTitle: "प्रोफ़ाइल सत्यापन संकेत",
+    policyHelp:
+      "सभी के लिए सत्यापन बैनर और चेक-इन संकेत बंद करने के लिए इसे बंद करें। चालू होने पर केवल चयनित भूमिकाओं से पूछा जाएगा।",
+    policyToggle: "चयनित भूमिकाओं से प्रोफ़ाइल सत्यापन माँगें",
+    policyLoading: "नीति लोड हो रही है…",
+    policyOn: "चालू · {{count}} भूमिका(एँ) लक्षित",
+    policyOff: "बंद · किसी से सत्यापन नहीं माँगा जाएगा",
+    policyWho: "किससे पूछा जाए",
+    policyWhoHelp:
+      "CEO, मुख्य ऑफ स्टाफ और बाउज़र पायलट से कभी नहीं पूछा जाता। परिवर्तन अगले लॉगिन या रीफ़्रेश पर लागू होते हैं।",
+    policySelectRolesFirst: "चालू करने से पहले कम से कम एक भूमिका चुनें",
+    policyEnabledToast: "{{count}} भूमिका(ओं) के लिए प्रोफ़ाइल सत्यापन चालू",
+    policyDisabledToast: "सभी के लिए प्रोफ़ाइल सत्यापन संकेत बंद हैं",
   },
   profileCorrections: {
     title: "प्रोफ़ाइल सुधार",
@@ -1797,6 +1810,9 @@ const pages = {
     confirmDecline: "इस सुधार अनुरोध को अस्वीकृत करें?",
     before: "पहले", after: "बाद में",
     resetVerification: "प्रोफ़ाइल सत्यापन फिर से शुरू करें",
+    resetVerificationHelp:
+      "हर active employee से अगले check-in पर profile दोबारा confirm कराएँ। Pending corrections पर कोई असर नहीं।",
+    reviewOnlyHr: "केवल HR और admin corrections approve या decline कर सकते हैं।",
     resetConfirm: "इससे सभी कर्मचारियों को अगले पंच-इन पर अपनी प्रोफ़ाइल फिर से सत्यापित करनी होगी। जारी रखें?",
     resetSuccess: "{{count}} कर्मचारियों के लिए प्रोफ़ाइल सत्यापन रीसेट।",
   },

@@ -179,6 +179,8 @@ export function userDto(
     isFieldEmployee: user.employee?.isFieldEmployee ?? undefined,
     weeklyOffPolicy: user.employee?.weeklyOffPolicy ?? undefined,
     profileVerified: user.employee?.profileVerified ?? false,
+    /** Set by auth handlers from the active Dev Admin policy. Defaults off. */
+    profileVerificationRequired: false,
     employeeCode: user.employee?.employeeCode ?? undefined,
     dateOfBirth: user.employee?.dateOfBirth?.toISOString().slice(0, 10),
     gender: user.employee?.gender ?? undefined,

@@ -52,6 +52,8 @@ optional cleanup, not a gate on punching today.
 ## Leave policy (summary)
 
 - **Casual Leave**, **Sick Leave**, **Unpaid Leave / LOP**, and **Comp Off** are the leave types.
+- One request may split days across those types (for example 1 Casual + 2 Unpaid). Each type is
+  validated on its own balance. Unpaid days are recorded for HR salary handling outside this portal.
 - Mobile check-in on an approved leave day asks for confirmation; biometric punch cancels that date
   directly.
 - **Sick Leave:** private medical certificate upload (PDF/image) within **48 hours** after return;

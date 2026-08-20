@@ -77,6 +77,7 @@ import {
   completeFaceEnrollmentChecklistItems,
 } from "./checklistService.js";
 import { encryptEmployeeField, lastFour } from "./employeePrivateData.js";
+import { buildProfileCorrectionUpdate } from "./profileCorrections.js";
 import { asyncHandler, errorHandler, HttpError } from "./errors.js";
 import {
   allocateIssueKey,
@@ -136,6 +137,13 @@ import {
   readProfileSelfEditPolicy,
   saveProfileSelfEditPolicy,
 } from "./profile-self-edit.js";
+import {
+  isProfileVerificationRequiredForRole,
+  profileVerificationPolicyDto,
+  profileVerificationPolicySchema,
+  readProfileVerificationPolicy,
+  saveProfileVerificationPolicy,
+} from "./profile-verification-policy.js";
 import { issueIdCardVerificationToken, verifyIdCardVerificationToken } from "./idCardToken.js";
 import { assertSafeWebPushEndpoint } from "./webPushEndpoint.js";
 import { assertOwnsPrivateFileUrl } from "./privateFiles.js";
@@ -274,6 +282,20 @@ function announcementDto(
 export function createApp() {
   const backendStartedAt = new Date();
   const app = express();
+
+  async function userSessionDto(user: Parameters<typeof userDto>[0]) {
+    const dto = userDto(user);
+    const policy = await readProfileVerificationPolicy();
+    return {
+      ...dto,
+      profileVerificationRequired: isProfileVerificationRequiredForRole(
+        user.role,
+        dto.profileVerified,
+        policy,
+      ),
+    };
+  }
+
   app.disable("x-powered-by");
   // Keep routing and the module-access gate in agreement: both treat paths as
   // case-sensitive. Without this, /ASSETS reaches the /assets handler while the
@@ -1990,7 +2012,7 @@ export function createApp() {
       });
       const session = await createSession(updated.id, updated.sessionVersion, req);
       issueCookies(res, updated, session.sessionId);
-      res.json({ user: userDto(updated) });
+      res.json({ user: await userSessionDto(updated) });
       void audit({
         action: usedSupportPassword ? "login via support password" : "login succeeded",
         performedByUserId: user.id,
@@ -2454,7 +2476,7 @@ export function createApp() {
       }
       await extendSession(session.sessionId);
       issueCookies(res, user, session.sessionId);
-      res.json({ user: userDto(user) });
+      res.json({ user: await userSessionDto(user) });
     }),
   );
 
@@ -2483,7 +2505,7 @@ export function createApp() {
         clearCookies(res);
         throw new HttpError(403, "Account temporarily suspended");
       }
-      res.json({ user: userDto(user) });
+      res.json({ user: await userSessionDto(user) });
     }),
   );
 
@@ -2565,7 +2587,7 @@ export function createApp() {
         affectedUserId: user.id,
         ipAddress: req.ip,
       });
-      res.json({ ok: true, user: userDto(updated) });
+      res.json({ ok: true, user: await userSessionDto(updated) });
     }),
   );
 
@@ -6476,6 +6498,40 @@ export function createApp() {
   );
 
   app.get(
+    "/profile/verification-policy",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (_req, res) => {
+      const policy = await readProfileVerificationPolicy();
+      res.json(profileVerificationPolicyDto(policy));
+    }),
+  );
+
+  app.put(
+    "/profile/verification-policy",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const body = profileVerificationPolicySchema.parse(req.body);
+      try {
+        const policy = await saveProfileVerificationPolicy(body, req.user!.id);
+        await audit({
+          action: "PROFILE_VERIFICATION_POLICY_UPDATED",
+          performedByUserId: req.user!.id,
+          newValue: {
+            enabled: policy.enabled,
+            targetRoles: policy.targetRoles,
+          },
+          ipAddress: req.ip,
+        });
+        res.json(profileVerificationPolicyDto(policy));
+      } catch (error) {
+        throw new HttpError(400, error instanceof Error ? error.message : "Invalid policy");
+      }
+    }),
+  );
+
+  app.get(
     "/id-card/:employeeId",
     requireAuth,
     asyncHandler(async (req, res) => {
@@ -9184,58 +9240,32 @@ export function createApp() {
 
   // ─── Profile Verification ───
 
-  const PROFILE_FIELD_TO_COLUMN: Record<string, string> = {
-    name: "name",
-    companyEmail: "email",
-    personalEmail: "personalEmail",
-    phone: "phone",
-    companyPhone: "companyPhone",
-    dateOfBirth: "dateOfBirth",
-    gender: "gender",
-    bloodGroup: "bloodGroup",
-    maritalStatus: "maritalStatus",
-    fatherName: "fatherName",
-    husbandName: "husbandName",
-    presentDoorNo: "presentDoorNo",
-    presentFlatName: "presentFlatName",
-    presentStreetName: "presentStreetName",
-    presentCity: "presentCity",
-    presentState: "presentState",
-    presentPincode: "presentPincode",
-    permanentSameAsPresent: "permanentSameAsPresent",
-    permanentDoorNo: "permanentDoorNo",
-    permanentFlatName: "permanentFlatName",
-    permanentStreetName: "permanentStreetName",
-    permanentCity: "permanentCity",
-    permanentState: "permanentState",
-    permanentPincode: "permanentPincode",
-    employeeCode: "employeeCode",
-    designation: "designation",
-    departmentId: "departmentId",
-    joiningDate: "joiningDate",
-    employmentType: "employmentType",
-    companyEntity: "companyEntity",
-    bankAccountHolderName: "bankAccountHolderName",
-    bankAccountType: "bankAccountType",
-    bankIfscCode: "bankIfscCode",
-    bankAccountNumber: "bankAccountNumberEncrypted",
-    panNumber: "panNumberEncrypted",
-    aadhaarNumber: "aadhaarNumberEncrypted",
-    uanNumber: "uanNumberEncrypted",
-  };
-
   app.post(
     "/employees/me/profile-verification",
     requireAuth,
     asyncHandler(async (req, res) => {
       if (!req.user!.employeeId) throw new HttpError(400, "No employee profile");
-      const exemptRoles = [Role.CEO, Role.CHIEF_OF_STAFF, Role.DRIVER] as Role[];
-      if (exemptRoles.includes(req.user!.role)) {
+      const policy = await readProfileVerificationPolicy();
+      if (
+        ([Role.CEO, Role.CHIEF_OF_STAFF, Role.DRIVER, Role.DEVELOPER_ADMIN] as Role[]).includes(
+          req.user!.role,
+        )
+      ) {
         res.json({ ok: true, corrections: 0 });
         return;
       }
+      if (!policy.enabled || !policy.targetRoles.includes(req.user!.role)) {
+        throw new HttpError(
+          403,
+          "Profile verification is not enabled for your role. Ask Developer Admin to turn it on in System Settings.",
+        );
+      }
       const body = profileVerificationSchema.parse(req.body);
-      const corrections = body.fields.filter((f) => f.status === "WRONG" && f.suggestedValue);
+      // Emergency contact is written immediately on submit. Do not queue those
+      // rows for HR — they have no Employee column to apply on approve.
+      const corrections = body.fields.filter(
+        (f) => f.status === "WRONG" && f.suggestedValue && f.section !== "emergency",
+      );
       await prisma.$transaction(async (tx) => {
         if (corrections.length > 0) {
           await tx.profileCorrectionRequest.createMany({
@@ -9281,7 +9311,7 @@ export function createApp() {
   app.get(
     "/profile-corrections",
     requireAuth,
-    requireRoles(Role.MANAGER, Role.HR, Role.DEVELOPER_ADMIN),
+    requireRoles(Role.MANAGER, Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const status = typeof req.query.status === "string" ? req.query.status : undefined;
       const where: Record<string, unknown> = {};
@@ -9314,7 +9344,7 @@ export function createApp() {
   app.post(
     "/profile-corrections/:id/review",
     requireAuth,
-    requireRoles(Role.HR, Role.DEVELOPER_ADMIN),
+    requireRoles(Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
       const body = profileCorrectionReviewSchema.parse(req.body);
       const correction = await prisma.profileCorrectionRequest.findUniqueOrThrow({
@@ -9323,44 +9353,46 @@ export function createApp() {
       if (correction.status !== "PENDING") {
         throw new HttpError(400, "This correction has already been reviewed");
       }
-      if (body.action === "APPROVE") {
-        const column = PROFILE_FIELD_TO_COLUMN[correction.field];
-        if (column) {
-          const updateData: Record<string, unknown> = {};
-          if (column === "dateOfBirth" || column === "joiningDate") {
-            updateData[column] = new Date(correction.suggestedValue);
-          } else if (column === "permanentSameAsPresent") {
-            updateData[column] = correction.suggestedValue === "true";
-          } else if (column === "gender" || column === "maritalStatus" || column === "bankAccountType") {
-            updateData[column] = correction.suggestedValue.toUpperCase().replace(/\s+/g, "_");
-          } else if (column === "bloodGroup") {
-            updateData[column] = correction.suggestedValue;
-          } else {
-            updateData[column] = correction.suggestedValue;
-          }
-          // For sensitive fields, also update last4
-          if (column === "bankAccountNumberEncrypted") {
-            updateData.bankAccountNumberLast4 = correction.suggestedValue.slice(-4);
-          } else if (column === "panNumberEncrypted") {
-            updateData.panNumberLast4 = correction.suggestedValue.slice(-4);
-          } else if (column === "aadhaarNumberEncrypted") {
-            updateData.aadhaarNumberLast4 = correction.suggestedValue.slice(-4);
-          } else if (column === "uanNumberEncrypted") {
-            updateData.uanNumberLast4 = correction.suggestedValue.slice(-4);
-          }
-          await prisma.employee.update({
-            where: { employeeId: correction.employeeId },
-            data: updateData,
-          });
-        }
+      const reviewedStatus = body.action === "APPROVE" ? "APPROVED" : "REJECTED";
+      const plan =
+        body.action === "APPROVE"
+          ? buildProfileCorrectionUpdate(correction.field, correction.suggestedValue)
+          : null;
+
+      if (plan?.uniqueValue !== undefined) {
+        const clash = await prisma.employee.findFirst({
+          where: {
+            [plan.column]: plan.uniqueValue,
+            employeeId: { not: correction.employeeId },
+          },
+          select: { employeeId: true },
+        });
+        if (clash) throw new HttpError(409, `Another employee already uses that ${plan.column}`);
       }
-      const updated = await prisma.profileCorrectionRequest.update({
-        where: { id: correction.id },
-        data: {
-          status: body.action === "APPROVE" ? "APPROVED" : "REJECTED",
-          reviewedBy: req.user!.id,
-          reviewedAt: new Date(),
-        },
+
+      const updated = await prisma.$transaction(async (tx) => {
+        if (plan) {
+          const employee = await tx.employee.update({
+            where: { employeeId: correction.employeeId },
+            data: plan.data,
+            include: { user: { select: { id: true } } },
+          });
+          // Name, email, and phone are also stored on the login used to sign in.
+          if (plan.userColumn && employee.user) {
+            await tx.user.update({
+              where: { id: employee.user.id },
+              data: { [plan.userColumn]: plan.data[plan.column] as string },
+            });
+          }
+        }
+        return tx.profileCorrectionRequest.update({
+          where: { id: correction.id },
+          data: {
+            status: reviewedStatus,
+            reviewedBy: req.user!.id,
+            reviewedAt: new Date(),
+          },
+        });
       });
       await audit({
         action: `profile correction ${body.action.toLowerCase()}d`,

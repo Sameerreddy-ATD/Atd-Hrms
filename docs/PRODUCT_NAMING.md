@@ -2,23 +2,23 @@
 
 ## Recommended Product Name
 
-**Anytime Workforce** is the canonical product name.
+**AnyTime Diesel Workforce** is the canonical product name used in the web app, PWA, Capacitor
+shell, and store-facing strings.
 
-It is short, professional, easy to say, and broad enough for employee records, attendance,
-leave, tasks, expenses, HR documents, assets, reporting, and future integrations. It avoids
-limiting the product to only “HRMS” or “employee management” as operational workflows continue
-to grow.
+It is short, professional, and broad enough for employee records, attendance, leave, tasks,
+expenses, HR documents, assets, reporting, and future integrations. It avoids limiting the product
+to only “HRMS” or “employee management” as operational workflows continue to grow.
 
 Recommended presentation:
 
-- Product: **Anytime Workforce**
+- Product: **AnyTime Diesel Workforce**
 - Descriptive subtitle: **Workforce and Operations Platform**
-- Browser title: **Anytime Workforce**
-- PWA short name: **Workforce**
-- API name: **Anytime Workforce Employee API**
+- Browser title: **AnyTime Diesel Workforce**
+- PWA short name: **ATD Workforce**
+- API name: **AnyTime Diesel Workforce Employee API**
 
 The company mark **Anytime Diesel** remains the employer brand and legal entity label where
-needed. Product chrome, PWA identity, and documentation refer to **Anytime Workforce**.
+needed. Product chrome, PWA identity, and documentation refer to **AnyTime Diesel Workforce**.
 
 ## Other Suitable Names
 

@@ -17,6 +17,10 @@ export const Route = createFileRoute("/_app/profile-corrections")({
 });
 
 const STATUS_TABS = ["PENDING", "APPROVED", "REJECTED", "ALL"] as const;
+/** Roles allowed to open the queue; managers get read-only visibility for their people. */
+const VIEW_ROLES = ["hr", "developer_admin", "manager", "main_admin"];
+/** Must mirror the server gate on POST /profile-corrections/:id/review. */
+const REVIEW_ROLES = ["hr", "developer_admin", "main_admin"];
 
 function ProfileCorrectionsPage() {
   const { t } = useTranslation();
@@ -74,7 +78,9 @@ function ProfileCorrectionsPage() {
     }
   }
 
-  if (!user || !["hr", "developer_admin", "manager", "main_admin"].includes(user.role)) {
+  const canReview = !!user && REVIEW_ROLES.includes(user.role);
+
+  if (!user || !VIEW_ROLES.includes(user.role)) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <AlertCircle className="h-10 w-10 text-muted-foreground" />
@@ -87,7 +93,11 @@ function ProfileCorrectionsPage() {
     <div className="space-y-4 p-4 sm:p-6">
       <PageHeader
         title={t("pages.profileCorrections.title")}
-        description={t("pages.profileCorrections.subtitle")}
+        description={
+          canReview
+            ? t("pages.profileCorrections.subtitle")
+            : t("pages.profileCorrections.reviewOnlyHr")
+        }
       />
 
       {/* Status tabs */}
@@ -167,7 +177,7 @@ function ProfileCorrectionsPage() {
                           {new Date(row.createdAt).toLocaleString()}
                         </p>
                       </div>
-                      {row.status === "PENDING" && (
+                      {row.status === "PENDING" && canReview && (
                         <div className="flex shrink-0 gap-1.5">
                           <Button
                             size="sm"

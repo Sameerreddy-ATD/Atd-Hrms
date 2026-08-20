@@ -10,7 +10,7 @@ import { prisma } from "./prisma.js";
 assertSecureConfig();
 
 const server = createApp().listen(config.port, () => {
-  console.log(`Anytime Workforce API listening on http://localhost:${config.port}`);
+  console.log(`AnyTime Diesel Workforce API listening on http://localhost:${config.port}`);
   startAttendanceSettlementScheduler();
   startFaceEvidenceCleanupScheduler();
   startManagerDigestScheduler();

@@ -71,7 +71,7 @@ export function registerAssetRoutes(app: Express) {
   app.get(
     "/assets",
     requireAuth,
-    requireRoles(Role.HR, Role.DEVELOPER_ADMIN, Role.CEO),
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN, Role.CEO, Role.MAIN_ADMIN),
     asyncHandler(async (req, res) => {
       const query = String(req.query.q ?? "").trim();
       const status = typeof req.query.status === "string" ? req.query.status : undefined;
@@ -119,7 +119,7 @@ export function registerAssetRoutes(app: Express) {
   app.get(
     "/assets/investment-summary",
     requireAuth,
-    requireRoles(Role.HR, Role.DEVELOPER_ADMIN, Role.CEO),
+    requireRoles(Role.HR, Role.DEVELOPER_ADMIN, Role.CEO, Role.MAIN_ADMIN),
     asyncHandler(async (_req, res) => {
       const rows = await prisma.assetAssignment.findMany({
         include: {

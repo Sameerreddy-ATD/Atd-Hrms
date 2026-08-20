@@ -1,6 +1,7 @@
-# Anytime Workforce
+# AnyTime Diesel Workforce
 
-Internal workforce and operations platform for Anytime Diesel. It manages accounts, organization units, attendance, leave, tasks, assets and returns, expense claims, HR documents, announcements, notifications, reports, audit history, and a scoped Employee Integration API through role-based web, installed PWA, and Capacitor store-app experiences.
+Internal workforce and operations platform for Anytime Diesel. Product chrome, PWA, and store
+labels use **AnyTime Diesel Workforce**. It manages accounts, organization units, attendance, leave, tasks, assets and returns, expense claims, HR documents, announcements, notifications, reports, audit history, and a scoped Employee Integration API through role-based web, installed PWA, and Capacitor store-app experiences.
 
 Work Planner includes Jira-style projects with unique keys, sequential issue IDs (`OPS-12`),
 issue types (Task/Bug/Story/Epic), ranked Board ordering, open/role/member-gated access, ordered

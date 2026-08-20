@@ -667,6 +667,7 @@ function itemOrderForRole(role: Role): string[] {
         "/attendance/mine",
         "/attendance/locations",
         "/attendance/corrections",
+        "/profile-corrections",
         "/leave/apply",
         "/leave/history",
         "/leave/balance",

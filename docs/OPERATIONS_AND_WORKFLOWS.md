@@ -1,4 +1,4 @@
-# Anytime Workforce: Operations And Workflows
+# AnyTime Diesel Workforce: Operations And Workflows
 
 This manual describes the behavior implemented in the current version. Permissions are enforced by the backend, not only by hidden buttons.
 
@@ -28,6 +28,29 @@ Developer Admin can enable limited employee self-service profile editing under *
 Employee profile editing** (toggle + gear field picker). The backend stores the policy in
 `system_settings` and enforces allowed fields on `PATCH /employees/:id` and emergency-contact
 updates. See [Employee Profile and ID Card](EMPLOYEE_PROFILE_AND_ID_CARD.md).
+
+## Post-punch profile verification
+
+After check-in, employees (except CEO, Chief of Staff, and Bowser Pilots) confirm identity, contact,
+address, employment, banking, statutory, and emergency-contact fields.
+
+- **Correct** fields stay as-is. **Wrong** fields require a suggested value and a final consent
+  checkbox.
+- Emergency contact is written immediately (`emergency_contacts`).
+- Other WRONG fields create `profile_correction_requests` in `PENDING` status.
+- `employees.profile_verified` is set to true on submit so the employee is not asked again until
+  Developer Admin resets it.
+
+Review:
+
+| Action | Who |
+| ------ | --- |
+| List corrections | Manager (view), HR, Main Admin, Developer Admin |
+| Approve / decline | HR, Main Admin, Developer Admin |
+| Re-trigger for all active employees | Developer Admin (`POST /admin/reset-profile-verification`) |
+
+Approval encrypts bank/PAN/Aadhaar/UAN the same way as employee create/edit, validates dates and
+enums, rejects duplicate email/employee code, and mirrors name/email/phone onto the linked login.
 
 ## Role-Aware Workspace
 
@@ -173,6 +196,9 @@ flowchart LR
 - Employees can cancel current or future dates from approved leave; history retains the approval and cancellation record.
 - Mobile check-in warns before cancelling approved leave for that date. A biometric punch cancels that date directly.
 - Multi-day leave cancellation affects only the day on which attendance is given.
+- A single request can allocate days across multiple types (for example 1 Casual + 2 Unpaid). Each
+  slice is validated against that type’s balance. Unpaid slices are the salary-deduction portion;
+  payroll posting stays a manual HR step.
 
 ### Company leave policies
 

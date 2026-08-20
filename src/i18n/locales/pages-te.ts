@@ -1782,6 +1782,19 @@ const pages = {
     fieldEmergencyMedicalNotes: "వైద్య గమనికలు",
     profileVerifiedBadge: "ప్రొఫైల్ ధృవీకరించబడింది",
     profileNotVerifiedBadge: "ప్రొఫైల్ ధృవీకరించబడలేదు",
+    policyTitle: "ప్రొఫైల్ ధృవీకరణ ప్రాంప్ట్‌లు",
+    policyHelp:
+      "అందరికీ ధృవీకరణ బ్యానర్‌లు మరియు చెక్-ఇన్ ప్రాంప్ట్‌లు ఆపడానికి దీన్ని ఆఫ్ చేయండి. ఆన్ చేసినప్పుడు మీరు ఎంచుకున్న రోల్స్‌ను మాత్రమే అడుగుతుంది.",
+    policyToggle: "ఎంచుకున్న రోల్స్‌ను ప్రొఫైల్ ధృవీకరించమని అడగండి",
+    policyLoading: "విధానం లోడ్ అవుతోంది…",
+    policyOn: "ఆన్ · {{count}} రోల్(లు) లక్ష్యం",
+    policyOff: "ఆఫ్ · ఎవరినీ ధృవీకరణ కోసం అడగరు",
+    policyWho: "ఎవరిని అడగాలి",
+    policyWhoHelp:
+      "CEO, చీఫ్ ఆఫ్ స్టాఫ్ మరియు బౌజర్ పైలట్‌లను ఎప్పుడూ అడగరు. మార్పులు తదుపరి లాగిన్ లేదా రిఫ్రెష్‌లో వర్తిస్తాయి.",
+    policySelectRolesFirst: "ఎనేబుల్ చేసే ముందు కనీసం ఒక రోల్ ఎంచుకోండి",
+    policyEnabledToast: "{{count}} రోల్(ల)కు ప్రొఫైల్ ధృవీకరణ ఎనేబుల్ అయింది",
+    policyDisabledToast: "అందరికీ ప్రొఫైల్ ధృవీకరణ ప్రాంప్ట్‌లు ఆఫ్ చేయబడ్డాయి",
   },
   profileCorrections: {
     title: "ప్రొఫైల్ సవరణలు",
@@ -1796,6 +1809,9 @@ const pages = {
     confirmDecline: "ఈ సవరణ అభ్యర్థనను తిరస్కరించాలా?",
     before: "ముందు", after: "తర్వాత",
     resetVerification: "ప్రొఫైల్ ధృవీకరణ తిరిగి ప్రారంభించు",
+    resetVerificationHelp:
+      "ప్రతి active employee ను తదుపరి check-in లో profile మళ్లీ confirm చేయమని అడగండి. Pending corrections పై ప్రభావం ఉండదు.",
+    reviewOnlyHr: "HR మరియు admins మాత్రమే corrections ఆమోదించగలరు లేదా తిరస్కరించగలరు.",
     resetConfirm: "ఇది అన్ని ఉద్యోగులను తదుపరి పంచ్-ఇన్‌లో వారి ప్రొఫైల్ మళ్లీ ధృవీకరించమని కోరుతుంది. కొనసాగించాలా?",
     resetSuccess: "{{count}} ఉద్యోగులకు ప్రొఫైల్ ధృవీకరణ రీసెట్.",
   },

@@ -4,6 +4,7 @@ import type {
   AuditLog,
   ProfileSelfEditPolicy,
   ProfileSelfEditFieldKey,
+  ProfileVerificationPolicy,
   AssetCatalogItem,
   AssetReturnRecord,
   BiometricMapping,
@@ -1102,6 +1103,15 @@ export const profileSelfEditApi = {
   get: () => request<ProfileSelfEditPolicy>("/profile/self-edit-policy"),
   update: (payload: { enabled: boolean; allowedFields: ProfileSelfEditFieldKey[] }) =>
     request<ProfileSelfEditPolicy>("/profile/self-edit-policy", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+};
+
+export const profileVerificationPolicyApi = {
+  get: () => request<ProfileVerificationPolicy>("/profile/verification-policy"),
+  update: (payload: { enabled: boolean; targetRoles: string[] }) =>
+    request<ProfileVerificationPolicy>("/profile/verification-policy", {
       method: "PUT",
       body: JSON.stringify(payload),
     }),

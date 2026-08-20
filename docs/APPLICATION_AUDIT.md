@@ -61,7 +61,7 @@ This is an **issue and completeness register**, not a claim that every row is un
 | A2 | **Done (P0)** | Attendance nav | Field and Branch attendance in role menus | `menu.ts` | Matches backend roles |
 | A3 | **Done (P0)** | Attendance | `/attendance/mismatch` route removed | deleted route file | No redirect stub |
 | A4 | **Done (P0)** | People | HR manager + emergency contact dialog | `_app.employees.tsx` | PATCH still only `managerId` for HR |
-| A5 | **High** | Profile | `POST /profile/edit-requests` always **501**. Profile is read-only for non–Dev Admin. | `app.ts` ~5179 | Keep 501 + honest copy **or** implement edit-request workflow |
+| A5 | **Superseded** | Profile | `POST /profile/edit-requests` still returns **409/501** and is unused. Post-punch verification + **Profile Corrections** is the live correction path. | `profileCorrections.ts`, `_app.profile-corrections.tsx` | Leave the stub; do not build a second edit-request queue |
 | A6 | **Medium→High** | Biometric | Devices/mappings UI + `/attendance/thumb/*` exist; **no live eSSL/ZK sync**. Product still says “next version”. | devices routes; docs out-of-scope | Keep deferred **or** schedule connector project |
 | A7 | **Medium** | Deploy | Building with `NODE_ENV=development` breaks SSR (`jsxDEV`). Happened on 27 Jul. | Frontend 500; docs updated | Always `NODE_ENV=production npm run build` |
 
@@ -106,7 +106,7 @@ These **Prisma models exist** but have **no meaningful `prisma.*` usage** in `se
 | `CompanyDocument` / `DocumentAck` | Document vault **deferred** |
 | `SopArticle` / `SopRead` | SOP library **deferred** |
 | `RecruitmentJob` / `Candidate` | ATS **deferred** |
-| `ProfileEditRequest` | Table exists; API returns **501** |
+| `ProfileEditRequest` | Table exists; unused stub API. Live path is `ProfileCorrectionRequest` + post-punch verification |
 | Payslips / payroll deductions | Explicitly out of scope |
 | Live biometric device connectors | Explicitly out of scope |
 | Email SMTP delivery | Not wired (no nodemailer) |

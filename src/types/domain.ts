@@ -137,6 +137,8 @@ export interface User {
   isFieldEmployee?: boolean;
   weeklyOffPolicy?: WeeklyOffPolicy;
   profileVerified?: boolean;
+  /** True only when Dev Admin policy is on and this user's role is targeted. */
+  profileVerificationRequired?: boolean;
   joiningDate?: string;
   dateOfBirth?: string;
   gender?: "FEMALE" | "MALE" | "PREFER_NOT_TO_SAY";
@@ -740,6 +742,21 @@ export interface ProfileSelfEditPolicy {
   enabled: boolean;
   allowedFields: ProfileSelfEditFieldKey[];
   availableFields: { key: ProfileSelfEditFieldKey; label: string; group: string }[];
+}
+
+export type ProfileVerificationTargetRole =
+  | "employee"
+  | "sales"
+  | "field_staff"
+  | "manager"
+  | "hr"
+  | "main_admin";
+
+export interface ProfileVerificationPolicy {
+  enabled: boolean;
+  /** Prisma Role enum values (EMPLOYEE, SALES, …). */
+  targetRoles: string[];
+  availableRoles: { key: string; label: string }[];
 }
 
 export interface NotificationItem {

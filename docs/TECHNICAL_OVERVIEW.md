@@ -120,13 +120,15 @@ Lockout or suspension does not delete or disable the employee record, allowing h
 | ----------------------- | ------------------------------------------------------------------------------------------- |
 | `/auth`                 | Login, restore, logout, password change/reset                                               |
 | `/users`                | Account creation, bulk add/edit UI, lifecycle, reset, and history-preserving offboard (TERMINATED employee + INACTIVE login) |
-| `/employees`            | Directory, details, organization placement, self-profile updates when policy allows, and birthdays |
+| `/employees`            | Directory, details, organization placement, self-profile updates when policy allows, birthdays, and `POST /employees/me/profile-verification` |
+| `/profile-corrections`  | HR/Main Admin/Developer Admin review of post-punch profile corrections (`GET` also for Manager, read-only) |
+| `/admin/reset-profile-verification` | Developer Admin re-trigger of profile verification for all active employees |
 | `/profile`              | Self-edit policy (`/profile/self-edit-policy`) and legacy edit-request stub                 |
 | `/departments`          | Organization hierarchy and unit heads                                                       |
 | `/branches`             | Branches and server-side geofence configuration                                             |
 | `/attendance`           | Mobile events, timelines, summaries, reports, corrections, and live stream                  |
 | `/face`                 | Enrollment/status, challenges, Developer Admin review, evidence, and policy                 |
-| `/leave`                | Leave types, requests, cancellation, approvals, and reports                                 |
+| `/leave`                | Leave types, single-type and split (multi-type) requests, cancellation, approvals, and reports |
 | `/weekly-offs`          | Date-specific weekly-off requests and direct-head approval                                  |
 | `/holidays`             | Active holiday calendar and branch scope                                                    |
 | `/tasks`                | Project directory, Board/Backlog/Timeline, issue keys/types/ranks, filters, typed activity |

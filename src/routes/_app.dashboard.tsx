@@ -441,7 +441,7 @@ function DashboardPage() {
         onClose={() => setShowProfileVerification(false)}
         onComplete={() => {
           setShowProfileVerification(false);
-          if (user) updateCurrentUser({ ...user, profileVerified: true });
+          if (user) updateCurrentUser({ ...user, profileVerified: true, profileVerificationRequired: false });
         }}
       />
     </div>
@@ -759,6 +759,7 @@ function MarkAttendanceCard({
         });
         setOptimisticSession({ state: "CHECKED_IN", startedAt: Date.now() });
         toast.success(t("pages.dashboard.toastQueuedIn"));
+        onCheckInSuccess();
         return;
       }
       throw err;

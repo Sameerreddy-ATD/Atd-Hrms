@@ -16,6 +16,7 @@ import {
   integrationClientsApi,
   usersApi,
   profileSelfEditApi,
+  profileVerificationPolicyApi,
   profileApi,
   type SystemHealth,
 } from "@/services/api";
@@ -54,6 +55,7 @@ import {
   type ModuleKey,
   type ProfileSelfEditFieldKey,
   type ProfileSelfEditPolicy,
+  type ProfileVerificationPolicy,
   type Role,
 } from "@/types/domain";
 import {
@@ -72,6 +74,7 @@ import {
   Shield,
   Trash2,
   Users,
+  BadgeCheck,
   Blocks,
   Copy,
   KeyRound,
@@ -150,6 +153,12 @@ function SettingsPage() {
   const [profileFieldDialogOpen, setProfileFieldDialogOpen] = useState(false);
   const [draftAllowedFields, setDraftAllowedFields] = useState<ProfileSelfEditFieldKey[]>([]);
   const [enableAfterFieldSave, setEnableAfterFieldSave] = useState(false);
+  const [profileVerification, setProfileVerification] = useState<ProfileVerificationPolicy | null>(
+    null,
+  );
+  const [profileVerificationLoading, setProfileVerificationLoading] = useState(false);
+  const [profileVerificationSaving, setProfileVerificationSaving] = useState(false);
+  const [resettingVerification, setResettingVerification] = useState(false);
 
   const refreshHealth = useCallback(async () => {
     setHealthError("");
@@ -176,7 +185,8 @@ function SettingsPage() {
 
   useEffect(() => {
     Promise.all([
-      usersApi.list(),
+      // Only Developer Admin may list logins; other admins still get the rest of the counts.
+      isDeveloperAdmin ? usersApi.list() : Promise.resolve([]),
       branchesApi.list(),
       branchesApi.departments(),
       biometricApi.list(),
@@ -195,7 +205,7 @@ function SettingsPage() {
       })
       .catch((err) => setError((err as Error).message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [isDeveloperAdmin]);
 
   useEffect(() => {
     if (!isDeveloperAdmin) return;
@@ -253,6 +263,16 @@ function SettingsPage() {
       .finally(() => setProfileSelfEditLoading(false));
   }, [isDeveloperAdmin]);
 
+  useEffect(() => {
+    if (!isDeveloperAdmin) return;
+    setProfileVerificationLoading(true);
+    void profileVerificationPolicyApi
+      .get()
+      .then(setProfileVerification)
+      .catch((err) => toast.error((err as Error).message))
+      .finally(() => setProfileVerificationLoading(false));
+  }, [isDeveloperAdmin]);
+
   async function saveProfileSelfEditPolicy(next: {
     enabled: boolean;
     allowedFields: ProfileSelfEditFieldKey[];
@@ -273,6 +293,30 @@ function SettingsPage() {
       return null;
     } finally {
       setProfileSelfEditSaving(false);
+    }
+  }
+
+  async function saveProfileVerificationPolicy(next: {
+    enabled: boolean;
+    targetRoles: string[];
+  }) {
+    setProfileVerificationSaving(true);
+    try {
+      const policy = await profileVerificationPolicyApi.update(next);
+      setProfileVerification(policy);
+      toast.success(
+        policy.enabled
+          ? t("pages.profileVerification.policyEnabledToast", {
+              count: policy.targetRoles.length,
+            })
+          : t("pages.profileVerification.policyDisabledToast"),
+      );
+      return policy;
+    } catch (err) {
+      toast.error((err as Error).message);
+      return null;
+    } finally {
+      setProfileVerificationSaving(false);
     }
   }
 
@@ -1165,6 +1209,132 @@ function SettingsPage() {
           <SettingRow label="Attendance source" value="Thumb scanner and mobile GPS" />
         </CardContent>
       </Card>
+
+      {isDeveloperAdmin && (
+        <Card>
+          <CardHeader className="gap-1 border-b border-border/80 px-4 py-3.5 sm:px-5">
+            <div className="flex items-start gap-3">
+              <span className="rounded-md bg-primary/10 p-2 text-primary">
+                <BadgeCheck className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <CardTitle className="text-base">
+                  {t("pages.profileVerification.policyTitle")}
+                </CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t("pages.profileVerification.policyHelp")}
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 px-4 py-4 sm:px-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium">{t("pages.profileVerification.policyToggle")}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {profileVerificationLoading
+                    ? t("pages.profileVerification.policyLoading")
+                    : profileVerification?.enabled
+                      ? t("pages.profileVerification.policyOn", {
+                          count: profileVerification.targetRoles.length,
+                        })
+                      : t("pages.profileVerification.policyOff")}
+                </p>
+              </div>
+              <Switch
+                checked={Boolean(profileVerification?.enabled)}
+                disabled={
+                  profileVerificationLoading ||
+                  profileVerificationSaving ||
+                  !profileVerification
+                }
+                aria-label={t("pages.profileVerification.policyToggle")}
+                onCheckedChange={(checked) => {
+                  if (!profileVerification) return;
+                  if (checked && profileVerification.targetRoles.length === 0) {
+                    toast.message(t("pages.profileVerification.policySelectRolesFirst"));
+                    return;
+                  }
+                  void saveProfileVerificationPolicy({
+                    enabled: checked,
+                    targetRoles: profileVerification.targetRoles,
+                  });
+                }}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium">{t("pages.profileVerification.policyWho")}</p>
+              <p className="text-xs text-muted-foreground">
+                {t("pages.profileVerification.policyWhoHelp")}
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {(profileVerification?.availableRoles ?? []).map((role) => {
+                  const checked = Boolean(profileVerification?.targetRoles.includes(role.key));
+                  return (
+                    <label
+                      key={role.key}
+                      className="flex items-center gap-2 rounded-lg border border-border/70 px-3 py-2 text-sm"
+                    >
+                      <Checkbox
+                        checked={checked}
+                        disabled={
+                          profileVerificationLoading ||
+                          profileVerificationSaving ||
+                          !profileVerification
+                        }
+                        onCheckedChange={(next) => {
+                          if (!profileVerification) return;
+                          const targetRoles =
+                            next === true
+                              ? [...profileVerification.targetRoles, role.key]
+                              : profileVerification.targetRoles.filter((key) => key !== role.key);
+                          void saveProfileVerificationPolicy({
+                            enabled:
+                              profileVerification.enabled && targetRoles.length > 0
+                                ? profileVerification.enabled
+                                : false,
+                            targetRoles,
+                          });
+                        }}
+                      />
+                      <span>{role.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-dashed border-border/80 p-3">
+              <p className="text-xs text-muted-foreground">
+                {t("pages.profileCorrections.resetVerificationHelp")}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                disabled={resettingVerification}
+                onClick={() => {
+                  if (!window.confirm(t("pages.profileCorrections.resetConfirm"))) return;
+                  setResettingVerification(true);
+                  void profileApi
+                    .resetVerification()
+                    .then((result) =>
+                      toast.success(
+                        t("pages.profileCorrections.resetSuccess", { count: result.count }),
+                      ),
+                    )
+                    .catch((err) => toast.error((err as Error).message))
+                    .finally(() => setResettingVerification(false));
+                }}
+              >
+                <RefreshCw className="h-4 w-4" />
+                {t("pages.profileCorrections.resetVerification")}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {isDeveloperAdmin && (
         <Card className="border-destructive/40">

@@ -26,8 +26,8 @@ import {
 } from "./privateFiles.js";
 
 const PEOPLE_OPS: Role[] = [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR, Role.CEO];
-const TALENT_ROLES: Role[] = [...PEOPLE_OPS, Role.MANAGER];
-const CHANGE_ROLES: Role[] = [...PEOPLE_OPS, Role.MANAGER];
+const TALENT_ROLES: Role[] = [...PEOPLE_OPS, Role.MANAGER, Role.CHIEF_OF_STAFF];
+const CHANGE_ROLES: Role[] = [...PEOPLE_OPS, Role.MANAGER, Role.CHIEF_OF_STAFF];
 const ONBOARDING_DOC_TYPES = ["OFFER_LETTER", "NDA", "AADHAAR", "PAN", "HANDBOOK"] as const;
 const CHANGE_KINDS = [
   "SHIFT_CHANGE",

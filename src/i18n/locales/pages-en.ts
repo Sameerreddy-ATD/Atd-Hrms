@@ -1800,6 +1800,19 @@ const pages = {
     fieldEmergencyMedicalNotes: "Medical notes",
     profileVerifiedBadge: "Profile verified",
     profileNotVerifiedBadge: "Profile not verified",
+    policyTitle: "Profile verification prompts",
+    policyHelp:
+      "Turn this off to stop verification banners and post check-in prompts for everyone. When on, only the roles you select are asked.",
+    policyToggle: "Ask selected roles to verify their profile",
+    policyLoading: "Loading policy…",
+    policyOn: "On · {{count}} role(s) targeted",
+    policyOff: "Off · nobody is asked to verify",
+    policyWho: "Who should be asked",
+    policyWhoHelp:
+      "CEO, Chief of Staff, and Bowser Pilots are never asked. Changes apply on the next login or page refresh.",
+    policySelectRolesFirst: "Select at least one role before enabling",
+    policyEnabledToast: "Profile verification enabled for {{count}} role(s)",
+    policyDisabledToast: "Profile verification prompts are turned off for everyone",
   },
   profileCorrections: {
     title: "Profile Corrections",
@@ -1824,6 +1837,9 @@ const pages = {
     before: "Before",
     after: "After",
     resetVerification: "Re-trigger Profile Verification",
+    resetVerificationHelp:
+      "Ask every active employee to confirm their profile again at their next check-in. Pending corrections are not affected.",
+    reviewOnlyHr: "Only HR and admins can approve or decline corrections.",
     resetConfirm: "This will require all employees to verify their profile again on next punch-in. Continue?",
     resetSuccess: "Profile verification reset for {{count}} employees.",
   },

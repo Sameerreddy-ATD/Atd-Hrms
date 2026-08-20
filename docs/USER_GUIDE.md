@@ -1,6 +1,6 @@
-# Anytime Workforce User Guide
+# AnyTime Diesel Workforce User Guide
 
-This guide explains how Developer Admin, HR, organization heads, employees, field staff, and leadership use Anytime Workforce.
+This guide explains how Developer Admin, HR, organization heads, employees, field staff, and leadership use **AnyTime Diesel Workforce**.
 
 ## Who Can Do What
 
@@ -16,7 +16,7 @@ This guide explains how Developer Admin, HR, organization heads, employees, fiel
 | Leave policy and types         | View protected types; adjust credits                           | As configured           | View; adjust credits    | View reports          | Approve assigned team leave | Apply and track own leave               |
 | Holidays                       | Add, edit, delete                                              | Add, edit, delete       | Add, edit, delete       | View                  | View                        | View                                    |
 | Audit logs                     | View and clear                                                 | View and clear          | No                      | No                    | No                          | No                                      |
-| Asset management               | Full access                                                    | No                      | Full access             | Read-only investment  | No                          | No                                      |
+| Asset management               | Full access                                                    | Full access             | Full access             | Read-only investment  | No                          | No                                      |
 | Expenses and HR documents      | Review all                                                     | No                      | Review all              | View all              | Own requests                | Own requests                            |
 | Operations reports             | Full                                                           | Full                    | Full                    | Full                  | Team summary                | No                                      |
 | Checklists                     | Templates add/edit/delete; can run instances                   | No                      | Run onboarding/offboarding instances | No                    | No                          | No                                      |
@@ -28,6 +28,7 @@ This guide explains how Developer Admin, HR, organization heads, employees, fiel
 | Exit / Offboarding             | Full exit case                                                 | Full exit case          | Full exit case        | Full exit case        | No                          | No                                      |
 | System settings                | Full access                                                    | As configured           | No                      | No                    | No                          | No                                      |
 | Employee self profile edit policy | Configure toggle + allowed fields                           | No                      | No                      | No                    | No                          | Edit only fields enabled by policy      |
+| Profile corrections            | Review and approve; re-trigger from Settings               | Review and approve      | Review and approve      | No                    | View queue only             | Confirm details after check-in          |
 
 ## CEO Workspace
 
@@ -179,6 +180,22 @@ Editing rules:
 - HR and Developer Admin can always update emergency contact; employees can update it only when
   that field is enabled in the policy.
 - Password change remains available to every signed-in user.
+
+### Confirm your details after check-in
+
+After a successful check-in (including an offline queued punch), employees who have not yet
+verified their profile see a banner and a step-by-step modal. Mark each field **Correct** or
+**Wrong**. Wrong fields need a replacement value. Emergency contact is saved immediately; other
+corrections go to HR. A consent checkbox at the end confirms you reviewed every field.
+
+CEO, Chief of Staff, and Bowser Pilot accounts skip this flow.
+
+HR, Main Admin, and Developer Admin review pending rows on **Profile Corrections** (before/after
+values, approve or decline). Managers can open the queue but cannot approve. Approving a name,
+email, or phone also updates the login used to sign in. Bank / PAN / Aadhaar / UAN values are
+encrypted the same way as employee create/edit.
+
+Developer Admin can re-trigger verification for all active employees from **System Settings**.
 
 On phones and laptops, My Profile uses cards: a full-width identity card, then detail cards.
 Phones stack expandable cards with large tap targets and keep **Save profile** fixed at the
@@ -379,10 +396,14 @@ Full Day / Half Day / Absent, Late, Comp Off, holidays, and face rules are summa
 ## Employee: Apply For Leave
 
 1. Open **Apply Leave**.
-2. Select leave type.
-3. Select from and to dates.
-4. Enter the number of days and reason.
-5. Submit.
+2. Choose from and to dates (or duration). The number of days is calculated from that range.
+3. Allocate those days across one or more leave types. Example: 1 Casual Leave + 2 Unpaid Leave
+   for a 3-day request when Casual balance is 1.
+4. Enter a reason and submit.
+
+Each type is validated against its own balance and rules. Unpaid / LOP days are recorded as unpaid
+and are the portion HR uses for salary deduction outside this portal. Comp Off still requires
+Reporting Head approval and is consumed only when approved.
 
 The screen shows the current balance and full rules for Casual Leave, Sick Leave, Unpaid Leave / LOP, and Comp Off. Sick Leave requires a private medical certificate upload (PDF or image) from **Leave History** within 48 hours after returning; public Drive links are not accepted. Reminders are sent at 24 hours and 2 hours before the deadline.
 
