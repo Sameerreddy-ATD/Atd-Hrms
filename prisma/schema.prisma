@@ -494,6 +494,7 @@ model Employee {
   appraisalReviews            AppraisalReview[]
   candidatesHired             Candidate[]                      @relation("HiredEmployee")
   shiftAssignments            EmployeeShiftAssignment[]
+  shiftDayOverrides           EmployeeShiftDayOverride[]
   leaveLedgerEntries          LeaveLedgerEntry[]
   onboardingCases             OnboardingCase[]
   nhoProfile                  NewHireProfile?
@@ -512,33 +513,65 @@ model Employee {
 }
 
 model ShiftDefinition {
-  shiftId      String                    @id @default(cuid()) @map("shift_id")
-  name         String                    @unique
-  code         String                    @unique
-  shiftType    ShiftType                 @default(DAY) @map("shift_type")
-  startMinutes Int                       @map("start_minutes")
-  endMinutes   Int                       @map("end_minutes")
-  active       Boolean                   @default(true)
-  createdAt    DateTime                  @default(now()) @map("created_at")
-  updatedAt    DateTime                  @updatedAt @map("updated_at")
-  assignments  EmployeeShiftAssignment[]
+  shiftId             String                     @id @default(cuid()) @map("shift_id")
+  name                String                     @unique
+  code                String                     @unique
+  shiftType           ShiftType                  @default(DAY) @map("shift_type")
+  /// Legacy single-window snapshot (first segment) for Android / attendancePolicy compatibility.
+  startMinutes        Int                        @map("start_minutes")
+  endMinutes          Int                        @map("end_minutes")
+  active              Boolean                    @default(true)
+  description         String?                    @db.Text
+  timezone            String                     @default("Asia/Kolkata") @db.VarChar(64)
+  graceInMinutes      Int                        @default(30) @map("grace_in_minutes")
+  graceOutMinutes     Int                        @default(30) @map("grace_out_minutes")
+  expectedWorkMinutes Int                        @default(0) @map("expected_work_minutes")
+  colorToken          String?                    @map("color_token") @db.VarChar(40)
+  createdAt           DateTime                   @default(now()) @map("created_at")
+  updatedAt           DateTime                   @updatedAt @map("updated_at")
+  assignments         EmployeeShiftAssignment[]
+  segments            ShiftSegment[]
+  rosterAssignments   RosterAssignment[]
+  dayOverrides        EmployeeShiftDayOverride[]
 
   @@map("shift_definitions")
 }
 
+/// Ordered work segments for a ShiftDefinition (Shift Template).
+/// endDayOffset: 0 = same Work Date calendar day, 1 = next calendar day.
+model ShiftSegment {
+  id           String          @id @default(cuid())
+  shiftId      String          @map("shift_id")
+  shift        ShiftDefinition @relation(fields: [shiftId], references: [shiftId], onDelete: Cascade)
+  sequence     Int             @default(1)
+  startMinute  Int             @map("start_minute")
+  endMinute    Int             @map("end_minute")
+  endDayOffset Int             @default(0) @map("end_day_offset")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+
+  @@unique([shiftId, sequence])
+  @@index([shiftId])
+  @@map("shift_segments")
+}
+
 model EmployeeShiftAssignment {
-  assignmentId  String          @id @default(cuid()) @map("assignment_id")
-  employeeId    String          @map("employee_id")
-  employee      Employee        @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
-  shiftId       String          @map("shift_id")
-  shift         ShiftDefinition @relation(fields: [shiftId], references: [shiftId], onDelete: Restrict)
-  effectiveFrom DateTime        @map("effective_from") @db.Date
-  effectiveTo   DateTime?       @map("effective_to") @db.Date
-  assignedBy    String?         @map("assigned_by")
-  createdAt     DateTime        @default(now()) @map("created_at")
-  updatedAt     DateTime        @updatedAt @map("updated_at")
+  assignmentId   String          @id @default(cuid()) @map("assignment_id")
+  employeeId     String          @map("employee_id")
+  employee       Employee        @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  shiftId        String          @map("shift_id")
+  shift          ShiftDefinition @relation(fields: [shiftId], references: [shiftId], onDelete: Restrict)
+  /// DEFAULT (canonical employee default). Future types may be added.
+  assignmentType String          @default("DEFAULT") @map("assignment_type") @db.VarChar(30)
+  effectiveFrom  DateTime        @map("effective_from") @db.Date
+  effectiveTo    DateTime?       @map("effective_to") @db.Date
+  assignedBy     String?         @map("assigned_by")
+  reason         String?         @db.Text
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
 
   @@index([employeeId, effectiveFrom])
+  @@index([employeeId, assignmentType, effectiveFrom, effectiveTo], map: "esa_employee_type_effective_idx")
   @@index([shiftId])
   @@map("employee_shift_assignments")
 }
@@ -1585,21 +1618,47 @@ model NotificationPreference {
 }
 
 model RosterAssignment {
-  assignmentId String   @id @default(cuid()) @map("assignment_id")
-  employeeId   String   @map("employee_id")
-  employee     Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
-  workDate     DateTime @map("work_date") @db.Date
-  shiftPreset  String   @default("DAY") @map("shift_preset")
-  startMinutes Int?     @map("start_minutes")
-  endMinutes   Int?     @map("end_minutes")
-  note         String?  @db.Text
-  published    Boolean  @default(false)
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  assignmentId String           @id @default(cuid()) @map("assignment_id")
+  employeeId   String           @map("employee_id")
+  employee     Employee         @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  workDate     DateTime         @map("work_date") @db.Date
+  /// Legacy preset string kept for compatibility; prefer shiftId when set.
+  shiftPreset  String           @default("DAY") @map("shift_preset")
+  shiftId      String?          @map("shift_id")
+  shift        ShiftDefinition? @relation(fields: [shiftId], references: [shiftId], onDelete: Restrict)
+  startMinutes Int?             @map("start_minutes")
+  endMinutes   Int?             @map("end_minutes")
+  /// MANUAL | BULK | IMPORT
+  source       String           @default("MANUAL") @db.VarChar(20)
+  note         String?          @db.Text
+  published    Boolean          @default(true)
+  createdBy    String?          @map("created_by")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
 
   @@unique([employeeId, workDate])
   @@index([workDate, published])
+  @@index([shiftId])
   @@map("roster_assignments")
+}
+
+/// Date-specific shift override. Wins over roster and default.
+/// shiftId null = explicit NO_SHIFT for that workDate (does not fall through).
+model EmployeeShiftDayOverride {
+  id         String           @id @default(cuid())
+  employeeId String           @map("employee_id")
+  employee   Employee         @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  workDate   DateTime         @map("work_date") @db.Date
+  shiftId    String?          @map("shift_id")
+  shift      ShiftDefinition? @relation(fields: [shiftId], references: [shiftId], onDelete: Restrict)
+  reason     String?          @db.Text
+  createdBy  String?          @map("created_by")
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
+
+  @@unique([employeeId, workDate])
+  @@index([shiftId])
+  @@map("employee_shift_day_overrides")
 }
 
 model OvertimeClaim {

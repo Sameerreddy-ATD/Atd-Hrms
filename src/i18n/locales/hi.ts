@@ -93,6 +93,7 @@ const hi = {
     "checklists": "चेकलिस्ट",
     "employeeServices": "कर्मचारी सेवाएँ",
     "branches": "कार्य स्थान",
+    "shifts": "शिफ्ट प्रबंधन",
     "devices": "डिवाइस",
     "holidays": "छुट्टियाँ",
     "assets": "एसेट प्रबंधन",

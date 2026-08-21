@@ -914,3 +914,90 @@ export interface EmergencyContact {
   bloodGroup?: string;
   medicalNotes?: string;
 }
+
+export type ResolvedShiftSource = "DAY_OVERRIDE" | "ROSTER" | "DEFAULT" | "NONE";
+
+export interface ShiftSegmentDto {
+  id?: string;
+  sequence: number;
+  startMinute: number;
+  endMinute: number;
+  endDayOffset: number;
+  startLabel?: string;
+  endLabel?: string;
+  ends?: "SAME_DAY" | "NEXT_DAY";
+}
+
+export interface ShiftTemplate {
+  id: string;
+  name: string;
+  code: string;
+  description?: string | null;
+  timezone: string;
+  graceInMinutes: number;
+  graceOutMinutes: number;
+  expectedWorkMinutes: number;
+  expectedWorkLabel?: string;
+  colorToken?: string | null;
+  active: boolean;
+  shiftType?: "DAY" | "NIGHT";
+  startMinutes?: number;
+  endMinutes?: number;
+  segments: ShiftSegmentDto[];
+  assignedEmployees?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RosterDayCell {
+  source: ResolvedShiftSource;
+  shiftId: string | null;
+  shiftName: string | null;
+  code: string | null;
+  explicitNoShift: boolean;
+}
+
+export interface RosterWeekEmployee {
+  employeeId: string;
+  name: string;
+  employeeCode: string;
+  days: Record<string, RosterDayCell>;
+}
+
+export interface RosterWeek {
+  weekStart: string;
+  weekEnd: string;
+  employees: RosterWeekEmployee[];
+}
+
+export interface ResolvedEmployeeShift {
+  employeeId: string;
+  workDate: string;
+  source: ResolvedShiftSource;
+  explicitNoShift: boolean;
+  timezone: string;
+  shiftTemplate: null | {
+    id: string;
+    code: string;
+    name: string;
+    active: boolean;
+    shiftType: "DAY" | "NIGHT";
+    graceInMinutes: number;
+    graceOutMinutes: number;
+    expectedWorkMinutes: number;
+  };
+  segments: Array<{
+    sequence: number;
+    startMinute: number;
+    endMinute: number;
+    endDayOffset: number;
+    absoluteStartMinute: number;
+    absoluteEndMinute: number;
+    crossesMidnight: boolean;
+  }>;
+  expectedWorkMinutes: number;
+  firstSegmentStartMinute: number | null;
+  finalSegmentEndMinute: number | null;
+  finalSegmentEndDayOffset: number | null;
+  crossesMidnight: boolean;
+}

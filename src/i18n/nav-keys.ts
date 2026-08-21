@@ -25,6 +25,7 @@ export const NAV_I18N_BY_PATH: Record<string, string> = {
   "/checklists": "nav.checklists",
   "/employee-services": "nav.employeeServices",
   "/branches": "nav.branches",
+  "/shifts": "nav.shifts",
   "/devices": "nav.devices",
   "/holidays": "nav.holidays",
   "/assets": "nav.assets",

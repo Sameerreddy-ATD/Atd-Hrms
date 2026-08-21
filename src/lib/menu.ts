@@ -31,6 +31,7 @@ import {
   DoorOpen,
   GraduationCap,
   Languages,
+  CalendarClock,
 } from "lucide-react";
 
 export interface MenuItem {
@@ -266,6 +267,12 @@ export const menuGroups: MenuGroup[] = [
         label: "Work Locations",
         to: "/branches",
         icon: Building2,
+        roles: ["developer_admin", "main_admin", "hr"],
+      },
+      {
+        label: "Shift Management",
+        to: "/shifts",
+        icon: CalendarClock,
         roles: ["developer_admin", "main_admin", "hr"],
       },
       {
@@ -598,6 +605,7 @@ function itemOrderForRole(role: Role): string[] {
         "/tasks",
         "/employee-services",
         "/branches",
+        "/shifts",
         "/devices",
         "/assets",
         "/announcements",
@@ -676,6 +684,7 @@ function itemOrderForRole(role: Role): string[] {
         "/leave/policy",
         "/holidays",
         "/branches",
+        "/shifts",
         "/devices",
         "/settings",
         "/audit",
@@ -714,6 +723,7 @@ function itemOrderForRole(role: Role): string[] {
         "/settings",
         "/audit",
         "/branches",
+        "/shifts",
         "/devices",
         "/assets",
         "/tasks",
@@ -752,7 +762,7 @@ export function moduleForRoute(path: string): ModuleKey {
   if (path === "/tasks" || path.startsWith("/tasks/")) return "TASKS";
   if (path === "/employee-services") return "EMPLOYEE_REQUESTS";
   if (path.startsWith("/leave") || path === "/holidays") return "LEAVE";
-  if (["/branches", "/assets"].includes(path)) return "COMPANY";
+  if (["/branches", "/assets", "/shifts"].includes(path)) return "COMPANY";
   if (["/profile", "/id-card", "/my-assets", "/preferences"].includes(path)) return "PROFILE";
   if (["/notifications", "/announcements"].includes(path)) return "COMMUNICATIONS";
   return "SYSTEM";

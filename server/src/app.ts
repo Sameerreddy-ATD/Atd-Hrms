@@ -221,6 +221,21 @@ import {
 import { resolveAttendanceLocation } from "./attendanceLocationResolve.js";
 import { INDIA_STATES, WORK_LOCATION_TYPES, WORK_LOCATION_TYPE_LABELS } from "./workLocationCatalog.js";
 import {
+  assignDefaultShift,
+  createShiftTemplate,
+  duplicateShiftTemplate,
+  ensureLiveLikeShiftFixtures,
+  getShiftTemplate,
+  listRosterWeek,
+  listShiftTemplates,
+  removeDayOverride,
+  resolveEmployeeShiftForWorkDate,
+  setShiftTemplateActive,
+  updateShiftTemplate,
+  upsertDayOverride,
+  upsertRosterAssignment,
+} from "./shiftRoster.js";
+import {
   announcementSchema,
   announcementUpdateSchema,
   biometricMappingSchema,
@@ -244,6 +259,13 @@ import {
   holidaySchema,
   holidayUpdateSchema,
   shiftDefinitionSchema,
+  shiftTemplateSchema,
+  shiftTemplateUpdateSchema,
+  shiftTemplateDuplicateSchema,
+  defaultShiftAssignSchema,
+  rosterAssignSchema,
+  dayOverrideSchema,
+  dayOverrideDeleteSchema,
   employeeShiftAssignmentSchema,
   leaveRequestSchema,
   splitLeaveRequestSchema,
@@ -9576,31 +9598,253 @@ export function createApp() {
     requireRoles(Role.DEVELOPER_ADMIN, Role.HR, Role.MAIN_ADMIN),
     asyncHandler(async (req, res) => {
       const body = shiftDefinitionSchema.parse(req.body);
-      const shift = await prisma.shiftDefinition.create({
-        data: {
-          name: body.name,
-          code: body.code,
-          shiftType: body.shiftType,
-          startMinutes: body.startMinutes,
-          endMinutes: body.endMinutes,
-          active: body.active ?? true,
-        },
-      });
-      await audit({
-        action: "shift definition created",
-        performedByUserId: req.user!.id,
-        newValue: shift as never,
-        ipAddress: req.ip,
+      const endDayOffset = body.endMinutes <= body.startMinutes ? 1 : 0;
+      const expectedWorkMinutes =
+        endDayOffset === 0
+          ? body.endMinutes - body.startMinutes
+          : 1440 - body.startMinutes + body.endMinutes;
+      try {
+        const shift = await prisma.shiftDefinition.create({
+          data: {
+            name: body.name,
+            code: body.code,
+            shiftType: body.shiftType,
+            startMinutes: body.startMinutes,
+            endMinutes: body.endMinutes,
+            active: body.active ?? true,
+            expectedWorkMinutes,
+            segments: {
+              create: {
+                sequence: 1,
+                startMinute: body.startMinutes,
+                endMinute: body.endMinutes,
+                endDayOffset,
+              },
+            },
+          },
+        });
+        await audit({
+          action: "shift definition created",
+          performedByUserId: req.user!.id,
+          newValue: shift as never,
+          ipAddress: req.ip,
+        });
+        res.status(201).json({
+          id: shift.shiftId,
+          name: shift.name,
+          code: shift.code,
+          shiftType: shift.shiftType,
+          startMinutes: shift.startMinutes,
+          endMinutes: shift.endMinutes,
+          active: shift.active,
+        });
+      } catch (err) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+          throw new HttpError(409, "Shift code or name already exists");
+        }
+        throw err;
+      }
+    }),
+  );
+
+  // --- Shift Template / Roster foundation (additive; legacy /shifts kept) ---
+  app.get(
+    "/shift-templates",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const includeInactive = req.query.includeInactive === "true";
+      res.json(await listShiftTemplates(includeInactive));
+    }),
+  );
+
+  app.get(
+    "/shift-templates/:id",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      res.json(await getShiftTemplate(String(req.params.id)));
+    }),
+  );
+
+  app.post(
+    "/shift-templates",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN, Role.HR, Role.MAIN_ADMIN),
+    asyncHandler(async (req, res) => {
+      const body = shiftTemplateSchema.parse(req.body);
+      const created = await createShiftTemplate(body, req.user!.id);
+      res.status(201).json(created);
+    }),
+  );
+
+  app.patch(
+    "/shift-templates/:id",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN, Role.HR, Role.MAIN_ADMIN),
+    asyncHandler(async (req, res) => {
+      const body = shiftTemplateUpdateSchema.parse(req.body);
+      res.json(await updateShiftTemplate(String(req.params.id), body, req.user!.id));
+    }),
+  );
+
+  app.post(
+    "/shift-templates/:id/deactivate",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN, Role.HR, Role.MAIN_ADMIN),
+    asyncHandler(async (req, res) => {
+      res.json(await setShiftTemplateActive(String(req.params.id), false, req.user!.id));
+    }),
+  );
+
+  app.post(
+    "/shift-templates/:id/reactivate",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN, Role.HR, Role.MAIN_ADMIN),
+    asyncHandler(async (req, res) => {
+      res.json(await setShiftTemplateActive(String(req.params.id), true, req.user!.id));
+    }),
+  );
+
+  app.post(
+    "/shift-templates/:id/duplicate",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN, Role.HR, Role.MAIN_ADMIN),
+    asyncHandler(async (req, res) => {
+      const body = shiftTemplateDuplicateSchema.parse(req.body);
+      const created = await duplicateShiftTemplate(String(req.params.id), body, req.user!.id);
+      res.status(201).json(created);
+    }),
+  );
+
+  app.post(
+    "/shift-templates/fixtures/live-like",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      res.status(201).json(await ensureLiveLikeShiftFixtures(req.user!.id));
+    }),
+  );
+
+  app.get(
+    "/employees/:id/resolved-shift",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const employeeId = String(req.params.id);
+      await assertEmployeeAccess(req.user, employeeId);
+      const workDateRaw = String(req.query.workDate ?? "");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(workDateRaw)) {
+        throw new HttpError(400, "workDate (YYYY-MM-DD) is required");
+      }
+      res.json(await resolveEmployeeShiftForWorkDate(employeeId, new Date(`${workDateRaw}T00:00:00.000Z`)));
+    }),
+  );
+
+  app.post(
+    "/employees/:id/default-shift",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN, Role.HR, Role.MAIN_ADMIN),
+    asyncHandler(async (req, res) => {
+      const body = defaultShiftAssignSchema.parse(req.body);
+      const assignment = await assignDefaultShift({
+        employeeId: String(req.params.id),
+        shiftId: body.shiftId,
+        effectiveFrom: body.effectiveFrom,
+        reason: body.reason,
+        actorUserId: req.user!.id,
+        actorLabel: req.user!.employeeId ?? req.user!.id,
       });
       res.status(201).json({
-        id: shift.shiftId,
-        name: shift.name,
-        code: shift.code,
-        shiftType: shift.shiftType,
-        startMinutes: shift.startMinutes,
-        endMinutes: shift.endMinutes,
-        active: shift.active,
+        id: assignment.assignmentId,
+        employeeId: assignment.employeeId,
+        shiftId: assignment.shiftId,
+        effectiveFrom: assignment.effectiveFrom.toISOString().slice(0, 10),
+        source: "DEFAULT",
       });
+    }),
+  );
+
+  app.get(
+    "/roster",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const weekStartRaw = String(req.query.weekStart ?? "");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStartRaw)) {
+        throw new HttpError(400, "weekStart (YYYY-MM-DD) is required");
+      }
+      const departmentId = req.query.departmentId ? String(req.query.departmentId) : undefined;
+      const homeBranchId = req.query.homeBranchId ? String(req.query.homeBranchId) : undefined;
+      const shiftId = req.query.shiftId ? String(req.query.shiftId) : undefined;
+      res.json(
+        await listRosterWeek({
+          weekStart: new Date(`${weekStartRaw}T00:00:00.000Z`),
+          departmentId,
+          homeBranchId,
+          shiftId,
+        }),
+      );
+    }),
+  );
+
+  app.put(
+    "/roster",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN, Role.HR, Role.MAIN_ADMIN),
+    asyncHandler(async (req, res) => {
+      const body = rosterAssignSchema.parse(req.body);
+      const row = await upsertRosterAssignment({
+        employeeId: body.employeeId,
+        workDate: body.workDate,
+        shiftId: body.shiftId,
+        source: body.source,
+        note: body.note,
+        actorUserId: req.user!.id,
+      });
+      res.json({
+        id: row.assignmentId,
+        employeeId: row.employeeId,
+        workDate: row.workDate.toISOString().slice(0, 10),
+        shiftId: row.shiftId,
+        explicitNoShift: row.shiftId == null,
+        source: row.source,
+      });
+    }),
+  );
+
+  app.put(
+    "/shift-day-overrides",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN, Role.HR, Role.MAIN_ADMIN),
+    asyncHandler(async (req, res) => {
+      const body = dayOverrideSchema.parse(req.body);
+      const row = await upsertDayOverride({
+        employeeId: body.employeeId,
+        workDate: body.workDate,
+        shiftId: body.shiftId,
+        reason: body.reason,
+        actorUserId: req.user!.id,
+      });
+      res.json({
+        id: row.id,
+        employeeId: row.employeeId,
+        workDate: row.workDate.toISOString().slice(0, 10),
+        shiftId: row.shiftId,
+        explicitNoShift: row.shiftId == null,
+        source: "DAY_OVERRIDE",
+      });
+    }),
+  );
+
+  app.delete(
+    "/shift-day-overrides",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN, Role.HR, Role.MAIN_ADMIN),
+    asyncHandler(async (req, res) => {
+      const body = dayOverrideDeleteSchema.parse(req.body);
+      await removeDayOverride({
+        employeeId: body.employeeId,
+        workDate: body.workDate,
+        actorUserId: req.user!.id,
+      });
+      res.status(204).send();
     }),
   );
 
@@ -9615,25 +9859,54 @@ export function createApp() {
       const shift = await prisma.shiftDefinition.findUniqueOrThrow({
         where: { shiftId: body.shiftId },
       });
+      if (!shift.active) {
+        throw new HttpError(400, "Inactive shifts cannot be newly assigned");
+      }
       const effectiveFrom = startOfDayUtc(body.effectiveFrom);
       const effectiveTo = body.effectiveTo ? startOfDayUtc(body.effectiveTo) : null;
-      if (effectiveTo && effectiveTo < effectiveFrom) {
-        throw new HttpError(400, "Shift assignment end date must be on or after the start date");
+      if (effectiveTo && effectiveTo <= effectiveFrom) {
+        throw new HttpError(400, "Shift assignment end date must be after the start date (exclusive end)");
+      }
+      // Prefer canonical DEFAULT assigner when open-ended (exclusive closing).
+      if (!effectiveTo) {
+        const assignment = await assignDefaultShift({
+          employeeId,
+          shiftId: shift.shiftId,
+          effectiveFrom,
+          actorUserId: req.user!.id,
+          actorLabel: req.user!.employeeId ?? req.user!.id,
+        });
+        res.status(201).json({
+          id: assignment.assignmentId,
+          employeeId: assignment.employeeId,
+          shiftId: assignment.shiftId,
+          shiftName: assignment.shift.name,
+          effectiveFrom: assignment.effectiveFrom.toISOString().slice(0, 10),
+          effectiveTo: null,
+        });
+        return;
       }
       await prisma.employeeShiftAssignment.updateMany({
         where: {
           employeeId,
-          effectiveFrom: { lte: effectiveFrom },
-          OR: [{ effectiveTo: null }, { effectiveTo: { gte: effectiveFrom } }],
+          assignmentType: "DEFAULT",
+          effectiveFrom: { lt: effectiveFrom },
+          OR: [{ effectiveTo: null }, { effectiveTo: { gt: effectiveFrom } }],
         },
-        data: {
-          effectiveTo: new Date(effectiveFrom.getTime() - 24 * 60 * 60 * 1000),
+        data: { effectiveTo: effectiveFrom },
+      });
+      await prisma.employeeShiftAssignment.deleteMany({
+        where: {
+          employeeId,
+          assignmentType: "DEFAULT",
+          effectiveFrom: { gte: effectiveFrom },
         },
       });
       const assignment = await prisma.employeeShiftAssignment.create({
         data: {
           employeeId,
           shiftId: shift.shiftId,
+          assignmentType: "DEFAULT",
           effectiveFrom,
           effectiveTo,
           assignedBy: req.user!.employeeId ?? req.user!.id,
@@ -9649,7 +9922,7 @@ export function createApp() {
         },
       });
       await audit({
-        action: "employee shift assigned",
+        action: "DEFAULT_SHIFT_ASSIGNED",
         performedByUserId: req.user!.id,
         newValue: {
           employeeId,

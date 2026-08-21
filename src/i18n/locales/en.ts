@@ -93,6 +93,7 @@ const en = {
     "checklists": "Checklists",
     "employeeServices": "Employee Services",
     "branches": "Work Locations",
+    "shifts": "Shift Management",
     "devices": "Devices",
     "holidays": "Holidays",
     "assets": "Asset Management",

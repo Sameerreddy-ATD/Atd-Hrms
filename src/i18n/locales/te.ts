@@ -93,6 +93,7 @@ const te = {
     "checklists": "చెక్‌లిస్ట్‌లు",
     "employeeServices": "ఉద్యోగి సేవలు",
     "branches": "వర్క్ లొకేషన్లు",
+    "shifts": "షిఫ్ట్ నిర్వహణ",
     "devices": "పరికరాలు",
     "holidays": "సెలవు రోజులు",
     "assets": "ఆస్తి నిర్వహణ",

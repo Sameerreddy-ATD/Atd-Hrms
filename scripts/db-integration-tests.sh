@@ -9,7 +9,7 @@ export DATABASE_URL="${DATABASE_URL:-mysql://atd_test:atd_test_pass@127.0.0.1:33
 echo "==> Organization integration"
 RUN_ORG_INTEGRATION=1 npx vitest run --config vitest.config.ts tests/organizationIntegration.test.ts
 
-echo "==> Work locations integration"
-RUN_WL_INTEGRATION=1 npx vitest run --config vitest.config.ts tests/workLocationsIntegration.test.ts
+echo "==> Shift roster foundation integration"
+RUN_SHIFT_INTEGRATION=1 npx vitest run --config vitest.config.ts tests/shiftRosterIntegration.test.ts
 
 echo "==> DB integration suites passed."

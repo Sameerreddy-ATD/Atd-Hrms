@@ -43,6 +43,9 @@ import type {
   FaceVerificationPurpose,
   FaceVerificationSession,
   FaceEvidenceRecord,
+  ResolvedEmployeeShift,
+  RosterWeek,
+  ShiftTemplate,
 } from "@/types/domain";
 import { isNativeApp } from "@/lib/native-app";
 import {
@@ -537,6 +540,22 @@ export const employeesApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  assignDefaultShift: (
+    id: string,
+    body: { shiftId: string; effectiveFrom: string; reason?: string | null },
+  ) =>
+    request<{
+      id: string;
+      employeeId: string;
+      shiftId: string;
+      effectiveFrom: string;
+      source: "DEFAULT";
+    }>(`/employees/${id}/default-shift`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  resolvedShift: (id: string, workDate: string) =>
+    request<ResolvedEmployeeShift>(`/employees/${id}/resolved-shift${toQuery({ workDate })}`),
 };
 
 export const shiftsApi = {
@@ -569,6 +588,139 @@ export const shiftsApi = {
       endMinutes: number;
       active: boolean;
     }>("/shifts", { method: "POST", body: JSON.stringify(body) }),
+};
+
+export const shiftTemplatesApi = {
+  list: (includeInactive = false) =>
+    request<ShiftTemplate[]>(
+      `/shift-templates${toQuery({ includeInactive: includeInactive ? "true" : undefined })}`,
+    ),
+  get: (id: string) => request<ShiftTemplate>(`/shift-templates/${id}`),
+  create: (body: {
+    name: string;
+    code: string;
+    description?: string | null;
+    timezone?: string;
+    graceInMinutes?: number;
+    graceOutMinutes?: number;
+    colorToken?: string | null;
+    active?: boolean;
+    segments: Array<{
+      sequence?: number;
+      startMinute: number;
+      endMinute: number;
+      endDayOffset: 0 | 1;
+    }>;
+  }) =>
+    request<ShiftTemplate>("/shift-templates", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  update: (
+    id: string,
+    body: {
+      name?: string;
+      description?: string | null;
+      timezone?: string;
+      graceInMinutes?: number;
+      graceOutMinutes?: number;
+      colorToken?: string | null;
+      active?: boolean;
+      segments?: Array<{
+        sequence?: number;
+        startMinute: number;
+        endMinute: number;
+        endDayOffset: 0 | 1;
+      }>;
+    },
+  ) =>
+    request<ShiftTemplate>(`/shift-templates/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  deactivate: (id: string) =>
+    request<ShiftTemplate>(`/shift-templates/${id}/deactivate`, {
+      method: "POST",
+    }),
+  reactivate: (id: string) =>
+    request<ShiftTemplate>(`/shift-templates/${id}/reactivate`, {
+      method: "POST",
+    }),
+  duplicate: (
+    id: string,
+    body: {
+      name: string;
+      code: string;
+      description?: string | null;
+      timezone?: string;
+      graceInMinutes?: number;
+      graceOutMinutes?: number;
+      segments?: Array<{
+        sequence?: number;
+        startMinute: number;
+        endMinute: number;
+        endDayOffset: 0 | 1;
+      }>;
+    },
+  ) =>
+    request<ShiftTemplate>(`/shift-templates/${id}/duplicate`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+};
+
+export const rosterApi = {
+  week: (params: {
+    weekStart: string;
+    departmentId?: string;
+    homeBranchId?: string;
+    shiftId?: string;
+  }) =>
+    request<RosterWeek>(
+      `/roster${toQuery({
+        weekStart: params.weekStart,
+        departmentId: params.departmentId,
+        homeBranchId: params.homeBranchId,
+        shiftId: params.shiftId,
+      })}`,
+    ),
+  assign: (body: {
+    employeeId: string;
+    workDate: string;
+    shiftId: string | null;
+    source?: "MANUAL" | "BULK" | "IMPORT";
+    note?: string | null;
+  }) =>
+    request<{
+      id: string;
+      employeeId: string;
+      workDate: string;
+      shiftId: string | null;
+      explicitNoShift: boolean;
+      source: string;
+    }>("/roster", { method: "PUT", body: JSON.stringify(body) }),
+};
+
+export const shiftDayOverridesApi = {
+  upsert: (body: {
+    employeeId: string;
+    workDate: string;
+    shiftId: string | null;
+    reason?: string | null;
+  }) =>
+    request<{
+      id: string;
+      employeeId: string;
+      workDate: string;
+      shiftId: string | null;
+      explicitNoShift: boolean;
+      source: "DAY_OVERRIDE";
+    }>("/shift-day-overrides", { method: "PUT", body: JSON.stringify(body) }),
+  remove: (body: { employeeId: string; workDate: string }) =>
+    request<void>("/shift-day-overrides", {
+      method: "DELETE",
+      body: JSON.stringify(body),
+    }),
 };
 
 export const faceApi = {

@@ -21,6 +21,7 @@ import { Route as VerifyIdEmployeeIdRouteImport } from './routes/verify-id.$empl
 import { Route as AppUsersRouteImport } from './routes/_app.users'
 import { Route as AppTasksRouteImport } from './routes/_app.tasks'
 import { Route as AppTalentRouteImport } from './routes/_app.talent'
+import { Route as AppShiftsRouteImport } from './routes/_app.shifts'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppRolesRouteImport } from './routes/_app.roles'
 import { Route as AppProfileCorrectionsRouteImport } from './routes/_app.profile-corrections'
@@ -124,6 +125,11 @@ const AppTasksRoute = AppTasksRouteImport.update({
 const AppTalentRoute = AppTalentRouteImport.update({
   id: '/talent',
   path: '/talent',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppShiftsRoute = AppShiftsRouteImport.update({
+  id: '/shifts',
+  path: '/shifts',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
@@ -391,6 +397,7 @@ export interface FileRoutesByFullPath {
   '/profile-corrections': typeof AppProfileCorrectionsRoute
   '/roles': typeof AppRolesRoute
   '/settings': typeof AppSettingsRouteWithChildren
+  '/shifts': typeof AppShiftsRoute
   '/talent': typeof AppTalentRoute
   '/tasks': typeof AppTasksRoute
   '/users': typeof AppUsersRouteWithChildren
@@ -448,6 +455,7 @@ export interface FileRoutesByTo {
   '/profile-corrections': typeof AppProfileCorrectionsRoute
   '/roles': typeof AppRolesRoute
   '/settings': typeof AppSettingsRouteWithChildren
+  '/shifts': typeof AppShiftsRoute
   '/talent': typeof AppTalentRoute
   '/tasks': typeof AppTasksRoute
   '/users': typeof AppUsersRouteWithChildren
@@ -508,6 +516,7 @@ export interface FileRoutesById {
   '/_app/profile-corrections': typeof AppProfileCorrectionsRoute
   '/_app/roles': typeof AppRolesRoute
   '/_app/settings': typeof AppSettingsRouteWithChildren
+  '/_app/shifts': typeof AppShiftsRoute
   '/_app/talent': typeof AppTalentRoute
   '/_app/tasks': typeof AppTasksRoute
   '/_app/users': typeof AppUsersRouteWithChildren
@@ -568,6 +577,7 @@ export interface FileRouteTypes {
     | '/profile-corrections'
     | '/roles'
     | '/settings'
+    | '/shifts'
     | '/talent'
     | '/tasks'
     | '/users'
@@ -625,6 +635,7 @@ export interface FileRouteTypes {
     | '/profile-corrections'
     | '/roles'
     | '/settings'
+    | '/shifts'
     | '/talent'
     | '/tasks'
     | '/users'
@@ -684,6 +695,7 @@ export interface FileRouteTypes {
     | '/_app/profile-corrections'
     | '/_app/roles'
     | '/_app/settings'
+    | '/_app/shifts'
     | '/_app/talent'
     | '/_app/tasks'
     | '/_app/users'
@@ -802,6 +814,13 @@ declare module '@tanstack/react-router' {
       path: '/talent'
       fullPath: '/talent'
       preLoaderRoute: typeof AppTalentRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/shifts': {
+      id: '/_app/shifts'
+      path: '/shifts'
+      fullPath: '/shifts'
+      preLoaderRoute: typeof AppShiftsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/settings': {
@@ -1212,6 +1231,7 @@ interface AppRouteChildren {
   AppProfileCorrectionsRoute: typeof AppProfileCorrectionsRoute
   AppRolesRoute: typeof AppRolesRoute
   AppSettingsRoute: typeof AppSettingsRouteWithChildren
+  AppShiftsRoute: typeof AppShiftsRoute
   AppTalentRoute: typeof AppTalentRoute
   AppTasksRoute: typeof AppTasksRoute
   AppUsersRoute: typeof AppUsersRouteWithChildren
@@ -1253,6 +1273,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppProfileCorrectionsRoute: AppProfileCorrectionsRoute,
   AppRolesRoute: AppRolesRoute,
   AppSettingsRoute: AppSettingsRouteWithChildren,
+  AppShiftsRoute: AppShiftsRoute,
   AppTalentRoute: AppTalentRoute,
   AppTasksRoute: AppTasksRoute,
   AppUsersRoute: AppUsersRouteWithChildren,

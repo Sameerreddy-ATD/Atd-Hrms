@@ -237,8 +237,32 @@ export async function ensureEmployeeShiftAssignment(
         startMinutes: employee.shiftStartMinutes,
         endMinutes: employee.shiftEndMinutes,
         active: true,
+        expectedWorkMinutes:
+          employee.shiftEndMinutes > employee.shiftStartMinutes
+            ? employee.shiftEndMinutes - employee.shiftStartMinutes
+            : 1440 - employee.shiftStartMinutes + employee.shiftEndMinutes,
+        segments: {
+          create: {
+            sequence: 1,
+            startMinute: employee.shiftStartMinutes,
+            endMinute: employee.shiftEndMinutes,
+            endDayOffset: employee.shiftEndMinutes <= employee.shiftStartMinutes ? 1 : 0,
+          },
+        },
       },
     });
+    const segCount = await prisma.shiftSegment.count({ where: { shiftId: shift.shiftId } });
+    if (segCount === 0) {
+      await prisma.shiftSegment.create({
+        data: {
+          shiftId: shift.shiftId,
+          sequence: 1,
+          startMinute: employee.shiftStartMinutes,
+          endMinute: employee.shiftEndMinutes,
+          endDayOffset: employee.shiftEndMinutes <= employee.shiftStartMinutes ? 1 : 0,
+        },
+      });
+    }
   }
 
   const effectiveFrom = startOfDayUtc(employee.joiningDate ?? attendanceDate);

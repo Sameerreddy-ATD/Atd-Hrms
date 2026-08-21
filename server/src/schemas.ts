@@ -539,6 +539,102 @@ export const shiftDefinitionSchema = z.object({
   active: z.boolean().optional(),
 });
 
+const shiftSegmentSchema = z.object({
+  sequence: z.coerce.number().int().min(1).max(20).optional(),
+  startMinute: z.coerce.number().int().min(0).max(1439),
+  endMinute: z.coerce.number().int().min(0).max(1439),
+  endDayOffset: z.union([z.literal(0), z.literal(1), z.coerce.number().pipe(z.union([z.literal(0), z.literal(1)]))]),
+});
+
+export const shiftTemplateSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  code: z
+    .string()
+    .trim()
+    .min(2)
+    .max(40)
+    .regex(/^[A-Z0-9_]+$/, "Use uppercase letters, numbers, and underscores"),
+  description: z.string().trim().max(2000).nullable().optional(),
+  timezone: z.string().trim().min(3).max(64).optional(),
+  graceInMinutes: z.coerce.number().int().min(0).max(240).optional(),
+  graceOutMinutes: z.coerce.number().int().min(0).max(240).optional(),
+  colorToken: z.string().trim().max(40).nullable().optional(),
+  active: z.boolean().optional(),
+  segments: z.array(shiftSegmentSchema).min(1).max(20),
+});
+
+export const shiftTemplateUpdateSchema = shiftTemplateSchema
+  .omit({ code: true })
+  .partial()
+  .extend({
+    code: z
+      .string()
+      .trim()
+      .min(2)
+      .max(40)
+      .regex(/^[A-Z0-9_]+$/)
+      .optional(),
+    segments: z.array(shiftSegmentSchema).min(1).max(20).optional(),
+  });
+
+export const defaultShiftAssignSchema = z.object({
+  shiftId: z.string().min(1),
+  effectiveFrom: z.coerce.date(),
+  reason: z.string().trim().max(500).nullable().optional(),
+});
+
+export const rosterAssignSchema = z.object({
+  employeeId: z.string().min(1),
+  workDate: z.coerce.date(),
+  /** null = explicit NO_SHIFT */
+  shiftId: z.string().min(1).nullable(),
+  source: z.enum(["MANUAL", "BULK", "IMPORT"]).optional(),
+  note: z.string().trim().max(1000).nullable().optional(),
+});
+
+export const dayOverrideSchema = z.object({
+  employeeId: z.string().min(1),
+  workDate: z.coerce.date(),
+  /** null = explicit NO_SHIFT */
+  shiftId: z.string().min(1).nullable(),
+  reason: z.string().trim().max(500).nullable().optional(),
+});
+
+export const dayOverrideDeleteSchema = z.object({
+  employeeId: z.string().min(1),
+  workDate: z.coerce.date(),
+});
+
+export const shiftTemplateDuplicateSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  code: z
+    .string()
+    .trim()
+    .min(2)
+    .max(40)
+    .regex(/^[A-Z0-9_]+$/, "Use uppercase letters, numbers, and underscores"),
+  description: z.string().trim().max(2000).nullable().optional(),
+  timezone: z.string().trim().min(3).max(64).optional(),
+  graceInMinutes: z.coerce.number().int().min(0).max(240).optional(),
+  graceOutMinutes: z.coerce.number().int().min(0).max(240).optional(),
+  segments: z
+    .array(
+      z.object({
+        sequence: z.coerce.number().int().min(1).max(20).optional(),
+        startMinute: z.coerce.number().int().min(0).max(1439),
+        endMinute: z.coerce.number().int().min(0).max(1439),
+        endDayOffset: z.union([
+          z.literal(0),
+          z.literal(1),
+          z.coerce.number().pipe(z.union([z.literal(0), z.literal(1)])),
+        ]),
+      }),
+    )
+    .min(1)
+    .max(20)
+    .optional(),
+});
+
 export const employeeShiftAssignmentSchema = z.object({
   shiftId: z.string().min(1),
   effectiveFrom: z.coerce.date(),
