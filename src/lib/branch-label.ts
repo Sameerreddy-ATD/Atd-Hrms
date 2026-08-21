@@ -8,23 +8,29 @@ function alreadyLabeledAsHub(name: string) {
 /**
  * Display label for a branch or parking hub.
  * Hubs always read as `Name - Hub` so they are never confused with a branch.
+ * Inactive Base Offices append " (Inactive)" so status is not color-only.
  */
 export function formatBranchLocationLabel(
-  branch?: { name?: string | null; isHub?: boolean | null } | null,
+  branch?: { name?: string | null; isHub?: boolean | null; status?: string | null } | null,
   fallback = "-",
 ): string {
   const name = branch?.name?.trim() ?? "";
   if (!name) return fallback;
+  let label: string;
   if (alreadyLabeledAsHub(name)) {
-    // Normalize any "Name Hub" / "Name - hub" variant to the canonical form.
     const base = name.replace(/(?:\s+-\s*hub|\s+hub)$/i, "").trim();
-    return base ? `${base}${HUB_SUFFIX}` : fallback;
+    label = base ? `${base}${HUB_SUFFIX}` : fallback;
+  } else {
+    label = branch?.isHub ? `${name}${HUB_SUFFIX}` : name;
   }
-  return branch?.isHub ? `${name}${HUB_SUFFIX}` : name;
+  if (branch?.status === "INACTIVE" && label !== fallback) {
+    return `${label} (Inactive)`;
+  }
+  return label;
 }
 
 export function formatBranchLocationLabelById(
-  branches: Array<{ id: string; name: string; isHub?: boolean | null }>,
+  branches: Array<{ id: string; name: string; isHub?: boolean | null; status?: string | null }>,
   id?: string | null,
   fallback = "-",
 ): string {

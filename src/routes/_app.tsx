@@ -8,6 +8,7 @@ import { AppHeader } from "@/components/layout/AppHeader";
 import { PermissionSetup } from "@/components/layout/PermissionSetup";
 import { LoadingState } from "@/components/common/LoadingState";
 import { useAuth } from "@/lib/auth";
+import { isMaintenanceActive, subscribeMaintenance } from "@/lib/maintenance";
 import { PwaInstallBanner } from "@/components/layout/PwaInstallBanner";
 import { moduleAccessApi } from "@/services/api";
 import { menuForRole, moduleForRoute } from "@/lib/menu";
@@ -45,10 +46,21 @@ function AppLayout() {
   }, [pathname]);
 
   useEffect(() => {
+    // Never bounce to login while the branded maintenance overlay is active —
+    // session cookies and cached identity are preserved across APP_UPDATE_IN_PROGRESS.
+    if (isMaintenanceActive()) return;
     if (!loading && !user) navigate({ to: "/login", replace: true });
     else if (!loading && user?.mustChangePassword) {
       navigate({ to: "/first-login", replace: true });
     }
+  }, [loading, user, navigate]);
+
+  useEffect(() => {
+    return subscribeMaintenance((info) => {
+      if (info.active) return;
+      // When maintenance clears, re-evaluate auth redirect on next tick.
+      if (!loading && !user) navigate({ to: "/login", replace: true });
+    });
   }, [loading, user, navigate]);
 
   useEffect(() => {

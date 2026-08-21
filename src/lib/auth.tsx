@@ -92,7 +92,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch((err) => {
         if (cancelled) return;
         // Maintenance is not an auth failure — keep cached identity / cookies.
-        if (err instanceof MaintenanceError || isMaintenanceActive()) return;
+        if (
+          err instanceof MaintenanceError ||
+          isMaintenanceActive() ||
+          (err &&
+            typeof err === "object" &&
+            "code" in err &&
+            (err as { code?: string }).code === "APP_UPDATE_IN_PROGRESS")
+        ) {
+          return;
+        }
         setUser(null);
         writeSessionUser(null);
       })

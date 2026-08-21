@@ -33,7 +33,7 @@ import type {
   WeeklyOffPolicy,
 } from "@/types/domain";
 import { COMPANY_LABELS, ROLE_LABELS, WEEKLY_OFF_POLICY_LABELS } from "@/types/domain";
-import { branchesApi, employeesApi, shiftsApi } from "@/services/api";
+import { branchesApi, employeesApi, shiftsApi, workLocationsApi } from "@/services/api";
 import { Search, Pencil, UserCog, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { formatDisplayDate, indiaDateKey } from "@/lib/india-date";
@@ -109,6 +109,14 @@ function EmployeesPage() {
 
   const [editingEmployee, setEditingEmployee] = useState<User | null>(null);
   const [hrManagingEmployee, setHrManagingEmployee] = useState<User | null>(null);
+  const [baseOfficeHistory, setBaseOfficeHistory] = useState<
+    Array<{
+      locationName: string;
+      effectiveFrom: string;
+      effectiveTo: string | null;
+      reason: string | null;
+    }>
+  >([]);
   const [editForm, setEditForm] = useState({
     name: "",
     email: "",
@@ -223,6 +231,23 @@ function EmployeesPage() {
       return;
     }
     setEditingEmployee(fullEmployee);
+    setBaseOfficeHistory([]);
+    const employeeKey = fullEmployee.employeeId ?? fullEmployee.id;
+    if (employeeKey) {
+      void workLocationsApi
+        .baseOfficeHistory(employeeKey)
+        .then((rows) =>
+          setBaseOfficeHistory(
+            rows.map((row) => ({
+              locationName: row.locationName,
+              effectiveFrom: row.effectiveFrom,
+              effectiveTo: row.effectiveTo,
+              reason: row.reason,
+            })),
+          ),
+        )
+        .catch(() => setBaseOfficeHistory([]));
+    }
     setEditForm({
       name: fullEmployee.name || "",
       email: fullEmployee.email || "",
@@ -965,7 +990,7 @@ function EmployeesPage() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Attendance location</Label>
+                  <Label>Base Office</Label>
                   <Select
                     value={editForm.homeBranchId}
                     onValueChange={(val) => setEditForm((c) => ({ ...c, homeBranchId: val }))}
@@ -974,13 +999,51 @@ function EmployeesPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {branches.map((b) => (
+                      {branches
+                        .filter(
+                          (b) =>
+                            (b.status !== "INACTIVE" && b.status !== "DELETED") ||
+                            b.id === editForm.homeBranchId,
+                        )
+                        .map((b) => (
                         <SelectItem key={b.id} value={b.id}>
                           {formatBranchLocationLabel(b)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {branches.find((b) => b.id === editForm.homeBranchId)?.status === "INACTIVE" ? (
+                    <p className="text-xs text-muted-foreground">
+                      Current Base Office is inactive. Transfer to an active location when ready.
+                      Organization, role, and historical attendance are unchanged by a transfer.
+                    </p>
+                  ) : null}
+                  {baseOfficeHistory.length > 0 ? (
+                    <div className="mt-2 space-y-2 rounded-md border border-border/70 bg-muted/20 px-3 py-2">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Base Office history
+                      </p>
+                      <ul className="space-y-2">
+                        {baseOfficeHistory.map((row, index) => (
+                          <li key={`${row.locationName}-${row.effectiveFrom}-${index}`} className="text-sm">
+                            <p className="font-medium">{row.locationName}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {row.effectiveFrom}
+                              {" – "}
+                              {row.effectiveTo ?? "Present"}
+                            </p>
+                            {row.reason ? (
+                              <p className="text-xs text-muted-foreground">Reason: {row.reason}</p>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="text-xs text-muted-foreground">
+                        Changing Base Office does not affect Organization, application role, or
+                        historical attendance.
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="space-y-1.5">
                   <Label>Department</Label>

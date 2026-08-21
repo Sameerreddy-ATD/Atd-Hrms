@@ -1191,7 +1191,7 @@ function SettingsPage() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard label="User accounts" value={counts.users} icon={Users} />
-        <StatCard label="Branches" value={counts.branches} icon={Building2} />
+        <StatCard label="Work Locations" value={counts.branches} icon={Building2} />
         <StatCard label="Departments" value={counts.departments} icon={Shield} />
         <StatCard label="Biometric devices" value={counts.devices} icon={Fingerprint} />
         <StatCard label="Holidays" value={counts.holidays} icon={CalendarCheck} />

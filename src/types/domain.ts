@@ -311,13 +311,33 @@ export interface Branch {
   name: string;
   address: string;
   code: string;
+  locationCode?: string;
+  locationType?: string;
+  locationTypeLabel?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  locality?: string;
   city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
   status?: string;
+  active?: boolean;
   latitude?: number | null;
   longitude?: number | null;
   attendanceRadiusMeters?: number;
-  /** Parking hub — same geofence model as a branch; UI always shows "Name - Hub". */
+  timezone?: string;
+  description?: string;
+  sortOrder?: number;
+  employeeCount?: number;
+  /** Parking hub — compatibility mirror of locationType === PARKING_HUB. */
   isHub?: boolean;
+  basedEmployees?: Array<{
+    employeeId: string;
+    name: string;
+    employeeCode: string;
+    designation?: string | null;
+  }>;
 }
 
 export interface Department {

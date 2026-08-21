@@ -12,6 +12,7 @@ in the same commit.
 - Main Admin / Developer Admin (audit history): [Audit Logs](AUDIT_LOGS.md)
 - Developers: [Technical Overview](TECHNICAL_OVERVIEW.md)
 - Organization structure: [Organization Structure](ORGANIZATION_STRUCTURE.md)
+- Work locations / Base Office: [Work Locations](WORK_LOCATIONS.md)
 - New contributors: [Repository Structure](REPOSITORY_STRUCTURE.md) and [Development and Testing](DEVELOPMENT_AND_TESTING.md)
 - Database owners and integration developers: [Database Integrity Audit](DATABASE_INTEGRITY_AUDIT.md), [Employee Data and Integration API](EMPLOYEE_DATA_AND_INTEGRATION_API.md), [Employee Profile and ID Card](EMPLOYEE_PROFILE_AND_ID_CARD.md), and [OpenAPI](openapi.employee-v1.yaml)
 - Product owners and UI writers: [Product Naming](PRODUCT_NAMING.md)
@@ -61,6 +62,7 @@ in the same commit.
 | `LINUX_LOCAL_DEPLOYMENT.md`            | Fresh Linux/AWS installation, company RDS wiring, Nginx, TLS, PM2, and optional containers        |
 | `UPGRADE_AND_MAINTENANCE.md`           | Production updates, backups, verification, rollback, CI/CD gates, and maintenance cadence         |
 | `MAINTENANCE_MODE.md`                  | Deployment maintenance mode, Caddy flag, 503 API contract, release build hardening                |
+| `WORK_LOCATIONS.md`                    | Work locations, Base Office vs punch location, geofence, codes/types, Android compatibility       |
 | `PRODUCTION_DEPLOYMENT_2026-08-15.md`  | The live Lightsail host as it actually is, and the archive-based release procedure used on it     |
 | `DEVICE_COMPATIBILITY.md`              | Supported browsers, PWA/store apps, permissions, low-network behavior, and QA matrix              |
 | `MOBILE_STORE_RELEASE.md`              | Capacitor Android/iOS builds, signing, push env, and Play/App Store checklist                     |

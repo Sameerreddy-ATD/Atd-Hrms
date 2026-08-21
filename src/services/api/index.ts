@@ -889,9 +889,9 @@ export const attendanceApi = {
 
 export const branchesApi = {
   list: () => request<Branch[]>("/branches"),
-  create: (branch: Omit<Branch, "id">) =>
+  create: (branch: Omit<Branch, "id"> & Record<string, unknown>) =>
     request<Branch>("/branches", { method: "POST", body: JSON.stringify(branch) }),
-  update: (id: string, patch: Partial<Branch>) =>
+  update: (id: string, patch: Partial<Branch> & Record<string, unknown>) =>
     request<Branch>(`/branches/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   delete: (id: string) => request<Branch>(`/branches/${id}`, { method: "DELETE" }),
   departments: (options?: { activeOnly?: boolean }) =>
@@ -924,6 +924,64 @@ export const branchesApi = {
     orderedIds: string[];
   }) =>
     request<Department[]>("/departments/reorder", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+};
+
+export type WorkLocationMeta = {
+  locationTypes: Array<{ value: string; label: string }>;
+  indiaStates: Array<{ code: string; label: string }>;
+  defaultTimezone: string;
+  defaultCountry: string;
+};
+
+export type BaseOfficeHistoryRow = {
+  id: string;
+  locationId: string;
+  locationName: string;
+  locationCode: string;
+  locationType: string;
+  isPrimary: boolean;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  reason: string | null;
+  changedByUserId: string | null;
+};
+
+export const workLocationsApi = {
+  list: (params?: { status?: string; locationType?: string; q?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.status) query.set("status", params.status);
+    if (params?.locationType) query.set("locationType", params.locationType);
+    if (params?.q) query.set("q", params.q);
+    const qs = query.toString();
+    return request<Branch[]>(`/work-locations${qs ? `?${qs}` : ""}`);
+  },
+  meta: () => request<WorkLocationMeta>("/work-locations/meta"),
+  get: (id: string) => request<Branch>(`/work-locations/${id}`),
+  create: (payload: Record<string, unknown>) =>
+    request<Branch>("/work-locations", { method: "POST", body: JSON.stringify(payload) }),
+  update: (id: string, patch: Record<string, unknown>) =>
+    request<Branch>(`/work-locations/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deactivate: (id: string) =>
+    request<Branch>(`/work-locations/${id}/deactivate`, { method: "POST", body: "{}" }),
+  reactivate: (id: string) =>
+    request<Branch>(`/work-locations/${id}/reactivate`, { method: "POST", body: "{}" }),
+  baseOfficeHistory: (employeeId: string) =>
+    request<BaseOfficeHistoryRow[]>(`/employees/${employeeId}/base-office-history`),
+  transferBaseOffice: (
+    employeeId: string,
+    payload: { toLocationId: string; effectiveFrom?: string; reason?: string | null },
+  ) =>
+    request<{
+      id: string;
+      locationId: string;
+      effectiveFrom: string;
+      homeBranchId?: string;
+      departmentId?: string | null;
+      role?: string;
+    }>(`/employees/${employeeId}/base-office-transfer`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),

@@ -283,7 +283,7 @@ export function shortcutsForRole(
             ]
           : []),
         {
-          label: "Branches",
+          label: "Work Locations",
           to: "/branches",
           description: "Locations and geofences",
           icon: Building2,

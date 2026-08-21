@@ -54,7 +54,7 @@ const LINK_OPTIONS = [
   { value: "/id-card", label: "ID card" },
   { value: "/employee-services", label: "Employee requests" },
   { value: "/announcements", label: "Announcements" },
-  { value: "/branches", label: "Branches" },
+  { value: "/branches", label: "Work Locations" },
   { value: "/devices", label: "Devices" },
   { value: "/holidays", label: "Holidays" },
   { value: "/leave/policy", label: "Leave policy" },

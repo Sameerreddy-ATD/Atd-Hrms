@@ -475,6 +475,7 @@ model Employee {
   departmentHeadAssignments   DepartmentHeadAssignment[]
   departmentViewerAssignments DepartmentViewerAssignment[]
   organizationAssignments     EmployeeOrganizationAssignment[]
+  workLocationAssignments     EmployeeWorkLocationAssignment[]
   assignedAssets              CompanyAsset[]
   assetAssignments            AssetAssignment[]
   taskAssignments             TaskAssignment[]
@@ -645,26 +646,68 @@ model EmployeeOrganizationAssignment {
   @@map("employee_organization_assignments")
 }
 
+/// Work Location foundation (table name `branches` retained for Android/API compatibility).
+/// Canonical identity: branchCode (= locationCode). Legacy `isHub` mirrors PARKING_HUB.
 model Branch {
-  branchId               String                   @id @default(cuid()) @map("branch_id")
-  branchName             String                   @map("branch_name")
-  branchCode             String                   @unique @map("branch_code")
-  address                String
-  city                   String?
-  status                 String                   @default("ACTIVE")
-  latitude               Decimal?                 @db.Decimal(10, 7)
-  longitude              Decimal?                 @db.Decimal(10, 7)
-  attendanceRadiusMeters Int                      @default(250) @map("attendance_radius_meters")
-  isHub                  Boolean                  @default(false) @map("is_hub")
-  createdAt              DateTime                 @default(now()) @map("created_at")
-  updatedAt              DateTime                 @updatedAt @map("updated_at")
-  devices                BiometricDevice[]
-  employees              Employee[]
-  schedules              EmployeeBranchSchedule[]
-  events                 AttendanceEvent[]
-  assets                 CompanyAsset[]
+  branchId                String                           @id @default(cuid()) @map("branch_id")
+  branchName              String                           @map("branch_name")
+  branchCode              String                           @unique @map("branch_code")
+  /// Compatibility: composed display address. Prefer structured fields below.
+  address                 String
+  addressLine1            String?                          @map("address_line1")
+  addressLine2            String?                          @map("address_line2")
+  locality                String?
+  city                    String?
+  /// Canonical Indian state/UT code, e.g. TELANGANA (UI label: Telangana).
+  state                   String?                          @db.VarChar(40)
+  /// Indian PIN as string (preserves leading zeros).
+  postalCode              String?                          @map("postal_code") @db.VarChar(12)
+  country                 String                           @default("India") @db.VarChar(80)
+  /// OFFICE | BRANCH | PARKING_HUB | DEPOT | WAREHOUSE | OTHER
+  locationType            String                           @default("BRANCH") @map("location_type") @db.VarChar(20)
+  status                  String                           @default("ACTIVE")
+  latitude                Decimal?                         @db.Decimal(10, 7)
+  longitude               Decimal?                         @db.Decimal(10, 7)
+  attendanceRadiusMeters  Int                              @default(250) @map("attendance_radius_meters")
+  timezone                String                           @default("Asia/Kolkata") @db.VarChar(64)
+  description             String?                          @db.Text
+  sortOrder               Int                              @default(0) @map("sort_order")
+  /// Compatibility mirror of locationType === PARKING_HUB. Do not treat as long-term canonical.
+  isHub                   Boolean                          @default(false) @map("is_hub")
+  createdAt               DateTime                         @default(now()) @map("created_at")
+  updatedAt               DateTime                         @updatedAt @map("updated_at")
+  devices                 BiometricDevice[]
+  employees               Employee[]
+  schedules               EmployeeBranchSchedule[]
+  events                  AttendanceEvent[]
+  assets                  CompanyAsset[]
+  workLocationAssignments EmployeeWorkLocationAssignment[]
 
+  @@index([status, locationType], map: "branches_status_type_idx")
   @@map("branches")
+}
+
+/// Effective-dated Base Office (and future location assignment types).
+/// effectiveFrom inclusive, effectiveTo exclusive. One active primary BASE_OFFICE at a time.
+model EmployeeWorkLocationAssignment {
+  id              String    @id @default(cuid())
+  employeeId      String    @map("employee_id")
+  employee        Employee  @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  locationId      String    @map("location_id")
+  location        Branch    @relation(fields: [locationId], references: [branchId], onDelete: Restrict)
+  /// BASE_OFFICE (Module 2). Future types may be added without schema rename.
+  assignmentType  String    @default("BASE_OFFICE") @map("assignment_type") @db.VarChar(30)
+  isPrimary       Boolean   @default(true) @map("is_primary")
+  effectiveFrom   DateTime  @map("effective_from") @db.Date
+  effectiveTo     DateTime? @map("effective_to") @db.Date
+  changedByUserId String?   @map("changed_by_user_id")
+  reason          String?   @db.Text
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@index([employeeId, assignmentType, isPrimary, effectiveFrom, effectiveTo], map: "ewla_employee_primary_idx")
+  @@index([locationId, effectiveFrom, effectiveTo], map: "ewla_location_effective_idx")
+  @@map("employee_work_location_assignments")
 }
 
 model CompanyAsset {

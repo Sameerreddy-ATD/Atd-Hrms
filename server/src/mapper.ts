@@ -505,17 +505,30 @@ export function departmentDto(department: {
 }
 
 export function branchDto(branch: Branch) {
+  const locationType = branch.locationType || (branch.isHub ? "PARKING_HUB" : "BRANCH");
   return {
     id: branch.branchId,
     name: branch.branchName,
     code: branch.branchCode,
+    locationCode: branch.branchCode,
+    locationType,
     address: branch.address,
+    addressLine1: branch.addressLine1 ?? undefined,
+    addressLine2: branch.addressLine2 ?? undefined,
+    locality: branch.locality ?? undefined,
     city: branch.city ?? undefined,
+    state: branch.state ?? undefined,
+    postalCode: branch.postalCode ?? undefined,
+    country: branch.country ?? "India",
     status: branch.status,
+    active: branch.status === "ACTIVE",
     latitude: branch.latitude == null ? undefined : Number(branch.latitude),
     longitude: branch.longitude == null ? undefined : Number(branch.longitude),
     attendanceRadiusMeters: branch.attendanceRadiusMeters,
-    isHub: Boolean(branch.isHub),
+    timezone: branch.timezone ?? "Asia/Kolkata",
+    description: branch.description ?? undefined,
+    sortOrder: branch.sortOrder ?? 0,
+    isHub: Boolean(branch.isHub) || locationType === "PARKING_HUB",
   };
 }
 

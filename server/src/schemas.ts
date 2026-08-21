@@ -268,16 +268,34 @@ export const emergencyContactSchema = z.object({
 export const branchSchema = z.object({
   name: z.string().min(2).max(160),
   code: z.string().min(1).max(40),
-  address: z.string().min(2).max(500),
+  address: z.string().min(2).max(500).optional(),
+  addressLine1: z.string().trim().min(2).max(191).optional(),
+  addressLine2: z.string().trim().max(191).nullable().optional(),
+  locality: z.string().trim().max(120).nullable().optional(),
   city: z.string().max(120).nullable().optional(),
+  state: z.string().trim().max(40).optional(),
+  postalCode: z.string().trim().max(12).optional(),
+  country: z.string().trim().max(80).optional(),
+  locationType: z
+    .enum(["OFFICE", "BRANCH", "PARKING_HUB", "DEPOT", "WAREHOUSE", "OTHER"])
+    .optional(),
   status: z.string().max(40).optional(),
   latitude: z.coerce.number().min(-90).max(90).nullable().optional(),
   longitude: z.coerce.number().min(-180).max(180).nullable().optional(),
   attendanceRadiusMeters: z.coerce.number().int().min(25).max(5000).optional(),
+  timezone: z.string().trim().max(64).optional(),
+  description: z.string().trim().max(2000).nullable().optional(),
+  sortOrder: z.coerce.number().int().min(0).max(10000).optional(),
   isHub: z.boolean().optional(),
 });
 
 export const branchUpdateSchema = branchSchema.partial();
+
+export const baseOfficeTransferSchema = z.object({
+  toLocationId: z.string().min(1),
+  effectiveFrom: z.coerce.date().optional(),
+  reason: z.string().trim().max(2000).nullable().optional(),
+});
 
 export const departmentSchema = z.object({
   name: z.string().min(2).max(160),

@@ -18,8 +18,9 @@ import type { OrganizationUnitRow } from "../server/src/organizationStructure.js
 
 const DATABASE_URL = process.env.DATABASE_URL ?? "";
 const prisma = new PrismaClient();
+const runSuite = process.env.RUN_ORG_INTEGRATION === "1";
 
-describe("organization integration (MySQL)", () => {
+describe.skipIf(!runSuite)("organization integration (MySQL)", () => {
   let analyticsId: string;
   let operationsId: string;
   let insideSalesId: string;
@@ -34,11 +35,12 @@ describe("organization integration (MySQL)", () => {
   let empAUserId: string;
 
   beforeAll(async () => {
-    if (!DATABASE_URL.includes("3308") && process.env.RUN_ORG_INTEGRATION !== "1") {
-      throw new Error("Set DATABASE_URL to the disposable MySQL 8 test database before running this suite");
+    if (!DATABASE_URL) {
+      throw new Error("DATABASE_URL is required for organization integration tests");
     }
     await prisma.$executeRawUnsafe("SET FOREIGN_KEY_CHECKS=0");
     await prisma.employeeOrganizationAssignment.deleteMany();
+    await prisma.employeeWorkLocationAssignment.deleteMany();
     await prisma.departmentHeadAssignment.deleteMany();
     await prisma.departmentViewerAssignment.deleteMany();
     await prisma.user.deleteMany();

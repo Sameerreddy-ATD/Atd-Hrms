@@ -40,9 +40,18 @@ import { hardRefreshApp } from "@/lib/pwa-install";
 import { Logo } from "@/components/common/Logo";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { NAV_I18N_BY_PATH } from "@/i18n/nav-keys";
 
-function toTitle(pathname: string) {
+function toTitle(pathname: string, t: (key: string) => string) {
+  const path = `/${pathname.split("/").filter(Boolean).join("/")}` || "/";
+  // Prefer nav i18n so /branches shows "Work Locations", not a path segment title.
+  const exact = NAV_I18N_BY_PATH[path];
+  if (exact) {
+    const label = t(exact);
+    if (label && label !== exact) return label;
+  }
   const seg = pathname.split("/").filter(Boolean).slice(-1)[0] ?? "dashboard";
+  if (seg === "branches") return t("nav.branches");
   return seg.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
@@ -138,11 +147,11 @@ export function AppHeader() {
             <Logo variant="mark" className="h-7 w-7 shrink-0 rounded-md ring-1 ring-border/60" />
           </button>
           <span className="min-w-0 truncate text-sm font-semibold tracking-tight text-foreground md:hidden">
-            {toTitle(pathname)}
+            {toTitle(pathname, t)}
           </span>
           <span className="hidden shrink-0 text-border md:inline">|</span>
           <span className="hidden max-w-[10rem] truncate capitalize text-xs font-medium text-muted-foreground md:inline md:text-sm lg:max-w-none lg:whitespace-nowrap">
-            {toTitle(pathname)}
+            {toTitle(pathname, t)}
           </span>
         </div>
       </div>

@@ -209,12 +209,25 @@ import {
 } from "./departmentHeads.js";
 import { boardAccessWhere as resolveBoardAccessWhere } from "./taskBoardAccess.js";
 import {
+  createWorkLocation,
+  deactivateWorkLocation,
+  ensureInitialBaseOfficeAssignment,
+  reactivateWorkLocation,
+  syncBaseOfficeFromHomeBranchPatch,
+  transferBaseOffice,
+  updateWorkLocation,
+  workLocationDto,
+} from "./workLocations.js";
+import { resolveAttendanceLocation } from "./attendanceLocationResolve.js";
+import { INDIA_STATES, WORK_LOCATION_TYPES, WORK_LOCATION_TYPE_LABELS } from "./workLocationCatalog.js";
+import {
   announcementSchema,
   announcementUpdateSchema,
   biometricMappingSchema,
   biometricMappingUpdateSchema,
   biometricDeviceSchema,
   biometricDeviceUpdateSchema,
+  baseOfficeTransferSchema,
   branchSchema,
   branchUpdateSchema,
   changePasswordSchema,
@@ -2938,6 +2951,15 @@ export function createApp() {
               },
             });
           }
+          if (employee.homeBranchId) {
+            await ensureInitialBaseOfficeAssignment(tx, {
+              employeeId: employee.employeeId,
+              locationId: employee.homeBranchId,
+              effectiveFrom: employee.joiningDate ?? new Date(),
+              changedByUserId: req.user!.id,
+              reason: "Initial Base Office on login create",
+            });
+          }
         }
         if (employee && organizationLevel === "HEAD") {
           const departmentId = body.departmentId ?? employee.departmentId;
@@ -3259,7 +3281,14 @@ export function createApp() {
         }
         body.employeeCode = nextCode;
       }
-      const { bankAccountNumber, panNumber, aadhaarNumber, uanNumber, ...employeeUpdate } = body;
+      const {
+        bankAccountNumber,
+        panNumber,
+        aadhaarNumber,
+        uanNumber,
+        homeBranchId: nextHomeBranchId,
+        ...employeeUpdate
+      } = body;
       const nextDateOfBirth =
         body.dateOfBirth === undefined ? existing.dateOfBirth : body.dateOfBirth;
       const nextJoiningDate =
@@ -3275,11 +3304,28 @@ export function createApp() {
       if (existing.user && body.email === null) {
         throw new HttpError(409, "Email cannot be removed while the employee has a login account");
       }
+      if (nextHomeBranchId) {
+        const location = await prisma.branch.findUnique({
+          where: { branchId: nextHomeBranchId },
+        });
+        if (!location || location.status !== "ACTIVE") {
+          throw new HttpError(400, "Base Office must be an active work location");
+        }
+      }
       const employee = await prisma.$transaction(async (tx) => {
+        if (nextHomeBranchId !== undefined) {
+          await syncBaseOfficeFromHomeBranchPatch(tx, {
+            employeeId,
+            previousHomeBranchId: existing.homeBranchId,
+            nextHomeBranchId,
+            changedByUserId: req.user!.id,
+          });
+        }
         const updatedEmployee = await tx.employee.update({
           where: { employeeId },
           data: {
             ...employeeUpdate,
+            ...(nextHomeBranchId !== undefined ? { homeBranchId: nextHomeBranchId } : {}),
             email: body.email === undefined ? undefined : body.email?.toLowerCase(),
             bankAccountNumberEncrypted:
               bankAccountNumber === undefined ? undefined : encryptEmployeeField(bankAccountNumber),
@@ -3457,9 +3503,365 @@ export function createApp() {
     asyncHandler(async (_req, res) => {
       const branches = await prisma.branch.findMany({
         where: { status: { not: "DELETED" } },
-        orderBy: { branchName: "asc" },
+        orderBy: [{ sortOrder: "asc" }, { branchName: "asc" }],
       });
       res.json(branches.map(branchDto));
+    }),
+  );
+
+  app.get(
+    "/work-locations",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const status = typeof req.query.status === "string" ? req.query.status : undefined;
+      const locationType =
+        typeof req.query.locationType === "string" ? req.query.locationType : undefined;
+      const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+      const where: Prisma.BranchWhereInput = {
+        status: status === "ACTIVE" || status === "INACTIVE" ? status : { not: "DELETED" },
+        ...(locationType ? { locationType } : {}),
+        ...(q
+          ? {
+              OR: [
+                { branchName: { contains: q } },
+                { branchCode: { contains: q } },
+                { city: { contains: q } },
+              ],
+            }
+          : {}),
+      };
+      const branches = await prisma.branch.findMany({
+        where,
+        orderBy: [{ sortOrder: "asc" }, { branchName: "asc" }],
+      });
+      const counts = await prisma.employee.groupBy({
+        by: ["homeBranchId"],
+        where: { homeBranchId: { in: branches.map((b) => b.branchId) }, status: "ACTIVE" },
+        _count: { _all: true },
+      });
+      const countMap = new Map(
+        counts.map((row) => [row.homeBranchId!, row._count._all] as const),
+      );
+      res.json(
+        branches.map((branch) =>
+          workLocationDto(branch, { employeeCount: countMap.get(branch.branchId) ?? 0 }),
+        ),
+      );
+    }),
+  );
+
+  app.get(
+    "/work-locations/meta",
+    requireAuth,
+    asyncHandler(async (_req, res) => {
+      res.json({
+        locationTypes: WORK_LOCATION_TYPES.map((value) => ({
+          value,
+          label: WORK_LOCATION_TYPE_LABELS[value],
+        })),
+        indiaStates: INDIA_STATES,
+        defaultTimezone: "Asia/Kolkata",
+        defaultCountry: "India",
+      });
+    }),
+  );
+
+  app.get(
+    "/work-locations/match",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const lat = Number(req.query.lat);
+      const lng = Number(req.query.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        throw new HttpError(400, "lat and lng query parameters are required");
+      }
+      const active = await prisma.branch.findMany({
+        where: { status: "ACTIVE", latitude: { not: null }, longitude: { not: null } },
+        select: {
+          branchId: true,
+          branchName: true,
+          latitude: true,
+          longitude: true,
+          attendanceRadiusMeters: true,
+        },
+      });
+      const resolved = resolveAttendanceLocation(
+        { latitude: lat, longitude: lng },
+        active.map((b) => ({
+          branchId: b.branchId,
+          branchName: b.branchName,
+          latitude: Number(b.latitude),
+          longitude: Number(b.longitude),
+          attendanceRadiusMeters: b.attendanceRadiusMeters,
+        })),
+      );
+      res.json({
+        mode: resolved.mode,
+        matchedLocationId: resolved.matchedLocation?.branchId ?? null,
+        matchedLocationName: resolved.matchedLocation?.branchName ?? null,
+        distanceMeters:
+          resolved.distanceMeters == null ? null : Math.round(resolved.distanceMeters),
+        radiusMeters: resolved.radiusMeters,
+      });
+    }),
+  );
+
+  app.get(
+    "/work-locations/:id",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const branch = await prisma.branch.findUnique({
+        where: { branchId: String(req.params.id) },
+      });
+      if (!branch || branch.status === "DELETED") throw new HttpError(404, "Work location not found");
+      const basedEmployees = await prisma.employee.findMany({
+        where: { homeBranchId: branch.branchId, status: "ACTIVE" },
+        select: {
+          employeeId: true,
+          name: true,
+          employeeCode: true,
+          designation: true,
+        },
+        orderBy: { name: "asc" },
+        take: 100,
+      });
+      res.json({
+        ...workLocationDto(branch, { employeeCount: basedEmployees.length }),
+        basedEmployees,
+      });
+    }),
+  );
+
+  app.post(
+    "/work-locations",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const body = branchSchema.parse(req.body);
+      if (body.latitude == null || body.longitude == null) {
+        throw new HttpError(400, "Latitude and longitude are required");
+      }
+      if (!(body.addressLine1 ?? body.address)?.trim()) {
+        throw new HttpError(400, "Address Line 1 is required");
+      }
+      if (!body.city?.trim()) throw new HttpError(400, "City is required");
+      if (!body.state?.trim()) throw new HttpError(400, "State is required");
+      if (!body.postalCode?.trim()) throw new HttpError(400, "PIN code is required");
+      if (!body.locationType) throw new HttpError(400, "Location type is required");
+      const branch = await createWorkLocation(prisma, {
+        name: body.name,
+        code: body.code,
+        locationType: body.locationType,
+        address: body.address,
+        addressLine1: body.addressLine1 ?? body.address,
+        addressLine2: body.addressLine2,
+        locality: body.locality,
+        city: body.city ?? undefined,
+        state: body.state,
+        postalCode: body.postalCode,
+        country: body.country,
+        latitude: body.latitude,
+        longitude: body.longitude,
+        attendanceRadiusMeters: body.attendanceRadiusMeters,
+        timezone: body.timezone,
+        description: body.description,
+        sortOrder: body.sortOrder,
+        status: body.status,
+        isHub: body.isHub,
+      });
+      const attendanceRefresh = await refreshGpsAttendanceBranchAssignments().catch((error) => {
+        console.warn("work location create: geofence refresh skipped", error);
+        return { changedEvents: 0, recalculatedDays: 0, skipped: true };
+      });
+      await audit({
+        action: "work location created",
+        performedByUserId: req.user!.id,
+        newValue: { locationId: branch.branchId, code: branch.branchCode, attendanceRefresh },
+        ipAddress: req.ip,
+      });
+      res.status(201).json(workLocationDto(branch));
+    }),
+  );
+
+  app.patch(
+    "/work-locations/:id",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const body = branchUpdateSchema.parse(req.body);
+      const before = await prisma.branch.findUnique({
+        where: { branchId: String(req.params.id) },
+      });
+      const branch = await updateWorkLocation(prisma, String(req.params.id), {
+        name: body.name ?? before?.branchName ?? "",
+        code: body.code,
+        locationType: body.locationType,
+        address: body.address,
+        addressLine1: body.addressLine1,
+        addressLine2: body.addressLine2,
+        locality: body.locality,
+        city: body.city ?? undefined,
+        state: body.state,
+        postalCode: body.postalCode,
+        country: body.country,
+        latitude: body.latitude,
+        longitude: body.longitude,
+        attendanceRadiusMeters: body.attendanceRadiusMeters,
+        timezone: body.timezone,
+        description: body.description,
+        sortOrder: body.sortOrder,
+        status: body.status,
+        isHub: body.isHub,
+      });
+      const attendanceRefresh = await refreshGpsAttendanceBranchAssignments().catch((error) => {
+        console.warn("work location update: geofence refresh skipped", error);
+        return { changedEvents: 0, recalculatedDays: 0, skipped: true };
+      });
+      await audit({
+        action: "work location updated",
+        performedByUserId: req.user!.id,
+        oldValue: before
+          ? {
+              code: before.branchCode,
+              locationType: before.locationType,
+              latitude: before.latitude == null ? null : Number(before.latitude),
+              longitude: before.longitude == null ? null : Number(before.longitude),
+              attendanceRadiusMeters: before.attendanceRadiusMeters,
+            }
+          : undefined,
+        newValue: {
+          locationId: branch.branchId,
+          code: branch.branchCode,
+          locationType: branch.locationType,
+          attendanceRefresh,
+        },
+        ipAddress: req.ip,
+      });
+      res.json(workLocationDto(branch));
+    }),
+  );
+
+  app.post(
+    "/work-locations/:id/deactivate",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const branch = await deactivateWorkLocation(prisma, String(req.params.id));
+      await refreshGpsAttendanceBranchAssignments().catch((error) => {
+        console.warn("work location deactivate: geofence refresh skipped", error);
+      });
+      await audit({
+        action: "work location deactivated",
+        performedByUserId: req.user!.id,
+        newValue: { locationId: branch.branchId, code: branch.branchCode },
+        ipAddress: req.ip,
+      });
+      res.json(workLocationDto(branch));
+    }),
+  );
+
+  app.post(
+    "/work-locations/:id/reactivate",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      const branch = await reactivateWorkLocation(prisma, String(req.params.id));
+      await refreshGpsAttendanceBranchAssignments().catch((error) => {
+        console.warn("work location reactivate: geofence refresh skipped", error);
+      });
+      await audit({
+        action: "work location reactivated",
+        performedByUserId: req.user!.id,
+        newValue: { locationId: branch.branchId, code: branch.branchCode },
+        ipAddress: req.ip,
+      });
+      res.json(workLocationDto(branch));
+    }),
+  );
+
+  app.get(
+    "/employees/:id/base-office-history",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
+    asyncHandler(async (req, res) => {
+      const employeeId = String(req.params.id);
+      const rows = await prisma.employeeWorkLocationAssignment.findMany({
+        where: { employeeId, assignmentType: "BASE_OFFICE" },
+        include: { location: true },
+        orderBy: { effectiveFrom: "desc" },
+      });
+      res.json(
+        rows.map((row) => ({
+          id: row.id,
+          locationId: row.locationId,
+          locationName: row.location.branchName,
+          locationCode: row.location.branchCode,
+          locationType: row.location.locationType,
+          isPrimary: row.isPrimary,
+          effectiveFrom: row.effectiveFrom.toISOString().slice(0, 10),
+          effectiveTo: row.effectiveTo ? row.effectiveTo.toISOString().slice(0, 10) : null,
+          reason: row.reason,
+          changedByUserId: row.changedByUserId,
+        })),
+      );
+    }),
+  );
+
+  app.post(
+    "/employees/:id/base-office-transfer",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
+    asyncHandler(async (req, res) => {
+      const body = baseOfficeTransferSchema.parse(req.body);
+      const employeeId = String(req.params.id);
+      const before = await prisma.employee.findUnique({
+        where: { employeeId },
+        select: {
+          homeBranchId: true,
+          departmentId: true,
+          user: { select: { role: true } },
+        },
+      });
+      if (!before) throw new HttpError(404, "Employee not found");
+      const assignment = await prisma.$transaction((tx) =>
+        transferBaseOffice(tx, {
+          employeeId,
+          toLocationId: body.toLocationId,
+          effectiveFrom: body.effectiveFrom ?? new Date(),
+          reason: body.reason,
+          changedByUserId: req.user!.id,
+        }),
+      );
+      const after = await prisma.employee.findUnique({
+        where: { employeeId },
+        select: {
+          homeBranchId: true,
+          departmentId: true,
+          user: { select: { role: true } },
+        },
+      });
+      await audit({
+        action: "employee base office transferred",
+        performedByUserId: req.user!.id,
+        oldValue: { homeBranchId: before.homeBranchId },
+        newValue: {
+          homeBranchId: after?.homeBranchId,
+          toLocationId: body.toLocationId,
+          effectiveFrom: assignment.effectiveFrom.toISOString().slice(0, 10),
+          reason: body.reason,
+          departmentIdUnchanged: before.departmentId === after?.departmentId,
+          roleUnchanged: before.user?.role === after?.user?.role,
+        },
+        ipAddress: req.ip,
+      });
+      res.status(201).json({
+        id: assignment.id,
+        locationId: assignment.locationId,
+        effectiveFrom: assignment.effectiveFrom.toISOString().slice(0, 10),
+        homeBranchId: after?.homeBranchId,
+        departmentId: after?.departmentId,
+        role: after?.user?.role,
+      });
     }),
   );
 
@@ -3840,18 +4242,27 @@ export function createApp() {
       if ((body.latitude == null) !== (body.longitude == null)) {
         throw new HttpError(400, "Latitude and longitude must be provided together");
       }
-      const branch = await prisma.branch.create({
-        data: {
-          branchName: body.name,
-          branchCode: body.code,
-          address: body.address,
-          city: body.city ?? undefined,
-          status: body.status ?? "ACTIVE",
-          latitude: body.latitude,
-          longitude: body.longitude,
-          attendanceRadiusMeters: body.attendanceRadiusMeters,
-          isHub: body.isHub ?? false,
-        },
+      // Legacy Android clients may omit structured address — map safely with India defaults.
+      const branch = await createWorkLocation(prisma, {
+        name: body.name,
+        code: body.code,
+        locationType: body.locationType,
+        address: body.address,
+        addressLine1: body.addressLine1 ?? body.address,
+        addressLine2: body.addressLine2,
+        locality: body.locality,
+        city: body.city ?? "Hyderabad",
+        state: body.state ?? "TELANGANA",
+        postalCode: body.postalCode ?? "500001",
+        country: body.country ?? "India",
+        latitude: body.latitude,
+        longitude: body.longitude,
+        attendanceRadiusMeters: body.attendanceRadiusMeters,
+        timezone: body.timezone,
+        description: body.description,
+        sortOrder: body.sortOrder,
+        status: body.status,
+        isHub: body.isHub,
       });
       const attendanceRefresh = await refreshGpsAttendanceBranchAssignments();
       await audit({
@@ -3882,19 +4293,32 @@ export function createApp() {
       ) {
         throw new HttpError(400, "Latitude and longitude must be updated together");
       }
-      const branch = await prisma.branch.update({
+      const existing = await prisma.branch.findUnique({
         where: { branchId: String(req.params.id) },
-        data: {
-          branchName: body.name,
-          branchCode: body.code,
-          address: body.address,
-          city: body.city,
-          status: body.status,
-          latitude: body.latitude,
-          longitude: body.longitude,
-          attendanceRadiusMeters: body.attendanceRadiusMeters,
-          isHub: body.isHub,
-        },
+      });
+      if (!existing || existing.status === "DELETED") {
+        throw new HttpError(404, "Branch not found");
+      }
+      const branch = await updateWorkLocation(prisma, String(req.params.id), {
+        name: body.name ?? existing.branchName,
+        code: body.code,
+        locationType: body.locationType,
+        address: body.address,
+        addressLine1: body.addressLine1,
+        addressLine2: body.addressLine2,
+        locality: body.locality,
+        city: body.city ?? undefined,
+        state: body.state,
+        postalCode: body.postalCode,
+        country: body.country,
+        latitude: body.latitude,
+        longitude: body.longitude,
+        attendanceRadiusMeters: body.attendanceRadiusMeters,
+        timezone: body.timezone,
+        description: body.description,
+        sortOrder: body.sortOrder,
+        status: body.status,
+        isHub: body.isHub,
       });
       const attendanceRefresh = await refreshGpsAttendanceBranchAssignments();
       await audit({
@@ -3917,10 +4341,8 @@ export function createApp() {
     requireAuth,
     requireRoles(Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR),
     asyncHandler(async (req, res) => {
-      const branch = await prisma.branch.update({
-        where: { branchId: String(req.params.id) },
-        data: { status: "DELETED" },
-      });
+      // Soft-deactivate (INACTIVE) — preserve historical references; do not hard-delete.
+      const branch = await deactivateWorkLocation(prisma, String(req.params.id));
       const attendanceRefresh = await refreshGpsAttendanceBranchAssignments();
       await audit({
         action: "branch deleted",
@@ -3928,6 +4350,7 @@ export function createApp() {
         newValue: {
           branchId: branch.branchId,
           name: branch.branchName,
+          status: branch.status,
           attendanceRefresh,
         },
         ipAddress: req.ip,

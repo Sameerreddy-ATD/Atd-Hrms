@@ -92,7 +92,7 @@ const hi = {
     "tasks": "वर्क प्लानर",
     "checklists": "चेकलिस्ट",
     "employeeServices": "कर्मचारी सेवाएँ",
-    "branches": "ब्रांच",
+    "branches": "कार्य स्थान",
     "devices": "डिवाइस",
     "holidays": "छुट्टियाँ",
     "assets": "एसेट प्रबंधन",

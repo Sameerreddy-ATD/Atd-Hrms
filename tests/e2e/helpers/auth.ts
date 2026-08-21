@@ -80,13 +80,19 @@ export async function loginAs(page: Page, userKey: E2eUserKey) {
 
   await page.goto("/login?as=employee", { waitUntil: "domcontentloaded" });
 
+  // Boot splash can intercept pointer events after remount; wait it out.
+  await page
+    .locator(".atd-open-splash")
+    .waitFor({ state: "hidden", timeout: 30_000 })
+    .catch(() => undefined);
+
   const loginHeading = page.getByRole("heading", { name: /team member sign-in/i });
   await expect(loginHeading, "Employee login form should render").toBeVisible({ timeout: 15_000 });
 
   const emailField = page.locator("#login-id");
   await expect(emailField, "Work email field must be present").toBeVisible({ timeout: 15_000 });
   // Wait for React hydration — filling before hydrate gets wiped on remount.
-  await emailField.click();
+  await emailField.click({ force: true });
   for (let attempt = 0; attempt < 5; attempt++) {
     await emailField.fill("");
     await emailField.fill(user.email);

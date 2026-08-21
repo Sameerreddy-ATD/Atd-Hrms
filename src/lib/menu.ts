@@ -263,7 +263,7 @@ export const menuGroups: MenuGroup[] = [
     label: "Company",
     items: [
       {
-        label: "Branches",
+        label: "Work Locations",
         to: "/branches",
         icon: Building2,
         roles: ["developer_admin", "main_admin", "hr"],

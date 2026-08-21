@@ -92,7 +92,7 @@ const en = {
     "tasks": "Work Planner",
     "checklists": "Checklists",
     "employeeServices": "Employee Services",
-    "branches": "Branches",
+    "branches": "Work Locations",
     "devices": "Devices",
     "holidays": "Holidays",
     "assets": "Asset Management",
