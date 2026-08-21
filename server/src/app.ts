@@ -56,6 +56,16 @@ import {
   recalculateDailySummary,
   resolveMobileEventTime,
 } from "./attendanceEngine.js";
+import {
+  recordPunchIn,
+  recordPunchOut,
+  getCurrentAttendanceState,
+  serializeWorkdayDetail,
+  workDateIso,
+  resolveWorkDateForPunch,
+  getOrCreateAttendanceWorkday,
+} from "./attendanceWorkday.js";
+import { resolveAttendanceLocation } from "./attendanceLocationResolve.js";
 import { issuePunchTicket, verifyPunchTicket } from "./punchTicket.js";
 import {
   classifyMobileSource,
@@ -63,7 +73,7 @@ import {
   locationSourceLabel,
 } from "./attendancePolicy.js";
 import { closePriorOpenPunchForNewDay } from "./attendanceSettlement.js";
-import { openAttendanceStream } from "./attendanceLive.js";
+import { openAttendanceStream, publishAttendanceChange } from "./attendanceLive.js";
 import { config } from "./config.js";
 import {
   isEmailIdentifier,
@@ -218,7 +228,6 @@ import {
   updateWorkLocation,
   workLocationDto,
 } from "./workLocations.js";
-import { resolveAttendanceLocation } from "./attendanceLocationResolve.js";
 import { INDIA_STATES, WORK_LOCATION_TYPES, WORK_LOCATION_TYPE_LABELS } from "./workLocationCatalog.js";
 import {
   assignDefaultShift,
@@ -5013,6 +5022,7 @@ export function createApp() {
       );
     }
     let nearbyBranchId: string | undefined;
+    let locationMode: "REGISTERED_LOCATION" | "MOBILE_FIELD" = "MOBILE_FIELD";
     if (workType === WorkType.FIELD) {
       const configuredBranches = await prisma.branch.findMany({
         where: { status: "ACTIVE", latitude: { not: null }, longitude: { not: null } },
@@ -5025,7 +5035,7 @@ export function createApp() {
         },
       });
       if (configuredBranches.length) {
-        const nearest = matchingBranch(
+        const resolvedLocation = resolveAttendanceLocation(
           { latitude: body.latitude, longitude: body.longitude },
           configuredBranches.map((branch) => ({
             ...branch,
@@ -5033,8 +5043,9 @@ export function createApp() {
             longitude: Number(branch.longitude),
           })),
         );
-        if (nearest) {
-          nearbyBranchId = nearest.branch.branchId;
+        locationMode = resolvedLocation.mode;
+        if (resolvedLocation.matchedLocation) {
+          nearbyBranchId = resolvedLocation.matchedLocation.branchId;
         }
       }
     }
@@ -5066,7 +5077,12 @@ export function createApp() {
       }
     }
     const punchAt = resolveMobileEventTime(capturedAt, { deferred: looksDeferred });
-    const eventDate = await attendanceDateForEmployee(employeeId, punchAt);
+    const ownership = isCheckOut
+      ? null
+      : await resolveWorkDateForPunch(employeeId, punchAt);
+    const eventDate = ownership
+      ? ownership.workDate
+      : await attendanceDateForEmployee(employeeId, punchAt);
     if (!isCheckOut) {
       await ensureEmployeeShiftAssignment(employeeId, eventDate, req.user!.employeeId);
       // Missed Checkout is a flag + correction window — never a gate on the next day's check-in.
@@ -5076,6 +5092,7 @@ export function createApp() {
       where: { employeeId, eventType: { in: attendancePunchEventTypes } },
       orderBy: { eventTime: "desc" },
     });
+    // Workday Core handles open-session conflicts; keep legacy transition as soft guard for unmigrated paths.
     const transitionIssue = attendanceTransitionIssue(latestEvent, eventDate, isCheckOut);
     if (transitionIssue) throw new HttpError(409, transitionIssue);
     let approvedLeave: Awaited<ReturnType<typeof findApprovedLeaveForDay>> | null | undefined =
@@ -5125,44 +5142,56 @@ export function createApp() {
           return EventType.FIELD_CHECK_OUT;
       }
     };
-    const resolvedType = isCheckOut && latestEvent ? matchingCheckOut(latestEvent.eventType) : type;
+    let resolvedType = isCheckOut && latestEvent ? matchingCheckOut(latestEvent.eventType) : type;
+    if (nearbyBranchId && resolvedType === EventType.FIELD_CHECK_IN) {
+      resolvedType = EventType.OFFICE_IN;
+    }
+    if (nearbyBranchId && resolvedType === EventType.FIELD_CHECK_OUT) {
+      resolvedType = EventType.OFFICE_OUT;
+    }
     const clientBody = body as Partial<{
       clientName: string;
       clientLocationName: string;
       photoUrl: string;
+      clientEventId?: string;
     }>;
-    let event: Awaited<ReturnType<typeof createAttendanceEvent>>;
-    try {
-      event = await createAttendanceEvent({
-        employeeId,
+    const punchPayload = {
+      employeeId,
+      eventType: resolvedType,
+      eventSource: EventSource.MOBILE_GPS,
+      punchAt,
+      location: {
         branchId: nearbyBranchId,
-        eventSource: EventSource.MOBILE_GPS,
-        eventType: resolvedType,
-        eventTime: punchAt,
+        locationMode,
         latitude: body.latitude,
         longitude: body.longitude,
         address: body.address,
-        mobileDeviceId: body.mobileDeviceId,
-        remarks: body.remarks,
-        workType,
-        clientName: clientBody.clientName,
-        clientLocationName: clientBody.clientLocationName,
-        photoUrl: clientBody.photoUrl,
-        createdByUserId: req.user!.id,
-      });
-      // Real GPS checkout of a prior-day open punch must stay on that attendance date.
-      if (
-        isCheckOut &&
-        latestEvent &&
-        latestEvent.eventDate.getTime() !== event.eventDate.getTime()
-      ) {
-        event = await prisma.attendanceEvent.update({
-          where: { eventId: event.eventId },
-          data: { eventDate: latestEvent.eventDate },
-        });
-        await recalculateDailySummary(employeeId, latestEvent.eventDate);
-        await recalculateDailySummary(employeeId, eventDate).catch(() => undefined);
-      }
+        locationAccuracy: body.locationAccuracy,
+      },
+      workType,
+      mobileDeviceId: body.mobileDeviceId,
+      remarks: body.remarks,
+      clientName: clientBody.clientName,
+      clientLocationName: clientBody.clientLocationName,
+      photoUrl: clientBody.photoUrl,
+      createdByUserId: req.user!.id,
+      clientEventId: body.clientEventId ?? (looksDeferred ? body.captureNonce : null),
+    };
+    let event: {
+      eventId: string;
+      employeeId: string;
+      eventDate: Date;
+      eventTime: Date;
+      eventType: EventType;
+      [key: string]: unknown;
+    };
+    try {
+      const result = isCheckOut
+        ? await recordPunchOut(punchPayload)
+        : await recordPunchIn(punchPayload);
+      event = result.event;
+      await recalculateDailySummary(employeeId, event.eventDate);
+      publishAttendanceChange(employeeId, event.eventDate);
       if (verifiedFace) {
         await prisma.faceEvidence.update({
           where: { evidenceId: verifiedFace.evidence.evidenceId },
@@ -5197,6 +5226,155 @@ export function createApp() {
       res.json(issuePunchTicket(req.user.employeeId, req.user.id));
     }),
   );
+
+  app.get(
+    "/attendance/current",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      if (!req.user!.employeeId) throw new HttpError(404, "No employee profile");
+      const state = await getCurrentAttendanceState(req.user!.employeeId);
+      res.json(state);
+    }),
+  );
+
+  app.get(
+    "/attendance/workdays/mine",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      if (!req.user!.employeeId) throw new HttpError(404, "No employee profile");
+      const from = dateFromQuery(req.query.from) ?? currentAttendanceCycle().fromDate;
+      const to = dateFromQuery(req.query.to) ?? currentAttendanceCycle().toDate;
+      const rows = await prisma.attendanceWorkday.findMany({
+        where: {
+          employeeId: req.user!.employeeId,
+          workDate: { gte: from, lte: to },
+        },
+        include: { sessions: { orderBy: { sequence: "asc" } } },
+        orderBy: { workDate: "desc" },
+      });
+      res.json(
+        rows.map((w) => ({
+          workdayId: w.workdayId,
+          workDate: workDateIso(w.workDate),
+          scheduleSource: w.scheduleSource,
+          explicitNoShift: w.explicitNoShift,
+          shiftCode: w.shiftCodeSnapshot,
+          shiftName: w.shiftNameSnapshot,
+          expectedWorkMinutes: w.expectedWorkMinutes,
+          actualWorkedMinutes: w.actualWorkedMinutes,
+          sessionCount: w.sessions.length,
+          status: w.status,
+          firstPunchAt: w.firstPunchAt,
+          lastPunchAt: w.lastPunchAt,
+          openSessionId: w.openSessionId,
+        })),
+      );
+    }),
+  );
+
+  app.get(
+    "/attendance/workdays/mine/:workDate",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      if (!req.user!.employeeId) throw new HttpError(404, "No employee profile");
+      const workDate = new Date(`${String(req.params.workDate)}T00:00:00.000Z`);
+      let workday = await prisma.attendanceWorkday.findUnique({
+        where: {
+          employeeId_workDate: { employeeId: req.user!.employeeId, workDate },
+        },
+      });
+      if (!workday) {
+        // Compatibility: ensure workday shell exists for scheduled days without punches.
+        workday = await getOrCreateAttendanceWorkday(req.user!.employeeId, workDate);
+      }
+      const detail = await serializeWorkdayDetail(workday.workdayId);
+      res.json(detail);
+    }),
+  );
+
+  app.get(
+    "/attendance/workdays/:employeeId/:workDate",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const employeeId = String(req.params.employeeId);
+      await assertEmployeeAccess(req.user!, employeeId);
+      const workDate = new Date(`${String(req.params.workDate)}T00:00:00.000Z`);
+      const workday = await prisma.attendanceWorkday.findUnique({
+        where: { employeeId_workDate: { employeeId, workDate } },
+      });
+      if (!workday) {
+        res.status(404).json({ error: "Workday not found" });
+        return;
+      }
+      res.json(await serializeWorkdayDetail(workday.workdayId));
+    }),
+  );
+
+  app.get(
+    "/attendance/admin/workdays",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      if (
+        !req.user ||
+        !([Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN, Role.MANAGER, Role.CEO] as Role[]).includes(
+          req.user.role,
+        )
+      ) {
+        throw new HttpError(403, "You don't have permission to perform this action.");
+      }
+      const date = dateFromQuery(req.query.date) ?? todayIstDate();
+      const take = Math.min(Number(req.query.limit ?? 50) || 50, 200);
+      const skip = Math.max(Number(req.query.offset ?? 0) || 0, 0);
+      const where: Prisma.AttendanceWorkdayWhereInput = { workDate: date };
+      if (req.query.employeeId) where.employeeId = String(req.query.employeeId);
+      if (req.query.status) where.status = String(req.query.status);
+      if (req.query.openSession === "true") where.openSessionId = { not: null };
+      if (req.query.openSession === "false") where.openSessionId = null;
+      const [rows, total] = await Promise.all([
+        prisma.attendanceWorkday.findMany({
+          where,
+          include: {
+            employee: {
+              select: {
+                employeeId: true,
+                employeeCode: true,
+                name: true,
+                homeBranchId: true,
+              },
+            },
+            sessions: { orderBy: { sequence: "asc" } },
+          },
+          orderBy: [{ employee: { name: "asc" } }],
+          take,
+          skip,
+        }),
+        prisma.attendanceWorkday.count({ where }),
+      ]);
+      res.json({
+        total,
+        items: rows.map((w) => ({
+          workdayId: w.workdayId,
+          employee: w.employee,
+          workDate: workDateIso(w.workDate),
+          shift: w.shiftNameSnapshot ?? (w.explicitNoShift ? "No Shift" : null),
+          firstIn: w.firstPunchAt,
+          lastOut: w.lastPunchAt,
+          workedMinutes: w.actualWorkedMinutes,
+          sessions: w.sessions.length,
+          openSession: Boolean(w.openSessionId),
+          locations: [
+            ...new Set(
+              w.sessions.flatMap((s) =>
+                [s.checkInLocationId, s.checkOutLocationId].filter(Boolean),
+              ),
+            ),
+          ],
+          status: w.status,
+        })),
+      });
+    }),
+  );
+
   app.post(
     "/attendance/mobile/check-in",
     requireAuth,

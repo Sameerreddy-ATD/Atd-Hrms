@@ -940,6 +940,107 @@ export const attendanceApi = {
   teamTimeline: (employeeId: string, date?: string) =>
     request<AttendanceTimelineEvent[]>(`/attendance/team/timeline${toQuery({ employeeId, date })}`),
   punchTicket: () => request<{ ticket: string; expiresAt: string }>("/attendance/punch-ticket"),
+  current: () =>
+    request<{
+      workdayId: string | null;
+      workDate: string | null;
+      checkedIn: boolean;
+      currentSession: {
+        sessionId: string;
+        checkInAt: string;
+        checkInLocationMode: string;
+        checkOutAt?: string | null;
+        status: string;
+      } | null;
+      firstCheckIn: string | null;
+      workedMinutes: number;
+      liveWorkedMinutes: number;
+      scheduledShift: {
+        source: string;
+        explicitNoShift: boolean;
+        shiftCode: string | null;
+        shiftName: string | null;
+        expectedMinutes: number | null;
+        segments: Array<{ sequence: number; startAt: string; endAt: string }>;
+        timezone: string;
+      } | null;
+      sessions: Array<{
+        sessionId: string;
+        sequence: number;
+        checkInAt: string;
+        checkOutAt: string | null;
+        checkInLocationMode: string;
+        checkOutLocationMode: string | null;
+        workedMinutes: number | null;
+        status: string;
+      }>;
+      nextExpectedAction: "CHECK_IN" | "CHECK_OUT";
+    }>("/attendance/current"),
+  workdaysMine: (filters: Record<string, string | undefined> = {}) =>
+    request<
+      Array<{
+        workdayId: string;
+        workDate: string;
+        scheduleSource: string;
+        explicitNoShift: boolean;
+        shiftCode: string | null;
+        shiftName: string | null;
+        expectedWorkMinutes: number | null;
+        actualWorkedMinutes: number;
+        sessionCount: number;
+        status: string;
+        firstPunchAt: string | null;
+        lastPunchAt: string | null;
+        openSessionId: string | null;
+      }>
+    >(`/attendance/workdays/mine${toQuery(filters)}`),
+  workdayMine: (workDate: string) =>
+    request<{
+      workdayId: string;
+      workDate: string;
+      schedule: {
+        source: string;
+        explicitNoShift: boolean;
+        shift: { id: string; code: string | null; name: string | null } | null;
+        timezone: string;
+        expectedMinutes: number | null;
+        segments: Array<{ sequence: number; startAt: string; endAt: string }>;
+      };
+      actual: {
+        workedMinutes: number;
+        sessions: Array<{
+          sessionId: string;
+          sequence: number;
+          checkInAt: string;
+          checkOutAt: string | null;
+          checkInLocationMode: string;
+          checkOutLocationMode: string | null;
+          workedMinutes: number | null;
+          status: string;
+        }>;
+        openSessionId: string | null;
+      };
+    }>(`/attendance/workdays/mine/${workDate}`),
+  adminWorkdays: (filters: Record<string, string | undefined> = {}) =>
+    request<{
+      total: number;
+      items: Array<{
+        workdayId: string;
+        employee: {
+          employeeId: string;
+          employeeCode: string;
+          name: string;
+        };
+        workDate: string;
+        shift: string | null;
+        firstIn: string | null;
+        lastOut: string | null;
+        workedMinutes: number;
+        sessions: number;
+        openSession: boolean;
+        status: string;
+      }>;
+    }>(`/attendance/admin/workdays${toQuery(filters)}`),
   checkIn: (payload: {
     employeeId: string;
     latitude: number;
@@ -951,6 +1052,7 @@ export const attendanceApi = {
     faceVerification?: FaceCapturePayload;
     punchTicket?: string;
     captureNonce?: string;
+    clientEventId?: string;
     deferred?: boolean;
   }) =>
     request<{ eventId: string }>("/attendance/mobile/check-in", {
@@ -968,6 +1070,7 @@ export const attendanceApi = {
     eventTime?: string;
     punchTicket?: string;
     captureNonce?: string;
+    clientEventId?: string;
     deferred?: boolean;
     faceVerification?: FaceCapturePayload;
   }) =>

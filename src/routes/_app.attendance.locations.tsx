@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
 import { AttendanceDayList } from "@/components/attendance/AttendanceDayList";
+import { AttendanceAdminWorkdays } from "@/components/attendance/AttendanceAdminWorkdays";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DateField } from "@/components/ui/date-field";
@@ -254,6 +255,18 @@ function DayLogsPage() {
         title={t("pages.dayLogs.title")}
         description={t("pages.dayLogs.subtitle")}
       />
+
+      <Card className="border-border shadow-sm">
+        <CardHeader className="space-y-1 px-4 pb-3 pt-4 sm:px-6">
+          <CardTitle className="text-base font-semibold">Workdays</CardTitle>
+          <p className="text-xs text-muted-foreground sm:text-sm">
+            Logical work dates with sessions (night shifts stay on the start date).
+          </p>
+        </CardHeader>
+        <CardContent className="px-4 pb-4 sm:px-6 sm:pb-5">
+          <AttendanceAdminWorkdays />
+        </CardContent>
+      </Card>
 
       <Card className="border-border shadow-sm">
         <CardHeader className="space-y-1 px-4 pb-3 pt-4 sm:px-6">

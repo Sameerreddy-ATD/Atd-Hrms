@@ -174,6 +174,7 @@ export async function removeOfflinePunch(id: string) {
 }
 
 export function isLikelyNetworkError(error: unknown) {
+  if (error instanceof TypeError) return true;
   const message = error instanceof Error ? error.message : String(error ?? "");
   return (
     /failed to fetch|networkerror|network request failed|load failed|offline|timeout|timed out/i.test(

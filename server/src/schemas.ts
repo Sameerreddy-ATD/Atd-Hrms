@@ -899,6 +899,8 @@ export const mobileEventSchema = z.object({
   eventTime: z.coerce.date().optional(),
   punchTicket: z.string().min(20).max(800).optional(),
   captureNonce: z.string().min(16).max(80).optional(),
+  /** Additive idempotency key; Android 1.0.15 may omit. */
+  clientEventId: z.string().min(8).max(120).optional(),
   deferred: z.boolean().optional(),
   confirmLeaveCancellation: z.boolean().optional(),
   faceVerification: z

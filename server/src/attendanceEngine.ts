@@ -28,6 +28,12 @@ import {
   resolveEmployeeShift,
   shiftWindowBounds,
 } from "./attendancePolicy.js";
+import { isCheckInEvent, isCheckOutEvent } from "./attendanceEventTypes.js";
+import {
+  applyCorrectionAttendanceEvent,
+  findOpenSessionForEmployee,
+  recordAttendancePunch,
+} from "./attendanceWorkday.js";
 
 const outTypes = new Set<EventType>([
   EventType.OFFICE_OUT,
@@ -134,14 +140,10 @@ function eventLocationSource(event: {
   return AttendanceLocationSource.SYSTEM;
 }
 
-export async function inferThumbEventType(employeeId: string, branchId: string, eventTime: Date) {
-  const day = await attendanceDateForEmployee(employeeId, eventTime);
-  const previous = await prisma.attendanceEvent.findFirst({
-    where: { employeeId, eventDate: day },
-    orderBy: { eventTime: "desc" },
-  });
-  if (!previous) return EventType.OFFICE_IN;
-  return inTypes.has(previous.eventType) ? EventType.OFFICE_OUT : EventType.OFFICE_IN;
+export async function inferThumbEventType(employeeId: string, _branchId: string, _eventTime: Date) {
+  const open = await findOpenSessionForEmployee(employeeId);
+  if (open) return EventType.OFFICE_OUT;
+  return EventType.OFFICE_IN;
 }
 
 /**
@@ -183,9 +185,9 @@ export async function createAttendanceEvent(input: {
   remarks?: string;
   rawPayload?: Prisma.InputJsonValue;
   createdByUserId?: string;
+  clientEventId?: string | null;
 }) {
   const eventTime = input.eventTime ?? new Date();
-  const eventDate = await attendanceDateForEmployee(input.employeeId, eventTime);
   let eventType =
     input.eventType ??
     (input.eventSource === EventSource.THUMB_SCANNER && input.branchId
@@ -199,6 +201,73 @@ export async function createAttendanceEvent(input: {
     if (branchId && eventType === EventType.FIELD_CHECK_OUT) eventType = EventType.OFFICE_OUT;
   }
 
+  if (isCheckInEvent(eventType) || isCheckOutEvent(eventType)) {
+    if (input.eventSource === EventSource.MANUAL_CORRECTION) {
+      const event = await applyCorrectionAttendanceEvent({
+        employeeId: input.employeeId,
+        eventType,
+        punchAt: eventTime,
+        branchId,
+        latitude: input.latitude,
+        longitude: input.longitude,
+        address: input.address,
+        clientName: input.clientName,
+        clientLocationName: input.clientLocationName,
+        workType: input.workType,
+        mobileDeviceId: input.mobileDeviceId,
+        photoUrl: input.photoUrl,
+        remarks: input.remarks,
+        createdByUserId: input.createdByUserId,
+        rawPayload: input.rawPayload,
+      });
+      await recalculateDailySummary(input.employeeId, event.eventDate);
+      publishAttendanceChange(input.employeeId, event.eventDate);
+      return event;
+    }
+
+    const { event } = await recordAttendancePunch({
+      employeeId: input.employeeId,
+      eventType,
+      eventSource: input.eventSource,
+      punchAt: eventTime,
+      location: {
+        branchId: branchId ?? null,
+        locationMode: branchId ? "REGISTERED_LOCATION" : "MOBILE_FIELD",
+        latitude: input.latitude,
+        longitude: input.longitude,
+        address: input.address,
+      },
+      workType: input.workType,
+      mobileDeviceId: input.mobileDeviceId,
+      photoUrl: input.photoUrl,
+      remarks: input.remarks,
+      clientName: input.clientName,
+      clientLocationName: input.clientLocationName,
+      createdByUserId: input.createdByUserId,
+      clientEventId: input.clientEventId,
+      rawPayload: {
+        ...(typeof input.rawPayload === "object" && input.rawPayload
+          ? (input.rawPayload as object)
+          : {}),
+        ...(input.deviceId ? { deviceId: input.deviceId } : {}),
+      } as Prisma.InputJsonValue,
+    });
+
+    if (input.eventSource === EventSource.THUMB_SCANNER) {
+      const leave = await findApprovedLeaveForDay(input.employeeId, event.eventDate, true).then(
+        (paidLeave) => paidLeave ?? findApprovedLeaveForDay(input.employeeId, event.eventDate, false),
+      );
+      if (leave?.session === "FULL") {
+        await cancelApprovedLeaveForDay(input.employeeId, event.eventDate);
+      }
+    }
+    await recalculateDailySummary(input.employeeId, event.eventDate);
+    publishAttendanceChange(input.employeeId, event.eventDate);
+    return event;
+  }
+
+  // Non-punch events (LEAVE_MARK, HOLIDAY_MARK, MANUAL_ADJUSTMENT, …): legacy path.
+  const eventDate = await attendanceDateForEmployee(input.employeeId, eventTime);
   const event = await prisma.attendanceEvent.create({
     data: {
       employeeId: input.employeeId,
@@ -221,14 +290,6 @@ export async function createAttendanceEvent(input: {
       createdByUserId: input.createdByUserId,
     },
   });
-  if (input.eventSource === EventSource.THUMB_SCANNER) {
-    const leave = await findApprovedLeaveForDay(input.employeeId, eventDate, true).then(
-      (paidLeave) => paidLeave ?? findApprovedLeaveForDay(input.employeeId, eventDate, false),
-    );
-    if (leave?.session === "FULL") {
-      await cancelApprovedLeaveForDay(input.employeeId, eventDate);
-    }
-  }
   await recalculateDailySummary(input.employeeId, eventDate);
   publishAttendanceChange(input.employeeId, eventDate);
   return event;

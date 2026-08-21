@@ -5,6 +5,10 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
 import { AttendanceDayList } from "@/components/attendance/AttendanceDayList";
 import {
+  AttendanceWorkdayCard,
+  AttendanceWorkdayHistoryList,
+} from "@/components/attendance/AttendanceWorkdayCard";
+import {
   MissedPunchRequestPanel,
   type MissedPunchCorrectionRequest,
 } from "@/components/attendance/MissedPunchRequestPanel";
@@ -137,6 +141,20 @@ function MyAttendancePage() {
           </TabsList>
 
           <TabsContent value="history" className="mt-0 space-y-3">
+            <AttendanceWorkdayCard />
+            <Card className="border-border shadow-sm">
+              <CardHeader className="space-y-1 px-4 pb-3 pt-4 sm:px-6">
+                <CardTitle className="text-base font-semibold text-foreground">
+                  Workday history
+                </CardTitle>
+                <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                  Grouped by logical work date (night shifts stay on the start date).
+                </p>
+              </CardHeader>
+              <CardContent className="px-3 pb-4 pt-0 sm:px-4 sm:pb-5">
+                <AttendanceWorkdayHistoryList />
+              </CardContent>
+            </Card>
             <Card className="border-border shadow-sm">
               <CardHeader className="space-y-1 px-4 pb-3 pt-4 sm:px-6">
                 <CardTitle className="text-base font-semibold text-foreground">

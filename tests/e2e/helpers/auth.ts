@@ -163,8 +163,20 @@ export async function apiLogin(request: APIRequestContext, userKey: E2eUserKey) 
   expect(res.ok(), `API login failed for ${userKey}: ${res.status()} ${await res.text()}`).toBeTruthy();
   const me = await request.get(`${API_BASE}/auth/me`);
   expect(me.ok()).toBeTruthy();
-  const body = (await me.json()) as { user?: { role?: string }; role?: string };
+  const body = (await me.json()) as {
+    user?: { role?: string; employeeId?: string; id?: string };
+    role?: string;
+    employeeId?: string;
+  };
   const role = body.user?.role ?? body.role;
   expect(String(role).toUpperCase()).toBe(user.role.toUpperCase());
-  return body;
+  return {
+    ...body,
+    ok: true as const,
+    user: {
+      ...(body.user ?? {}),
+      role,
+      employeeId: body.user?.employeeId ?? body.employeeId,
+    },
+  };
 }

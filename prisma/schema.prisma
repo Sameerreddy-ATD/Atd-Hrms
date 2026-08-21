@@ -462,6 +462,8 @@ model Employee {
   user                        User?
   schedules                   EmployeeBranchSchedule[]
   attendanceEvents            AttendanceEvent[]
+  attendanceWorkdays          AttendanceWorkday[]
+  attendanceSessions          AttendanceSession[]
   summaries                   AttendanceDailySummary[]
   fieldAttendances            FieldAttendance[]
   biometricMappings           BiometricEmployeeMapping[]
@@ -533,6 +535,7 @@ model ShiftDefinition {
   segments            ShiftSegment[]
   rosterAssignments   RosterAssignment[]
   dayOverrides        EmployeeShiftDayOverride[]
+  attendanceWorkdays  AttendanceWorkday[]
 
   @@map("shift_definitions")
 }
@@ -965,33 +968,111 @@ model EmployeeBranchSchedule {
 }
 
 model AttendanceEvent {
-  eventId            String           @id @default(cuid()) @map("event_id")
-  employeeId         String           @map("employee_id")
-  employee           Employee         @relation(fields: [employeeId], references: [employeeId])
-  eventDate          DateTime         @map("event_date") @db.Date
-  eventTime          DateTime         @map("event_time")
-  eventSource        EventSource      @map("event_source")
-  eventType          EventType        @map("event_type")
-  branchId           String?          @map("branch_id")
-  branch             Branch?          @relation(fields: [branchId], references: [branchId])
-  deviceId           String?          @map("device_id")
-  device             BiometricDevice? @relation(fields: [deviceId], references: [deviceId])
-  latitude           Decimal?         @db.Decimal(10, 7)
-  longitude          Decimal?         @db.Decimal(10, 7)
+  eventId            String             @id @default(cuid()) @map("event_id")
+  employeeId         String             @map("employee_id")
+  employee           Employee           @relation(fields: [employeeId], references: [employeeId])
+  eventDate          DateTime           @map("event_date") @db.Date
+  eventTime          DateTime           @map("event_time")
+  eventSource        EventSource        @map("event_source")
+  eventType          EventType          @map("event_type")
+  branchId           String?            @map("branch_id")
+  branch             Branch?            @relation(fields: [branchId], references: [branchId])
+  deviceId           String?            @map("device_id")
+  device             BiometricDevice?   @relation(fields: [deviceId], references: [deviceId])
+  latitude           Decimal?           @db.Decimal(10, 7)
+  longitude          Decimal?           @db.Decimal(10, 7)
   address            String?
-  clientName         String?          @map("client_name")
-  clientLocationName String?          @map("client_location_name")
-  workType           WorkType?        @map("work_type")
-  mobileDeviceId     String?          @map("mobile_device_id")
-  photoUrl           String?          @map("photo_url")
+  clientName         String?            @map("client_name")
+  clientLocationName String?            @map("client_location_name")
+  workType           WorkType?          @map("work_type")
+  mobileDeviceId     String?            @map("mobile_device_id")
+  photoUrl           String?            @map("photo_url")
   remarks            String?
-  rawPayload         Json?            @map("raw_payload")
-  createdByUserId    String?          @map("created_by_user_id")
-  createdAt          DateTime         @default(now()) @map("created_at")
+  rawPayload         Json?              @map("raw_payload")
+  createdByUserId    String?            @map("created_by_user_id")
+  /// Additive Workday Core linkage (null for legacy rows until backfill).
+  workdayId          String?            @map("workday_id")
+  workday            AttendanceWorkday? @relation(fields: [workdayId], references: [workdayId], onDelete: SetNull)
+  sessionId          String?            @map("session_id")
+  session            AttendanceSession? @relation(fields: [sessionId], references: [sessionId], onDelete: SetNull)
+  /// Optional client idempotency key (Android 1.0.15 may omit).
+  clientEventId      String?            @map("client_event_id") @db.VarChar(120)
+  createdAt          DateTime           @default(now()) @map("created_at")
   faceEvidence       FaceEvidence?
 
+  @@unique([employeeId, clientEventId])
   @@index([employeeId, eventDate, eventTime])
+  @@index([workdayId, eventTime])
+  @@index([sessionId])
   @@map("attendance_events")
+}
+
+/// Logical attendance day (≠ calendar date for overnight / split).
+model AttendanceWorkday {
+  workdayId           String              @id @default(cuid()) @map("workday_id")
+  employeeId          String              @map("employee_id")
+  employee            Employee            @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  /// Logical scheduled work date (IST calendar key stored as UTC midnight).
+  workDate            DateTime            @map("work_date") @db.Date
+  timezone            String              @default("Asia/Kolkata") @db.VarChar(64)
+  /// DAY_OVERRIDE | ROSTER | DEFAULT | NONE
+  scheduleSource      String              @map("schedule_source") @db.VarChar(20)
+  explicitNoShift     Boolean             @default(false) @map("explicit_no_shift")
+  shiftTemplateId     String?             @map("shift_template_id")
+  shift               ShiftDefinition?    @relation(fields: [shiftTemplateId], references: [shiftId], onDelete: SetNull)
+  shiftCodeSnapshot   String?             @map("shift_code_snapshot") @db.VarChar(40)
+  shiftNameSnapshot   String?             @map("shift_name_snapshot") @db.VarChar(120)
+  expectedWorkMinutes Int?                @map("expected_work_minutes")
+  scheduledStartAt    DateTime?           @map("scheduled_start_at")
+  scheduledEndAt      DateTime?           @map("scheduled_end_at")
+  /// Immutable schedule snapshot at Workday creation.
+  scheduleSnapshot    Json                @map("schedule_snapshot")
+  /// OPEN | COMPLETE | NEEDS_REVIEW
+  status              String              @default("OPEN") @db.VarChar(20)
+  actualWorkedMinutes Int                 @default(0) @map("actual_worked_minutes")
+  firstPunchAt        DateTime?           @map("first_punch_at")
+  lastPunchAt         DateTime?           @map("last_punch_at")
+  openSessionId       String?             @unique @map("open_session_id") @db.VarChar(191)
+  version             Int                 @default(0)
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+  sessions            AttendanceSession[]
+  events              AttendanceEvent[]
+
+  @@unique([employeeId, workDate])
+  @@index([employeeId, status])
+  @@index([workDate, status])
+  @@map("attendance_workdays")
+}
+
+model AttendanceSession {
+  sessionId            String            @id @default(cuid()) @map("session_id")
+  workdayId            String            @map("workday_id")
+  workday              AttendanceWorkday @relation(fields: [workdayId], references: [workdayId], onDelete: Cascade)
+  employeeId           String            @map("employee_id")
+  employee             Employee          @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  sequence             Int               @default(1)
+  checkInEventId       String?           @unique @map("check_in_event_id") @db.VarChar(191)
+  checkOutEventId      String?           @unique @map("check_out_event_id") @db.VarChar(191)
+  checkInAt            DateTime          @map("check_in_at")
+  checkOutAt           DateTime?         @map("check_out_at")
+  checkInLocationId    String?           @map("check_in_location_id")
+  checkOutLocationId   String?           @map("check_out_location_id")
+  /// REGISTERED_LOCATION | MOBILE_FIELD
+  checkInLocationMode  String            @default("MOBILE_FIELD") @map("check_in_location_mode") @db.VarChar(30)
+  checkOutLocationMode String?           @map("check_out_location_mode") @db.VarChar(30)
+  workedMinutes        Int?              @map("worked_minutes")
+  /// OPEN | CLOSED
+  status               String            @default("OPEN") @db.VarChar(20)
+  createdAt            DateTime          @default(now()) @map("created_at")
+  updatedAt            DateTime          @updatedAt @map("updated_at")
+  events               AttendanceEvent[]
+
+  @@unique([workdayId, sequence])
+  @@index([employeeId, status])
+  @@index([workdayId, status])
+  @@index([checkInAt])
+  @@map("attendance_sessions")
 }
 
 model FaceProfile {

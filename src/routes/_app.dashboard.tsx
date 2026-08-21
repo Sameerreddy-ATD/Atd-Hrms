@@ -59,10 +59,15 @@ import { subscribeToAttendanceChanges } from "@/lib/attendance-live";
 import { attendanceSourceLabel } from "@/lib/attendance-labels";
 import { formatBranchLocationLabel, formatBranchLocationLabelById } from "@/lib/branch-label";
 import { cn } from "@/lib/utils";
+import { useAttendanceCurrent } from "@/hooks/useAttendanceCurrent";
+import { AttendanceWorkdayCard } from "@/components/attendance/AttendanceWorkdayCard";
 import {
   FaceAttendanceDialog,
   type AttendanceCapture,
 } from "@/components/face/FaceAttendanceDialog";
+
+const LIVE_PUNCH_NETWORK_ERROR =
+  "Unable to submit attendance. Check your connection and try again.";
 import {
   AlertTriangle,
   Building2,
@@ -587,6 +592,12 @@ function MarkAttendanceCard({
   attendanceReady: boolean;
 }) {
   const { t } = useTranslation();
+  const {
+    state: currentState,
+    loading: currentLoading,
+    error: currentError,
+    refresh: refreshCurrent,
+  } = useAttendanceCurrent();
   const [actionLoading, setActionLoading] = useState(false);
   const [faceAction, setFaceAction] = useState<"check-in" | "check-out" | null>(null);
   const [optimisticSession, setOptimisticSession] = useState<{
@@ -594,42 +605,74 @@ function MarkAttendanceCard({
     startedAt?: number;
   } | null>(null);
   const [leaveCheckIn, setLeaveCheckIn] = useState<AttendanceCapture | null>(null);
-  // Nothing here depends on the passing second any more; only the open stretch
-  // does, and LiveWorkedTime tracks that on its own.
+  const [liveTick, setLiveTick] = useState<{ ms: number; at: number }>({
+    ms: 0,
+    at: Date.now(),
+  });
+
+  // Timeline fallback while canonical current is still loading.
   const workSession = useMemo(() => workedTime(timeline), [timeline]);
+  const canonicalCheckedIn = currentState?.checkedIn ?? workSession.isCheckedIn;
   const isCheckedIn = optimisticSession
     ? optimisticSession.state === "CHECKED_IN"
-    : workSession.isCheckedIn;
+    : canonicalCheckedIn;
+  const nextExpectedAction =
+    optimisticSession?.state === "CHECKED_IN"
+      ? "CHECK_OUT"
+      : optimisticSession?.state === "CHECKED_OUT"
+        ? "CHECK_IN"
+        : (currentState?.nextExpectedAction ??
+          (canonicalCheckedIn ? "CHECK_OUT" : "CHECK_IN"));
+
+  useEffect(() => {
+    if (!currentState) return;
+    setLiveTick({
+      ms: Math.max(0, currentState.liveWorkedMinutes) * 60_000,
+      at: Date.now(),
+    });
+  }, [currentState]);
+
   const runningSince = isCheckedIn
     ? optimisticSession?.state === "CHECKED_IN" && optimisticSession.startedAt
       ? optimisticSession.startedAt
-      : workSession.activeStart
+      : liveTick.at
     : null;
-  const effectiveFirstCheckIn =
-    workSession.firstCheckIn ??
+  const workedBaseMs = currentState
+    ? liveTick.ms
+    : runningSince === null
+      ? workSession.milliseconds
+      : workSession.completedMilliseconds;
+
+  const firstCheckInIso =
+    currentState?.firstCheckIn ??
+    currentState?.currentSession?.checkInAt ??
+    (workSession.firstCheckIn != null
+      ? new Date(workSession.firstCheckIn).toISOString()
+      : null) ??
     (optimisticSession?.state === "CHECKED_IN" && optimisticSession.startedAt
-      ? new Date(optimisticSession.startedAt)
-      : undefined);
-  const firstCheckInLabel = effectiveFirstCheckIn
+      ? new Date(optimisticSession.startedAt).toISOString()
+      : null);
+  const firstCheckInLabel = firstCheckInIso
     ? new Intl.DateTimeFormat("en-IN", {
         hour: "2-digit",
         minute: "2-digit",
         hour12: true,
         timeZone: "Asia/Kolkata",
-      }).format(effectiveFirstCheckIn)
+      }).format(new Date(firstCheckInIso))
     : t("pages.dashboard.notCheckedIn");
   const homeBranch = branches.find((branch) => branch.id === user.homeBranchId);
   const branchName = formatBranchLocationLabel(homeBranch);
+  const punchReady = attendanceReady && !currentLoading && !actionLoading;
 
   useEffect(() => {
-    if (!optimisticSession) return;
+    if (!optimisticSession || !currentState) return;
     if (
-      (optimisticSession.state === "CHECKED_IN" && workSession.isCheckedIn) ||
-      (optimisticSession.state === "CHECKED_OUT" && !workSession.isCheckedIn)
+      (optimisticSession.state === "CHECKED_IN" && currentState.checkedIn) ||
+      (optimisticSession.state === "CHECKED_OUT" && !currentState.checkedIn)
     ) {
       setOptimisticSession(null);
     }
-  }, [optimisticSession, workSession.isCheckedIn]);
+  }, [optimisticSession, currentState]);
 
   useEffect(() => {
     let cancelled = false;
@@ -683,6 +726,7 @@ function MarkAttendanceCard({
               ? t("pages.dashboard.toastQueuedSyncedIn")
               : t("pages.dashboard.toastQueuedSyncedOut"),
           );
+          await refreshCurrent();
           onAttendanceChanged();
         } catch (error) {
           const message = error instanceof Error ? error.message : "";
@@ -702,7 +746,10 @@ function MarkAttendanceCard({
     void flushQueue();
     const onOnline = () => void flushQueue();
     const onVisible = () => {
-      if (document.visibilityState === "visible") void flushQueue();
+      if (document.visibilityState === "visible") {
+        void flushQueue();
+        void refreshCurrent();
+      }
     };
     window.addEventListener("online", onOnline);
     document.addEventListener("visibilitychange", onVisible);
@@ -715,7 +762,7 @@ function MarkAttendanceCard({
       document.removeEventListener("visibilitychange", onVisible);
       window.clearInterval(timer);
     };
-  }, [onAttendanceChanged, user.employeeId]);
+  }, [onAttendanceChanged, refreshCurrent, t, user.employeeId]);
 
   async function submitCheckIn(capture: AttendanceCapture, confirmLeaveCancellation = false) {
     if (!user.employeeId) return;
@@ -728,6 +775,7 @@ function MarkAttendanceCard({
       setOptimisticSession({ state: "CHECKED_IN", startedAt: Date.now() });
       setLeaveCheckIn(null);
       toast.success(t("pages.dashboard.toastCheckedIn"));
+      await refreshCurrent();
       onCheckInSuccess();
       onAttendanceChanged();
     } catch (err) {
@@ -739,8 +787,9 @@ function MarkAttendanceCard({
       const { enqueueOfflinePunch, isLikelyNetworkError } =
         await import("@/lib/offline-punch-queue");
       if (isLikelyNetworkError(err)) {
+        // Live (face / non-deferred) punches must not optimistically flip status.
         if ("faceVerification" in capture && capture.faceVerification) {
-          toast.error(t("pages.dashboard.toastFaceOffline"));
+          toast.error(LIVE_PUNCH_NETWORK_ERROR);
           return;
         }
         await enqueueOfflinePunch({
@@ -757,7 +806,6 @@ function MarkAttendanceCard({
             mobileDeviceId: navigator.userAgent.slice(0, 120),
           },
         });
-        setOptimisticSession({ state: "CHECKED_IN", startedAt: Date.now() });
         toast.success(t("pages.dashboard.toastQueuedIn"));
         onCheckInSuccess();
         return;
@@ -781,7 +829,12 @@ function MarkAttendanceCard({
       await submitCheckIn(leaveCheckIn, true);
     } catch (err) {
       setLeaveCheckIn(null);
-      toast.error((err as Error).message);
+      const { isLikelyNetworkError } = await import("@/lib/offline-punch-queue");
+      if (isLikelyNetworkError(err)) {
+        toast.error(LIVE_PUNCH_NETWORK_ERROR);
+      } else {
+        toast.error((err as Error).message);
+      }
     } finally {
       setActionLoading(false);
     }
@@ -801,11 +854,17 @@ function MarkAttendanceCard({
           await attendanceApi.checkOut(capture);
           setOptimisticSession({ state: "CHECKED_OUT" });
           toast.success(t("pages.dashboard.toastCheckedOut"));
+          await refreshCurrent();
           onAttendanceChanged();
         } catch (error) {
           const { enqueueOfflinePunch, isLikelyNetworkError } =
             await import("@/lib/offline-punch-queue");
           if (isLikelyNetworkError(error)) {
+            // Live face checkout: show friendly network message, no optimistic flip.
+            if ("faceVerification" in capture && capture.faceVerification) {
+              toast.error(LIVE_PUNCH_NETWORK_ERROR);
+              return;
+            }
             await enqueueOfflinePunch({
               kind: "check-out",
               employeeId: user.employeeId ?? "",
@@ -818,7 +877,6 @@ function MarkAttendanceCard({
                 mobileDeviceId: navigator.userAgent.slice(0, 120),
               },
             });
-            setOptimisticSession({ state: "CHECKED_OUT" });
             toast.success(t("pages.dashboard.toastQueuedOut"));
           } else {
             throw error;
@@ -826,6 +884,11 @@ function MarkAttendanceCard({
         }
       }
     } catch (error) {
+      const { isLikelyNetworkError } = await import("@/lib/offline-punch-queue");
+      if (isLikelyNetworkError(error)) {
+        toast.error(LIVE_PUNCH_NETWORK_ERROR);
+        throw error;
+      }
       const message = error instanceof Error ? error.message : "Attendance could not be saved.";
       if (message.startsWith("Another face detected")) {
         toast.error(t("pages.dashboard.toastAnotherFace"), {
@@ -840,6 +903,9 @@ function MarkAttendanceCard({
     }
   }
 
+  const canCheckIn = nextExpectedAction === "CHECK_IN";
+  const canCheckOut = nextExpectedAction === "CHECK_OUT";
+
   return (
     <Card className={cn("min-w-0 max-w-full overflow-hidden border-border shadow-sm", className)}>
       <CardHeader className="min-w-0 p-3 sm:p-5">
@@ -847,44 +913,23 @@ function MarkAttendanceCard({
           <CardTitle className="text-base font-semibold text-foreground">
             {t("pages.dashboard.markAttendance")}
           </CardTitle>
-          <p className="mt-0.5 text-xs text-muted-foreground">{t("pages.dashboard.liveSession")}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {currentState?.workDate
+              ? `Workday ${currentState.workDate} · ${t("pages.dashboard.liveSession")}`
+              : t("pages.dashboard.liveSession")}
+          </p>
         </div>
       </CardHeader>
-      <CardContent className="grid min-w-0 gap-3 p-3 pt-0 sm:gap-4 sm:p-5 sm:pt-0 md:grid-cols-[minmax(0,1fr)_minmax(0,0.72fr)]">
-        <div className="min-w-0 overflow-hidden rounded-md border border-border/70 bg-muted/15">
-          <div className="flex min-w-0 items-center gap-3 border-b border-border/60 p-3 sm:p-4">
-            <span
-              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${isCheckedIn ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}
-            >
-              <Clock3 className="h-5 w-5" />
-            </span>
-            <div className="min-w-0 flex-1 overflow-hidden">
-              <p className="text-xs font-medium text-muted-foreground">
-                {t("pages.dashboard.workedToday")}
-              </p>
-              <LiveWorkedTime
-                baseMilliseconds={
-                  runningSince === null
-                    ? workSession.milliseconds
-                    : workSession.completedMilliseconds
-                }
-                since={runningSince}
-              />
-            </div>
-          </div>
-          <div className="grid min-w-0 grid-cols-2 divide-x divide-border/60">
-            <div className="min-w-0 p-3 sm:p-4">
-              <p className="text-xs text-muted-foreground">{t("pages.dashboard.firstCheckIn")}</p>
-              <p className="mt-1 truncate text-sm font-medium text-foreground">
-                {firstCheckInLabel}
-              </p>
-            </div>
-            <div className="min-w-0 p-3 sm:p-4">
-              <p className="text-xs text-muted-foreground">{t("pages.dashboard.homeBranch")}</p>
-              <p className="mt-1 truncate text-sm font-medium text-foreground">{branchName}</p>
-            </div>
-          </div>
-        </div>
+      <CardContent className="flex min-w-0 flex-col gap-3 p-3 pt-0 sm:gap-4 sm:p-5 sm:pt-0">
+        <AttendanceWorkdayCard
+          compact
+          hidePunchCta
+          current={{
+            state: currentState,
+            loading: currentLoading,
+            error: currentError,
+          }}
+        />
 
         <div className="flex min-w-0 flex-col justify-center gap-3 overflow-hidden rounded-md border border-border/70 p-3 sm:p-4">
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
@@ -903,15 +948,35 @@ function MarkAttendanceCard({
               </span>
             </span>
           </div>
-          <div className="grid min-w-0 grid-cols-1 gap-2 min-[420px]:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+          <div className="hidden min-w-0 items-center gap-3 sm:flex">
+            <span
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${isCheckedIn ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}
+            >
+              <Clock3 className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <p className="text-xs font-medium text-muted-foreground">
+                {t("pages.dashboard.workedToday")}
+              </p>
+              <LiveWorkedTime baseMilliseconds={workedBaseMs} since={runningSince} />
+            </div>
+            <div className="min-w-0 shrink-0 text-right">
+              <p className="text-xs text-muted-foreground">{t("pages.dashboard.firstCheckIn")}</p>
+              <p className="mt-0.5 truncate text-sm font-medium text-foreground">
+                {firstCheckInLabel}
+              </p>
+              <p className="mt-1 truncate text-xs text-muted-foreground">{branchName}</p>
+            </div>
+          </div>
+          <div className="grid min-w-0 grid-cols-1 gap-2 min-[420px]:grid-cols-2">
             <Button
               onClick={checkIn}
-              disabled={!attendanceReady || actionLoading || isCheckedIn}
-              className="h-12 w-full min-w-0 max-w-full overflow-hidden"
+              disabled={!punchReady || !canCheckIn}
+              className="h-11 min-h-11 w-full min-w-0 max-w-full overflow-hidden sm:h-12"
             >
               <LogIn className="mr-2 h-4 w-4 shrink-0" />
               <span className="min-w-0 truncate">
-                {!attendanceReady
+                {!attendanceReady || currentLoading
                   ? t("pages.dashboard.checkingStatus")
                   : actionLoading
                     ? t("pages.dashboard.verifying")
@@ -921,12 +986,12 @@ function MarkAttendanceCard({
             <Button
               variant="outline"
               onClick={checkOut}
-              disabled={!attendanceReady || actionLoading || !isCheckedIn}
-              className="h-12 w-full min-w-0 max-w-full overflow-hidden bg-background"
+              disabled={!punchReady || !canCheckOut}
+              className="h-11 min-h-11 w-full min-w-0 max-w-full overflow-hidden bg-background sm:h-12"
             >
               <LogOut className="mr-2 h-4 w-4 shrink-0 text-destructive" />
               <span className="min-w-0 truncate">
-                {!attendanceReady
+                {!attendanceReady || currentLoading
                   ? t("pages.dashboard.checkingStatus")
                   : actionLoading
                     ? t("pages.dashboard.verifying")

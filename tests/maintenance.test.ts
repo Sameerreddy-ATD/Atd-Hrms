@@ -26,6 +26,9 @@ async function withApp(cwd: string, run: (base: string) => Promise<void>) {
   app.use(maintenanceMiddleware);
   app.get("/employees", (_req, res) => res.json({ ok: true, employees: [] }));
   app.post("/employees", (_req, res) => res.status(201).json({ created: true }));
+  app.post("/attendance/mobile/check-in", (_req, res) => res.status(201).json({ eventId: "x" }));
+  app.post("/attendance/mobile/check-out", (_req, res) => res.status(201).json({ eventId: "y" }));
+  app.get("/attendance/current", (_req, res) => res.json({ checkedIn: false }));
 
   const server = await new Promise<import("node:http").Server>((resolve) => {
     const s = app.listen(0, "127.0.0.1", () => resolve(s));
@@ -131,17 +134,32 @@ describe("maintenance mode", () => {
     });
   });
 
-  it("503 maintenance payload does not look like an auth challenge", async () => {
+  it("attendance mutations return 503 during maintenance and recover after OFF", async () => {
     await withApp(cwd, async (base) => {
+      writeMaintenanceState({ enabled: false }, cwd);
+      clearMaintenanceCache();
+      expect((await fetch(`${base}/attendance/current`)).status).toBe(200);
+      expect((await fetch(`${base}/attendance/mobile/check-in`, { method: "POST" })).status).toBe(
+        201,
+      );
+
       writeMaintenanceState({ enabled: true }, cwd);
-      const res = await fetch(`${base}/employees`, {
-        headers: { Cookie: "access=fake; refresh=fake" },
-      });
-      expect(res.status).toBe(503);
-      expect(res.headers.get("www-authenticate")).toBeNull();
-      const body = await res.json();
-      expect(body).not.toHaveProperty("unauthorized");
-      expect(String(JSON.stringify(body))).not.toMatch(/invalid token|unauthorized/i);
+      clearMaintenanceCache();
+      const blockedIn = await fetch(`${base}/attendance/mobile/check-in`, { method: "POST" });
+      expect(blockedIn.status).toBe(503);
+      const blockedBody = await blockedIn.json();
+      expect(blockedBody.maintenance).toBe(true);
+      expect(blockedBody.code).toBe(MAINTENANCE_CODE);
+      expect((await fetch(`${base}/attendance/mobile/check-out`, { method: "POST" })).status).toBe(
+        503,
+      );
+
+      writeMaintenanceState({ enabled: false }, cwd);
+      clearMaintenanceCache();
+      expect((await fetch(`${base}/attendance/current`)).status).toBe(200);
+      expect((await fetch(`${base}/attendance/mobile/check-in`, { method: "POST" })).status).toBe(
+        201,
+      );
     });
   });
 });

@@ -68,7 +68,7 @@ async function main() {
   await prisma.$executeRawUnsafe("SET FOREIGN_KEY_CHECKS=1");
 
   // Create Login UI needs at least one attendance location option.
-  await prisma.branch.create({
+  const hq = await prisma.branch.create({
     data: {
       branchName: "E2E HQ",
       branchCode: "E2E_HQ",
@@ -92,6 +92,8 @@ async function main() {
         unitType: parentCode ? "SUBTEAM" : "TEAM",
         sortOrder: unitIdByCode.size,
         active: true,
+        // Disposable E2E: GPS punches without live face capture.
+        faceVerificationEnabled: false,
       },
     });
     unitIdByCode.set(code, unit.departmentId);
@@ -114,6 +116,8 @@ async function main() {
         departmentId,
         organizationLevel,
         joiningDate: new Date("2024-01-01"),
+        homeBranchId: hq.branchId,
+        attendanceRequired: true,
       },
     });
     if (departmentId) {
@@ -230,6 +234,7 @@ async function main() {
       departmentId: unitIdByCode.get("INSIDE_SALES"),
       organizationLevel: "HEAD",
       joiningDate: new Date("2024-01-10"),
+      homeBranchId: hq.branchId,
     },
   });
   const salesHead2 = await prisma.employee.create({
@@ -241,6 +246,7 @@ async function main() {
       departmentId: unitIdByCode.get("INSIDE_SALES"),
       organizationLevel: "HEAD",
       joiningDate: new Date("2024-01-11"),
+      homeBranchId: hq.branchId,
     },
   });
 

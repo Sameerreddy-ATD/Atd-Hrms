@@ -12,4 +12,7 @@ RUN_ORG_INTEGRATION=1 npx vitest run --config vitest.config.ts tests/organizatio
 echo "==> Shift roster foundation integration"
 RUN_SHIFT_INTEGRATION=1 npx vitest run --config vitest.config.ts tests/shiftRosterIntegration.test.ts
 
+echo "==> Attendance workday core integration"
+RUN_ATTENDANCE_WORKDAY_INTEGRATION=1 npx vitest run --config vitest.config.ts tests/attendanceWorkdayIntegration.test.ts
+
 echo "==> DB integration suites passed."

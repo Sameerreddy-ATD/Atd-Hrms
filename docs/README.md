@@ -14,6 +14,7 @@ in the same commit.
 - Organization structure: [Organization Structure](ORGANIZATION_STRUCTURE.md)
 - Work locations / Base Office: [Work Locations](WORK_LOCATIONS.md)
 - Shift / roster foundation: [Shift & Roster Foundation](SHIFT_ROSTER_FOUNDATION.md)
+- Attendance workday core: [Attendance Workday Core](ATTENDANCE_WORKDAY_CORE.md) · [Attendance Core Audit](ATTENDANCE_CORE_AUDIT.md)
 - New contributors: [Repository Structure](REPOSITORY_STRUCTURE.md) and [Development and Testing](DEVELOPMENT_AND_TESTING.md)
 - Database owners and integration developers: [Database Integrity Audit](DATABASE_INTEGRITY_AUDIT.md), [Employee Data and Integration API](EMPLOYEE_DATA_AND_INTEGRATION_API.md), [Employee Profile and ID Card](EMPLOYEE_PROFILE_AND_ID_CARD.md), and [OpenAPI](openapi.employee-v1.yaml)
 - Product owners and UI writers: [Product Naming](PRODUCT_NAMING.md)
