@@ -1,5 +1,6 @@
 import { createApp } from "./app.js";
 import { startAttendanceSettlementScheduler } from "./attendanceSettlement.js";
+import { startAttendanceExceptionDetectorScheduler } from "./attendanceExceptionDetectorScheduler.js";
 import { assertSecureConfig, config } from "./config.js";
 import { startFaceEvidenceCleanupScheduler } from "./faceAttendance.js";
 import { isFaceServerInferenceEnabled, loadFaceInference } from "./faceInference.js";
@@ -12,6 +13,7 @@ assertSecureConfig();
 const server = createApp().listen(config.port, () => {
   console.log(`AnyTime Diesel Workforce API listening on http://localhost:${config.port}`);
   startAttendanceSettlementScheduler();
+  startAttendanceExceptionDetectorScheduler();
   startFaceEvidenceCleanupScheduler();
   startManagerDigestScheduler();
   startClientLogRetentionScheduler();

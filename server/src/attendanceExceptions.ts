@@ -22,6 +22,30 @@ function snapshotOf(raw: unknown): ScheduleSnapshot {
   return raw as ScheduleSnapshot;
 }
 
+/** Short day label for push copy, e.g. "21 Aug". */
+function formatWorkDateShort(workDate: Date): string {
+  const iso = workDateIso(workDate);
+  const [, month, day] = iso.split("-");
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  const m = Number(month);
+  const d = Number(day);
+  if (!m || !d || m < 1 || m > 12) return iso;
+  return `${d} ${months[m - 1]}`;
+}
+
 async function ensureException(input: {
   workdayId: string;
   employeeId: string;
@@ -37,6 +61,12 @@ async function ensureException(input: {
     input.relatedSessionId,
   );
   const notificationTag = `att-ex-${dedupeKey}`.slice(0, 120);
+
+  const existing = await prisma.attendanceException.findUnique({ where: { dedupeKey } });
+  if (existing) {
+    // Idempotent / restart-safe: never re-notify or reopen a resolved row.
+    return { created: false, exception: existing };
+  }
 
   try {
     const created = await prisma.attendanceException.create({
@@ -84,8 +114,8 @@ async function ensureException(input: {
         ? String((error as { code?: string }).code)
         : "";
     if (code === "P2002") {
-      const existing = await prisma.attendanceException.findUnique({ where: { dedupeKey } });
-      return { created: false, exception: existing };
+      const raced = await prisma.attendanceException.findUnique({ where: { dedupeKey } });
+      return { created: false, exception: raced };
     }
     throw error;
   }
@@ -230,10 +260,13 @@ export async function syncWorkdayExceptions(
   }
 
   if (detectMissing && open && workday.scheduledEndAt) {
+    // Final scheduled segment end (split/night/cross-midnight), never mid-gap.
+    const finalEndAt = lastSeg ? new Date(lastSeg.endAt) : workday.scheduledEndAt;
     const eligibleAt = new Date(
-      workday.scheduledEndAt.getTime() + MISSING_CHECKOUT_THRESHOLD_MINUTES * 60_000,
+      finalEndAt.getTime() + MISSING_CHECKOUT_THRESHOLD_MINUTES * 60_000,
     );
     if (now.getTime() >= eligibleAt.getTime()) {
+      const workDateLabel = formatWorkDateShort(workday.workDate);
       await ensureException({
         workdayId,
         employeeId: workday.employeeId,
@@ -241,14 +274,14 @@ export async function syncWorkdayExceptions(
         relatedSessionId: open.sessionId,
         relatedEventId: open.checkInEventId,
         details: {
-          scheduledEndAt: workday.scheduledEndAt.toISOString(),
+          scheduledEndAt: finalEndAt.toISOString(),
           eligibleAt: eligibleAt.toISOString(),
           thresholdMinutes: MISSING_CHECKOUT_THRESHOLD_MINUTES,
           workDate: workDateIso(workday.workDate),
         },
         notify: {
           title: "Missing checkout",
-          body: "You did not check out after your shift ended. Submit a correction with your actual punch-out time within two days.",
+          body: `Missing checkout for ${workDateLabel}. Please submit an attendance correction.`,
           href: "/attendance/mine?tab=requests",
         },
       });
@@ -269,6 +302,7 @@ export async function syncWorkdayExceptions(
       ? now.getTime() >= workday.scheduledEndAt.getTime()
       : false;
     if (now.getTime() >= missedInAt.getTime() && scheduleDone) {
+      const workDateLabel = formatWorkDateShort(workday.workDate);
       await ensureException({
         workdayId,
         employeeId: workday.employeeId,
@@ -280,7 +314,7 @@ export async function syncWorkdayExceptions(
         },
         notify: {
           title: "Missed check-in",
-          body: "No check-in was recorded for your scheduled Workday. You may submit a correction within two days.",
+          body: `No check-in for ${workDateLabel}. You may submit an attendance correction within two days.`,
           href: "/attendance/mine?tab=requests",
         },
       });

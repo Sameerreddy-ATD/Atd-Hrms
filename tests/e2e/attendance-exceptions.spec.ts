@@ -377,6 +377,63 @@ test.describe("classification E2E", () => {
   });
 });
 
+test.describe("automatic detector E2E", () => {
+  test("seed IN only → detector → Missing Checkout / Correction Required; rerun idempotent", async ({
+    page,
+  }) => {
+    await ensureCompanyDefault(page.request);
+    await loginAs(page, "employee");
+    const employeeId = await employeeIdFromSession(page.request);
+    const workDateStr = pastWorkDate(3);
+
+    await seedPunches(page.request, {
+      employeeId,
+      workDate: workDateStr,
+      checkInMinute: 9 * 60 + 30,
+    });
+
+    const first = await runDetector(page.request, istIso(workDateStr, 19, 0));
+    expect(first.skipped ?? false).toBe(false);
+    expect(Number(first.created ?? 0)).toBeGreaterThanOrEqual(1);
+
+    const second = await runDetector(page.request, istIso(workDateStr, 19, 5));
+    expect(second.skipped ?? false).toBe(false);
+
+    await loginAs(page, "employee");
+    const mine = await (
+      await page.request.get(
+        `${API_BASE}/attendance/workdays/mine?from=${workDateStr}&to=${workDateStr}`,
+      )
+    ).json();
+    const row = (mine as Array<{ workDate: string; result?: string; exceptions?: Array<{ type: string }> }>).find(
+      (w) => w.workDate === workDateStr,
+    );
+    expect(row?.result).toBe("CORRECTION_REQUIRED");
+
+    await page.goto("/attendance/mine?tab=history");
+    await expect(page.getByText(/Missing Checkout|Correction Required/i).first()).toBeVisible({
+      timeout: 25_000,
+    });
+
+    await loginAs(page, "hr");
+    const exceptionsRes = await page.request.get(
+      `${API_BASE}/attendance/exceptions?type=MISSING_CHECK_OUT&employeeId=${employeeId}&limit=50`,
+    );
+    expect(exceptionsRes.ok(), await exceptionsRes.text()).toBeTruthy();
+    const exceptionsBody = await exceptionsRes.json();
+    const list = (exceptionsBody as { items?: Array<{ employee?: { employeeId?: string }; type?: string; workDate?: string }> }).items ?? [];
+    const hit = list.some(
+      (e) => e.employee?.employeeId === employeeId && e.type === "MISSING_CHECK_OUT" && e.workDate === workDateStr,
+    );
+    expect(hit, "HR exceptions list includes Missing Checkout").toBe(true);
+
+    await page.goto("/attendance/corrections?tab=exceptions");
+    await expect(
+      page.getByTestId("attendance-exceptions-panel").or(page.getByText(/Missing Checkout/i)).first(),
+    ).toBeVisible({ timeout: 25_000 });
+  });
+});
+
 test.describe("exceptions responsive matrix", () => {
   for (const vp of VIEWPORTS) {
     test(`attendance + corrections + exceptions @${vp.name}`, async ({ page }) => {

@@ -12,7 +12,7 @@ import {
   istWallTimeToUtc,
   applyCorrectionAttendanceEvent,
 } from "../server/src/attendanceWorkday";
-import { syncWorkdayExceptions } from "../server/src/attendanceExceptions";
+import { syncWorkdayExceptions, runAttendanceExceptionDetector } from "../server/src/attendanceExceptions";
 import {
   classifyAttendanceWorkday,
   classifyAttendanceWorkdayInput,
@@ -23,6 +23,10 @@ import {
   HALF_DAY_MIN_WORKED_MINUTES,
   MISSING_CHECKOUT_THRESHOLD_MINUTES,
 } from "../server/src/attendanceExceptionPolicy";
+import { writeMaintenanceState } from "../server/src/maintenance";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { mkdtempSync } from "node:fs";
 
 const enabled = process.env.RUN_ATTENDANCE_EXCEPTION_INTEGRATION === "1";
 const prisma = new PrismaClient();
@@ -546,6 +550,191 @@ describe.skipIf(!enabled)("attendance exceptions classification DB integration",
     expect(classified.classification.attendanceResult).toBe("UNSCHEDULED");
     const ev = await prisma.attendanceEvent.findMany({ where: { employeeId: emp.employeeId } });
     expect(ev.every((e) => e.eventTime != null)).toBe(true);
+  });
+
+  it("General 09:30–18:30 Missing Checkout at 19:00; not at 18:59; session stays OPEN", async () => {
+    const emp = await prisma.employee.create({
+      data: {
+        employeeCode: `EXG1830_${stamp}`.slice(0, 20),
+        name: "General Threshold",
+        homeBranchId: branchId,
+        status: "ACTIVE",
+        attendanceRequired: true,
+      },
+    });
+    // 09:30–18:30 General
+    const gen = await createShiftTemplate({
+      name: `EX Gen1830 ${stamp}`,
+      code: `G1830_${stamp}`.slice(0, 20).toUpperCase(),
+      graceInMinutes: 30,
+      segments: [{ startMinute: 570, endMinute: 1110, endDayOffset: 0 }],
+    });
+    await assignDefaultShift({
+      employeeId: emp.employeeId,
+      shiftId: gen.id,
+      effectiveFrom: WD,
+    });
+    await recordPunchIn({
+      employeeId: emp.employeeId,
+      punchAt: istWallTimeToUtc(WD, 570),
+      eventType: EventType.OFFICE_IN,
+      eventSource: EventSource.MOBILE_GPS,
+      location: { branchId, locationMode: "REGISTERED_LOCATION" },
+    });
+    const workday = await prisma.attendanceWorkday.findUniqueOrThrow({
+      where: { employeeId_workDate: { employeeId: emp.employeeId, workDate: WD } },
+    });
+    expect(workday.scheduledEndAt?.getTime()).toBe(istWallTimeToUtc(WD, 1110).getTime());
+
+    const at1859 = istWallTimeToUtc(WD, 18 * 60 + 59);
+    await syncWorkdayExceptions(workday.workdayId, { now: at1859, detectMissing: true });
+    expect(
+      await prisma.attendanceException.count({
+        where: { workdayId: workday.workdayId, type: "MISSING_CHECK_OUT" },
+      }),
+    ).toBe(0);
+
+    const at1900 = istWallTimeToUtc(WD, 19 * 60);
+    await syncWorkdayExceptions(workday.workdayId, { now: at1900, detectMissing: true });
+    expect(
+      await prisma.attendanceException.count({
+        where: { workdayId: workday.workdayId, type: "MISSING_CHECK_OUT" },
+      }),
+    ).toBe(1);
+
+    const session = await prisma.attendanceSession.findFirstOrThrow({
+      where: { workdayId: workday.workdayId },
+    });
+    expect(session.status).toBe("OPEN");
+    expect(session.checkOutAt).toBeNull();
+    const classified = await classifyAttendanceWorkday(workday.workdayId, { now: at1900 });
+    expect(classified.classification.attendanceResult).toBe("CORRECTION_REQUIRED");
+  });
+
+  it("runAttendanceExceptionDetector is idempotent; maintenance skips writes", async () => {
+    const emp = await prisma.employee.create({
+      data: {
+        employeeCode: `EXDET_${stamp}`.slice(0, 20),
+        name: "Detector Sweep",
+        homeBranchId: branchId,
+        status: "ACTIVE",
+        attendanceRequired: true,
+      },
+    });
+    await assignDefaultShift({ employeeId: emp.employeeId, shiftId: generalId, effectiveFrom: WD });
+    await recordPunchIn({
+      employeeId: emp.employeeId,
+      punchAt: istWallTimeToUtc(WD, 545),
+      eventType: EventType.OFFICE_IN,
+      eventSource: EventSource.MOBILE_GPS,
+      location: { branchId, locationMode: "REGISTERED_LOCATION" },
+    });
+    const workday = await prisma.attendanceWorkday.findUniqueOrThrow({
+      where: { employeeId_workDate: { employeeId: emp.employeeId, workDate: WD } },
+    });
+    const now = new Date(
+      workday.scheduledEndAt!.getTime() + MISSING_CHECKOUT_THRESHOLD_MINUTES * 60_000,
+    );
+
+    const first = await runAttendanceExceptionDetector(now);
+    expect(first.skipped).toBe(false);
+    const count1 = await prisma.attendanceException.count({
+      where: { workdayId: workday.workdayId, type: "MISSING_CHECK_OUT" },
+    });
+    expect(count1).toBe(1);
+
+    const second = await runAttendanceExceptionDetector(now);
+    expect(second.skipped).toBe(false);
+    const count2 = await prisma.attendanceException.count({
+      where: { workdayId: workday.workdayId, type: "MISSING_CHECK_OUT" },
+    });
+    expect(count2).toBe(1);
+
+    const dir = mkdtempSync(join(tmpdir(), "atd-maint-"));
+    const prev = process.env.MAINTENANCE_FILE;
+    process.env.MAINTENANCE_FILE = join(dir, "maintenance.json");
+    try {
+      writeMaintenanceState({
+        enabled: true,
+        reason: "DEPLOYMENT",
+        message: "test",
+        retryAfterSeconds: 600,
+        startedAt: new Date().toISOString(),
+        startedBy: "test",
+      });
+      const skipped = await runAttendanceExceptionDetector(now);
+      expect(skipped.skipped).toBe(true);
+      expect(skipped.created).toBe(0);
+      writeMaintenanceState({
+        enabled: false,
+        reason: "DEPLOYMENT",
+        message: "test",
+        retryAfterSeconds: 600,
+        startedAt: null,
+        startedBy: null,
+      });
+      const resumed = await runAttendanceExceptionDetector(now);
+      expect(resumed.skipped).toBe(false);
+      expect(
+        await prisma.attendanceException.count({
+          where: { workdayId: workday.workdayId, type: "MISSING_CHECK_OUT" },
+        }),
+      ).toBe(1);
+    } finally {
+      if (prev === undefined) delete process.env.MAINTENANCE_FILE;
+      else process.env.MAINTENANCE_FILE = prev;
+    }
+
+    // Resolved row must not be recreated as a new OPEN exception after checkout
+    await recordPunchOut({
+      employeeId: emp.employeeId,
+      punchAt: istWallTimeToUtc(WD, 18 * 60 + 10),
+      eventType: EventType.OFFICE_OUT,
+      eventSource: EventSource.MOBILE_GPS,
+      location: { branchId, locationMode: "REGISTERED_LOCATION" },
+    });
+    await syncWorkdayExceptions(workday.workdayId, { now, detectMissing: true });
+    const afterOut = await prisma.attendanceException.findMany({
+      where: { workdayId: workday.workdayId, type: "MISSING_CHECK_OUT" },
+    });
+    expect(afterOut).toHaveLength(1);
+    expect(afterOut[0]!.status).toBe("RESOLVED");
+    await runAttendanceExceptionDetector(now);
+    expect(
+      await prisma.attendanceException.count({
+        where: { workdayId: workday.workdayId, type: "MISSING_CHECK_OUT", status: "OPEN" },
+      }),
+    ).toBe(0);
+  });
+
+  it("missing check-in only after schedule finished (not while Workday still active)", async () => {
+    const emp = await prisma.employee.create({
+      data: {
+        employeeCode: `EXMI_${stamp}`.slice(0, 20),
+        name: "Missing In Gate",
+        homeBranchId: branchId,
+        status: "ACTIVE",
+        attendanceRequired: true,
+      },
+    });
+    await assignDefaultShift({ employeeId: emp.employeeId, shiftId: generalId, effectiveFrom: WD });
+    const workday = await getOrCreateAttendanceWorkday(emp.employeeId, WD);
+    // During schedule (after start+grace) — must NOT mark missing check-in
+    const midShift = istWallTimeToUtc(WD, 12 * 60);
+    await syncWorkdayExceptions(workday.workdayId, { now: midShift, detectMissing: true });
+    expect(
+      await prisma.attendanceException.count({
+        where: { workdayId: workday.workdayId, type: "MISSING_CHECK_IN" },
+      }),
+    ).toBe(0);
+    // After scheduled end — eligible
+    const afterEnd = new Date(workday.scheduledEndAt!.getTime() + 60_000);
+    await syncWorkdayExceptions(workday.workdayId, { now: afterEnd, detectMissing: true });
+    expect(
+      await prisma.attendanceException.count({
+        where: { workdayId: workday.workdayId, type: "MISSING_CHECK_IN" },
+      }),
+    ).toBe(1);
   });
 });
 
