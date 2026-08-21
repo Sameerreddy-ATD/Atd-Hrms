@@ -3,13 +3,20 @@ import { HttpError } from "./errors.js";
 import { prisma } from "./prisma.js";
 import {
   eachDateInRange,
-  isSunday,
   istDateParts,
   startOfDayUtc,
   todayIstDate,
 } from "./attendanceDayRules.js";
 import { medicalDocumentDueAt48h, monthEndIst } from "./attendancePolicy.js";
 import { activeEmployeeIdsExcludingDeveloperAdmin } from "./attendanceDayRules.js";
+import {
+  assertLeaveDatesNotExplicitNoShift,
+  billableLeaveDates,
+  skippedWeekOffDateKeys,
+} from "./leaveCalendar.js";
+
+export { skippedWeekOffDateKeys, billableLeaveDates } from "./leaveCalendar.js";
+export const LEAVE_POLICY_CONFIRMATION_REQUIRED = true;
 
 export const LEAVE_CODES = {
   CASUAL: "CASUAL",
@@ -38,33 +45,7 @@ function dateKey(date: Date) {
 }
 
 /** Sundays (fixed policy) and approved weekly-off dates are not leave days. */
-export async function skippedWeekOffDateKeys(
-  employeeId: string,
-  fromDate: Date,
-  toDate: Date,
-) {
-  const dates = eachDateInRange(fromDate, toDate);
-  const employee = await prisma.employee.findUnique({
-    where: { employeeId },
-    select: { weeklyOffPolicy: true },
-  });
-  const approved = await prisma.weeklyOffRequest.findMany({
-    where: {
-      employeeId,
-      status: "APPROVED",
-      date: { gte: startOfDayUtc(fromDate), lte: startOfDayUtc(toDate) },
-    },
-    select: { date: true },
-  });
-  const approvedKeys = new Set(approved.map((row) => dateKey(row.date)));
-  const skipped = new Set<string>();
-  for (const date of dates) {
-    const key = dateKey(date);
-    if (employee?.weeklyOffPolicy === "SUNDAY_FIXED" && isSunday(date)) skipped.add(key);
-    if (approvedKeys.has(key)) skipped.add(key);
-  }
-  return skipped;
-}
+// skippedWeekOffDateKeys re-exported from leaveCalendar.ts
 
 function effectiveDays(request: { days: Prisma.Decimal; cancelledDates: unknown }) {
   const cancelled = Array.isArray(request.cancelledDates)
@@ -315,9 +296,13 @@ export async function validateLeaveApplication(input: {
   const dates = eachDateInRange(input.fromDate, input.toDate);
   if (!dates.length) throw new HttpError(400, "Select a valid date range");
   const skipped = await skippedWeekOffDateKeys(input.employeeId, input.fromDate, input.toDate);
-  const billableDates = dates.filter((date) => !skipped.has(dateKey(date)));
+  const billableDates = await billableLeaveDates(input.employeeId, input.fromDate, input.toDate);
+  await assertLeaveDatesNotExplicitNoShift(input.employeeId, billableDates.length ? billableDates : dates);
 
   if (session !== LeaveSession.FULL) {
+    if (type.halfDayAllowed === false) {
+      throw new HttpError(400, "Half-day leave is not allowed for this leave type");
+    }
     if (type.code === LEAVE_CODES.COMP_OFF) {
       throw new HttpError(400, "Comp Off can only be taken as a full day");
     }
@@ -340,7 +325,23 @@ export async function validateLeaveApplication(input: {
   }
 
   const today = todayIstDate();
-  if (type.code === LEAVE_CODES.SICK) {
+  // Configurable notice / backdate when set on LeaveType; otherwise legacy type rules.
+  if (type.minNoticeDays != null || type.backdatedAllowed) {
+    const from = startOfDayUtc(input.fromDate);
+    if (!type.backdatedAllowed && from < today) {
+      throw new HttpError(400, "Backdated leave is not allowed for this leave type");
+    }
+    if (type.minNoticeDays != null && type.minNoticeDays > 0) {
+      const earliest = new Date(today);
+      earliest.setUTCDate(earliest.getUTCDate() + type.minNoticeDays);
+      if (from < earliest) {
+        throw new HttpError(
+          400,
+          `This leave type must be requested at least ${type.minNoticeDays} day(s) in advance`,
+        );
+      }
+    }
+  } else if (type.code === LEAVE_CODES.SICK) {
     if (startOfDayUtc(input.fromDate) < today) {
       throw new HttpError(400, "Sick Leave cannot start in the past");
     }

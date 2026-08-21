@@ -20,7 +20,7 @@ import {
   workdayResultLabel,
   type WorkdayAttendanceResultName,
 } from "./attendanceExceptionPolicy.js";
-import { resolveNoEventStatus } from "./attendanceDayRules.js";
+import { resolveNoEventStatus, findApprovedLeaveForDay } from "./attendanceDayRules.js";
 
 export type ClassificationInput = {
   workday: AttendanceWorkday;
@@ -234,14 +234,14 @@ export async function classifyAttendanceWorkday(
       result = {
         ...result,
         attendanceResult: WorkdayAttendanceResult.PAID_LEAVE,
-        classificationReason: external,
+        classificationReason: "Approved Leave (paid) — Workday has no punches",
         lifecycleStatus: WorkdayLifecycle.READY,
       };
     } else if (external.startsWith("Unpaid")) {
       result = {
         ...result,
         attendanceResult: WorkdayAttendanceResult.UNPAID_LEAVE,
-        classificationReason: external,
+        classificationReason: "Approved Leave (unpaid) — Workday has no punches",
         lifecycleStatus: WorkdayLifecycle.READY,
       };
     } else if (external === "Absent") {
@@ -255,6 +255,19 @@ export async function classifyAttendanceWorkday(
           lifecycleStatus: WorkdayLifecycle.READY,
         };
       }
+    }
+  } else if (workday.sessions.length > 0) {
+    // Preserve punches + leave; never discard either source silently.
+    const paidLeave = await findApprovedLeaveForDay(workday.employeeId, workday.workDate, true);
+    const unpaidLeave = await findApprovedLeaveForDay(workday.employeeId, workday.workDate, false);
+    const leave = paidLeave ?? unpaidLeave;
+    if (leave) {
+      result = {
+        ...result,
+        attendanceResult: WorkdayAttendanceResult.LEAVE_ATTENDANCE_CONFLICT,
+        classificationReason: `Approved leave (${leave.session}) with recorded attendance — review required. Sessions preserved.`,
+        lifecycleStatus: WorkdayLifecycle.READY,
+      };
     }
   }
 

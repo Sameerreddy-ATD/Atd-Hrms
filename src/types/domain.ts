@@ -636,12 +636,20 @@ export interface LeaveTypeOption {
   monthlyCredit?: number;
   maxPerMonth?: number;
   carryForward: boolean;
+  maxCarryForward?: number;
+  maxBalance?: number;
+  negativeBalanceAllowed?: boolean;
+  halfDayAllowed?: boolean;
+  minNoticeDays?: number | null;
+  backdatedAllowed?: boolean;
   requiresMedicalDocument: boolean;
   approvalRequired: boolean;
   description: string;
+  colorToken?: string | null;
+  policyConfirmationRequired?: boolean;
 }
 
-export type LeaveStatus = "Pending" | "Approved" | "Rejected" | "Cancelled";
+export type LeaveStatus = "Pending" | "Approved" | "Rejected" | "Cancelled" | "Withdrawn";
 
 export interface LeaveRequest {
   id: string;

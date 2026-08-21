@@ -61,6 +61,8 @@ export const WorkdayAttendanceResult = {
   PAID_LEAVE: "PAID_LEAVE",
   UNPAID_LEAVE: "UNPAID_LEAVE",
   UNSCHEDULED: "UNSCHEDULED",
+  /** Approved leave + recorded attendance evidence — both retained for review. */
+  LEAVE_ATTENDANCE_CONFLICT: "LEAVE_ATTENDANCE_CONFLICT",
 } as const;
 export type WorkdayAttendanceResultName =
   (typeof WorkdayAttendanceResult)[keyof typeof WorkdayAttendanceResult];
@@ -110,6 +112,8 @@ export function workdayResultLabel(result: string): string {
       return "Paid Leave";
     case WorkdayAttendanceResult.UNPAID_LEAVE:
       return "Unpaid Leave / LOP";
+    case WorkdayAttendanceResult.LEAVE_ATTENDANCE_CONFLICT:
+      return "Leave + Attendance conflict";
     case WorkdayAttendanceResult.UNSCHEDULED:
       return "Unscheduled attendance";
     default:

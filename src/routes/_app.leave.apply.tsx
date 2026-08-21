@@ -470,6 +470,7 @@ function ApplyLeavePage() {
                     <Button
                       type="button"
                       variant={duration === "HALF" ? "default" : "ghost"}
+                      disabled={types.length > 0 && types.every((t) => t.halfDayAllowed === false)}
                       onClick={() => {
                         setDuration("HALF");
                         if (from) setTo(from);

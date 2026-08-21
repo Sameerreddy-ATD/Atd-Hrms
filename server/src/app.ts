@@ -283,6 +283,7 @@ import {
   leaveBalanceAdjustmentSchema,
   leaveTypeSchema,
   leaveTypeUpdateSchema,
+  leavePreviewDaysSchema,
   medicalDocumentSchema,
   loginSchema,
   forgotPasswordSchema,
@@ -318,6 +319,10 @@ import {
   validateLeaveApplication,
   validateSplitLeaveApplication,
 } from "./leavePolicy.js";
+import {
+  LeaveHistoryAction,
+  recordLeaveHistory,
+} from "./leaveApprovalHistory.js";
 
 function announcementDto(
   announcement: Prisma.AnnouncementGetPayload<{ include: { createdBy: true } }>,
@@ -846,6 +851,7 @@ export function createApp() {
       APPROVED: "Approved",
       REJECTED: "Rejected",
       CANCELLED: "Cancelled",
+      WITHDRAWN: "Withdrawn",
     };
     const decisionLabel = reviewedByName
       ? row.status === "REJECTED"
@@ -859,6 +865,7 @@ export function createApp() {
       APPROVED: decisionLabel ?? "Approved by organization head",
       REJECTED: decisionLabel ?? "Rejected by organization head",
       CANCELLED: "Cancelled",
+      WITHDRAWN: "Withdrawn by employee",
     };
     return {
       id: row.leaveRequestId,
@@ -1096,6 +1103,10 @@ export function createApp() {
     user: { employeeId?: string | null; role: Role },
     leave: { managerId?: string | null; employeeId: string },
   ) {
+    // Never allow self-approval — including HR / CEO / admin roles.
+    if (user.employeeId && user.employeeId === leave.employeeId) {
+      throw new HttpError(403, "You're not allowed to approve or reject your own leave request.");
+    }
     if (
       (
         [Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR, Role.CEO, Role.CHIEF_OF_STAFF] as Role[]
@@ -1291,12 +1302,20 @@ export function createApp() {
     code: string;
     paid: boolean;
     active: boolean;
+    description?: string | null;
     annualAllowance: Prisma.Decimal | null;
     monthlyCredit: Prisma.Decimal | null;
     maxPerMonth: Prisma.Decimal | null;
     carryForward: boolean;
+    maxCarryForward?: Prisma.Decimal | null;
+    maxBalance?: Prisma.Decimal | null;
+    negativeBalanceAllowed?: boolean;
+    halfDayAllowed?: boolean;
+    minNoticeDays?: number | null;
+    backdatedAllowed?: boolean;
     requiresMedicalDocument: boolean;
     approvalRequired: boolean;
+    colorToken?: string | null;
   }) {
     return {
       id: row.leaveTypeId,
@@ -1304,13 +1323,22 @@ export function createApp() {
       code: row.code,
       paid: row.paid,
       active: row.active,
+      description: row.description ?? leavePolicyDescription(row.code),
       annualAllowance: row.annualAllowance === null ? undefined : Number(row.annualAllowance),
       monthlyCredit: row.monthlyCredit === null ? undefined : Number(row.monthlyCredit),
       maxPerMonth: row.maxPerMonth === null ? undefined : Number(row.maxPerMonth),
       carryForward: row.carryForward,
+      maxCarryForward:
+        row.maxCarryForward == null ? undefined : Number(row.maxCarryForward),
+      maxBalance: row.maxBalance == null ? undefined : Number(row.maxBalance),
+      negativeBalanceAllowed: row.negativeBalanceAllowed ?? false,
+      halfDayAllowed: row.halfDayAllowed ?? true,
+      minNoticeDays: row.minNoticeDays ?? null,
+      backdatedAllowed: row.backdatedAllowed ?? false,
       requiresMedicalDocument: row.requiresMedicalDocument,
       approvalRequired: row.approvalRequired,
-      description: leavePolicyDescription(row.code),
+      colorToken: row.colorToken ?? null,
+      policyConfirmationRequired: true,
     };
   }
 
@@ -6722,6 +6750,68 @@ export function createApp() {
       res.json(types.map(leaveTypeDto));
     }),
   );
+
+  app.post(
+    "/leave/preview-days",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      if (!req.user!.employeeId) throw new HttpError(400, "No employee profile");
+      const body = leavePreviewDaysSchema.parse(req.body);
+      const session = body.session ?? "FULL";
+      const { billableLeaveDates: billableFn, skippedWeekOffDateKeys: skipFn } = await import(
+        "./leaveCalendar.js"
+      );
+      const { expectedLeaveDays } = await import("./leavePolicy.js");
+      const billable = await billableFn(req.user!.employeeId, body.fromDate, body.toDate);
+      const skipped = await skipFn(req.user!.employeeId, body.fromDate, body.toDate);
+      const requestedDays =
+        session === "FULL" ? expectedLeaveDays(billable.length, "FULL") : 0.5;
+      res.json({
+        requestedDays,
+        billableDates: billable.map((d) => d.toISOString().slice(0, 10)),
+        skippedWeekOffDates: [...skipped],
+        holidayPolicy: {
+          holidaysConsumeBalance: true,
+          policyConfirmationRequired: true,
+        },
+        session,
+      });
+    }),
+  );
+
+  app.get(
+    "/leave/requests/:id/history",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const leave = await prisma.leaveRequest.findUniqueOrThrow({
+        where: { leaveRequestId: String(req.params.id) },
+        select: { employeeId: true },
+      });
+      const isOwner = leave.employeeId === req.user!.employeeId;
+      const isPeopleOps = (
+        [Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN, Role.CEO, Role.CHIEF_OF_STAFF] as Role[]
+      ).includes(req.user!.role);
+      if (!isOwner && !isPeopleOps) {
+        throw new HttpError(403, "Not allowed to view this leave history");
+      }
+      const rows = await prisma.leaveApprovalHistory.findMany({
+        where: { leaveRequestId: String(req.params.id) },
+        orderBy: { createdAt: "asc" },
+      });
+      res.json(
+        rows.map((row) => ({
+          id: row.historyId,
+          action: row.action,
+          fromStatus: row.fromStatus,
+          toStatus: row.toStatus,
+          note: row.note,
+          actorUserId: row.actorUserId,
+          createdAt: row.createdAt.toISOString(),
+        })),
+      );
+    }),
+  );
+
   app.post(
     "/leave/types",
     requireAuth,
@@ -6741,16 +6831,24 @@ export function createApp() {
           code,
           paid: body.paid ?? true,
           active: body.active ?? true,
+          description: body.description ?? null,
           annualAllowance: body.annualAllowance ?? null,
           monthlyCredit: body.monthlyCredit ?? null,
           maxPerMonth: body.maxPerMonth ?? null,
           carryForward: body.carryForward ?? false,
+          maxCarryForward: body.maxCarryForward ?? null,
+          maxBalance: body.maxBalance ?? null,
+          negativeBalanceAllowed: body.negativeBalanceAllowed ?? false,
+          halfDayAllowed: body.halfDayAllowed ?? true,
+          minNoticeDays: body.minNoticeDays ?? null,
+          backdatedAllowed: body.backdatedAllowed ?? false,
           requiresMedicalDocument: body.requiresMedicalDocument ?? false,
           approvalRequired: body.approvalRequired ?? true,
+          colorToken: body.colorToken ?? null,
         },
       });
       await audit({
-        action: "leave type created",
+        action: "LEAVE_POLICY_CHANGED",
         performedByUserId: req.user!.id,
         newValue: leaveTypeDto(type),
         ipAddress: req.ip,
@@ -6781,21 +6879,32 @@ export function createApp() {
           ...(body.name && !isSystem ? { name: body.name.trim() } : {}),
           ...(body.paid !== undefined ? { paid: body.paid } : {}),
           ...(body.active !== undefined ? { active: body.active } : {}),
+          ...(body.description !== undefined ? { description: body.description } : {}),
           ...(body.annualAllowance !== undefined ? { annualAllowance: body.annualAllowance } : {}),
           ...(body.monthlyCredit !== undefined ? { monthlyCredit: body.monthlyCredit } : {}),
           ...(body.maxPerMonth !== undefined ? { maxPerMonth: body.maxPerMonth } : {}),
           ...(body.carryForward !== undefined ? { carryForward: body.carryForward } : {}),
+          ...(body.maxCarryForward !== undefined ? { maxCarryForward: body.maxCarryForward } : {}),
+          ...(body.maxBalance !== undefined ? { maxBalance: body.maxBalance } : {}),
+          ...(body.negativeBalanceAllowed !== undefined
+            ? { negativeBalanceAllowed: body.negativeBalanceAllowed }
+            : {}),
+          ...(body.halfDayAllowed !== undefined ? { halfDayAllowed: body.halfDayAllowed } : {}),
+          ...(body.minNoticeDays !== undefined ? { minNoticeDays: body.minNoticeDays } : {}),
+          ...(body.backdatedAllowed !== undefined ? { backdatedAllowed: body.backdatedAllowed } : {}),
           ...(body.requiresMedicalDocument !== undefined
             ? { requiresMedicalDocument: body.requiresMedicalDocument }
             : {}),
           ...(body.approvalRequired !== undefined
             ? { approvalRequired: body.approvalRequired }
             : {}),
+          ...(body.colorToken !== undefined ? { colorToken: body.colorToken } : {}),
         },
       });
       await audit({
-        action: "leave type updated",
+        action: "LEAVE_POLICY_CHANGED",
         performedByUserId: req.user!.id,
+        oldValue: leaveTypeDto(existing),
         newValue: leaveTypeDto(type),
         ipAddress: req.ip,
       });
@@ -6971,7 +7080,7 @@ export function createApp() {
       });
       const balances = await syncEmployeeLeaveBalances(employeeId);
       await audit({
-        action: "leave balance adjusted",
+        action: "LEAVE_BALANCE_ADJUSTED",
         performedByUserId: req.user!.id,
         oldValue: { manualAdjustment: Number(previous.manualAdjustment) },
         newValue: { employeeId, leaveTypeId, adjustment: body.adjustment, reason: body.reason },
@@ -7114,6 +7223,13 @@ export function createApp() {
         return created;
       });
       await syncEmployeeLeaveBalances(req.user!.employeeId);
+      await recordLeaveHistory({
+        leaveRequestId: request.leaveRequestId,
+        actorUserId: req.user!.id,
+        action: LeaveHistoryAction.SUBMITTED,
+        fromStatus: null,
+        toStatus: request.status,
+      });
       await audit({
         action: "leave requested",
         performedByUserId: req.user!.id,
@@ -7288,12 +7404,23 @@ export function createApp() {
             tx,
           );
         }
+        await recordLeaveHistory({
+          leaveRequestId: existing.leaveRequestId,
+          actorUserId: req.user!.id,
+          action:
+            nextStatus === "APPROVED"
+              ? LeaveHistoryAction.APPROVED
+              : LeaveHistoryAction.MANAGER_APPROVED,
+          fromStatus: existing.status,
+          toStatus: nextStatus,
+          tx,
+        });
       });
       const leave = await prisma.leaveRequest.findUniqueOrThrow({
         where: { leaveRequestId: String(req.params.id) },
         include: { leaveType: true, employee: { include: { manager: true } } },
       });
-      if (nextStatus === "APPROVED") {
+      if (nextStatus === "APPROVED" || nextStatus === "MANAGER_APPROVED") {
         await syncEmployeeLeaveBalances(leave.employeeId);
         await recalculateLeaveDateRange(
           leave.employeeId,
@@ -7335,6 +7462,10 @@ export function createApp() {
       if (!["PENDING", "MANAGER_APPROVED"].includes(existing.status)) {
         throw new HttpError(400, "Only pending or manager-approved leave requests can be rejected.");
       }
+      const decisionNote = String((req.body as { decisionNote?: string })?.decisionNote ?? "").trim();
+      if (decisionNote.length < 3) {
+        throw new HttpError(400, "A rejection note is required (at least 3 characters).");
+      }
       const changed = await prisma.leaveRequest.updateMany({
         where: {
           leaveRequestId: String(req.params.id),
@@ -7345,6 +7476,14 @@ export function createApp() {
       if (changed.count !== 1) {
         throw new HttpError(409, "This leave request was already reviewed");
       }
+      await recordLeaveHistory({
+        leaveRequestId: existing.leaveRequestId,
+        actorUserId: req.user!.id,
+        action: LeaveHistoryAction.REJECTED,
+        fromStatus: existing.status,
+        toStatus: "REJECTED",
+        note: decisionNote,
+      });
       const leave = await prisma.leaveRequest.findUniqueOrThrow({
         where: { leaveRequestId: String(req.params.id) },
         include: { leaveType: true, employee: { include: { manager: true } } },
@@ -7360,19 +7499,70 @@ export function createApp() {
           leaveRequestId: leave.leaveRequestId,
           reviewedByUserId: req.user!.id,
           reviewedByName: req.user!.name,
+          decisionNote,
         },
         ipAddress: req.ip,
       });
-      res.json((await leaveRequestDtos([leave]))[0]);
+      res.json({
+        ...(await leaveRequestDtos([leave]))[0],
+        decisionNote,
+      });
       void userIdsForEmployeeIds([leave.employeeId]).then((ids) =>
         sendPushToUsers(ids, {
           title: "Leave rejected",
-          body: `${leave.leaveType.name} from ${leave.fromDate.toISOString().slice(0, 10)} to ${leave.toDate.toISOString().slice(0, 10)} was rejected`,
+          body: decisionNote.slice(0, 120),
           href: "/leave/history",
           tag: `leave-${leave.leaveRequestId}`,
           priority: "IMPORTANT",
         }),
       );
+    }),
+  );
+
+  app.post(
+    "/leave/requests/:id/withdraw",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      if (!req.user!.employeeId) throw new HttpError(400, "No employee profile");
+      const existing = await prisma.leaveRequest.findUniqueOrThrow({
+        where: { leaveRequestId: String(req.params.id) },
+        include: { leaveType: true, employee: { include: { manager: true } } },
+      });
+      if (existing.employeeId !== req.user!.employeeId) {
+        throw new HttpError(403, "You can only withdraw your own leave request.");
+      }
+      if (existing.status !== "PENDING") {
+        throw new HttpError(400, "Only pending leave requests can be withdrawn.");
+      }
+      const changed = await prisma.leaveRequest.updateMany({
+        where: { leaveRequestId: existing.leaveRequestId, status: "PENDING" },
+        data: { status: "WITHDRAWN" },
+      });
+      if (changed.count !== 1) {
+        throw new HttpError(409, "This leave request can no longer be withdrawn.");
+      }
+      if (existing.leaveType.code === LEAVE_CODES.COMP_OFF) {
+        await releaseCompOffCredits(existing.leaveRequestId);
+      }
+      await recordLeaveHistory({
+        leaveRequestId: existing.leaveRequestId,
+        actorUserId: req.user!.id,
+        action: LeaveHistoryAction.WITHDRAWN,
+        fromStatus: "PENDING",
+        toStatus: "WITHDRAWN",
+      });
+      await syncEmployeeLeaveBalances(existing.employeeId);
+      const leave = await prisma.leaveRequest.findUniqueOrThrow({
+        where: { leaveRequestId: existing.leaveRequestId },
+        include: { leaveType: true, employee: { include: { manager: true } } },
+      });
+      await audit({
+        action: "leave withdrawn",
+        performedByUserId: req.user!.id,
+        newValue: { leaveRequestId: leave.leaveRequestId },
+        ipAddress: req.ip,
+      });
+      res.json((await leaveRequestDtos([leave]))[0]);
     }),
   );
 
@@ -7388,7 +7578,11 @@ export function createApp() {
       if (existing.employeeId !== req.user!.employeeId) {
         throw new HttpError(403, "You can only cancel your own leave request.");
       }
-      if (existing.status === "CANCELLED" || existing.status === "REJECTED") {
+      if (
+        existing.status === "CANCELLED" ||
+        existing.status === "REJECTED" ||
+        existing.status === "WITHDRAWN"
+      ) {
         throw new HttpError(400, "This leave request is already closed.");
       }
 
@@ -7415,6 +7609,13 @@ export function createApp() {
       if (existing.leaveType.code === LEAVE_CODES.COMP_OFF) {
         await releaseCompOffCredits(existing.leaveRequestId);
       }
+      await recordLeaveHistory({
+        leaveRequestId: existing.leaveRequestId,
+        actorUserId: req.user!.id,
+        action: LeaveHistoryAction.CANCELLED,
+        fromStatus: existing.status,
+        toStatus: leave.status,
+      });
       await syncEmployeeLeaveBalances(existing.employeeId);
       await audit({
         action: "leave cancelled by employee",

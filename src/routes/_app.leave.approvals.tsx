@@ -118,6 +118,7 @@ function LeaveApprovalsPage() {
   const [confirm, setConfirm] = useState<{ id: string; action: "Approved" | "Rejected" } | null>(
     null,
   );
+  const [rejectNote, setRejectNote] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [accessChecked, setAccessChecked] = useState(false);
@@ -190,9 +191,15 @@ function LeaveApprovalsPage() {
   async function apply() {
     if (!confirm) return;
     const { id, action } = confirm;
+    if (action === "Rejected" && rejectNote.trim().length < 3) {
+      toast.error("A rejection note is required (at least 3 characters).");
+      return;
+    }
     try {
       const updated =
-        action === "Approved" ? await leaveApi.approve(id) : await leaveApi.reject(id);
+        action === "Approved"
+          ? await leaveApi.approve(id)
+          : await leaveApi.reject(id, rejectNote.trim());
       setRows((prev) => prev.filter((r) => r.id !== id));
       setHistory((prev) => [updated, ...prev.filter((request) => request.id !== id)]);
       toast.success(
@@ -201,6 +208,7 @@ function LeaveApprovalsPage() {
           : t("pages.leaveApprovals.toastRequestRejected"),
       );
       setConfirm(null);
+      setRejectNote("");
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -520,8 +528,22 @@ function LeaveApprovalsPage() {
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {confirm?.action === "Rejected" ? (
+            <textarea
+              className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm"
+              placeholder="Reason for rejection (required)"
+              value={rejectNote}
+              onChange={(e) => setRejectNote(e.target.value)}
+            />
+          ) : null}
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel
+              onClick={() => {
+                setRejectNote("");
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction onClick={() => void apply()}>Confirm</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

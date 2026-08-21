@@ -190,6 +190,7 @@ enum LeaveStatus {
   APPROVED
   REJECTED
   CANCELLED
+  WITHDRAWN
 }
 
 enum TaskStatus {
@@ -1286,14 +1287,24 @@ model LeaveType {
   leaveTypeId             String             @id @default(cuid()) @map("leave_type_id")
   name                    String             @unique
   code                    String             @unique
+  description             String?            @db.Text
   paid                    Boolean            @default(true)
   active                  Boolean            @default(true)
   annualAllowance         Decimal?           @map("annual_allowance") @db.Decimal(8, 2)
   monthlyCredit           Decimal?           @map("monthly_credit") @db.Decimal(8, 2)
   maxPerMonth             Decimal?           @map("max_per_month") @db.Decimal(8, 2)
   carryForward            Boolean            @default(false) @map("carry_forward")
+  maxCarryForward         Decimal?           @map("max_carry_forward") @db.Decimal(8, 2)
+  maxBalance              Decimal?           @map("max_balance") @db.Decimal(8, 2)
+  negativeBalanceAllowed  Boolean            @default(false) @map("negative_balance_allowed")
+  halfDayAllowed          Boolean            @default(true) @map("half_day_allowed")
+  /// null = legacy type-specific notice rules in leavePolicy.ts (POLICY_CONFIRMATION_REQUIRED)
+  minNoticeDays           Int?               @map("min_notice_days")
+  backdatedAllowed        Boolean            @default(false) @map("backdated_allowed")
   requiresMedicalDocument Boolean            @default(false) @map("requires_medical_document")
   approvalRequired        Boolean            @default(true) @map("approval_required")
+  /// UI token / badge color optional
+  colorToken              String?            @map("color_token") @db.VarChar(40)
   balances                LeaveBalance[]
   requests                LeaveRequest[]
   ledgerEntries           LeaveLedgerEntry[]
@@ -1319,36 +1330,55 @@ model LeaveBalance {
 }
 
 model LeaveRequest {
-  leaveRequestId            String       @id @default(cuid()) @map("leave_request_id")
-  employeeId                String       @map("employee_id")
-  employee                  Employee     @relation(fields: [employeeId], references: [employeeId])
-  leaveTypeId               String       @map("leave_type_id")
-  leaveType                 LeaveType    @relation(fields: [leaveTypeId], references: [leaveTypeId])
-  fromDate                  DateTime     @map("from_date") @db.Date
-  toDate                    DateTime     @map("to_date") @db.Date
-  days                      Decimal      @db.Decimal(8, 2)
-  session                   LeaveSession @default(FULL)
-  reason                    String       @db.Text
-  status                    LeaveStatus  @default(PENDING)
-  managerId                 String?      @map("manager_id")
-  reviewedByUserId          String?      @map("reviewed_by_user_id")
-  reviewedByUser            User?        @relation("LeaveReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
-  hrVerifiedBy              String?      @map("hr_verified_by")
-  cancelledDates            Json?        @map("cancelled_dates")
-  medicalDocumentUrl        String?      @map("medical_document_url") @db.Text
-  medicalDocumentDueAt      DateTime?    @map("medical_document_due_at")
-  medicalDocumentVerifiedAt DateTime?    @map("medical_document_verified_at")
-  medicalDocumentVerifiedBy String?      @map("medical_document_verified_by")
-  medicalReminder24hSentAt  DateTime?    @map("medical_reminder_24h_sent_at")
-  medicalReminder2hSentAt   DateTime?    @map("medical_reminder_2h_sent_at")
-  medicalOverdueNotifiedAt  DateTime?    @map("medical_overdue_notified_at")
-  createdAt                 DateTime     @default(now()) @map("created_at")
-  updatedAt                 DateTime     @updatedAt @map("updated_at")
+  leaveRequestId            String                 @id @default(cuid()) @map("leave_request_id")
+  employeeId                String                 @map("employee_id")
+  employee                  Employee               @relation(fields: [employeeId], references: [employeeId])
+  leaveTypeId               String                 @map("leave_type_id")
+  leaveType                 LeaveType              @relation(fields: [leaveTypeId], references: [leaveTypeId])
+  fromDate                  DateTime               @map("from_date") @db.Date
+  toDate                    DateTime               @map("to_date") @db.Date
+  days                      Decimal                @db.Decimal(8, 2)
+  session                   LeaveSession           @default(FULL)
+  reason                    String                 @db.Text
+  status                    LeaveStatus            @default(PENDING)
+  managerId                 String?                @map("manager_id")
+  reviewedByUserId          String?                @map("reviewed_by_user_id")
+  reviewedByUser            User?                  @relation("LeaveReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  hrVerifiedBy              String?                @map("hr_verified_by")
+  cancelledDates            Json?                  @map("cancelled_dates")
+  medicalDocumentUrl        String?                @map("medical_document_url") @db.Text
+  medicalDocumentDueAt      DateTime?              @map("medical_document_due_at")
+  medicalDocumentVerifiedAt DateTime?              @map("medical_document_verified_at")
+  medicalDocumentVerifiedBy String?                @map("medical_document_verified_by")
+  medicalReminder24hSentAt  DateTime?              @map("medical_reminder_24h_sent_at")
+  medicalReminder2hSentAt   DateTime?              @map("medical_reminder_2h_sent_at")
+  medicalOverdueNotifiedAt  DateTime?              @map("medical_overdue_notified_at")
+  createdAt                 DateTime               @default(now()) @map("created_at")
+  updatedAt                 DateTime               @updatedAt @map("updated_at")
+  approvalHistory           LeaveApprovalHistory[]
 
   @@index([employeeId, createdAt])
   @@index([managerId, status, createdAt])
   @@index([reviewedByUserId])
   @@map("leave_requests")
+}
+
+/// Append-only leave status / approval transitions (no overwrite of prior decisions).
+model LeaveApprovalHistory {
+  historyId      String       @id @default(cuid()) @map("history_id")
+  leaveRequestId String       @map("leave_request_id")
+  leaveRequest   LeaveRequest @relation(fields: [leaveRequestId], references: [leaveRequestId], onDelete: Cascade)
+  actorUserId    String?      @map("actor_user_id") @db.VarChar(191)
+  /// SUBMITTED | MANAGER_APPROVED | APPROVED | REJECTED | WITHDRAWN | CANCELLED | HR_OVERRIDE
+  action         String       @db.VarChar(40)
+  fromStatus     String?      @map("from_status") @db.VarChar(32)
+  toStatus       String?      @map("to_status") @db.VarChar(32)
+  note           String?      @db.Text
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@index([leaveRequestId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("leave_approval_history")
 }
 
 model LeaveLedgerEntry {

@@ -196,14 +196,38 @@ function PolicyPage() {
                   : ""}
                 {!type.active ? ` · ${t("pages.leavePolicy.inactive")}` : ""}
               </p>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="mt-2 h-7 px-2 text-xs"
-                onClick={() => void toggleTypeActive(type)}
-              >
-                {type.active ? t("pages.leavePolicy.deactivate") : t("pages.leavePolicy.activate")}
-              </Button>
+              <div className="mt-2 flex flex-wrap gap-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => void toggleTypeActive(type)}
+                >
+                  {type.active ? t("pages.leavePolicy.deactivate") : t("pages.leavePolicy.activate")}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2 text-xs"
+                  onClick={() =>
+                    void leaveApi
+                      .updateType(type.id, {
+                        halfDayAllowed: !(type.halfDayAllowed ?? true),
+                      })
+                      .then((updated) => {
+                        setTypes((rows) => rows.map((row) => (row.id === updated.id ? updated : row)));
+                        toast.success(
+                          updated.halfDayAllowed
+                            ? "Half day enabled for this type"
+                            : "Half day disabled for this type",
+                        );
+                      })
+                      .catch((err) => toast.error((err as Error).message))
+                  }
+                >
+                  Half day: {(type.halfDayAllowed ?? true) ? "On" : "Off"}
+                </Button>
+              </div>
             </div>
           ))}
         </div>

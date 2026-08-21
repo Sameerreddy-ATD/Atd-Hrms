@@ -798,6 +798,11 @@ export const leaveApi = {
     monthlyCredit?: number | null;
     maxPerMonth?: number | null;
     carryForward?: boolean;
+    halfDayAllowed?: boolean;
+    minNoticeDays?: number | null;
+    backdatedAllowed?: boolean;
+    maxCarryForward?: number | null;
+    maxBalance?: number | null;
     requiresMedicalDocument?: boolean;
     approvalRequired?: boolean;
   }) => request<LeaveTypeOption>("/leave/types", { method: "POST", body: JSON.stringify(payload) }),
@@ -811,6 +816,11 @@ export const leaveApi = {
       monthlyCredit: number | null;
       maxPerMonth: number | null;
       carryForward: boolean;
+      halfDayAllowed: boolean;
+      minNoticeDays: number | null;
+      backdatedAllowed: boolean;
+      maxCarryForward: number | null;
+      maxBalance: number | null;
       requiresMedicalDocument: boolean;
       approvalRequired: boolean;
     }>,
@@ -883,8 +893,37 @@ export const leaveApi = {
     }),
   approve: (id: string) =>
     request<LeaveRequest>(`/leave/requests/${id}/approve`, { method: "POST" }),
-  reject: (id: string) => request<LeaveRequest>(`/leave/requests/${id}/reject`, { method: "POST" }),
+  reject: (id: string, decisionNote: string) =>
+    request<LeaveRequest>(`/leave/requests/${id}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ decisionNote }),
+    }),
   cancel: (id: string) => request<LeaveRequest>(`/leave/requests/${id}/cancel`, { method: "POST" }),
+  withdraw: (id: string) =>
+    request<LeaveRequest>(`/leave/requests/${id}/withdraw`, { method: "POST" }),
+  previewDays: (req: {
+    fromDate: string;
+    toDate: string;
+    session?: "FULL" | "FIRST_HALF" | "SECOND_HALF";
+  }) =>
+    request<{
+      requestedDays: number;
+      billableDates: string[];
+      skippedWeekOffDates: string[];
+      session: string;
+    }>("/leave/preview-days", { method: "POST", body: JSON.stringify(req) }),
+  history: (id: string) =>
+    request<
+      Array<{
+        id: string;
+        action: string;
+        fromStatus: string | null;
+        toStatus: string | null;
+        note: string | null;
+        actorUserId: string | null;
+        createdAt: string;
+      }>
+    >(`/leave/requests/${id}/history`),
   updateMedicalDocument: (id: string, url: string) =>
     request<LeaveRequest>(`/leave/requests/${id}/medical-document`, {
       method: "PATCH",

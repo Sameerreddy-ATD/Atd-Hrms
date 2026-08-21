@@ -91,9 +91,16 @@ function LeaveHistoryPage() {
     if (!cancelling) return;
     setCancellingId(cancelling.id);
     try {
-      const updated = await leaveApi.cancel(cancelling.id);
+      const updated =
+        cancelling.status === "Pending"
+          ? await leaveApi.withdraw(cancelling.id)
+          : await leaveApi.cancel(cancelling.id);
       setLeaveRequests((rows) => rows.map((row) => (row.id === updated.id ? updated : row)));
-      toast.success(t("pages.leaveHistory.toastCancelled"));
+      toast.success(
+        cancelling.status === "Pending"
+          ? t("pages.leaveHistory.toastCancelled")
+          : t("pages.leaveHistory.toastCancelled"),
+      );
       setCancelling(null);
     } catch (err) {
       toast.error((err as Error).message);

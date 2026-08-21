@@ -1010,15 +1010,29 @@ export const leaveTypeSchema = z.object({
     .regex(/^[A-Z][A-Z0-9_]*$/, "Code must be uppercase letters, numbers, or underscores")
     .optional(),
   active: z.boolean().optional(),
+  description: z.string().max(2000).nullable().optional(),
   annualAllowance: z.number().finite().nonnegative().nullable().optional(),
   monthlyCredit: z.number().finite().nonnegative().nullable().optional(),
   maxPerMonth: z.number().finite().nonnegative().nullable().optional(),
   carryForward: z.boolean().optional(),
+  maxCarryForward: z.number().finite().nonnegative().nullable().optional(),
+  maxBalance: z.number().finite().nonnegative().nullable().optional(),
+  negativeBalanceAllowed: z.boolean().optional(),
+  halfDayAllowed: z.boolean().optional(),
+  minNoticeDays: z.number().int().min(0).max(365).nullable().optional(),
+  backdatedAllowed: z.boolean().optional(),
   requiresMedicalDocument: z.boolean().optional(),
   approvalRequired: z.boolean().optional(),
+  colorToken: z.string().max(40).nullable().optional(),
 });
 
 export const leaveTypeUpdateSchema = leaveTypeSchema.partial();
+
+export const leavePreviewDaysSchema = z.object({
+  fromDate: z.coerce.date(),
+  toDate: z.coerce.date(),
+  session: z.enum(["FULL", "FIRST_HALF", "SECOND_HALF"]).optional(),
+});
 
 export const profileEditSchema = z.object({
   requestedData: z.object({
