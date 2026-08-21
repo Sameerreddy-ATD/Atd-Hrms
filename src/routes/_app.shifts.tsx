@@ -131,6 +131,7 @@ function sourceLabelKey(source: ResolvedShiftSource, explicitNoShift?: boolean) 
   if (source === "DAY_OVERRIDE") return "pages.shifts.sourceOverride";
   if (source === "ROSTER") return "pages.shifts.sourceRoster";
   if (source === "DEFAULT") return "pages.shifts.sourceDefault";
+  if (source === "COMPANY_DEFAULT") return "pages.shifts.sourceCompanyDefault";
   return "pages.shifts.sourceNone";
 }
 
@@ -486,7 +487,14 @@ function ShiftManagementPage() {
                     <MobileListHeader
                       title={row.name}
                       meta={row.code}
-                      trailing={<StatusBadge status={row.active ? "Active" : "Inactive"} />}
+                      trailing={
+                        <div className="flex flex-col items-end gap-1">
+                          {row.isCompanyDefault ? (
+                            <Badge variant="secondary">{t("pages.shifts.companyDefaultBadge")}</Badge>
+                          ) : null}
+                          <StatusBadge status={row.active ? "Active" : "Inactive"} />
+                        </div>
+                      }
                     />
                     <MobileListFields>
                       <div>
@@ -527,7 +535,14 @@ function ShiftManagementPage() {
                   <TableBody>
                     {filteredTemplates.map((row) => (
                       <TableRow key={row.id}>
-                        <TableCell className="font-medium">{row.name}</TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span>{row.name}</span>
+                            {row.isCompanyDefault ? (
+                              <Badge variant="secondary">{t("pages.shifts.companyDefaultBadge")}</Badge>
+                            ) : null}
+                          </div>
+                        </TableCell>
                         <TableCell className="font-mono text-xs">{row.code}</TableCell>
                         <TableCell className="max-w-xs text-sm text-muted-foreground">
                           {formatSegmentsSummary(row.segments)}
@@ -979,6 +994,9 @@ function ShiftManagementPage() {
           {detailLoading && <LoadingState label={t("pages.loading.shifts")} />}
           {detail && !detailLoading && (
             <div className="mt-6 space-y-4">
+              {detail.isCompanyDefault ? (
+                <Badge variant="secondary">{t("pages.shifts.companyDefaultBadge")}</Badge>
+              ) : null}
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   {t("pages.shifts.colSegments")}

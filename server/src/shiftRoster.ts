@@ -1,6 +1,6 @@
 /**
  * Shift Template + Segment + Roster + Day Override foundation.
- * Canonical resolver: DAY_OVERRIDE > ROSTER > DEFAULT > NONE
+ * Canonical resolver: DAY_OVERRIDE > ROSTER > EMPLOYEE_DEFAULT > COMPANY_DEFAULT > NONE
  *
  * Does not change attendance punch / midnight heuristics (Attendance Workday later).
  */
@@ -9,6 +9,7 @@ import { prisma } from "./prisma.js";
 import { HttpError } from "./errors.js";
 import { startOfDayUtc } from "./attendanceDayRules.js";
 import { audit } from "./audit.js";
+import { getCompanyDefaultShiftId } from "./attendanceCompanyDefault.js";
 
 export type SegmentInput = {
   sequence?: number;
@@ -29,7 +30,15 @@ export type ShiftTemplateInput = {
   segments: SegmentInput[];
 };
 
-export type ResolvedShiftSource = "DAY_OVERRIDE" | "ROSTER" | "DEFAULT" | "NONE";
+/** Wire/domain sources. DEFAULT = employee default; COMPANY_DEFAULT = company setting. */
+export type ResolvedShiftSource =
+  | "DAY_OVERRIDE"
+  | "ROSTER"
+  | "DEFAULT"
+  | "COMPANY_DEFAULT"
+  | "NONE";
+
+export type ResolvedDefaultScope = "EMPLOYEE" | "COMPANY" | null;
 
 export type ResolvedSegment = {
   sequence: number;
@@ -46,7 +55,12 @@ export type ResolvedEmployeeShift = {
   employeeId: string;
   workDate: string;
   source: ResolvedShiftSource;
-  /** True when a roster/override row explicitly sets no shift (blocks DEFAULT fallback). */
+  /**
+   * Distinguishes employee vs company when source is DEFAULT / COMPANY_DEFAULT.
+   * Null for override/roster/none.
+   */
+  defaultScope: ResolvedDefaultScope;
+  /** True when a roster/override row explicitly sets no shift (blocks company/employee fallback). */
   explicitNoShift: boolean;
   timezone: string;
   shiftTemplate: null | {
@@ -268,6 +282,7 @@ async function writeAudit(action: string, performedByUserId: string | undefined,
 }
 
 export async function listShiftTemplates(includeInactive = false) {
+  const companyDefaultId = await getCompanyDefaultShiftId();
   const shifts = await prisma.shiftDefinition.findMany({
     where: includeInactive ? {} : { active: true },
     include: {
@@ -276,10 +291,14 @@ export async function listShiftTemplates(includeInactive = false) {
     },
     orderBy: [{ active: "desc" }, { name: "asc" }],
   });
-  return shifts.map(shiftTemplateDto);
+  return shifts.map((s) => ({
+    ...shiftTemplateDto(s),
+    isCompanyDefault: companyDefaultId != null && s.shiftId === companyDefaultId,
+  }));
 }
 
 export async function getShiftTemplate(shiftId: string) {
+  const companyDefaultId = await getCompanyDefaultShiftId();
   const shift = await prisma.shiftDefinition.findUnique({
     where: { shiftId },
     include: {
@@ -288,7 +307,10 @@ export async function getShiftTemplate(shiftId: string) {
     },
   });
   if (!shift) throw new HttpError(404, "Shift template not found");
-  return shiftTemplateDto(shift);
+  return {
+    ...shiftTemplateDto(shift),
+    isCompanyDefault: companyDefaultId != null && shift.shiftId === companyDefaultId,
+  };
 }
 
 export async function createShiftTemplate(input: ShiftTemplateInput, actorUserId?: string) {
@@ -725,9 +747,10 @@ export async function removeDayOverride(params: {
 
 /**
  * Canonical shift resolution for a Work Date.
- * Priority: DAY_OVERRIDE > ROSTER > DEFAULT > NONE
- * Explicit NO_SHIFT rows (override/roster with null shiftId) block fallback.
+ * Priority: DAY_OVERRIDE > ROSTER > EMPLOYEE_DEFAULT (source=DEFAULT) > COMPANY_DEFAULT > NONE
+ * Explicit NO_SHIFT rows (override/roster with null shiftId) block fallback — including company default.
  * Does not auto-create defaults (unlike attendancePolicy.ensureEmployeeShiftAssignment).
+ * Company default applies only when creating/resolving a NEW Workday; existing snapshots stay immutable.
  */
 export async function resolveEmployeeShiftForWorkDate(
   employeeId: string,
@@ -773,6 +796,17 @@ export async function resolveEmployeeShiftForWorkDate(
     return toResolved(employeeId, workDateStr, "DEFAULT", false, assignment.shift);
   }
 
+  const companyDefaultId = await getCompanyDefaultShiftId();
+  if (companyDefaultId) {
+    const companyShift = await prisma.shiftDefinition.findFirst({
+      where: { shiftId: companyDefaultId, active: true },
+      include: { segments: { orderBy: { sequence: "asc" } } },
+    });
+    if (companyShift && companyShift.segments.length > 0) {
+      return toResolved(employeeId, workDateStr, "COMPANY_DEFAULT", false, companyShift);
+    }
+  }
+
   return emptyResolved(employeeId, workDateStr, "NONE", false);
 }
 
@@ -796,6 +830,12 @@ function mapResolvedSegments(
     });
 }
 
+function defaultScopeFor(source: ResolvedShiftSource): ResolvedDefaultScope {
+  if (source === "DEFAULT") return "EMPLOYEE";
+  if (source === "COMPANY_DEFAULT") return "COMPANY";
+  return null;
+}
+
 function emptyResolved(
   employeeId: string,
   workDate: string,
@@ -806,6 +846,7 @@ function emptyResolved(
     employeeId,
     workDate,
     source,
+    defaultScope: defaultScopeFor(source),
     explicitNoShift,
     timezone: "Asia/Kolkata",
     shiftTemplate: null,
@@ -833,6 +874,7 @@ function toResolved(
     employeeId,
     workDate,
     source,
+    defaultScope: defaultScopeFor(source),
     explicitNoShift,
     timezone: shift.timezone || "Asia/Kolkata",
     shiftTemplate: {
@@ -843,7 +885,7 @@ function toResolved(
       shiftType: shift.shiftType,
       graceInMinutes: shift.graceInMinutes,
       graceOutMinutes: shift.graceOutMinutes,
-      expectedWorkMinutes,
+      expectedWorkMinutes: shift.expectedWorkMinutes || expectedWorkMinutes,
     },
     segments,
     expectedWorkMinutes,
@@ -905,6 +947,13 @@ export async function listRosterWeek(params: {
       orderBy: { effectiveFrom: "desc" },
     }),
   ]);
+
+  const companyDefaultId = await getCompanyDefaultShiftId();
+  const companyDefaultShift = companyDefaultId
+    ? await prisma.shiftDefinition.findFirst({
+        where: { shiftId: companyDefaultId, active: true },
+      })
+    : null;
 
   return {
     weekStart: workDateIso(start),
@@ -983,6 +1032,14 @@ export async function listRosterWeek(params: {
             code: def.shift.code,
             explicitNoShift: false,
           };
+        } else if (companyDefaultShift) {
+          days[key] = {
+            source: "COMPANY_DEFAULT",
+            shiftId: companyDefaultShift.shiftId,
+            shiftName: companyDefaultShift.name,
+            code: companyDefaultShift.code,
+            explicitNoShift: false,
+          };
         } else {
           days[key] = {
             source: "NONE",
@@ -1005,7 +1062,8 @@ export async function listRosterWeek(params: {
 
 export const LIVE_LIKE_SHIFT_FIXTURES: ShiftTemplateInput[] = [
   {
-    name: "General Shift",
+    // Not the company default — General Shift is shift-morning-0930 (09:30–18:30).
+    name: "Day Shift 09:00–18:00",
     code: "GENERAL_0900_1800",
     segments: [{ startMinute: 540, endMinute: 1080, endDayOffset: 0 }],
   },

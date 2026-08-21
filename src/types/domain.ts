@@ -915,7 +915,14 @@ export interface EmergencyContact {
   medicalNotes?: string;
 }
 
-export type ResolvedShiftSource = "DAY_OVERRIDE" | "ROSTER" | "DEFAULT" | "NONE";
+export type ResolvedShiftSource =
+  | "DAY_OVERRIDE"
+  | "ROSTER"
+  | "DEFAULT"
+  | "COMPANY_DEFAULT"
+  | "NONE";
+
+export type ResolvedDefaultScope = "EMPLOYEE" | "COMPANY" | null;
 
 export interface ShiftSegmentDto {
   id?: string;
@@ -940,6 +947,7 @@ export interface ShiftTemplate {
   expectedWorkLabel?: string;
   colorToken?: string | null;
   active: boolean;
+  isCompanyDefault?: boolean;
   shiftType?: "DAY" | "NIGHT";
   startMinutes?: number;
   endMinutes?: number;
@@ -974,6 +982,7 @@ export interface ResolvedEmployeeShift {
   employeeId: string;
   workDate: string;
   source: ResolvedShiftSource;
+  defaultScope?: ResolvedDefaultScope;
   explicitNoShift: boolean;
   timezone: string;
   shiftTemplate: null | {

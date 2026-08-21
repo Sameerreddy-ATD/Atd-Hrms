@@ -404,7 +404,7 @@ async function main() {
     },
     {
       shiftId: "shift-morning-0930",
-      name: "Morning 09:30–18:30",
+      name: "General Shift",
       code: "MORNING_0930",
       shiftType: "DAY" as const,
       startMinutes: 570,
@@ -419,10 +419,22 @@ async function main() {
         startMinutes: shift.startMinutes,
         endMinutes: shift.endMinutes,
         active: true,
+        timezone: "Asia/Kolkata",
+        expectedWorkMinutes: shift.endMinutes - shift.startMinutes,
       },
-      create: shift,
+      create: {
+        ...shift,
+        timezone: "Asia/Kolkata",
+        expectedWorkMinutes: shift.endMinutes - shift.startMinutes,
+      },
     });
   }
+
+  await prisma.systemSetting.upsert({
+    where: { key: "attendance.defaultShiftId" },
+    create: { key: "attendance.defaultShiftId", value: "shift-morning-0930" },
+    update: { value: "shift-morning-0930" },
+  });
 
   for (const [unitName, headCode] of [
     ["Sales", "EMP-0010"],

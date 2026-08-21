@@ -136,7 +136,7 @@ export function MissedPunchRequestPanel({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-testid="missed-punch-request-panel">
       <Card className="border-amber-300/80 bg-amber-50/50 shadow-sm dark:border-amber-900 dark:bg-amber-950/20">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">{t("pages.missedPunch.yourMissingPunches")}</CardTitle>

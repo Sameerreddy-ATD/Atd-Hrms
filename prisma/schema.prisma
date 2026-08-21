@@ -1016,7 +1016,7 @@ model AttendanceWorkday {
   /// Logical scheduled work date (IST calendar key stored as UTC midnight).
   workDate                 DateTime                      @map("work_date") @db.Date
   timezone                 String                        @default("Asia/Kolkata") @db.VarChar(64)
-  /// DAY_OVERRIDE | ROSTER | DEFAULT | NONE
+  /// DAY_OVERRIDE | ROSTER | DEFAULT | COMPANY_DEFAULT | NONE
   scheduleSource           String                        @map("schedule_source") @db.VarChar(20)
   explicitNoShift          Boolean                       @default(false) @map("explicit_no_shift")
   shiftTemplateId          String?                       @map("shift_template_id")

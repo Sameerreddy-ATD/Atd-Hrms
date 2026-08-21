@@ -165,6 +165,21 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/migrate-postgres-to-
 
 This script is not part of normal development after the MySQL cutover.
 
+## `bridge-open-attendance-cutover.mjs`
+
+**Operational cutover helper** (not imported by the server). Bridges currently open
+legacy IN punches into OPEN Attendance Workday Sessions after Attendance Core migrate.
+
+- Requires maintenance mode and intentional operator run
+- Supports `--dry-run`
+- Does **not** create synthetic OUT, rewrite closed days, or backfill history
+- Reads `DATABASE_URL` from the environment — no hardcoded credentials
+
+```bash
+npx tsx scripts/bridge-open-attendance-cutover.mjs --dry-run
+npx tsx scripts/bridge-open-attendance-cutover.mjs
+```
+
 ## Script Safety
 
 - Run scripts from the repository root.

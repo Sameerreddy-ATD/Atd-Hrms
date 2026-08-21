@@ -132,6 +132,17 @@ export async function syncWorkdayExceptions(
     where: { workdayId },
     include: { sessions: { orderBy: { sequence: "asc" } } },
   });
+
+  // Orphan Workdays (employee deleted with FK checks off) must not create exceptions.
+  const employeeExists = await prisma.employee.findUnique({
+    where: { employeeId: workday.employeeId },
+    select: { employeeId: true },
+  });
+  if (!employeeExists) {
+    await prisma.attendanceWorkday.delete({ where: { workdayId } }).catch(() => undefined);
+    return null;
+  }
+
   const snap = snapshotOf(workday.scheduleSnapshot);
   const sessions = workday.sessions;
   const open = sessions.find((s) => s.status === "OPEN") ?? null;
@@ -307,12 +318,24 @@ export async function runAttendanceExceptionDetector(now = new Date()) {
         },
       ],
     },
-    select: { workdayId: true },
+    select: { workdayId: true, employeeId: true },
     take: 500,
   });
 
+  const employeeIds = [...new Set(candidates.map((c) => c.employeeId))];
+  const living = await prisma.employee.findMany({
+    where: { employeeId: { in: employeeIds } },
+    select: { employeeId: true },
+  });
+  const livingSet = new Set(living.map((e) => e.employeeId));
+  const orphanIds = candidates.filter((c) => !livingSet.has(c.employeeId)).map((c) => c.workdayId);
+  if (orphanIds.length) {
+    await prisma.attendanceWorkday.deleteMany({ where: { workdayId: { in: orphanIds } } });
+  }
+  const validCandidates = candidates.filter((c) => livingSet.has(c.employeeId));
+
   let created = 0;
-  for (const row of candidates) {
+  for (const row of validCandidates) {
     const before = await prisma.attendanceException.count({
       where: { workdayId: row.workdayId },
     });
@@ -323,5 +346,10 @@ export async function runAttendanceExceptionDetector(now = new Date()) {
     created += Math.max(0, after - before);
   }
 
-  return { skipped: false, scanned: candidates.length, created };
+  return {
+    skipped: false,
+    scanned: validCandidates.length,
+    orphansRemoved: orphanIds.length,
+    created,
+  };
 }

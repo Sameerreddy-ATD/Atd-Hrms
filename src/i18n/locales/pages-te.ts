@@ -1485,6 +1485,8 @@ const pages = {
     weekRange: "{{start}} – {{end}}",
     selectShift: "షిఫ్ట్ ఎంచుకోండి",
     sourceDefault: "డిఫాల్ట్",
+    sourceCompanyDefault: "కంపెనీ డిఫాల్ట్",
+    companyDefaultBadge: "కంపెనీ డిఫాల్ట్",
     sourceRoster: "రోస్టర్",
     sourceOverride: "ఓవర్‌రైడ్",
     sourceNoShift: "షిఫ్ట్ లేదు",

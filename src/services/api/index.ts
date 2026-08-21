@@ -998,9 +998,12 @@ export const attendanceApi = {
         shiftCode: string | null;
         shiftName: string | null;
         expectedWorkMinutes: number | null;
+        scheduledStartAt?: string | null;
+        scheduledEndAt?: string | null;
         actualWorkedMinutes: number;
         sessionCount: number;
         status: string;
+        result?: string | null;
         firstPunchAt: string | null;
         lastPunchAt: string | null;
         openSessionId: string | null;

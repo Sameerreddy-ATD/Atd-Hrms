@@ -85,6 +85,12 @@ export function AttendanceWorkdayCard({
       : state.scheduledShift
         ? "No shift assigned"
         : "—";
+  const scheduleSourceBadge =
+    state.scheduledShift?.source === "COMPANY_DEFAULT"
+      ? "Company Default"
+      : state.scheduledShift?.source === "DEFAULT"
+        ? "Employee Default"
+        : null;
 
   const segmentLabel =
     state.scheduledShift?.segments
@@ -120,6 +126,9 @@ export function AttendanceWorkdayCard({
             <>
               <p className="truncate text-sm text-muted-foreground">
                 Shift: <span className="text-foreground">{scheduleLabel}</span>
+                {scheduleSourceBadge ? (
+                  <span className="ml-1 text-xs text-muted-foreground">({scheduleSourceBadge})</span>
+                ) : null}
               </p>
               <p className="truncate text-sm text-muted-foreground">
                 Schedule: <span className="text-foreground">{segmentLabel}</span>
@@ -168,7 +177,9 @@ export function AttendanceWorkdayCard({
             state.exceptions.some((e) => e.type === "MISSING_CHECK_OUT")) && (
             <Link
               to="/attendance/mine"
+              search={{ tab: "requests" }}
               className="inline-flex min-h-11 items-center text-sm font-medium text-primary underline-offset-4 hover:underline"
+              data-testid="request-correction-link"
             >
               Request Correction
             </Link>
@@ -308,8 +319,12 @@ export function AttendanceWorkdayHistoryList() {
             <p className="truncate text-sm text-muted-foreground">
               {row.explicitNoShift
                 ? "No Shift"
-                : row.shiftName || "No shift assigned"}{" "}
+                : row.shiftName || "No shift assigned"}
+              {row.scheduledStartAt && row.scheduledEndAt
+                ? ` · ${formatHm(row.scheduledStartAt)}–${formatHm(row.scheduledEndAt)}`
+                : ""}{" "}
               · {row.sessionCount} session{row.sessionCount === 1 ? "" : "s"}
+              {row.result ? ` · ${row.result.replaceAll("_", " ")}` : ""}
             </p>
           </div>
           <p className="text-sm font-medium">{formatMinutes(row.actualWorkedMinutes)}</p>

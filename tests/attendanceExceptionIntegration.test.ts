@@ -518,7 +518,12 @@ describe.skipIf(!enabled)("attendance exceptions classification DB integration",
         attendanceRequired: true,
       },
     });
-    // No shift assignment → NONE schedule
+    const { upsertRosterAssignment } = await import("../server/src/shiftRoster");
+    await upsertRosterAssignment({
+      employeeId: emp.employeeId,
+      workDate: WD,
+      shiftId: null,
+    });
     await recordPunchIn({
       employeeId: emp.employeeId,
       punchAt: istWallTimeToUtc(WD, 600),
@@ -536,6 +541,7 @@ describe.skipIf(!enabled)("attendance exceptions classification DB integration",
     const workday = await prisma.attendanceWorkday.findFirstOrThrow({
       where: { employeeId: emp.employeeId },
     });
+    expect(workday.explicitNoShift).toBe(true);
     const classified = await classifyAttendanceWorkday(workday.workdayId);
     expect(classified.classification.attendanceResult).toBe("UNSCHEDULED");
     const ev = await prisma.attendanceEvent.findMany({ where: { employeeId: emp.employeeId } });

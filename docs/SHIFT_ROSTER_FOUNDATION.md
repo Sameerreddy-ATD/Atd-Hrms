@@ -36,8 +36,13 @@ Midnight has **no special semantic** in the template model. Segments may cross i
 ## Resolution priority
 
 ```
-DAY_OVERRIDE > ROSTER > DEFAULT > NONE
+DAY_OVERRIDE > ROSTER > EMPLOYEE_DEFAULT (source=DEFAULT) > COMPANY_DEFAULT > NONE
 ```
+
+- Explicit `NO_SHIFT` on DAY_OVERRIDE or ROSTER **stops** resolution (no fall-through to employee or company default).
+- **Company default** is configured by SystemSetting `attendance.defaultShiftId` (not by shift name lookup).
+- Canonical company default: **General Shift** (`shift-morning-0930`) 09:30–18:30 Asia/Kolkata, 540 expected minutes.
+- Company default applies only when creating/resolving a **new** Workday. Existing `AttendanceWorkday` schedule snapshots are immutable.
 
 API: `GET /employees/:id/resolved-shift?workDate=YYYY-MM-DD`
 

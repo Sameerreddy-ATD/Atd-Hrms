@@ -47,6 +47,12 @@ import { punchTypeLabel } from "@/lib/attendance-labels";
 import { ArrowRight, Check, X, FileClock, AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/_app/attendance/corrections")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    tab:
+      search.tab === "exceptions" || search.tab === "alerts" || search.tab === "requests"
+        ? (search.tab as "exceptions" | "alerts" | "requests")
+        : undefined,
+  }),
   component: AttendanceCorrectionsPage,
 });
 
@@ -69,6 +75,8 @@ function AttendanceCorrectionsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { tab: tabSearch } = Route.useSearch();
+  const activeTab = tabSearch ?? "requests";
   const [rows, setRows] = useState<AttendanceRecord[]>([]);
   const [requests, setRequests] = useState<CorrectionRequestItem[]>([]);
   const [from, setFrom] = useState("");
@@ -209,7 +217,21 @@ function AttendanceCorrectionsPage() {
         description={t("pages.corrections.subtitle")}
       />
 
-      <Tabs defaultValue="requests" className="mt-6 w-full">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => {
+          void navigate({
+            to: "/attendance/corrections",
+            search: {
+              tab:
+                value === "exceptions" || value === "alerts" || value === "requests"
+                  ? value
+                  : undefined,
+            },
+          });
+        }}
+        className="mt-6 w-full"
+      >
         <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-lg bg-muted p-1 sm:max-w-xl">
           <TabsTrigger
             value="requests"

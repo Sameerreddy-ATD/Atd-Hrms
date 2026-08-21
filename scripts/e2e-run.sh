@@ -10,6 +10,7 @@ export E2E_API_BASE_URL="${E2E_API_BASE_URL:-http://localhost:4000}"
 export JWT_ACCESS_SECRET="${JWT_ACCESS_SECRET:-e2e-dev-access-secret-1234567890123456}"
 export JWT_REFRESH_SECRET="${JWT_REFRESH_SECRET:-e2e-dev-refresh-secret-1234567890123456}"
 export EMPLOYEE_DATA_ENCRYPTION_KEY="${EMPLOYEE_DATA_ENCRYPTION_KEY:-e2e-dev-encryption-key-1234567890123456}"
+export ALLOW_ATTENDANCE_E2E_SEED=1
 export COOKIE_SECURE=false
 export NODE_ENV=development
 export FRONTEND_ORIGIN="${E2E_BASE_URL:-http://localhost:4173}"

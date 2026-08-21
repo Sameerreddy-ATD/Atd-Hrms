@@ -57,6 +57,7 @@ import {
   resolveMobileEventTime,
 } from "./attendanceEngine.js";
 import {
+  findOpenSessionForEmployee,
   recordPunchIn,
   recordPunchOut,
   getCurrentAttendanceState,
@@ -64,6 +65,7 @@ import {
   workDateIso,
   resolveWorkDateForPunch,
   getOrCreateAttendanceWorkday,
+  istWallTimeToUtc,
 } from "./attendanceWorkday.js";
 import { resolveAttendanceLocation } from "./attendanceLocationResolve.js";
 import { issuePunchTicket, verifyPunchTicket } from "./punchTicket.js";
@@ -5265,9 +5267,12 @@ export function createApp() {
           shiftCode: w.shiftCodeSnapshot,
           shiftName: w.shiftNameSnapshot,
           expectedWorkMinutes: w.expectedWorkMinutes,
+          scheduledStartAt: w.scheduledStartAt,
+          scheduledEndAt: w.scheduledEndAt,
           actualWorkedMinutes: w.actualWorkedMinutes,
           sessionCount: w.sessions.length,
           status: w.status,
+          result: w.attendanceResult,
           firstPunchAt: w.firstPunchAt,
           lastPunchAt: w.lastPunchAt,
           openSessionId: w.openSessionId,
@@ -5449,6 +5454,121 @@ export function createApp() {
           result: row.workday.attendanceResult,
           details: row.details,
         })),
+      });
+    }),
+  );
+
+  app.post(
+    "/attendance/exceptions/detect",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN, Role.HR, Role.MAIN_ADMIN),
+    asyncHandler(async (req, res) => {
+      const { runAttendanceExceptionDetector } = await import("./attendanceExceptions.js");
+      const nowRaw = req.body?.now ? String(req.body.now) : null;
+      const now = nowRaw ? new Date(nowRaw) : new Date();
+      if (Number.isNaN(now.getTime())) throw new HttpError(400, "Invalid now timestamp");
+      const result = await runAttendanceExceptionDetector(now);
+      res.json({ ok: true, now: now.toISOString(), ...result });
+    }),
+  );
+
+  /**
+   * Disposable E2E only: seed Workday punches at exact IST wall times without offline tickets.
+   * Gated by ALLOW_ATTENDANCE_E2E_SEED=1 — never enable on production.
+   */
+  app.post(
+    "/attendance/dev/seed-workday-punches",
+    requireAuth,
+    requireRoles(Role.DEVELOPER_ADMIN),
+    asyncHandler(async (req, res) => {
+      if (process.env.ALLOW_ATTENDANCE_E2E_SEED !== "1") {
+        throw new HttpError(404, "Not found");
+      }
+      const employeeId = String(req.body?.employeeId ?? "");
+      const workDateRaw = String(req.body?.workDate ?? "");
+      const checkInMinute = Number(req.body?.checkInMinute);
+      const checkOutMinute =
+        req.body?.checkOutMinute == null ? null : Number(req.body.checkOutMinute);
+      if (!employeeId || !/^\d{4}-\d{2}-\d{2}$/.test(workDateRaw)) {
+        throw new HttpError(400, "employeeId and workDate (YYYY-MM-DD) required");
+      }
+      if (!Number.isInteger(checkInMinute) || checkInMinute < 0 || checkInMinute > 2000) {
+        throw new HttpError(400, "checkInMinute required");
+      }
+      const workDate = new Date(`${workDateRaw}T00:00:00.000Z`);
+      const emp = await prisma.employee.findUnique({
+        where: { employeeId },
+        select: { homeBranchId: true },
+      });
+      const branchId = emp?.homeBranchId ?? null;
+      const location = branchId
+        ? { branchId, locationMode: "REGISTERED_LOCATION" as const }
+        : { locationMode: "MOBILE_FIELD" as const, latitude: 17.385, longitude: 78.4867 };
+      const intendedIn = istWallTimeToUtc(workDate, checkInMinute);
+
+      // Close leftover OPEN sessions with a real OUT event so legacy transition
+      // checks (latest IN without OUT) and re-seeds both stay consistent.
+      let open = await findOpenSessionForEmployee(employeeId);
+      while (open) {
+        const outAt = new Date(open.checkInAt.getTime() + 60_000);
+        try {
+          await recordPunchOut({
+            employeeId,
+            punchAt: outAt,
+            eventType: EventType.OFFICE_OUT,
+            eventSource: EventSource.MOBILE_GPS,
+            location,
+            createdByUserId: req.user!.id,
+          });
+        } catch {
+          await prisma.attendanceSession.update({
+            where: { sessionId: open.sessionId },
+            data: {
+              status: "CLOSED",
+              checkOutAt: outAt,
+              workedMinutes: 1,
+            },
+          });
+          await prisma.attendanceWorkday.updateMany({
+            where: { workdayId: open.workdayId, openSessionId: open.sessionId },
+            data: { openSessionId: null },
+          });
+        }
+        open = await findOpenSessionForEmployee(employeeId);
+      }
+
+      await recordPunchIn({
+        employeeId,
+        punchAt: intendedIn,
+        eventType: EventType.OFFICE_IN,
+        eventSource: EventSource.MOBILE_GPS,
+        location,
+        createdByUserId: req.user!.id,
+      });
+      if (checkOutMinute != null) {
+        if (!Number.isInteger(checkOutMinute) || checkOutMinute < 0 || checkOutMinute > 2000) {
+          throw new HttpError(400, "invalid checkOutMinute");
+        }
+        await recordPunchOut({
+          employeeId,
+          punchAt: istWallTimeToUtc(workDate, checkOutMinute),
+          eventType: EventType.OFFICE_OUT,
+          eventSource: EventSource.MOBILE_GPS,
+          location,
+          createdByUserId: req.user!.id,
+        });
+      }
+      const workday = await prisma.attendanceWorkday.findUnique({
+        where: { employeeId_workDate: { employeeId, workDate } },
+        include: { sessions: true, exceptions: true },
+      });
+      res.status(201).json({
+        ok: true,
+        workDate: workDateRaw,
+        workdayId: workday?.workdayId ?? null,
+        result: workday?.attendanceResult ?? null,
+        shiftName: workday?.shiftNameSnapshot ?? null,
+        sessionCount: workday?.sessions.length ?? 0,
       });
     }),
   );
@@ -10043,6 +10163,10 @@ export function createApp() {
     requireAuth,
     requireRoles(Role.DEVELOPER_ADMIN),
     asyncHandler(async (req, res) => {
+      const { ensureCompanyDefaultShiftConfigured } = await import(
+        "./attendanceCompanyDefault.js"
+      );
+      await ensureCompanyDefaultShiftConfigured(req.user!.id);
       res.status(201).json(await ensureLiveLikeShiftFixtures(req.user!.id));
     }),
   );

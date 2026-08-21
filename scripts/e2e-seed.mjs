@@ -55,6 +55,14 @@ async function main() {
   await prisma.checklistItemState.deleteMany().catch(() => undefined);
   await prisma.checklistInstance.deleteMany().catch(() => undefined);
   await prisma.notificationPreference.deleteMany().catch(() => undefined);
+  // Attendance must be cleared while FK checks are off — otherwise orphan Workdays
+  // break /attendance/exceptions/detect (P2003 on employee_id).
+  await prisma.attendanceException.deleteMany().catch(() => undefined);
+  await prisma.attendanceSession.deleteMany().catch(() => undefined);
+  await prisma.attendanceCorrectionRequest.deleteMany().catch(() => undefined);
+  await prisma.attendanceEvent.deleteMany().catch(() => undefined);
+  await prisma.attendanceWorkday.deleteMany().catch(() => undefined);
+  await prisma.attendanceDailySummary.deleteMany().catch(() => undefined);
   await prisma.employeeOrganizationAssignment.deleteMany();
   await prisma.departmentHeadAssignment.deleteMany();
   await prisma.departmentViewerAssignment.deleteMany();
@@ -331,6 +339,29 @@ async function main() {
       },
     });
   }
+
+  // Company default General Shift pointer (migration also sets this; seed is idempotent).
+  await prisma.shiftDefinition.updateMany({
+    where: { code: "GENERAL_0900_1800", name: "General Shift" },
+    data: { name: "Day Shift 09:00–18:00" },
+  });
+  await prisma.shiftDefinition.updateMany({
+    where: {
+      shiftId: "shift-morning-0930",
+      startMinutes: 570,
+      endMinutes: 1110,
+    },
+    data: {
+      name: "General Shift",
+      expectedWorkMinutes: 540,
+      timezone: "Asia/Kolkata",
+    },
+  });
+  await prisma.systemSetting.upsert({
+    where: { key: "attendance.defaultShiftId" },
+    create: { key: "attendance.defaultShiftId", value: "shift-morning-0930" },
+    update: {},
+  });
 
   const unitCount = await prisma.department.count();
   console.log(

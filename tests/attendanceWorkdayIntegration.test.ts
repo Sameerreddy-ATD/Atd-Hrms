@@ -264,7 +264,7 @@ describe.skipIf(!enabled)("attendance workday core DB integration", () => {
     expect(again.scheduleSnapshot).toEqual(before.scheduleSnapshot);
   });
 
-  it("6/7/8/9 sources DAY_OVERRIDE ROSTER DEFAULT NONE", async () => {
+  it("6/7/8/9 sources DAY_OVERRIDE ROSTER DEFAULT COMPANY_DEFAULT/NONE", async () => {
     const e = await prisma.employee.create({
       data: {
         employeeCode: `WDSRC_${stamp}`.slice(0, 20).toUpperCase(),
@@ -277,8 +277,22 @@ describe.skipIf(!enabled)("attendance workday core DB integration", () => {
         joiningDate: new Date("2026-01-01"),
       },
     });
+    const priorDefault = await prisma.systemSetting.findUnique({
+      where: { key: "attendance.defaultShiftId" },
+    });
+    await prisma.systemSetting.deleteMany({ where: { key: "attendance.defaultShiftId" } });
     const dNone = await resolveEmployeeShiftForWorkDate(e.employeeId, WD);
     expect(dNone.source).toBe("NONE");
+    if (priorDefault) {
+      await prisma.systemSetting.create({
+        data: { key: priorDefault.key, value: priorDefault.value },
+      });
+    }
+
+    const withCompany = await resolveEmployeeShiftForWorkDate(e.employeeId, WD);
+    if (priorDefault?.value) {
+      expect(["COMPANY_DEFAULT", "NONE"]).toContain(withCompany.source);
+    }
 
     await assignDefaultShift({
       employeeId: e.employeeId,
@@ -623,9 +637,16 @@ describe.skipIf(!enabled)("attendance workday core DB integration", () => {
         joiningDate: new Date("2026-01-01"),
       },
     });
+    // Explicit NO_SHIFT blocks company default — punch is unscheduled ownership
+    await upsertRosterAssignment({
+      employeeId: e.employeeId,
+      workDate: WD,
+      shiftId: null,
+    });
     const own = await resolveWorkDateForPunch(e.employeeId, istWallTimeToUtc(WD, 840));
     expect(workDateIso(own.workDate)).toBe("2026-08-21");
     expect(own.unscheduled).toBe(true);
+    expect(own.explicitNoShift).toBe(true);
   });
 
   it("35-42 backfill preserves raw evidence and flags ambiguity", async () => {
