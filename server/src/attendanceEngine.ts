@@ -431,11 +431,8 @@ export async function recalculateDailySummary(employeeId: string, date: string |
     const hoursForStatus = totalWorkedHours + openSessionHours;
 
     attendanceResult = attendanceResultFromHours(hoursForStatus);
-    // Any real punch means the day is not Absent (Full Day only at ≥9h; otherwise Present).
-    if (
-      attendanceResult === AttendanceResult.ABSENT ||
-      attendanceResult === AttendanceResult.HALF_DAY
-    ) {
+    // Open punch past deadline stays Pending for correction — do not finalize Full/Half/Absent.
+    if (isMissedCheckout || hasOpenPunch) {
       attendanceResult = AttendanceResult.PENDING;
     }
     status = workedAttendanceStatusLabel(attendanceResult);

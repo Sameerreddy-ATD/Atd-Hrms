@@ -13,10 +13,10 @@ import {
 } from "../server/src/leavePolicy.js";
 
 describe("attendance duration results", () => {
-  it("maps hours to Full Day or Present (not Half Day or Absent) when time was worked", () => {
-    expect(attendanceResultFromHours(3.9)).toBe(AttendanceResult.PENDING);
-    expect(attendanceResultFromHours(4)).toBe(AttendanceResult.PENDING);
-    expect(attendanceResultFromHours(8.9)).toBe(AttendanceResult.PENDING);
+  it("maps hours to Full / Half / Absent bands (policy doc)", () => {
+    expect(attendanceResultFromHours(3.9)).toBe(AttendanceResult.ABSENT);
+    expect(attendanceResultFromHours(4)).toBe(AttendanceResult.HALF_DAY);
+    expect(attendanceResultFromHours(8.9)).toBe(AttendanceResult.HALF_DAY);
     expect(attendanceResultFromHours(9)).toBe(AttendanceResult.FULL_DAY);
     expect(attendanceResultFromHours(0)).toBe(AttendanceResult.ABSENT);
   });

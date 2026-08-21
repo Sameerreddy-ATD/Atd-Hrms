@@ -138,14 +138,49 @@ export function AttendanceWorkdayCard({
         <div
           className={cn(
             "shrink-0 rounded-full px-3 py-1 text-xs font-semibold",
-            state.checkedIn
-              ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-              : "bg-muted text-muted-foreground",
+            state.result === "CORRECTION_REQUIRED"
+              ? "bg-amber-500/15 text-amber-800 dark:text-amber-200"
+              : state.checkedIn
+                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                : "bg-muted text-muted-foreground",
           )}
         >
-          {statusLabel}
+          {state.result === "CORRECTION_REQUIRED"
+            ? (state.resultLabel ?? "Correction Required")
+            : statusLabel}
         </div>
       </div>
+
+      {Array.isArray(state.exceptions) && state.exceptions.length > 0 && !compact && (
+        <div className="space-y-1 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm">
+          {state.exceptions.slice(0, 3).map((ex) => (
+            <p key={ex.exceptionId} className="text-amber-900 dark:text-amber-100">
+              {ex.type === "MISSING_CHECK_OUT"
+                ? "Missing Checkout — correction required"
+                : ex.type === "MISSING_CHECK_IN"
+                  ? "Missing Check-in — correction required"
+                  : ex.type === "LATE_CHECK_IN"
+                    ? "Late check-in"
+                    : ex.type.replaceAll("_", " ")}
+            </p>
+          ))}
+          {(state.result === "CORRECTION_REQUIRED" ||
+            state.exceptions.some((e) => e.type === "MISSING_CHECK_OUT")) && (
+            <Link
+              to="/attendance/mine"
+              className="inline-flex min-h-11 items-center text-sm font-medium text-primary underline-offset-4 hover:underline"
+            >
+              Request Correction
+            </Link>
+          )}
+        </div>
+      )}
+
+      {!compact && state.resultLabel && state.result !== "PENDING" && (
+        <p className="text-sm text-muted-foreground">
+          Result: <span className="font-medium text-foreground">{state.resultLabel}</span>
+        </p>
+      )}
 
       <div
         className={cn(

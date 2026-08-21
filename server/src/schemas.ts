@@ -1042,6 +1042,16 @@ export const correctionSchema = z.object({
     EventType.FIELD_CHECK_OUT,
   ]),
   remarks: z.string().min(3).max(1000),
+  workdayId: z.string().optional(),
+  sessionId: z.string().optional(),
+  correctionType: z
+    .enum([
+      "MISSING_CHECK_IN",
+      "MISSING_CHECK_OUT",
+      "INCORRECT_CHECK_IN",
+      "INCORRECT_CHECK_OUT",
+    ])
+    .optional(),
 });
 
 export const resetPasswordSchema = z.object({

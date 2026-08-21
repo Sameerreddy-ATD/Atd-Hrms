@@ -24,16 +24,13 @@ export function hoursBetween(a: Date, b: Date) {
 
 export function attendanceResultFromHours(totalHours: number): AttendanceResult {
   if (totalHours >= FULL_DAY_HOURS) return AttendanceResult.FULL_DAY;
-  // Any punched time under a full day counts as present — no Half Day result.
-  if (totalHours > 0) return AttendanceResult.PENDING;
+  if (totalHours >= 4) return AttendanceResult.HALF_DAY;
+  if (totalHours > 0) return AttendanceResult.ABSENT;
   return AttendanceResult.ABSENT;
 }
 
 /** Status label for days where the employee actually punched (not holiday/leave/absent). */
 export function workedAttendanceStatusLabel(result: AttendanceResult): string {
-  if (result === AttendanceResult.PENDING || result === AttendanceResult.HALF_DAY) {
-    return "Present";
-  }
   return attendanceResultLabel(result);
 }
 
@@ -42,8 +39,7 @@ export function attendanceResultLabel(result: AttendanceResult, holidayName?: st
     case AttendanceResult.FULL_DAY:
       return "Full Day";
     case AttendanceResult.HALF_DAY:
-      // Legacy enum value — display as Present; new summaries never write HALF_DAY.
-      return "Present";
+      return "Half Day";
     case AttendanceResult.ABSENT:
       return "Absent";
     case AttendanceResult.HOLIDAY:

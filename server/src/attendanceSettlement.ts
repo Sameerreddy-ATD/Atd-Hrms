@@ -304,6 +304,14 @@ export async function runPolicyMaintenanceJobs(force = false) {
   const locked = await lockExpiredMissedCheckouts();
   const medical = await processMedicalCertificateReminders();
 
+  let workdayExceptions: { skipped?: boolean; scanned?: number; created?: number } = {};
+  try {
+    const { runAttendanceExceptionDetector } = await import("./attendanceExceptions.js");
+    workdayExceptions = await runAttendanceExceptionDetector();
+  } catch (error) {
+    console.error("runAttendanceExceptionDetector failed", error);
+  }
+
   // Month-end / year-end leave jobs (idempotent)
   const day = istNow.getUTCDate();
   const lastDay = new Date(
@@ -324,7 +332,7 @@ export async function runPolicyMaintenanceJobs(force = false) {
     await syncEmployeeLeaveBalances(employeeId).catch(() => undefined);
   }
 
-  return { missedIn, missedOut, locked, medical, leaveAccrual, leaveExpiry };
+  return { missedIn, missedOut, locked, medical, leaveAccrual, leaveExpiry, workdayExceptions };
 }
 
 export function startAttendanceSettlementScheduler() {

@@ -955,6 +955,18 @@ export const attendanceApi = {
       firstCheckIn: string | null;
       workedMinutes: number;
       liveWorkedMinutes: number;
+      result?: string;
+      resultLabel?: string;
+      classificationReason?: string | null;
+      correctionLockState?: string;
+      employeeCorrectionEndsAt?: string | null;
+      exceptions?: Array<{
+        exceptionId: string;
+        type: string;
+        status: string;
+        details?: unknown;
+        detectedAt: string;
+      }>;
       scheduledShift: {
         source: string;
         explicitNoShift: boolean;
@@ -1118,16 +1130,38 @@ export const attendanceApi = {
         status: string;
         createdAt: string;
         canReview: boolean;
+        decisionNote?: string;
       }>
     >("/attendance/correction-requests"),
   approveCorrectionRequest: (id: string) =>
     request<{ ok: boolean; status: string }>(`/attendance/correction-requests/${id}/approve`, {
       method: "POST",
     }),
-  rejectCorrectionRequest: (id: string) =>
+  rejectCorrectionRequest: (id: string, decisionNote: string) =>
     request<{ ok: boolean; status: string }>(`/attendance/correction-requests/${id}/reject`, {
       method: "POST",
+      body: JSON.stringify({ decisionNote }),
     }),
+  listExceptions: (filters: Record<string, string | undefined> = {}) => {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(filters)) {
+      if (v) qs.set(k, v);
+    }
+    const q = qs.toString();
+    return request<{
+      total: number;
+      items: Array<{
+        exceptionId: string;
+        type: string;
+        status: string;
+        detectedAt: string;
+        workDate: string;
+        shiftName?: string | null;
+        result?: string | null;
+        employee: { employeeId: string; name: string; employeeCode: string };
+      }>;
+    }>(`/attendance/exceptions${q ? `?${q}` : ""}`);
+  },
   recalculate: (employeeId: string, date: string) =>
     request<AttendanceRecord>(`/attendance/recalculate/${employeeId}/${date}`, { method: "POST" }),
   verifyIdCard: (token: string) =>

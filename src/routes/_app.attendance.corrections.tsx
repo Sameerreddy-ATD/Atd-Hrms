@@ -38,6 +38,7 @@ import {
   MobileListActions,
   DesktopTable,
 } from "@/components/common/ResponsiveList";
+import { AttendanceExceptionsPanel } from "@/components/attendance/AttendanceExceptionsPanel";
 import { attendanceApi } from "@/services/api";
 import type { AttendanceRecord } from "@/types/domain";
 import { formatDisplayDate, indiaDateKeyShift } from "@/lib/india-date";
@@ -173,9 +174,14 @@ function AttendanceCorrectionsPage() {
   }
 
   async function handleReject(id: string) {
+    const decisionNote = window.prompt("Decision note (required):")?.trim() ?? "";
+    if (decisionNote.length < 3) {
+      toast.error("Please provide a decision note when rejecting a correction.");
+      return;
+    }
     setActionId(id);
     try {
-      await attendanceApi.rejectCorrectionRequest(id);
+      await attendanceApi.rejectCorrectionRequest(id, decisionNote);
       toast.success(t("pages.corrections.toastRejected"));
       loadRequests();
     } catch (err) {
@@ -204,7 +210,7 @@ function AttendanceCorrectionsPage() {
       />
 
       <Tabs defaultValue="requests" className="mt-6 w-full">
-        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-lg bg-muted p-1 sm:max-w-md">
+        <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-lg bg-muted p-1 sm:max-w-xl">
           <TabsTrigger
             value="requests"
             className="min-h-11 flex-col gap-0.5 rounded-md py-2 text-xs font-semibold sm:flex-row sm:gap-2 sm:text-sm"
@@ -216,6 +222,13 @@ function AttendanceCorrectionsPage() {
             <span className="hidden sm:inline">
               {t("pages.corrections.tabRequestsDesktop", { count: pendingRequests.length })}
             </span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="exceptions"
+            className="min-h-11 flex-col gap-0.5 rounded-md py-2 text-xs font-semibold sm:flex-row sm:gap-2 sm:text-sm"
+          >
+            <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span>Exceptions</span>
           </TabsTrigger>
           <TabsTrigger
             value="alerts"
@@ -420,6 +433,10 @@ function AttendanceCorrectionsPage() {
               </div>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="exceptions" className="mt-4">
+          <AttendanceExceptionsPanel />
         </TabsContent>
 
         <TabsContent value="alerts" className="mt-4">

@@ -1126,6 +1126,10 @@ export function createApp() {
       isHrOnly?: boolean;
     },
   ) {
+    // Never allow the requester to approve their own attendance correction.
+    if (user.employeeId && user.employeeId === request.employeeId) {
+      throw new HttpError(403, "You're not allowed to approve this request.");
+    }
     const isHr = ([Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR] as Role[]).includes(user.role);
     if (request.isHrOnly) {
       if (!isHr) {
@@ -5360,6 +5364,7 @@ export function createApp() {
           firstIn: w.firstPunchAt,
           lastOut: w.lastPunchAt,
           workedMinutes: w.actualWorkedMinutes,
+          result: w.attendanceResult,
           sessions: w.sessions.length,
           openSession: Boolean(w.openSessionId),
           locations: [
@@ -5370,6 +5375,79 @@ export function createApp() {
             ),
           ],
           status: w.status,
+        })),
+      });
+    }),
+  );
+
+  app.get(
+    "/attendance/exceptions",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const role = req.user!.role;
+      const isAdmin = (
+        [Role.HR, Role.MAIN_ADMIN, Role.DEVELOPER_ADMIN, Role.CEO, Role.CHIEF_OF_STAFF] as Role[]
+      ).includes(role);
+      const where: Prisma.AttendanceExceptionWhereInput = {};
+      if (req.query.type) where.type = String(req.query.type);
+      if (req.query.status) where.status = String(req.query.status);
+      if (req.query.employeeId) {
+        await assertEmployeeAccess(req.user!, String(req.query.employeeId));
+        where.employeeId = String(req.query.employeeId);
+      } else if (!isAdmin) {
+        if (!req.user!.employeeId) throw new HttpError(403, "No employee profile");
+        const team = await getHeadedOrganizationTeamEmployeeIds(req.user!.employeeId);
+        where.employeeId = { in: [...new Set([req.user!.employeeId, ...team])] };
+      }
+      if (req.query.from || req.query.to) {
+        where.workday = {};
+        if (req.query.from) {
+          where.workday.workDate = {
+            ...(typeof where.workday.workDate === "object" ? where.workday.workDate : {}),
+            gte: startOfDayUtc(String(req.query.from)),
+          };
+        }
+        if (req.query.to) {
+          where.workday.workDate = {
+            ...(typeof where.workday.workDate === "object" ? where.workday.workDate : {}),
+            lte: startOfDayUtc(String(req.query.to)),
+          };
+        }
+      }
+      const take = Math.min(Number(req.query.limit ?? 50) || 50, 200);
+      const skip = Math.max(Number(req.query.offset ?? 0) || 0, 0);
+      const [rows, total] = await Promise.all([
+        prisma.attendanceException.findMany({
+          where,
+          include: {
+            employee: { select: { employeeId: true, name: true, employeeCode: true } },
+            workday: {
+              select: {
+                workdayId: true,
+                workDate: true,
+                shiftNameSnapshot: true,
+                attendanceResult: true,
+              },
+            },
+          },
+          orderBy: { detectedAt: "desc" },
+          take,
+          skip,
+        }),
+        prisma.attendanceException.count({ where }),
+      ]);
+      res.json({
+        total,
+        items: rows.map((row) => ({
+          exceptionId: row.exceptionId,
+          type: row.type,
+          status: row.status,
+          detectedAt: row.detectedAt,
+          employee: row.employee,
+          workDate: row.workday.workDate.toISOString().slice(0, 10),
+          shiftName: row.workday.shiftNameSnapshot,
+          result: row.workday.attendanceResult,
+          details: row.details,
         })),
       });
     }),
@@ -5867,13 +5945,37 @@ export function createApp() {
           employeeId_date: { employeeId: body.employeeId, date: startOfDayUtc(body.date) },
         },
       });
+      const workday =
+        (body.workdayId
+          ? await prisma.attendanceWorkday.findFirst({
+              where: { workdayId: body.workdayId, employeeId: body.employeeId },
+            })
+          : null) ??
+        (await prisma.attendanceWorkday.findUnique({
+          where: {
+            employeeId_workDate: {
+              employeeId: body.employeeId,
+              workDate: startOfDayUtc(body.date),
+            },
+          },
+        }));
       const isHr = ([Role.DEVELOPER_ADMIN, Role.MAIN_ADMIN, Role.HR] as Role[]).includes(
         req.user!.role,
       );
-      if (summary?.isLocked && !isHr) {
+      if (
+        (summary?.isLocked || workday?.correctionLockState === "EMPLOYEE_LOCKED") &&
+        !isHr
+      ) {
         throw new HttpError(
           403,
-          "This attendance record is locked after the two-day correction window. Only HR can resolve it.",
+          "This correction window has expired. Contact HR for assistance.",
+        );
+      }
+      const workdayWindow = workday?.employeeCorrectionEndsAt ?? summary?.correctionDeadlineAt;
+      if (!isHr && workdayWindow && Date.now() > workdayWindow.getTime()) {
+        throw new HttpError(
+          400,
+          "This correction window has expired. Contact HR for assistance.",
         );
       }
       if (
@@ -5883,20 +5985,16 @@ export function createApp() {
       ) {
         throw new HttpError(
           400,
-          "The two-day employee correction window has expired. Contact HR to resolve this attendance record.",
+          "This correction window has expired. Contact HR for assistance.",
         );
       }
       // Default window: attendance date + 2 days when summary has no deadline yet
-      if (!isHr && !summary?.correctionDeadlineAt) {
-        const windowEnd = startOfDayUtc(body.date);
-        windowEnd.setUTCDate(windowEnd.getUTCDate() + 2);
-        windowEnd.setUTCHours(18, 29, 59, 999);
-        // convert rough IST end — use +2 calendar days from date
+      if (!isHr && !summary?.correctionDeadlineAt && !workday?.employeeCorrectionEndsAt) {
         const deadline = new Date(startOfDayUtc(body.date).getTime() + 2 * 24 * 60 * 60 * 1000);
         if (Date.now() > deadline.getTime()) {
           throw new HttpError(
             400,
-            "The two-day employee correction window has expired. Contact HR to resolve this attendance record.",
+            "This correction window has expired. Contact HR for assistance.",
           );
         }
       }
@@ -5909,6 +6007,10 @@ export function createApp() {
         );
       }
 
+      const inferredType =
+        body.correctionType ??
+        (body.eventType.includes("OUT") ? "MISSING_CHECK_OUT" : "MISSING_CHECK_IN");
+
       const request = await prisma.attendanceCorrectionRequest.create({
         data: {
           employeeId: body.employeeId,
@@ -5918,15 +6020,26 @@ export function createApp() {
           remarks: body.remarks,
           status: "PENDING",
           approverId: approver?.employeeId ?? null,
-          isHrOnly: Boolean(summary?.isLocked || isHr),
-          employeeWindowEndsAt: summary?.correctionDeadlineAt ?? null,
+          isHrOnly: Boolean(
+            summary?.isLocked || workday?.correctionLockState === "EMPLOYEE_LOCKED" || isHr,
+          ),
+          employeeWindowEndsAt:
+            workday?.employeeCorrectionEndsAt ?? summary?.correctionDeadlineAt ?? null,
+          workdayId: workday?.workdayId ?? null,
+          sessionId: body.sessionId ?? null,
+          correctionType: inferredType,
         },
       });
 
+      if (workday) {
+        const { markExceptionsCorrectionPending } = await import("./attendanceExceptions.js");
+        await markExceptionsCorrectionPending(workday.workdayId);
+      }
+
       await audit({
-        action: "attendance correction requested",
+        action: "CORRECTION_SUBMITTED",
         performedByUserId: req.user!.id,
-        newValue: body as never,
+        newValue: { ...body, requestId: request.requestId, workdayId: workday?.workdayId } as never,
         ipAddress: req.ip,
       });
       publishNotificationChange("attendance-correction-requested", request.requestId);
@@ -6074,10 +6187,15 @@ export function createApp() {
 
       const changed = await prisma.attendanceCorrectionRequest.updateMany({
         where: { requestId: id, status: "PENDING" },
-        data: { status: "APPROVED", approverId, reviewedBy: req.user!.id },
+        data: {
+          status: "APPROVED",
+          approverId,
+          reviewedBy: req.user!.id,
+          reviewedAt: new Date(),
+        },
       });
       if (changed.count !== 1) {
-        throw new HttpError(409, "This correction request was already reviewed");
+        throw new HttpError(409, "This attendance correction was already reviewed.");
       }
 
       try {
@@ -6093,13 +6211,26 @@ export function createApp() {
       } catch (error) {
         await prisma.attendanceCorrectionRequest.updateMany({
           where: { requestId: id, status: "APPROVED", reviewedBy: req.user!.id },
-          data: { status: "PENDING", reviewedBy: null },
+          data: { status: "PENDING", reviewedBy: null, reviewedAt: null },
         });
         throw error;
       }
 
+      if (request.workdayId) {
+        const { resolveExceptionType, syncWorkdayExceptions } = await import(
+          "./attendanceExceptions.js"
+        );
+        if (request.correctionType === "MISSING_CHECK_OUT" || request.eventType.includes("OUT")) {
+          await resolveExceptionType(request.workdayId, "MISSING_CHECK_OUT", request.sessionId);
+        }
+        if (request.correctionType === "MISSING_CHECK_IN" || request.eventType.includes("IN")) {
+          await resolveExceptionType(request.workdayId, "MISSING_CHECK_IN", request.sessionId);
+        }
+        await syncWorkdayExceptions(request.workdayId, { detectMissing: false });
+      }
+
       await audit({
-        action: "attendance corrected",
+        action: "CORRECTION_APPROVED",
         performedByUserId: req.user!.id,
         newValue: { requestId: id, employeeId: request.employeeId, punchTime: request.punchTime },
         ipAddress: req.ip,
@@ -6123,37 +6254,51 @@ export function createApp() {
     requireAuth,
     asyncHandler(async (req, res) => {
       const id = String(req.params.id);
+      const decisionNote = String((req.body as { decisionNote?: string })?.decisionNote ?? "").trim();
+      if (decisionNote.length < 3) {
+        throw new HttpError(400, "Please provide a decision note when rejecting a correction.");
+      }
       const request = await prisma.attendanceCorrectionRequest.findUniqueOrThrow({
         where: { requestId: id },
       });
 
       if (request.status !== "PENDING") {
-        throw new HttpError(400, "Only pending requests can be rejected");
+        throw new HttpError(400, "This attendance correction was already reviewed.");
       }
       const approverId = await assertOrganizationApproverForCorrection(req.user!, request);
 
       const changed = await prisma.attendanceCorrectionRequest.updateMany({
         where: { requestId: id, status: "PENDING" },
-        data: { status: "REJECTED", approverId, reviewedBy: req.user!.id },
+        data: {
+          status: "REJECTED",
+          approverId,
+          reviewedBy: req.user!.id,
+          reviewedAt: new Date(),
+          decisionNote,
+        },
       });
       if (changed.count !== 1) {
-        throw new HttpError(409, "This correction request was already reviewed");
+        throw new HttpError(409, "This attendance correction was already reviewed.");
+      }
+
+      if (request.workdayId) {
+        const { syncWorkdayExceptions } = await import("./attendanceExceptions.js");
+        await syncWorkdayExceptions(request.workdayId, { detectMissing: false });
       }
 
       await audit({
-        action: "attendance correction rejected",
+        action: "CORRECTION_REJECTED",
         performedByUserId: req.user!.id,
-        newValue: { requestId: id, employeeId: request.employeeId },
+        newValue: { requestId: id, decisionNote },
         ipAddress: req.ip,
       });
       publishNotificationChange("attendance-correction-rejected", request.requestId);
       void userIdsForEmployeeIds([request.employeeId]).then((ids) =>
         sendPushToUsers(ids, {
           title: "Punch request rejected",
-          body: `Your ${request.eventType.replaceAll("_", " ").toLowerCase()} request on ${request.date.toISOString().slice(0, 10)} was rejected`,
-          href: "/attendance/corrections",
+          body: decisionNote.slice(0, 120),
+          href: "/attendance/mine",
           tag: `correction-${request.requestId}`,
-          priority: "IMPORTANT",
         }),
       );
 

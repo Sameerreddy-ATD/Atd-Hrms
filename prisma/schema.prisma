@@ -472,6 +472,7 @@ model Employee {
   weeklyOffRequests           WeeklyOffRequest[]
   compOffCredits              CompOffCredit[]
   correctionRequests          AttendanceCorrectionRequest[]
+  attendanceExceptions        AttendanceException[]
   emergencyContact            EmergencyContact?
   headedDepartments           Department[]                     @relation("DepartmentHead")
   departmentHeadAssignments   DepartmentHeadAssignment[]
@@ -1009,40 +1010,79 @@ model AttendanceEvent {
 
 /// Logical attendance day (≠ calendar date for overnight / split).
 model AttendanceWorkday {
-  workdayId           String              @id @default(cuid()) @map("workday_id")
-  employeeId          String              @map("employee_id")
-  employee            Employee            @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  workdayId                String                        @id @default(cuid()) @map("workday_id")
+  employeeId               String                        @map("employee_id")
+  employee                 Employee                      @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
   /// Logical scheduled work date (IST calendar key stored as UTC midnight).
-  workDate            DateTime            @map("work_date") @db.Date
-  timezone            String              @default("Asia/Kolkata") @db.VarChar(64)
+  workDate                 DateTime                      @map("work_date") @db.Date
+  timezone                 String                        @default("Asia/Kolkata") @db.VarChar(64)
   /// DAY_OVERRIDE | ROSTER | DEFAULT | NONE
-  scheduleSource      String              @map("schedule_source") @db.VarChar(20)
-  explicitNoShift     Boolean             @default(false) @map("explicit_no_shift")
-  shiftTemplateId     String?             @map("shift_template_id")
-  shift               ShiftDefinition?    @relation(fields: [shiftTemplateId], references: [shiftId], onDelete: SetNull)
-  shiftCodeSnapshot   String?             @map("shift_code_snapshot") @db.VarChar(40)
-  shiftNameSnapshot   String?             @map("shift_name_snapshot") @db.VarChar(120)
-  expectedWorkMinutes Int?                @map("expected_work_minutes")
-  scheduledStartAt    DateTime?           @map("scheduled_start_at")
-  scheduledEndAt      DateTime?           @map("scheduled_end_at")
+  scheduleSource           String                        @map("schedule_source") @db.VarChar(20)
+  explicitNoShift          Boolean                       @default(false) @map("explicit_no_shift")
+  shiftTemplateId          String?                       @map("shift_template_id")
+  shift                    ShiftDefinition?              @relation(fields: [shiftTemplateId], references: [shiftId], onDelete: SetNull)
+  shiftCodeSnapshot        String?                       @map("shift_code_snapshot") @db.VarChar(40)
+  shiftNameSnapshot        String?                       @map("shift_name_snapshot") @db.VarChar(120)
+  expectedWorkMinutes      Int?                          @map("expected_work_minutes")
+  scheduledStartAt         DateTime?                     @map("scheduled_start_at")
+  scheduledEndAt           DateTime?                     @map("scheduled_end_at")
   /// Immutable schedule snapshot at Workday creation.
-  scheduleSnapshot    Json                @map("schedule_snapshot")
-  /// OPEN | COMPLETE | NEEDS_REVIEW
-  status              String              @default("OPEN") @db.VarChar(20)
-  actualWorkedMinutes Int                 @default(0) @map("actual_worked_minutes")
-  firstPunchAt        DateTime?           @map("first_punch_at")
-  lastPunchAt         DateTime?           @map("last_punch_at")
-  openSessionId       String?             @unique @map("open_session_id") @db.VarChar(191)
-  version             Int                 @default(0)
-  createdAt           DateTime            @default(now()) @map("created_at")
-  updatedAt           DateTime            @updatedAt @map("updated_at")
-  sessions            AttendanceSession[]
-  events              AttendanceEvent[]
+  scheduleSnapshot         Json                          @map("schedule_snapshot")
+  /// OPEN | AWAITING_CORRECTION | READY | FINAL
+  status                   String                        @default("OPEN") @db.VarChar(20)
+  actualWorkedMinutes      Int                           @default(0) @map("actual_worked_minutes")
+  firstPunchAt             DateTime?                     @map("first_punch_at")
+  lastPunchAt              DateTime?                     @map("last_punch_at")
+  openSessionId            String?                       @unique @map("open_session_id") @db.VarChar(191)
+  /// FULL_DAY | HALF_DAY | ABSENT | PENDING | CORRECTION_REQUIRED | HOLIDAY | WEEKLY_OFF | PAID_LEAVE | UNPAID_LEAVE | UNSCHEDULED
+  attendanceResult         String                        @default("PENDING") @map("attendance_result") @db.VarChar(32)
+  classificationReason     String?                       @map("classification_reason") @db.VarChar(500)
+  classificationVersion    Int                           @default(1) @map("classification_version")
+  classifiedAt             DateTime?                     @map("classified_at")
+  /// OPEN | EMPLOYEE_LOCKED
+  correctionLockState      String                        @default("OPEN") @map("correction_lock_state") @db.VarChar(20)
+  employeeCorrectionEndsAt DateTime?                     @map("employee_correction_ends_at")
+  version                  Int                           @default(0)
+  createdAt                DateTime                      @default(now()) @map("created_at")
+  updatedAt                DateTime                      @updatedAt @map("updated_at")
+  sessions                 AttendanceSession[]
+  events                   AttendanceEvent[]
+  exceptions               AttendanceException[]
+  correctionRequests       AttendanceCorrectionRequest[]
 
   @@unique([employeeId, workDate])
   @@index([employeeId, status])
   @@index([workDate, status])
+  @@index([attendanceResult, workDate])
+  @@index([correctionLockState, employeeCorrectionEndsAt], map: "attendance_workdays_corr_lock_ends_idx")
   @@map("attendance_workdays")
+}
+
+model AttendanceException {
+  exceptionId      String            @id @default(cuid()) @map("exception_id")
+  workdayId        String            @map("workday_id")
+  workday          AttendanceWorkday @relation(fields: [workdayId], references: [workdayId], onDelete: Cascade)
+  employeeId       String            @map("employee_id")
+  employee         Employee          @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  /// MISSING_CHECK_IN | MISSING_CHECK_OUT | LATE_CHECK_IN | EARLY_CHECK_OUT | UNSCHEDULED_ATTENDANCE | SCHEDULED_NO_SHIFT_WORK | DUPLICATE_PUNCH | ATTENDANCE_CONFLICT
+  type             String            @db.VarChar(40)
+  /// OPEN | CORRECTION_PENDING | RESOLVED | DISMISSED
+  status           String            @default("OPEN") @db.VarChar(20)
+  detectedAt       DateTime          @default(now()) @map("detected_at")
+  resolvedAt       DateTime?         @map("resolved_at")
+  relatedSessionId String?           @map("related_session_id") @db.VarChar(191)
+  relatedEventId   String?           @map("related_event_id") @db.VarChar(191)
+  /// Unique idempotency key: workdayId|type|sessionOrStar
+  dedupeKey        String            @unique @map("dedupe_key") @db.VarChar(191)
+  details          Json?
+  notificationTag  String?           @unique @map("notification_tag") @db.VarChar(120)
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  @@index([employeeId, status, detectedAt])
+  @@index([type, status, detectedAt])
+  @@index([workdayId, status])
+  @@map("attendance_exceptions")
 }
 
 model AttendanceSession {
@@ -1599,25 +1639,33 @@ model TaskUpdate {
 }
 
 model AttendanceCorrectionRequest {
-  requestId            String         @id @default(cuid()) @map("request_id")
-  employeeId           String         @map("employee_id")
-  employee             Employee       @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
-  date                 DateTime       @db.Date
-  punchTime            DateTime       @map("punch_time")
-  eventType            EventType      @map("event_type")
+  requestId            String             @id @default(cuid()) @map("request_id")
+  employeeId           String             @map("employee_id")
+  employee             Employee           @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  /// Legacy calendar date (Android / older UI). Prefer workdayId when present.
+  date                 DateTime           @db.Date
+  workdayId            String?            @map("workday_id")
+  workday              AttendanceWorkday? @relation(fields: [workdayId], references: [workdayId], onDelete: SetNull)
+  sessionId            String?            @map("session_id") @db.VarChar(191)
+  /// MISSING_CHECK_IN | MISSING_CHECK_OUT | INCORRECT_CHECK_IN | INCORRECT_CHECK_OUT
+  correctionType       String?            @map("correction_type") @db.VarChar(40)
+  punchTime            DateTime           @map("punch_time")
+  eventType            EventType          @map("event_type")
   remarks              String
-  status               ApprovalStatus @default(PENDING)
-  approverId           String?        @map("approver_id")
-  reviewedBy           String?        @map("reviewed_by")
-  decisionNote         String?        @map("decision_note") @db.Text
-  employeeWindowEndsAt DateTime?      @map("employee_window_ends_at")
-  isHrOnly             Boolean        @default(false) @map("is_hr_only")
-  createdAt            DateTime       @default(now()) @map("created_at")
-  updatedAt            DateTime       @updatedAt @map("updated_at")
+  status               ApprovalStatus     @default(PENDING)
+  approverId           String?            @map("approver_id")
+  reviewedBy           String?            @map("reviewed_by")
+  reviewedAt           DateTime?          @map("reviewed_at")
+  decisionNote         String?            @map("decision_note") @db.Text
+  employeeWindowEndsAt DateTime?          @map("employee_window_ends_at")
+  isHrOnly             Boolean            @default(false) @map("is_hr_only")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
 
   @@index([employeeId, createdAt])
   @@index([approverId, status, createdAt])
   @@index([status, createdAt])
+  @@index([workdayId, status])
   @@map("attendance_correction_requests")
 }
 

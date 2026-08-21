@@ -530,6 +530,11 @@ export async function recordPunchIn(input: RecordPunchInput) {
       workday: updatedWorkday,
       idempotent: false as const,
     };
+  }).then(async (result) => {
+    if (!result.workday) return result;
+    const { syncWorkdayExceptions } = await import("./attendanceExceptions.js");
+    await syncWorkdayExceptions(result.workday.workdayId, { detectMissing: false });
+    return result;
   });
 }
 
@@ -616,6 +621,11 @@ export async function recordPunchOut(input: RecordPunchInput) {
       workday: updatedWorkday,
       idempotent: false as const,
     };
+  }).then(async (result) => {
+    if (!result.workday) return result;
+    const { syncWorkdayExceptions } = await import("./attendanceExceptions.js");
+    await syncWorkdayExceptions(result.workday.workdayId, { detectMissing: false });
+    return result;
   });
 }
 
@@ -694,7 +704,11 @@ export async function applyCorrectionAttendanceEvent(input: CorrectionAttendance
     const refreshed = await tx.attendanceEvent.findUniqueOrThrow({
       where: { eventId: event.eventId },
     });
-    return refreshed;
+    return { event: refreshed, workdayId: workday.workdayId };
+  }).then(async (result) => {
+    const { syncWorkdayExceptions } = await import("./attendanceExceptions.js");
+    await syncWorkdayExceptions(result.workdayId, { detectMissing: false });
+    return result.event;
   });
 }
 
@@ -852,7 +866,11 @@ export async function reconcileAttendanceWorkday(
   if (options?.db) {
     return run(options.db);
   }
-  return prisma.$transaction(async (tx) => run(tx));
+  return prisma.$transaction(async (tx) => run(tx)).then(async (result) => {
+    const { syncWorkdayExceptions } = await import("./attendanceExceptions.js");
+    await syncWorkdayExceptions(result.workday.workdayId, { detectMissing: false });
+    return result;
+  });
 }
 
 export async function getCurrentAttendanceState(employeeId: string) {
@@ -889,6 +907,25 @@ export async function getCurrentAttendanceState(employeeId: string) {
     ? workedMinutesBetween(openSession.checkInAt, new Date())
     : 0;
 
+  const exceptions = workday
+    ? await prisma.attendanceException.findMany({
+        where: {
+          workdayId: workday.workdayId,
+          status: { in: ["OPEN", "CORRECTION_PENDING"] },
+        },
+        orderBy: { detectedAt: "asc" },
+        select: {
+          exceptionId: true,
+          type: true,
+          status: true,
+          details: true,
+          detectedAt: true,
+        },
+      })
+    : [];
+
+  const { workdayResultLabel } = await import("./attendanceExceptionPolicy.js");
+
   return {
     workdayId: workday?.workdayId ?? null,
     workDate: workday ? workDateIso(workday.workDate) : null,
@@ -897,6 +934,12 @@ export async function getCurrentAttendanceState(employeeId: string) {
     firstCheckIn: workday?.firstPunchAt ?? null,
     workedMinutes: closedMinutes,
     liveWorkedMinutes: closedMinutes + liveOpenMinutes,
+    result: workday?.attendanceResult ?? "PENDING",
+    resultLabel: workdayResultLabel(workday?.attendanceResult ?? "PENDING"),
+    classificationReason: workday?.classificationReason ?? null,
+    correctionLockState: workday?.correctionLockState ?? "OPEN",
+    employeeCorrectionEndsAt: workday?.employeeCorrectionEndsAt ?? null,
+    exceptions,
     scheduledShift: snapshot
       ? {
           source: snapshot.source,
@@ -926,15 +969,32 @@ export async function serializeWorkdayDetail(workdayId: string) {
           homeBranchId: true,
         },
       },
+      exceptions: {
+        where: { status: { in: ["OPEN", "CORRECTION_PENDING", "RESOLVED"] } },
+        orderBy: { detectedAt: "asc" },
+      },
     },
   });
   if (!workday) return null;
   const snapshot = workday.scheduleSnapshot as ScheduleSnapshot;
+  const { workdayResultLabel } = await import("./attendanceExceptionPolicy.js");
   return {
     workdayId: workday.workdayId,
     employee: workday.employee,
     workDate: workDateIso(workday.workDate),
     status: workday.status,
+    result: workday.attendanceResult,
+    resultLabel: workdayResultLabel(workday.attendanceResult),
+    classificationReason: workday.classificationReason,
+    correctionLockState: workday.correctionLockState,
+    employeeCorrectionEndsAt: workday.employeeCorrectionEndsAt,
+    exceptions: workday.exceptions.map((e) => ({
+      exceptionId: e.exceptionId,
+      type: e.type,
+      status: e.status,
+      details: e.details,
+      detectedAt: e.detectedAt,
+    })),
     schedule: {
       source: workday.scheduleSource,
       explicitNoShift: workday.explicitNoShift,
