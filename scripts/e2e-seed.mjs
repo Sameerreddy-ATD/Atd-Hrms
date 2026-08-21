@@ -63,6 +63,12 @@ async function main() {
   await prisma.attendanceEvent.deleteMany().catch(() => undefined);
   await prisma.attendanceWorkday.deleteMany().catch(() => undefined);
   await prisma.attendanceDailySummary.deleteMany().catch(() => undefined);
+  await prisma.leaveApprovalHistory.deleteMany().catch(() => undefined);
+  await prisma.leaveLedgerEntry.deleteMany().catch(() => undefined);
+  await prisma.leaveRequest.deleteMany().catch(() => undefined);
+  await prisma.leaveBalance.deleteMany().catch(() => undefined);
+  await prisma.compOffCredit.deleteMany().catch(() => undefined);
+  await prisma.weeklyOffRequest.deleteMany().catch(() => undefined);
   await prisma.employeeOrganizationAssignment.deleteMany();
   await prisma.departmentHeadAssignment.deleteMany();
   await prisma.departmentViewerAssignment.deleteMany();
@@ -337,6 +343,61 @@ async function main() {
         headEmployeeId:
           heads.find((row) => row.isPrimary)?.employeeId ?? heads[0]?.employeeId ?? null,
       },
+    });
+  }
+
+  // Leave types required for Leave E2E (policy confirmation defaults preserved).
+  for (const policy of [
+    {
+      leaveTypeId: "leave-casual",
+      name: "Casual Leave",
+      code: "CASUAL",
+      paid: true,
+      annualAllowance: 12,
+      monthlyCredit: 1,
+      carryForward: true,
+      halfDayAllowed: true,
+      requiresMedicalDocument: false,
+      approvalRequired: true,
+    },
+    {
+      leaveTypeId: "leave-sick",
+      name: "Sick Leave",
+      code: "SICK",
+      paid: true,
+      annualAllowance: 6,
+      maxPerMonth: 2,
+      carryForward: false,
+      halfDayAllowed: true,
+      requiresMedicalDocument: true,
+      approvalRequired: true,
+    },
+    {
+      leaveTypeId: "leave-lop",
+      name: "Unpaid Leave / LOP",
+      code: "LOP",
+      paid: false,
+      carryForward: false,
+      halfDayAllowed: true,
+      requiresMedicalDocument: false,
+      approvalRequired: true,
+    },
+    {
+      leaveTypeId: "leave-comp-off",
+      name: "Comp Off",
+      code: "COMP_OFF",
+      paid: true,
+      carryForward: false,
+      halfDayAllowed: false,
+      requiresMedicalDocument: false,
+      approvalRequired: true,
+    },
+  ]) {
+    const { leaveTypeId, ...data } = policy;
+    await prisma.leaveType.upsert({
+      where: { code: policy.code },
+      update: data,
+      create: { leaveTypeId, ...data },
     });
   }
 

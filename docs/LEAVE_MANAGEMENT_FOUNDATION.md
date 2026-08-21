@@ -39,14 +39,21 @@ Legacy `HR_VERIFIED` remains in enum for compatibility; not written by current r
 4. Rejection **requires** `decisionNote` (≥ 3 chars).
 5. Every transition writes `LeaveApprovalHistory`.
 
-## Policy confirmation
+## Calendar policy (configurable)
 
-`POLICY_CONFIRMATION_REQUIRED=YES`
+SystemSettings:
 
-Hardcoded production defaults remain as **defaults** until HR confirms (Casual accrual, Sick 6/2, Comp Off 9h/Dec 31, holiday consumes leave, etc.).  
-Do not invent new HR numbers.
+| Key | Production-compatible default | Meaning |
+|-----|-------------------------------|---------|
+| `leave.holidayConsumesBalance` | `true` | Holiday days count toward leave balance |
+| `leave.weeklyOffConsumesBalance` | `false` | Weekly offs are skipped (do not consume) |
 
-Comp Off earning/expiry: **CONFIG_REQUIRED** (architecture supports type; policy not redesigned).
+`POLICY_CONFIRMATION_REQUIRED=YES` — HR must confirm before changing defaults.
+
+Split-shift half-day: **blocked** until HR defines First/Second Half → segment mapping.
+
+Comp Off earn/expiry: **CONFIG_REQUIRED** (do not invent rules).
+
 
 ## Android 1.0.15
 

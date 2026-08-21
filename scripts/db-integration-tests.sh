@@ -18,4 +18,7 @@ RUN_ATTENDANCE_EXCEPTION_INTEGRATION=1 npx vitest run --config vitest.config.ts 
 echo "==> Company default General Shift integration"
 RUN_COMPANY_DEFAULT_INTEGRATION=1 npx vitest run --config vitest.config.ts tests/companyDefaultShiftIntegration.test.ts
 
+echo "==> Leave management foundation integration"
+RUN_LEAVE_INTEGRATION=1 npx vitest run --config vitest.config.ts tests/leaveManagementIntegration.test.ts
+
 echo "==> DB integration suites passed."

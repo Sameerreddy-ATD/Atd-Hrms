@@ -1,6 +1,6 @@
 /**
  * Leave calendar boundaries — week-off / holiday / NO_SHIFT plugs.
- * Full Weekly Off / Holiday redesign is out of scope; callers use these helpers.
+ * Consumption flags come from leaveCalendarPolicy (SystemSetting), not scattered hardcodes.
  */
 import { prisma } from "./prisma.js";
 import {
@@ -9,13 +9,25 @@ import {
   startOfDayUtc,
 } from "./attendanceDayRules.js";
 import { resolveEmployeeShiftForWorkDate } from "./shiftRoster.js";
+import { getLeaveCalendarPolicy } from "./leaveCalendarPolicy.js";
+
+export {
+  LEAVE_HOLIDAY_POLICY_CONFIRMATION_REQUIRED,
+  LEAVE_POLICY_CONFIRMATION_REQUIRED,
+  LEAVE_WEEKLY_OFF_POLICY_CONFIRMATION_REQUIRED,
+  getLeaveCalendarPolicy,
+  setLeaveCalendarPolicy,
+} from "./leaveCalendarPolicy.js";
 
 function dateKey(date: Date) {
   return startOfDayUtc(date).toISOString().slice(0, 10);
 }
 
-/** Sundays (fixed policy) and approved weekly-off dates are not leave days. */
-export async function skippedWeekOffDateKeys(
+/**
+ * Weekly-off date keys in range (Sunday-fixed + approved selectable offs).
+ * Whether they consume leave balance is controlled by calendar policy.
+ */
+export async function weeklyOffDateKeysInRange(
   employeeId: string,
   fromDate: Date,
   toDate: Date,
@@ -34,13 +46,31 @@ export async function skippedWeekOffDateKeys(
     select: { date: true },
   });
   const approvedKeys = new Set(approved.map((row) => dateKey(row.date)));
-  const skipped = new Set<string>();
+  const keys = new Set<string>();
   for (const date of dates) {
     const key = dateKey(date);
-    if (employee?.weeklyOffPolicy === "SUNDAY_FIXED" && isSunday(date)) skipped.add(key);
-    if (approvedKeys.has(key)) skipped.add(key);
+    if (employee?.weeklyOffPolicy === "SUNDAY_FIXED" && isSunday(date)) keys.add(key);
+    if (approvedKeys.has(key)) keys.add(key);
   }
-  return skipped;
+  return keys;
+}
+
+/**
+ * Dates that do not count toward leave days under current calendar policy.
+ * Production default: weekly offs skipped (do not consume); holidays consume.
+ */
+export async function skippedWeekOffDateKeys(
+  employeeId: string,
+  fromDate: Date,
+  toDate: Date,
+) {
+  const policy = await getLeaveCalendarPolicy();
+  const weekOffs = await weeklyOffDateKeysInRange(employeeId, fromDate, toDate);
+  if (policy.weeklyOffConsumesBalance) {
+    // When weekly offs consume balance, they are billable — do not skip.
+    return new Set<string>();
+  }
+  return weekOffs;
 }
 
 /**
@@ -59,29 +89,21 @@ export async function holidayDateKeysInRange(fromDate: Date, toDate: Date) {
 }
 
 /**
- * Whether leave on holidays should still consume balance.
- * Current production behavior: holidays ARE counted (consume).
- * Until HR confirms otherwise, keep consuming; flag for policy confirmation.
- */
-export const LEAVE_HOLIDAY_CONSUMES_BALANCE = true;
-export const LEAVE_HOLIDAY_POLICY_CONFIRMATION_REQUIRED = true;
-
-/**
- * Billable leave dates under current calendar rules (week-offs skipped;
- * holidays included when LEAVE_HOLIDAY_CONSUMES_BALANCE).
+ * Billable leave dates under configured calendar policy.
  */
 export async function billableLeaveDates(
   employeeId: string,
   fromDate: Date,
   toDate: Date,
 ) {
+  const policy = await getLeaveCalendarPolicy();
   const dates = eachDateInRange(fromDate, toDate);
-  const skipped = await skippedWeekOffDateKeys(employeeId, fromDate, toDate);
+  const weekOffs = await weeklyOffDateKeysInRange(employeeId, fromDate, toDate);
   const holidays = await holidayDateKeysInRange(fromDate, toDate);
   return dates.filter((date) => {
     const key = dateKey(date);
-    if (skipped.has(key)) return false;
-    if (!LEAVE_HOLIDAY_CONSUMES_BALANCE && holidays.has(key)) return false;
+    if (!policy.weeklyOffConsumesBalance && weekOffs.has(key)) return false;
+    if (!policy.holidayConsumesBalance && holidays.has(key)) return false;
     return true;
   });
 }
@@ -107,5 +129,31 @@ export async function assertLeaveDatesNotExplicitNoShift(
         `Leave cannot be requested on ${dateKey(date)} because that WorkDate is explicitly scheduled as No Shift.`,
       );
     }
+  }
+}
+
+/**
+ * Half-day on multi-segment (split) shifts is undefined until HR confirms mapping.
+ * Reject rather than invent First/Second Half → segment mapping.
+ */
+export async function assertHalfDayAllowedForResolvedShift(
+  employeeId: string,
+  workDate: Date,
+) {
+  const resolved = await resolveEmployeeShiftForWorkDate(employeeId, workDate);
+  if (resolved.explicitNoShift) {
+    const { HttpError } = await import("./errors.js");
+    throw new HttpError(
+      400,
+      `Leave cannot be requested on ${dateKey(workDate)} because that WorkDate is explicitly scheduled as No Shift.`,
+    );
+  }
+  const segmentCount = resolved.segments?.length ?? 0;
+  if (segmentCount > 1) {
+    const { HttpError } = await import("./errors.js");
+    throw new HttpError(
+      400,
+      "Half-day leave is not available for split shifts until HR confirms which work segments map to First Half and Second Half. Please request a full day, or contact HR.",
+    );
   }
 }

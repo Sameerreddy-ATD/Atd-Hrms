@@ -86,6 +86,12 @@ export async function loginAs(page: Page, userKey: E2eUserKey) {
     .waitFor({ state: "hidden", timeout: 30_000 })
     .catch(() => undefined);
 
+  // Fallback if search param is dropped by a remount / stale bundle.
+  const portalEmployee = page.getByRole("button", { name: /team members/i });
+  if (await portalEmployee.isVisible().catch(() => false)) {
+    await portalEmployee.click();
+  }
+
   const loginHeading = page.getByRole("heading", { name: /team member sign-in/i });
   await expect(loginHeading, "Employee login form should render").toBeVisible({ timeout: 15_000 });
 
@@ -130,7 +136,7 @@ export async function loginAs(page: Page, userKey: E2eUserKey) {
     );
   }
 
-  await page.waitForURL(/dashboard|first-login|face-enrollment|face/, { timeout: 25_000 });
+  await page.waitForURL(/dashboard|first-login|face-enrollment/, { timeout: 25_000 });
 
   if (page.url().includes("first-login")) {
     await page.locator("#password, #newPassword").first().fill(E2E_PASSWORD);
@@ -140,7 +146,9 @@ export async function loginAs(page: Page, userKey: E2eUserKey) {
     await page.waitForURL(/dashboard/, { timeout: 20_000 });
   }
 
-  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+  // Prefer landmark main; fall back to app shell for older layouts.
+  const shell = page.locator("main, [data-testid='app-shell'], #app, .app-shell").first();
+  await expect(shell).toBeVisible({ timeout: 15_000 });
 
   const meUser = await page.evaluate(async (apiBase) => {
     const res = await fetch(`${apiBase}/auth/me`, { credentials: "include" });

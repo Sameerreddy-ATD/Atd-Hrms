@@ -10,13 +10,14 @@ import {
 import { medicalDocumentDueAt48h, monthEndIst } from "./attendancePolicy.js";
 import { activeEmployeeIdsExcludingDeveloperAdmin } from "./attendanceDayRules.js";
 import {
+  assertHalfDayAllowedForResolvedShift,
   assertLeaveDatesNotExplicitNoShift,
   billableLeaveDates,
   skippedWeekOffDateKeys,
 } from "./leaveCalendar.js";
 
 export { skippedWeekOffDateKeys, billableLeaveDates } from "./leaveCalendar.js";
-export const LEAVE_POLICY_CONFIRMATION_REQUIRED = true;
+export { LEAVE_POLICY_CONFIRMATION_REQUIRED } from "./leaveCalendarPolicy.js";
 
 export const LEAVE_CODES = {
   CASUAL: "CASUAL",
@@ -315,6 +316,7 @@ export async function validateLeaveApplication(input: {
     if (input.days !== 0.5) {
       throw new HttpError(400, "Half-day leave counts as 0.5 day");
     }
+    await assertHalfDayAllowedForResolvedShift(input.employeeId, dates[0]!);
   } else if (!billableDates.length) {
     throw new HttpError(400, "Every date in this range is a week off. Choose working days.");
   } else if (!input._splitMode && billableDates.length !== input.days) {
