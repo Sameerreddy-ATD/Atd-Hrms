@@ -20,7 +20,7 @@ import { GROUP_I18N_BY_LABEL, NAV_I18N_BY_PATH } from "@/i18n/nav-keys";
 import { ROLE_LABELS, type ModuleKey } from "@/types/domain";
 import { employeesApi, moduleAccessApi } from "@/services/api";
 import { cn } from "@/lib/utils";
-import { BrandLockup, Logo } from "@/components/common/Logo";
+import { Logo } from "@/components/common/Logo";
 
 export function AppSidebar() {
   const { t } = useTranslation();
@@ -87,7 +87,7 @@ export function AppSidebar() {
         {collapsed ? (
           <Logo variant="mark" className="mx-auto h-8 w-8" />
         ) : (
-          <BrandLockup className="px-1" markClassName="h-8 w-8" />
+          <Logo className="h-10 w-auto max-w-[12.5rem] object-contain object-left" />
         )}
       </SidebarHeader>
 
