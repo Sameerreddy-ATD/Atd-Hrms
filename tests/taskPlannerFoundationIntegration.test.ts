@@ -393,4 +393,55 @@ describe.runIf(run)("Task Planner Foundation DB matrix", () => {
     const admin = await prisma.user.findUniqueOrThrow({ where: { id: adminUserId } });
     expect(admin.role).toBe(Role.DEVELOPER_ADMIN);
   });
+
+  it("viewer cannot mutate; settings details + member role + archive + key preserve", async () => {
+    expect(roleHasCapability(TaskProjectRole.VIEWER, "CREATE_WORK_ITEM")).toBe(false);
+    expect(roleHasCapability(TaskProjectRole.VIEWER, "EDIT_WORK_ITEM")).toBe(false);
+    expect(roleHasCapability(TaskProjectRole.VIEWER, "TRANSITION_WORK_ITEM")).toBe(false);
+    expect(roleHasCapability(TaskProjectRole.VIEWER, "ARCHIVE_PROJECT")).toBe(false);
+
+    const renamed = await prisma.taskBoard.update({
+      where: { boardId },
+      data: { name: "Planner Foundation Renamed", description: "details updated" },
+    });
+    expect(renamed.name).toBe("Planner Foundation Renamed");
+    expect(renamed.description).toBe("details updated");
+
+    await prisma.taskBoardMember.update({
+      where: {
+        boardId_employeeId: { boardId, employeeId: memberEmployeeId },
+      },
+      data: { role: TaskProjectRole.PROJECT_LEAD },
+    });
+    const membership = await prisma.taskBoardMember.findUniqueOrThrow({
+      where: { boardId_employeeId: { boardId, employeeId: memberEmployeeId } },
+    });
+    expect(membership.role).toBe(TaskProjectRole.PROJECT_LEAD);
+
+    const beforeKey = await prisma.workTask.findUniqueOrThrow({
+      where: { taskId: preservedTaskId },
+    });
+    const oldPrefix = (await prisma.taskBoard.findUniqueOrThrow({ where: { boardId } })).keyPrefix;
+    const newPrefix = `${oldPrefix.slice(0, 6)}X`.slice(0, 8);
+    await prisma.taskBoard.update({
+      where: { boardId },
+      data: { keyPrefix: newPrefix },
+    });
+    const afterKey = await prisma.workTask.findUniqueOrThrow({
+      where: { taskId: preservedTaskId },
+    });
+    expect(afterKey.issueKey).toBe(beforeKey.issueKey);
+    expect(afterKey.issueKey).not.toContain(newPrefix);
+
+    const archivedBoard = await prisma.taskBoard.update({
+      where: { boardId },
+      data: { archived: true },
+    });
+    expect(archivedBoard.archived).toBe(true);
+    const preservedAfterArchive = await prisma.workTask.findUniqueOrThrow({
+      where: { taskId: preservedTaskId },
+    });
+    expect(preservedAfterArchive.issueKey).toBe(beforeKey.issueKey);
+    await prisma.taskBoard.update({ where: { boardId }, data: { archived: false } });
+  });
 });

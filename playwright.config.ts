@@ -1,8 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const API_BASE = process.env.E2E_API_BASE_URL ?? "http://localhost:4000";
+const BACKEND_URL = process.env.E2E_BACKEND_URL ?? "http://localhost:4000";
 const FRONTEND_PORT = process.env.E2E_FRONTEND_PORT ?? "4173";
 const FRONTEND_URL = process.env.E2E_BASE_URL ?? `http://localhost:${FRONTEND_PORT}`;
+/** Same-origin API via Vite preview proxy (do not point browser tests at :4000). */
+const _sameOriginApi = process.env.E2E_API_BASE_URL ?? `${FRONTEND_URL}/api`;
+void _sameOriginApi;
 
 const backendEnv = {
   DATABASE_URL:
@@ -72,7 +75,7 @@ export default defineConfig({
     : [
         {
           command: "npm run start:backend",
-          url: `${API_BASE}/health`,
+          url: `${BACKEND_URL}/health`,
           timeout: 120_000,
           reuseExistingServer: true,
           env: backendEnv,

@@ -14,6 +14,18 @@ export default defineConfig(({ mode }) => {
     .map((host) => host.trim())
     .filter(Boolean);
 
+  const apiProxyTarget =
+    process.env.VITE_DEV_API_PROXY ?? fileEnv.VITE_DEV_API_PROXY ?? "http://127.0.0.1:4000";
+
+  /** Same-origin `/api` → Express (mirrors production nginx). Used by E2E preview + local dev. */
+  const apiProxy = {
+    "/api": {
+      target: apiProxyTarget,
+      changeOrigin: true,
+      rewrite: (path: string) => path.replace(/^\/api/, ""),
+    },
+  };
+
   return {
     resolve: {
       dedupe: ["react", "react-dom"],
@@ -22,6 +34,7 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
       strictPort: true,
+      proxy: apiProxy,
       watch: {
         ignored: [
           "**/.mysql-data/**",
@@ -32,6 +45,7 @@ export default defineConfig(({ mode }) => {
     },
     preview: {
       allowedHosts,
+      proxy: apiProxy,
     },
     plugins: [
       tanstackStart({

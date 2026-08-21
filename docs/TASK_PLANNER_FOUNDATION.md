@@ -31,6 +31,11 @@ Evolve the existing Work Planner toward Jira-class information architecture with
 - Comments, attachments, soft archive
 - Attendance / Leave / Payroll / Employee Master / Assets untouched
 
+## E2E auth
+
+Browser tests use same-origin Vite preview proxy (`/api` → `:4000`). See `docs/TASK_PLANNER_E2E_TOPOLOGY.md`.
+
 ## Explicitly not in this block
 
 Workflow engine, sprints, roadmap, labels, watchers, worklogs, dependencies, reports.
+

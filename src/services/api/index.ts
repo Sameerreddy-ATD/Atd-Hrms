@@ -1946,9 +1946,11 @@ export const tasksApi = {
       name: string;
       keyPrefix?: string;
       description?: string | null;
+      leadEmployeeId?: string | null;
       accessType: TaskBoard["accessType"];
       allowedDepartmentIds: string[];
       memberEmployeeIds: string[];
+      members?: Array<{ employeeId: string; role: NonNullable<TaskBoard["members"]>[number]["role"] }>;
       stages: Array<{
         id?: string;
         name: string;

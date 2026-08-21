@@ -888,6 +888,16 @@ export interface TaskStage {
   statusCategory?: TaskStatusCategory;
 }
 
+export type ProjectCapability =
+  | "CREATE_WORK_ITEM"
+  | "EDIT_WORK_ITEM"
+  | "ASSIGN_WORK_ITEM"
+  | "TRANSITION_WORK_ITEM"
+  | "MANAGE_PROJECT"
+  | "ARCHIVE_PROJECT"
+  | "VIEW_REPORTS"
+  | "VIEW_PROJECT";
+
 export interface TaskBoard {
   id: string;
   createdByUserId: string;
@@ -903,6 +913,9 @@ export interface TaskBoard {
   allowedDepartmentIds: string[];
   memberEmployeeIds: string[];
   members?: Array<{ employeeId: string; role: TaskProjectRole }>;
+  /** Resolved for the current session user. */
+  myRole?: TaskProjectRole;
+  myCapabilities?: ProjectCapability[];
   stages: TaskStage[];
   taskCount: number;
   openTaskCount: number;

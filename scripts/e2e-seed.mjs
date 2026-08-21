@@ -75,6 +75,15 @@ async function main() {
   await prisma.auditLog.deleteMany();
   await prisma.employeeChangeEvent.deleteMany().catch(() => undefined);
   await prisma.userSession.deleteMany().catch(() => undefined);
+  await prisma.taskAttachment.deleteMany().catch(() => undefined);
+  await prisma.taskUpdate.deleteMany().catch(() => undefined);
+  await prisma.taskAssignment.deleteMany().catch(() => undefined);
+  await prisma.workTask.updateMany({ data: { parentTaskId: null } }).catch(() => undefined);
+  await prisma.workTask.deleteMany().catch(() => undefined);
+  await prisma.taskStage.deleteMany().catch(() => undefined);
+  await prisma.taskBoardMember.deleteMany().catch(() => undefined);
+  await prisma.taskBoardDepartment.deleteMany().catch(() => undefined);
+  await prisma.taskBoard.deleteMany().catch(() => undefined);
   await prisma.user.deleteMany();
   await prisma.employee.deleteMany();
   await prisma.department.deleteMany();
@@ -424,6 +433,77 @@ async function main() {
     update: {},
   });
 
+  // Task Planner foundation fixtures — MEMBER_GATED AWF project with role matrix.
+  const adminUser = await prisma.user.findUniqueOrThrow({
+    where: { email: E2E_USER_EMAILS.developer_admin },
+  });
+  const adminEmployee = await prisma.employee.findFirstOrThrow({
+    where: { employeeCode: "E2E-DEV" },
+  });
+  const leadEmployee = await prisma.employee.findFirstOrThrow({
+    where: { employeeCode: "E2E-OPS" },
+  });
+  const memberEmployee = await prisma.employee.findFirstOrThrow({
+    where: { employeeCode: "E2E-ANALYST" },
+  });
+  const viewerEmp = await prisma.employee.findFirstOrThrow({
+    where: { employeeCode: "E2E-VIEWER" },
+  });
+
+  const { TaskBoardAccessType, TaskProjectRole, TaskStatus, TaskStatusCategory } = await import(
+    "@prisma/client"
+  );
+
+  await prisma.taskBoard.create({
+    data: {
+      name: "Anytime Workforce",
+      keyPrefix: "AWF",
+      nextIssueNumber: 1,
+      description: "E2E Task Planner foundation project",
+      accessType: TaskBoardAccessType.MEMBER_GATED,
+      createdByUserId: adminUser.id,
+      leadEmployeeId: leadEmployee.employeeId,
+      stages: {
+        create: [
+          {
+            name: "To do",
+            color: "SLATE",
+            status: TaskStatus.TODO,
+            statusCategory: TaskStatusCategory.TODO,
+            sortOrder: 0,
+          },
+          {
+            name: "In progress",
+            color: "BLUE",
+            status: TaskStatus.IN_PROGRESS,
+            statusCategory: TaskStatusCategory.IN_PROGRESS,
+            sortOrder: 1,
+          },
+          {
+            name: "Done",
+            color: "EMERALD",
+            status: TaskStatus.COMPLETED,
+            statusCategory: TaskStatusCategory.DONE,
+            isCompleted: true,
+            sortOrder: 2,
+          },
+        ],
+      },
+      members: {
+        create: [
+          { employeeId: adminEmployee.employeeId, role: TaskProjectRole.PROJECT_ADMIN },
+          { employeeId: leadEmployee.employeeId, role: TaskProjectRole.PROJECT_LEAD },
+          { employeeId: memberEmployee.employeeId, role: TaskProjectRole.MEMBER },
+          { employeeId: viewerEmp.employeeId, role: TaskProjectRole.VIEWER },
+        ],
+      },
+      customFieldDefs: [
+        { key: "customer", label: "Customer", type: "text" },
+        { key: "effort", label: "Effort points", type: "number" },
+      ],
+    },
+  });
+
   const unitCount = await prisma.department.count();
   console.log(
     JSON.stringify({
@@ -431,6 +511,7 @@ async function main() {
       unitCount,
       users: Object.keys(E2E_USER_EMAILS).length,
       password: E2E_PASSWORD,
+      plannerProject: "AWF",
     }),
   );
   await prisma.$disconnect();

@@ -108,6 +108,7 @@ import {
 } from "./taskHierarchy.js";
 import {
   assertProjectCapability,
+  capabilitiesForRole,
   memberRoleInput,
   resolveProjectRole,
   type ProjectCapability,
@@ -8237,6 +8238,20 @@ export function createApp() {
     };
   }
 
+  async function boardDtoForUser(
+    board: BoardWithDetails,
+    user: NonNullable<express.Request["user"]>,
+  ) {
+    const base = boardDto(board);
+    const role = await resolveProjectRole(prisma, user, board);
+    const capabilities = role ? ([...capabilitiesForRole(role)] as ProjectCapability[]) : [];
+    return {
+      ...base,
+      myRole: role ?? undefined,
+      myCapabilities: capabilities,
+    };
+  }
+
   function taskStatusForStage(stage: { status: TaskStatus }) {
     return stage.status;
   }
@@ -8300,7 +8315,7 @@ export function createApp() {
         orderBy: [{ updatedAt: "desc" }, { name: "asc" }],
         take: 250,
       });
-      res.json(boards.map(boardDto));
+      res.json(await Promise.all(boards.map((board) => boardDtoForUser(board, req.user!))));
     }),
   );
 
@@ -8433,7 +8448,7 @@ export function createApp() {
         },
         ipAddress: req.ip,
       });
-      res.status(201).json(boardDto(board));
+      res.status(201).json(await boardDtoForUser(board, req.user!));
     }),
   );
 
@@ -8462,7 +8477,7 @@ export function createApp() {
           newValue: { boardId: board.boardId, archived: board.archived, version: board.version },
           ipAddress: req.ip,
         });
-        res.json(boardDto(board));
+        res.json(await boardDtoForUser(board, req.user!));
         return;
       }
 
@@ -8531,6 +8546,9 @@ export function createApp() {
             ...(body.keyPrefix && body.keyPrefix !== existing.keyPrefix
               ? { keyPrefix: body.keyPrefix }
               : {}),
+            ...(body.leadEmployeeId !== undefined
+              ? { leadEmployeeId: body.leadEmployeeId }
+              : {}),
             version: { increment: 1 },
           },
         });
@@ -8580,6 +8598,9 @@ export function createApp() {
         const previousMemberRoles = new Map(
           existing.members.map((m) => [m.employeeId, m.role] as const),
         );
+        const requestedMemberRoles = new Map(
+          (body.members ?? []).map((m) => [m.employeeId, memberRoleInput(m.role)] as const),
+        );
         await transaction.taskBoardDepartment.deleteMany({ where: { boardId: existing.boardId } });
         await transaction.taskBoardMember.deleteMany({ where: { boardId: existing.boardId } });
         if (body.accessType === TaskBoardAccessType.DEPARTMENT_GATED) {
@@ -8595,7 +8616,10 @@ export function createApp() {
             data: uniqueMemberIds.map((employeeId) => ({
               boardId: existing.boardId,
               employeeId,
-              role: previousMemberRoles.get(employeeId) ?? TaskProjectRole.MEMBER,
+              role:
+                requestedMemberRoles.get(employeeId) ??
+                previousMemberRoles.get(employeeId) ??
+                TaskProjectRole.MEMBER,
             })),
           });
         }
@@ -8701,7 +8725,7 @@ export function createApp() {
         },
         ipAddress: req.ip,
       });
-      res.json(boardDto(board));
+      res.json(await boardDtoForUser(board, req.user!));
     }),
   );
 

@@ -6,14 +6,32 @@ import { LoadingState } from "@/components/common/LoadingState";
 import { BoardDirectory } from "@/components/tasks/BoardDirectory";
 import { BoardFormDialog } from "@/components/tasks/BoardFormDialog";
 import { BoardWorkspace } from "@/components/tasks/BoardWorkspace";
+import { ProjectSettingsShell } from "@/components/tasks/ProjectSettingsShell";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { TaskFormDialog, type TaskFormValue } from "@/components/tasks/TaskFormDialog";
 import type { BoardForm } from "@/components/tasks/task-utils";
 import { useAuth } from "@/lib/auth";
 import { tasksApi } from "@/services/api";
-import type { Department, TaskAssignee, TaskBoard, TaskPriority, WorkTask } from "@/types/domain";
+import type {
+  Department,
+  TaskAssignee,
+  TaskBoard,
+  TaskPriority,
+  TaskProjectRole,
+  WorkTask,
+} from "@/types/domain";
 
 export const Route = createFileRoute("/_app/tasks")({ component: TaskBoardsPage });
+
+function boardHasCapability(board: TaskBoard | null | undefined, capability: string) {
+  if (!board) return false;
+  if (Array.isArray(board.myCapabilities)) {
+    return board.myCapabilities.includes(capability as never);
+  }
+  // Pre-capability payloads: keep write defaults; manage stays creator/admin via canChangeBoard.
+  if (capability === "MANAGE_PROJECT" || capability === "ARCHIVE_PROJECT") return false;
+  return true;
+}
 
 function TaskBoardsPage() {
   const { t } = useTranslation();
@@ -36,6 +54,7 @@ function TaskBoardsPage() {
   const [taskSaving, setTaskSaving] = useState(false);
   const [boardDialogOpen, setBoardDialogOpen] = useState(false);
   const [editingBoard, setEditingBoard] = useState<TaskBoard | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
   const [defaultStageId, setDefaultStageId] = useState<string | undefined>();
@@ -45,8 +64,18 @@ function TaskBoardsPage() {
   const canManageBoards = !!user;
   const canChangeBoard = useCallback(
     (board: TaskBoard) =>
-      !!user && (user.role === "developer_admin" || board.createdByUserId === user.id),
+      !!user &&
+      (boardHasCapability(board, "MANAGE_PROJECT") ||
+        user.role === "developer_admin" ||
+        board.createdByUserId === user.id),
     [user],
+  );
+  const canOpenProjectSettings = useCallback(
+    (board: TaskBoard) =>
+      canChangeBoard(board) ||
+      boardHasCapability(board, "ARCHIVE_PROJECT") ||
+      boardHasCapability(board, "MANAGE_PROJECT"),
+    [canChangeBoard],
   );
 
   const loadDirectory = useCallback(async (showLoading = true) => {
@@ -115,8 +144,11 @@ function TaskBoardsPage() {
   }, [loadBoardTasks, selectedBoardId]);
 
   const selectedBoard = useMemo(
-    () => boards.find((board) => board.id === selectedBoardId) ?? null,
-    [boards, selectedBoardId],
+    () =>
+      boards.find((board) => board.id === selectedBoardId) ??
+      archivedBoards.find((board) => board.id === selectedBoardId) ??
+      null,
+    [archivedBoards, boards, selectedBoardId],
   );
   const selectedTaskBoard = useMemo(
     () =>
@@ -169,15 +201,98 @@ function TaskBoardsPage() {
 
   async function archiveBoard(board: TaskBoard, archived: boolean) {
     try {
-      await tasksApi.archiveBoard(board.id, board.version, archived);
-      if (archived && selectedBoardId === board.id) setSelectedBoardId(null);
+      const updated = await tasksApi.archiveBoard(board.id, board.version, archived);
+      setBoards((current) =>
+        archived
+          ? current.filter((entry) => entry.id !== board.id)
+          : current.map((entry) => (entry.id === board.id ? updated : entry)),
+      );
+      if (archived && selectedBoardId === board.id && !settingsOpen) setSelectedBoardId(null);
+      if (!archived) {
+        setBoards((current) =>
+          current.some((entry) => entry.id === updated.id) ? current : [updated, ...current],
+        );
+      }
       toast.success(
         archived ? t("pages.tasks.toastProjectArchived") : t("pages.tasks.toastProjectRestored"),
       );
       await loadDirectory(false);
+      if (settingsOpen && archived) {
+        /* stay on settings so restore UI can show archived state after reload */
+      }
     } catch (cause) {
       toast.error((cause as Error).message || t("pages.tasks.toastUpdateBoardFailed"));
       await loadDirectory(false);
+    }
+  }
+
+  async function saveSettingsDetails(patch: {
+    name: string;
+    keyPrefix: string;
+    description: string | null;
+    leadEmployeeId: string | null;
+    accessType: TaskBoard["accessType"];
+  }) {
+    if (!selectedBoard) return;
+    setBoardSaving(true);
+    try {
+      const saved = await tasksApi.updateBoard(selectedBoard.id, {
+        version: selectedBoard.version,
+        name: patch.name,
+        keyPrefix: patch.keyPrefix || undefined,
+        description: patch.description,
+        leadEmployeeId: patch.leadEmployeeId,
+        accessType: patch.accessType,
+        allowedDepartmentIds: selectedBoard.allowedDepartmentIds,
+        memberEmployeeIds: selectedBoard.memberEmployeeIds,
+        members: selectedBoard.members,
+        stages: selectedBoard.stages.map((stage) => ({
+          id: stage.id,
+          name: stage.name,
+          color: stage.color,
+          status: stage.status,
+        })),
+        customFieldDefs: selectedBoard.customFieldDefs,
+      });
+      setBoards((current) => current.map((entry) => (entry.id === saved.id ? saved : entry)));
+      toast.success(t("pages.tasks.toastProjectUpdated"));
+      await loadDirectory(false);
+    } catch (cause) {
+      toast.error((cause as Error).message || t("pages.tasks.toastSaveBoardFailed"));
+    } finally {
+      setBoardSaving(false);
+    }
+  }
+
+  async function saveSettingsMembers(members: Array<{ employeeId: string; role: TaskProjectRole }>) {
+    if (!selectedBoard) return;
+    setBoardSaving(true);
+    try {
+      const saved = await tasksApi.updateBoard(selectedBoard.id, {
+        version: selectedBoard.version,
+        name: selectedBoard.name,
+        keyPrefix: selectedBoard.keyPrefix,
+        description: selectedBoard.description ?? null,
+        leadEmployeeId: selectedBoard.leadEmployeeId ?? null,
+        accessType: selectedBoard.accessType,
+        allowedDepartmentIds: selectedBoard.allowedDepartmentIds,
+        memberEmployeeIds: members.map((row) => row.employeeId),
+        members,
+        stages: selectedBoard.stages.map((stage) => ({
+          id: stage.id,
+          name: stage.name,
+          color: stage.color,
+          status: stage.status,
+        })),
+        customFieldDefs: selectedBoard.customFieldDefs,
+      });
+      setBoards((current) => current.map((entry) => (entry.id === saved.id ? saved : entry)));
+      toast.success(t("pages.tasks.toastProjectUpdated"));
+      await loadDirectory(false);
+    } catch (cause) {
+      toast.error((cause as Error).message || t("pages.tasks.toastSaveBoardFailed"));
+    } finally {
+      setBoardSaving(false);
     }
   }
 
@@ -433,7 +548,23 @@ function TaskBoardsPage() {
 
   return (
     <>
-      {selectedBoard ? (
+      {selectedBoard && settingsOpen ? (
+        <ProjectSettingsShell
+          board={selectedBoard}
+          assignees={boardAssignees.length ? boardAssignees : assignees}
+          saving={boardSaving}
+          canManage={canChangeBoard(selectedBoard)}
+          canArchive={
+            boardHasCapability(selectedBoard, "ARCHIVE_PROJECT") || canChangeBoard(selectedBoard)
+          }
+          onBack={() => setSettingsOpen(false)}
+          onSaveDetails={saveSettingsDetails}
+          onSaveMembers={saveSettingsMembers}
+          onArchive={async (archived) => {
+            await archiveBoard(selectedBoard, archived);
+          }}
+        />
+      ) : selectedBoard ? (
         <BoardWorkspace
           board={selectedBoard}
           boards={boards}
@@ -441,17 +572,20 @@ function TaskBoardsPage() {
           assignees={boardAssignees.length ? boardAssignees : assignees}
           employeeId={user?.employeeId}
           loading={boardLoading}
-          canChangeBoard={canChangeBoard(selectedBoard)}
+          canChangeBoard={canOpenProjectSettings(selectedBoard)}
+          canCreateWorkItem={boardHasCapability(selectedBoard, "CREATE_WORK_ITEM")}
+          canTransitionWorkItem={boardHasCapability(selectedBoard, "TRANSITION_WORK_ITEM")}
           onBack={() => {
             setSelectedBoardId(null);
             setDirectoryMineOnly(false);
+            setSettingsOpen(false);
           }}
-          onSwitchBoard={setSelectedBoardId}
+          onSwitchBoard={(boardId) => {
+            setSettingsOpen(false);
+            setSelectedBoardId(boardId);
+          }}
           onNewTask={openNewTask}
-          onEditBoard={() => {
-            setEditingBoard(selectedBoard);
-            setBoardDialogOpen(true);
-          }}
+          onEditBoard={() => setSettingsOpen(true)}
           onOpenTask={openTask}
           onMoveTask={moveTask}
           onRescheduleTask={rescheduleTask}
@@ -469,6 +603,7 @@ function TaskBoardsPage() {
           canChangeBoard={canChangeBoard}
           onOpenBoard={(boardId) => {
             setDirectoryMineOnly(false);
+            setSettingsOpen(false);
             setSelectedBoardId(boardId);
           }}
           onOpenTask={openTask}
@@ -482,6 +617,7 @@ function TaskBoardsPage() {
               return;
             }
             setDirectoryMineOnly(true);
+            setSettingsOpen(false);
             setSelectedBoardId(preferredBoardId);
           }}
         />

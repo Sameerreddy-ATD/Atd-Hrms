@@ -82,6 +82,8 @@ type BoardWorkspaceProps = {
   employeeId?: string;
   loading?: boolean;
   canChangeBoard: boolean;
+  canCreateWorkItem?: boolean;
+  canTransitionWorkItem?: boolean;
   initialMineOnly?: boolean;
   onBack: () => void;
   onSwitchBoard: (boardId: string) => void;
@@ -149,6 +151,8 @@ export function BoardWorkspace({
   employeeId,
   loading = false,
   canChangeBoard,
+  canCreateWorkItem = true,
+  canTransitionWorkItem = true,
   initialMineOnly = false,
   onBack,
   onSwitchBoard,
@@ -309,15 +313,23 @@ export function BoardWorkspace({
           </span>
           <div className="ml-auto flex flex-wrap items-center gap-2">
             {canChangeBoard && (
-              <Button variant="outline" size="sm" className="h-8" onClick={onEditBoard}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8"
+                onClick={onEditBoard}
+                data-testid="project-settings-button"
+              >
                 <Settings2 className="mr-1.5 h-3.5 w-3.5" />
-                Board settings
+                Project settings
               </Button>
             )}
-            <Button size="sm" className="h-8" onClick={() => onNewTask()}>
-              <Plus className="mr-1.5 h-4 w-4" />
-              Create
-            </Button>
+            {canCreateWorkItem && (
+              <Button size="sm" className="h-8" onClick={() => onNewTask()} data-testid="create-work-item">
+                <Plus className="mr-1.5 h-4 w-4" />
+                Create
+              </Button>
+            )}
           </div>
         </div>
 
@@ -486,6 +498,8 @@ export function BoardWorkspace({
           draggingTaskId={draggingTaskId}
           setDraggingTaskId={setDraggingTaskId}
           draggingTaskIdRef={draggingTaskIdRef}
+          canCreateWorkItem={canCreateWorkItem}
+          canTransitionWorkItem={canTransitionWorkItem}
           onNewTask={onNewTask}
           onOpenTask={onOpenTask}
           onMoveTask={onMoveTask}
@@ -715,6 +729,8 @@ type KanbanViewProps = {
   draggingTaskId: string | null;
   setDraggingTaskId: (taskId: string | null) => void;
   draggingTaskIdRef: MutableRefObject<string | null>;
+  canCreateWorkItem: boolean;
+  canTransitionWorkItem: boolean;
   onNewTask: (stageId?: string) => void;
   onOpenTask: (task: WorkTask) => void;
   onMoveTask: (task: WorkTask, stageId: string, options?: MoveTaskOptions) => Promise<void>;
@@ -776,6 +792,8 @@ function KanbanView({
   draggingTaskId,
   setDraggingTaskId,
   draggingTaskIdRef,
+  canCreateWorkItem,
+  canTransitionWorkItem,
   onNewTask,
   onOpenTask,
   onMoveTask,
@@ -788,6 +806,10 @@ function KanbanView({
   }
 
   function handleDropOnColumn(stage: TaskStage, targetIndex?: number) {
+    if (!canTransitionWorkItem) {
+      finishDrag();
+      return;
+    }
     const id = draggingTaskIdRef.current ?? draggingTaskId;
     const task = allTasks.find((entry) => entry.id === id);
     finishDrag();
@@ -839,8 +861,9 @@ function KanbanView({
                 {stageTasks.map((task, index) => (
                   <div
                     key={task.id}
-                    draggable
+                    draggable={canTransitionWorkItem}
                     onDragStart={() => {
+                      if (!canTransitionWorkItem) return;
                       draggingTaskIdRef.current = task.id;
                       setDraggingTaskId(task.id);
                     }}
@@ -853,6 +876,7 @@ function KanbanView({
                       }, 0);
                     }}
                     onDragOver={(event) => {
+                      if (!canTransitionWorkItem) return;
                       event.preventDefault();
                       event.stopPropagation();
                     }}
@@ -862,7 +886,8 @@ function KanbanView({
                       handleDropOnColumn(stage, index);
                     }}
                     className={cn(
-                      "cursor-grab rounded-md border border-border/70 bg-background px-2.5 py-2 text-left shadow-sm transition hover:border-primary/40 active:cursor-grabbing",
+                      "rounded-md border border-border/70 bg-background px-2.5 py-2 text-left shadow-sm transition hover:border-primary/40",
+                      canTransitionWorkItem && "cursor-grab active:cursor-grabbing",
                       draggingTaskId === task.id && "opacity-50",
                     )}
                   >
@@ -910,15 +935,17 @@ function KanbanView({
                   </div>
                 ))}
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="m-1.5 h-8 justify-start text-xs text-muted-foreground"
-                onClick={() => onNewTask(stage.id)}
-              >
-                <Plus className="mr-1.5 h-3.5 w-3.5" />
-                Create issue
-              </Button>
+              {canCreateWorkItem && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="m-1.5 h-8 justify-start text-xs text-muted-foreground"
+                  onClick={() => onNewTask(stage.id)}
+                >
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  Create issue
+                </Button>
+              )}
             </section>
           );
         })}

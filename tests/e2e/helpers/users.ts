@@ -1,6 +1,9 @@
 /** Deterministic E2E credentials — test-only disposable database. */
 export const E2E_PASSWORD = "E2eTestPass123!";
-export const API_BASE = process.env.E2E_API_BASE_URL ?? "http://localhost:4000";
+/** Prefer same-origin preview proxy (`:4173/api`) — see docs/TASK_PLANNER_E2E_TOPOLOGY.md */
+export const API_BASE = process.env.E2E_API_BASE_URL ?? "http://localhost:4173/api";
+/** Direct backend health / optional bypass (not used for browser session cookies). */
+export const BACKEND_HEALTH = process.env.E2E_BACKEND_URL ?? "http://localhost:4000";
 
 export type E2eUserKey =
   | "developer_admin"

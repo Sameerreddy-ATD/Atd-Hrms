@@ -12,6 +12,7 @@ import {
   TaskPriority,
   TaskBoardAccessType,
   TaskIssueType,
+  TaskProjectRole,
   TaskStatus,
   UserStatus,
   WeeklyOffPolicy,
@@ -480,6 +481,11 @@ const customFieldDefSchema = z.object({
   type: z.enum(["text", "number", "select"]),
 });
 
+const taskBoardMemberRoleSchema = z.object({
+  employeeId: z.string().min(1),
+  role: z.nativeEnum(TaskProjectRole),
+});
+
 const taskBoardConfigurationSchema = z.object({
   name: z.string().trim().min(2).max(120),
   keyPrefix: z
@@ -489,9 +495,12 @@ const taskBoardConfigurationSchema = z.object({
     .regex(/^[A-Z][A-Z0-9]{1,7}$/, "Project key must be 2–8 letters/numbers")
     .optional(),
   description: z.string().trim().max(1000).nullable().optional(),
+  leadEmployeeId: z.string().min(1).nullable().optional(),
   accessType: z.nativeEnum(TaskBoardAccessType).default(TaskBoardAccessType.OPEN),
   allowedDepartmentIds: z.array(z.string().min(1)).max(200).default([]),
   memberEmployeeIds: z.array(z.string().min(1)).max(500).default([]),
+  /** Optional role map for MEMBER_GATED members; omitted roles default to MEMBER / previous. */
+  members: z.array(taskBoardMemberRoleSchema).max(500).optional(),
   stages: z.array(taskBoardStageSchema).min(2).max(12),
   customFieldDefs: z.array(customFieldDefSchema).max(20).optional(),
 });
