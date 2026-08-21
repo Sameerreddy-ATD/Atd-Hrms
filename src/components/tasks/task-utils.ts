@@ -68,6 +68,8 @@ export const ISSUE_TYPE_LABELS: Record<string, string> = {
   BUG: "Bug",
   STORY: "Story",
   EPIC: "Epic",
+  IMPROVEMENT: "Improvement",
+  SUBTASK: "Subtask",
 };
 
 export const ISSUE_TYPE_STYLES: Record<string, string> = {
@@ -75,6 +77,8 @@ export const ISSUE_TYPE_STYLES: Record<string, string> = {
   BUG: "text-rose-600",
   STORY: "text-emerald-600",
   EPIC: "text-violet-600",
+  IMPROVEMENT: "text-cyan-600",
+  SUBTASK: "text-slate-600",
 };
 
 export const STAGE_COLORS: Record<TaskStage["color"], { dot: string; soft: string; text: string }> =

@@ -106,7 +106,7 @@ export function BoardDirectory({
     <div className="mx-auto w-full max-w-[1440px] space-y-8 px-4 pb-20 sm:px-6">
       <PageHeader
         title="Work Planner"
-        description="Your assigned issues and project boards — organize work like a lightweight Jira board."
+        description="My Work and Projects — plan, track, and complete work items."
         actions={
           canManage ? (
             <Button onClick={onNewBoard}>
@@ -121,7 +121,7 @@ export function BoardDirectory({
         <section className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <UserRoundCheck className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-sm font-semibold tracking-tight text-foreground">Your work</h2>
+            <h2 className="text-sm font-semibold tracking-tight text-foreground">My Work</h2>
             <Badge variant="secondary" className="rounded-md font-normal tabular-nums">
               {assignedTasks.length}
             </Badge>

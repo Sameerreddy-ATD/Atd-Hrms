@@ -1861,6 +1861,14 @@ export const tasksApi = {
       `/tasks${toQuery({ scope, ...filters } as Record<string, string | number | boolean | undefined>)}`,
     ),
   get: (id: string) => request<WorkTask>(`/tasks/${id}`),
+  myWork: () =>
+    request<{
+      today: WorkTask[];
+      overdue: WorkTask[];
+      inProgress: WorkTask[];
+      waitingReview: WorkTask[];
+      recentlyCompleted: WorkTask[];
+    }>("/tasks/my-work"),
   assignees: (boardId?: string) =>
     request<TaskAssignee[]>(`/tasks/assignees${toQuery({ boardId })}`),
   create: (payload: {
@@ -1871,6 +1879,7 @@ export const tasksApi = {
     boardId?: string | null;
     stageId?: string | null;
     issueType?: TaskIssueType;
+    reporterUserId?: string;
     priority: TaskPriority;
     startDate?: string | null;
     dueDate?: string | null;
@@ -1882,6 +1891,7 @@ export const tasksApi = {
       description: string | null;
       assigneeEmployeeIds: string[];
       issueType: TaskIssueType;
+      reporterUserId: string | null;
       priority: TaskPriority;
       status: TaskStatus;
       progress: number;

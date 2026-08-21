@@ -20,7 +20,9 @@ import {
   TaskBoardAccessType,
   TaskIssueType,
   TaskPriority,
+  TaskProjectRole,
   TaskStatus,
+  TaskStatusCategory,
   EmployeeStatus,
   UserStatus,
   WorkType,
@@ -100,6 +102,16 @@ import {
   nextRankInStage,
   rebalanceRanksInStage,
 } from "./taskIssueKeys.js";
+import {
+  assertWorkItemHierarchy,
+  statusCategoryFromTaskStatus,
+} from "./taskHierarchy.js";
+import {
+  assertProjectCapability,
+  memberRoleInput,
+  resolveProjectRole,
+  type ProjectCapability,
+} from "./taskProjectRoles.js";
 import { matchingBranch } from "./geofence.js";
 import {
   FACE_CONSENT,
@@ -7981,6 +7993,7 @@ export function createApp() {
       orderBy: { assignedAt: "asc" as const },
     },
     createdBy: { select: { id: true, name: true } },
+    reporter: { select: { id: true, name: true } },
     board: { select: { boardId: true, name: true, keyPrefix: true } },
     stage: {
       select: {
@@ -7990,6 +8003,7 @@ export function createApp() {
         sortOrder: true,
         isCompleted: true,
         status: true,
+        statusCategory: true,
       },
     },
     updates: {
@@ -8020,6 +8034,8 @@ export function createApp() {
       })),
       createdByUserId: task.createdByUserId,
       createdByName: task.createdBy.name,
+      reporterUserId: task.reporterUserId ?? task.createdByUserId,
+      reporterName: task.reporter?.name ?? task.createdBy.name,
       parentTaskId: task.parentTaskId ?? undefined,
       boardId: task.boardId ?? undefined,
       boardName: task.board?.name,
@@ -8033,6 +8049,7 @@ export function createApp() {
             sortOrder: task.stage.sortOrder,
             isCompleted: task.stage.isCompleted,
             status: task.stage.status,
+            statusCategory: task.stage.statusCategory,
           }
         : undefined,
       status: task.status,
@@ -8075,6 +8092,7 @@ export function createApp() {
   const taskSummaryInclude = {
     assignments: taskInclude.assignments,
     createdBy: taskInclude.createdBy,
+    reporter: taskInclude.reporter,
     board: taskInclude.board,
     stage: taskInclude.stage,
     _count: taskInclude._count,
@@ -8132,53 +8150,41 @@ export function createApp() {
     parentTaskId: string,
     boardId: string | null,
     taskId: string | null,
+    issueType: TaskIssueType,
   ) {
-    if (taskId && parentTaskId === taskId) {
-      throw new HttpError(400, "An issue cannot be its own parent");
-    }
     const parent = await prisma.workTask.findUnique({
       where: { taskId: parentTaskId },
       select: {
         taskId: true,
         boardId: true,
         parentTaskId: true,
+        issueType: true,
         archivedAt: true,
         assignments: { select: { employeeId: true } },
       },
     });
     if (!parent || parent.archivedAt) {
-      throw new HttpError(400, "Parent issue was not found");
-    }
-    if (boardId && parent.boardId && parent.boardId !== boardId) {
-      throw new HttpError(400, "Subtasks must stay on the same project as their parent");
+      throw new HttpError(400, "Parent work item was not found");
     }
     await assertCanViewTask(
       user,
       parent,
       parent.assignments.map((assignment) => assignment.employeeId),
     );
-    let cursor: string | null = parent.parentTaskId;
-    let hops = 0;
-    while (cursor) {
-      if (taskId && cursor === taskId) {
-        throw new HttpError(400, "That parent would create a cycle");
-      }
-      if (hops >= 20) {
-        throw new HttpError(400, "Parent chain is too deep");
-      }
-      const ancestor: { parentTaskId: string | null } | null = await prisma.workTask.findUnique({
-        where: { taskId: cursor },
-        select: { parentTaskId: true },
-      });
-      cursor = ancestor?.parentTaskId ?? null;
-      hops += 1;
-    }
+    await assertWorkItemHierarchy({
+      db: prisma,
+      issueType,
+      parentTaskId,
+      boardId: boardId ?? parent.boardId,
+      taskId,
+    });
   }
 
   const boardInclude = {
     stages: { orderBy: { sortOrder: "asc" as const } },
     departmentAccess: { select: { departmentId: true } },
-    members: { select: { employeeId: true } },
+    members: { select: { employeeId: true, role: true } },
+    leadEmployee: { select: { employeeId: true, name: true, employeeCode: true } },
     tasks: {
       where: {
         archivedAt: null,
@@ -8202,6 +8208,8 @@ export function createApp() {
       keyPrefix: board.keyPrefix,
       nextIssueNumber: board.nextIssueNumber,
       createdByUserId: board.createdByUserId,
+      leadEmployeeId: board.leadEmployeeId ?? undefined,
+      leadName: board.leadEmployee?.name,
       description: board.description ?? undefined,
       accessType: board.accessType,
       archived: board.archived,
@@ -8209,6 +8217,10 @@ export function createApp() {
       customFieldDefs: Array.isArray(board.customFieldDefs) ? board.customFieldDefs : [],
       allowedDepartmentIds: board.departmentAccess.map((entry) => entry.departmentId),
       memberEmployeeIds: board.members.map((entry) => entry.employeeId),
+      members: board.members.map((entry) => ({
+        employeeId: entry.employeeId,
+        role: entry.role,
+      })),
       stages: board.stages.map((stage) => ({
         id: stage.stageId,
         name: stage.name,
@@ -8216,6 +8228,7 @@ export function createApp() {
         sortOrder: stage.sortOrder,
         isCompleted: stage.isCompleted,
         status: stage.status,
+        statusCategory: stage.statusCategory,
       })),
       taskCount: board._count.tasks,
       openTaskCount: board.tasks.length,
@@ -8364,11 +8377,16 @@ export function createApp() {
           accessType: body.accessType,
           customFieldDefs: body.customFieldDefs ?? [],
           createdByUserId: req.user!.id,
+          leadEmployeeId: req.user!.employeeId || null,
           stages: {
             create: body.stages.map((stage, sortOrder) => ({
               name: stage.name,
               color: stage.color,
               status: stage.status,
+              statusCategory: statusCategoryFromTaskStatus(
+                stage.status,
+                stage.status === TaskStatus.COMPLETED,
+              ),
               sortOrder,
               isCompleted: stage.status === TaskStatus.COMPLETED,
             })),
@@ -8382,10 +8400,24 @@ export function createApp() {
                 : [],
           },
           members: {
-            create:
-              body.accessType === TaskBoardAccessType.MEMBER_GATED
-                ? [...new Set(body.memberEmployeeIds)].map((employeeId) => ({ employeeId }))
-                : [],
+            create: (() => {
+              const memberIds =
+                body.accessType === TaskBoardAccessType.MEMBER_GATED
+                  ? [...new Set(body.memberEmployeeIds)]
+                  : [];
+              const creatorEmployeeId = req.user!.employeeId;
+              const withCreator =
+                creatorEmployeeId && !memberIds.includes(creatorEmployeeId)
+                  ? [...memberIds, creatorEmployeeId]
+                  : memberIds;
+              return withCreator.map((employeeId) => ({
+                employeeId,
+                role:
+                  creatorEmployeeId && employeeId === creatorEmployeeId
+                    ? TaskProjectRole.PROJECT_ADMIN
+                    : TaskProjectRole.MEMBER,
+              }));
+            })(),
           },
         },
         include: boardInclude,
@@ -8410,18 +8442,15 @@ export function createApp() {
     requireAuth,
     asyncHandler(async (req, res) => {
       const existing = await assertBoardAccess(req.user!, String(req.params.id));
-      if (req.user!.role !== Role.DEVELOPER_ADMIN && existing.createdByUserId !== req.user!.id) {
-        throw new HttpError(403, "Only the board owner can change this board");
-      }
-
       const archiveResult = taskBoardArchiveSchema.safeParse(req.body);
       if (archiveResult.success) {
+        await assertProjectCapability(prisma, req.user!, existing.boardId, "ARCHIVE_PROJECT");
         const changed = await prisma.taskBoard.updateMany({
           where: { boardId: existing.boardId, version: archiveResult.data.version },
           data: { archived: archiveResult.data.archived, version: { increment: 1 } },
         });
         if (changed.count !== 1) {
-          throw new HttpError(409, "This board changed in another session. Refresh and try again");
+          throw new HttpError(409, "This project changed in another session. Refresh and try again");
         }
         const board = await prisma.taskBoard.findUniqueOrThrow({
           where: { boardId: existing.boardId },
@@ -8437,6 +8466,7 @@ export function createApp() {
         return;
       }
 
+      await assertProjectCapability(prisma, req.user!, existing.boardId, "MANAGE_PROJECT");
       const body = taskBoardUpdateSchema.parse(req.body);
       if (existing.archived) {
         throw new HttpError(409, "Restore this board before changing its configuration");
@@ -8508,36 +8538,10 @@ export function createApp() {
           throw new HttpError(409, "This board changed in another session. Refresh and try again");
         }
 
+        // keyPrefix may change for *new* issue allocation only.
+        // Existing issueKey values are immutable and must never be rewritten.
         if (body.keyPrefix && body.keyPrefix !== existing.keyPrefix) {
-          const boardTasks = await transaction.workTask.findMany({
-            where: { boardId: existing.boardId, issueNumber: { not: null } },
-            select: { taskId: true, issueNumber: true },
-          });
-          const plannedKeys = boardTasks
-            .filter((row) => row.issueNumber != null)
-            .map((row) => `${body.keyPrefix}-${row.issueNumber}`);
-          if (plannedKeys.length > 0) {
-            const conflict = await transaction.workTask.findFirst({
-              where: {
-                issueKey: { in: plannedKeys },
-                NOT: { boardId: existing.boardId },
-              },
-              select: { issueKey: true },
-            });
-            if (conflict) {
-              throw new HttpError(
-                409,
-                `Cannot rename project key: issue ${conflict.issueKey} already exists on another project`,
-              );
-            }
-          }
-          for (const row of boardTasks) {
-            if (row.issueNumber == null) continue;
-            await transaction.workTask.update({
-              where: { taskId: row.taskId },
-              data: { issueKey: `${body.keyPrefix}-${row.issueNumber}` },
-            });
-          }
+          // no-op: preserved intentionally
         }
 
         const boardAssignments = await transaction.taskAssignment.findMany({
@@ -8573,6 +8577,9 @@ export function createApp() {
           }
         }
 
+        const previousMemberRoles = new Map(
+          existing.members.map((m) => [m.employeeId, m.role] as const),
+        );
         await transaction.taskBoardDepartment.deleteMany({ where: { boardId: existing.boardId } });
         await transaction.taskBoardMember.deleteMany({ where: { boardId: existing.boardId } });
         if (body.accessType === TaskBoardAccessType.DEPARTMENT_GATED) {
@@ -8588,6 +8595,7 @@ export function createApp() {
             data: uniqueMemberIds.map((employeeId) => ({
               boardId: existing.boardId,
               employeeId,
+              role: previousMemberRoles.get(employeeId) ?? TaskProjectRole.MEMBER,
             })),
           });
         }
@@ -8651,6 +8659,10 @@ export function createApp() {
                 name: stage.name,
                 color: stage.color,
                 status: stage.status,
+                statusCategory: statusCategoryFromTaskStatus(
+                  stage.status,
+                  stage.status === TaskStatus.COMPLETED,
+                ),
                 sortOrder,
                 isCompleted: stage.status === TaskStatus.COMPLETED,
               },
@@ -8662,6 +8674,10 @@ export function createApp() {
                 name: stage.name,
                 color: stage.color,
                 status: stage.status,
+                statusCategory: statusCategoryFromTaskStatus(
+                  stage.status,
+                  stage.status === TaskStatus.COMPLETED,
+                ),
                 sortOrder,
                 isCompleted: stage.status === TaskStatus.COMPLETED,
               },
@@ -8835,6 +8851,96 @@ export function createApp() {
   );
 
   app.get(
+    "/tasks/my-work",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      if (!req.user!.employeeId) {
+        res.json({
+          today: [],
+          overdue: [],
+          inProgress: [],
+          waitingReview: [],
+          recentlyCompleted: [],
+        });
+        return;
+      }
+      const employeeId = req.user!.employeeId;
+      const todayKey = new Date().toISOString().slice(0, 10);
+      const todayStart = new Date(`${todayKey}T00:00:00.000Z`);
+      const accessWhere = await boardAccessWhere(req.user!);
+      const rows = await prisma.workTask.findMany({
+        where: {
+          archivedAt: null,
+          OR: [
+            { assignments: { some: { employeeId } } },
+            { reporterUserId: req.user!.id },
+            { createdByUserId: req.user!.id },
+          ],
+          AND: [
+            {
+              OR: [{ boardId: null }, { board: accessWhere }],
+            },
+          ],
+        },
+        include: taskInclude,
+        orderBy: [{ dueDate: "asc" }, { lastActivityAt: "desc" }],
+        take: 200,
+      });
+      const today: TaskWithDetails[] = [];
+      const overdue: TaskWithDetails[] = [];
+      const inProgress: TaskWithDetails[] = [];
+      const waitingReview: TaskWithDetails[] = [];
+      const recentlyCompleted: TaskWithDetails[] = [];
+      for (const task of rows) {
+        const category =
+          task.stage?.statusCategory ??
+          statusCategoryFromTaskStatus(task.status, task.status === TaskStatus.COMPLETED);
+        if (task.status === TaskStatus.COMPLETED || task.status === TaskStatus.CANCELLED) {
+          recentlyCompleted.push(task);
+          continue;
+        }
+        if (task.status === TaskStatus.REVIEW || task.status === TaskStatus.BLOCKED) {
+          waitingReview.push(task);
+          continue;
+        }
+        if (
+          task.dueDate &&
+          task.dueDate < todayStart &&
+          category !== "DONE"
+        ) {
+          overdue.push(task);
+          continue;
+        }
+        if (
+          task.dueDate &&
+          task.dueDate.toISOString().slice(0, 10) === todayKey
+        ) {
+          today.push(task);
+          continue;
+        }
+        if (category === "IN_PROGRESS" || task.status === TaskStatus.IN_PROGRESS) {
+          inProgress.push(task);
+          continue;
+        }
+        if (category === "TODO") {
+          today.push(task);
+        } else {
+          inProgress.push(task);
+        }
+      }
+      res.json({
+        today: today.slice(0, 40).map((task) => taskDto(task, { summary: true })),
+        overdue: overdue.slice(0, 40).map((task) => taskDto(task, { summary: true })),
+        inProgress: inProgress.slice(0, 40).map((task) => taskDto(task, { summary: true })),
+        waitingReview: waitingReview.slice(0, 40).map((task) => taskDto(task, { summary: true })),
+        recentlyCompleted: recentlyCompleted
+          .slice(0, 20)
+          .map((task) => taskDto(task, { summary: true })),
+      });
+    }),
+  );
+
+  app.get(
     "/tasks/:id",
     requireAuth,
     asyncHandler(async (req, res) => {
@@ -8869,13 +8975,14 @@ export function createApp() {
       if (boardId) {
         const board = await assertBoardAccess(req.user!, boardId);
         if (board.archived) {
-          throw new HttpError(409, "Restore this board before adding tasks");
+          throw new HttpError(409, "Restore this project before adding work items");
         }
+        await assertProjectCapability(prisma, req.user!, boardId, "CREATE_WORK_ITEM");
         await assertAssigneesAllowedOnBoard(board, employeeIds);
         const stage = stageId
           ? board.stages.find((entry) => entry.stageId === stageId)
           : startingStage(board.stages);
-        if (!stage) throw new HttpError(400, "Select a stage from this board");
+        if (!stage) throw new HttpError(400, "Select a status from this project");
         stageId = stage.stageId;
         selectedStage = stage;
       } else {
@@ -8883,13 +8990,36 @@ export function createApp() {
           throw new HttpError(403, "Tasks can only be assigned within your organization team");
         }
         if (stageId) {
-          throw new HttpError(400, "A stage requires a board");
+          throw new HttpError(400, "A status requires a project");
         }
       }
-      if (body.parentTaskId) {
-        await assertValidParentTask(req.user!, body.parentTaskId, boardId, null);
+      const resolvedType = body.issueType ?? TaskIssueType.TASK;
+      if (resolvedType === TaskIssueType.SUBTASK && !body.parentTaskId) {
+        throw new HttpError(400, "A subtask requires a parent work item");
       }
-      const { assigneeEmployeeIds: _assigneeEmployeeIds, issueType, ...taskData } = body;
+      if (body.parentTaskId) {
+        await assertValidParentTask(
+          req.user!,
+          body.parentTaskId,
+          boardId,
+          null,
+          resolvedType,
+        );
+      } else {
+        await assertWorkItemHierarchy({
+          db: prisma,
+          issueType: resolvedType,
+          parentTaskId: null,
+          boardId,
+          taskId: null,
+        });
+      }
+      const {
+        assigneeEmployeeIds: _assigneeEmployeeIds,
+        issueType: _issueType,
+        reporterUserId: _reporterUserId,
+        ...taskData
+      } = body;
       const task = await prisma.$transaction(async (transaction) => {
         let issueNumber: number | undefined;
         let issueKey: string | undefined;
@@ -8907,7 +9037,7 @@ export function createApp() {
             stageId,
             issueNumber,
             issueKey,
-            issueType: issueType ?? TaskIssueType.TASK,
+            issueType: resolvedType,
             rank,
             status: selectedStage ? taskStatusForStage(selectedStage) : undefined,
             progress: selectedStage?.isCompleted ? 100 : undefined,
@@ -8915,6 +9045,7 @@ export function createApp() {
             description: body.description || null,
             parentTaskId: body.parentTaskId || null,
             createdByUserId: req.user!.id,
+            reporterUserId: body.reporterUserId || req.user!.id,
             assignments: {
               create: employeeIds.map((employeeId) => ({
                 employeeId,
@@ -8925,7 +9056,7 @@ export function createApp() {
               create: {
                 authorUserId: req.user!.id,
                 activityType: "CREATED",
-                message: issueKey ? `Issue ${issueKey} created` : "Task created",
+                message: issueKey ? `Issue ${issueKey} created` : "Work item created",
                 status: selectedStage?.status ?? TaskStatus.TODO,
                 progress: selectedStage?.isCompleted ? 100 : 0,
                 metadata: { assigneeEmployeeIds: employeeIds, issueKey },
@@ -8965,6 +9096,15 @@ export function createApp() {
       });
       const existingEmployeeIds = existingAssignments.map(({ employeeId }) => employeeId);
       await assertCanViewTask(req.user!, existing, existingEmployeeIds);
+      if (existing.boardId) {
+        const capability: ProjectCapability =
+          body.stageId !== undefined || body.status !== undefined || body.rank !== undefined
+            ? "TRANSITION_WORK_ITEM"
+            : body.assigneeEmployeeIds !== undefined
+              ? "ASSIGN_WORK_ITEM"
+              : "EDIT_WORK_ITEM";
+        await assertProjectCapability(prisma, req.user!, existing.boardId, capability);
+      }
       const isOwn = !!req.user!.employeeId && existingEmployeeIds.includes(req.user!.employeeId);
       const hasBoardAccess = existing.boardId
         ? !!(await prisma.taskBoard.findFirst({
@@ -9100,7 +9240,17 @@ export function createApp() {
           body.parentTaskId,
           nextBoardId ?? existing.boardId,
           existing.taskId,
+          body.issueType ?? existing.issueType,
         );
+      } else if (body.issueType !== undefined || body.parentTaskId === null) {
+        await assertWorkItemHierarchy({
+          db: prisma,
+          issueType: body.issueType ?? existing.issueType,
+          parentTaskId: body.parentTaskId === null ? null : undefined,
+          existingParentTaskId: existing.parentTaskId,
+          boardId: nextBoardId ?? existing.boardId,
+          taskId: existing.taskId,
+        });
       }
 
       const wantsRankNeighbors = Boolean(body.rankBeforeTaskId || body.rankAfterTaskId);
@@ -9223,6 +9373,7 @@ export function createApp() {
             description: body.description,
             priority: body.priority,
             issueType: body.issueType,
+            reporterUserId: body.reporterUserId === undefined ? undefined : body.reporterUserId,
             status: nextStatus,
             progress: body.progress !== undefined || nextStatus ? nextProgress : undefined,
             startDate: body.startDate,

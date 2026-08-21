@@ -818,8 +818,10 @@ export interface Announcement {
 }
 
 export type TaskStatus = "TODO" | "IN_PROGRESS" | "BLOCKED" | "REVIEW" | "COMPLETED" | "CANCELLED";
+export type TaskStatusCategory = "TODO" | "IN_PROGRESS" | "DONE";
 export type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-export type TaskIssueType = "TASK" | "BUG" | "STORY" | "EPIC";
+export type TaskIssueType = "TASK" | "BUG" | "STORY" | "EPIC" | "IMPROVEMENT" | "SUBTASK";
+export type TaskProjectRole = "PROJECT_ADMIN" | "PROJECT_LEAD" | "MEMBER" | "VIEWER";
 export type TaskActivityType =
   | "CREATED"
   | "COMMENT"
@@ -851,6 +853,8 @@ export interface WorkTask {
   assignees: TaskAssignee[];
   createdByUserId: string;
   createdByName: string;
+  reporterUserId?: string;
+  reporterName?: string;
   parentTaskId?: string;
   boardId?: string;
   boardName?: string;
@@ -881,11 +885,14 @@ export interface TaskStage {
   sortOrder: number;
   isCompleted: boolean;
   status: TaskStatus;
+  statusCategory?: TaskStatusCategory;
 }
 
 export interface TaskBoard {
   id: string;
   createdByUserId: string;
+  leadEmployeeId?: string;
+  leadName?: string;
   name: string;
   keyPrefix?: string;
   nextIssueNumber?: number;
@@ -895,6 +902,7 @@ export interface TaskBoard {
   version: number;
   allowedDepartmentIds: string[];
   memberEmployeeIds: string[];
+  members?: Array<{ employeeId: string; role: TaskProjectRole }>;
   stages: TaskStage[];
   taskCount: number;
   openTaskCount: number;

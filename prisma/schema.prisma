@@ -214,6 +214,22 @@ enum TaskIssueType {
   BUG
   STORY
   EPIC
+  IMPROVEMENT
+  SUBTASK
+}
+
+/// Board-column / stage grouping for My Work and future workflow (≠ detailed TaskStatus).
+enum TaskStatusCategory {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum TaskProjectRole {
+  PROJECT_ADMIN
+  PROJECT_LEAD
+  MEMBER
+  VIEWER
 }
 
 enum TaskActivityType {
@@ -284,6 +300,7 @@ model User {
   performedAuditLogs               AuditLog[]                @relation("AuditPerformedBy")
   affectedAuditLogs                AuditLog[]                @relation("AuditAffectedUser")
   createdTasks                     WorkTask[]                @relation("TaskCreator")
+  reportedTasks                    WorkTask[]                @relation("TaskReporter")
   createdTaskBoards                TaskBoard[]               @relation("TaskBoardCreator")
   taskUpdates                      TaskUpdate[]
   taskAssignmentsMade              TaskAssignment[]          @relation("TaskAssignedBy")
@@ -484,6 +501,7 @@ model Employee {
   assetAssignments            AssetAssignment[]
   taskAssignments             TaskAssignment[]
   taskBoardMemberships        TaskBoardMember[]
+  taskBoardsLed               TaskBoard[]                      @relation("TaskBoardLead")
   assetReturns                AssetReturn[]
   expenseClaims               ExpenseClaim[]
   certificateRequests         CertificateRequest[]
@@ -1516,6 +1534,9 @@ model WorkTask {
   description     String?          @db.Text
   createdByUserId String           @map("created_by_user_id")
   createdBy       User             @relation("TaskCreator", fields: [createdByUserId], references: [id])
+  /// Reporter is distinct from creator; defaults to creator on create when omitted.
+  reporterUserId  String?          @map("reporter_user_id")
+  reporter        User?            @relation("TaskReporter", fields: [reporterUserId], references: [id], onDelete: SetNull)
   parentTaskId    String?          @map("parent_task_id")
   parentTask      WorkTask?        @relation("TaskHierarchy", fields: [parentTaskId], references: [taskId])
   subtasks        WorkTask[]       @relation("TaskHierarchy")
@@ -1546,6 +1567,7 @@ model WorkTask {
   @@unique([boardId, issueNumber])
   @@index([status])
   @@index([createdByUserId])
+  @@index([reporterUserId])
   @@index([dueDate])
   @@index([boardId, stageId])
   @@index([boardId, stageId, rank])
@@ -1553,6 +1575,7 @@ model WorkTask {
   @@index([archivedAt, status])
   @@index([lastActivityAt])
   @@index([parentTaskId])
+  @@index([issueType])
   @@map("work_tasks")
 }
 
@@ -1584,6 +1607,8 @@ model TaskBoard {
   customFieldDefs  Json?                 @map("custom_field_defs")
   createdByUserId  String                @map("created_by_user_id")
   createdBy        User                  @relation("TaskBoardCreator", fields: [createdByUserId], references: [id])
+  leadEmployeeId   String?               @map("lead_employee_id")
+  leadEmployee     Employee?             @relation("TaskBoardLead", fields: [leadEmployeeId], references: [employeeId], onDelete: SetNull)
   stages           TaskStage[]
   departmentAccess TaskBoardDepartment[]
   members          TaskBoardMember[]
@@ -1592,22 +1617,26 @@ model TaskBoard {
   updatedAt        DateTime              @updatedAt @map("updated_at")
 
   @@index([archived, updatedAt])
+  @@index([leadEmployeeId])
   @@map("task_boards")
 }
 
 model TaskStage {
-  stageId     String     @id @default(cuid()) @map("stage_id")
-  boardId     String     @map("board_id")
-  board       TaskBoard  @relation(fields: [boardId], references: [boardId], onDelete: Cascade)
-  name        String
-  color       String     @default("SLATE")
-  sortOrder   Int        @default(0) @map("sort_order")
-  isCompleted Boolean    @default(false) @map("is_completed")
-  status      TaskStatus @default(TODO)
-  tasks       WorkTask[]
+  stageId        String             @id @default(cuid()) @map("stage_id")
+  boardId        String             @map("board_id")
+  board          TaskBoard          @relation(fields: [boardId], references: [boardId], onDelete: Cascade)
+  name           String
+  color          String             @default("SLATE")
+  sortOrder      Int                @default(0) @map("sort_order")
+  isCompleted    Boolean            @default(false) @map("is_completed")
+  status         TaskStatus         @default(TODO)
+  /// Conceptual category for My Work / reporting; detailed status remains on TaskStatus.
+  statusCategory TaskStatusCategory @default(TODO) @map("status_category")
+  tasks          WorkTask[]
 
   @@unique([boardId, name])
   @@index([boardId, sortOrder])
+  @@index([boardId, statusCategory])
   @@map("task_stages")
 }
 
@@ -1623,13 +1652,15 @@ model TaskBoardDepartment {
 }
 
 model TaskBoardMember {
-  boardId    String    @map("board_id")
-  board      TaskBoard @relation(fields: [boardId], references: [boardId], onDelete: Cascade)
-  employeeId String    @map("employee_id")
-  employee   Employee  @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  boardId    String          @map("board_id")
+  board      TaskBoard       @relation(fields: [boardId], references: [boardId], onDelete: Cascade)
+  employeeId String          @map("employee_id")
+  employee   Employee        @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  role       TaskProjectRole @default(MEMBER)
 
   @@id([boardId, employeeId])
   @@index([employeeId])
+  @@index([boardId, role])
   @@map("task_board_members")
 }
 

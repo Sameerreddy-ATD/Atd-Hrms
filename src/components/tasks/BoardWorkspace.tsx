@@ -20,6 +20,7 @@ import {
   Plus,
   Search,
   Settings2,
+  Table2,
   UserRound,
   type LucideIcon,
 } from "lucide-react";
@@ -56,6 +57,7 @@ import {
   PRIORITY_MARK,
   PRIORITY_STYLES,
   STAGE_COLORS,
+  STATUS_LABELS,
 } from "./task-utils";
 
 export type MoveTaskOptions = {
@@ -63,11 +65,12 @@ export type MoveTaskOptions = {
   rankAfterTaskId?: string;
 };
 
-type BoardView = "list" | "kanban" | "timeline";
+type BoardView = "list" | "kanban" | "timeline" | "all";
 type DueFilter = "ALL" | "TODAY" | "OVERDUE" | "NONE";
 const VIEW_OPTIONS: Array<{ value: BoardView; label: string; Icon: LucideIcon }> = [
   { value: "kanban", label: "Board", Icon: Columns3 },
   { value: "list", label: "Backlog", Icon: LayoutList },
+  { value: "all", label: "All Work", Icon: Table2 },
   { value: "timeline", label: "Timeline", Icon: CalendarRange },
 ];
 
@@ -473,6 +476,8 @@ export function BoardWorkspace({
           onOpenTask={onOpenTask}
           onMoveTask={onMoveTask}
         />
+      ) : view === "all" ? (
+        <AllWorkView tasks={visibleTasks} onOpenTask={onOpenTask} />
       ) : view === "kanban" ? (
         <KanbanView
           board={board}
@@ -493,6 +498,63 @@ export function BoardWorkspace({
           onRescheduleTask={onRescheduleTask}
         />
       )}
+    </div>
+  );
+}
+
+function AllWorkView({
+  tasks,
+  onOpenTask,
+}: {
+  tasks: WorkTask[];
+  onOpenTask: (task: WorkTask) => void;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-md border bg-background">
+      <table className="w-full min-w-[720px] text-left text-sm">
+        <thead className="border-b bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+          <tr>
+            <th className="px-3 py-2 font-medium">Key</th>
+            <th className="px-3 py-2 font-medium">Type</th>
+            <th className="px-3 py-2 font-medium">Title</th>
+            <th className="px-3 py-2 font-medium">Status</th>
+            <th className="px-3 py-2 font-medium">Priority</th>
+            <th className="px-3 py-2 font-medium">Assignee</th>
+            <th className="px-3 py-2 font-medium">Reporter</th>
+            <th className="px-3 py-2 font-medium">Due</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tasks.map((task) => (
+            <tr
+              key={task.id}
+              className="cursor-pointer border-b last:border-0 hover:bg-muted/40"
+              onClick={() => onOpenTask(task)}
+            >
+              <td className="px-3 py-2 font-mono text-xs text-primary">{issueKey(task)}</td>
+              <td className={cn("px-3 py-2 text-xs font-medium", ISSUE_TYPE_STYLES[task.issueType ?? "TASK"])}>
+                {ISSUE_TYPE_LABELS[task.issueType ?? "TASK"]}
+              </td>
+              <td className="max-w-[18rem] truncate px-3 py-2 font-medium">{task.title}</td>
+              <td className="px-3 py-2 text-xs text-muted-foreground">
+                {task.stage?.name ?? STATUS_LABELS[task.status]}
+              </td>
+              <td className="px-3 py-2">
+                <PriorityMark priority={task.priority} />
+              </td>
+              <td className="max-w-[8rem] truncate px-3 py-2 text-xs">
+                {task.assignees.map((a) => a.name).join(", ") || "—"}
+              </td>
+              <td className="max-w-[8rem] truncate px-3 py-2 text-xs">
+                {task.reporterName ?? task.createdByName}
+              </td>
+              <td className="px-3 py-2 text-xs text-muted-foreground">
+                {dueLabel(task.dueDate, false)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

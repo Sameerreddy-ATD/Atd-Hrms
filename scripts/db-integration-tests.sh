@@ -21,4 +21,7 @@ RUN_COMPANY_DEFAULT_INTEGRATION=1 npx vitest run --config vitest.config.ts tests
 echo "==> Leave management foundation integration"
 RUN_LEAVE_INTEGRATION=1 npx vitest run --config vitest.config.ts tests/leaveManagementIntegration.test.ts
 
+echo "==> Task planner foundation integration"
+RUN_PLANNER_INTEGRATION=1 npx vitest run --config vitest.config.ts tests/taskPlannerFoundationIntegration.test.ts
+
 echo "==> DB integration suites passed."
