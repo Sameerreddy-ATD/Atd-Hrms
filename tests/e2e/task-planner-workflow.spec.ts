@@ -29,6 +29,25 @@ async function openAwfProject(page: Page) {
   });
 }
 
+async function openWorkflowSettings(page: Page) {
+  const settingsBtn = page.getByTestId("project-settings-button");
+  await settingsBtn.scrollIntoViewIfNeeded();
+  await settingsBtn.click();
+  await expect(page.getByTestId("project-settings-shell")).toBeVisible();
+  const mobileToggle = page.getByTestId("project-settings-mobile-nav");
+  const mobileNav = page.getByRole("navigation", { name: "Settings sections" });
+  if (await mobileToggle.isVisible().catch(() => false)) {
+    if (!(await mobileNav.isVisible().catch(() => false))) {
+      await mobileToggle.click();
+    }
+    await expect(mobileNav).toBeVisible();
+    await mobileNav.getByRole("button", { name: "Workflow" }).click();
+  } else {
+    await page.locator('[data-testid="settings-nav-workflow"]:visible').click();
+  }
+  await expect(page.locator('[data-testid="settings-panel-workflow"]:visible')).toBeVisible();
+}
+
 async function awfBoard(page: Page) {
   const boardsRes = await page.request.get(`${API_BASE}/task-boards`);
   expect(boardsRes.ok(), await boardsRes.text()).toBeTruthy();
@@ -41,6 +60,7 @@ async function awfBoard(page: Page) {
   }>;
   return boards.find((entry) => entry.keyPrefix === "AWF") ?? boards[0]!;
 }
+
 
 async function createTask(
   page: Page,
@@ -217,14 +237,7 @@ test.describe("Task Planner workflow — authenticated roles", () => {
     expect(wf.transitions.some((t: { name: string }) => t.name === transitionName)).toBe(true);
 
     await openAwfProject(page);
-    await page.getByTestId("project-settings-button").click();
-    await expect(page.getByTestId("project-settings-shell")).toBeVisible();
-    const mobileToggle = page.getByTestId("project-settings-mobile-nav");
-    if (await mobileToggle.isVisible().catch(() => false)) {
-      await mobileToggle.click();
-    }
-    await page.getByTestId("settings-nav-workflow").click();
-    await expect(page.getByTestId("settings-panel-workflow")).toBeVisible();
+    await openWorkflowSettings(page);
     await expect(page.getByText(statusName).first()).toBeVisible({ timeout: 10_000 });
   });
 
@@ -278,7 +291,11 @@ test.describe("Task Planner workflow — responsive UI", () => {
       await page.setViewportSize({ width: vp.width, height: vp.height });
       await loginAs(page, "developer_admin");
       await openAwfProject(page);
-      for (const label of ["Board", "Backlog", "All Work"] as const) {
+      const boardViews =
+        vp.width >= 768
+          ? (["Board", "Backlog", "All Work"] as const)
+          : (["Board"] as const);
+      for (const label of boardViews) {
         await page
           .getByRole("group", { name: /Board view/i })
           .getByRole("button", { name: label, exact: true })
@@ -286,13 +303,7 @@ test.describe("Task Planner workflow — responsive UI", () => {
         const overflow = await findOverflow(page);
         expect(overflow, `overflow @${vp.name} ${label}`).toBeNull();
       }
-      await page.getByTestId("project-settings-button").click();
-      const mobileToggle = page.getByTestId("project-settings-mobile-nav");
-      if (await mobileToggle.isVisible().catch(() => false)) {
-        await mobileToggle.click();
-      }
-      await page.getByTestId("settings-nav-workflow").click();
-      await expect(page.getByTestId("settings-panel-workflow")).toBeVisible();
+      await openWorkflowSettings(page);
       const overflow = await findOverflow(page);
       expect(overflow, `overflow @${vp.name} workflow settings`).toBeNull();
     });

@@ -4,15 +4,23 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+# shellcheck source=lib/assert-disposable-db.sh
+source "$ROOT/scripts/lib/assert-disposable-db.sh"
+
 pkill -9 -f "playwright test" 2>/dev/null || true
 pkill -9 -f "dist-server/server/src/index" 2>/dev/null || true
 pkill -9 -f "vite preview" 2>/dev/null || true
 fuser -k 4000/tcp 4173/tcp 2>/dev/null || true
 sleep 1
 
-docker compose -f docker-compose.org-test.yml up -d --wait
+CONTAINER="${MYSQL_CONTAINER:-atd-hrms-mysql-org-test-1}"
+MYSQL_ROOT_PASS="${MYSQL_ROOT_PASS:-org_test_root}"
+
+docker exec "$CONTAINER" mysql -uroot -p"$MYSQL_ROOT_PASS" --protocol=TCP -e "SELECT 1" >/dev/null 2>&1 \
+  || docker compose -f docker-compose.org-test.yml up -d --wait
 
 export DATABASE_URL="mysql://atd_test:atd_test_pass@127.0.0.1:3308/atd_org_test"
+assert_disposable_database_url
 export ALLOW_ATTENDANCE_E2E_SEED=1
 export COOKIE_SECURE=false
 export NODE_ENV=development

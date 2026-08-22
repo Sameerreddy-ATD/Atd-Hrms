@@ -39,10 +39,10 @@ describe("task boards and module access", () => {
           { name: "Working", color: "BLUE", status: "IN_PROGRESS" },
         ],
       }),
-    ).toThrow("Select exactly one completed stage");
+    ).toThrow("Select at least one completed stage");
   });
 
-  it("rejects multiple completed stages", () => {
+  it("allows multiple completed stages for workflow boards", () => {
     expect(() =>
       taskBoardSchema.parse({
         name: "Delivery",
@@ -55,7 +55,7 @@ describe("task boards and module access", () => {
           { name: "Released", color: "BLUE", status: "COMPLETED" },
         ],
       }),
-    ).toThrow("Select exactly one completed stage");
+    ).not.toThrow();
   });
 
   it("rejects boards where the first stage is not To do", () => {
@@ -71,7 +71,7 @@ describe("task boards and module access", () => {
     ).toThrow("The first stage must be the starting To do stage");
   });
 
-  it("rejects boards with more than one To do stage", () => {
+  it("allows multiple to-do stages (Backlog + Ready)", () => {
     expect(() =>
       taskBoardSchema.parse({
         name: "Split queue",
@@ -82,7 +82,7 @@ describe("task boards and module access", () => {
           { name: "Done", color: "EMERALD", status: "COMPLETED" },
         ],
       }),
-    ).toThrow("Keep exactly one to-do stage");
+    ).not.toThrow();
   });
 
   it("rejects a task whose due date is before its start date", () => {

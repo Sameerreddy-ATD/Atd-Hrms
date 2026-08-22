@@ -296,6 +296,7 @@ export function ProjectSettingsShell({
                     "rounded-md px-3 py-2 text-left text-sm",
                     section === entry.id ? "bg-muted font-medium" : "hover:bg-muted/60",
                   )}
+                  data-testid={`settings-nav-${entry.id}`}
                 >
                   {entry.label}
                 </button>

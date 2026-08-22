@@ -4,7 +4,11 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+# shellcheck source=lib/assert-disposable-db.sh
+source "$ROOT/scripts/lib/assert-disposable-db.sh"
+
 export DATABASE_URL="${DATABASE_URL:-mysql://atd_test:atd_test_pass@127.0.0.1:3308/atd_org_test}"
+assert_disposable_database_url
 
 echo "==> Organization integration"
 RUN_ORG_INTEGRATION=1 npx vitest run --config vitest.config.ts tests/organizationIntegration.test.ts

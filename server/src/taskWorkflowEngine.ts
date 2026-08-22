@@ -230,7 +230,8 @@ export async function transitionWorkItemInTx(tx: Prisma.TransactionClient, input
   const toStatus = transition.toStatus;
   const nextStageId = toStatus.stageId ?? existing.stageId;
   const nextLegacyStatus = legacyTaskStatusForCategory(toStatus.category, toStatus.name) as TaskStatus;
-  const isDone = toStatus.category === TaskStatusCategory.DONE;
+  const isDoneCategory = toStatus.category === TaskStatusCategory.DONE;
+  const isCompletedLegacy = nextLegacyStatus === TaskStatus.COMPLETED;
   const expectedVersion = input.expectedVersion ?? existing.version;
 
   let nextRank = existing.rank;
@@ -269,8 +270,12 @@ export async function transitionWorkItemInTx(tx: Prisma.TransactionClient, input
       stageId: nextStageId,
       status: nextLegacyStatus,
       rank: nextRank,
-      progress: isDone ? 100 : existing.progress === 100 && !isDone ? 0 : existing.progress,
-      completedAt: isDone ? existing.completedAt ?? new Date() : null,
+      progress: isCompletedLegacy
+        ? 100
+        : existing.progress === 100 && !isDoneCategory
+          ? 0
+          : existing.progress,
+      completedAt: isCompletedLegacy ? (existing.completedAt ?? new Date()) : null,
       resolution: nextResolution,
       version: { increment: 1 },
       lastActivityAt: new Date(),
@@ -303,7 +308,7 @@ export async function transitionWorkItemInTx(tx: Prisma.TransactionClient, input
       activityType: "STATUS_CHANGED",
       message: input.comment?.trim() ? `${message}\n${input.comment.trim()}` : message,
       status: nextLegacyStatus,
-      progress: isDone ? 100 : existing.progress,
+      progress: isCompletedLegacy ? 100 : existing.progress,
       metadata: {
         fromStatus: transition.fromStatus.name,
         toStatus: transition.toStatus.name,

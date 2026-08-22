@@ -446,6 +446,8 @@ describe.runIf(run)("Task Planner Workflow DB matrix", () => {
         workflowStatusId: doneStatusId,
         stageId: stageDone,
         status: TaskStatus.COMPLETED,
+        progress: 100,
+        completedAt: new Date(),
         version: 20,
       },
     });
