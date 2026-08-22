@@ -151,6 +151,7 @@ import { registerAssetRoutes } from "./assetRoutes.js";
 import { registerTaskSprintRoutes } from "./taskSprintRoutes.js";
 import { registerTaskRoadmapRoutes } from "./taskRoadmapRoutes.js";
 import { registerTaskCollaborationRoutes } from "./taskCollaborationRoutes.js";
+import { registerTaskSearchRoutes } from "./taskSearchRoutes.js";
 import {
   componentsFromTaskLinks,
   recordEpicChildActivity,
@@ -9323,6 +9324,8 @@ export function createApp() {
       });
     }),
   );
+
+  registerTaskSearchRoutes(app);
 
   app.get(
     "/tasks/:id",

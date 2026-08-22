@@ -17,6 +17,7 @@ import { formatDepartmentPathById } from "@/lib/department-label";
 import { cn } from "@/lib/utils";
 import type { Department, TaskBoard, WorkTask } from "@/types/domain";
 import { boardKeyPrefix, dueLabel, initials, issueKey, PRIORITY_MARK } from "./task-utils";
+import { PlannerGlobalSearch } from "./PlannerGlobalSearch";
 
 const ASSIGNED_PREVIEW = 8;
 const GATED_UNITS_LABEL_MAX = 72;
@@ -35,6 +36,8 @@ type BoardDirectoryProps = {
   onNewBoard: () => void;
   onArchiveBoard: (board: TaskBoard, archived: boolean) => Promise<void>;
   onViewAllAssigned: () => void;
+  onOpenSavedViews: () => void;
+  onSearchSelect: (taskId: string) => void;
 };
 
 function gatedUnitsSubtitle(board: TaskBoard, departments: Department[]): string {
@@ -81,6 +84,8 @@ export function BoardDirectory({
   onNewBoard,
   onArchiveBoard,
   onViewAllAssigned,
+  onOpenSavedViews,
+  onSearchSelect,
 }: BoardDirectoryProps) {
   const [showArchived, setShowArchived] = useState(false);
   const [showAllAssigned, setShowAllAssigned] = useState(false);
@@ -108,12 +113,18 @@ export function BoardDirectory({
         title="Work Planner"
         description="My Work and Projects — plan, track, and complete work items."
         actions={
-          canManage ? (
-            <Button onClick={onNewBoard}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create project
+          <div className="flex flex-wrap items-center gap-2">
+            <PlannerGlobalSearch onSelect={onSearchSelect} />
+            <Button variant="outline" onClick={onOpenSavedViews} data-testid="open-saved-views">
+              Saved views
             </Button>
-          ) : undefined
+            {canManage ? (
+              <Button onClick={onNewBoard}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create project
+              </Button>
+            ) : null}
+          </div>
         }
       />
 
@@ -239,6 +250,7 @@ export function BoardDirectory({
                 <button
                   type="button"
                   onClick={() => onOpenBoard(board.id)}
+                  data-testid={`project-open-${board.keyPrefix ?? board.id}`}
                   className="flex min-w-0 flex-1 items-center gap-3 px-3 py-3 text-left transition hover:bg-muted/50 sm:px-4"
                 >
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 font-mono text-xs font-bold text-primary">

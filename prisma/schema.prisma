@@ -232,6 +232,11 @@ enum TaskProjectRole {
   VIEWER
 }
 
+enum TaskSavedViewScope {
+  PERSONAL
+  PROJECT
+}
+
 enum TaskWorkflowKind {
   STANDARD
   BUG
@@ -368,6 +373,7 @@ model User {
   workLogsCreated                  WorkLog[]                 @relation("WorkLogCreatedBy")
   workLogsUpdated                  WorkLog[]                 @relation("WorkLogUpdatedBy")
   workItemWatchers                 WorkItemWatcher[]
+  taskSavedViews                   TaskSavedView[]           @relation("SavedViewOwner")
   relationsCreated                 WorkTaskRelation[]        @relation("RelationCreatedBy")
   sprintEvents                     TaskSprintEvent[]         @relation("SprintEventActor")
   notificationPreference           NotificationPreference?
@@ -1689,6 +1695,7 @@ model TaskBoard {
   sprints          TaskSprint[]
   components       TaskComponent[]
   labels           TaskLabel[]
+  savedViews       TaskSavedView[]
   createdAt        DateTime              @default(now()) @map("created_at")
   updatedAt        DateTime              @updatedAt @map("updated_at")
 
@@ -1777,6 +1784,29 @@ model WorkLog {
   @@index([userId, workDate])
   @@index([taskId, deletedAt])
   @@map("work_logs")
+}
+
+model TaskSavedView {
+  savedViewId  String             @id @default(cuid()) @map("saved_view_id")
+  ownerUserId  String             @map("owner_user_id")
+  owner        User               @relation("SavedViewOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  boardId      String?            @map("board_id")
+  board        TaskBoard?         @relation(fields: [boardId], references: [boardId], onDelete: Cascade)
+  name         String             @db.VarChar(120)
+  description  String?            @db.Text
+  scope        TaskSavedViewScope
+  filterConfig Json               @map("filter_config")
+  sortConfig   Json               @map("sort_config")
+  columnConfig Json               @map("column_config")
+  isDefault    Boolean            @default(false) @map("is_default")
+  version      Int                @default(1)
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+
+  @@index([ownerUserId, scope])
+  @@index([boardId, scope])
+  @@index([ownerUserId, isDefault])
+  @@map("task_saved_views")
 }
 
 model TaskComponent {

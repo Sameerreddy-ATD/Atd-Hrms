@@ -7,6 +7,7 @@ import { BoardDirectory } from "@/components/tasks/BoardDirectory";
 import { BoardFormDialog } from "@/components/tasks/BoardFormDialog";
 import { BoardWorkspace } from "@/components/tasks/BoardWorkspace";
 import { ProjectSettingsShell } from "@/components/tasks/ProjectSettingsShell";
+import { SavedViewsPanel } from "@/components/tasks/SavedViewsPanel";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { TaskFormDialog, type TaskFormValue } from "@/components/tasks/TaskFormDialog";
 import type { BoardForm } from "@/components/tasks/task-utils";
@@ -18,6 +19,7 @@ import type {
   TaskBoard,
   TaskPriority,
   TaskProjectRole,
+  TaskSavedView,
   WorkTask,
 } from "@/types/domain";
 
@@ -59,6 +61,8 @@ function TaskBoardsPage() {
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
   const [defaultStageId, setDefaultStageId] = useState<string | undefined>();
   const [directoryMineOnly, setDirectoryMineOnly] = useState(false);
+  const [savedViewsOpen, setSavedViewsOpen] = useState(false);
+  const [pendingSavedView, setPendingSavedView] = useState<TaskSavedView | null>(null);
 
   // Heads, team members, sales, HR — anyone who can open Work Planner can create projects.
   const canManageBoards = !!user;
@@ -524,6 +528,32 @@ function TaskBoardsPage() {
     }
   }
 
+  async function openTaskById(taskId: string) {
+    setDetailLoading(true);
+    setTaskDetailOpen(true);
+    try {
+      const full = await tasksApi.get(taskId);
+      if (full.boardId && full.boardId !== selectedBoardId) {
+        setSelectedBoardId(full.boardId);
+        await loadBoardTasks(full.boardId);
+      }
+      setSelectedTask(full);
+    } catch (cause) {
+      toast.error((cause as Error).message || t("pages.tasks.toastOpenTaskFailed"));
+      setTaskDetailOpen(false);
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  function openSavedView(view: TaskSavedView) {
+    setSavedViewsOpen(false);
+    setPendingSavedView(view);
+    if (view.boardId) {
+      setSelectedBoardId(view.boardId);
+    }
+  }
+
   async function openTask(task: WorkTask) {
     setSelectedTask(task);
     setTaskDetailOpen(true);
@@ -575,6 +605,12 @@ function TaskBoardsPage() {
             await archiveBoard(selectedBoard, archived);
           }}
         />
+      ) : savedViewsOpen ? (
+        <SavedViewsPanel
+          boards={boards}
+          onBack={() => setSavedViewsOpen(false)}
+          onOpenView={openSavedView}
+        />
       ) : selectedBoard ? (
         <BoardWorkspace
           board={selectedBoard}
@@ -588,10 +624,14 @@ function TaskBoardsPage() {
           canTransitionWorkItem={boardHasCapability(selectedBoard, "TRANSITION_WORK_ITEM")}
           canManageSprint={boardHasCapability(selectedBoard, "MANAGE_SPRINT")}
           canManageComponents={boardHasCapability(selectedBoard, "MANAGE_COMPONENTS")}
+          canManageProjectViews={boardHasCapability(selectedBoard, "MANAGE_PROJECT")}
           canEditEpicDates={
             boardHasCapability(selectedBoard, "EDIT_WORK_ITEM") ||
             boardHasCapability(selectedBoard, "MANAGE_COMPONENTS")
           }
+          initialSavedView={pendingSavedView?.boardId === selectedBoard.id ? pendingSavedView : null}
+          onSavedViewApplied={() => setPendingSavedView(null)}
+          onSearchSelect={(taskId) => void openTaskById(taskId)}
           onPlanChanged={() => {
             if (selectedBoardId) void loadBoardTasks(selectedBoardId);
           }}
@@ -599,10 +639,12 @@ function TaskBoardsPage() {
             setSelectedBoardId(null);
             setDirectoryMineOnly(false);
             setSettingsOpen(false);
+            setPendingSavedView(null);
           }}
           onSwitchBoard={(boardId) => {
             setSettingsOpen(false);
             setSelectedBoardId(boardId);
+            setPendingSavedView(null);
           }}
           onNewTask={openNewTask}
           onEditBoard={() => setSettingsOpen(true)}
@@ -640,6 +682,8 @@ function TaskBoardsPage() {
             setSettingsOpen(false);
             setSelectedBoardId(preferredBoardId);
           }}
+          onOpenSavedViews={() => setSavedViewsOpen(true)}
+          onSearchSelect={(taskId) => void openTaskById(taskId)}
         />
       )}
 

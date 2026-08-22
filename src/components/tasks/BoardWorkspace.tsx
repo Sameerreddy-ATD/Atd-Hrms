@@ -49,7 +49,9 @@ import { formatDisplayDate } from "@/lib/india-date";
 import { sprintsApi, tasksApi, componentsApi, collaborationApi } from "@/services/api";
 import { SprintBacklogPanel } from "./SprintBacklogPanel";
 import { RoadmapPanel } from "./RoadmapPanel";
-import type { TaskAssignee, TaskBoard, TaskPriority, TaskStage, WorkTask } from "@/types/domain";
+import { PlannerGlobalSearch } from "./PlannerGlobalSearch";
+import { SaveViewButton } from "./SaveViewDialog";
+import type { TaskAssignee, TaskBoard, TaskFilterColumnKey, TaskPriority, TaskSavedView, TaskStage, WorkTask } from "@/types/domain";
 import { toast } from "sonner";
 import {
   dateValue,
@@ -93,7 +95,11 @@ type BoardWorkspaceProps = {
   canManageSprint?: boolean;
   canManageComponents?: boolean;
   canEditEpicDates?: boolean;
+  canManageProjectViews?: boolean;
   initialMineOnly?: boolean;
+  initialSavedView?: TaskSavedView | null;
+  onSavedViewApplied?: () => void;
+  onSearchSelect?: (taskId: string) => void;
   onPlanChanged?: () => void;
   onBack: () => void;
   onSwitchBoard: (boardId: string) => void;
@@ -166,7 +172,11 @@ export function BoardWorkspace({
   canManageSprint = false,
   canManageComponents = false,
   canEditEpicDates = false,
+  canManageProjectViews = false,
   initialMineOnly = false,
+  initialSavedView = null,
+  onSavedViewApplied,
+  onSearchSelect,
   onPlanChanged,
   onBack,
   onSwitchBoard,
@@ -217,6 +227,30 @@ export function BoardWorkspace({
     setComponentFilter("ALL");
     setLabelFilter("ALL");
   }, [board.id, initialMineOnly]);
+
+  useEffect(() => {
+    if (!initialSavedView) return;
+    const filter = initialSavedView.filterConfig;
+    setView("all");
+    setQuery(filter.searchText ?? "");
+    setShowArchived(Boolean(filter.includeArchived));
+    setPriority(filter.priorities?.[0] ?? "ALL");
+    setAssigneeId(filter.assigneeEmployeeIds?.[0] ?? "ALL");
+    setEpicFilter(filter.epicId ?? "ALL");
+    setComponentFilter(filter.componentIds?.[0] ?? "ALL");
+    setLabelFilter(filter.labelIds?.[0] ?? "ALL");
+    if (filter.dueMode === "overdue") setDue("OVERDUE");
+    else if (filter.dueMode === "today") setDue("TODAY");
+    else if (filter.dueMode === "none") setDue("NONE");
+    else setDue("ALL");
+    if (filter.workflowStatusIds?.[0]) {
+      const stage = board.stages.find((entry) => entry.id === filter.workflowStatusIds?.[0]);
+      setStageId(stage?.id ?? filter.workflowStatusIds[0]);
+    } else {
+      setStageId("ALL");
+    }
+    onSavedViewApplied?.();
+  }, [board.id, board.stages, initialSavedView, onSavedViewApplied]);
 
   useEffect(() => {
     void componentsApi
@@ -373,6 +407,68 @@ export function BoardWorkspace({
     due !== "ALL" ||
     Boolean(query.trim());
 
+  const currentFilterConfig = useMemo(
+    () => ({
+      v: 1,
+      boardIds: [board.id],
+      searchText: query.trim() || undefined,
+      priorities: priority !== "ALL" ? [priority] : undefined,
+      assigneeEmployeeIds: assigneeId !== "ALL" ? [assigneeId] : undefined,
+      workflowStatusIds:
+        stageId !== "ALL"
+          ? [board.stages.find((entry) => entry.id === stageId)?.id ?? stageId]
+          : undefined,
+      epicId: epicFilter !== "ALL" ? epicFilter : undefined,
+      componentIds: componentFilter !== "ALL" ? [componentFilter] : undefined,
+      labelIds: labelFilter !== "ALL" ? [labelFilter] : undefined,
+      dueMode:
+        due === "OVERDUE"
+          ? ("overdue" as const)
+          : due === "TODAY"
+            ? ("today" as const)
+            : due === "NONE"
+              ? ("none" as const)
+              : undefined,
+      includeArchived: showArchived,
+    }),
+    [
+      assigneeId,
+      board.id,
+      board.stages,
+      componentFilter,
+      due,
+      epicFilter,
+      labelFilter,
+      priority,
+      query,
+      showArchived,
+      stageId,
+    ],
+  );
+
+  const currentSortConfig = useMemo(
+    () => ({ field: "updatedAt" as const, direction: "desc" as const }),
+    [],
+  );
+
+  const currentColumnConfig = useMemo(
+    () => ({
+      visible: [
+        "issueKey",
+        "issueType",
+        "title",
+        "status",
+        "priority",
+        "assignees",
+        "reporter",
+        "epic",
+        "components",
+        "dueDate",
+      ] satisfies TaskFilterColumnKey[],
+    }),
+    [],
+  );
+
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-3 px-3 pb-20 sm:px-5">
       {/* Jira-style project chrome */}
@@ -400,6 +496,9 @@ export function BoardWorkspace({
             {loading ? " · Refreshing…" : ""}
           </span>
           <div className="ml-auto flex flex-wrap items-center gap-2">
+            {onSearchSelect ? (
+              <PlannerGlobalSearch boardId={board.id} onSelect={onSearchSelect} />
+            ) : null}
             {canChangeBoard && (
               <Button
                 variant="outline"
@@ -590,11 +689,21 @@ export function BoardWorkspace({
                 setDue("ALL");
                 setEpicFilter("ALL");
                 setComponentFilter("ALL");
+                setLabelFilter("ALL");
               }}
             >
               Clear filters
             </Button>
           )}
+          {view === "all" ? (
+            <SaveViewButton
+              boardId={board.id}
+              canManageProjectViews={canManageProjectViews}
+              filterConfig={currentFilterConfig}
+              sortConfig={currentSortConfig}
+              columnConfig={currentColumnConfig}
+            />
+          ) : null}
         </div>
       </div>
 

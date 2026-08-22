@@ -1138,6 +1138,104 @@ export interface WorkTask {
   updates: TaskUpdate[];
 }
 
+export type TaskSavedViewScope = "PERSONAL" | "PROJECT";
+
+export type TaskFilterColumnKey =
+  | "issueKey"
+  | "issueType"
+  | "title"
+  | "status"
+  | "priority"
+  | "assignees"
+  | "reporter"
+  | "epic"
+  | "sprint"
+  | "components"
+  | "labels"
+  | "dueDate"
+  | "updatedAt";
+
+export type TaskSortField =
+  | "issueKey"
+  | "createdAt"
+  | "updatedAt"
+  | "priority"
+  | "dueDate"
+  | "status"
+  | "title";
+
+export interface TaskFilterConfig {
+  v?: number;
+  searchText?: string;
+  boardIds?: string[];
+  issueTypes?: TaskIssueType[];
+  workflowStatusIds?: string[];
+  statusCategories?: TaskStatusCategory[];
+  statuses?: TaskStatus[];
+  priorities?: TaskPriority[];
+  assigneeEmployeeIds?: string[];
+  reporterUserIds?: string[];
+  epicId?: string | null;
+  componentIds?: string[];
+  labelIds?: string[];
+  sprintId?: string | null;
+  dueMode?: "overdue" | "today" | "next7" | "none" | "custom";
+  dueFrom?: string;
+  dueTo?: string;
+  createdFrom?: string;
+  createdTo?: string;
+  updatedFrom?: string;
+  updatedTo?: string;
+  watchingMe?: boolean;
+  blocked?: boolean;
+  includeArchived?: boolean;
+}
+
+export interface TaskSortConfig {
+  field: TaskSortField;
+  direction: "asc" | "desc";
+}
+
+export interface TaskColumnConfig {
+  visible: TaskFilterColumnKey[];
+}
+
+export interface TaskSearchResult {
+  workItemId: string;
+  issueKey?: string;
+  title: string;
+  workType: TaskIssueType;
+  project?: { id: string; name: string; keyPrefix?: string };
+  status: string;
+  statusCategory?: string;
+  priority: TaskPriority;
+  assignees: Array<{ id: string; name: string }>;
+  reporter?: { id: string; name: string };
+  epic?: { id: string; issueKey?: string; title: string };
+  components: Array<{ id: string; name: string }>;
+  labels: Array<{ id: string; name: string }>;
+  dueDate?: string;
+  sprint?: TaskSprintSummary;
+}
+
+export interface TaskSavedView {
+  id: string;
+  name: string;
+  description?: string;
+  scope: TaskSavedViewScope;
+  boardId?: string;
+  boardName?: string;
+  ownerUserId: string;
+  ownerName?: string;
+  filterConfig: TaskFilterConfig;
+  sortConfig: TaskSortConfig;
+  columnConfig: TaskColumnConfig;
+  isDefault: boolean;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface TaskStage {
   id: string;
   name: string;

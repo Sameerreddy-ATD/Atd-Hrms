@@ -2258,6 +2258,71 @@ export const collaborationApi = {
   },
 };
 
+export const plannerSearchApi = {
+  search: (
+    q: string,
+    options: { boardId?: string; limit?: number; offset?: number } = {},
+  ) =>
+    request<{ results: import("@/types/domain").TaskSearchResult[]; total: number }>(
+      `/tasks/search${toQuery({ q, ...options })}`,
+    ),
+  filter: (body: {
+    filter: import("@/types/domain").TaskFilterConfig;
+    sort?: import("@/types/domain").TaskSortConfig;
+    boardId?: string;
+    limit?: number;
+    offset?: number;
+  }) =>
+    request<{ results: import("@/types/domain").TaskSearchResult[]; total: number }>(
+      "/tasks/filter",
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+};
+
+export const savedViewsApi = {
+  list: (boardId?: string) =>
+    request<{ views: import("@/types/domain").TaskSavedView[] }>(
+      `/task-saved-views${toQuery({ boardId })}`,
+    ),
+  get: (id: string) => request<import("@/types/domain").TaskSavedView>(`/task-saved-views/${id}`),
+  create: (body: {
+    name: string;
+    description?: string | null;
+    scope: import("@/types/domain").TaskSavedViewScope;
+    boardId?: string | null;
+    filterConfig: import("@/types/domain").TaskFilterConfig;
+    sortConfig: import("@/types/domain").TaskSortConfig;
+    columnConfig: import("@/types/domain").TaskColumnConfig;
+    isDefault?: boolean;
+  }) =>
+    request<import("@/types/domain").TaskSavedView>("/task-saved-views", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  update: (
+    id: string,
+    body: {
+      version: number;
+      name?: string;
+      description?: string | null;
+      filterConfig?: import("@/types/domain").TaskFilterConfig;
+      sortConfig?: import("@/types/domain").TaskSortConfig;
+      columnConfig?: import("@/types/domain").TaskColumnConfig;
+      isDefault?: boolean;
+    },
+  ) =>
+    request<import("@/types/domain").TaskSavedView>(`/task-saved-views/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  delete: (id: string) =>
+    request<void>(`/task-saved-views/${id}`, { method: "DELETE" }),
+  execute: (id: string, options: { limit?: number; offset?: number } = {}) =>
+    request<{ results: import("@/types/domain").TaskSearchResult[]; total: number }>(
+      `/task-saved-views/${id}/execute${toQuery(options)}`,
+    ),
+};
+
 export const sprintsApi = {
   list: (boardId: string) =>
     request<{ sprints: TaskSprint[] }>(`/task-boards/${boardId}/sprints`),

@@ -40,4 +40,7 @@ RUN_ROADMAP_INTEGRATION=1 npx vitest run --config vitest.config.ts tests/taskPla
 echo "==> Task planner collaboration integration"
 RUN_COLLAB_INTEGRATION=1 npx vitest run --config vitest.config.ts tests/taskPlannerCollaborationIntegration.test.ts
 
+echo "==> Task planner search + saved views integration"
+RUN_SEARCH_INTEGRATION=1 npx vitest run --config vitest.config.ts tests/taskPlannerSearchIntegration.test.ts
+
 echo "==> DB integration suites passed."
