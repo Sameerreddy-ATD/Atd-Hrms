@@ -149,6 +149,13 @@ import {
 } from "./faceAttendance.js";
 import { registerAssetRoutes } from "./assetRoutes.js";
 import { registerTaskSprintRoutes } from "./taskSprintRoutes.js";
+import { registerTaskRoadmapRoutes } from "./taskRoadmapRoutes.js";
+import {
+  componentsFromTaskLinks,
+  recordEpicChildActivity,
+  recordEpicDatesChanged,
+} from "./taskComponentEngine.js";
+import { computeEpicProgress } from "./taskEpicProgress.js";
 import { registerClientLogRoutes } from "./clientLogs.js";
 import { registerIntegrationRoutes } from "./integration-api.js";
 import {
@@ -8047,6 +8054,22 @@ export function createApp() {
       take: 20,
     },
     _count: { select: { subtasks: true, updates: true } },
+    componentLinks: {
+      include: {
+        component: {
+          include: {
+            leadEmployee: {
+              select: {
+                employeeId: true,
+                name: true,
+                employeeCode: true,
+                designation: true,
+              },
+            },
+          },
+        },
+      },
+    },
   } satisfies Prisma.WorkTaskInclude;
 
   type TaskWithDetails = Prisma.WorkTaskGetPayload<{ include: typeof taskInclude }>;
@@ -8118,6 +8141,9 @@ export function createApp() {
       updatedAt: task.updatedAt.toISOString(),
       subtaskCount: task._count?.subtasks ?? 0,
       updateCount: task._count?.updates ?? 0,
+      components: task.componentLinks
+        ? componentsFromTaskLinks(task.componentLinks)
+        : [],
     };
     if (options?.summary) {
       return { ...base, updates: [] };
@@ -8146,9 +8172,29 @@ export function createApp() {
     const base = taskDto(task, options);
     if (options?.summary) return base;
     const sprint = await sprintSummaryForTask(prisma, task.taskId);
+    const epicProgress =
+      task.issueType === TaskIssueType.EPIC
+        ? await computeEpicProgress(prisma, task.taskId)
+        : undefined;
+    let parentEpic: { id: string; issueKey?: string; title: string } | undefined;
+    if (task.parentTaskId) {
+      const parent = await prisma.workTask.findUnique({
+        where: { taskId: task.parentTaskId },
+        select: { taskId: true, issueKey: true, title: true, issueType: true },
+      });
+      if (parent?.issueType === TaskIssueType.EPIC) {
+        parentEpic = {
+          id: parent.taskId,
+          issueKey: parent.issueKey ?? undefined,
+          title: parent.title,
+        };
+      }
+    }
     return {
       ...base,
       sprint: sprint ?? undefined,
+      epicProgress,
+      parentEpic,
       availableTransitions: await availableTransitionsDto(prisma, user, task),
     };
   }
@@ -8160,6 +8206,7 @@ export function createApp() {
     board: taskInclude.board,
     stage: taskInclude.stage,
     workflowStatus: taskInclude.workflowStatus,
+    componentLinks: taskInclude.componentLinks,
     _count: taskInclude._count,
   } satisfies Prisma.WorkTaskInclude;
 
@@ -9039,6 +9086,9 @@ export function createApp() {
       const includeArchived = req.query.includeArchived === "true";
       const parentTaskId =
         typeof req.query.parentTaskId === "string" ? req.query.parentTaskId : undefined;
+      const epicId = typeof req.query.epicId === "string" ? req.query.epicId : undefined;
+      const componentId =
+        typeof req.query.componentId === "string" ? req.query.componentId : undefined;
       const scope =
         req.query.scope === "mine" && req.user!.employeeId
           ? [req.user!.employeeId]
@@ -9089,6 +9139,10 @@ export function createApp() {
           ...(boardId ? { boardId } : {}),
           ...(stageId ? { stageId } : {}),
           ...(parentTaskId ? { parentTaskId } : {}),
+          ...(epicId ? { parentTaskId: epicId } : {}),
+          ...(componentId
+            ? { componentLinks: { some: { componentId } } }
+            : {}),
           ...(sprintId || activeSprintId
             ? {
                 sprintMemberships: {
@@ -9128,6 +9182,19 @@ export function createApp() {
                       { description: { contains: query } },
                       { issueKey: { contains: query } },
                       { assignments: { some: { employee: { name: { contains: query } } } } },
+                      {
+                        parentTask: {
+                          OR: [
+                            { title: { contains: query } },
+                            { issueKey: { contains: query } },
+                          ],
+                        },
+                      },
+                      {
+                        componentLinks: {
+                          some: { component: { name: { contains: query } } },
+                        },
+                      },
                     ],
                   },
                 ]
@@ -9440,6 +9507,24 @@ export function createApp() {
           include: taskInclude,
         });
       });
+      if (body.parentTaskId) {
+        const parent = await prisma.workTask.findUnique({
+          where: { taskId: body.parentTaskId },
+          select: { issueType: true },
+        });
+        if (parent?.issueType === TaskIssueType.EPIC) {
+          await prisma.$transaction((tx) =>
+            recordEpicChildActivity(tx, {
+              epicTaskId: body.parentTaskId!,
+              childTaskId: task.taskId,
+              childIssueKey: task.issueKey,
+              childTitle: task.title,
+              actorUserId: req.user!.id,
+              added: true,
+            }),
+          );
+        }
+      }
       await audit({
         action: "task assigned",
         performedByUserId: req.user!.id,
@@ -9891,6 +9976,56 @@ export function createApp() {
             metadata,
           },
         });
+
+        const nextParentId =
+          body.parentTaskId === undefined ? existing.parentTaskId : body.parentTaskId;
+        if (body.parentTaskId !== undefined && nextParentId !== existing.parentTaskId) {
+          if (existing.parentTaskId) {
+            const oldParent = await transaction.workTask.findUnique({
+              where: { taskId: existing.parentTaskId },
+              select: { issueType: true },
+            });
+            if (oldParent?.issueType === TaskIssueType.EPIC) {
+              await recordEpicChildActivity(transaction, {
+                epicTaskId: existing.parentTaskId,
+                childTaskId: existing.taskId,
+                childIssueKey: existing.issueKey,
+                childTitle: existing.title,
+                actorUserId: req.user!.id,
+                added: false,
+              });
+            }
+          }
+          if (nextParentId) {
+            const newParent = await transaction.workTask.findUnique({
+              where: { taskId: nextParentId },
+              select: { issueType: true },
+            });
+            if (newParent?.issueType === TaskIssueType.EPIC) {
+              await recordEpicChildActivity(transaction, {
+                epicTaskId: nextParentId,
+                childTaskId: existing.taskId,
+                childIssueKey: existing.issueKey,
+                childTitle: existing.title,
+                actorUserId: req.user!.id,
+                added: true,
+              });
+            }
+          }
+        }
+
+        if (
+          existing.issueType === TaskIssueType.EPIC &&
+          (body.startDate !== undefined || body.dueDate !== undefined)
+        ) {
+          await recordEpicDatesChanged(transaction, {
+            epicTaskId: existing.taskId,
+            actorUserId: req.user!.id,
+            before: { startDate: existing.startDate, dueDate: existing.dueDate },
+            after: { startDate: nextStartDate ?? null, dueDate: nextDueDate ?? null },
+          });
+        }
+
         return transaction.workTask.findUniqueOrThrow({
           where: { taskId: existing.taskId },
           include: taskInclude,
@@ -10032,6 +10167,10 @@ export function createApp() {
     assertBoardAccess,
     taskDto: (task, options) => taskDto(task as TaskWithDetails, options),
     taskInclude,
+  });
+
+  registerTaskRoadmapRoutes(app, {
+    assertBoardAccess,
   });
 
   app.get("/push/public-key", requireAuth, (_req, res) => {

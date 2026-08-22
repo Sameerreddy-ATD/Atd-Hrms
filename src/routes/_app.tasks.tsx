@@ -586,6 +586,11 @@ function TaskBoardsPage() {
           canCreateWorkItem={boardHasCapability(selectedBoard, "CREATE_WORK_ITEM")}
           canTransitionWorkItem={boardHasCapability(selectedBoard, "TRANSITION_WORK_ITEM")}
           canManageSprint={boardHasCapability(selectedBoard, "MANAGE_SPRINT")}
+          canManageComponents={boardHasCapability(selectedBoard, "MANAGE_COMPONENTS")}
+          canEditEpicDates={
+            boardHasCapability(selectedBoard, "EDIT_WORK_ITEM") ||
+            boardHasCapability(selectedBoard, "MANAGE_COMPONENTS")
+          }
           onPlanChanged={() => {
             if (selectedBoardId) void loadBoardTasks(selectedBoardId);
           }}

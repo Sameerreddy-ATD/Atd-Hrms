@@ -14,11 +14,12 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { tasksApi } from "@/services/api";
+import { tasksApi, componentsApi } from "@/services/api";
 import type {
   ProjectCapability,
   TaskAssignee,
   TaskBoard,
+  TaskComponent,
   TaskProjectRole,
   TaskStatusCategory,
   TaskWorkflow,
@@ -30,6 +31,7 @@ export type ProjectSettingsSection =
   | "members"
   | "work-types"
   | "fields"
+  | "components"
   | "workflow"
   | "permissions"
   | "archive";
@@ -39,6 +41,7 @@ const SECTIONS: Array<{ id: ProjectSettingsSection; label: string }> = [
   { id: "members", label: "Members" },
   { id: "work-types", label: "Work Types" },
   { id: "fields", label: "Fields" },
+  { id: "components", label: "Components" },
   { id: "workflow", label: "Workflow" },
   { id: "permissions", label: "Permissions" },
   { id: "archive", label: "Archive" },
@@ -66,6 +69,8 @@ const CAPABILITY_LABELS: Array<{ key: ProjectCapability; label: string }> = [
   { key: "EDIT_WORK_ITEM", label: "Edit Work Item" },
   { key: "ASSIGN_WORK_ITEM", label: "Assign" },
   { key: "TRANSITION_WORK_ITEM", label: "Transition" },
+  { key: "MANAGE_SPRINT", label: "Manage Sprint" },
+  { key: "MANAGE_COMPONENTS", label: "Manage Components" },
   { key: "MANAGE_PROJECT", label: "Manage Project" },
   { key: "ARCHIVE_PROJECT", label: "Archive" },
   { key: "VIEW_REPORTS", label: "View Reports" },
@@ -79,6 +84,8 @@ const ROLE_CAPABILITIES: Record<TaskProjectRole, readonly ProjectCapability[]> =
     "EDIT_WORK_ITEM",
     "ASSIGN_WORK_ITEM",
     "TRANSITION_WORK_ITEM",
+    "MANAGE_SPRINT",
+    "MANAGE_COMPONENTS",
     "MANAGE_PROJECT",
     "ARCHIVE_PROJECT",
     "VIEW_REPORTS",
@@ -89,6 +96,8 @@ const ROLE_CAPABILITIES: Record<TaskProjectRole, readonly ProjectCapability[]> =
     "EDIT_WORK_ITEM",
     "ASSIGN_WORK_ITEM",
     "TRANSITION_WORK_ITEM",
+    "MANAGE_SPRINT",
+    "MANAGE_COMPONENTS",
     "ARCHIVE_PROJECT",
     "VIEW_REPORTS",
   ],
@@ -166,6 +175,12 @@ export function ProjectSettingsShell({
   const [newTransitionFrom, setNewTransitionFrom] = useState("");
   const [newTransitionTo, setNewTransitionTo] = useState("");
   const [newTransitionCommentRequired, setNewTransitionCommentRequired] = useState(false);
+  const [components, setComponents] = useState<TaskComponent[]>([]);
+  const [componentsLoading, setComponentsLoading] = useState(false);
+  const [componentName, setComponentName] = useState("");
+  const [componentDescription, setComponentDescription] = useState("");
+  const [componentLeadId, setComponentLeadId] = useState("");
+  const [componentBusy, setComponentBusy] = useState(false);
 
   useEffect(() => {
     setName(board.name);
@@ -206,6 +221,28 @@ export function ProjectSettingsShell({
         }
       } finally {
         if (!cancelled) setWorkflowsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [board.id, section]);
+
+  useEffect(() => {
+    if (section !== "components") return;
+    let cancelled = false;
+    void (async () => {
+      setComponentsLoading(true);
+      try {
+        const result = await componentsApi.list(board.id, true);
+        if (!cancelled) setComponents(result.components);
+      } catch (cause) {
+        if (!cancelled) {
+          toast.error((cause as Error).message || "Could not load components.");
+          setComponents([]);
+        }
+      } finally {
+        if (!cancelled) setComponentsLoading(false);
       }
     })();
     return () => {
@@ -555,6 +592,161 @@ export function ProjectSettingsShell({
                   ))}
                 </ul>
               )}
+            </div>
+          )}
+
+          {section === "components" && (
+            <div className="space-y-4" data-testid="project-components-settings">
+              <div>
+                <h2 className="text-sm font-semibold">Components / Modules</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Structured project areas for planning and filtering work items.
+                </p>
+              </div>
+              {canManage ? (
+                <div className="grid gap-3 rounded-lg border p-4 sm:grid-cols-2">
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="component-name">Name</Label>
+                    <Input
+                      id="component-name"
+                      value={componentName}
+                      onChange={(event) => setComponentName(event.target.value)}
+                      placeholder="Attendance"
+                      data-testid="component-create-name"
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="component-description">Description</Label>
+                    <Textarea
+                      id="component-description"
+                      value={componentDescription}
+                      onChange={(event) => setComponentDescription(event.target.value)}
+                      rows={2}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Lead (optional)</Label>
+                    <Select value={componentLeadId || "none"} onValueChange={(v) => setComponentLeadId(v === "none" ? "" : v)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="None" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {assignees.map((person) => (
+                          <SelectItem key={person.id} value={person.id}>
+                            {person.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end">
+                    <Button
+                      type="button"
+                      disabled={componentBusy || !componentName.trim()}
+                      data-testid="component-create-submit"
+                      onClick={() => {
+                        void (async () => {
+                          setComponentBusy(true);
+                          try {
+                            const created = await componentsApi.create(board.id, {
+                              name: componentName.trim(),
+                              description: componentDescription.trim() || null,
+                              leadEmployeeId: componentLeadId || null,
+                            });
+                            setComponents((current) => [...current, created]);
+                            setComponentName("");
+                            setComponentDescription("");
+                            setComponentLeadId("");
+                            toast.success("Component created");
+                          } catch (cause) {
+                            toast.error((cause as Error).message || "Could not create component.");
+                          } finally {
+                            setComponentBusy(false);
+                          }
+                        })();
+                      }}
+                    >
+                      Create component
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+              <div className="overflow-x-auto rounded-lg border">
+                <table className="w-full min-w-[640px] text-sm">
+                  <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2">Name</th>
+                      <th className="px-3 py-2">Lead</th>
+                      <th className="px-3 py-2">Active</th>
+                      {canManage ? <th className="px-3 py-2">Actions</th> : null}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {componentsLoading ? (
+                      <tr>
+                        <td colSpan={canManage ? 4 : 3} className="px-3 py-4 text-muted-foreground">
+                          Loading…
+                        </td>
+                      </tr>
+                    ) : components.length === 0 ? (
+                      <tr>
+                        <td colSpan={canManage ? 4 : 3} className="px-3 py-4 text-muted-foreground">
+                          No components yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      components.map((component) => (
+                        <tr key={component.id} className="border-t" data-testid={`component-row-${component.name}`}>
+                          <td className="px-3 py-2">
+                            <p className="font-medium">{component.name}</p>
+                            {component.description ? (
+                              <p className="text-xs text-muted-foreground">{component.description}</p>
+                            ) : null}
+                          </td>
+                          <td className="px-3 py-2 text-xs">{component.lead?.name ?? "—"}</td>
+                          <td className="px-3 py-2 text-xs">{component.active ? "Yes" : "No"}</td>
+                          {canManage ? (
+                            <td className="px-3 py-2">
+                              {component.active ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  data-testid={`component-deactivate-${component.name}`}
+                                  disabled={componentBusy}
+                                  onClick={() => {
+                                    void (async () => {
+                                      setComponentBusy(true);
+                                      try {
+                                        const updated = await componentsApi.update(component.id, {
+                                          active: false,
+                                        });
+                                        setComponents((current) =>
+                                          current.map((row) => (row.id === updated.id ? updated : row)),
+                                        );
+                                        toast.success("Component deactivated");
+                                      } catch (cause) {
+                                        toast.error((cause as Error).message || "Could not deactivate.");
+                                      } finally {
+                                        setComponentBusy(false);
+                                      }
+                                    })();
+                                  }}
+                                >
+                                  Deactivate
+                                </Button>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">Inactive</span>
+                              )}
+                            </td>
+                          ) : null}
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 

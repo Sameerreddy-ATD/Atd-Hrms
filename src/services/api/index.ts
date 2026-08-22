@@ -1862,6 +1862,8 @@ export const tasksApi = {
       stageId?: string;
       assigneeEmployeeId?: string;
       parentTaskId?: string;
+      epicId?: string;
+      componentId?: string;
       includeArchived?: boolean;
     } = {},
   ) =>
@@ -2106,6 +2108,62 @@ export const tasksApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+};
+
+export const componentsApi = {
+  list: (boardId: string, includeInactive = true) =>
+    request<{ components: import("@/types/domain").TaskComponent[] }>(
+      `/task-boards/${boardId}/components${includeInactive ? "" : "?includeInactive=false"}`,
+    ),
+  create: (
+    boardId: string,
+    body: {
+      name: string;
+      description?: string | null;
+      leadEmployeeId?: string | null;
+      sortOrder?: number;
+    },
+  ) =>
+    request<import("@/types/domain").TaskComponent>(`/task-boards/${boardId}/components`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  update: (
+    componentId: string,
+    body: Partial<{
+      name: string;
+      description: string | null;
+      leadEmployeeId: string | null;
+      active: boolean;
+      sortOrder: number;
+    }>,
+  ) =>
+    request<import("@/types/domain").TaskComponent>(`/task-components/${componentId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  reorder: (boardId: string, orderedIds: string[]) =>
+    request<{ components: import("@/types/domain").TaskComponent[] }>(
+      `/task-boards/${boardId}/components/reorder`,
+      { method: "POST", body: JSON.stringify({ orderedIds }) },
+    ),
+  setTaskComponents: (taskId: string, body: { version: number; componentIds: string[] }) =>
+    request<{ components: import("@/types/domain").TaskComponent[] }>(
+      `/tasks/${taskId}/components`,
+      { method: "PUT", body: JSON.stringify(body) },
+    ),
+};
+
+export const roadmapApi = {
+  get: (boardId: string, includeArchived = false) =>
+    request<import("@/types/domain").RoadmapResponse>(
+      `/task-boards/${boardId}/roadmap${includeArchived ? "?includeArchived=true" : ""}`,
+    ),
+  epicChildren: (epicTaskId: string) =>
+    request<{
+      children: import("@/types/domain").EpicChildRow[];
+      progress: import("@/types/domain").EpicProgress;
+    }>(`/tasks/${epicTaskId}/epic-children`),
 };
 
 export const sprintsApi = {

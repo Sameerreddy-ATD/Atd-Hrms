@@ -22,13 +22,16 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Textarea } from "@/components/ui/textarea";
 import { formatDisplayDateTime } from "@/lib/india-date";
 import { cn } from "@/lib/utils";
-import { tasksApi, sprintsApi } from "@/services/api";
+import { tasksApi, sprintsApi, componentsApi, roadmapApi } from "@/services/api";
+import { ComponentSelector } from "./ComponentSelector";
 import type {
   TaskAssignee,
   TaskBoard,
   TaskIssueType,
   TaskPriority,
   TaskSprint,
+  EpicChildRow,
+  EpicProgress,
   WorkTask,
 } from "@/types/domain";
 import { PeopleMultiSelect } from "./PeopleMultiSelect";
@@ -88,6 +91,11 @@ const ACTIVITY_LABELS: Record<string, string> = {
   PROGRESS_UPDATED: "Progress updated",
   ASSIGNEES_CHANGED: "Assignees updated",
   SPRINT_MEMBERSHIP_CHANGED: "Sprint updated",
+  EPIC_CHILD_ADDED: "Child work added",
+  EPIC_CHILD_REMOVED: "Child work removed",
+  COMPONENT_ASSIGNED: "Component assigned",
+  COMPONENT_REMOVED: "Component removed",
+  EPIC_DATES_CHANGED: "Epic dates updated",
 };
 
 export function TaskDetailDialog({
@@ -134,6 +142,11 @@ export function TaskDetailDialog({
   const [transitionComment, setTransitionComment] = useState("");
   const [sprintOptions, setSprintOptions] = useState<TaskSprint[]>([]);
   const [sprintBusy, setSprintBusy] = useState(false);
+  const [componentIds, setComponentIds] = useState<string[]>([]);
+  const [componentBusy, setComponentBusy] = useState(false);
+  const [epicChildren, setEpicChildren] = useState<EpicChildRow[]>([]);
+  const [epicProgress, setEpicProgress] = useState<EpicProgress | null>(null);
+  const [childTitle, setChildTitle] = useState("");
 
   const sprintEligible =
     issueType === "STORY" ||
@@ -181,7 +194,58 @@ export function TaskDetailDialog({
       nextFields[def.key] = value == null ? "" : String(value);
     }
     setCustomFields(nextFields);
+    setComponentIds(task.components?.map((c) => c.id) ?? []);
   }, [board, boards, open, task]);
+
+  useEffect(() => {
+    if (!open || !task || task.issueType !== "EPIC") {
+      setEpicChildren([]);
+      setEpicProgress(null);
+      return;
+    }
+    void roadmapApi
+      .epicChildren(task.id)
+      .then(({ children, progress }) => {
+        setEpicChildren(children);
+        setEpicProgress(progress);
+      })
+      .catch(() => {
+        setEpicChildren([]);
+        setEpicProgress(null);
+      });
+  }, [open, task?.id, task?.issueType, task?.version]);
+
+  async function applyComponents(nextIds: string[]) {
+    if (!task?.boardId) return;
+    setComponentBusy(true);
+    try {
+      const { components } = await componentsApi.setTaskComponents(task.id, {
+        version: task.version,
+        componentIds: nextIds,
+      });
+      setComponentIds(components.map((c) => c.id));
+      const refreshed = await tasksApi.get(task.id);
+      onTaskUpdated?.(refreshed);
+    } finally {
+      setComponentBusy(false);
+    }
+  }
+
+  async function createEpicChild() {
+    if (!task?.boardId || !childTitle.trim()) return;
+    await tasksApi.create({
+      title: childTitle.trim(),
+      assigneeEmployeeIds: assigneeIds.length ? assigneeIds : task.assignees.map((a) => a.id),
+      boardId: task.boardId,
+      parentTaskId: task.id,
+      issueType: "STORY",
+      priority: task.priority,
+    });
+    setChildTitle("");
+    const { children, progress } = await roadmapApi.epicChildren(task.id);
+    setEpicChildren(children);
+    setEpicProgress(progress);
+  }
 
   async function applySprintMembership(sprintId: string | null) {
     if (!task || !canManageSprint) return;
@@ -445,6 +509,76 @@ export function TaskDetailDialog({
                     className="min-h-[120px] resize-y"
                   />
                 </section>
+
+                {issueType === "EPIC" ? (
+                  <section className="space-y-3" data-testid="epic-child-work">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="text-sm font-semibold">Child work</h3>
+                      {epicProgress ? (
+                        <span className="text-xs text-muted-foreground" data-testid="epic-progress-summary">
+                          {epicProgress.progressPercent}% · {epicProgress.doneCount} of{" "}
+                          {epicProgress.totalCount} completed
+                        </span>
+                      ) : null}
+                    </div>
+                    {epicProgress ? <Progress value={epicProgress.progressPercent} className="h-2" /> : null}
+                    <div className="overflow-x-auto rounded-md border">
+                      <table className="w-full min-w-[640px] text-left text-sm">
+                        <thead className="border-b bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+                          <tr>
+                            <th className="px-3 py-2">Key</th>
+                            <th className="px-3 py-2">Type</th>
+                            <th className="px-3 py-2">Title</th>
+                            <th className="px-3 py-2">Status</th>
+                            <th className="px-3 py-2">Assignee</th>
+                            <th className="px-3 py-2">Sprint</th>
+                            <th className="px-3 py-2">Due</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {epicChildren.length === 0 ? (
+                            <tr>
+                              <td colSpan={7} className="px-3 py-4 text-sm text-muted-foreground">
+                                No child work items yet.
+                              </td>
+                            </tr>
+                          ) : (
+                            epicChildren.map((child) => (
+                              <tr
+                                key={child.id}
+                                className="cursor-pointer border-b last:border-0 hover:bg-muted/40"
+                                onClick={() => void tasksApi.get(child.id).then(onOpenTask)}
+                              >
+                                <td className="px-3 py-2 font-mono text-xs">{child.issueKey}</td>
+                                <td className="px-3 py-2 text-xs">{ISSUE_TYPE_LABELS[child.issueType]}</td>
+                                <td className="px-3 py-2">{child.title}</td>
+                                <td className="px-3 py-2 text-xs">{child.workflowStatus?.name ?? child.status}</td>
+                                <td className="px-3 py-2 text-xs">
+                                  {child.assignees.map((a) => a.name).join(", ") || "—"}
+                                </td>
+                                <td className="px-3 py-2 text-xs">{child.sprint?.name ?? "Backlog"}</td>
+                                <td className="px-3 py-2 text-xs">{child.dueDate ?? "—"}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    {onCreateSubtask ? (
+                      <div className="flex gap-2">
+                        <Input
+                          value={childTitle}
+                          onChange={(event) => setChildTitle(event.target.value)}
+                          placeholder="New story under this epic"
+                          data-testid="epic-child-create-input"
+                        />
+                        <Button type="button" size="sm" onClick={() => void createEpicChild()}>
+                          Add story
+                        </Button>
+                      </div>
+                    ) : null}
+                  </section>
+                ) : null}
 
                 {(activeBoard?.customFieldDefs?.length ?? 0) > 0 && (
                   <section className="space-y-3">
@@ -840,6 +974,28 @@ export function TaskDetailDialog({
                   )}
                 </div>
 
+                {task.parentEpic ? (
+                  <div className="space-y-1" data-testid="work-item-epic-field">
+                    <Label>Epic</Label>
+                    <p className="text-sm">
+                      <span className="font-mono text-xs text-primary">{task.parentEpic.issueKey}</span>{" "}
+                      {task.parentEpic.title}
+                    </p>
+                  </div>
+                ) : null}
+
+                {task.boardId ? (
+                  <div className="space-y-2" data-testid="work-item-components-field">
+                    <Label>Component / Module</Label>
+                    <ComponentSelector
+                      boardId={task.boardId}
+                      value={componentIds}
+                      disabled={componentBusy || saving}
+                      onChange={(ids) => void applyComponents(ids)}
+                    />
+                  </div>
+                ) : null}
+
                 <div className="space-y-2">
                   <Label>Priority</Label>
                   <Select
@@ -884,13 +1040,13 @@ export function TaskDetailDialog({
                   <div className="grid gap-2">
                     <div>
                       <Label htmlFor="task-start" className="text-xs text-muted-foreground">
-                        Start
+                        {issueType === "EPIC" ? "Start date" : "Start"}
                       </Label>
                       <DateField id="task-start" value={startDate} onChange={setStartDate} />
                     </div>
                     <div>
                       <Label htmlFor="task-due" className="text-xs text-muted-foreground">
-                        Due
+                        {issueType === "EPIC" ? "Target date" : "Due"}
                       </Label>
                       <DateField
                         id="task-due"
@@ -908,11 +1064,22 @@ export function TaskDetailDialog({
                 <div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold uppercase tracking-wide text-muted-foreground">
-                      Progress
+                      {issueType === "EPIC" && epicProgress ? "Epic progress" : "Progress"}
                     </span>
-                    <span className="tabular-nums">{task.progress}%</span>
+                    <span className="tabular-nums" data-testid="work-item-progress-value">
+                      {issueType === "EPIC" && epicProgress
+                        ? `${epicProgress.progressPercent}%`
+                        : `${task.progress}%`}
+                    </span>
                   </div>
-                  <Progress value={task.progress} className="mt-2 h-2" />
+                  <Progress
+                    value={
+                      issueType === "EPIC" && epicProgress
+                        ? epicProgress.progressPercent
+                        : task.progress
+                    }
+                    className="mt-2 h-2"
+                  />
                 </div>
 
                 {formError && <p className="text-sm text-destructive">{formError}</p>}

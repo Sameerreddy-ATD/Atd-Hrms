@@ -828,7 +828,76 @@ export type TaskActivityType =
   | "STATUS_CHANGED"
   | "PROGRESS_UPDATED"
   | "ASSIGNEES_CHANGED"
-  | "DETAILS_UPDATED";
+  | "DETAILS_UPDATED"
+  | "SPRINT_MEMBERSHIP_CHANGED"
+  | "EPIC_CHILD_ADDED"
+  | "EPIC_CHILD_REMOVED"
+  | "COMPONENT_ASSIGNED"
+  | "COMPONENT_REMOVED"
+  | "EPIC_DATES_CHANGED";
+
+export interface TaskComponent {
+  id: string;
+  boardId: string;
+  name: string;
+  description?: string;
+  leadEmployeeId?: string;
+  lead?: TaskAssignee;
+  active: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EpicProgress {
+  progressPercent: number;
+  doneCount: number;
+  totalCount: number;
+}
+
+export interface RoadmapEpic {
+  id: string;
+  issueKey?: string;
+  title: string;
+  description?: string;
+  startDate?: string;
+  targetDate?: string;
+  scheduled: boolean;
+  workflowStatus?: {
+    id: string;
+    name: string;
+    category: TaskStatusCategory;
+    color: string;
+  };
+  assignees: TaskAssignee[];
+  components: TaskComponent[];
+  progress: EpicProgress;
+  archivedAt?: string;
+}
+
+export interface RoadmapResponse {
+  scheduled: RoadmapEpic[];
+  unscheduled: RoadmapEpic[];
+  all: RoadmapEpic[];
+}
+
+export interface EpicChildRow {
+  id: string;
+  issueKey?: string;
+  issueType: TaskIssueType;
+  title: string;
+  status: TaskStatus;
+  workflowStatus?: {
+    id: string;
+    name: string;
+    category: TaskStatusCategory;
+    color: string;
+  };
+  assignees: TaskAssignee[];
+  dueDate?: string;
+  components: TaskComponent[];
+  sprint?: TaskSprintSummary;
+}
 
 export interface TaskUpdate {
   id: string;
@@ -981,6 +1050,9 @@ export interface WorkTask {
   subtaskCount: number;
   updateCount: number;
   customFields?: Record<string, unknown>;
+  components?: TaskComponent[];
+  epicProgress?: EpicProgress;
+  parentEpic?: { id: string; issueKey?: string; title: string };
   updates: TaskUpdate[];
 }
 
@@ -1000,6 +1072,7 @@ export type ProjectCapability =
   | "ASSIGN_WORK_ITEM"
   | "TRANSITION_WORK_ITEM"
   | "MANAGE_SPRINT"
+  | "MANAGE_COMPONENTS"
   | "MANAGE_PROJECT"
   | "ARCHIVE_PROJECT"
   | "VIEW_REPORTS"

@@ -655,6 +655,30 @@ export const sprintMembershipSchema = z.object({
   backlogRankAfterTaskId: z.string().min(1).optional(),
 });
 
+export const componentCreateSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  description: z.string().trim().max(2000).nullable().optional(),
+  leadEmployeeId: z.string().min(1).nullable().optional(),
+  sortOrder: z.coerce.number().int().min(0).max(1_000_000).optional(),
+});
+
+export const componentUpdateSchema = z.object({
+  name: z.string().trim().min(2).max(120).optional(),
+  description: z.string().trim().max(2000).nullable().optional(),
+  leadEmployeeId: z.string().min(1).nullable().optional(),
+  active: z.boolean().optional(),
+  sortOrder: z.coerce.number().int().min(0).max(1_000_000).optional(),
+});
+
+export const componentReorderSchema = z.object({
+  orderedIds: z.array(z.string().min(1)).min(1).max(200),
+});
+
+export const taskComponentsSchema = z.object({
+  version: z.coerce.number().int().positive(),
+  componentIds: z.array(z.string().min(1)).max(50),
+});
+
 export const holidaySchema = z.object({
   name: z.string().min(2).max(160),
   date: z.coerce.date(),

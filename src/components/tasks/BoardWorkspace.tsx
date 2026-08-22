@@ -22,6 +22,7 @@ import {
   Settings2,
   Table2,
   UserRound,
+  Map as MapIcon,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -45,8 +46,9 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { formatDisplayDate } from "@/lib/india-date";
-import { sprintsApi, tasksApi } from "@/services/api";
+import { sprintsApi, tasksApi, componentsApi } from "@/services/api";
 import { SprintBacklogPanel } from "./SprintBacklogPanel";
+import { RoadmapPanel } from "./RoadmapPanel";
 import type { TaskAssignee, TaskBoard, TaskPriority, TaskStage, WorkTask } from "@/types/domain";
 import { toast } from "sonner";
 import {
@@ -68,11 +70,12 @@ export type MoveTaskOptions = {
   rankAfterTaskId?: string;
 };
 
-type BoardView = "list" | "kanban" | "timeline" | "all";
+type BoardView = "list" | "kanban" | "timeline" | "all" | "roadmap";
 type DueFilter = "ALL" | "TODAY" | "OVERDUE" | "NONE";
 const VIEW_OPTIONS: Array<{ value: BoardView; label: string; Icon: LucideIcon }> = [
   { value: "kanban", label: "Board", Icon: Columns3 },
   { value: "list", label: "Backlog", Icon: LayoutList },
+  { value: "roadmap", label: "Roadmap", Icon: MapIcon },
   { value: "all", label: "All Work", Icon: Table2 },
   { value: "timeline", label: "Timeline", Icon: CalendarRange },
 ];
@@ -88,6 +91,8 @@ type BoardWorkspaceProps = {
   canCreateWorkItem?: boolean;
   canTransitionWorkItem?: boolean;
   canManageSprint?: boolean;
+  canManageComponents?: boolean;
+  canEditEpicDates?: boolean;
   initialMineOnly?: boolean;
   onPlanChanged?: () => void;
   onBack: () => void;
@@ -159,6 +164,8 @@ export function BoardWorkspace({
   canCreateWorkItem = true,
   canTransitionWorkItem = true,
   canManageSprint = false,
+  canManageComponents = false,
+  canEditEpicDates = false,
   initialMineOnly = false,
   onPlanChanged,
   onBack,
@@ -182,6 +189,11 @@ export function BoardWorkspace({
   const draggingTaskIdRef = useRef<string | null>(null);
   const [activeSprintId, setActiveSprintId] = useState<string | null>(null);
   const [activeSprintName, setActiveSprintName] = useState<string | null>(null);
+  const [epicFilter, setEpicFilter] = useState("ALL");
+  const [componentFilter, setComponentFilter] = useState("ALL");
+  const [projectComponents, setProjectComponents] = useState<
+    Array<{ id: string; name: string; active: boolean }>
+  >([]);
 
   useEffect(() => {
     setQuery("");
@@ -197,7 +209,18 @@ export function BoardWorkspace({
     setView("kanban");
     setActiveSprintId(null);
     setActiveSprintName(null);
+    setEpicFilter("ALL");
+    setComponentFilter("ALL");
   }, [board.id, initialMineOnly]);
+
+  useEffect(() => {
+    void componentsApi
+      .list(board.id, true)
+      .then(({ components }) =>
+        setProjectComponents(components.map((c) => ({ id: c.id, name: c.name, active: c.active }))),
+      )
+      .catch(() => setProjectComponents([]));
+  }, [board.id]);
 
   useEffect(() => {
     void sprintsApi
@@ -231,6 +254,13 @@ export function BoardWorkspace({
       }
       if (priority !== "ALL" && task.priority !== priority) return false;
       if (stageId !== "ALL" && task.stageId !== stageId) return false;
+      if (epicFilter !== "ALL" && task.parentTaskId !== epicFilter) return false;
+      if (
+        componentFilter !== "ALL" &&
+        !task.components?.some((component) => component.id === componentFilter)
+      ) {
+        return false;
+      }
       if (due === "NONE" && task.dueDate) return false;
       if (due === "TODAY" && (!task.dueDate || !isSameDay(dateValue(task.dueDate), today))) {
         return false;
@@ -245,7 +275,9 @@ export function BoardWorkspace({
       const key = issueKey(task, board).toLowerCase();
       return (
         key.includes(normalized) ||
-        [task.title, task.description, ...task.assignees.map((person) => person.name)]
+        [task.title, task.description, task.parentEpic?.title, task.parentEpic?.issueKey,
+          ...(task.components?.map((c) => c.name) ?? []),
+          ...task.assignees.map((person) => person.name)]
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(normalized))
       );
@@ -254,14 +286,20 @@ export function BoardWorkspace({
     assigneeId,
     board,
     boardTasks,
+    componentFilter,
     due,
     employeeId,
+    epicFilter,
     mineOnly,
     priority,
     query,
     showArchived,
     stageId,
   ]);
+  const boardEpics = useMemo(
+    () => boardTasks.filter((task) => task.issueType === "EPIC" && !task.archivedAt),
+    [boardTasks],
+  );
   const sprintScopedTasks = useMemo(() => {
     if (view !== "kanban" || !activeSprintId) return visibleTasks;
     return visibleTasks.filter((task) => task.sprint?.sprintId === activeSprintId);
@@ -311,6 +349,8 @@ export function BoardWorkspace({
     assigneeId !== "ALL" ||
     priority !== "ALL" ||
     stageId !== "ALL" ||
+    epicFilter !== "ALL" ||
+    componentFilter !== "ALL" ||
     due !== "ALL" ||
     Boolean(query.trim());
 
@@ -471,6 +511,37 @@ export function BoardWorkspace({
               <SelectItem value="NONE">No due date</SelectItem>
             </SelectContent>
           </Select>
+          {view === "all" ? (
+            <>
+              <Select value={epicFilter} onValueChange={setEpicFilter}>
+                <SelectTrigger className="h-8 w-auto min-w-[8rem] text-xs" data-testid="all-work-epic-filter">
+                  <SelectValue placeholder="Epic" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Epic: Any</SelectItem>
+                  {boardEpics.map((epic) => (
+                    <SelectItem key={epic.id} value={epic.id}>
+                      {issueKey(epic, board)} — {epic.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={componentFilter} onValueChange={setComponentFilter}>
+                <SelectTrigger className="h-8 w-auto min-w-[8rem] text-xs" data-testid="all-work-component-filter">
+                  <SelectValue placeholder="Component" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Component: Any</SelectItem>
+                  {projectComponents.map((component) => (
+                    <SelectItem key={component.id} value={component.id}>
+                      {component.name}
+                      {!component.active ? " (inactive)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          ) : null}
           {filtersActive && (
             <Button
               size="sm"
@@ -484,6 +555,8 @@ export function BoardWorkspace({
                 setPriority("ALL");
                 setStageId("ALL");
                 setDue("ALL");
+                setEpicFilter("ALL");
+                setComponentFilter("ALL");
               }}
             >
               Clear filters
@@ -498,6 +571,12 @@ export function BoardWorkspace({
           canManageSprint={canManageSprint}
           onOpenTask={onOpenTask}
           onPlanChanged={() => onPlanChanged?.()}
+        />
+      ) : view === "roadmap" ? (
+        <RoadmapPanel
+          board={board}
+          canEditEpicDates={canEditEpicDates}
+          onOpenTask={onOpenTask}
         />
       ) : visibleTasks.length === 0 ? (
         <Card className="border-dashed shadow-none">
@@ -570,6 +649,8 @@ function AllWorkView({
             <th className="px-3 py-2 font-medium">Priority</th>
             <th className="px-3 py-2 font-medium">Assignee</th>
             <th className="px-3 py-2 font-medium">Reporter</th>
+            <th className="px-3 py-2 font-medium">Epic</th>
+            <th className="px-3 py-2 font-medium">Component</th>
             <th className="px-3 py-2 font-medium">Due</th>
           </tr>
         </thead>
@@ -596,6 +677,12 @@ function AllWorkView({
               </td>
               <td className="max-w-[8rem] truncate px-3 py-2 text-xs">
                 {task.reporterName ?? task.createdByName}
+              </td>
+              <td className="max-w-[8rem] truncate px-3 py-2 text-xs text-muted-foreground">
+                {task.parentEpic?.issueKey ?? "—"}
+              </td>
+              <td className="max-w-[10rem] truncate px-3 py-2 text-xs text-muted-foreground">
+                {task.components?.map((c) => c.name).join(", ") || "—"}
               </td>
               <td className="px-3 py-2 text-xs text-muted-foreground">
                 {dueLabel(task.dueDate, false)}

@@ -20,6 +20,7 @@ describe("task planner foundation units", () => {
   it("viewer cannot edit; admin can manage", () => {
     expect(roleHasCapability(TaskProjectRole.VIEWER, "EDIT_WORK_ITEM")).toBe(false);
     expect(capabilitiesForRole(TaskProjectRole.PROJECT_ADMIN)).toContain("MANAGE_PROJECT");
+    expect(capabilitiesForRole(TaskProjectRole.PROJECT_LEAD)).toContain("MANAGE_COMPONENTS");
   });
 
   it("accepts IMPROVEMENT and SUBTASK issue types", () => {
