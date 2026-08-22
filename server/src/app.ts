@@ -150,11 +150,13 @@ import {
 import { registerAssetRoutes } from "./assetRoutes.js";
 import { registerTaskSprintRoutes } from "./taskSprintRoutes.js";
 import { registerTaskRoadmapRoutes } from "./taskRoadmapRoutes.js";
+import { registerTaskCollaborationRoutes } from "./taskCollaborationRoutes.js";
 import {
   componentsFromTaskLinks,
   recordEpicChildActivity,
   recordEpicDatesChanged,
 } from "./taskComponentEngine.js";
+import { labelsFromTaskLinks } from "./taskLabelEngine.js";
 import { computeEpicProgress } from "./taskEpicProgress.js";
 import { registerClientLogRoutes } from "./clientLogs.js";
 import { registerIntegrationRoutes } from "./integration-api.js";
@@ -8070,6 +8072,9 @@ export function createApp() {
         },
       },
     },
+    labelLinks: {
+      include: { label: true },
+    },
   } satisfies Prisma.WorkTaskInclude;
 
   type TaskWithDetails = Prisma.WorkTaskGetPayload<{ include: typeof taskInclude }>;
@@ -8144,6 +8149,7 @@ export function createApp() {
       components: task.componentLinks
         ? componentsFromTaskLinks(task.componentLinks)
         : [],
+      labels: task.labelLinks ? labelsFromTaskLinks(task.labelLinks) : [],
     };
     if (options?.summary) {
       return { ...base, updates: [] };
@@ -8207,6 +8213,7 @@ export function createApp() {
     stage: taskInclude.stage,
     workflowStatus: taskInclude.workflowStatus,
     componentLinks: taskInclude.componentLinks,
+    labelLinks: taskInclude.labelLinks,
     _count: taskInclude._count,
   } satisfies Prisma.WorkTaskInclude;
 
@@ -9089,6 +9096,8 @@ export function createApp() {
       const epicId = typeof req.query.epicId === "string" ? req.query.epicId : undefined;
       const componentId =
         typeof req.query.componentId === "string" ? req.query.componentId : undefined;
+      const labelId =
+        typeof req.query.labelId === "string" ? req.query.labelId : undefined;
       const scope =
         req.query.scope === "mine" && req.user!.employeeId
           ? [req.user!.employeeId]
@@ -9142,6 +9151,9 @@ export function createApp() {
           ...(epicId ? { parentTaskId: epicId } : {}),
           ...(componentId
             ? { componentLinks: { some: { componentId } } }
+            : {}),
+          ...(labelId
+            ? { labelLinks: { some: { labelId } } }
             : {}),
           ...(sprintId || activeSprintId
             ? {
@@ -9830,7 +9842,16 @@ export function createApp() {
           ? TaskActivityType.STATUS_CHANGED
           : body.progress !== undefined
             ? TaskActivityType.PROGRESS_UPDATED
-            : TaskActivityType.DETAILS_UPDATED;
+            : body.priority !== undefined && body.priority !== existing.priority
+              ? TaskActivityType.PRIORITY_CHANGED
+              : body.reporterUserId !== undefined &&
+                  body.reporterUserId !== (existing.reporterUserId ?? existing.createdByUserId)
+                ? TaskActivityType.REPORTER_CHANGED
+                : body.title !== undefined && body.title !== existing.title
+                  ? TaskActivityType.TITLE_CHANGED
+                  : (body.startDate !== undefined || body.dueDate !== undefined)
+                    ? TaskActivityType.DATES_CHANGED
+                    : TaskActivityType.DETAILS_UPDATED;
       const activityMessage =
         activityType === TaskActivityType.ASSIGNEES_CHANGED
           ? "Assignees updated"
@@ -9838,7 +9859,17 @@ export function createApp() {
             ? "Workflow status updated"
             : activityType === TaskActivityType.PROGRESS_UPDATED
               ? "Progress updated"
-              : "Issue details updated";
+              : activityType === TaskActivityType.PRIORITY_CHANGED
+                ? `Priority changed from ${existing.priority} to ${body.priority}`
+                : activityType === TaskActivityType.REPORTER_CHANGED
+                  ? "Reporter updated"
+                  : activityType === TaskActivityType.TITLE_CHANGED
+                    ? "Title updated"
+                    : activityType === TaskActivityType.DATES_CHANGED
+                      ? "Dates updated"
+                      : body.description !== undefined
+                        ? "Description updated"
+                        : "Issue details updated";
       const metadata = JSON.parse(
         JSON.stringify({
           previousStatus: existing.status,
@@ -10170,6 +10201,10 @@ export function createApp() {
   });
 
   registerTaskRoadmapRoutes(app, {
+    assertBoardAccess,
+  });
+
+  registerTaskCollaborationRoutes(app, {
     assertBoardAccess,
   });
 

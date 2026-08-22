@@ -2166,6 +2166,98 @@ export const roadmapApi = {
     }>(`/tasks/${epicTaskId}/epic-children`),
 };
 
+export const collaborationApi = {
+  labels: {
+    list: (boardId: string, includeInactive = true) =>
+      request<{ labels: import("@/types/domain").TaskLabel[] }>(
+        `/task-boards/${boardId}/labels${includeInactive ? "" : "?includeInactive=false"}`,
+      ),
+    create: (
+      boardId: string,
+      body: { name: string; description?: string | null; color?: string | null },
+    ) =>
+      request<import("@/types/domain").TaskLabel>(`/task-boards/${boardId}/labels`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    update: (
+      labelId: string,
+      body: Partial<{ name: string; description: string | null; color: string | null; active: boolean }>,
+    ) =>
+      request<import("@/types/domain").TaskLabel>(`/task-labels/${labelId}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    setTaskLabels: (taskId: string, body: { version: number; labelIds: string[] }) =>
+      request<{ labels: import("@/types/domain").TaskLabel[] }>(`/tasks/${taskId}/labels`, {
+        method: "PUT",
+        body: JSON.stringify(body),
+      }),
+  },
+  relations: {
+    get: (taskId: string) =>
+      request<import("@/types/domain").TaskRelationsView>(`/tasks/${taskId}/relations`),
+    create: (taskId: string, body: { targetTaskId: string; relationType: import("@/types/domain").TaskRelationType }) =>
+      request(`/tasks/${taskId}/relations`, { method: "POST", body: JSON.stringify(body) }),
+    remove: (relationId: string) =>
+      request(`/task-relations/${relationId}`, { method: "DELETE" }),
+    search: (boardId: string, q: string, excludeTaskId?: string) => {
+      const params = new URLSearchParams({ q });
+      if (excludeTaskId) params.set("excludeTaskId", excludeTaskId);
+      return request<{ items: import("@/types/domain").TaskRelationItem[] }>(
+        `/task-boards/${boardId}/work-item-search?${params}`,
+      );
+    },
+  },
+  watchers: {
+    state: (taskId: string) =>
+      request<{ watching: boolean; watcherCount: number }>(`/tasks/${taskId}/watchers/me`),
+    watch: (taskId: string) =>
+      request<{ watching: boolean; watcherCount: number }>(`/tasks/${taskId}/watchers/me`, {
+        method: "POST",
+      }),
+    unwatch: (taskId: string) =>
+      request<{ watching: boolean; watcherCount: number }>(`/tasks/${taskId}/watchers/me`, {
+        method: "DELETE",
+      }),
+  },
+  workLogs: {
+    list: (taskId: string) =>
+      request<{ logs: import("@/types/domain").WorkLogEntry[]; totals: import("@/types/domain").WorkLogTotals }>(
+        `/tasks/${taskId}/work-logs`,
+      ),
+    create: (taskId: string, body: { duration: string; workDate: string; description?: string | null }) =>
+      request<import("@/types/domain").WorkLogEntry>(`/tasks/${taskId}/work-logs`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    update: (workLogId: string, body: Partial<{ duration: string; workDate: string; description: string | null }>) =>
+      request<import("@/types/domain").WorkLogEntry>(`/work-logs/${workLogId}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    remove: (workLogId: string) =>
+      request(`/work-logs/${workLogId}`, { method: "DELETE" }),
+  },
+  activity: {
+    list: (
+      taskId: string,
+      params?: { cursor?: string; limit?: number; filter?: "all" | "comments" | "history" },
+    ) => {
+      const q = new URLSearchParams();
+      if (params?.cursor) q.set("cursor", params.cursor);
+      if (params?.limit) q.set("limit", String(params.limit));
+      if (params?.filter) q.set("filter", params.filter);
+      const suffix = q.toString() ? `?${q}` : "";
+      return request<{
+        items: import("@/types/domain").TaskActivityEntry[];
+        nextCursor?: string;
+        hasMore: boolean;
+      }>(`/tasks/${taskId}/activity${suffix}`);
+    },
+  },
+};
+
 export const sprintsApi = {
   list: (boardId: string) =>
     request<{ sprints: TaskSprint[] }>(`/task-boards/${boardId}/sprints`),

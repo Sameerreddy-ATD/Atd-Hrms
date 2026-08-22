@@ -19,6 +19,7 @@ export type ProjectCapability =
   | "TRANSITION_WORK_ITEM"
   | "MANAGE_SPRINT"
   | "MANAGE_COMPONENTS"
+  | "MANAGE_LABELS"
   | "MANAGE_PROJECT"
   | "ARCHIVE_PROJECT"
   | "VIEW_REPORTS"
@@ -33,6 +34,7 @@ const ROLE_CAPABILITIES: Record<TaskProjectRole, readonly ProjectCapability[]> =
     "TRANSITION_WORK_ITEM",
     "MANAGE_SPRINT",
     "MANAGE_COMPONENTS",
+    "MANAGE_LABELS",
     "MANAGE_PROJECT",
     "ARCHIVE_PROJECT",
     "VIEW_REPORTS",
@@ -45,6 +47,7 @@ const ROLE_CAPABILITIES: Record<TaskProjectRole, readonly ProjectCapability[]> =
     "TRANSITION_WORK_ITEM",
     "MANAGE_SPRINT",
     "MANAGE_COMPONENTS",
+    "MANAGE_LABELS",
     "ARCHIVE_PROJECT",
     "VIEW_REPORTS",
   ],

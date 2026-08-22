@@ -37,4 +37,7 @@ RUN_SPRINT_INTEGRATION=1 npx vitest run --config vitest.config.ts tests/taskPlan
 echo "==> Task planner roadmap integration"
 RUN_ROADMAP_INTEGRATION=1 npx vitest run --config vitest.config.ts tests/taskPlannerRoadmapIntegration.test.ts
 
+echo "==> Task planner collaboration integration"
+RUN_COLLAB_INTEGRATION=1 npx vitest run --config vitest.config.ts tests/taskPlannerCollaborationIntegration.test.ts
+
 echo "==> DB integration suites passed."

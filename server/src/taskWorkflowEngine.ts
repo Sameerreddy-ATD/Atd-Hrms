@@ -227,6 +227,22 @@ export async function transitionWorkItemInTx(tx: Prisma.TransactionClient, input
     }
   }
 
+  const validatorConfig =
+    transition.validatorConfig && typeof transition.validatorConfig === "object"
+      ? (transition.validatorConfig as Record<string, unknown>)
+      : null;
+  if (validatorConfig?.requireNoOpenBlockers === true) {
+    const { listOpenBlockers } = await import("./taskRelationEngine.js");
+    const blockers = await listOpenBlockers(tx, existing.taskId);
+    if (blockers.length > 0) {
+      const keys = blockers.map((b) => b.issueKey ?? b.title).join(", ");
+      throw new HttpError(
+        409,
+        `This transition is blocked by unresolved dependencies: ${keys}`,
+      );
+    }
+  }
+
   const toStatus = transition.toStatus;
   const nextStageId = toStatus.stageId ?? existing.stageId;
   const nextLegacyStatus = legacyTaskStatusForCategory(toStatus.category, toStatus.name) as TaskStatus;

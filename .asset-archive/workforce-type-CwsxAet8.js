@@ -1,0 +1,1 @@
+var e=[`team_member`,`bowser_pilot`],t={team_member:`Team Member`,bowser_pilot:`Bowser Pilot`};function n(e){return e===`driver`?`bowser_pilot`:`team_member`}function r(e){return t[e]}function i(e){return n(e.role)}function a(e,t){return t===`all`?!0:i(e)===t}function o(t){let n=new Set(t.map(e=>i(e)));return e.filter(e=>n.has(e))}export{r as a,i,a as n,o as r,t};

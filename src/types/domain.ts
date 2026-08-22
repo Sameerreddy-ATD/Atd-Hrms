@@ -834,7 +834,88 @@ export type TaskActivityType =
   | "EPIC_CHILD_REMOVED"
   | "COMPONENT_ASSIGNED"
   | "COMPONENT_REMOVED"
-  | "EPIC_DATES_CHANGED";
+  | "EPIC_DATES_CHANGED"
+  | "RELATION_ADDED"
+  | "RELATION_REMOVED"
+  | "LABEL_ADDED"
+  | "LABEL_REMOVED"
+  | "WORK_LOG_ADDED"
+  | "WORK_LOG_UPDATED"
+  | "WORK_LOG_DELETED"
+  | "PRIORITY_CHANGED"
+  | "REPORTER_CHANGED"
+  | "TITLE_CHANGED"
+  | "DATES_CHANGED";
+
+export type TaskRelationType = "BLOCKS" | "RELATES_TO" | "DUPLICATES";
+
+export interface TaskLabel {
+  id: string;
+  boardId: string;
+  name: string;
+  description?: string;
+  color?: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TaskRelationItem {
+  id: string;
+  title: string;
+  issueKey?: string;
+  boardId?: string;
+}
+
+export interface TaskRelationsView {
+  blocks: TaskRelationItem[];
+  blockedBy: TaskRelationItem[];
+  relatedTo: TaskRelationItem[];
+  duplicates: TaskRelationItem[];
+  duplicateOf: TaskRelationItem[];
+  isBlocked: boolean;
+  relations?: Array<{
+    id: string;
+    type: TaskRelationType;
+    source: TaskRelationItem;
+    target: TaskRelationItem;
+    createdAt: string;
+  }>;
+}
+
+export interface WorkLogEntry {
+  id: string;
+  taskId: string;
+  userId: string;
+  userName: string;
+  minutes: number;
+  durationLabel: string;
+  workDate: string;
+  description?: string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkLogTotals {
+  totalMinutes: number;
+  yourMinutes: number;
+  totalLabel: string;
+  yourLabel: string;
+}
+
+export interface TaskActivityEntry {
+  id: string;
+  authorName: string;
+  authorUserId: string;
+  activityType: TaskActivityType;
+  message: string;
+  metadata?: Record<string, unknown>;
+  progress?: number;
+  status?: TaskStatus;
+  minutesWorked?: number;
+  createdAt: string;
+}
 
 export interface TaskComponent {
   id: string;
@@ -1051,6 +1132,7 @@ export interface WorkTask {
   updateCount: number;
   customFields?: Record<string, unknown>;
   components?: TaskComponent[];
+  labels?: TaskLabel[];
   epicProgress?: EpicProgress;
   parentEpic?: { id: string; issueKey?: string; title: string };
   updates: TaskUpdate[];
@@ -1073,6 +1155,7 @@ export type ProjectCapability =
   | "TRANSITION_WORK_ITEM"
   | "MANAGE_SPRINT"
   | "MANAGE_COMPONENTS"
+  | "MANAGE_LABELS"
   | "MANAGE_PROJECT"
   | "ARCHIVE_PROJECT"
   | "VIEW_REPORTS"

@@ -24,6 +24,7 @@ import { formatDisplayDateTime } from "@/lib/india-date";
 import { cn } from "@/lib/utils";
 import { tasksApi, sprintsApi, componentsApi, roadmapApi } from "@/services/api";
 import { ComponentSelector } from "./ComponentSelector";
+import { TaskCollaborationPanels } from "./TaskCollaborationPanels";
 import type {
   TaskAssignee,
   TaskBoard,
@@ -81,6 +82,7 @@ type TaskDetailDialogProps = {
   onCreateSubtask?: (parent: WorkTask, title: string) => Promise<unknown>;
   onOpenTask?: (task: WorkTask) => void;
   canManageSprint?: boolean;
+  canEditWorkItem?: boolean;
   onSprintChanged?: (task: WorkTask) => void;
 };
 
@@ -115,6 +117,7 @@ export function TaskDetailDialog({
   onCreateSubtask,
   onOpenTask,
   canManageSprint = false,
+  canEditWorkItem = true,
   onSprintChanged,
 }: TaskDetailDialogProps) {
   const [title, setTitle] = useState("");
@@ -724,39 +727,17 @@ export function TaskDetailDialog({
                   />
                 </section>
 
-                <section>
-                  <div className="mb-3 flex items-center gap-2">
-                    <MessageSquareText className="h-4 w-4" />
-                    <h3 className="text-sm font-semibold">Activity</h3>
-                    <Badge variant="secondary" className="rounded-md font-normal">
-                      {task.updates?.length ?? task.updateCount ?? 0}
-                    </Badge>
-                  </div>
-                  <div className="space-y-0 divide-y rounded-md border">
-                    {(task.updates ?? []).length === 0 ? (
-                      <p className="px-3 py-4 text-sm text-muted-foreground">No activity yet.</p>
-                    ) : (
-                      (task.updates ?? []).map((entry) => (
-                        <div key={entry.id} className="px-3 py-3">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <p className="text-sm font-medium">
-                              {entry.authorName}
-                              <span className="ml-2 text-xs font-normal text-muted-foreground">
-                                {ACTIVITY_LABELS[entry.activityType] ?? entry.activityType}
-                              </span>
-                            </p>
-                            <time className="text-xs text-muted-foreground">
-                              {formatDisplayDateTime(entry.createdAt)}
-                            </time>
-                          </div>
-                          <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
-                            {entry.message}
-                          </p>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </section>
+                {task.boardId ? (
+                  <TaskCollaborationPanels
+                    task={task}
+                    boardId={task.boardId}
+                    canEdit={canEditWorkItem && !task.archivedAt}
+                    onOpenTask={(taskId) => {
+                      const hit = subtasks.find((entry) => entry.id === taskId);
+                      if (hit) onOpenTask?.(hit);
+                    }}
+                  />
+                ) : null}
 
                 <section className="space-y-3 border-t pt-5">
                   <h3 className="text-sm font-semibold">Add a comment</h3>

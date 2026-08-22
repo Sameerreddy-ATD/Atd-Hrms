@@ -46,7 +46,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { formatDisplayDate } from "@/lib/india-date";
-import { sprintsApi, tasksApi, componentsApi } from "@/services/api";
+import { sprintsApi, tasksApi, componentsApi, collaborationApi } from "@/services/api";
 import { SprintBacklogPanel } from "./SprintBacklogPanel";
 import { RoadmapPanel } from "./RoadmapPanel";
 import type { TaskAssignee, TaskBoard, TaskPriority, TaskStage, WorkTask } from "@/types/domain";
@@ -191,7 +191,11 @@ export function BoardWorkspace({
   const [activeSprintName, setActiveSprintName] = useState<string | null>(null);
   const [epicFilter, setEpicFilter] = useState("ALL");
   const [componentFilter, setComponentFilter] = useState("ALL");
+  const [labelFilter, setLabelFilter] = useState("ALL");
   const [projectComponents, setProjectComponents] = useState<
+    Array<{ id: string; name: string; active: boolean }>
+  >([]);
+  const [projectLabels, setProjectLabels] = useState<
     Array<{ id: string; name: string; active: boolean }>
   >([]);
 
@@ -211,6 +215,7 @@ export function BoardWorkspace({
     setActiveSprintName(null);
     setEpicFilter("ALL");
     setComponentFilter("ALL");
+    setLabelFilter("ALL");
   }, [board.id, initialMineOnly]);
 
   useEffect(() => {
@@ -220,6 +225,12 @@ export function BoardWorkspace({
         setProjectComponents(components.map((c) => ({ id: c.id, name: c.name, active: c.active }))),
       )
       .catch(() => setProjectComponents([]));
+    void collaborationApi.labels
+      .list(board.id, true)
+      .then(({ labels }) =>
+        setProjectLabels(labels.map((l) => ({ id: l.id, name: l.name, active: l.active }))),
+      )
+      .catch(() => setProjectLabels([]));
   }, [board.id]);
 
   useEffect(() => {
@@ -261,6 +272,12 @@ export function BoardWorkspace({
       ) {
         return false;
       }
+      if (
+        labelFilter !== "ALL" &&
+        !task.labels?.some((label) => label.id === labelFilter)
+      ) {
+        return false;
+      }
       if (due === "NONE" && task.dueDate) return false;
       if (due === "TODAY" && (!task.dueDate || !isSameDay(dateValue(task.dueDate), today))) {
         return false;
@@ -287,6 +304,7 @@ export function BoardWorkspace({
     board,
     boardTasks,
     componentFilter,
+    labelFilter,
     due,
     employeeId,
     epicFilter,
@@ -351,6 +369,7 @@ export function BoardWorkspace({
     stageId !== "ALL" ||
     epicFilter !== "ALL" ||
     componentFilter !== "ALL" ||
+    labelFilter !== "ALL" ||
     due !== "ALL" ||
     Boolean(query.trim());
 
@@ -536,6 +555,20 @@ export function BoardWorkspace({
                     <SelectItem key={component.id} value={component.id}>
                       {component.name}
                       {!component.active ? " (inactive)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={labelFilter} onValueChange={setLabelFilter}>
+                <SelectTrigger className="h-8 w-auto min-w-[8rem] text-xs" data-testid="all-work-label-filter">
+                  <SelectValue placeholder="Label" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Label: Any</SelectItem>
+                  {projectLabels.map((label) => (
+                    <SelectItem key={label.id} value={label.id}>
+                      {label.name}
+                      {!label.active ? " (inactive)" : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>

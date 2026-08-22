@@ -252,6 +252,23 @@ enum TaskActivityType {
   COMPONENT_ASSIGNED
   COMPONENT_REMOVED
   EPIC_DATES_CHANGED
+  RELATION_ADDED
+  RELATION_REMOVED
+  LABEL_ADDED
+  LABEL_REMOVED
+  WORK_LOG_ADDED
+  WORK_LOG_UPDATED
+  WORK_LOG_DELETED
+  PRIORITY_CHANGED
+  REPORTER_CHANGED
+  TITLE_CHANGED
+  DATES_CHANGED
+}
+
+enum TaskRelationType {
+  BLOCKS
+  RELATES_TO
+  DUPLICATES
 }
 
 enum TaskSprintStatus {
@@ -347,6 +364,11 @@ model User {
   createdTaskSprints               TaskSprint[]              @relation("SprintCreator")
   sprintMembershipsAdded           TaskSprintMembership[]    @relation("SprintMembershipAddedBy")
   sprintMembershipsRemoved         TaskSprintMembership[]    @relation("SprintMembershipRemovedBy")
+  workLogs                         WorkLog[]                 @relation("WorkLogUser")
+  workLogsCreated                  WorkLog[]                 @relation("WorkLogCreatedBy")
+  workLogsUpdated                  WorkLog[]                 @relation("WorkLogUpdatedBy")
+  workItemWatchers                 WorkItemWatcher[]
+  relationsCreated                 WorkTaskRelation[]        @relation("RelationCreatedBy")
   sprintEvents                     TaskSprintEvent[]         @relation("SprintEventActor")
   notificationPreference           NotificationPreference?
   reviewedOvertimeClaims           OvertimeClaim[]           @relation("OvertimeReviewer")
@@ -1606,6 +1628,11 @@ model WorkTask {
   transitionHistory TaskTransitionHistory[]
   sprintMemberships TaskSprintMembership[]
   componentLinks    WorkTaskComponent[]
+  labelLinks        WorkTaskLabel[]
+  outgoingRelations WorkTaskRelation[]      @relation("RelationSource")
+  incomingRelations WorkTaskRelation[]      @relation("RelationTarget")
+  watchers          WorkItemWatcher[]
+  workLogs          WorkLog[]
 
   @@unique([boardId, issueNumber])
   @@index([status])
@@ -1661,12 +1688,95 @@ model TaskBoard {
   workflows        TaskWorkflow[]
   sprints          TaskSprint[]
   components       TaskComponent[]
+  labels           TaskLabel[]
   createdAt        DateTime              @default(now()) @map("created_at")
   updatedAt        DateTime              @updatedAt @map("updated_at")
 
   @@index([archived, updatedAt])
   @@index([leadEmployeeId])
   @@map("task_boards")
+}
+
+model TaskLabel {
+  labelId        String          @id @default(cuid()) @map("label_id")
+  boardId        String          @map("board_id")
+  board          TaskBoard       @relation(fields: [boardId], references: [boardId], onDelete: Cascade)
+  name           String          @db.VarChar(120)
+  normalizedName String          @map("normalized_name") @db.VarChar(120)
+  description    String?         @db.Text
+  color          String?         @db.VarChar(32)
+  active         Boolean         @default(true)
+  taskLinks      WorkTaskLabel[]
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  @@unique([boardId, normalizedName])
+  @@index([boardId, active])
+  @@map("task_labels")
+}
+
+model WorkTaskLabel {
+  taskId     String    @map("task_id")
+  task       WorkTask  @relation(fields: [taskId], references: [taskId], onDelete: Cascade)
+  labelId    String    @map("label_id")
+  label      TaskLabel @relation(fields: [labelId], references: [labelId], onDelete: Restrict)
+  assignedAt DateTime  @default(now()) @map("assigned_at")
+
+  @@id([taskId, labelId])
+  @@index([labelId])
+  @@map("work_task_labels")
+}
+
+model WorkTaskRelation {
+  relationId      String           @id @default(cuid()) @map("relation_id")
+  sourceTaskId    String           @map("source_task_id")
+  sourceTask      WorkTask         @relation("RelationSource", fields: [sourceTaskId], references: [taskId], onDelete: Cascade)
+  targetTaskId    String           @map("target_task_id")
+  targetTask      WorkTask         @relation("RelationTarget", fields: [targetTaskId], references: [taskId], onDelete: Cascade)
+  relationType    TaskRelationType @map("relation_type")
+  createdByUserId String           @map("created_by_user_id")
+  createdBy       User             @relation("RelationCreatedBy", fields: [createdByUserId], references: [id])
+  createdAt       DateTime         @default(now()) @map("created_at")
+
+  @@unique([sourceTaskId, targetTaskId, relationType], map: "wtr_src_tgt_type_key")
+  @@index([sourceTaskId, relationType])
+  @@index([targetTaskId, relationType])
+  @@map("work_task_relations")
+}
+
+model WorkItemWatcher {
+  taskId    String   @map("task_id")
+  task      WorkTask @relation(fields: [taskId], references: [taskId], onDelete: Cascade)
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@id([taskId, userId])
+  @@index([userId])
+  @@map("work_item_watchers")
+}
+
+model WorkLog {
+  workLogId       String    @id @default(cuid()) @map("work_log_id")
+  taskId          String    @map("task_id")
+  task            WorkTask  @relation(fields: [taskId], references: [taskId], onDelete: Cascade)
+  userId          String    @map("user_id")
+  user            User      @relation("WorkLogUser", fields: [userId], references: [id])
+  minutes         Int
+  workDate        DateTime  @map("work_date") @db.Date
+  description     String?   @db.Text
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  createdByUserId String    @map("created_by_user_id")
+  createdBy       User      @relation("WorkLogCreatedBy", fields: [createdByUserId], references: [id])
+  updatedByUserId String?   @map("updated_by_user_id")
+  updatedBy       User?     @relation("WorkLogUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  deletedAt       DateTime? @map("deleted_at")
+
+  @@index([taskId, workDate])
+  @@index([userId, workDate])
+  @@index([taskId, deletedAt])
+  @@map("work_logs")
 }
 
 model TaskComponent {

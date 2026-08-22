@@ -1,0 +1,1 @@
+import{t as e}from"./jsx-runtime-2Zwg-L3c.js";import{Ft as t}from"./index-BKGNU292.js";var n=e(),r=()=>(0,n.jsx)(t,{});export{r as component};

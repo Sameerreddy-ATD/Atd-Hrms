@@ -1,0 +1,222 @@
+/**
+ * Task Planner Collaboration E2E — relations, labels, watchers, work logs, activity.
+ */
+import { expect, test, type Page } from "@playwright/test";
+import { loginAs } from "./helpers/auth";
+import { findOverflow } from "./helpers/overflow";
+import { API_BASE, E2E_PASSWORD } from "./helpers/users";
+
+const VIEWPORTS = [
+  { name: "320", width: 320, height: 568 },
+  { name: "360", width: 360, height: 800 },
+  { name: "390", width: 390, height: 844 },
+  { name: "768", width: 768, height: 1024 },
+  { name: "1440", width: 1440, height: 900 },
+] as const;
+
+async function openAwfProject(page: Page) {
+  await page.goto("/tasks", { waitUntil: "domcontentloaded" });
+  await page.locator(".atd-open-splash").waitFor({ state: "hidden", timeout: 30_000 }).catch(() => undefined);
+  await expect(page.getByRole("heading", { name: /Work Planner/i })).toBeVisible({ timeout: 25_000 });
+  const boardView = page.getByRole("group", { name: /Board view/i });
+  if (!(await boardView.isVisible().catch(() => false))) {
+    await page.getByRole("button", { name: /Anytime Workforce/i }).first().click();
+  }
+  await expect(boardView).toBeVisible({ timeout: 15_000 });
+}
+
+async function awfBoard(page: Page) {
+  const boardsRes = await page.request.get(`${API_BASE}/task-boards`);
+  expect(boardsRes.ok(), await boardsRes.text()).toBeTruthy();
+  const boards = (await boardsRes.json()) as Array<{
+    id: string;
+    keyPrefix?: string;
+    stages: Array<{ id: string; name: string }>;
+  }>;
+  return boards.find((entry) => entry.keyPrefix === "AWF") ?? boards[0]!;
+}
+
+async function firstAssignee(page: Page, boardId: string) {
+  const assignees = await page.request.get(`${API_BASE}/tasks/assignees?boardId=${boardId}`);
+  const people = (await assignees.json()) as Array<{ id: string }>;
+  return people[0]!.id;
+}
+
+async function createTaskViaApi(
+  page: Page,
+  board: { id: string; stages: Array<{ id: string; name: string }> },
+  title: string,
+  issueType = "TASK",
+) {
+  const backlog = board.stages.find((s) => /backlog/i.test(s.name)) ?? board.stages[0]!;
+  const create = await page.request.post(`${API_BASE}/tasks`, {
+    data: {
+      title,
+      boardId: board.id,
+      stageId: backlog.id,
+      issueType,
+      assigneeEmployeeIds: [await firstAssignee(page, board.id)],
+    },
+  });
+  expect(create.ok(), await create.text()).toBeTruthy();
+  return (await create.json()) as { id: string; version: number; issueKey?: string };
+}
+
+async function openTaskDetail(page: Page, taskId: string) {
+  await page.goto(`/tasks?task=${taskId}`, { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("task-collaboration-panels")).toBeVisible({ timeout: 20_000 });
+}
+
+test.describe("Collaboration member E2E", () => {
+  test("member adds label, watches, logs work, sees activity", async ({ page }) => {
+    await loginAs(page, "employee");
+    const board = await awfBoard(page);
+    const task = await createTaskViaApi(page, board, `Collab Member ${Date.now()}`);
+
+    const label = await page.request.post(`${API_BASE}/task-boards/${board.id}/labels`, {
+      data: { name: `mobile-${Date.now()}` },
+    });
+    expect(label.status(), await label.text()).toBeLessThan(300);
+
+    const labelBody = (await label.json()) as { id: string };
+    const assignLabels = await page.request.put(`${API_BASE}/tasks/${task.id}/labels`, {
+      data: { version: task.version, labelIds: [labelBody.id] },
+    });
+    expect(assignLabels.ok(), await assignLabels.text()).toBeTruthy();
+
+    const watch = await page.request.post(`${API_BASE}/tasks/${task.id}/watchers/me`);
+    expect(watch.ok()).toBeTruthy();
+
+    const log = await page.request.post(`${API_BASE}/tasks/${task.id}/work-logs`, {
+      data: { duration: "1h 30m", workDate: "2026-08-22" },
+    });
+    expect(log.ok(), await log.text()).toBeTruthy();
+
+    await openTaskDetail(page, task.id);
+    await expect(page.getByTestId("labels-panel")).toBeVisible();
+    await expect(page.getByTestId("work-logs-panel")).toContainText("1h 30m");
+    await expect(page.getByTestId("watch-toggle")).toContainText("Watching");
+  });
+});
+
+test.describe("Dependency cycle E2E", () => {
+  test("rejects circular BLOCKS chain", async ({ page }) => {
+    await loginAs(page, "manager");
+    const board = await awfBoard(page);
+    const a = await createTaskViaApi(page, board, `Dep A ${Date.now()}`);
+    const b = await createTaskViaApi(page, board, `Dep B ${Date.now()}`);
+    const c = await createTaskViaApi(page, board, `Dep C ${Date.now()}`);
+
+    expect(
+      (await page.request.post(`${API_BASE}/tasks/${a.id}/relations`, {
+        data: { targetTaskId: b.id, relationType: "BLOCKS" },
+      })).ok(),
+    ).toBeTruthy();
+    expect(
+      (await page.request.post(`${API_BASE}/tasks/${b.id}/relations`, {
+        data: { targetTaskId: c.id, relationType: "BLOCKS" },
+      })).ok(),
+    ).toBeTruthy();
+
+    const cycle = await page.request.post(`${API_BASE}/tasks/${c.id}/relations`, {
+      data: { targetTaskId: a.id, relationType: "BLOCKS" },
+    });
+    expect(cycle.status()).toBe(409);
+    const rels = await page.request.get(`${API_BASE}/tasks/${a.id}/relations`);
+    const body = (await rels.json()) as { blocks: unknown[] };
+    expect(body.blocks.length).toBe(1);
+  });
+});
+
+test.describe("Work log E2E", () => {
+  test("persists minutes and totals after edit", async ({ page }) => {
+    await loginAs(page, "employee");
+    const board = await awfBoard(page);
+    const task = await createTaskViaApi(page, board, `Worklog ${Date.now()}`);
+
+    await page.request.post(`${API_BASE}/tasks/${task.id}/work-logs`, {
+      data: { duration: "1h 30m", workDate: "2026-08-22" },
+    });
+    const second = await page.request.post(`${API_BASE}/tasks/${task.id}/work-logs`, {
+      data: { duration: "30m", workDate: "2026-08-22" },
+    });
+    const log = (await second.json()) as { id: string };
+
+    await page.request.patch(`${API_BASE}/work-logs/${log.id}`, {
+      data: { duration: "45m" },
+    });
+
+    const list = await page.request.get(`${API_BASE}/tasks/${task.id}/work-logs`);
+    const totals = (await list.json()) as { totals: { totalMinutes: number } };
+    expect(totals.totals.totalMinutes).toBe(135);
+  });
+});
+
+test.describe("Label E2E", () => {
+  test("deactivated label stays on item but cannot be newly assigned", async ({ page }) => {
+    await loginAs(page, "developer_admin");
+    const board = await awfBoard(page);
+    const task = await createTaskViaApi(page, board, `Label ${Date.now()}`);
+
+    const backend = await page.request.post(`${API_BASE}/task-boards/${board.id}/labels`, {
+      data: { name: `backend-${Date.now()}` },
+    });
+    const backendLabel = (await backend.json()) as { id: string };
+
+    await page.request.put(`${API_BASE}/tasks/${task.id}/labels`, {
+      data: { version: task.version, labelIds: [backendLabel.id] },
+    });
+
+    await page.request.patch(`${API_BASE}/task-labels/${backendLabel.id}`, {
+      data: { active: false },
+    });
+
+    const mobile = await page.request.post(`${API_BASE}/task-boards/${board.id}/labels`, {
+      data: { name: `mobile-${Date.now()}` },
+    });
+    const mobileLabel = (await mobile.json()) as { id: string };
+
+    const assignInactive = await page.request.put(`${API_BASE}/tasks/${task.id}/labels`, {
+      data: { version: task.version + 1, labelIds: [backendLabel.id, mobileLabel.id] },
+    });
+    expect(assignInactive.status()).toBe(409);
+  });
+});
+
+test.describe("Viewer E2E", () => {
+  test("viewer cannot mutate collaboration APIs", async ({ page }) => {
+    await loginAs(page, "developer_admin");
+    const board = await awfBoard(page);
+    const task = await createTaskViaApi(page, board, `Viewer target ${Date.now()}`);
+
+    await page.context().clearCookies();
+    const login = await page.request.post(`${API_BASE}/auth/login`, {
+      data: { email: "viewer@anytimediesel.com", password: E2E_PASSWORD, portal: "employee" },
+    });
+    if (!login.ok()) {
+      test.skip(true, "No seeded viewer account");
+    }
+
+    const rel = await page.request.post(`${API_BASE}/tasks/${task.id}/relations`, {
+      data: { targetTaskId: task.id, relationType: "RELATES_TO" },
+    });
+    expect(rel.status()).toBeGreaterThanOrEqual(400);
+
+    const log = await page.request.post(`${API_BASE}/tasks/${task.id}/work-logs`, {
+      data: { duration: "1h", workDate: "2026-08-22" },
+    });
+    expect(log.status()).toBe(403);
+  });
+});
+
+for (const vp of VIEWPORTS) {
+  test(`collaboration UI responsive @${vp.name}`, async ({ page }) => {
+    await page.setViewportSize({ width: vp.width, height: vp.height });
+    await loginAs(page, "employee");
+    const board = await awfBoard(page);
+    const task = await createTaskViaApi(page, board, `UI ${vp.name} ${Date.now()}`);
+    await openTaskDetail(page, task.id);
+    const overflow = await findOverflow(page);
+    expect(overflow, overflow ?? "").toHaveLength(0);
+  });
+}

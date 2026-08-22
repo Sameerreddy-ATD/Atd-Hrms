@@ -679,6 +679,47 @@ export const taskComponentsSchema = z.object({
   componentIds: z.array(z.string().min(1)).max(50),
 });
 
+export const labelCreateSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  description: z.string().trim().max(2000).optional().nullable(),
+  color: z.string().trim().max(32).optional().nullable(),
+});
+
+export const labelUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  description: z.string().trim().max(2000).optional().nullable(),
+  color: z.string().trim().max(32).optional().nullable(),
+  active: z.boolean().optional(),
+});
+
+export const taskLabelsSchema = z.object({
+  version: z.coerce.number().int().positive(),
+  labelIds: z.array(z.string().min(1)).max(50),
+});
+
+export const relationCreateSchema = z.object({
+  targetTaskId: z.string().min(1),
+  relationType: z.enum(["BLOCKS", "RELATES_TO", "DUPLICATES"]),
+});
+
+export const workLogCreateSchema = z.object({
+  duration: z.string().trim().min(1).max(40),
+  workDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  description: z.string().trim().max(4000).optional().nullable(),
+});
+
+export const workLogUpdateSchema = z.object({
+  duration: z.string().trim().min(1).max(40).optional(),
+  workDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  description: z.string().trim().max(4000).optional().nullable(),
+});
+
+export const taskActivityQuerySchema = z.object({
+  cursor: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  filter: z.enum(["all", "comments", "history"]).optional(),
+});
+
 export const holidaySchema = z.object({
   name: z.string().min(2).max(160),
   date: z.coerce.date(),

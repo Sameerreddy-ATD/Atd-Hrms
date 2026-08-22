@@ -718,6 +718,9 @@ function TaskBoardsPage() {
             ? boardHasCapability(selectedTaskBoard, "MANAGE_SPRINT")
             : false
         }
+        canEditWorkItem={
+          selectedTaskBoard ? boardHasCapability(selectedTaskBoard, "EDIT_WORK_ITEM") : true
+        }
         onSprintChanged={(updated) => {
           applyTaskUpdate(updated);
           if (selectedBoardId) void loadBoardTasks(selectedBoardId);
