@@ -26,11 +26,16 @@ import type {
   Announcement,
   Role,
   TaskAssignee,
+  TaskAvailableTransition,
   TaskBoard,
   TaskIssueType,
   TaskPriority,
   TaskStatus,
+  TaskStatusCategory,
   TaskStage,
+  TaskWorkflow,
+  TaskWorkflowStatus,
+  TaskWorkflowTransition,
   User,
   UserSessionList,
   WorkTask,
@@ -1991,6 +1996,100 @@ export const tasksApi = {
     request<{ id: string; fileName: string }>(`/tasks/${id}/attachments`, {
       method: "POST",
       body: JSON.stringify(payload),
+    }),
+  transitions: (id: string) =>
+    request<{ transitions: TaskAvailableTransition[] }>(`/tasks/${id}/transitions`),
+  transition: (
+    id: string,
+    payload: {
+      version: number;
+      transitionId: string;
+      comment?: string;
+      rankBeforeTaskId?: string;
+      rankAfterTaskId?: string;
+      fieldValues?: Record<string, string | number | boolean | null>;
+    },
+  ) =>
+    request<WorkTask>(`/tasks/${id}/transitions`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  workflows: (boardId: string) =>
+    request<{
+      workflows: TaskWorkflow[];
+      typeMappings: Array<{ issueType: TaskIssueType; workflowId: string }>;
+    }>(`/task-boards/${boardId}/workflows`),
+  createWorkflowStatus: (
+    workflowId: string,
+    body: {
+      name: string;
+      category: TaskStatusCategory;
+      color?: TaskStage["color"];
+      sortOrder?: number;
+      isInitial?: boolean;
+      isTerminal?: boolean;
+      stageId?: string | null;
+    },
+  ) =>
+    request<TaskWorkflowStatus>(`/task-workflows/${workflowId}/statuses`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  updateWorkflowStatus: (
+    statusId: string,
+    body: Partial<{
+      name: string;
+      category: TaskStatusCategory;
+      color: TaskStage["color"];
+      sortOrder: number;
+      isInitial: boolean;
+      isTerminal: boolean;
+      stageId: string | null;
+      active: boolean;
+    }>,
+  ) =>
+    request<TaskWorkflowStatus>(`/task-workflow-statuses/${statusId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  deleteWorkflowStatus: (statusId: string) =>
+    request<{ id: string; active?: boolean; deleted?: boolean }>(
+      `/task-workflow-statuses/${statusId}`,
+      { method: "DELETE" },
+    ),
+  createWorkflowTransition: (
+    workflowId: string,
+    body: {
+      name: string;
+      fromStatusId: string;
+      toStatusId: string;
+      commentRequired?: boolean;
+      resolutionRequired?: boolean;
+      active?: boolean;
+      requiredFields?: string[];
+      allowedProjectRoles?: string[];
+    },
+  ) =>
+    request<TaskWorkflowTransition>(`/task-workflows/${workflowId}/transitions`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  updateWorkflowTransition: (
+    transitionId: string,
+    body: Partial<{
+      name: string;
+      fromStatusId: string;
+      toStatusId: string;
+      commentRequired: boolean;
+      resolutionRequired: boolean;
+      active: boolean;
+      requiredFields: string[] | null;
+      allowedProjectRoles: string[] | null;
+    }>,
+  ) =>
+    request<TaskWorkflowTransition>(`/task-workflow-transitions/${transitionId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
     }),
 };
 

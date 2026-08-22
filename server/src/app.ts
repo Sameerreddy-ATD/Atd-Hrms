@@ -113,6 +113,22 @@ import {
   resolveProjectRole,
   type ProjectCapability,
 } from "./taskProjectRoles.js";
+import {
+  availableTransitionsDto,
+  ensureProjectWorkflows,
+  initialStatusOf,
+  mapStatusForTypeChange,
+  resolveTransitionForStageMove,
+  transitionWorkItemInTx,
+  workflowForIssueType,
+} from "./taskWorkflowEngine.js";
+import {
+  addWorkflowStatus,
+  addWorkflowTransition,
+  deactivateWorkflowStatus,
+  updateWorkflowStatus,
+  workflowDto,
+} from "./taskWorkflowAdmin.js";
 import { matchingBranch } from "./geofence.js";
 import {
   FACE_CONSENT,
@@ -311,7 +327,12 @@ import {
   taskBoardSchema,
   taskBoardUpdateSchema,
   taskSchema,
+  taskTransitionSchema,
   taskUpdateSchema,
+  workflowStatusCreateSchema,
+  workflowStatusUpdateSchema,
+  workflowTransitionCreateSchema,
+  workflowTransitionUpdateSchema,
   thumbEventSchema,
   updateEmployeeSchema,
   emergencyContactSchema,
@@ -8007,6 +8028,17 @@ export function createApp() {
         statusCategory: true,
       },
     },
+    workflowStatus: {
+      select: {
+        statusId: true,
+        name: true,
+        category: true,
+        isInitial: true,
+        isTerminal: true,
+        stageId: true,
+        color: true,
+      },
+    },
     updates: {
       include: { author: { select: { id: true, name: true } } },
       orderBy: { createdAt: "desc" as const },
@@ -8054,6 +8086,19 @@ export function createApp() {
           }
         : undefined,
       status: task.status,
+      workflowStatusId: task.workflowStatusId ?? undefined,
+      workflowStatus: task.workflowStatus
+        ? {
+            id: task.workflowStatus.statusId,
+            name: task.workflowStatus.name,
+            category: task.workflowStatus.category,
+            isInitial: task.workflowStatus.isInitial,
+            isTerminal: task.workflowStatus.isTerminal,
+            stageId: task.workflowStatus.stageId ?? undefined,
+            color: task.workflowStatus.color,
+          }
+        : undefined,
+      resolution: task.resolution ?? undefined,
       priority: task.priority,
       progress: task.progress,
       version: task.version,
@@ -8090,12 +8135,26 @@ export function createApp() {
     };
   }
 
+  async function taskDtoForUser(
+    task: TaskWithDetails,
+    user: NonNullable<express.Request["user"]>,
+    options?: { summary?: boolean },
+  ) {
+    const base = taskDto(task, options);
+    if (options?.summary) return base;
+    return {
+      ...base,
+      availableTransitions: await availableTransitionsDto(prisma, user, task),
+    };
+  }
+
   const taskSummaryInclude = {
     assignments: taskInclude.assignments,
     createdBy: taskInclude.createdBy,
     reporter: taskInclude.reporter,
     board: taskInclude.board,
     stage: taskInclude.stage,
+    workflowStatus: taskInclude.workflowStatus,
     _count: taskInclude._count,
   } satisfies Prisma.WorkTaskInclude;
 
@@ -8437,18 +8496,25 @@ export function createApp() {
         },
         include: boardInclude,
       });
+      await prisma.$transaction((tx) =>
+        ensureProjectWorkflows(tx, board.boardId, { preferCatalog: true }),
+      );
+      const seeded = await prisma.taskBoard.findUniqueOrThrow({
+        where: { boardId: board.boardId },
+        include: boardInclude,
+      });
       await audit({
         action: "task board created",
         performedByUserId: req.user!.id,
         newValue: {
-          boardId: board.boardId,
-          name: board.name,
-          keyPrefix: board.keyPrefix,
-          accessType: board.accessType,
+          boardId: seeded.boardId,
+          name: seeded.name,
+          keyPrefix: seeded.keyPrefix,
+          accessType: seeded.accessType,
         },
         ipAddress: req.ip,
       });
-      res.status(201).json(await boardDtoForUser(board, req.user!));
+      res.status(201).json(await boardDtoForUser(seeded, req.user!));
     }),
   );
 
@@ -8730,6 +8796,180 @@ export function createApp() {
   );
 
   app.get(
+    "/task-boards/:id/workflows",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const board = await assertBoardAccess(req.user!, String(req.params.id));
+      await prisma.$transaction((tx) => ensureProjectWorkflows(tx, board.boardId));
+      const workflows = await prisma.taskWorkflow.findMany({
+        where: { boardId: board.boardId },
+        include: {
+          statuses: { orderBy: { sortOrder: "asc" } },
+          transitions: { orderBy: { name: "asc" } },
+        },
+        orderBy: [{ isDefault: "desc" }, { kind: "asc" }],
+      });
+      const mappings = await prisma.taskWorkflowTypeMapping.findMany({
+        where: { boardId: board.boardId },
+      });
+      res.json({
+        workflows: workflows.map(workflowDto),
+        typeMappings: mappings.map((row) => ({
+          issueType: row.issueType,
+          workflowId: row.workflowId,
+        })),
+      });
+    }),
+  );
+
+  app.post(
+    "/task-workflows/:id/statuses",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const body = workflowStatusCreateSchema.parse(req.body);
+      const workflow = await prisma.taskWorkflow.findUniqueOrThrow({
+        where: { workflowId: String(req.params.id) },
+      });
+      await assertProjectCapability(prisma, req.user!, workflow.boardId, "MANAGE_PROJECT");
+      const status = await addWorkflowStatus(prisma, workflow.workflowId, body);
+      res.status(201).json({
+        id: status.statusId,
+        name: status.name,
+        category: status.category,
+        sortOrder: status.sortOrder,
+        color: status.color,
+        isInitial: status.isInitial,
+        isTerminal: status.isTerminal,
+        active: status.active,
+        stageId: status.stageId ?? undefined,
+      });
+    }),
+  );
+
+  app.patch(
+    "/task-workflow-statuses/:id",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const body = workflowStatusUpdateSchema.parse(req.body);
+      const status = await prisma.taskWorkflowStatus.findUniqueOrThrow({
+        where: { statusId: String(req.params.id) },
+        include: { workflow: true },
+      });
+      await assertProjectCapability(prisma, req.user!, status.workflow.boardId, "MANAGE_PROJECT");
+      const updated = await updateWorkflowStatus(prisma, status.statusId, body);
+      res.json({
+        id: updated.statusId,
+        name: updated.name,
+        category: updated.category,
+        sortOrder: updated.sortOrder,
+        color: updated.color,
+        isInitial: updated.isInitial,
+        isTerminal: updated.isTerminal,
+        active: updated.active,
+        stageId: updated.stageId ?? undefined,
+      });
+    }),
+  );
+
+  app.delete(
+    "/task-workflow-statuses/:id",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const status = await prisma.taskWorkflowStatus.findUniqueOrThrow({
+        where: { statusId: String(req.params.id) },
+        include: { workflow: true },
+      });
+      await assertProjectCapability(prisma, req.user!, status.workflow.boardId, "MANAGE_PROJECT");
+      const result = await deactivateWorkflowStatus(prisma, status.statusId);
+      res.json({
+        id: result.statusId,
+        active: "active" in result ? result.active : false,
+        deleted: !("active" in result),
+      });
+    }),
+  );
+
+  app.post(
+    "/task-workflows/:id/transitions",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const body = workflowTransitionCreateSchema.parse(req.body);
+      const workflow = await prisma.taskWorkflow.findUniqueOrThrow({
+        where: { workflowId: String(req.params.id) },
+      });
+      await assertProjectCapability(prisma, req.user!, workflow.boardId, "MANAGE_PROJECT");
+      const transition = await addWorkflowTransition(prisma, workflow.workflowId, body);
+      res.status(201).json({
+        id: transition.transitionId,
+        name: transition.name,
+        fromStatusId: transition.fromStatusId,
+        toStatusId: transition.toStatusId,
+        active: transition.active,
+        commentRequired: transition.commentRequired,
+        resolutionRequired: transition.resolutionRequired,
+        allowedProjectRoles: Array.isArray(transition.allowedProjectRoles)
+          ? transition.allowedProjectRoles
+          : [],
+        requiredFields: Array.isArray(transition.requiredFields) ? transition.requiredFields : [],
+      });
+    }),
+  );
+
+  app.patch(
+    "/task-workflow-transitions/:id",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const body = workflowTransitionUpdateSchema.parse(req.body);
+      const transition = await prisma.taskWorkflowTransition.findUniqueOrThrow({
+        where: { transitionId: String(req.params.id) },
+        include: { workflow: true },
+      });
+      await assertProjectCapability(prisma, req.user!, transition.workflow.boardId, "MANAGE_PROJECT");
+      if (
+        (body.fromStatusId ?? transition.fromStatusId) === (body.toStatusId ?? transition.toStatusId)
+      ) {
+        throw new HttpError(400, "A transition cannot start and end on the same status");
+      }
+      const updated = await prisma.taskWorkflowTransition.update({
+        where: { transitionId: transition.transitionId },
+        data: {
+          name: body.name,
+          fromStatusId: body.fromStatusId,
+          toStatusId: body.toStatusId,
+          allowedProjectRoles:
+            body.allowedProjectRoles === undefined
+              ? undefined
+              : body.allowedProjectRoles === null
+                ? Prisma.DbNull
+                : body.allowedProjectRoles,
+          requiredFields:
+            body.requiredFields === undefined
+              ? undefined
+              : body.requiredFields === null
+                ? Prisma.DbNull
+                : body.requiredFields,
+          commentRequired: body.commentRequired,
+          resolutionRequired: body.resolutionRequired,
+          active: body.active,
+        },
+      });
+      res.json({
+        id: updated.transitionId,
+        name: updated.name,
+        fromStatusId: updated.fromStatusId,
+        toStatusId: updated.toStatusId,
+        active: updated.active,
+        commentRequired: updated.commentRequired,
+        resolutionRequired: updated.resolutionRequired,
+        allowedProjectRoles: Array.isArray(updated.allowedProjectRoles)
+          ? updated.allowedProjectRoles
+          : [],
+        requiredFields: Array.isArray(updated.requiredFields) ? updated.requiredFields : [],
+      });
+    }),
+  );
+
+  app.get(
     "/tasks/assignees",
     requireAuth,
     asyncHandler(async (req, res) => {
@@ -8977,7 +9217,67 @@ export function createApp() {
         task,
         task.assignments.map((assignment) => assignment.employeeId),
       );
-      res.json(taskDto(task));
+      res.json(await taskDtoForUser(task, req.user!));
+    }),
+  );
+
+  app.get(
+    "/tasks/:id/transitions",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const task = await prisma.workTask.findUniqueOrThrow({
+        where: { taskId: String(req.params.id) },
+      });
+      const assignments = await prisma.taskAssignment.findMany({
+        where: { taskId: task.taskId },
+        select: { employeeId: true },
+      });
+      await assertCanViewTask(
+        req.user!,
+        task,
+        assignments.map((row) => row.employeeId),
+      );
+      if (task.boardId) {
+        await prisma.$transaction((tx) => ensureProjectWorkflows(tx, task.boardId!));
+      }
+      res.json({ transitions: await availableTransitionsDto(prisma, req.user!, task) });
+    }),
+  );
+
+  app.post(
+    "/tasks/:id/transitions",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const body = taskTransitionSchema.parse(req.body);
+      const existing = await prisma.workTask.findUniqueOrThrow({
+        where: { taskId: String(req.params.id) },
+      });
+      const assignments = await prisma.taskAssignment.findMany({
+        where: { taskId: existing.taskId },
+        select: { employeeId: true },
+      });
+      await assertCanViewTask(
+        req.user!,
+        existing,
+        assignments.map((row) => row.employeeId),
+      );
+      await prisma.$transaction((tx) =>
+        transitionWorkItemInTx(tx, {
+          workItemId: existing.taskId,
+          transitionId: body.transitionId,
+          actor: req.user!,
+          comment: body.comment,
+          expectedVersion: body.version,
+          rankBeforeTaskId: body.rankBeforeTaskId,
+          rankAfterTaskId: body.rankAfterTaskId,
+          fieldValues: body.fieldValues,
+        }),
+      );
+      const task = await prisma.workTask.findUniqueOrThrow({
+        where: { taskId: existing.taskId },
+        include: taskInclude,
+      });
+      res.json(await taskDtoForUser(task, req.user!));
     }),
   );
 
@@ -8996,6 +9296,7 @@ export function createApp() {
       const boardId = body.boardId || null;
       let stageId = body.stageId || null;
       let selectedStage: { stageId: string; status: TaskStatus; isCompleted: boolean } | undefined;
+      let workflowStatusId: string | null = null;
       if (boardId) {
         const board = await assertBoardAccess(req.user!, boardId);
         if (board.archived) {
@@ -9003,8 +9304,15 @@ export function createApp() {
         }
         await assertProjectCapability(prisma, req.user!, boardId, "CREATE_WORK_ITEM");
         await assertAssigneesAllowedOnBoard(board, employeeIds);
-        const stage = stageId
-          ? board.stages.find((entry) => entry.stageId === stageId)
+        await prisma.$transaction((tx) => ensureProjectWorkflows(tx, boardId));
+        const resolvedTypeEarly = body.issueType ?? TaskIssueType.TASK;
+        const workflow = await workflowForIssueType(prisma, boardId, resolvedTypeEarly);
+        const initial = initialStatusOf(workflow);
+        workflowStatusId = initial.statusId;
+        const mappedStageId =
+          workflow.statuses.find((status) => status.statusId === initial.statusId)?.stageId ?? null;
+        const stage = mappedStageId
+          ? board.stages.find((entry) => entry.stageId === mappedStageId)
           : startingStage(board.stages);
         if (!stage) throw new HttpError(400, "Select a status from this project");
         stageId = stage.stageId;
@@ -9064,6 +9372,7 @@ export function createApp() {
             issueType: resolvedType,
             rank,
             status: selectedStage ? taskStatusForStage(selectedStage) : undefined,
+            workflowStatusId,
             progress: selectedStage?.isCompleted ? 100 : undefined,
             completedAt: selectedStage?.isCompleted ? new Date() : undefined,
             description: body.description || null,
@@ -9101,7 +9410,7 @@ export function createApp() {
         },
         ipAddress: req.ip,
       });
-      res.status(201).json(taskDto(task));
+      res.status(201).json(await taskDtoForUser(task, req.user!));
     }),
   );
 
@@ -9247,6 +9556,47 @@ export function createApp() {
         throw new HttpError(400, "Workspace tasks must remain in a stage");
       }
 
+      let patchVersion = body.version;
+      let workflowMoveApplied = false;
+      if (existing.boardId && !body.boardId) {
+        await prisma.$transaction((tx) => ensureProjectWorkflows(tx, existing.boardId!));
+        const movingToStage =
+          nextStageId !== undefined && nextStageId !== null && nextStageId !== existing.stageId;
+        if (movingToStage) {
+          const match = await resolveTransitionForStageMove(
+            prisma,
+            req.user!,
+            existing,
+            nextStageId!,
+          );
+          if (!match) {
+            throw new HttpError(
+              409,
+              "This work item cannot move to that column with the current workflow.",
+            );
+          }
+          await prisma.$transaction((tx) =>
+            transitionWorkItemInTx(tx, {
+              workItemId: existing.taskId,
+              transitionId: match.transitionId,
+              actor: req.user!,
+              expectedVersion: patchVersion,
+              rankBeforeTaskId: body.rankBeforeTaskId,
+              rankAfterTaskId: body.rankAfterTaskId,
+            }),
+          );
+          patchVersion += 1;
+          workflowMoveApplied = true;
+          nextStageId = undefined;
+          nextStatus = undefined;
+        } else if (body.status !== undefined && body.status !== existing.status && !body.stageId) {
+          throw new HttpError(
+            409,
+            "Use a workflow transition to change status. Direct status writes are not allowed.",
+          );
+        }
+      }
+
       const effectiveAssigneeIds = replacementIds ?? existingEmployeeIds;
       if (targetBoard) {
         await assertAssigneesAllowedOnBoard(targetBoard, effectiveAssigneeIds);
@@ -9317,6 +9667,32 @@ export function createApp() {
           const mid = midpointRank(rankNeighborBefore, rankNeighborAfter);
           if (mid != null) requestedRank = mid;
         }
+      }
+
+      const hasDetailPatch = [
+        body.title,
+        body.description,
+        body.priority,
+        body.issueType,
+        body.reporterUserId,
+        body.progress,
+        body.startDate,
+        body.dueDate,
+        body.customFields,
+        body.parentTaskId,
+        body.boardId,
+        replacementIds,
+      ].some((value) => value !== undefined);
+
+      if (workflowMoveApplied && !hasDetailPatch) {
+        const moved = await prisma.workTask.findUniqueOrThrow({
+          where: { taskId: existing.taskId },
+          include: taskInclude,
+        });
+        res.json(
+          await taskDtoForUser(moved, req.user!),
+        );
+        return;
       }
 
       const effectiveStatus = nextStatus ?? existing.status;
@@ -9390,8 +9766,32 @@ export function createApp() {
           }
         }
 
+        let mappedWorkflowStatusId: string | undefined;
+        let mappedStageFromType: string | undefined;
+        if (body.issueType && body.issueType !== existing.issueType && existing.boardId) {
+          const boardIdForType = (nextBoardId ?? existing.boardId)!;
+          await ensureProjectWorkflows(transaction, boardIdForType);
+          const targetWorkflow = await workflowForIssueType(
+            transaction,
+            boardIdForType,
+            body.issueType,
+          );
+          const currentStatus = existing.workflowStatusId
+            ? await transaction.taskWorkflowStatus.findUnique({
+                where: { statusId: existing.workflowStatusId },
+              })
+            : null;
+          const mapped = mapStatusForTypeChange({
+            fromCategory: currentStatus?.category ?? "TODO",
+            fromName: currentStatus?.name ?? existing.status,
+            targetStatuses: targetWorkflow.statuses,
+          });
+          mappedWorkflowStatusId = mapped.statusId;
+          mappedStageFromType = mapped.stageId ?? undefined;
+        }
+
         const updated = await transaction.workTask.updateMany({
-          where: { taskId: existing.taskId, version: body.version },
+          where: { taskId: existing.taskId, version: patchVersion },
           data: {
             title: body.title,
             description: body.description,
@@ -9402,13 +9802,14 @@ export function createApp() {
             progress: body.progress !== undefined || nextStatus ? nextProgress : undefined,
             startDate: body.startDate,
             dueDate: body.dueDate,
-            stageId: nextStageId,
+            stageId: nextStageId ?? mappedStageFromType,
             boardId: body.boardId === undefined ? undefined : nextBoardId,
             issueNumber: body.boardId && nextBoardId !== existing.boardId ? issueNumber : undefined,
             issueKey: body.boardId && nextBoardId !== existing.boardId ? issueKey : undefined,
             rank: nextRank,
             customFields: body.customFields as Prisma.InputJsonValue | undefined,
             parentTaskId: body.parentTaskId,
+            workflowStatusId: mappedWorkflowStatusId,
             completedAt:
               nextStatus === TaskStatus.COMPLETED
                 ? (existing.completedAt ?? new Date())
@@ -9459,7 +9860,7 @@ export function createApp() {
         },
         ipAddress: req.ip,
       });
-      res.json(taskDto(task));
+      res.json(await taskDtoForUser(task, req.user!));
     }),
   );
 

@@ -842,6 +842,56 @@ export interface TaskUpdate {
   createdAt: string;
 }
 
+export interface TaskWorkflowStatus {
+  id: string;
+  name: string;
+  category: TaskStatusCategory;
+  sortOrder?: number;
+  color: string;
+  isInitial: boolean;
+  isTerminal: boolean;
+  active?: boolean;
+  stageId?: string;
+  legacyStatus?: TaskStatus;
+}
+
+export interface TaskWorkflowTransition {
+  id: string;
+  name: string;
+  fromStatusId: string;
+  toStatusId: string;
+  active: boolean;
+  allowedProjectRoles?: TaskProjectRole[];
+  requiredFields?: string[];
+  commentRequired: boolean;
+  resolutionRequired: boolean;
+}
+
+export interface TaskWorkflow {
+  id: string;
+  boardId: string;
+  name: string;
+  description?: string;
+  kind: string;
+  active: boolean;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+  statuses: TaskWorkflowStatus[];
+  transitions: TaskWorkflowTransition[];
+}
+
+export interface TaskAvailableTransition {
+  id: string;
+  name: string;
+  toStatusId: string;
+  toStatusName: string;
+  toStageId?: string;
+  commentRequired: boolean;
+  requiredFields: string[];
+  resolutionRequired: boolean;
+}
+
 export interface WorkTask {
   id: string;
   title: string;
@@ -862,6 +912,18 @@ export interface WorkTask {
   stageId?: string;
   stage?: TaskStage;
   status: TaskStatus;
+  workflowStatusId?: string;
+  workflowStatus?: {
+    id: string;
+    name: string;
+    category: TaskStatusCategory;
+    isInitial: boolean;
+    isTerminal: boolean;
+    stageId?: string;
+    color: string;
+  };
+  resolution?: string;
+  availableTransitions?: TaskAvailableTransition[];
   priority: TaskPriority;
   progress: number;
   version: number;

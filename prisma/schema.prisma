@@ -232,6 +232,13 @@ enum TaskProjectRole {
   VIEWER
 }
 
+enum TaskWorkflowKind {
+  STANDARD
+  BUG
+  SUBTASK
+  EPIC
+}
+
 enum TaskActivityType {
   CREATED
   COMMENT
@@ -303,6 +310,7 @@ model User {
   reportedTasks                    WorkTask[]                @relation("TaskReporter")
   createdTaskBoards                TaskBoard[]               @relation("TaskBoardCreator")
   taskUpdates                      TaskUpdate[]
+  taskTransitionHistory            TaskTransitionHistory[]
   taskAssignmentsMade              TaskAssignment[]          @relation("TaskAssignedBy")
   announcements                    Announcement[]            @relation("AnnouncementAuthor")
   pushSubscriptions                PushSubscription[]
@@ -1529,40 +1537,46 @@ model ClientErrorLog {
 }
 
 model WorkTask {
-  taskId          String           @id @default(cuid()) @map("task_id")
-  title           String
-  description     String?          @db.Text
-  createdByUserId String           @map("created_by_user_id")
-  createdBy       User             @relation("TaskCreator", fields: [createdByUserId], references: [id])
+  taskId            String                  @id @default(cuid()) @map("task_id")
+  title             String
+  description       String?                 @db.Text
+  createdByUserId   String                  @map("created_by_user_id")
+  createdBy         User                    @relation("TaskCreator", fields: [createdByUserId], references: [id])
   /// Reporter is distinct from creator; defaults to creator on create when omitted.
-  reporterUserId  String?          @map("reporter_user_id")
-  reporter        User?            @relation("TaskReporter", fields: [reporterUserId], references: [id], onDelete: SetNull)
-  parentTaskId    String?          @map("parent_task_id")
-  parentTask      WorkTask?        @relation("TaskHierarchy", fields: [parentTaskId], references: [taskId])
-  subtasks        WorkTask[]       @relation("TaskHierarchy")
-  boardId         String?          @map("board_id")
-  board           TaskBoard?       @relation(fields: [boardId], references: [boardId], onDelete: SetNull)
-  stageId         String?          @map("stage_id")
-  stage           TaskStage?       @relation(fields: [stageId], references: [stageId], onDelete: SetNull)
-  issueNumber     Int?             @map("issue_number")
-  issueKey        String?          @unique @map("issue_key") @db.VarChar(32)
-  issueType       TaskIssueType    @default(TASK) @map("issue_type")
-  rank            Float            @default(0) @map("rank")
-  status          TaskStatus       @default(TODO)
-  priority        TaskPriority     @default(MEDIUM)
-  progress        Int              @default(0)
-  version         Int              @default(1)
-  startDate       DateTime?        @map("start_date") @db.Date
-  dueDate         DateTime?        @map("due_date") @db.Date
-  completedAt     DateTime?        @map("completed_at")
-  archivedAt      DateTime?        @map("archived_at")
-  customFields    Json?            @map("custom_fields")
-  lastActivityAt  DateTime         @default(now()) @map("last_activity_at")
-  createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
-  updates         TaskUpdate[]
-  assignments     TaskAssignment[]
-  attachments     TaskAttachment[]
+  reporterUserId    String?                 @map("reporter_user_id")
+  reporter          User?                   @relation("TaskReporter", fields: [reporterUserId], references: [id], onDelete: SetNull)
+  parentTaskId      String?                 @map("parent_task_id")
+  parentTask        WorkTask?               @relation("TaskHierarchy", fields: [parentTaskId], references: [taskId])
+  subtasks          WorkTask[]              @relation("TaskHierarchy")
+  boardId           String?                 @map("board_id")
+  board             TaskBoard?              @relation(fields: [boardId], references: [boardId], onDelete: SetNull)
+  stageId           String?                 @map("stage_id")
+  stage             TaskStage?              @relation(fields: [stageId], references: [stageId], onDelete: SetNull)
+  issueNumber       Int?                    @map("issue_number")
+  issueKey          String?                 @unique @map("issue_key") @db.VarChar(32)
+  issueType         TaskIssueType           @default(TASK) @map("issue_type")
+  rank              Float                   @default(0) @map("rank")
+  status            TaskStatus              @default(TODO)
+  priority          TaskPriority            @default(MEDIUM)
+  progress          Int                     @default(0)
+  version           Int                     @default(1)
+  startDate         DateTime?               @map("start_date") @db.Date
+  dueDate           DateTime?               @map("due_date") @db.Date
+  completedAt       DateTime?               @map("completed_at")
+  archivedAt        DateTime?               @map("archived_at")
+  customFields      Json?                   @map("custom_fields")
+  /// Workflow engine status (authoritative). Stage remains the board column.
+  workflowStatusId  String?                 @map("workflow_status_id")
+  workflowStatus    TaskWorkflowStatus?     @relation(fields: [workflowStatusId], references: [statusId], onDelete: SetNull)
+  /// Simple required-field target (e.g. resolution on Done/Closed).
+  resolution        String?                 @db.VarChar(120)
+  lastActivityAt    DateTime                @default(now()) @map("last_activity_at")
+  createdAt         DateTime                @default(now()) @map("created_at")
+  updatedAt         DateTime                @updatedAt @map("updated_at")
+  updates           TaskUpdate[]
+  assignments       TaskAssignment[]
+  attachments       TaskAttachment[]
+  transitionHistory TaskTransitionHistory[]
 
   @@unique([boardId, issueNumber])
   @@index([status])
@@ -1576,6 +1590,7 @@ model WorkTask {
   @@index([lastActivityAt])
   @@index([parentTaskId])
   @@index([issueType])
+  @@index([workflowStatusId])
   @@map("work_tasks")
 }
 
@@ -1613,6 +1628,7 @@ model TaskBoard {
   departmentAccess TaskBoardDepartment[]
   members          TaskBoardMember[]
   tasks            WorkTask[]
+  workflows        TaskWorkflow[]
   createdAt        DateTime              @default(now()) @map("created_at")
   updatedAt        DateTime              @updatedAt @map("updated_at")
 
@@ -1622,22 +1638,131 @@ model TaskBoard {
 }
 
 model TaskStage {
-  stageId        String             @id @default(cuid()) @map("stage_id")
-  boardId        String             @map("board_id")
-  board          TaskBoard          @relation(fields: [boardId], references: [boardId], onDelete: Cascade)
-  name           String
-  color          String             @default("SLATE")
-  sortOrder      Int                @default(0) @map("sort_order")
-  isCompleted    Boolean            @default(false) @map("is_completed")
-  status         TaskStatus         @default(TODO)
+  stageId          String               @id @default(cuid()) @map("stage_id")
+  boardId          String               @map("board_id")
+  board            TaskBoard            @relation(fields: [boardId], references: [boardId], onDelete: Cascade)
+  name             String
+  color            String               @default("SLATE")
+  sortOrder        Int                  @default(0) @map("sort_order")
+  isCompleted      Boolean              @default(false) @map("is_completed")
+  status           TaskStatus           @default(TODO)
   /// Conceptual category for My Work / reporting; detailed status remains on TaskStatus.
-  statusCategory TaskStatusCategory @default(TODO) @map("status_category")
-  tasks          WorkTask[]
+  statusCategory   TaskStatusCategory   @default(TODO) @map("status_category")
+  tasks            WorkTask[]
+  workflowStatuses TaskWorkflowStatus[]
 
   @@unique([boardId, name])
   @@index([boardId, sortOrder])
   @@index([boardId, statusCategory])
   @@map("task_stages")
+}
+
+/// Project workflow (Jira-style). One project may have several; type mapping selects which.
+model TaskWorkflow {
+  workflowId   String                    @id @default(cuid()) @map("workflow_id")
+  boardId      String                    @map("board_id")
+  board        TaskBoard                 @relation(fields: [boardId], references: [boardId], onDelete: Cascade)
+  name         String
+  description  String?                   @db.Text
+  kind         TaskWorkflowKind          @default(STANDARD)
+  active       Boolean                   @default(true)
+  isDefault    Boolean                   @default(false) @map("is_default")
+  createdAt    DateTime                  @default(now()) @map("created_at")
+  updatedAt    DateTime                  @updatedAt @map("updated_at")
+  statuses     TaskWorkflowStatus[]
+  transitions  TaskWorkflowTransition[]
+  typeMappings TaskWorkflowTypeMapping[]
+
+  @@index([boardId, kind])
+  @@index([boardId, isDefault])
+  @@map("task_workflows")
+}
+
+model TaskWorkflowTypeMapping {
+  boardId    String        @map("board_id")
+  issueType  TaskIssueType @map("issue_type")
+  workflowId String        @map("workflow_id")
+  workflow   TaskWorkflow  @relation(fields: [workflowId], references: [workflowId], onDelete: Cascade)
+
+  @@id([boardId, issueType])
+  @@index([workflowId])
+  @@map("task_workflow_type_mappings")
+}
+
+model TaskWorkflowStatus {
+  statusId        String                   @id @default(cuid()) @map("status_id")
+  workflowId      String                   @map("workflow_id")
+  workflow        TaskWorkflow             @relation(fields: [workflowId], references: [workflowId], onDelete: Cascade)
+  name            String
+  category        TaskStatusCategory
+  sortOrder       Int                      @default(0) @map("sort_order")
+  color           String                   @default("SLATE")
+  isInitial       Boolean                  @default(false) @map("is_initial")
+  isTerminal      Boolean                  @default(false) @map("is_terminal")
+  active          Boolean                  @default(true)
+  /// Board column this status appears in (Board Column → Workflow Status).
+  stageId         String?                  @map("stage_id")
+  stage           TaskStage?               @relation(fields: [stageId], references: [stageId], onDelete: SetNull)
+  workItems       WorkTask[]
+  fromTransitions TaskWorkflowTransition[] @relation("TransitionFrom")
+  toTransitions   TaskWorkflowTransition[] @relation("TransitionTo")
+  historyFrom     TaskTransitionHistory[]  @relation("HistoryFromStatus")
+  historyTo       TaskTransitionHistory[]  @relation("HistoryToStatus")
+
+  @@index([workflowId, sortOrder])
+  @@index([workflowId, active])
+  @@index([stageId])
+  @@map("task_workflow_statuses")
+}
+
+model TaskWorkflowTransition {
+  transitionId        String                  @id @default(cuid()) @map("transition_id")
+  workflowId          String                  @map("workflow_id")
+  workflow            TaskWorkflow            @relation(fields: [workflowId], references: [workflowId], onDelete: Cascade)
+  name                String
+  fromStatusId        String                  @map("from_status_id")
+  fromStatus          TaskWorkflowStatus      @relation("TransitionFrom", fields: [fromStatusId], references: [statusId], onDelete: Restrict)
+  toStatusId          String                  @map("to_status_id")
+  toStatus            TaskWorkflowStatus      @relation("TransitionTo", fields: [toStatusId], references: [statusId], onDelete: Restrict)
+  active              Boolean                 @default(true)
+  /// JSON array of TaskProjectRole. Empty/null = any role with TRANSITION_WORK_ITEM.
+  allowedProjectRoles Json?                   @map("allowed_project_roles")
+  /// JSON array of field keys (title, description, resolution, custom field keys).
+  requiredFields      Json?                   @map("required_fields")
+  commentRequired     Boolean                 @default(false) @map("comment_required")
+  resolutionRequired  Boolean                 @default(false) @map("resolution_required")
+  validatorConfig     Json?                   @map("validator_config")
+  history             TaskTransitionHistory[]
+
+  @@index([workflowId, fromStatusId, active])
+  @@index([fromStatusId])
+  @@index([toStatusId])
+  @@map("task_workflow_transitions")
+}
+
+model TaskTransitionHistory {
+  historyId      String                  @id @default(cuid()) @map("history_id")
+  taskId         String                  @map("task_id")
+  task           WorkTask                @relation(fields: [taskId], references: [taskId], onDelete: Cascade)
+  fromStatusId   String?                 @map("from_status_id")
+  fromStatus     TaskWorkflowStatus?     @relation("HistoryFromStatus", fields: [fromStatusId], references: [statusId], onDelete: SetNull)
+  toStatusId     String?                 @map("to_status_id")
+  toStatus       TaskWorkflowStatus?     @relation("HistoryToStatus", fields: [toStatusId], references: [statusId], onDelete: SetNull)
+  fromStatusName String                  @map("from_status_name")
+  toStatusName   String                  @map("to_status_name")
+  transitionId   String?                 @map("transition_id")
+  transition     TaskWorkflowTransition? @relation(fields: [transitionId], references: [transitionId], onDelete: SetNull)
+  transitionName String                  @map("transition_name")
+  actorUserId    String                  @map("actor_user_id")
+  actor          User                    @relation(fields: [actorUserId], references: [id])
+  comment        String?                 @db.Text
+  metadata       Json?
+  createdAt      DateTime                @default(now()) @map("created_at")
+
+  @@index([taskId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([transitionId])
+  @@map("task_transition_history")
 }
 
 model TaskBoardDepartment {

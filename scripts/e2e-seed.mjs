@@ -78,6 +78,11 @@ async function main() {
   await prisma.taskAttachment.deleteMany().catch(() => undefined);
   await prisma.taskUpdate.deleteMany().catch(() => undefined);
   await prisma.taskAssignment.deleteMany().catch(() => undefined);
+  await prisma.taskTransitionHistory.deleteMany().catch(() => undefined);
+  await prisma.taskWorkflowTransition.deleteMany().catch(() => undefined);
+  await prisma.taskWorkflowStatus.deleteMany().catch(() => undefined);
+  await prisma.taskWorkflowTypeMapping.deleteMany().catch(() => undefined);
+  await prisma.taskWorkflow.deleteMany().catch(() => undefined);
   await prisma.workTask.updateMany({ data: { parentTaskId: null } }).catch(() => undefined);
   await prisma.workTask.deleteMany().catch(() => undefined);
   await prisma.taskStage.deleteMany().catch(() => undefined);
@@ -466,18 +471,32 @@ async function main() {
       stages: {
         create: [
           {
-            name: "To do",
+            name: "Backlog",
             color: "SLATE",
             status: TaskStatus.TODO,
             statusCategory: TaskStatusCategory.TODO,
             sortOrder: 0,
           },
           {
-            name: "In progress",
+            name: "Ready",
+            color: "BLUE",
+            status: TaskStatus.TODO,
+            statusCategory: TaskStatusCategory.TODO,
+            sortOrder: 1,
+          },
+          {
+            name: "In Progress",
+            color: "AMBER",
+            status: TaskStatus.IN_PROGRESS,
+            statusCategory: TaskStatusCategory.IN_PROGRESS,
+            sortOrder: 2,
+          },
+          {
+            name: "QA",
             color: "BLUE",
             status: TaskStatus.IN_PROGRESS,
             statusCategory: TaskStatusCategory.IN_PROGRESS,
-            sortOrder: 1,
+            sortOrder: 3,
           },
           {
             name: "Done",
@@ -485,7 +504,7 @@ async function main() {
             status: TaskStatus.COMPLETED,
             statusCategory: TaskStatusCategory.DONE,
             isCompleted: true,
-            sortOrder: 2,
+            sortOrder: 4,
           },
         ],
       },

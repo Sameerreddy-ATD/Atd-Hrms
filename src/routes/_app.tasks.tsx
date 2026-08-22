@@ -120,9 +120,19 @@ function TaskBoardsPage() {
       ]);
       setTasks(taskRows);
       setBoardAssignees(people);
-      setSelectedTask((current) =>
-        current ? (taskRows.find((task) => task.id === current.id) ?? current) : null,
-      );
+      setSelectedTask((current) => {
+        if (!current) return null;
+        const row = taskRows.find((task) => task.id === current.id);
+        if (!row) return current;
+        return {
+          ...row,
+          updates: current.updates?.length ? current.updates : row.updates,
+          availableTransitions: current.availableTransitions,
+          workflowStatus: row.workflowStatus ?? current.workflowStatus,
+          workflowStatusId: row.workflowStatusId ?? current.workflowStatusId,
+          resolution: row.resolution ?? current.resolution,
+        };
+      });
     } catch (cause) {
       setError((cause as Error).message || t("pages.tasks.toastLoadTasksFailed"));
     } finally {
@@ -673,6 +683,24 @@ function TaskBoardsPage() {
           }
         }}
         onMove={moveTask}
+        onTransition={async (task, payload) => {
+          setTaskSaving(true);
+          try {
+            const updated = await tasksApi.transition(task.id, {
+              version: task.version,
+              transitionId: payload.transitionId,
+              ...(payload.comment ? { comment: payload.comment } : {}),
+            });
+            applyTaskUpdate(updated);
+            toast.success(t("pages.tasks.toastIssueMoved"));
+          } catch (cause) {
+            toast.error((cause as Error).message || t("pages.tasks.toastMoveTaskFailed"));
+            throw cause;
+          } finally {
+            setTaskSaving(false);
+          }
+        }}
+        onTaskUpdated={applyTaskUpdate}
         onAddUpdate={addTaskUpdate}
         onCreateSubtask={createSubtask}
         onOpenTask={openTask}

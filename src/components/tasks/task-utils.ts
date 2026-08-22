@@ -117,10 +117,13 @@ export const DEFAULT_BOARD_FORM: BoardForm = {
   allowedDepartmentIds: [],
   memberEmployeeIds: [],
   stages: [
-    { name: "To do", color: "SLATE", status: "TODO" },
-    { name: "In progress", color: "AMBER", status: "IN_PROGRESS" },
-    { name: "In review", color: "BLUE", status: "REVIEW" },
-    { name: "Completed", color: "EMERALD", status: "COMPLETED" },
+    { name: "Backlog", color: "SLATE", status: "TODO" },
+    { name: "Ready", color: "BLUE", status: "TODO" },
+    { name: "In Progress", color: "AMBER", status: "IN_PROGRESS" },
+    { name: "Review", color: "VIOLET", status: "REVIEW" },
+    { name: "QA", color: "AMBER", status: "IN_PROGRESS" },
+    { name: "Blocked", color: "RED", status: "BLOCKED" },
+    { name: "Done", color: "EMERALD", status: "COMPLETED" },
   ],
   customFieldDefs: [],
 };

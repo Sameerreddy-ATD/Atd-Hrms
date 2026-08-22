@@ -1,6 +1,7 @@
 import { ArrowLeft, Archive, Check, Shield } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,11 +14,14 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { tasksApi } from "@/services/api";
 import type {
   ProjectCapability,
   TaskAssignee,
   TaskBoard,
   TaskProjectRole,
+  TaskStatusCategory,
+  TaskWorkflow,
 } from "@/types/domain";
 import { ISSUE_TYPE_LABELS } from "./task-utils";
 
@@ -26,6 +30,7 @@ export type ProjectSettingsSection =
   | "members"
   | "work-types"
   | "fields"
+  | "workflow"
   | "permissions"
   | "archive";
 
@@ -34,9 +39,18 @@ const SECTIONS: Array<{ id: ProjectSettingsSection; label: string }> = [
   { id: "members", label: "Members" },
   { id: "work-types", label: "Work Types" },
   { id: "fields", label: "Fields" },
+  { id: "workflow", label: "Workflow" },
   { id: "permissions", label: "Permissions" },
   { id: "archive", label: "Archive" },
 ];
+
+const STATUS_CATEGORIES: TaskStatusCategory[] = ["TODO", "IN_PROGRESS", "DONE"];
+
+const CATEGORY_LABELS: Record<TaskStatusCategory, string> = {
+  TODO: "To do",
+  IN_PROGRESS: "In progress",
+  DONE: "Done",
+};
 
 const WORK_TYPES = ["EPIC", "STORY", "TASK", "BUG", "IMPROVEMENT", "SUBTASK"] as const;
 
@@ -142,6 +156,16 @@ export function ProjectSettingsShell({
   );
   const [archiveConfirm, setArchiveConfirm] = useState("");
   const [mobileNavOpen, setMobileNavOpen] = useState(true);
+  const [workflows, setWorkflows] = useState<TaskWorkflow[]>([]);
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>("");
+  const [workflowsLoading, setWorkflowsLoading] = useState(false);
+  const [workflowBusy, setWorkflowBusy] = useState(false);
+  const [newStatusName, setNewStatusName] = useState("");
+  const [newStatusCategory, setNewStatusCategory] = useState<TaskStatusCategory>("IN_PROGRESS");
+  const [newTransitionName, setNewTransitionName] = useState("");
+  const [newTransitionFrom, setNewTransitionFrom] = useState("");
+  const [newTransitionTo, setNewTransitionTo] = useState("");
+  const [newTransitionCommentRequired, setNewTransitionCommentRequired] = useState(false);
 
   useEffect(() => {
     setName(board.name);
@@ -160,10 +184,69 @@ export function ProjectSettingsShell({
     );
   }, [board]);
 
+  useEffect(() => {
+    if (section !== "workflow") return;
+    let cancelled = false;
+    void (async () => {
+      setWorkflowsLoading(true);
+      try {
+        const result = await tasksApi.workflows(board.id);
+        if (cancelled) return;
+        setWorkflows(result.workflows);
+        setSelectedWorkflowId((current) => {
+          if (current && result.workflows.some((workflow) => workflow.id === current)) {
+            return current;
+          }
+          return result.workflows[0]?.id ?? "";
+        });
+      } catch (cause) {
+        if (!cancelled) {
+          toast.error((cause as Error).message || "Could not load workflows.");
+          setWorkflows([]);
+        }
+      } finally {
+        if (!cancelled) setWorkflowsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [board.id, section]);
+
   const assigneeById = useMemo(
     () => new Map(assignees.map((person) => [person.id, person])),
     [assignees],
   );
+
+  const selectedWorkflow = useMemo(
+    () => workflows.find((workflow) => workflow.id === selectedWorkflowId) ?? null,
+    [selectedWorkflowId, workflows],
+  );
+
+  const statusNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const status of selectedWorkflow?.statuses ?? []) {
+      map.set(status.id, status.name);
+    }
+    return map;
+  }, [selectedWorkflow]);
+
+  async function refreshWorkflows(preferId?: string) {
+    const result = await tasksApi.workflows(board.id);
+    setWorkflows(result.workflows);
+    const nextId =
+      (preferId && result.workflows.some((workflow) => workflow.id === preferId)
+        ? preferId
+        : undefined) ??
+      selectedWorkflowId ??
+      result.workflows[0]?.id ??
+      "";
+    setSelectedWorkflowId(
+      result.workflows.some((workflow) => workflow.id === nextId)
+        ? nextId
+        : (result.workflows[0]?.id ?? ""),
+    );
+  }
 
   function selectSection(next: ProjectSettingsSection) {
     setSection(next);
@@ -470,6 +553,355 @@ export function ProjectSettingsShell({
                     </li>
                   ))}
                 </ul>
+              )}
+            </div>
+          )}
+
+          {section === "workflow" && (
+            <div className="space-y-5">
+              <div>
+                <h2 className="text-sm font-semibold">Workflow</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Statuses and transitions for this project. Board columns stay mapped via stage.
+                </p>
+              </div>
+
+              {workflowsLoading ? (
+                <p className="text-sm text-muted-foreground">Loading workflows…</p>
+              ) : workflows.length === 0 ? (
+                <p className="rounded-lg border border-dashed px-3 py-6 text-sm text-muted-foreground">
+                  No workflows configured for this project yet.
+                </p>
+              ) : (
+                <>
+                  <div className="space-y-1.5">
+                    <Label>Workflow</Label>
+                    <Select value={selectedWorkflowId} onValueChange={setSelectedWorkflowId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select workflow" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {workflows.map((workflow) => (
+                          <SelectItem key={workflow.id} value={workflow.id}>
+                            {workflow.name}
+                            {workflow.isDefault ? " (default)" : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {selectedWorkflow && (
+                    <>
+                      <div className="space-y-3">
+                        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Statuses
+                        </h3>
+                        <ul className="space-y-2">
+                          {selectedWorkflow.statuses.map((status) => (
+                            <li
+                              key={status.id}
+                              className="flex flex-col gap-2 rounded-lg border px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                            >
+                              <div className="min-w-0">
+                                {canManage && !board.archived ? (
+                                  <Input
+                                    className="h-8"
+                                    defaultValue={status.name}
+                                    onBlur={(event) => {
+                                      const name = event.target.value.trim();
+                                      if (!name || name === status.name) return;
+                                      setWorkflowBusy(true);
+                                      void tasksApi
+                                        .updateWorkflowStatus(status.id, { name })
+                                        .then(() => refreshWorkflows(selectedWorkflow.id))
+                                        .catch((cause) =>
+                                          toast.error(
+                                            (cause as Error).message || "Could not rename status.",
+                                          ),
+                                        )
+                                        .finally(() => setWorkflowBusy(false));
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="font-medium">{status.name}</div>
+                                )}
+                                <div className="mt-1 flex flex-wrap gap-1.5 text-[11px] text-muted-foreground">
+                                  <span>{CATEGORY_LABELS[status.category]}</span>
+                                  {status.isInitial && (
+                                    <span className="rounded bg-muted px-1.5 py-0.5">Initial</span>
+                                  )}
+                                  {status.isTerminal && (
+                                    <span className="rounded bg-muted px-1.5 py-0.5">Terminal</span>
+                                  )}
+                                  <span
+                                    className={cn(
+                                      "rounded px-1.5 py-0.5",
+                                      status.active === false
+                                        ? "bg-amber-50 text-amber-800"
+                                        : "bg-emerald-50 text-emerald-800",
+                                    )}
+                                  >
+                                    {status.active === false ? "Inactive" : "Active"}
+                                  </span>
+                                </div>
+                              </div>
+                              {canManage && !board.archived && (
+                                <div className="flex flex-wrap gap-2">
+                                  <Select
+                                    value={status.category}
+                                    onValueChange={(value) => {
+                                      setWorkflowBusy(true);
+                                      void tasksApi
+                                        .updateWorkflowStatus(status.id, {
+                                          category: value as TaskStatusCategory,
+                                        })
+                                        .then(() => refreshWorkflows(selectedWorkflow.id))
+                                        .catch((cause) =>
+                                          toast.error(
+                                            (cause as Error).message ||
+                                              "Could not update category.",
+                                          ),
+                                        )
+                                        .finally(() => setWorkflowBusy(false));
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-8 w-[9rem]">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {STATUS_CATEGORIES.map((category) => (
+                                        <SelectItem key={category} value={category}>
+                                          {CATEGORY_LABELS[category]}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={workflowBusy}
+                                    onClick={() => {
+                                      setWorkflowBusy(true);
+                                      void tasksApi
+                                        .updateWorkflowStatus(status.id, {
+                                          active: status.active === false,
+                                        })
+                                        .then(() => refreshWorkflows(selectedWorkflow.id))
+                                        .catch((cause) =>
+                                          toast.error(
+                                            (cause as Error).message ||
+                                              "Could not update status.",
+                                          ),
+                                        )
+                                        .finally(() => setWorkflowBusy(false));
+                                    }}
+                                  >
+                                    {status.active === false ? "Activate" : "Deactivate"}
+                                  </Button>
+                                </div>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+
+                        {canManage && !board.archived && (
+                          <div className="grid gap-2 rounded-lg border border-dashed p-3 sm:grid-cols-[minmax(0,1fr)_9rem_auto]">
+                            <Input
+                              placeholder="New status name"
+                              value={newStatusName}
+                              onChange={(event) => setNewStatusName(event.target.value)}
+                            />
+                            <Select
+                              value={newStatusCategory}
+                              onValueChange={(value) =>
+                                setNewStatusCategory(value as TaskStatusCategory)
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {STATUS_CATEGORIES.map((category) => (
+                                  <SelectItem key={category} value={category}>
+                                    {CATEGORY_LABELS[category]}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              type="button"
+                              disabled={workflowBusy || newStatusName.trim().length < 2}
+                              onClick={() => {
+                                setWorkflowBusy(true);
+                                void tasksApi
+                                  .createWorkflowStatus(selectedWorkflow.id, {
+                                    name: newStatusName.trim(),
+                                    category: newStatusCategory,
+                                  })
+                                  .then(() => {
+                                    setNewStatusName("");
+                                    return refreshWorkflows(selectedWorkflow.id);
+                                  })
+                                  .catch((cause) =>
+                                    toast.error(
+                                      (cause as Error).message || "Could not add status.",
+                                    ),
+                                  )
+                                  .finally(() => setWorkflowBusy(false));
+                              }}
+                            >
+                              Add status
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-3">
+                        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Transitions
+                        </h3>
+                        <ul className="space-y-2">
+                          {selectedWorkflow.transitions.map((transition) => (
+                            <li
+                              key={transition.id}
+                              className="flex flex-col gap-2 rounded-lg border px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                            >
+                              <div className="min-w-0 text-sm">
+                                <div className="font-medium">{transition.name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {statusNameById.get(transition.fromStatusId) ??
+                                    transition.fromStatusId}{" "}
+                                  →{" "}
+                                  {statusNameById.get(transition.toStatusId) ??
+                                    transition.toStatusId}
+                                  {transition.commentRequired ? " · comment required" : ""}
+                                  {transition.active ? "" : " · inactive"}
+                                </div>
+                              </div>
+                              {canManage && !board.archived && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={workflowBusy}
+                                  onClick={() => {
+                                    setWorkflowBusy(true);
+                                    void tasksApi
+                                      .updateWorkflowTransition(transition.id, {
+                                        active: !transition.active,
+                                      })
+                                      .then(() => refreshWorkflows(selectedWorkflow.id))
+                                      .catch((cause) =>
+                                        toast.error(
+                                          (cause as Error).message ||
+                                            "Could not update transition.",
+                                        ),
+                                      )
+                                      .finally(() => setWorkflowBusy(false));
+                                  }}
+                                >
+                                  {transition.active ? "Deactivate" : "Activate"}
+                                </Button>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+
+                        {canManage && !board.archived && (
+                          <div className="space-y-2 rounded-lg border border-dashed p-3">
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              <Input
+                                placeholder="Transition name"
+                                value={newTransitionName}
+                                onChange={(event) => setNewTransitionName(event.target.value)}
+                              />
+                              <label className="flex items-center gap-2 text-sm">
+                                <input
+                                  type="checkbox"
+                                  checked={newTransitionCommentRequired}
+                                  onChange={(event) =>
+                                    setNewTransitionCommentRequired(event.target.checked)
+                                  }
+                                  className="h-4 w-4 rounded border"
+                                />
+                                Comment required
+                              </label>
+                            </div>
+                            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+                              <Select
+                                value={newTransitionFrom || undefined}
+                                onValueChange={setNewTransitionFrom}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="From status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {selectedWorkflow.statuses.map((status) => (
+                                    <SelectItem key={status.id} value={status.id}>
+                                      {status.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Select
+                                value={newTransitionTo || undefined}
+                                onValueChange={setNewTransitionTo}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="To status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {selectedWorkflow.statuses.map((status) => (
+                                    <SelectItem key={status.id} value={status.id}>
+                                      {status.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Button
+                                type="button"
+                                disabled={
+                                  workflowBusy ||
+                                  newTransitionName.trim().length < 2 ||
+                                  !newTransitionFrom ||
+                                  !newTransitionTo ||
+                                  newTransitionFrom === newTransitionTo
+                                }
+                                onClick={() => {
+                                  setWorkflowBusy(true);
+                                  void tasksApi
+                                    .createWorkflowTransition(selectedWorkflow.id, {
+                                      name: newTransitionName.trim(),
+                                      fromStatusId: newTransitionFrom,
+                                      toStatusId: newTransitionTo,
+                                      commentRequired: newTransitionCommentRequired,
+                                    })
+                                    .then(() => {
+                                      setNewTransitionName("");
+                                      setNewTransitionFrom("");
+                                      setNewTransitionTo("");
+                                      setNewTransitionCommentRequired(false);
+                                      return refreshWorkflows(selectedWorkflow.id);
+                                    })
+                                    .catch((cause) =>
+                                      toast.error(
+                                        (cause as Error).message || "Could not add transition.",
+                                      ),
+                                    )
+                                    .finally(() => setWorkflowBusy(false));
+                                }}
+                              >
+                                Add transition
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </>
               )}
             </div>
           )}

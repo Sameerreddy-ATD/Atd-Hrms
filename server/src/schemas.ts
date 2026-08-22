@@ -14,6 +14,7 @@ import {
   TaskIssueType,
   TaskProjectRole,
   TaskStatus,
+  TaskStatusCategory,
   UserStatus,
   WeeklyOffPolicy,
   WorkType,
@@ -413,18 +414,18 @@ function validateTaskBoardConfiguration(
   },
   context: z.RefinementCtx,
 ) {
-  if (value.stages.filter((stage) => stage.status === TaskStatus.COMPLETED).length !== 1) {
+  if (value.stages.filter((stage) => stage.status === TaskStatus.COMPLETED).length < 1) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["stages"],
-      message: "Select exactly one completed stage",
+      message: "Select at least one completed stage",
     });
   }
-  if (value.stages.filter((stage) => stage.status === TaskStatus.TODO).length !== 1) {
+  if (value.stages.filter((stage) => stage.status === TaskStatus.TODO).length < 1) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["stages"],
-      message: "Keep exactly one to-do stage",
+      message: "Keep at least one to-do stage",
     });
   }
   if (value.stages.some((stage) => stage.status === TaskStatus.CANCELLED)) {
@@ -517,6 +518,73 @@ export const taskBoardArchiveSchema = z.object({
   version: z.coerce.number().int().positive(),
   archived: z.boolean(),
 });
+
+export const taskTransitionSchema = z.object({
+  version: z.coerce.number().int().positive(),
+  transitionId: z.string().min(1),
+  comment: z.string().trim().max(5000).optional(),
+  rankBeforeTaskId: z.string().min(1).optional(),
+  rankAfterTaskId: z.string().min(1).optional(),
+  fieldValues: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional(),
+});
+
+const projectRoleSchema = z.nativeEnum(TaskProjectRole);
+
+export const workflowStatusCreateSchema = z.object({
+  name: z.string().trim().min(2).max(80),
+  category: z.nativeEnum(TaskStatusCategory),
+  color: z.enum(["SLATE", "BLUE", "AMBER", "VIOLET", "EMERALD", "RED"]).optional(),
+  sortOrder: z.coerce.number().int().min(0).max(200).optional(),
+  isInitial: z.boolean().optional(),
+  isTerminal: z.boolean().optional(),
+  stageId: z.string().min(1).nullable().optional(),
+});
+
+export const workflowStatusUpdateSchema = workflowStatusCreateSchema.partial().extend({
+  active: z.boolean().optional(),
+});
+
+export const workflowTransitionCreateSchema = z
+  .object({
+    name: z.string().trim().min(2).max(80),
+    fromStatusId: z.string().min(1),
+    toStatusId: z.string().min(1),
+    allowedProjectRoles: z.array(projectRoleSchema).max(8).optional(),
+    requiredFields: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
+    commentRequired: z.boolean().optional(),
+    resolutionRequired: z.boolean().optional(),
+    active: z.boolean().optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.fromStatusId === value.toStatusId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["toStatusId"],
+        message: "A transition cannot start and end on the same status",
+      });
+    }
+  });
+
+export const workflowTransitionUpdateSchema = z
+  .object({
+    name: z.string().trim().min(2).max(80).optional(),
+    fromStatusId: z.string().min(1).optional(),
+    toStatusId: z.string().min(1).optional(),
+    allowedProjectRoles: z.array(projectRoleSchema).max(8).nullable().optional(),
+    requiredFields: z.array(z.string().trim().min(1).max(40)).max(20).nullable().optional(),
+    commentRequired: z.boolean().optional(),
+    resolutionRequired: z.boolean().optional(),
+    active: z.boolean().optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.fromStatusId && value.toStatusId && value.fromStatusId === value.toStatusId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["toStatusId"],
+        message: "A transition cannot start and end on the same status",
+      });
+    }
+  });
 
 export const taskLogSchema = z.object({
   version: z.coerce.number().int().positive(),

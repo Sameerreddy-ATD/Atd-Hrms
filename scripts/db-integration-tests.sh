@@ -24,4 +24,7 @@ RUN_LEAVE_INTEGRATION=1 npx vitest run --config vitest.config.ts tests/leaveMana
 echo "==> Task planner foundation integration"
 RUN_PLANNER_INTEGRATION=1 npx vitest run --config vitest.config.ts tests/taskPlannerFoundationIntegration.test.ts
 
+echo "==> Task planner workflow engine integration"
+RUN_WORKFLOW_INTEGRATION=1 npx vitest run --config vitest.config.ts tests/taskPlannerWorkflowIntegration.test.ts
+
 echo "==> DB integration suites passed."

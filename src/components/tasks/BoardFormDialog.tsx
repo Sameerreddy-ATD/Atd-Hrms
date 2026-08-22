@@ -60,7 +60,7 @@ function emptyBoardForm(): BoardForm {
   };
 }
 
-/** Exactly one starting TODO (first) and one COMPLETED stage. */
+/** Require ≥1 TODO and ≥1 COMPLETED; allow multiple TODOs; keep first stage TODO. */
 function normalizeStageStatuses(stages: BoardForm["stages"]): BoardForm["stages"] {
   let next = stages.map((stage) => ({ ...stage }));
   if (next.length === 0) return next;
@@ -69,20 +69,8 @@ function normalizeStageStatuses(stages: BoardForm["stages"]): BoardForm["stages"
     const startIndex = next.findIndex((stage) => stage.status !== "COMPLETED");
     const index = startIndex >= 0 ? startIndex : 0;
     next = next.map((stage, position) =>
-      position === index
-        ? { ...stage, status: "TODO" }
-        : stage.status === "TODO"
-          ? { ...stage, status: "IN_PROGRESS" }
-          : stage,
+      position === index ? { ...stage, status: "TODO" } : stage,
     );
-  } else {
-    let seenTodo = false;
-    next = next.map((stage) => {
-      if (stage.status !== "TODO") return stage;
-      if (seenTodo) return { ...stage, status: "IN_PROGRESS" };
-      seenTodo = true;
-      return stage;
-    });
   }
 
   if (!next.some((stage) => stage.status === "COMPLETED")) {
@@ -95,21 +83,19 @@ function normalizeStageStatuses(stages: BoardForm["stages"]): BoardForm["stages"
         position === doneIndex ? { ...stage, status: "COMPLETED" } : stage,
       );
     }
-  } else {
-    let seenDone = false;
-    next = next.map((stage) => {
-      if (stage.status !== "COMPLETED") return stage;
-      if (seenDone) return { ...stage, status: "IN_PROGRESS" };
-      seenDone = true;
-      return stage;
-    });
   }
 
   // Entry column must stay first — backend creates new issues in stages[0]/TODO.
-  const todoIndex = next.findIndex((stage) => stage.status === "TODO");
-  if (todoIndex > 0) {
-    const [todoStage] = next.splice(todoIndex, 1);
-    next.unshift(todoStage);
+  if (next[0]?.status !== "TODO") {
+    const todoIndex = next.findIndex((stage) => stage.status === "TODO");
+    if (todoIndex > 0) {
+      const [todoStage] = next.splice(todoIndex, 1);
+      next.unshift(todoStage);
+    } else {
+      next = next.map((stage, position) =>
+        position === 0 ? { ...stage, status: "TODO" } : stage,
+      );
+    }
   }
 
   return next;
@@ -180,9 +166,9 @@ export function BoardFormDialog({
     setForm((current) => {
       const target = index + direction;
       if (target < 0 || target >= current.stages.length) return current;
-      // Keep the To do stage pinned at the top.
-      if (current.stages[index]?.status === "TODO" && direction === 1) return current;
-      if (current.stages[target]?.status === "TODO" && direction === -1) return current;
+      // Keep the entry column (first stage) pinned at the top.
+      if (index === 0 && direction === 1) return current;
+      if (target === 0 && direction === -1) return current;
       const stages = [...current.stages];
       [stages[index], stages[target]] = [stages[target], stages[index]];
       return { ...current, stages: normalizeStageStatuses(stages) };
@@ -194,10 +180,7 @@ export function BoardFormDialog({
       if (status === "CANCELLED") return current;
       const stages = current.stages.map((stage, position) => {
         if (position === index) return { ...stage, status };
-        // Exactly one Start and one Done.
-        if (status === "TODO" && stage.status === "TODO") {
-          return { ...stage, status: "IN_PROGRESS" as const };
-        }
+        // Allow multiple TODOs; still keep a single COMPLETED column.
         if (status === "COMPLETED" && stage.status === "COMPLETED") {
           return { ...stage, status: "IN_PROGRESS" as const };
         }
@@ -423,7 +406,7 @@ export function BoardFormDialog({
                         variant="ghost"
                         size="icon"
                         aria-label={`Move ${stage.name} up`}
-                        disabled={index === 0 || stage.status === "TODO"}
+                        disabled={index === 0}
                         onClick={() => moveStage(index, -1)}
                       >
                         <ChevronUp className="h-4 w-4" />
@@ -433,7 +416,7 @@ export function BoardFormDialog({
                         variant="ghost"
                         size="icon"
                         aria-label={`Move ${stage.name} down`}
-                        disabled={index === form.stages.length - 1 || stage.status === "TODO"}
+                        disabled={index === 0 || index === form.stages.length - 1}
                         onClick={() => moveStage(index, 1)}
                       >
                         <ChevronDown className="h-4 w-4" />

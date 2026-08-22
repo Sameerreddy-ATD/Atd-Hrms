@@ -38,7 +38,6 @@ import {
   PRIORITY_LABELS,
   PRIORITY_MARK,
   PRIORITY_STYLES,
-  STAGE_COLORS,
   STATUS_LABELS,
 } from "./task-utils";
 
@@ -67,7 +66,13 @@ type TaskDetailDialogProps = {
     },
   ) => Promise<void>;
   onArchive?: (task: WorkTask, archived: boolean) => Promise<void>;
-  onMove: (task: WorkTask, stageId: string) => Promise<void>;
+  /** Legacy board column move — kept for callers; detail status uses onTransition. */
+  onMove?: (task: WorkTask, stageId: string) => Promise<void>;
+  onTransition?: (
+    task: WorkTask,
+    payload: { transitionId: string; comment?: string },
+  ) => Promise<void>;
+  onTaskUpdated?: (task: WorkTask) => void;
   onAddUpdate: (task: WorkTask, message: string, progress: number) => Promise<void>;
   onCreateSubtask?: (parent: WorkTask, title: string) => Promise<unknown>;
   onOpenTask?: (task: WorkTask) => void;
@@ -93,7 +98,8 @@ export function TaskDetailDialog({
   saving,
   onSave,
   onArchive,
-  onMove,
+  onTransition,
+  onTaskUpdated,
   onAddUpdate,
   onCreateSubtask,
   onOpenTask,
@@ -118,6 +124,9 @@ export function TaskDetailDialog({
     Array<{ id: string; fileName: string; mimeType: string; sizeBytes: number; createdAt: string }>
   >([]);
   const [attachmentBusy, setAttachmentBusy] = useState(false);
+  const [transitionBusy, setTransitionBusy] = useState(false);
+  const [pendingCommentTransitionId, setPendingCommentTransitionId] = useState<string | null>(null);
+  const [transitionComment, setTransitionComment] = useState("");
 
   useEffect(() => {
     if (!open || !task) return;
@@ -135,6 +144,8 @@ export function TaskDetailDialog({
     setProgress(task.progress);
     setFormError("");
     setSubtaskTitle("");
+    setPendingCommentTransitionId(null);
+    setTransitionComment("");
     const nextFields: Record<string, string> = {};
     const fieldBoard = boards.find((entry) => entry.id === (task.boardId ?? "")) ?? board;
     for (const def of fieldBoard?.customFieldDefs ?? []) {
@@ -233,6 +244,46 @@ export function TaskDetailDialog({
         return String(previous ?? "") !== next;
       }));
 
+  const availableTransitions = task?.availableTransitions ?? [];
+  const currentStatusLabel =
+    task?.workflowStatus?.name ??
+    activeBoard?.stages.find((stage) => stage.id === (task?.stageId ?? stageId))?.name ??
+    task?.stage?.name ??
+    (task ? STATUS_LABELS[task.status] : "Status");
+
+  async function applyTransition(transitionId: string, comment?: string) {
+    if (!task) return;
+    setTransitionBusy(true);
+    setFormError("");
+    try {
+      if (onTransition) {
+        await onTransition(task, { transitionId, comment });
+      } else {
+        const updated = await tasksApi.transition(task.id, {
+          version: task.version,
+          transitionId,
+          ...(comment?.trim() ? { comment: comment.trim() } : {}),
+        });
+        onTaskUpdated?.(updated);
+      }
+      setPendingCommentTransitionId(null);
+      setTransitionComment("");
+    } catch (cause) {
+      setFormError((cause as Error).message || "Could not apply that transition.");
+    } finally {
+      setTransitionBusy(false);
+    }
+  }
+
+  async function requestTransition(transitionId: string, commentRequired: boolean) {
+    if (commentRequired) {
+      setPendingCommentTransitionId(transitionId);
+      setTransitionComment("");
+      return;
+    }
+    await applyTransition(transitionId);
+  }
+
   async function saveDetails() {
     if (!task) return;
     if (!title.trim()) {
@@ -275,7 +326,7 @@ export function TaskDetailDialog({
       priority,
       startDate: startDate || null,
       dueDate: dueDate || null,
-      // Same-board stage changes go through onMove immediately; avoid a second versioned write.
+      // Same-board stage changes go through transitions; avoid a second versioned write.
       ...(boardChanged ? { stageId: stageId || undefined, boardId } : {}),
       assigneeEmployeeIds: assigneeIds,
       customFields: nextCustom,
@@ -328,11 +379,7 @@ export function TaskDetailDialog({
                   </span>
                   {PRIORITY_LABELS[priority]}
                 </Badge>
-                <Badge variant="outline">
-                  {activeBoard?.stages.find((stage) => stage.id === stageId)?.name ??
-                    task.stage?.name ??
-                    STATUS_LABELS[task.status]}
-                </Badge>
+                <Badge variant="outline">{currentStatusLabel}</Badge>
                 {task.boardName && <Badge variant="secondary">{task.boardName}</Badge>}
                 {task.parentTaskId && <Badge variant="outline">Subtask</Badge>}
               </div>
@@ -610,34 +657,84 @@ export function TaskDetailDialog({
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       Status
                     </p>
-                    <Select
-                      value={stageId}
-                      onValueChange={(value) => {
-                        setStageId(value);
-                        if (value !== task.stageId && boardId === (task.boardId ?? "")) {
-                          void onMove(task, value);
-                        }
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {activeBoard.stages.map((stage) => (
-                          <SelectItem key={stage.id} value={stage.id}>
-                            <span className="flex items-center gap-2">
-                              <span
-                                className={cn(
-                                  "h-2.5 w-2.5 rounded-full",
-                                  STAGE_COLORS[stage.color]?.dot ?? "bg-slate-500",
-                                )}
-                              />
-                              {stage.name}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="rounded-md border bg-background px-3 py-2 text-sm font-medium">
+                      {currentStatusLabel}
+                    </div>
+                    {boardId === (task.boardId ?? "") ? (
+                      <>
+                        {availableTransitions.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">No transitions available.</p>
+                        ) : (
+                          <div className="flex flex-col gap-1.5">
+                            {availableTransitions.map((transition) => (
+                              <Button
+                                key={transition.id}
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-auto justify-start whitespace-normal py-2 text-left"
+                                disabled={saving || transitionBusy}
+                                onClick={() =>
+                                  void requestTransition(transition.id, transition.commentRequired)
+                                }
+                              >
+                                {transition.name}
+                                <span className="ml-auto pl-2 text-xs font-normal text-muted-foreground">
+                                  → {transition.toStatusName}
+                                </span>
+                              </Button>
+                            ))}
+                          </div>
+                        )}
+                        {pendingCommentTransitionId && (
+                          <div className="space-y-2 rounded-md border border-dashed p-2">
+                            <Label htmlFor="transition-comment" className="text-xs">
+                              Comment required
+                            </Label>
+                            <Textarea
+                              id="transition-comment"
+                              value={transitionComment}
+                              onChange={(event) => setTransitionComment(event.target.value)}
+                              rows={2}
+                              placeholder="Add a comment for this transition"
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                disabled={
+                                  saving || transitionBusy || !transitionComment.trim()
+                                }
+                                onClick={() =>
+                                  void applyTransition(
+                                    pendingCommentTransitionId,
+                                    transitionComment.trim(),
+                                  )
+                                }
+                              >
+                                {transitionBusy ? "Applying..." : "Apply"}
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                disabled={transitionBusy}
+                                onClick={() => {
+                                  setPendingCommentTransitionId(null);
+                                  setTransitionComment("");
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Save the project change to move this issue onto the new board workflow.
+                      </p>
+                    )}
                   </div>
                 )}
 

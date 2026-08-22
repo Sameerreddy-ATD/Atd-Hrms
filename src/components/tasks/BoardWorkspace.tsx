@@ -45,7 +45,9 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { formatDisplayDate } from "@/lib/india-date";
+import { tasksApi } from "@/services/api";
 import type { TaskAssignee, TaskBoard, TaskPriority, TaskStage, WorkTask } from "@/types/domain";
+import { toast } from "sonner";
 import {
   dateValue,
   dueLabel,
@@ -799,10 +801,42 @@ function KanbanView({
   onMoveTask,
 }: KanbanViewProps) {
   const allTasks = [...rankTasksByStage.values()].flat();
+  const [validDropStageIds, setValidDropStageIds] = useState<Set<string> | null>(null);
+  const validDropStageIdsRef = useRef<Set<string> | null>(null);
+  const dragFetchTokenRef = useRef(0);
 
   function finishDrag() {
     draggingTaskIdRef.current = null;
     setDraggingTaskId(null);
+    validDropStageIdsRef.current = null;
+    setValidDropStageIds(null);
+  }
+
+  async function beginDrag(task: WorkTask) {
+    if (!canTransitionWorkItem) return;
+    draggingTaskIdRef.current = task.id;
+    setDraggingTaskId(task.id);
+    const token = ++dragFetchTokenRef.current;
+    const currentStageIds = new Set<string>(task.stageId ? [task.stageId] : []);
+    validDropStageIdsRef.current = currentStageIds;
+    setValidDropStageIds(new Set(currentStageIds));
+    try {
+      const { transitions } = await tasksApi.transitions(task.id);
+      if (token !== dragFetchTokenRef.current || draggingTaskIdRef.current !== task.id) {
+        return;
+      }
+      const next = new Set(currentStageIds);
+      for (const transition of transitions) {
+        if (transition.toStageId) next.add(transition.toStageId);
+      }
+      validDropStageIdsRef.current = next;
+      setValidDropStageIds(next);
+    } catch (cause) {
+      if (token !== dragFetchTokenRef.current) return;
+      toast.error((cause as Error).message || "Could not load allowed transitions.");
+      validDropStageIdsRef.current = currentStageIds;
+      setValidDropStageIds(currentStageIds);
+    }
   }
 
   function handleDropOnColumn(stage: TaskStage, targetIndex?: number) {
@@ -812,11 +846,16 @@ function KanbanView({
     }
     const id = draggingTaskIdRef.current ?? draggingTaskId;
     const task = allTasks.find((entry) => entry.id === id);
-    finishDrag();
-    if (!task) return;
-    const stageTasks = tasksByStage.get(stage.id) ?? [];
-    const rankColumn = rankTasksByStage.get(stage.id) ?? [];
+    const allowedStages = validDropStageIdsRef.current;
+    if (!task) {
+      finishDrag();
+      return;
+    }
+
     if (task.stageId === stage.id) {
+      finishDrag();
+      const stageTasks = tasksByStage.get(stage.id) ?? [];
+      const rankColumn = rankTasksByStage.get(stage.id) ?? [];
       const currentIndex = stageTasks.findIndex((entry) => entry.id === task.id);
       if (currentIndex < 0) return;
       if (targetIndex === undefined) {
@@ -824,7 +863,25 @@ function KanbanView({
       } else if (targetIndex === currentIndex || targetIndex === currentIndex + 1) {
         return;
       }
+      const index = targetIndex ?? stageTasks.filter((entry) => entry.id !== task.id).length;
+      const options = dropOptionsFromVisibleIndex(stageTasks, rankColumn, task.id, index);
+      void onMoveTask(task, stage.id, options);
+      return;
     }
+
+    if (allowedStages && !allowedStages.has(stage.id)) {
+      finishDrag();
+      const fromName =
+        board.stages.find((entry) => entry.id === task.stageId)?.name ??
+        task.workflowStatus?.name ??
+        "the current status";
+      toast.error(`This work item cannot move directly from ${fromName} to ${stage.name}.`);
+      return;
+    }
+
+    finishDrag();
+    const stageTasks = tasksByStage.get(stage.id) ?? [];
+    const rankColumn = rankTasksByStage.get(stage.id) ?? [];
     const index = targetIndex ?? stageTasks.filter((entry) => entry.id !== task.id).length;
     const options = dropOptionsFromVisibleIndex(stageTasks, rankColumn, task.id, index);
     void onMoveTask(task, stage.id, options);
@@ -839,11 +896,23 @@ function KanbanView({
         {board.stages.map((stage) => {
           const stageTasks = tasksByStage.get(stage.id) ?? [];
           const color = STAGE_COLORS[stage.color] ?? STAGE_COLORS.SLATE;
+          const isValidDropTarget =
+            !!draggingTaskId &&
+            (validDropStageIds == null || validDropStageIds.has(stage.id));
+          const isInvalidDropTarget =
+            !!draggingTaskId && validDropStageIds != null && !validDropStageIds.has(stage.id);
           return (
             <section
               key={stage.id}
-              className="flex max-h-[min(72dvh,680px)] min-h-[280px] w-[260px] flex-col rounded-md border border-border/80 bg-muted/20 xl:w-auto"
-              onDragOver={(event) => event.preventDefault()}
+              className={cn(
+                "flex max-h-[min(72dvh,680px)] min-h-[280px] w-[260px] flex-col rounded-md border border-border/80 bg-muted/20 xl:w-auto",
+                isValidDropTarget && "ring-2 ring-primary/40 border-primary/50",
+                isInvalidDropTarget && "opacity-50",
+              )}
+              onDragOver={(event) => {
+                if (isInvalidDropTarget) return;
+                event.preventDefault();
+              }}
               onDrop={() => handleDropOnColumn(stage)}
             >
               <header className="flex items-center justify-between gap-2 border-b border-border/60 px-2.5 py-2">
@@ -863,20 +932,18 @@ function KanbanView({
                     key={task.id}
                     draggable={canTransitionWorkItem}
                     onDragStart={() => {
-                      if (!canTransitionWorkItem) return;
-                      draggingTaskIdRef.current = task.id;
-                      setDraggingTaskId(task.id);
+                      void beginDrag(task);
                     }}
                     onDragEnd={() => {
                       setDraggingTaskId(null);
                       window.setTimeout(() => {
                         if (draggingTaskIdRef.current === task.id) {
-                          draggingTaskIdRef.current = null;
+                          finishDrag();
                         }
                       }, 0);
                     }}
                     onDragOver={(event) => {
-                      if (!canTransitionWorkItem) return;
+                      if (!canTransitionWorkItem || isInvalidDropTarget) return;
                       event.preventDefault();
                       event.stopPropagation();
                     }}
