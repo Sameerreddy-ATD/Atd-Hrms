@@ -368,13 +368,35 @@ export function SprintBacklogPanel({
       </Dialog>
 
       <Dialog open={completeOpen} onOpenChange={setCompleteOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg" data-testid="sprint-complete-dialog">
           <DialogHeader>
             <DialogTitle>Complete Sprint</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
             Choose where each incomplete item should go. Done items stay in sprint history.
           </p>
+          {active && (
+            <div className="flex gap-4 text-sm" data-testid="sprint-complete-summary">
+              <span data-testid="sprint-complete-done-count">
+                Done:{" "}
+                {
+                  active.items.filter(
+                    (task) =>
+                      (task.workflowStatus?.category ?? task.stage?.statusCategory) === "DONE",
+                  ).length
+                }
+              </span>
+              <span data-testid="sprint-complete-incomplete-count">
+                Incomplete:{" "}
+                {
+                  active.items.filter(
+                    (task) =>
+                      (task.workflowStatus?.category ?? task.stage?.statusCategory) !== "DONE",
+                  ).length
+                }
+              </span>
+            </div>
+          )}
           <ul className="max-h-64 space-y-2 overflow-y-auto">
             {(active?.items ?? [])
               .filter((task) => (task.workflowStatus?.category ?? task.stage?.statusCategory) !== "DONE")
@@ -383,6 +405,7 @@ export function SprintBacklogPanel({
                   <span className="min-w-0 flex-1 truncate">{task.title}</span>
                   <select
                     className="rounded border bg-background px-2 py-1 text-xs"
+                    data-testid={`sprint-complete-disposition-${task.id}`}
                     value={completeTargets[task.id] ?? "backlog"}
                     onChange={(e) =>
                       setCompleteTargets((c) => ({ ...c, [task.id]: e.target.value }))
@@ -402,7 +425,9 @@ export function SprintBacklogPanel({
             <Button variant="outline" onClick={() => setCompleteOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={() => void confirmComplete()}>Complete Sprint</Button>
+            <Button data-testid="sprint-complete-submit" onClick={() => void confirmComplete()}>
+              Complete Sprint
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -41,6 +41,15 @@ async function awfBoard(page: Page) {
   return boards.find((entry) => entry.keyPrefix === "AWF") ?? boards[0]!;
 }
 
+type TaskRow = {
+  id: string;
+  title: string;
+  version: number;
+  workflowStatus?: { id: string; name: string; category?: string };
+  stage?: { name: string; statusCategory?: string };
+  sprint?: { sprintId: string; name: string; status: string };
+};
+
 async function createTaskViaApi(
   page: Page,
   board: { id: string; stages: Array<{ id: string; name: string }> },
@@ -60,8 +69,177 @@ async function createTaskViaApi(
     },
   });
   expect(create.ok(), await create.text()).toBeTruthy();
-  return (await create.json()) as { id: string; title: string; workflowStatusId?: string };
+  return (await create.json()) as TaskRow;
 }
+
+async function getTask(page: Page, taskId: string) {
+  const res = await page.request.get(`${API_BASE}/tasks/${taskId}`);
+  expect(res.ok(), await res.text()).toBeTruthy();
+  return (await res.json()) as TaskRow;
+}
+
+async function resetOpenSprints(page: Page, boardId: string) {
+  const res = await page.request.get(`${API_BASE}/task-boards/${boardId}/sprints`);
+  expect(res.ok(), await res.text()).toBeTruthy();
+  const { sprints } = (await res.json()) as { sprints: Array<{ id: string; status: string }> };
+  for (const sprint of sprints) {
+    if (sprint.status === "PLANNED" || sprint.status === "ACTIVE") {
+      const cancel = await page.request.post(`${API_BASE}/task-sprints/${sprint.id}/cancel`, {
+        data: { returnToBacklog: true },
+      });
+      expect(cancel.ok(), await cancel.text()).toBeTruthy();
+    }
+  }
+}
+
+async function transitionUntilDoneCategory(page: Page, task: TaskRow) {
+  let current = task;
+  for (let step = 0; step < 20; step += 1) {
+    const statusName = current.workflowStatus?.name ?? current.stage?.name ?? "";
+    const category =
+      current.workflowStatus?.category ?? current.stage?.statusCategory ?? "TODO";
+    if (category === "DONE" || /done/i.test(statusName)) return current;
+
+    const listRes = await page.request.get(`${API_BASE}/tasks/${current.id}/transitions`);
+    expect(listRes.ok(), await listRes.text()).toBeTruthy();
+    const { transitions } = (await listRes.json()) as {
+      transitions: Array<{ id: string; toStatusName: string }>;
+    };
+    if (transitions.length === 0) break;
+
+    const preferred =
+      transitions.find((row) => /done/i.test(row.toStatusName)) ??
+      transitions.find((row) => /qa|review/i.test(row.toStatusName)) ??
+      transitions.find((row) => /progress|ready|triage/i.test(row.toStatusName)) ??
+      transitions[0]!;
+    const next = await page.request.post(`${API_BASE}/tasks/${current.id}/transitions`, {
+      data: { version: current.version, transitionId: preferred.id },
+    });
+    expect(next.ok(), await next.text()).toBeTruthy();
+    current = (await next.json()) as TaskRow;
+  }
+  const finalCategory =
+    current.workflowStatus?.category ?? current.stage?.statusCategory ?? "TODO";
+  const finalName = current.workflowStatus?.name ?? current.stage?.name ?? "";
+  expect(finalCategory === "DONE" || /done/i.test(finalName)).toBeTruthy();
+  return current;
+}
+
+async function assignToSprint(page: Page, taskId: string, sprintId: string) {
+  const res = await page.request.post(`${API_BASE}/tasks/${taskId}/sprint-membership`, {
+    data: { sprintId },
+  });
+  expect(res.ok(), await res.text()).toBeTruthy();
+}
+
+test.describe("Sprint completion disposition", () => {
+  test.describe.configure({ mode: "serial" });
+
+  for (const viewport of [
+    { name: "390", width: 390, height: 844 },
+    { name: "1440", width: 1440, height: 900 },
+  ] as const) {
+    test(`completes active sprint with backlog and next-sprint dispositions @ ${viewport.name}`, async ({
+      page,
+    }) => {
+      test.setTimeout(120_000);
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await loginAs(page, "manager");
+      const board = await awfBoard(page);
+      await page.request.get(`${API_BASE}/task-boards/${board.id}/workflows`);
+      await resetOpenSprints(page, board.id);
+
+      const stamp = Date.now();
+      const nextSprintRes = await page.request.post(`${API_BASE}/task-boards/${board.id}/sprints`, {
+        data: {
+          name: `Next Sprint ${stamp}`,
+          startDate: "2026-11-01",
+          endDate: "2026-11-14",
+        },
+      });
+      expect(nextSprintRes.ok(), await nextSprintRes.text()).toBeTruthy();
+      const nextSprint = (await nextSprintRes.json()) as { id: string; name: string };
+
+      const activeSprintRes = await page.request.post(`${API_BASE}/task-boards/${board.id}/sprints`, {
+        data: {
+          name: `Active Sprint ${stamp}`,
+          startDate: "2026-10-01",
+          endDate: "2026-10-14",
+        },
+      });
+      expect(activeSprintRes.ok(), await activeSprintRes.text()).toBeTruthy();
+      const activeSprint = (await activeSprintRes.json()) as { id: string; name: string };
+
+      const doneTask = await createTaskViaApi(page, board, `Done ${stamp}`);
+      const incompleteA = await createTaskViaApi(page, board, `Incomplete A ${stamp}`);
+      const incompleteB = await createTaskViaApi(page, board, `Incomplete B ${stamp}`);
+
+      const doneBefore = await getTask(page, doneTask.id);
+      const incompleteABefore = await getTask(page, incompleteA.id);
+      const incompleteBBefore = await getTask(page, incompleteB.id);
+
+      const doneReady = await transitionUntilDoneCategory(page, doneBefore);
+
+      for (const taskId of [doneReady.id, incompleteA.id, incompleteB.id]) {
+        await assignToSprint(page, taskId, activeSprint.id);
+      }
+
+      const startRes = await page.request.post(`${API_BASE}/task-sprints/${activeSprint.id}/start`);
+      expect(startRes.ok(), await startRes.text()).toBeTruthy();
+
+      await openAwfProject(page);
+      await page.getByRole("button", { name: "Backlog", exact: true }).click();
+      await expect(page.getByTestId("sprint-backlog-panel")).toBeVisible();
+
+      await page.getByTestId("complete-sprint-button").click();
+      await expect(page.getByTestId("sprint-complete-dialog")).toBeVisible();
+      await expect(page.getByTestId("sprint-complete-done-count")).toHaveText("Done: 1");
+      await expect(page.getByTestId("sprint-complete-incomplete-count")).toHaveText("Incomplete: 2");
+
+      await page.getByTestId(`sprint-complete-disposition-${incompleteA.id}`).selectOption("backlog");
+      await page
+        .getByTestId(`sprint-complete-disposition-${incompleteB.id}`)
+        .selectOption(nextSprint.id);
+      await page.getByTestId("sprint-complete-submit").click();
+      await expect(page.getByTestId("sprint-complete-dialog")).toBeHidden({ timeout: 15_000 });
+
+      const sprintsAfter = await page.request.get(`${API_BASE}/task-boards/${board.id}/sprints`);
+      const { sprints } = (await sprintsAfter.json()) as {
+        sprints: Array<{ id: string; status: string; completedAt?: string }>;
+      };
+      const completed = sprints.find((row) => row.id === activeSprint.id);
+      expect(completed?.status).toBe("COMPLETED");
+      expect(completed?.completedAt).toBeTruthy();
+
+      const doneAfter = await getTask(page, doneReady.id);
+      const incompleteAAfter = await getTask(page, incompleteA.id);
+      const incompleteBAfter = await getTask(page, incompleteB.id);
+
+      expect(doneAfter.sprint?.sprintId).toBe(activeSprint.id);
+      expect(incompleteAAfter.sprint).toBeFalsy();
+      expect(incompleteBAfter.sprint?.sprintId).toBe(nextSprint.id);
+
+      expect(doneAfter.workflowStatus?.id ?? doneAfter.stage?.name).toBe(
+        doneReady.workflowStatus?.id ?? doneReady.stage?.name,
+      );
+      expect(incompleteAAfter.workflowStatus?.id ?? incompleteAAfter.stage?.name).toBe(
+        incompleteABefore.workflowStatus?.id ?? incompleteABefore.stage?.name,
+      );
+      expect(incompleteBAfter.workflowStatus?.id ?? incompleteBAfter.stage?.name).toBe(
+        incompleteBBefore.workflowStatus?.id ?? incompleteBBefore.stage?.name,
+      );
+
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await openAwfProject(page);
+      await page.getByRole("button", { name: "Backlog", exact: true }).click();
+      await expect(page.getByTestId("sprint-section-backlog").getByText(incompleteA.title)).toBeVisible({
+        timeout: 15_000,
+      });
+      const nextSection = page.getByTestId(`sprint-section-${nextSprint.id}`);
+      await expect(nextSection.getByText(incompleteB.title)).toBeVisible({ timeout: 15_000 });
+    });
+  }
+});
 
 test.describe("Task Planner Sprints", () => {
   test.describe.configure({ mode: "serial" });
