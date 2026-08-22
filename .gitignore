@@ -12,6 +12,7 @@ node_modules
 dist
 dist-server
 dist-ssr
+.asset-archive/
 public/face-models/
 .face-evidence/
 .output

@@ -1,1 +1,0 @@
-import{t as e}from"./jsx-dev-runtime-Cr0dRkh_.js";import{Ft as t}from"./index-CYfgTstz.js";var n=e(),r=`/home/sameer-reddy/AnyTime- Diesel/Atd-Hrms/src/routes/_app.roles.tsx?tsr-split=component`,i=()=>(0,n.jsxDEV)(t,{to:`/dashboard`,replace:!0},void 0,!1,{fileName:r,lineNumber:2,columnNumber:30},void 0);export{i as component};

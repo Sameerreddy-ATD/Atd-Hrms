@@ -1,1 +1,0 @@
-function e(e){return e.length>=10&&/[A-Z]/.test(e)&&/[0-9]/.test(e)}function t(e,t){return[{label:t.minLength,ok:e.length>=10},{label:t.uppercase,ok:/[A-Z]/.test(e)},{label:t.number,ok:/[0-9]/.test(e)}]}function n(){return`Password must be at least 10 characters with an uppercase letter and a number`}export{t as n,n as r,e as t};

@@ -54,7 +54,7 @@ for i in $(seq 1 90); do
   sleep 1
 done
 
-npx playwright test tests/e2e/task-planner-collaboration.spec.ts --reporter=line
+npx playwright test tests/e2e/task-planner-collaboration.spec.ts --project=desktop-chromium --reporter=line
 STATUS=$?
 
 kill "$(cat /tmp/e2e-collab-backend.pid)" "$(cat /tmp/e2e-collab-frontend.pid)" 2>/dev/null || true

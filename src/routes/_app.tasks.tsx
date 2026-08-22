@@ -564,6 +564,7 @@ function TaskBoardsPage() {
           assignees={boardAssignees.length ? boardAssignees : assignees}
           saving={boardSaving}
           canManage={canChangeBoard(selectedBoard)}
+          canManageLabels={boardHasCapability(selectedBoard, "MANAGE_LABELS")}
           canArchive={
             boardHasCapability(selectedBoard, "ARCHIVE_PROJECT") || canChangeBoard(selectedBoard)
           }

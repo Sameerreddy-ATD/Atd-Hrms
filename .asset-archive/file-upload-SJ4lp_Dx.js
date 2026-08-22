@@ -1,1 +1,0 @@
-async function e(e){let t=await e.arrayBuffer(),n=new Uint8Array(t),r=``,i=32768;for(let e=0;e<n.length;e+=i)r+=String.fromCharCode(...n.subarray(e,e+i));return{fileName:e.name,mimeType:e.type||`application/octet-stream`,contentBase64:btoa(r)}}export{e as fileToBase64};

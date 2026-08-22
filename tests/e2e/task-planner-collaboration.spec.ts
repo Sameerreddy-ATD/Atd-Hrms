@@ -59,26 +59,34 @@ async function createTaskViaApi(
     },
   });
   expect(create.ok(), await create.text()).toBeTruthy();
-  return (await create.json()) as { id: string; version: number; issueKey?: string };
+  const body = (await create.json()) as { id: string; version: number; title?: string; issueKey?: string };
+  return { ...body, title: body.title ?? title };
 }
 
-async function openTaskDetail(page: Page, taskId: string) {
-  await page.goto(`/tasks?task=${taskId}`, { waitUntil: "domcontentloaded" });
+async function openTaskDetail(page: Page, task: { id: string; title: string }) {
+  await page.goto("/tasks", { waitUntil: "domcontentloaded" });
+  await page.locator(".atd-open-splash").waitFor({ state: "hidden", timeout: 30_000 }).catch(() => undefined);
+  const escaped = task.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const taskButton = page.getByRole("button", { name: new RegExp(escaped) });
+  await expect(taskButton.first()).toBeVisible({ timeout: 20_000 });
+  await taskButton.first().click();
   await expect(page.getByTestId("task-collaboration-panels")).toBeVisible({ timeout: 20_000 });
 }
 
 test.describe("Collaboration member E2E", () => {
   test("member adds label, watches, logs work, sees activity", async ({ page }) => {
-    await loginAs(page, "employee");
+    await loginAs(page, "developer_admin");
     const board = await awfBoard(page);
-    const task = await createTaskViaApi(page, board, `Collab Member ${Date.now()}`);
-
     const label = await page.request.post(`${API_BASE}/task-boards/${board.id}/labels`, {
       data: { name: `mobile-${Date.now()}` },
     });
-    expect(label.status(), await label.text()).toBeLessThan(300);
-
+    expect(label.ok(), await label.text()).toBeTruthy();
     const labelBody = (await label.json()) as { id: string };
+
+    await page.context().clearCookies();
+    await loginAs(page, "employee");
+    const memberBoard = await awfBoard(page);
+    const task = await createTaskViaApi(page, memberBoard, `Collab Member ${Date.now()}`);
     const assignLabels = await page.request.put(`${API_BASE}/tasks/${task.id}/labels`, {
       data: { version: task.version, labelIds: [labelBody.id] },
     });
@@ -92,7 +100,7 @@ test.describe("Collaboration member E2E", () => {
     });
     expect(log.ok(), await log.text()).toBeTruthy();
 
-    await openTaskDetail(page, task.id);
+    await openTaskDetail(page, task);
     await expect(page.getByTestId("labels-panel")).toBeVisible();
     await expect(page.getByTestId("work-logs-panel")).toContainText("1h 30m");
     await expect(page.getByTestId("watch-toggle")).toContainText("Watching");
@@ -149,6 +157,70 @@ test.describe("Work log E2E", () => {
     const list = await page.request.get(`${API_BASE}/tasks/${task.id}/work-logs`);
     const totals = (await list.json()) as { totals: { totalMinutes: number } };
     expect(totals.totals.totalMinutes).toBe(135);
+  });
+});
+
+test.describe("Label settings E2E", () => {
+  test("ADMIN manages labels in project settings", async ({ page }) => {
+    await loginAs(page, "developer_admin");
+    await openAwfProject(page);
+    await page.getByTestId("project-settings-button").click();
+    await page.getByRole("button", { name: /^Labels$/i }).click();
+    await expect(page.getByTestId("project-labels-settings")).toBeVisible();
+
+    const mobile = `mobile-${Date.now()}`;
+    const backend = `backend-${Date.now()}`;
+
+    await page.getByTestId("label-create-name").fill(mobile);
+    await page.getByTestId("label-create-submit").click();
+    await expect(page.getByTestId(`label-row-${mobile}`)).toBeVisible();
+
+    await page.getByTestId("label-create-name").fill(backend);
+    await page.getByTestId("label-create-submit").click();
+    await expect(page.getByTestId(`label-row-${backend}`)).toBeVisible();
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await openAwfProject(page);
+    await page.getByTestId("project-settings-button").click();
+    await page.getByRole("button", { name: /^Labels$/i }).click();
+    await expect(page.getByTestId(`label-row-${mobile}`)).toBeVisible();
+    await expect(page.getByTestId(`label-row-${backend}`)).toBeVisible();
+
+    await page.getByTestId(`label-edit-description-${mobile}`).fill("Mobile workstream");
+    await page.getByTestId(`label-edit-color-${mobile}`).fill("#22c55e");
+    await page.getByTestId(`label-save-${mobile}`).click();
+
+    await page.getByTestId(`label-deactivate-${backend}`).click();
+    await expect(page.getByTestId(`label-status-${backend}`)).toContainText("Inactive");
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await openAwfProject(page);
+    await page.getByTestId("project-settings-button").click();
+    await page.getByRole("button", { name: /^Labels$/i }).click();
+    await expect(page.getByTestId(`label-status-${backend}`)).toContainText("Inactive");
+  });
+
+  test("VIEWER cannot mutate labels via API", async ({ page }) => {
+    await loginAs(page, "developer_admin");
+    const board = await awfBoard(page);
+    const create = await page.request.post(`${API_BASE}/task-boards/${board.id}/labels`, {
+      data: { name: `viewer-block-${Date.now()}` },
+    });
+    expect(create.ok()).toBeTruthy();
+    const label = (await create.json()) as { id: string };
+
+    await page.context().clearCookies();
+    const login = await page.request.post(`${API_BASE}/auth/login`, {
+      data: { email: "viewer@anytimediesel.com", password: E2E_PASSWORD, portal: "employee" },
+    });
+    if (!login.ok()) {
+      test.skip(true, "No seeded viewer account");
+    }
+
+    const patch = await page.request.patch(`${API_BASE}/task-labels/${label.id}`, {
+      data: { name: "hacked" },
+    });
+    expect(patch.status()).toBe(403);
   });
 });
 
@@ -215,8 +287,8 @@ for (const vp of VIEWPORTS) {
     await loginAs(page, "employee");
     const board = await awfBoard(page);
     const task = await createTaskViaApi(page, board, `UI ${vp.name} ${Date.now()}`);
-    await openTaskDetail(page, task.id);
+    await openTaskDetail(page, task);
     const overflow = await findOverflow(page);
-    expect(overflow, overflow ?? "").toHaveLength(0);
+    expect(overflow, overflow ? JSON.stringify(overflow) : undefined).toBeNull();
   });
 }

@@ -14,12 +14,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { tasksApi, componentsApi } from "@/services/api";
+import { tasksApi, componentsApi, collaborationApi } from "@/services/api";
 import type {
   ProjectCapability,
   TaskAssignee,
   TaskBoard,
   TaskComponent,
+  TaskLabel,
   TaskProjectRole,
   TaskStatusCategory,
   TaskWorkflow,
@@ -31,9 +32,10 @@ export type ProjectSettingsSection =
   | "members"
   | "work-types"
   | "fields"
-  | "components"
-  | "workflow"
   | "permissions"
+  | "components"
+  | "labels"
+  | "workflow"
   | "archive";
 
 const SECTIONS: Array<{ id: ProjectSettingsSection; label: string }> = [
@@ -41,9 +43,10 @@ const SECTIONS: Array<{ id: ProjectSettingsSection; label: string }> = [
   { id: "members", label: "Members" },
   { id: "work-types", label: "Work Types" },
   { id: "fields", label: "Fields" },
-  { id: "components", label: "Components" },
-  { id: "workflow", label: "Workflow" },
   { id: "permissions", label: "Permissions" },
+  { id: "components", label: "Components" },
+  { id: "labels", label: "Labels" },
+  { id: "workflow", label: "Workflow" },
   { id: "archive", label: "Archive" },
 ];
 
@@ -71,6 +74,7 @@ const CAPABILITY_LABELS: Array<{ key: ProjectCapability; label: string }> = [
   { key: "TRANSITION_WORK_ITEM", label: "Transition" },
   { key: "MANAGE_SPRINT", label: "Manage Sprint" },
   { key: "MANAGE_COMPONENTS", label: "Manage Components" },
+  { key: "MANAGE_LABELS", label: "Manage Labels" },
   { key: "MANAGE_PROJECT", label: "Manage Project" },
   { key: "ARCHIVE_PROJECT", label: "Archive" },
   { key: "VIEW_REPORTS", label: "View Reports" },
@@ -86,6 +90,7 @@ const ROLE_CAPABILITIES: Record<TaskProjectRole, readonly ProjectCapability[]> =
     "TRANSITION_WORK_ITEM",
     "MANAGE_SPRINT",
     "MANAGE_COMPONENTS",
+    "MANAGE_LABELS",
     "MANAGE_PROJECT",
     "ARCHIVE_PROJECT",
     "VIEW_REPORTS",
@@ -98,6 +103,7 @@ const ROLE_CAPABILITIES: Record<TaskProjectRole, readonly ProjectCapability[]> =
     "TRANSITION_WORK_ITEM",
     "MANAGE_SPRINT",
     "MANAGE_COMPONENTS",
+    "MANAGE_LABELS",
     "ARCHIVE_PROJECT",
     "VIEW_REPORTS",
   ],
@@ -116,6 +122,7 @@ type ProjectSettingsShellProps = {
   assignees: TaskAssignee[];
   saving: boolean;
   canManage: boolean;
+  canManageLabels?: boolean;
   canArchive: boolean;
   initialSection?: ProjectSettingsSection;
   onBack: () => void;
@@ -134,11 +141,171 @@ function roleLabel(role: TaskProjectRole) {
   return role.replace(/_/g, " ");
 }
 
+function LabelSettingsRow({
+  label,
+  canManage,
+  busy,
+  onUpdated,
+  onBusy,
+}: {
+  label: TaskLabel;
+  canManage: boolean;
+  busy: boolean;
+  onUpdated: (label: TaskLabel) => void;
+  onBusy: (busy: boolean) => void;
+}) {
+  const [name, setName] = useState(label.name);
+  const [description, setDescription] = useState(label.description ?? "");
+  const [color, setColor] = useState(label.color ?? "");
+
+  useEffect(() => {
+    setName(label.name);
+    setDescription(label.description ?? "");
+    setColor(label.color ?? "");
+  }, [label]);
+
+  return (
+    <div
+      className="rounded-lg border p-3 space-y-3"
+      data-testid={`label-row-${label.name}`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0 flex-1 space-y-2">
+          {canManage ? (
+            <>
+              <Input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                data-testid={`label-edit-name-${label.name}`}
+              />
+              <Textarea
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                rows={2}
+                placeholder="Description"
+                data-testid={`label-edit-description-${label.name}`}
+              />
+              <Input
+                value={color}
+                onChange={(event) => setColor(event.target.value)}
+                placeholder="Color token"
+                data-testid={`label-edit-color-${label.name}`}
+              />
+            </>
+          ) : (
+            <>
+              <p className="font-medium">{label.name}</p>
+              {label.description ? (
+                <p className="text-sm text-muted-foreground">{label.description}</p>
+              ) : null}
+              {label.color ? (
+                <p className="text-xs text-muted-foreground">Color: {label.color}</p>
+              ) : null}
+            </>
+          )}
+        </div>
+        <span
+          className={cn(
+            "shrink-0 rounded px-2 py-0.5 text-xs font-medium",
+            label.active
+              ? "bg-emerald-50 text-emerald-800"
+              : "bg-muted text-muted-foreground",
+          )}
+          data-testid={`label-status-${label.name}`}
+        >
+          {label.active ? "Active" : "Inactive"}
+        </span>
+      </div>
+      {canManage ? (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={busy || !name.trim()}
+            data-testid={`label-save-${label.name}`}
+            onClick={() => {
+              void (async () => {
+                onBusy(true);
+                try {
+                  const updated = await collaborationApi.labels.update(label.id, {
+                    name: name.trim(),
+                    description: description.trim() || null,
+                    color: color.trim() || null,
+                  });
+                  onUpdated(updated);
+                  toast.success("Label updated");
+                } catch (cause) {
+                  toast.error((cause as Error).message || "Could not update label.");
+                } finally {
+                  onBusy(false);
+                }
+              })();
+            }}
+          >
+            Save
+          </Button>
+          {label.active ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              data-testid={`label-deactivate-${label.name}`}
+              onClick={() => {
+                void (async () => {
+                  onBusy(true);
+                  try {
+                    const updated = await collaborationApi.labels.update(label.id, { active: false });
+                    onUpdated(updated);
+                    toast.success("Label deactivated");
+                  } catch (cause) {
+                    toast.error((cause as Error).message || "Could not deactivate label.");
+                  } finally {
+                    onBusy(false);
+                  }
+                })();
+              }}
+            >
+              Deactivate
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              data-testid={`label-reactivate-${label.name}`}
+              onClick={() => {
+                void (async () => {
+                  onBusy(true);
+                  try {
+                    const updated = await collaborationApi.labels.update(label.id, { active: true });
+                    onUpdated(updated);
+                    toast.success("Label reactivated");
+                  } catch (cause) {
+                    toast.error((cause as Error).message || "Could not reactivate label.");
+                  } finally {
+                    onBusy(false);
+                  }
+                })();
+              }}
+            >
+              Reactivate
+            </Button>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function ProjectSettingsShell({
   board,
   assignees,
   saving,
   canManage,
+  canManageLabels = false,
   canArchive,
   initialSection = "details",
   onBack,
@@ -181,6 +348,13 @@ export function ProjectSettingsShell({
   const [componentDescription, setComponentDescription] = useState("");
   const [componentLeadId, setComponentLeadId] = useState("");
   const [componentBusy, setComponentBusy] = useState(false);
+  const [labels, setLabels] = useState<TaskLabel[]>([]);
+  const [labelsLoading, setLabelsLoading] = useState(false);
+  const [labelBusy, setLabelBusy] = useState(false);
+  const [labelName, setLabelName] = useState("");
+  const [labelDescription, setLabelDescription] = useState("");
+  const [labelColor, setLabelColor] = useState("");
+  const [labelQuery, setLabelQuery] = useState("");
 
   useEffect(() => {
     setName(board.name);
@@ -249,6 +423,38 @@ export function ProjectSettingsShell({
       cancelled = true;
     };
   }, [board.id, section]);
+
+  useEffect(() => {
+    if (section !== "labels") return;
+    let cancelled = false;
+    void (async () => {
+      setLabelsLoading(true);
+      try {
+        const result = await collaborationApi.labels.list(board.id, true);
+        if (!cancelled) setLabels(result.labels);
+      } catch (cause) {
+        if (!cancelled) {
+          toast.error((cause as Error).message || "Could not load labels.");
+          setLabels([]);
+        }
+      } finally {
+        if (!cancelled) setLabelsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [board.id, section]);
+
+  const filteredLabels = useMemo(() => {
+    const q = labelQuery.trim().toLowerCase();
+    if (!q) return labels;
+    return labels.filter(
+      (label) =>
+        label.name.toLowerCase().includes(q) ||
+        (label.description?.toLowerCase().includes(q) ?? false),
+    );
+  }, [labelQuery, labels]);
 
   const assigneeById = useMemo(
     () => new Map(assignees.map((person) => [person.id, person])),
@@ -746,6 +952,114 @@ export function ProjectSettingsShell({
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {section === "labels" && (
+            <div className="space-y-4" data-testid="project-labels-settings">
+              <div>
+                <h2 className="text-sm font-semibold">Labels</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Lightweight tags for categorizing work items. Deactivated labels remain on historical items.
+                </p>
+              </div>
+              <Input
+                placeholder="Search labels…"
+                value={labelQuery}
+                onChange={(event) => setLabelQuery(event.target.value)}
+                data-testid="label-search"
+                className="max-w-md"
+              />
+              {canManageLabels ? (
+                <div className="grid gap-3 rounded-lg border p-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="label-name">Name</Label>
+                    <Input
+                      id="label-name"
+                      value={labelName}
+                      onChange={(event) => setLabelName(event.target.value)}
+                      placeholder="mobile"
+                      data-testid="label-create-name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="label-description">Description (optional)</Label>
+                    <Textarea
+                      id="label-description"
+                      value={labelDescription}
+                      onChange={(event) => setLabelDescription(event.target.value)}
+                      rows={2}
+                      data-testid="label-create-description"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="label-color">Color (optional)</Label>
+                    <Input
+                      id="label-color"
+                      value={labelColor}
+                      onChange={(event) => setLabelColor(event.target.value)}
+                      placeholder="#6366f1"
+                      data-testid="label-create-color"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    disabled={labelBusy || !labelName.trim() || board.archived}
+                    data-testid="label-create-submit"
+                    onClick={() => {
+                      void (async () => {
+                        setLabelBusy(true);
+                        try {
+                          const created = await collaborationApi.labels.create(board.id, {
+                            name: labelName.trim(),
+                            description: labelDescription.trim() || null,
+                            color: labelColor.trim() || null,
+                          });
+                          setLabels((current) =>
+                            [...current, created].sort((a, b) => a.name.localeCompare(b.name)),
+                          );
+                          setLabelName("");
+                          setLabelDescription("");
+                          setLabelColor("");
+                          toast.success("Label created");
+                        } catch (cause) {
+                          toast.error((cause as Error).message || "Could not create label.");
+                        } finally {
+                          setLabelBusy(false);
+                        }
+                      })();
+                    }}
+                  >
+                    Create label
+                  </Button>
+                </div>
+              ) : null}
+              <div className="space-y-2">
+                {labelsLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading…</p>
+                ) : filteredLabels.length === 0 ? (
+                  <p className="rounded-lg border border-dashed px-3 py-6 text-sm text-muted-foreground">
+                    No labels yet.
+                  </p>
+                ) : (
+                  filteredLabels.map((label) => (
+                    <LabelSettingsRow
+                      key={label.id}
+                      label={label}
+                      canManage={canManageLabels && !board.archived}
+                      busy={labelBusy}
+                      onUpdated={(updated) =>
+                        setLabels((current) =>
+                          current
+                            .map((row) => (row.id === updated.id ? updated : row))
+                            .sort((a, b) => a.name.localeCompare(b.name)),
+                        )
+                      }
+                      onBusy={setLabelBusy}
+                    />
+                  ))
+                )}
               </div>
             </div>
           )}

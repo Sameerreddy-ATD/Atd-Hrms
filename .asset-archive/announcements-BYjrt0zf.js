@@ -1,1 +1,0 @@
-var e={URGENT:0,IMPORTANT:1,NORMAL:2};function t(t){return[...t].sort((t,n)=>{let r=e[t.priority]-e[n.priority];return r===0?new Date(n.publishAt)-+new Date(t.publishAt):r})}export{t};
