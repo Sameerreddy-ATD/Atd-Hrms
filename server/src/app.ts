@@ -129,6 +129,7 @@ import {
   updateWorkflowStatus,
   workflowDto,
 } from "./taskWorkflowAdmin.js";
+import { sprintSummaryForTask, clearSprintOnTypeChange } from "./taskSprintEngine.js";
 import { matchingBranch } from "./geofence.js";
 import {
   FACE_CONSENT,
@@ -147,6 +148,7 @@ import {
   verifyOrAllowAttendanceFace,
 } from "./faceAttendance.js";
 import { registerAssetRoutes } from "./assetRoutes.js";
+import { registerTaskSprintRoutes } from "./taskSprintRoutes.js";
 import { registerClientLogRoutes } from "./clientLogs.js";
 import { registerIntegrationRoutes } from "./integration-api.js";
 import {
@@ -8058,6 +8060,7 @@ export function createApp() {
       issueNumber: task.issueNumber ?? undefined,
       issueType: task.issueType,
       rank: task.rank,
+      backlogRank: task.backlogRank,
       assignees: task.assignments.map(({ employee }) => ({
         id: employee.employeeId,
         name: employee.name,
@@ -8142,8 +8145,10 @@ export function createApp() {
   ) {
     const base = taskDto(task, options);
     if (options?.summary) return base;
+    const sprint = await sprintSummaryForTask(prisma, task.taskId);
     return {
       ...base,
+      sprint: sprint ?? undefined,
       availableTransitions: await availableTransitionsDto(prisma, user, task),
     };
   }
@@ -9024,6 +9029,9 @@ export function createApp() {
     asyncHandler(async (req, res) => {
       const { visibleIds } = await taskScope(req.user!);
       const boardId = typeof req.query.boardId === "string" ? req.query.boardId : undefined;
+      const sprintId = typeof req.query.sprintId === "string" ? req.query.sprintId : undefined;
+      const backlogOnly = req.query.backlogOnly === "true";
+      const activeSprintOnly = req.query.activeSprintOnly === "true";
       const summary = req.query.detail === "summary";
       const stageId = typeof req.query.stageId === "string" ? req.query.stageId : undefined;
       const assigneeEmployeeId =
@@ -9045,6 +9053,18 @@ export function createApp() {
       const tomorrow = new Date(today);
       tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
       if (boardId) await assertBoardAccess(req.user!, boardId);
+      let activeSprintId: string | undefined;
+      if (boardId && activeSprintOnly) {
+        const active = await prisma.taskSprint.findFirst({
+          where: { boardId, status: "ACTIVE" },
+          select: { sprintId: true },
+        });
+        activeSprintId = active?.sprintId;
+        if (!activeSprintId) {
+          res.json([]);
+          return;
+        }
+      }
       const statusFilter = requestedStatus.success ? { status: requestedStatus.data } : {};
       const overdueFilter =
         due === "overdue"
@@ -9069,6 +9089,24 @@ export function createApp() {
           ...(boardId ? { boardId } : {}),
           ...(stageId ? { stageId } : {}),
           ...(parentTaskId ? { parentTaskId } : {}),
+          ...(sprintId || activeSprintId
+            ? {
+                sprintMemberships: {
+                  some: {
+                    removedAt: null,
+                    sprintId: sprintId ?? activeSprintId,
+                  },
+                },
+              }
+            : {}),
+          ...(backlogOnly && boardId
+            ? {
+                issueType: {
+                  in: ["STORY", "TASK", "BUG", "IMPROVEMENT"],
+                },
+                sprintMemberships: { none: { removedAt: null } },
+              }
+            : {}),
           ...(due === "today" ? { dueDate: { gte: today, lt: tomorrow } } : {}),
           ...overdueFilter,
           ...(due === "none" ? { dueDate: null } : {}),
@@ -9103,14 +9141,17 @@ export function createApp() {
         skip: listOffset(req),
         take: listLimit(req, 300, 1000),
       });
-      res.json(
-        tasks.map((task) =>
-          taskDto(
+      const payloads = await Promise.all(
+        tasks.map(async (task) => {
+          const dto = taskDto(
             summary ? ({ ...task, updates: [] } as TaskWithDetails) : (task as TaskWithDetails),
             { summary },
-          ),
-        ),
+          );
+          const sprint = await sprintSummaryForTask(prisma, task.taskId);
+          return sprint ? { ...dto, sprint } : dto;
+        }),
       );
+      res.json(payloads);
     }),
   );
 
@@ -9769,6 +9810,12 @@ export function createApp() {
         let mappedWorkflowStatusId: string | undefined;
         let mappedStageFromType: string | undefined;
         if (body.issueType && body.issueType !== existing.issueType && existing.boardId) {
+          await clearSprintOnTypeChange(
+            transaction,
+            existing.taskId,
+            req.user!.id,
+            body.issueType,
+          );
           const boardIdForType = (nextBoardId ?? existing.boardId)!;
           await ensureProjectWorkflows(transaction, boardIdForType);
           const targetWorkflow = await workflowForIssueType(
@@ -9980,6 +10027,12 @@ export function createApp() {
       res.status(201).json(taskDto(task));
     }),
   );
+
+  registerTaskSprintRoutes(app, {
+    assertBoardAccess,
+    taskDto: (task, options) => taskDto(task as TaskWithDetails, options),
+    taskInclude,
+  });
 
   app.get("/push/public-key", requireAuth, (_req, res) => {
     res.json({

@@ -594,6 +594,67 @@ export const taskLogSchema = z.object({
   minutesWorked: z.coerce.number().int().min(0).max(1440).optional(),
 });
 
+export const sprintCreateSchema = z
+  .object({
+    name: z.string().trim().min(2).max(120),
+    goal: z.string().trim().max(5000).optional(),
+    startDate: z.coerce.date().optional().nullable(),
+    endDate: z.coerce.date().optional().nullable(),
+  })
+  .superRefine((value, context) => {
+    if (value.startDate && value.endDate && value.endDate < value.startDate) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["endDate"],
+        message: "End date must be on or after start date",
+      });
+    }
+  });
+
+export const sprintUpdateSchema = z
+  .object({
+    name: z.string().trim().min(2).max(120).optional(),
+    goal: z.string().trim().max(5000).nullable().optional(),
+    startDate: z.coerce.date().nullable().optional(),
+    endDate: z.coerce.date().nullable().optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.startDate && value.endDate && value.endDate < value.startDate) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["endDate"],
+        message: "End date must be on or after start date",
+      });
+    }
+  });
+
+export const sprintCompleteSchema = z.object({
+  incompleteItems: z
+    .array(
+      z.object({
+        taskId: z.string().min(1),
+        target: z.union([
+          z.literal("backlog"),
+          z.object({ sprintId: z.string().min(1) }),
+        ]),
+      }),
+    )
+    .default([]),
+});
+
+export const sprintCancelSchema = z.object({
+  returnToBacklog: z.boolean().optional().default(true),
+  destinationSprintId: z.string().min(1).optional(),
+});
+
+export const sprintMembershipSchema = z.object({
+  sprintId: z.string().min(1).nullable(),
+  rankBeforeTaskId: z.string().min(1).optional(),
+  rankAfterTaskId: z.string().min(1).optional(),
+  backlogRankBeforeTaskId: z.string().min(1).optional(),
+  backlogRankAfterTaskId: z.string().min(1).optional(),
+});
+
 export const holidaySchema = z.object({
   name: z.string().min(2).max(160),
   date: z.coerce.date(),

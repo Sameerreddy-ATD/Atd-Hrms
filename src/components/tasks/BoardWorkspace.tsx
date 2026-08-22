@@ -45,7 +45,8 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { formatDisplayDate } from "@/lib/india-date";
-import { tasksApi } from "@/services/api";
+import { sprintsApi, tasksApi } from "@/services/api";
+import { SprintBacklogPanel } from "./SprintBacklogPanel";
 import type { TaskAssignee, TaskBoard, TaskPriority, TaskStage, WorkTask } from "@/types/domain";
 import { toast } from "sonner";
 import {
@@ -86,7 +87,9 @@ type BoardWorkspaceProps = {
   canChangeBoard: boolean;
   canCreateWorkItem?: boolean;
   canTransitionWorkItem?: boolean;
+  canManageSprint?: boolean;
   initialMineOnly?: boolean;
+  onPlanChanged?: () => void;
   onBack: () => void;
   onSwitchBoard: (boardId: string) => void;
   onNewTask: (stageId?: string) => void;
@@ -155,7 +158,9 @@ export function BoardWorkspace({
   canChangeBoard,
   canCreateWorkItem = true,
   canTransitionWorkItem = true,
+  canManageSprint = false,
   initialMineOnly = false,
+  onPlanChanged,
   onBack,
   onSwitchBoard,
   onNewTask,
@@ -175,6 +180,8 @@ export function BoardWorkspace({
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
   const draggingTaskIdRef = useRef<string | null>(null);
+  const [activeSprintId, setActiveSprintId] = useState<string | null>(null);
+  const [activeSprintName, setActiveSprintName] = useState<string | null>(null);
 
   useEffect(() => {
     setQuery("");
@@ -188,7 +195,23 @@ export function BoardWorkspace({
     draggingTaskIdRef.current = null;
     setDraggingTaskId(null);
     setView("kanban");
+    setActiveSprintId(null);
+    setActiveSprintName(null);
   }, [board.id, initialMineOnly]);
+
+  useEffect(() => {
+    void sprintsApi
+      .list(board.id)
+      .then(({ sprints }) => {
+        const active = sprints.find((entry) => entry.status === "ACTIVE");
+        setActiveSprintId(active?.id ?? null);
+        setActiveSprintName(active?.name ?? null);
+      })
+      .catch(() => {
+        setActiveSprintId(null);
+        setActiveSprintName(null);
+      });
+  }, [board.id, tasks]);
 
   const boardTasks = useMemo(
     () => tasks.filter((task) => task.boardId === board.id),
@@ -239,6 +262,10 @@ export function BoardWorkspace({
     showArchived,
     stageId,
   ]);
+  const sprintScopedTasks = useMemo(() => {
+    if (view !== "kanban" || !activeSprintId) return visibleTasks;
+    return visibleTasks.filter((task) => task.sprint?.sprintId === activeSprintId);
+  }, [activeSprintId, view, visibleTasks]);
 
   const rankTasksByStage = useMemo(
     () =>
@@ -257,12 +284,12 @@ export function BoardWorkspace({
       new Map(
         board.stages.map((stage) => [
           stage.id,
-          visibleTasks
+          sprintScopedTasks
             .filter((task) => task.stageId === stage.id)
             .sort((left, right) => (left.rank ?? 0) - (right.rank ?? 0)),
         ]),
       ),
-    [board.stages, visibleTasks],
+    [board.stages, sprintScopedTasks],
   );
   const cancelledTasks = visibleTasks.filter((task) => task.status === "CANCELLED");
   const activeCount = boardTasks.filter(
@@ -465,7 +492,14 @@ export function BoardWorkspace({
         </div>
       </div>
 
-      {visibleTasks.length === 0 ? (
+      {view === "list" ? (
+        <SprintBacklogPanel
+          board={board}
+          canManageSprint={canManageSprint}
+          onOpenTask={onOpenTask}
+          onPlanChanged={() => onPlanChanged?.()}
+        />
+      ) : visibleTasks.length === 0 ? (
         <Card className="border-dashed shadow-none">
           <CardContent className="flex flex-col items-center py-14 text-center">
             <ListFilter className="mb-3 h-7 w-7 text-muted-foreground" />
@@ -479,21 +513,19 @@ export function BoardWorkspace({
             </Button>
           </CardContent>
         </Card>
-      ) : view === "list" ? (
-        <BacklogView
-          board={board}
-          tasksByStage={tasksByStage}
-          cancelledTasks={cancelledTasks}
-          collapsedStages={collapsedStages}
-          onToggleStage={toggleStage}
-          onNewTask={onNewTask}
-          onOpenTask={onOpenTask}
-          onMoveTask={onMoveTask}
-        />
       ) : view === "all" ? (
         <AllWorkView tasks={visibleTasks} onOpenTask={onOpenTask} />
       ) : view === "kanban" ? (
-        <KanbanView
+        <div className="space-y-3">
+          {activeSprintId && activeSprintName ? (
+            <div
+              className="rounded-md border bg-muted/30 px-3 py-2 text-sm"
+              data-testid="active-sprint-board-banner"
+            >
+              Active sprint: <span className="font-semibold">{activeSprintName}</span>
+            </div>
+          ) : null}
+          <KanbanView
           board={board}
           tasksByStage={tasksByStage}
           rankTasksByStage={rankTasksByStage}
@@ -506,6 +538,7 @@ export function BoardWorkspace({
           onOpenTask={onOpenTask}
           onMoveTask={onMoveTask}
         />
+        </div>
       ) : (
         <TimelineView
           board={board}

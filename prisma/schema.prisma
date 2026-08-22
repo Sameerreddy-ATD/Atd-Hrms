@@ -246,6 +246,21 @@ enum TaskActivityType {
   PROGRESS_UPDATED
   ASSIGNEES_CHANGED
   DETAILS_UPDATED
+  SPRINT_MEMBERSHIP_CHANGED
+}
+
+enum TaskSprintStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskSprintEventType {
+  SPRINT_CREATED
+  SPRINT_STARTED
+  SPRINT_COMPLETED
+  SPRINT_CANCELLED
 }
 
 enum TaskBoardAccessType {
@@ -324,6 +339,10 @@ model User {
   faceVerificationSessions         FaceVerificationSession[]
   faceEvidence                     FaceEvidence[]
   taskAttachments                  TaskAttachment[]
+  createdTaskSprints               TaskSprint[]              @relation("SprintCreator")
+  sprintMembershipsAdded           TaskSprintMembership[]    @relation("SprintMembershipAddedBy")
+  sprintMembershipsRemoved         TaskSprintMembership[]    @relation("SprintMembershipRemovedBy")
+  sprintEvents                     TaskSprintEvent[]         @relation("SprintEventActor")
   notificationPreference           NotificationPreference?
   reviewedOvertimeClaims           OvertimeClaim[]           @relation("OvertimeReviewer")
   uploadedDocuments                CompanyDocument[]         @relation("DocumentUploader")
@@ -1556,6 +1575,8 @@ model WorkTask {
   issueKey          String?                 @unique @map("issue_key") @db.VarChar(32)
   issueType         TaskIssueType           @default(TASK) @map("issue_type")
   rank              Float                   @default(0) @map("rank")
+  /// Planning order for backlog (independent of board column rank).
+  backlogRank       Float                   @default(0) @map("backlog_rank")
   status            TaskStatus              @default(TODO)
   priority          TaskPriority            @default(MEDIUM)
   progress          Int                     @default(0)
@@ -1577,6 +1598,7 @@ model WorkTask {
   assignments       TaskAssignment[]
   attachments       TaskAttachment[]
   transitionHistory TaskTransitionHistory[]
+  sprintMemberships TaskSprintMembership[]
 
   @@unique([boardId, issueNumber])
   @@index([status])
@@ -1585,6 +1607,7 @@ model WorkTask {
   @@index([dueDate])
   @@index([boardId, stageId])
   @@index([boardId, stageId, rank])
+  @@index([boardId, backlogRank])
   @@index([boardId, status, dueDate])
   @@index([archivedAt, status])
   @@index([lastActivityAt])
@@ -1629,6 +1652,7 @@ model TaskBoard {
   members          TaskBoardMember[]
   tasks            WorkTask[]
   workflows        TaskWorkflow[]
+  sprints          TaskSprint[]
   createdAt        DateTime              @default(now()) @map("created_at")
   updatedAt        DateTime              @updatedAt @map("updated_at")
 
@@ -1763,6 +1787,65 @@ model TaskTransitionHistory {
   @@index([actorUserId, createdAt])
   @@index([transitionId])
   @@map("task_transition_history")
+}
+
+model TaskSprint {
+  sprintId        String                 @id @default(cuid()) @map("sprint_id")
+  boardId         String                 @map("board_id")
+  board           TaskBoard              @relation(fields: [boardId], references: [boardId], onDelete: Cascade)
+  name            String
+  goal            String?                @db.Text
+  status          TaskSprintStatus       @default(PLANNED)
+  startDate       DateTime?              @map("start_date") @db.Date
+  endDate         DateTime?              @map("end_date") @db.Date
+  startedAt       DateTime?              @map("started_at")
+  completedAt     DateTime?              @map("completed_at")
+  createdByUserId String                 @map("created_by_user_id")
+  createdBy       User                   @relation("SprintCreator", fields: [createdByUserId], references: [id])
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+  memberships     TaskSprintMembership[]
+  events          TaskSprintEvent[]
+
+  @@index([boardId, status])
+  @@index([boardId, createdAt])
+  @@map("task_sprints")
+}
+
+model TaskSprintMembership {
+  membershipId      String     @id @default(cuid()) @map("membership_id")
+  sprintId          String     @map("sprint_id")
+  sprint            TaskSprint @relation(fields: [sprintId], references: [sprintId], onDelete: Cascade)
+  taskId            String     @map("task_id")
+  task              WorkTask   @relation(fields: [taskId], references: [taskId], onDelete: Cascade)
+  sprintRank        Float      @default(0) @map("sprint_rank")
+  addedAt           DateTime   @default(now()) @map("added_at")
+  removedAt         DateTime?  @map("removed_at")
+  addedByUserId     String     @map("added_by_user_id")
+  addedBy           User       @relation("SprintMembershipAddedBy", fields: [addedByUserId], references: [id])
+  removedByUserId   String?    @map("removed_by_user_id")
+  removedBy         User?      @relation("SprintMembershipRemovedBy", fields: [removedByUserId], references: [id], onDelete: SetNull)
+  completedInSprint Boolean    @default(false) @map("completed_in_sprint")
+
+  @@index([sprintId, removedAt, sprintRank])
+  @@index([taskId, removedAt])
+  @@map("task_sprint_memberships")
+}
+
+model TaskSprintEvent {
+  eventId     String              @id @default(cuid()) @map("event_id")
+  sprintId    String              @map("sprint_id")
+  sprint      TaskSprint          @relation(fields: [sprintId], references: [sprintId], onDelete: Cascade)
+  boardId     String              @map("board_id")
+  eventType   TaskSprintEventType @map("event_type")
+  actorUserId String              @map("actor_user_id")
+  actor       User                @relation("SprintEventActor", fields: [actorUserId], references: [id])
+  metadata    Json?
+  createdAt   DateTime            @default(now()) @map("created_at")
+
+  @@index([sprintId, createdAt])
+  @@index([boardId, createdAt])
+  @@map("task_sprint_events")
 }
 
 model TaskBoardDepartment {

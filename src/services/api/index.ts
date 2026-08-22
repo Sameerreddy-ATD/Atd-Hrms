@@ -27,9 +27,12 @@ import type {
   Role,
   TaskAssignee,
   TaskAvailableTransition,
+  BacklogPlanResponse,
   TaskBoard,
   TaskIssueType,
   TaskPriority,
+  TaskSprint,
+  TaskSprintStatus,
   TaskStatus,
   TaskStatusCategory,
   TaskStage,
@@ -2090,6 +2093,61 @@ export const tasksApi = {
     request<TaskWorkflowTransition>(`/task-workflow-transitions/${transitionId}`, {
       method: "PATCH",
       body: JSON.stringify(body),
+    }),
+  setSprintMembership: (
+    taskId: string,
+    body: {
+      sprintId: string | null;
+      rankBeforeTaskId?: string;
+      rankAfterTaskId?: string;
+    },
+  ) =>
+    request<WorkTask>(`/tasks/${taskId}/sprint-membership`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+};
+
+export const sprintsApi = {
+  list: (boardId: string) =>
+    request<{ sprints: TaskSprint[] }>(`/task-boards/${boardId}/sprints`),
+  backlogPlan: (boardId: string) =>
+    request<BacklogPlanResponse>(`/task-boards/${boardId}/backlog-plan`),
+  create: (
+    boardId: string,
+    body: { name: string; goal?: string; startDate?: string | null; endDate?: string | null },
+  ) =>
+    request<TaskSprint>(`/task-boards/${boardId}/sprints`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  update: (
+    sprintId: string,
+    body: Partial<{ name: string; goal: string | null; startDate: string | null; endDate: string | null }>,
+  ) =>
+    request<TaskSprint>(`/task-sprints/${sprintId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  start: (sprintId: string) =>
+    request<TaskSprint>(`/task-sprints/${sprintId}/start`, { method: "POST" }),
+  complete: (
+    sprintId: string,
+    body: {
+      incompleteItems: Array<{
+        taskId: string;
+        target: "backlog" | { sprintId: string };
+      }>;
+    },
+  ) =>
+    request<TaskSprint>(`/task-sprints/${sprintId}/complete`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  cancel: (sprintId: string, body?: { returnToBacklog?: boolean; destinationSprintId?: string }) =>
+    request<TaskSprint>(`/task-sprints/${sprintId}/cancel`, {
+      method: "POST",
+      body: JSON.stringify(body ?? {}),
     }),
 };
 

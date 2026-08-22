@@ -892,6 +892,46 @@ export interface TaskAvailableTransition {
   resolutionRequired: boolean;
 }
 
+export type TaskSprintStatus = "PLANNED" | "ACTIVE" | "COMPLETED" | "CANCELLED";
+
+export interface TaskSprintSummary {
+  sprintId: string;
+  name: string;
+  status: TaskSprintStatus;
+  membershipId?: string;
+  sprintRank?: number;
+  inherited?: boolean;
+}
+
+export interface TaskSprintCounts {
+  total: number;
+  todo: number;
+  inProgress: number;
+  done: number;
+}
+
+export interface TaskSprint {
+  id: string;
+  boardId: string;
+  name: string;
+  goal?: string;
+  status: TaskSprintStatus;
+  startDate?: string;
+  endDate?: string;
+  startedAt?: string;
+  completedAt?: string;
+  createdByUserId: string;
+  createdAt: string;
+  updatedAt: string;
+  counts?: TaskSprintCounts;
+}
+
+export interface BacklogPlanResponse {
+  activeSprint: { sprint: TaskSprint; items: WorkTask[] } | null;
+  plannedSprints: Array<{ sprint: TaskSprint; items: WorkTask[] }>;
+  backlogItems: WorkTask[];
+}
+
 export interface WorkTask {
   id: string;
   title: string;
@@ -900,6 +940,10 @@ export interface WorkTask {
   issueNumber?: number;
   issueType?: TaskIssueType;
   rank?: number;
+  backlogRank?: number;
+  sprint?: TaskSprintSummary;
+  sprintRank?: number;
+  membershipId?: string;
   assignees: TaskAssignee[];
   createdByUserId: string;
   createdByName: string;
@@ -955,6 +999,7 @@ export type ProjectCapability =
   | "EDIT_WORK_ITEM"
   | "ASSIGN_WORK_ITEM"
   | "TRANSITION_WORK_ITEM"
+  | "MANAGE_SPRINT"
   | "MANAGE_PROJECT"
   | "ARCHIVE_PROJECT"
   | "VIEW_REPORTS"

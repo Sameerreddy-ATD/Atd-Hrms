@@ -585,6 +585,10 @@ function TaskBoardsPage() {
           canChangeBoard={canOpenProjectSettings(selectedBoard)}
           canCreateWorkItem={boardHasCapability(selectedBoard, "CREATE_WORK_ITEM")}
           canTransitionWorkItem={boardHasCapability(selectedBoard, "TRANSITION_WORK_ITEM")}
+          canManageSprint={boardHasCapability(selectedBoard, "MANAGE_SPRINT")}
+          onPlanChanged={() => {
+            if (selectedBoardId) void loadBoardTasks(selectedBoardId);
+          }}
           onBack={() => {
             setSelectedBoardId(null);
             setDirectoryMineOnly(false);
@@ -704,6 +708,15 @@ function TaskBoardsPage() {
         onAddUpdate={addTaskUpdate}
         onCreateSubtask={createSubtask}
         onOpenTask={openTask}
+        canManageSprint={
+          selectedTaskBoard
+            ? boardHasCapability(selectedTaskBoard, "MANAGE_SPRINT")
+            : false
+        }
+        onSprintChanged={(updated) => {
+          applyTaskUpdate(updated);
+          if (selectedBoardId) void loadBoardTasks(selectedBoardId);
+        }}
       />
     </>
   );

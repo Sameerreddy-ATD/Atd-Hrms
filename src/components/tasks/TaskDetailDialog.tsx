@@ -22,12 +22,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Textarea } from "@/components/ui/textarea";
 import { formatDisplayDateTime } from "@/lib/india-date";
 import { cn } from "@/lib/utils";
-import { tasksApi } from "@/services/api";
+import { tasksApi, sprintsApi } from "@/services/api";
 import type {
   TaskAssignee,
   TaskBoard,
   TaskIssueType,
   TaskPriority,
+  TaskSprint,
   WorkTask,
 } from "@/types/domain";
 import { PeopleMultiSelect } from "./PeopleMultiSelect";
@@ -76,6 +77,8 @@ type TaskDetailDialogProps = {
   onAddUpdate: (task: WorkTask, message: string, progress: number) => Promise<void>;
   onCreateSubtask?: (parent: WorkTask, title: string) => Promise<unknown>;
   onOpenTask?: (task: WorkTask) => void;
+  canManageSprint?: boolean;
+  onSprintChanged?: (task: WorkTask) => void;
 };
 
 const ACTIVITY_LABELS: Record<string, string> = {
@@ -84,7 +87,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
   STATUS_CHANGED: "Status changed",
   PROGRESS_UPDATED: "Progress updated",
   ASSIGNEES_CHANGED: "Assignees updated",
-  DETAILS_UPDATED: "Details updated",
+  SPRINT_MEMBERSHIP_CHANGED: "Sprint updated",
 };
 
 export function TaskDetailDialog({
@@ -103,6 +106,8 @@ export function TaskDetailDialog({
   onAddUpdate,
   onCreateSubtask,
   onOpenTask,
+  canManageSprint = false,
+  onSprintChanged,
 }: TaskDetailDialogProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -127,6 +132,29 @@ export function TaskDetailDialog({
   const [transitionBusy, setTransitionBusy] = useState(false);
   const [pendingCommentTransitionId, setPendingCommentTransitionId] = useState<string | null>(null);
   const [transitionComment, setTransitionComment] = useState("");
+  const [sprintOptions, setSprintOptions] = useState<TaskSprint[]>([]);
+  const [sprintBusy, setSprintBusy] = useState(false);
+
+  const sprintEligible =
+    issueType === "STORY" ||
+    issueType === "TASK" ||
+    issueType === "BUG" ||
+    issueType === "IMPROVEMENT";
+
+  useEffect(() => {
+    if (!open || !task?.boardId) {
+      setSprintOptions([]);
+      return;
+    }
+    void sprintsApi
+      .list(task.boardId)
+      .then(({ sprints }) =>
+        setSprintOptions(
+          sprints.filter((entry) => entry.status === "PLANNED" || entry.status === "ACTIVE"),
+        ),
+      )
+      .catch(() => setSprintOptions([]));
+  }, [open, task?.boardId, task?.sprint?.sprintId]);
 
   useEffect(() => {
     if (!open || !task) return;
@@ -154,6 +182,18 @@ export function TaskDetailDialog({
     }
     setCustomFields(nextFields);
   }, [board, boards, open, task]);
+
+  async function applySprintMembership(sprintId: string | null) {
+    if (!task || !canManageSprint) return;
+    setSprintBusy(true);
+    try {
+      const updated = await tasksApi.setSprintMembership(task.id, { sprintId });
+      onSprintChanged?.(updated);
+      onTaskUpdated?.(updated);
+    } finally {
+      setSprintBusy(false);
+    }
+  }
 
   useEffect(() => {
     if (!open || !task) {
@@ -755,6 +795,49 @@ export function TaskDetailDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="space-y-2" data-testid="work-item-sprint-field">
+                  <Label>Sprint</Label>
+                  {issueType === "EPIC" ? (
+                    <p className="text-sm text-muted-foreground">Epics are not sprint-planned.</p>
+                  ) : issueType === "SUBTASK" ? (
+                    <p className="text-sm text-muted-foreground">
+                      {task?.sprint
+                        ? `${task.sprint.name} (${task.sprint.status}) — inherited from parent`
+                        : "Backlog — inherited from parent"}
+                    </p>
+                  ) : sprintEligible ? (
+                    canManageSprint ? (
+                      <Select
+                        value={task?.sprint?.sprintId ?? "backlog"}
+                        disabled={sprintBusy || saving}
+                        onValueChange={(value) =>
+                          void applySprintMembership(value === "backlog" ? null : value)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Backlog" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="backlog">Backlog</SelectItem>
+                          {sprintOptions.map((entry) => (
+                            <SelectItem key={entry.id} value={entry.id}>
+                              {entry.name} ({entry.status})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className="text-sm">
+                        {task?.sprint
+                          ? `${task.sprint.name} (${task.sprint.status})`
+                          : "Backlog"}
+                      </p>
+                    )
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Not sprint-eligible.</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">

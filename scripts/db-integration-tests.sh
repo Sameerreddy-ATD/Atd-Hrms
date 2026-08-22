@@ -31,4 +31,7 @@ RUN_PLANNER_INTEGRATION=1 npx vitest run --config vitest.config.ts tests/taskPla
 echo "==> Task planner workflow engine integration"
 RUN_WORKFLOW_INTEGRATION=1 npx vitest run --config vitest.config.ts tests/taskPlannerWorkflowIntegration.test.ts
 
+echo "==> Task planner sprint integration"
+RUN_SPRINT_INTEGRATION=1 npx vitest run --config vitest.config.ts tests/taskPlannerSprintIntegration.test.ts
+
 echo "==> DB integration suites passed."
