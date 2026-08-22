@@ -35,17 +35,18 @@ async function openWorkflowSettings(page: Page) {
   await settingsBtn.click();
   await expect(page.getByTestId("project-settings-shell")).toBeVisible();
   const mobileToggle = page.getByTestId("project-settings-mobile-nav");
-  const mobileNav = page.getByRole("navigation", { name: "Settings sections" });
   if (await mobileToggle.isVisible().catch(() => false)) {
-    if (!(await mobileNav.isVisible().catch(() => false))) {
+    const sectionButton = page
+      .getByRole("navigation", { name: /Settings sections/i })
+      .getByRole("button", { name: "Workflow", exact: true });
+    if (!(await sectionButton.isVisible().catch(() => false))) {
       await mobileToggle.click();
     }
-    await expect(mobileNav).toBeVisible();
-    await mobileNav.getByRole("button", { name: "Workflow" }).click();
+    await sectionButton.click();
   } else {
-    await page.locator('[data-testid="settings-nav-workflow"]:visible').click();
+    await page.getByTestId("settings-nav-workflow").filter({ visible: true }).click();
   }
-  await expect(page.locator('[data-testid="settings-panel-workflow"]:visible')).toBeVisible();
+  await expect(page.getByTestId("settings-panel-workflow")).toBeVisible();
 }
 
 async function awfBoard(page: Page) {
