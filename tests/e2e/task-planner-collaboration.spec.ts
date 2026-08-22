@@ -4,7 +4,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginAs } from "./helpers/auth";
 import { findOverflow } from "./helpers/overflow";
-import { API_BASE, E2E_PASSWORD } from "./helpers/users";
+import { API_BASE } from "./helpers/users";
 
 const VIEWPORTS = [
   { name: "320", width: 320, height: 568 },
@@ -61,6 +61,15 @@ async function createTaskViaApi(
   expect(create.ok(), await create.text()).toBeTruthy();
   const body = (await create.json()) as { id: string; version: number; title?: string; issueKey?: string };
   return { ...body, title: body.title ?? title };
+}
+
+async function openTaskFromBoard(page: Page, task: { title: string }) {
+  await openAwfProject(page);
+  const escaped = task.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const taskButton = page.getByRole("button", { name: new RegExp(escaped) });
+  await expect(taskButton.first()).toBeVisible({ timeout: 20_000 });
+  await taskButton.first().click();
+  await expect(page.getByTestId("task-collaboration-panels")).toBeVisible({ timeout: 20_000 });
 }
 
 async function openTaskDetail(page: Page, task: { id: string; title: string }) {
@@ -210,17 +219,22 @@ test.describe("Label settings E2E", () => {
     const label = (await create.json()) as { id: string };
 
     await page.context().clearCookies();
-    const login = await page.request.post(`${API_BASE}/auth/login`, {
-      data: { email: "viewer@anytimediesel.com", password: E2E_PASSWORD, portal: "employee" },
+    await loginAs(page, "viewer");
+
+    const createDenied = await page.request.post(`${API_BASE}/task-boards/${board.id}/labels`, {
+      data: { name: "viewer-hack" },
     });
-    if (!login.ok()) {
-      test.skip(true, "No seeded viewer account");
-    }
+    expect(createDenied.status()).toBe(403);
 
     const patch = await page.request.patch(`${API_BASE}/task-labels/${label.id}`, {
       data: { name: "hacked" },
     });
     expect(patch.status()).toBe(403);
+
+    const deactivate = await page.request.patch(`${API_BASE}/task-labels/${label.id}`, {
+      data: { active: false },
+    });
+    expect(deactivate.status()).toBe(403);
   });
 });
 
@@ -256,21 +270,52 @@ test.describe("Label E2E", () => {
 });
 
 test.describe("Viewer E2E", () => {
-  test("viewer cannot mutate collaboration APIs", async ({ page }) => {
+  test("viewer reads collaboration UI and cannot mutate via UI or API", async ({ page }) => {
     await loginAs(page, "developer_admin");
     const board = await awfBoard(page);
-    const task = await createTaskViaApi(page, board, `Viewer target ${Date.now()}`);
+    const task = await createTaskViaApi(page, board, `Viewer read ${Date.now()}`);
+    const related = await createTaskViaApi(page, board, `Viewer rel ${Date.now()}`);
+
+    const labelRes = await page.request.post(`${API_BASE}/task-boards/${board.id}/labels`, {
+      data: { name: `viewer-read-${Date.now()}`, description: "Read-only label", color: "#3b82f6" },
+    });
+    expect(labelRes.ok()).toBeTruthy();
+    const label = (await labelRes.json()) as { id: string; name: string };
+
+    const labeled = await page.request.put(`${API_BASE}/tasks/${task.id}/labels`, {
+      data: { version: task.version, labelIds: [label.id] },
+    });
+    expect(labeled.ok()).toBeTruthy();
+
+    await page.request.post(`${API_BASE}/tasks/${task.id}/work-logs`, {
+      data: { duration: "2h", workDate: "2026-08-22", description: "Viewer read test" },
+    });
+
+    expect(
+      (
+        await page.request.post(`${API_BASE}/tasks/${task.id}/relations`, {
+          data: { targetTaskId: related.id, relationType: "RELATES_TO" },
+        })
+      ).ok(),
+    ).toBeTruthy();
 
     await page.context().clearCookies();
-    const login = await page.request.post(`${API_BASE}/auth/login`, {
-      data: { email: "viewer@anytimediesel.com", password: E2E_PASSWORD, portal: "employee" },
-    });
-    if (!login.ok()) {
-      test.skip(true, "No seeded viewer account");
-    }
+    await loginAs(page, "viewer");
+
+    await openTaskFromBoard(page, task);
+
+    await expect(page.getByTestId("relations-panel")).toBeVisible();
+    await expect(page.getByTestId("labels-panel")).toContainText(label.name);
+    await expect(page.getByTestId("work-logs-panel")).toContainText("2h");
+    await expect(page.getByTestId("activity-panel")).toBeVisible();
+
+    await expect(page.getByTestId("relation-search")).toHaveCount(0);
+    await expect(page.getByTestId("inline-label-input")).toHaveCount(0);
+    await expect(page.getByTestId("work-log-submit")).toHaveCount(0);
+    await expect(page.getByTestId("project-settings-button")).toHaveCount(0);
 
     const rel = await page.request.post(`${API_BASE}/tasks/${task.id}/relations`, {
-      data: { targetTaskId: task.id, relationType: "RELATES_TO" },
+      data: { targetTaskId: related.id, relationType: "BLOCKS" },
     });
     expect(rel.status()).toBeGreaterThanOrEqual(400);
 
@@ -278,6 +323,11 @@ test.describe("Viewer E2E", () => {
       data: { duration: "1h", workDate: "2026-08-22" },
     });
     expect(log.status()).toBe(403);
+
+    const assignLabels = await page.request.put(`${API_BASE}/tasks/${task.id}/labels`, {
+      data: { version: task.version + 1, labelIds: [label.id] },
+    });
+    expect(assignLabels.status()).toBeGreaterThanOrEqual(400);
   });
 });
 
